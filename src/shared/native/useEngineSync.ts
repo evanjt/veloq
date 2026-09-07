@@ -19,7 +19,7 @@
  * rows `seedDemoEngine` wrote.
  */
 import { useEffect, useRef, useState } from 'react';
-import { SyncState } from 'veloqrs';
+import { hasStarted, SyncState } from 'veloqrs';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -45,10 +45,10 @@ export function useEngineSync(): void {
     const engine = getEngine();
     if (!engine) return;
     // This hook mounts before the root layout has opened the engine, so the
-    // first call reaches a null handle and returns false without touching
-    // Rust. Latching on the return value keeps the retry alive until the
-    // ready nonce brings the effect back with a real engine.
-    startedRef.current = engine.syncNow();
+    // first call reaches a null handle and refuses without touching Rust.
+    // Latching on the verdict keeps the retry alive until the ready nonce
+    // brings the effect back with a real engine.
+    startedRef.current = hasStarted(engine.syncNow());
   }, [isAuthenticated, isDemoMode, engineReadyNonce, retryNonce]);
 
   // Re-arm on logout so the next session syncs again.

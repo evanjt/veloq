@@ -7,11 +7,11 @@
  */
 
 import type { SectionDetectionProgress } from '../conversions';
-import type { FfiSectionConfig } from '../generated/veloqrs';
+import { FfiStartOutcome, type FfiSectionConfig } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
-export function startSectionDetection(host: DelegateHost): boolean {
-  if (!host.ready) return false;
+export function startSectionDetection(host: DelegateHost): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
   return host.timed('startSectionDetection', () => host.engine.detection().start());
 }
 
@@ -60,15 +60,12 @@ export function setMatchStrictness(
   );
 }
 
-export function forceRedetectSections(host: DelegateHost): boolean {
-  if (!host.ready) return false;
+export function forceRedetectSections(host: DelegateHost): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
   try {
-    const started = host.timed('forceRedetectSections', () =>
-      host.engine.detection().forceRedetect()
-    );
-    return started;
+    return host.timed('forceRedetectSections', () => host.engine.detection().forceRedetect());
   } catch (e) {
     console.error('[Engine] forceRedetectSections failed:', e);
-    return false;
+    return FfiStartOutcome.Failed;
   }
 }

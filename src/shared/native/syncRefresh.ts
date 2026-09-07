@@ -3,11 +3,14 @@
  *
  * Invalidating a query whose `queryFn` reads SQLite only re-runs the read, so
  * on its own the gesture redraws what the last sync wrote and never reaches
- * intervals.icu. Returns false when no engine is open or a sync already holds
- * the slot, which is not an error worth surfacing.
+ * intervals.icu. The verdict says whether the sync started and, when it did
+ * not, whether asking again later would: a held slot frees within minutes,
+ * while a missing credential never does.
  */
+import { StartOutcome } from 'veloqrs';
+
 import { getEngine } from './engine';
 
-export function requestSyncRefresh(): boolean {
-  return getEngine()?.syncNow() ?? false;
+export function requestSyncRefresh(): StartOutcome {
+  return getEngine()?.syncNow() ?? StartOutcome.NotReady;
 }

@@ -19,6 +19,8 @@ import {
 import { getEngine } from '@/shared/native/engine';
 import { queryKeys } from '@/shared/query/queryKeys';
 
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 const engine = {

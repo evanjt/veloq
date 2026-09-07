@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { hasStarted, StartOutcome } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { getPhaseDisplayName } from '@/features/routes/lib/detectionProgress';
 import { followDetection, type DetectionEngine } from '@/features/routes/lib/detectionRun';
@@ -17,8 +18,13 @@ interface RescanProgress {
 }
 
 interface SectionRescanState {
-  rescan: () => boolean;
-  forceRescan: () => boolean;
+  /**
+   * Ask for a rescan. The verdict says why a refusal happened, so a caller can
+   * tell a run that is already going, which frees on its own, from a detection
+   * the backfill is holding.
+   */
+  rescan: () => StartOutcome;
+  forceRescan: () => StartOutcome;
   isScanning: boolean;
   progress: RescanProgress | null;
   result: RescanResult | null;
@@ -91,22 +97,22 @@ export function useSectionRescan(): SectionRescanState {
 
   const rescan = useCallback(() => {
     const engine = getEngine();
-    if (!engine) return false;
+    if (!engine) return StartOutcome.NotReady;
     beforeCountRef.current = getSectionCount();
     adoptedRef.current = false;
-    const started = engine.startSectionDetection();
-    if (started) startPolling();
-    return started;
+    const outcome = engine.startSectionDetection();
+    if (hasStarted(outcome)) startPolling();
+    return outcome;
   }, [startPolling]);
 
   const forceRescan = useCallback(() => {
     const engine = getEngine();
-    if (!engine) return false;
+    if (!engine) return StartOutcome.NotReady;
     beforeCountRef.current = getSectionCount();
     adoptedRef.current = false;
-    const started = engine.forceRedetectSections();
-    if (started) startPolling();
-    return started;
+    const outcome = engine.forceRedetectSections();
+    if (hasStarted(outcome)) startPolling();
+    return outcome;
   }, [startPolling]);
 
   const clearResult = useCallback(() => {

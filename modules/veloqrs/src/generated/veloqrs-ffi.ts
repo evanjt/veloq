@@ -234,7 +234,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_config(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -265,7 +265,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_start(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_clone_veloqengine(
     handle: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1440,7 +1440,7 @@ interface NativeModuleInterface {
     oldest: Uint8Array,
     newest: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_detail(
     ptr: bigint,
     activityId: Uint8Array,
@@ -1466,7 +1466,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_now(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_pace_curve(
     ptr: bigint,
     sport: Uint8Array,

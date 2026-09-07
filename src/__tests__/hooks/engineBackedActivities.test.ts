@@ -4,6 +4,7 @@
  * a corrupt row must not take the feed down.
  */
 
+import { StartOutcome } from 'veloqrs';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
@@ -23,6 +24,8 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 let mockIsOnline = true;
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+
 jest.mock('@/shared/app/NetworkContext', () => ({
   useNetwork: () => ({ isOnline: mockIsOnline }),
 }));
@@ -49,7 +52,7 @@ beforeEach(() => {
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   engine.getActivityBodies.mockReturnValue([]);
   engine.getSetting.mockReturnValue(null);
-  engine.syncActivitiesWindow.mockReturnValue(true);
+  engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
   mockIsOnline = true;
   useAuthStore.setState({ isAuthenticated: true, athleteId: 'i1' });
 });
@@ -98,14 +101,14 @@ describe('useActivities', () => {
   });
 
   it('re-asks for a window the engine refused', async () => {
-    engine.syncActivitiesWindow.mockReturnValue(false);
+    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Busy);
     const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
 
     const { rerender, unmount } = renderHook(() => useActivities(opts), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
     unmount();
 
-    engine.syncActivitiesWindow.mockReturnValue(true);
+    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
     rerender({});
     renderHook(() => useActivities(opts), { wrapper });
 
@@ -122,7 +125,7 @@ describe('useActivities', () => {
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
     first.unmount();
 
-    engine.syncActivitiesWindow.mockReturnValue(true);
+    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
     renderHook(() => useActivities(opts), { wrapper });
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
@@ -155,12 +158,12 @@ describe('useActivities', () => {
   it('asks again when the launch sync releases the exclusive slot', async () => {
     // The ordinary refusal is the launch sync holding the slot, not an offline
     // failure, and that ends without the user touching anything.
-    engine.syncActivitiesWindow.mockReturnValue(false);
+    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Busy);
     const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
     renderHook(() => useActivities(opts), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
-    engine.syncActivitiesWindow.mockReturnValue(true);
+    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
     act(() => emitSyncSettled());
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
@@ -179,7 +182,7 @@ describe('useActivities', () => {
   });
 
   it('stops asking once the hook is gone', async () => {
-    engine.syncActivitiesWindow.mockReturnValue(false);
+    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Busy);
     const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
     const { unmount } = renderHook(() => useActivities(opts), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
@@ -239,11 +242,11 @@ describe('useOldestActivityDate', () => {
 
 describe('useInfiniteActivities', () => {
   it('re-asks for the feed pages when the launch sync releases the slot', async () => {
-    engine.syncActivitiesWindow.mockReturnValue(false);
+    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Busy);
     renderHook(() => useInfiniteActivities(), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
-    engine.syncActivitiesWindow.mockReturnValue(true);
+    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
     act(() => emitSyncSettled());
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
