@@ -495,6 +495,10 @@ export const TerrainSnapshotWebView = forwardRef<
   // front of the queue rather than being counted as failed.
   useEffect(() => {
     if (!suspended) {
+      // The pause reported idle, so put the real count back before the pool
+      // runs again. This also re-arms the staleness timer, which the suspend
+      // cleared and which nothing else would call until the next enqueue.
+      updateProgress();
       processNext();
       return;
     }
@@ -513,7 +517,15 @@ export const TerrainSnapshotWebView = forwardRef<
       clearTimeout(stalenessTimerRef.current);
       stalenessTimerRef.current = null;
     }
-  }, [suspended, workers, processNext]);
+    // A pause is neither progress nor failure, and while suspended nothing
+    // that could write idle can run: the timer is cleared, `processNext`
+    // returns immediately and the WebViews are unmounted. So a half-done queue
+    // would report `rendering` for as long as the athlete is off the feed. The
+    // counts stay on their refs, so resuming reports them again.
+    useSyncDateRange
+      .getState()
+      .setTerrainSnapshotProgress({ status: 'idle', completed: 0, total: 0 });
+  }, [suspended, workers, processNext, updateProgress]);
 
   // Clear all pending timers on unmount so callbacks don't fire on a gone component
   useEffect(() => {
