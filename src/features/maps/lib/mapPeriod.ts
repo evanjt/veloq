@@ -17,6 +17,13 @@ export const PERIOD_OPTIONS: { id: MapPeriod; labelKey: string }[] = [
   ...periodOptions<Extract<MapPeriod, Period>>(['6m', '3m', '1m', '7d']),
 ];
 
+/**
+ * The map opens on the whole library, which is the one exception to
+ * `DEFAULT_PERIOD`. The map is what an athlete opens to see everywhere they
+ * have been, and six months of it answers a different question.
+ */
+export const DEFAULT_MAP_PERIOD = 'all' as const satisfies MapPeriod;
+
 /** The instant the filter starts from. */
 export function getPeriodStart(period: MapPeriod, now: Date = new Date()): Date {
   if (period === 'year') {
