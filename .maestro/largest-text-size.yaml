@@ -1,0 +1,85 @@
+# Largest system text size, over the two screens that carry the most text at
+# once. The bar in src/shared/ui/CLAUDE.md says font scaling is honoured and
+# capped only on named dense surfaces, and nothing here checks that at the size
+# where it breaks: all 88 other flows run at the device default.
+#
+# The system text size is not Maestro's to set, so set it before the run and
+# put it back after:
+#
+#   adb shell settings put system font_scale 1.30
+#   maestro --device <id> test .maestro/largest-text-size.yaml
+#   adb shell settings put system font_scale 1.00
+#
+# What the screenshots are read for, in order: a label clipped to an ellipsis
+# where the number it names is still whole, a row whose two halves now overlap,
+# a tap target that grew past its container, and any text that did not grow at
+# all, which is a suppressed scale rather than a dense surface unless the bar
+# names it.
+
+appId: com.veloq.app.dev
+tags:
+  - tier4
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# The feed first: the densest list, and every card is text over a chart.
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/largest-text-01-feed"
+
+- scroll
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: "screenshots/largest-text-02-feed-scrolled"
+
+# An activity detail: the header stats, the chart axes and the lap table.
+- openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-screen"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/largest-text-03-activity"
+
+- scroll
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: "screenshots/largest-text-04-activity-scrolled"
+
+# The sections tab of the same activity: the rows the bar's tap-target line is
+# about, and the one surface whose density is deliberate.
+- openLink: "veloq://activity/demo-test-0?tab=sections"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-screen"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/largest-text-05-sections"
+
+# The routes tab, whose section list is the longest text in the app.
+- openLink: "veloq://routes"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/largest-text-06-routes"
