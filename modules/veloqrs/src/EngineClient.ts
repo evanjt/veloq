@@ -48,6 +48,7 @@ import type {
   DownloadProgressResult,
   DerivedClear,
   SettingPair,
+  BulkExportFormat,
 } from './generated/veloqrs';
 import { FfiStartOutcome } from './generated/veloqrs';
 
@@ -161,6 +162,18 @@ interface PendingWrite {
  * the engine must not grow the queue without bound.
  */
 const MAX_PENDING_WRITES = 256;
+
+/**
+ * Progress and outcome of a running bulk export. `skipped` and `totalBytes`
+ * only mean anything once `state` reads "complete".
+ */
+export interface BulkExportStatus {
+  state: 'idle' | 'running' | 'complete';
+  exported: number;
+  total: number;
+  skipped: number;
+  totalBytes: number;
+}
 
 class EngineClient implements DelegateHost {
   private static instance: EngineClient;
@@ -1094,25 +1107,27 @@ class EngineClient implements DelegateHost {
     }
   }
 
-  /** Bulk export all GPS activities as a ZIP of GPX files. Streams in Rust - constant memory. */
-  bulkExportGpx(destPath: string): { exported: number; skipped: number; totalBytes: number } {
+  /**
+   * Start a bulk export of every GPS activity on a Rust thread. Poll
+   * `pollBulkExport` for progress and outcome: the file is written from a
+   * connection of its own, so neither this thread nor the engine's write lock
+   * waits for it.
+   */
+  startBulkExport(format: BulkExportFormat, destPath: string): void {
     if (!this.ready) throw new Error('Engine not initialized');
-    const result = this.timed('bulkExportGpx', () => this.engine.bulkExportGpx(destPath));
-    return {
-      exported: result.exported,
-      skipped: result.skipped,
-      totalBytes: Number(result.totalBytes),
-    };
+    this.timed('startBulkExport', () => this.engine.startBulkExport(format, destPath));
   }
 
-  /** Bulk export all GPS activities as a single GeoJSON FeatureCollection. */
-  bulkExportGeoJson(destPath: string): { exported: number; skipped: number; totalBytes: number } {
+  /** Progress and outcome of the running export. */
+  pollBulkExport(): BulkExportStatus {
     if (!this.ready) throw new Error('Engine not initialized');
-    const result = this.timed('bulkExportGeoJson', () => this.engine.bulkExportGeojson(destPath));
+    const poll = this.timed('pollBulkExport', () => this.engine.pollBulkExport());
     return {
-      exported: result.exported,
-      skipped: result.skipped,
-      totalBytes: Number(result.totalBytes),
+      state: poll.state as BulkExportStatus['state'],
+      exported: poll.exported,
+      total: poll.total,
+      skipped: poll.skipped,
+      totalBytes: Number(poll.totalBytes),
     };
   }
 

@@ -69,7 +69,12 @@ export type {
 } from './conversions';
 
 // Re-export EngineClient and its locally-defined types
-export { EngineClient, type HeatmapDay, type SectionEncounter } from './EngineClient';
+export {
+  EngineClient,
+  type HeatmapDay,
+  type SectionEncounter,
+  type BulkExportStatus,
+} from './EngineClient';
 
 // Sync service (SyncManager) consumer types
 export type { SyncStatus, SyncAuthMethod } from './delegates/sync';

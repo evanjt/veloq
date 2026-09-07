@@ -40,6 +40,12 @@ export enum SyncErrorReason {
   Internal = 7,
 }
 
+/** `BulkExportFormat` as generated, held to the source by the same test. */
+export enum BulkExportFormat {
+  Gpx = 1,
+  GeoJson = 2,
+}
+
 /** `SyncState` as generated, held to the source by the same test. */
 export enum SyncState {
   Idle = 1,
@@ -126,6 +132,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     CallKind,
     SyncState,
     SyncErrorReason,
+    BulkExportFormat,
     StartOutcome,
     isRetryableStart,
     hasStarted,

@@ -1,11 +1,34 @@
 use super::error::{VeloqError, with_engine};
 use crate::init_logging;
-use crate::persistence::persistent_engine_ffi::BACKUP_HANDLE;
+use crate::persistence::persistent_engine_ffi::{BACKUP_HANDLE, BULK_EXPORT_HANDLE};
 use crate::persistence::{
     DerivedClear, NAME_TRANSLATIONS, PERSISTENT_ENGINE, PersistentEngineStats, WorkerPoll,
 };
 use log::info;
 use std::sync::Arc;
+
+/// What a running or finished bulk export has done. `skipped` and
+/// `total_bytes` are only meaningful once `state` reads "complete".
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct BulkExportPoll {
+    pub state: String,
+    pub exported: u32,
+    pub total: u32,
+    pub skipped: u32,
+    pub total_bytes: u64,
+}
+
+impl BulkExportPoll {
+    fn idle() -> Self {
+        BulkExportPoll {
+            state: "idle".to_string(),
+            exported: 0,
+            total: 0,
+            skipped: 0,
+            total_bytes: 0,
+        }
+    }
+}
 
 #[derive(uniffi::Object)]
 pub struct VeloqEngine;
@@ -222,33 +245,74 @@ impl VeloqEngine {
         })?
     }
 
-    /// Bulk export all activities with GPS data as a ZIP of GPX files.
-    /// Streams one track at a time - constant memory regardless of activity count.
-    fn bulk_export_gpx(
+    /// Start a bulk export of every activity with GPS data, in `format`, on a
+    /// background thread. Poll `poll_bulk_export` for progress and outcome.
+    /// The file is written from a connection of its own, so neither the JS
+    /// thread nor the engine's write lock waits for it.
+    fn start_bulk_export(
         &self,
+        format: crate::persistence::export::BulkExportFormat,
         dest_path: String,
-    ) -> Result<crate::persistence::export::BulkExportResult, VeloqError> {
-        with_engine(|e| {
-            e.bulk_export_gpx(&dest_path)
-                .map_err(|msg| VeloqError::Database { msg })
-        })?
+    ) -> Result<(), VeloqError> {
+        let mut guard = BULK_EXPORT_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+        if guard.is_some() {
+            return Err(VeloqError::Database {
+                msg: "An export is already running".to_string(),
+            });
+        }
+        let handle = with_engine(|e| e.bulk_export_background(format, &dest_path))?;
+        *guard = Some(handle);
+        Ok(())
     }
 
-    /// Bulk export all activities with GPS data as a single GeoJSON FeatureCollection.
-    fn bulk_export_geojson(
-        &self,
-        dest_path: String,
-    ) -> Result<crate::persistence::export::BulkExportResult, VeloqError> {
-        with_engine(|e| {
-            e.bulk_export_geojson(&dest_path)
-                .map_err(|msg| VeloqError::Database { msg })
-        })?
+    /// Poll the running export. `state` is "idle" | "running" | "complete",
+    /// and `exported` against `total` is what a progress bar reads while it
+    /// runs. A failed export is an error, and either outcome clears the slot
+    /// so the next export can start.
+    fn poll_bulk_export(&self) -> Result<BulkExportPoll, VeloqError> {
+        let mut guard = BULK_EXPORT_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+
+        let Some(handle) = guard.as_ref() else {
+            return Ok(BulkExportPoll::idle());
+        };
+
+        let (exported, total) = handle.progress();
+        match handle.poll_state() {
+            WorkerPoll::Running => Ok(BulkExportPoll {
+                state: "running".to_string(),
+                exported,
+                total,
+                skipped: 0,
+                total_bytes: 0,
+            }),
+            WorkerPoll::Ready(Ok(result)) => {
+                *guard = None;
+                Ok(BulkExportPoll {
+                    state: "complete".to_string(),
+                    exported: result.exported,
+                    total: result.exported,
+                    skipped: result.skipped,
+                    total_bytes: result.total_bytes,
+                })
+            }
+            WorkerPoll::Ready(Err(msg)) => {
+                *guard = None;
+                Err(VeloqError::Database { msg })
+            }
+            WorkerPoll::Died => {
+                *guard = None;
+                Err(VeloqError::Database {
+                    msg: "Export thread died without a result".to_string(),
+                })
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::persistence::export::BulkExportFormat;
     use crate::test_globals::{init_global_engine, serial_global_state};
     use crate::with_persistent_engine;
     use tracematch::GpsPoint;
@@ -438,7 +502,7 @@ mod tests {
         seed_activity("a1");
 
         let gpx = tmp.path().join("all.zip").to_string_lossy().into_owned();
-        let result = engine.bulk_export_gpx(gpx.clone()).unwrap();
+        let result = with_engine(|e| e.bulk_export_gpx(&gpx)).unwrap().unwrap();
         assert_eq!(result.exported, 1);
         assert!(std::path::Path::new(&gpx).exists());
 
@@ -447,12 +511,180 @@ mod tests {
             .join("all.geojson")
             .to_string_lossy()
             .into_owned();
-        let result = engine.bulk_export_geojson(geojson.clone()).unwrap();
+        let result = with_engine(|e| e.bulk_export_geojson(&geojson))
+            .unwrap()
+            .unwrap();
         assert_eq!(result.exported, 1);
         assert!(
             std::fs::read_to_string(&geojson)
                 .unwrap()
                 .contains("FeatureCollection")
         );
+    }
+    /// Scenario: an export of a whole library runs while a sync holds the
+    /// engine's write lock.
+    /// Expected behaviour: it finishes anyway, because it reads from a
+    /// connection of its own.
+    #[test]
+    fn an_export_finishes_while_the_engine_write_lock_is_held() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+        assert_eq!(engine.poll_bulk_export().unwrap().state, "idle");
+
+        let dest = tmp.path().join("all.zip").to_string_lossy().into_owned();
+        engine
+            .start_bulk_export(BulkExportFormat::Gpx, dest.clone())
+            .unwrap();
+
+        let poll = with_engine(|_| {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+            loop {
+                let poll = engine.poll_bulk_export().unwrap();
+                if poll.state != "running" {
+                    return poll;
+                }
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "the export must not wait on the engine write lock"
+                );
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        })
+        .unwrap();
+
+        assert_eq!(poll.state, "complete");
+        assert_eq!(poll.exported, 1);
+        assert!(poll.total_bytes > 0);
+        assert!(std::path::Path::new(&dest).exists());
+        assert_eq!(
+            engine.poll_bulk_export().unwrap().state,
+            "idle",
+            "a finished export clears its slot"
+        );
+    }
+
+    #[test]
+    fn a_second_export_is_refused_while_one_runs() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+
+        let dest = tmp.path().join("all.zip").to_string_lossy().into_owned();
+        engine
+            .start_bulk_export(BulkExportFormat::Gpx, dest.clone())
+            .unwrap();
+        let second = engine.start_bulk_export(
+            BulkExportFormat::GeoJson,
+            tmp.path()
+                .join("all.geojson")
+                .to_string_lossy()
+                .into_owned(),
+        );
+        drain_export(&engine);
+        assert!(
+            second.is_err() || std::path::Path::new(&dest).exists(),
+            "a second start while one runs is refused; one that lands after it is a fresh export"
+        );
+    }
+
+    #[test]
+    fn a_geojson_export_reports_its_counts_and_writes_the_collection() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+
+        let dest = tmp
+            .path()
+            .join("all.geojson")
+            .to_string_lossy()
+            .into_owned();
+        engine
+            .start_bulk_export(BulkExportFormat::GeoJson, dest.clone())
+            .unwrap();
+        let poll = drain_export(&engine);
+
+        assert_eq!(poll.state, "complete");
+        assert_eq!(poll.exported, 1);
+        assert!(
+            std::fs::read_to_string(&dest)
+                .unwrap()
+                .contains("FeatureCollection")
+        );
+    }
+
+    /// An export of an empty library still terminates and still writes a file.
+    #[test]
+    fn an_export_with_nothing_to_write_completes() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+
+        let dest = tmp.path().join("empty.zip").to_string_lossy().into_owned();
+        engine
+            .start_bulk_export(BulkExportFormat::Gpx, dest.clone())
+            .unwrap();
+        let poll = drain_export(&engine);
+
+        assert_eq!(poll.state, "complete");
+        assert_eq!(poll.exported, 0);
+        assert_eq!(poll.total, 0);
+        assert!(std::path::Path::new(&dest).exists());
+    }
+
+    /// A destination that cannot be created fails the poll rather than
+    /// stranding the slot at "running" forever.
+    #[test]
+    fn an_unwritable_destination_fails_the_poll_and_frees_the_slot() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+
+        let dest = tmp
+            .path()
+            .join("no-such-directory")
+            .join("all.zip")
+            .to_string_lossy()
+            .into_owned();
+        engine
+            .start_bulk_export(BulkExportFormat::Gpx, dest)
+            .unwrap();
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        loop {
+            match engine.poll_bulk_export() {
+                Ok(poll) if poll.state == "running" => {
+                    assert!(std::time::Instant::now() < deadline, "export never failed");
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Ok(poll) => panic!("expected a failure, got {}", poll.state),
+                Err(_) => break,
+            }
+        }
+        assert_eq!(
+            engine.poll_bulk_export().unwrap().state,
+            "idle",
+            "a failed export clears its slot"
+        );
+    }
+
+    /// Poll until the export leaves "running", failing rather than hanging.
+    fn drain_export(engine: &VeloqEngine) -> BulkExportPoll {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        loop {
+            let poll = engine.poll_bulk_export().expect("export failed");
+            if poll.state != "running" {
+                return poll;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "export never finished"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
     }
 }

@@ -5,6 +5,8 @@
 //! in the JS heap.
 
 use std::io::Write;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use rusqlite::Result as SqlResult;
 
@@ -64,245 +66,62 @@ pub struct BulkExportResult {
     pub total_bytes: u64,
 }
 
+/// Which file a bulk export writes.
+///
+/// The wire carries the variant's position, so the order here is the contract:
+/// append, never reorder. The discriminants start at one so no member is
+/// falsy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[repr(u8)]
+pub enum BulkExportFormat {
+    /// A ZIP of one GPX file per activity, plus its metadata and skip list.
+    Gpx = 1,
+    /// One GeoJSON FeatureCollection holding every track.
+    GeoJson = 2,
+}
+
+/// What a running export has written so far. The export thread writes it and
+/// the polling thread reads it, so the counts are atomics rather than a field
+/// on the result nobody can see until the end.
+#[derive(Default)]
+pub struct BulkExportProgress {
+    exported: AtomicU32,
+    total: AtomicU32,
+}
+
+impl BulkExportProgress {
+    /// Exported so far, and how many tracks the export expects to visit.
+    pub fn read(&self) -> (u32, u32) {
+        (
+            self.exported.load(Ordering::Relaxed),
+            self.total.load(Ordering::Relaxed),
+        )
+    }
+
+    /// The row count is one cheap query and it is what makes a progress bar
+    /// possible. A failure to count is not a failure to export, so it leaves
+    /// the total at zero.
+    fn set_total_from(&self, db: &rusqlite::Connection) {
+        if let Ok(count) = db.query_row("SELECT COUNT(*) FROM gps_tracks", [], |row| {
+            row.get::<_, i64>(0)
+        }) {
+            self.total.store(count.max(0) as u32, Ordering::Relaxed);
+        }
+    }
+}
+
 impl PersistentEngine {
     /// Export all activities with GPS data as GPX files inside a ZIP archive.
     ///
     /// Streams one track at a time from SQLite → GPX XML → ZIP entry on disk.
     /// The ZIP file is written to `dest_path`.
     pub fn bulk_export_gpx(&self, dest_path: &str) -> Result<BulkExportResult, String> {
-        let file = std::fs::File::create(dest_path)
-            .map_err(|e| format!("Failed to create ZIP file: {}", e))?;
-
-        let mut zip = zip::ZipWriter::new(file);
-        let options = zip::write::SimpleFileOptions::default()
-            .compression_method(zip::CompressionMethod::Deflated)
-            .compression_level(Some(6));
-
-        let mut exported: u32 = 0;
-        let mut skipped: Vec<SkippedActivity> = Vec::new();
-        let trim = PrivacyTrim::from_settings(self);
-        let mut total_bytes: u64 = 0;
-
-        // Query all activities with GPS tracks in one pass
-        let mut stmt = self.db.prepare(
-            "SELECT g.activity_id, g.track_data, m.name, m.sport_type, m.date, m.distance, m.moving_time
-             FROM gps_tracks g
-             LEFT JOIN activity_metrics m ON g.activity_id = m.activity_id
-             ORDER BY m.date DESC"
-        ).map_err(|e| format!("Query failed: {}", e))?;
-
-        let rows = stmt
-            .query_map([], |row| {
-                let activity_id: String = row.get(0)?;
-                let track_blob: Vec<u8> = row.get(1)?;
-                let name: Option<String> = row.get(2)?;
-                let sport_type: Option<String> = row.get(3)?;
-                let date: Option<i64> = row.get(4)?;
-                let distance: Option<f64> = row.get(5)?;
-                let moving_time: Option<i64> = row.get(6)?;
-                Ok((
-                    activity_id,
-                    track_blob,
-                    name,
-                    sport_type,
-                    date,
-                    distance,
-                    moving_time,
-                ))
-            })
-            .map_err(|e| format!("Query failed: {}", e))?;
-
-        // Metadata entries for activities.json
-        let mut metadata_entries: Vec<serde_json::Value> = Vec::new();
-
-        for row_result in rows {
-            let (activity_id, track_blob, name, sport_type, date, distance, moving_time) =
-                match row_result {
-                    Ok(r) => r,
-                    Err(e) => {
-                        skipped.push(SkippedActivity::new(
-                            "unknown",
-                            format!("row read failed: {}", e),
-                        ));
-                        continue;
-                    }
-                };
-
-            let points: Vec<GpsPoint> = match TrackRead::from_blob(&track_blob) {
-                TrackRead::Present(points) => points,
-                TrackRead::Missing => {
-                    skipped.push(SkippedActivity::new(&activity_id, "no stored track"));
-                    continue;
-                }
-                TrackRead::Corrupt(reason) => {
-                    skipped.push(SkippedActivity::unreadable(&activity_id, &reason));
-                    continue;
-                }
-            };
-
-            if points.is_empty() {
-                skipped.push(SkippedActivity::new(&activity_id, "track holds no points"));
-                continue;
-            }
-
-            let display_name = name.as_deref().unwrap_or(&activity_id);
-            let sport = sport_type.as_deref().unwrap_or("Unknown");
-            let date_str = date.map(|ts| {
-                chrono::DateTime::from_timestamp(ts, 0)
-                    .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
-                    .unwrap_or_default()
-            });
-            let date_prefix = date
-                .map(|ts| {
-                    chrono::DateTime::from_timestamp(ts, 0)
-                        .map(|dt| dt.format("%Y-%m-%d").to_string())
-                        .unwrap_or_else(|| "unknown".to_string())
-                })
-                .unwrap_or_else(|| "unknown".to_string());
-
-            // The exported copy alone is shortened. The stored track and every
-            // index into it are untouched.
-            let points = match trim.as_ref().map(|t| t.apply(&points)) {
-                Some(Some(trimmed)) => trimmed,
-                Some(None) => {
-                    skipped.push(SkippedActivity::new(
-                        &activity_id,
-                        "trimmed to fewer points than a track",
-                    ));
-                    continue;
-                }
-                None => points,
-            };
-
-            // Generate GPX XML
-            let gpx = generate_gpx(display_name, sport, date_str.as_deref(), &points);
-
-            // Sanitize filename
-            let safe_name: String = display_name
-                .chars()
-                .map(|c| {
-                    if c.is_alphanumeric() || c == '-' || c == '_' {
-                        c
-                    } else {
-                        '_'
-                    }
-                })
-                .take(60)
-                .collect();
-            let filename = format!("{}_{}.gpx", date_prefix, safe_name);
-
-            // Write to ZIP
-            if let Err(e) = zip.start_file(&filename, options) {
-                log::warn!("Failed to start ZIP entry {}: {}", filename, e);
-                skipped.push(SkippedActivity::new(
-                    &activity_id,
-                    format!("archive entry failed: {}", e),
-                ));
-                continue;
-            }
-            if let Err(e) = zip.write_all(gpx.as_bytes()) {
-                log::warn!("Failed to write ZIP entry {}: {}", filename, e);
-                skipped.push(SkippedActivity::new(
-                    &activity_id,
-                    format!("archive write failed: {}", e),
-                ));
-                continue;
-            }
-
-            total_bytes += gpx.len() as u64;
-            exported += 1;
-
-            // Add metadata entry
-            metadata_entries.push(serde_json::json!({
-                "id": activity_id,
-                "name": display_name,
-                "date": date_str.as_deref().unwrap_or(""),
-                "sport": sport,
-                "distance": distance.unwrap_or(0.0),
-                "movingTime": moving_time.unwrap_or(0),
-                "hasGpx": true,
-            }));
-        }
-
-        // Also add activities WITHOUT GPS tracks to metadata
-        let mut no_gps_stmt = self
-            .db
-            .prepare(
-                "SELECT m.activity_id, m.name, m.sport_type, m.date, m.distance, m.moving_time
-             FROM activity_metrics m
-             WHERE m.activity_id NOT IN (SELECT activity_id FROM gps_tracks)
-             ORDER BY m.date DESC",
-            )
-            .map_err(|e| format!("No-GPS query failed: {}", e))?;
-
-        let no_gps_rows = no_gps_stmt
-            .query_map([], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, Option<String>>(1)?,
-                    row.get::<_, Option<String>>(2)?,
-                    row.get::<_, Option<i64>>(3)?,
-                    row.get::<_, Option<f64>>(4)?,
-                    row.get::<_, Option<i64>>(5)?,
-                ))
-            })
-            .map_err(|e| format!("No-GPS query failed: {}", e))?;
-
-        for row_result in no_gps_rows {
-            if let Ok((id, name, sport, date, distance, moving_time)) = row_result {
-                let date_str = date.and_then(|ts| {
-                    chrono::DateTime::from_timestamp(ts, 0)
-                        .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
-                });
-                metadata_entries.push(serde_json::json!({
-                    "id": id,
-                    "name": name.as_deref().unwrap_or(&id),
-                    "date": date_str.as_deref().unwrap_or(""),
-                    "sport": sport.as_deref().unwrap_or("Unknown"),
-                    "distance": distance.unwrap_or(0.0),
-                    "movingTime": moving_time.unwrap_or(0),
-                    "hasGpx": false,
-                }));
-                skipped.push(SkippedActivity::new(&id, "no stored track"));
-            }
-        }
-
-        // Write activities.json metadata
-        let meta_json =
-            serde_json::to_string_pretty(&metadata_entries).unwrap_or_else(|_| "[]".to_string());
-        zip.start_file("activities.json", options)
-            .map_err(|e| format!("Failed to write metadata: {}", e))?;
-        zip.write_all(meta_json.as_bytes())
-            .map_err(|e| format!("Failed to write metadata: {}", e))?;
-        total_bytes += meta_json.len() as u64;
-
-        // The archive carries its own omissions, so a user who opens it can
-        // see which activities are absent and why without reading a log.
-        let skipped_json =
-            serde_json::to_string_pretty(&skipped.iter().map(|s| s.as_json()).collect::<Vec<_>>())
-                .unwrap_or_else(|_| "[]".to_string());
-        zip.start_file("skipped.json", options)
-            .map_err(|e| format!("Failed to write skip list: {}", e))?;
-        zip.write_all(skipped_json.as_bytes())
-            .map_err(|e| format!("Failed to write skip list: {}", e))?;
-        total_bytes += skipped_json.len() as u64;
-
-        zip.finish()
-            .map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
-
-        log_unreadable(&skipped);
-        log::info!(
-            "[BulkExport] Exported {} activities ({} skipped), {} bytes uncompressed",
-            exported,
-            skipped.len(),
-            total_bytes
-        );
-
-        Ok(BulkExportResult {
-            exported,
-            skipped: skipped.len() as u32,
-            total_bytes,
-        })
+        export_gpx(
+            &self.db,
+            PrivacyTrim::from_settings(self),
+            dest_path,
+            &BulkExportProgress::default(),
+        )
     }
 
     /// Export all activities with GPS data as a single GeoJSON FeatureCollection.
@@ -310,158 +129,7 @@ impl PersistentEngine {
     /// Each activity becomes a Feature with a LineString geometry and properties
     /// (id, name, sport, date, distance, movingTime). Streams one track at a time.
     pub fn bulk_export_geojson(&self, dest_path: &str) -> Result<BulkExportResult, String> {
-        use std::io::BufWriter;
-
-        let file = std::fs::File::create(dest_path)
-            .map_err(|e| format!("Failed to create GeoJSON file: {}", e))?;
-        let mut writer = BufWriter::new(file);
-
-        let mut exported: u32 = 0;
-        let mut skipped: Vec<SkippedActivity> = Vec::new();
-        let mut total_bytes: u64 = 0;
-
-        // Write FeatureCollection header
-        writer
-            .write_all(b"{\"type\":\"FeatureCollection\",\"features\":[\n")
-            .map_err(|e| format!("Write failed: {}", e))?;
-
-        let mut stmt = self.db.prepare(
-            "SELECT g.activity_id, g.track_data, m.name, m.sport_type, m.date, m.distance, m.moving_time
-             FROM gps_tracks g
-             LEFT JOIN activity_metrics m ON g.activity_id = m.activity_id
-             ORDER BY m.date DESC"
-        ).map_err(|e| format!("Query failed: {}", e))?;
-
-        let rows = stmt
-            .query_map([], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, Vec<u8>>(1)?,
-                    row.get::<_, Option<String>>(2)?,
-                    row.get::<_, Option<String>>(3)?,
-                    row.get::<_, Option<i64>>(4)?,
-                    row.get::<_, Option<f64>>(5)?,
-                    row.get::<_, Option<i64>>(6)?,
-                ))
-            })
-            .map_err(|e| format!("Query failed: {}", e))?;
-
-        let mut first = true;
-        for row_result in rows {
-            let (activity_id, track_blob, name, sport_type, date, distance, moving_time) =
-                match row_result {
-                    Ok(r) => r,
-                    Err(e) => {
-                        skipped.push(SkippedActivity::new(
-                            "unknown",
-                            format!("row read failed: {}", e),
-                        ));
-                        continue;
-                    }
-                };
-
-            let points: Vec<GpsPoint> = match TrackRead::from_blob(&track_blob) {
-                TrackRead::Present(points) => points,
-                TrackRead::Missing => {
-                    skipped.push(SkippedActivity::new(&activity_id, "no stored track"));
-                    continue;
-                }
-                TrackRead::Corrupt(reason) => {
-                    skipped.push(SkippedActivity::unreadable(&activity_id, &reason));
-                    continue;
-                }
-            };
-
-            if points.is_empty() {
-                skipped.push(SkippedActivity::new(&activity_id, "track holds no points"));
-                continue;
-            }
-
-            let display_name = name.as_deref().unwrap_or(&activity_id);
-            let sport = sport_type.as_deref().unwrap_or("Unknown");
-            let date_str = date.and_then(|ts| {
-                chrono::DateTime::from_timestamp(ts, 0)
-                    .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
-            });
-
-            // Build coordinates array: [[lng, lat], ...]
-            let coords: Vec<[f64; 2]> = points
-                .iter()
-                .filter(|p| p.latitude.is_finite() && p.longitude.is_finite())
-                .map(|p| [p.longitude, p.latitude])
-                .collect();
-
-            if coords.is_empty() {
-                skipped.push(SkippedActivity::new(
-                    &activity_id,
-                    "track holds no finite coordinates",
-                ));
-                continue;
-            }
-
-            let feature = serde_json::json!({
-                "type": "Feature",
-                "geometry": {
-                    "type": "LineString",
-                    "coordinates": coords,
-                },
-                "properties": {
-                    "id": activity_id,
-                    "name": display_name,
-                    "sport": sport,
-                    "date": date_str.as_deref().unwrap_or(""),
-                    "distance": distance.unwrap_or(0.0),
-                    "movingTime": moving_time.unwrap_or(0),
-                }
-            });
-
-            let feature_json = serde_json::to_string(&feature)
-                .map_err(|e| format!("JSON serialization failed: {}", e))?;
-
-            if !first {
-                writer
-                    .write_all(b",\n")
-                    .map_err(|e| format!("Write failed: {}", e))?;
-            }
-            writer
-                .write_all(feature_json.as_bytes())
-                .map_err(|e| format!("Write failed: {}", e))?;
-
-            total_bytes += feature_json.len() as u64;
-            exported += 1;
-            first = false;
-        }
-
-        // Close the feature array and carry the omissions as a foreign member,
-        // so the file states what it is missing and why.
-        let skipped_json =
-            serde_json::to_string(&skipped.iter().map(|s| s.as_json()).collect::<Vec<_>>())
-                .unwrap_or_else(|_| "[]".to_string());
-        writer
-            .write_all(b"\n],\"skipped\":")
-            .map_err(|e| format!("Write failed: {}", e))?;
-        writer
-            .write_all(skipped_json.as_bytes())
-            .map_err(|e| format!("Write failed: {}", e))?;
-        writer
-            .write_all(b"}")
-            .map_err(|e| format!("Write failed: {}", e))?;
-        writer.flush().map_err(|e| format!("Flush failed: {}", e))?;
-        total_bytes += skipped_json.len() as u64;
-
-        log_unreadable(&skipped);
-        log::info!(
-            "[BulkExport] GeoJSON exported {} activities ({} skipped), {} bytes",
-            exported,
-            skipped.len(),
-            total_bytes
-        );
-
-        Ok(BulkExportResult {
-            exported,
-            skipped: skipped.len() as u32,
-            total_bytes,
-        })
+        export_geojson(&self.db, dest_path, &BulkExportProgress::default())
     }
 }
 
@@ -562,6 +230,54 @@ impl PersistentEngine {
 
         super::BackupHandle { receiver: rx }
     }
+
+    /// Start a bulk export on a background thread, on a connection of its own.
+    ///
+    /// Reading a whole library into a file takes seconds. On the calling
+    /// thread that is seconds of dropped frames, and under the engine's write
+    /// lock it is seconds of stalled writes for every sync landing behind it,
+    /// so the export gets the same treatment as the backup: its own thread and
+    /// its own connection. Only the privacy trim is read here, because it is
+    /// one setting and it decides what the file may contain.
+    pub fn bulk_export_background(
+        &self,
+        format: BulkExportFormat,
+        dest_path: &str,
+    ) -> super::BulkExportHandle {
+        let db_path = self.db_path.clone();
+        let dest_path = dest_path.to_string();
+        let trim = PrivacyTrim::from_settings(self);
+        let progress = Arc::new(BulkExportProgress::default());
+        let worker_progress = Arc::clone(&progress);
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        std::thread::spawn(move || {
+            let result = open_export_connection(&db_path).and_then(|db| match format {
+                BulkExportFormat::Gpx => export_gpx(&db, trim, &dest_path, &worker_progress),
+                BulkExportFormat::GeoJson => export_geojson(&db, &dest_path, &worker_progress),
+            });
+            if let Err(e) = &result {
+                log::error!("[BulkExport] Export to {} failed: {}", dest_path, e);
+            }
+            tx.send(result).ok();
+        });
+
+        super::BulkExportHandle {
+            receiver: rx,
+            progress,
+        }
+    }
+}
+
+/// A read-only connection for the export thread. The engine's own connection
+/// stays free, and a write landing mid-export is waited out rather than
+/// failing the export on a transient busy.
+fn open_export_connection(db_path: &str) -> Result<rusqlite::Connection, String> {
+    let db = rusqlite::Connection::open(db_path)
+        .map_err(|e| format!("Failed to open export source: {}", e))?;
+    db.busy_timeout(std::time::Duration::from_secs(5))
+        .map_err(|e| format!("Failed to set export busy timeout: {}", e))?;
+    Ok(db)
 }
 
 /// Where the athlete lives, and how much of a track around it never leaves the
@@ -1036,4 +752,410 @@ mod suggested_home_tests {
         assert_eq!(first.latitude, second.latitude);
         assert_eq!(first.longitude, second.longitude);
     }
+}
+
+/// The gpx writer, taking the connection rather than the engine, so a
+/// background thread can run it on a connection of its own.
+fn export_gpx(
+    db: &rusqlite::Connection,
+    trim: Option<PrivacyTrim>,
+    dest_path: &str,
+    progress: &BulkExportProgress,
+) -> Result<BulkExportResult, String> {
+    let file = std::fs::File::create(dest_path)
+        .map_err(|e| format!("Failed to create ZIP file: {}", e))?;
+
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated)
+        .compression_level(Some(6));
+
+    progress.set_total_from(db);
+    let mut exported: u32 = 0;
+    let mut skipped: Vec<SkippedActivity> = Vec::new();
+    let mut total_bytes: u64 = 0;
+
+    // Query all activities with GPS tracks in one pass
+    let mut stmt = db.prepare(
+            "SELECT g.activity_id, g.track_data, m.name, m.sport_type, m.date, m.distance, m.moving_time
+             FROM gps_tracks g
+             LEFT JOIN activity_metrics m ON g.activity_id = m.activity_id
+             ORDER BY m.date DESC"
+        ).map_err(|e| format!("Query failed: {}", e))?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            let activity_id: String = row.get(0)?;
+            let track_blob: Vec<u8> = row.get(1)?;
+            let name: Option<String> = row.get(2)?;
+            let sport_type: Option<String> = row.get(3)?;
+            let date: Option<i64> = row.get(4)?;
+            let distance: Option<f64> = row.get(5)?;
+            let moving_time: Option<i64> = row.get(6)?;
+            Ok((
+                activity_id,
+                track_blob,
+                name,
+                sport_type,
+                date,
+                distance,
+                moving_time,
+            ))
+        })
+        .map_err(|e| format!("Query failed: {}", e))?;
+
+    // Metadata entries for activities.json
+    let mut metadata_entries: Vec<serde_json::Value> = Vec::new();
+
+    for row_result in rows {
+        let (activity_id, track_blob, name, sport_type, date, distance, moving_time) =
+            match row_result {
+                Ok(r) => r,
+                Err(e) => {
+                    skipped.push(SkippedActivity::new(
+                        "unknown",
+                        format!("row read failed: {}", e),
+                    ));
+                    continue;
+                }
+            };
+
+        let points: Vec<GpsPoint> = match TrackRead::from_blob(&track_blob) {
+            TrackRead::Present(points) => points,
+            TrackRead::Missing => {
+                skipped.push(SkippedActivity::new(&activity_id, "no stored track"));
+                continue;
+            }
+            TrackRead::Corrupt(reason) => {
+                skipped.push(SkippedActivity::unreadable(&activity_id, &reason));
+                continue;
+            }
+        };
+
+        if points.is_empty() {
+            skipped.push(SkippedActivity::new(&activity_id, "track holds no points"));
+            continue;
+        }
+
+        let display_name = name.as_deref().unwrap_or(&activity_id);
+        let sport = sport_type.as_deref().unwrap_or("Unknown");
+        let date_str = date.map(|ts| {
+            chrono::DateTime::from_timestamp(ts, 0)
+                .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+                .unwrap_or_default()
+        });
+        let date_prefix = date
+            .map(|ts| {
+                chrono::DateTime::from_timestamp(ts, 0)
+                    .map(|dt| dt.format("%Y-%m-%d").to_string())
+                    .unwrap_or_else(|| "unknown".to_string())
+            })
+            .unwrap_or_else(|| "unknown".to_string());
+
+        // The exported copy alone is shortened. The stored track and every
+        // index into it are untouched.
+        let points = match trim.as_ref().map(|t| t.apply(&points)) {
+            Some(Some(trimmed)) => trimmed,
+            Some(None) => {
+                skipped.push(SkippedActivity::new(
+                    &activity_id,
+                    "trimmed to fewer points than a track",
+                ));
+                continue;
+            }
+            None => points,
+        };
+
+        // Generate GPX XML
+        let gpx = generate_gpx(display_name, sport, date_str.as_deref(), &points);
+
+        // Sanitize filename
+        let safe_name: String = display_name
+            .chars()
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .take(60)
+            .collect();
+        let filename = format!("{}_{}.gpx", date_prefix, safe_name);
+
+        // Write to ZIP
+        if let Err(e) = zip.start_file(&filename, options) {
+            log::warn!("Failed to start ZIP entry {}: {}", filename, e);
+            skipped.push(SkippedActivity::new(
+                &activity_id,
+                format!("archive entry failed: {}", e),
+            ));
+            continue;
+        }
+        if let Err(e) = zip.write_all(gpx.as_bytes()) {
+            log::warn!("Failed to write ZIP entry {}: {}", filename, e);
+            skipped.push(SkippedActivity::new(
+                &activity_id,
+                format!("archive write failed: {}", e),
+            ));
+            continue;
+        }
+
+        total_bytes += gpx.len() as u64;
+        exported += 1;
+        progress.exported.store(exported, Ordering::Relaxed);
+
+        // Add metadata entry
+        metadata_entries.push(serde_json::json!({
+            "id": activity_id,
+            "name": display_name,
+            "date": date_str.as_deref().unwrap_or(""),
+            "sport": sport,
+            "distance": distance.unwrap_or(0.0),
+            "movingTime": moving_time.unwrap_or(0),
+            "hasGpx": true,
+        }));
+    }
+
+    // Also add activities WITHOUT GPS tracks to metadata
+    let mut no_gps_stmt = db
+        .prepare(
+            "SELECT m.activity_id, m.name, m.sport_type, m.date, m.distance, m.moving_time
+             FROM activity_metrics m
+             WHERE m.activity_id NOT IN (SELECT activity_id FROM gps_tracks)
+             ORDER BY m.date DESC",
+        )
+        .map_err(|e| format!("No-GPS query failed: {}", e))?;
+
+    let no_gps_rows = no_gps_stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, Option<i64>>(3)?,
+                row.get::<_, Option<f64>>(4)?,
+                row.get::<_, Option<i64>>(5)?,
+            ))
+        })
+        .map_err(|e| format!("No-GPS query failed: {}", e))?;
+
+    for row_result in no_gps_rows {
+        if let Ok((id, name, sport, date, distance, moving_time)) = row_result {
+            let date_str = date.and_then(|ts| {
+                chrono::DateTime::from_timestamp(ts, 0)
+                    .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+            });
+            metadata_entries.push(serde_json::json!({
+                "id": id,
+                "name": name.as_deref().unwrap_or(&id),
+                "date": date_str.as_deref().unwrap_or(""),
+                "sport": sport.as_deref().unwrap_or("Unknown"),
+                "distance": distance.unwrap_or(0.0),
+                "movingTime": moving_time.unwrap_or(0),
+                "hasGpx": false,
+            }));
+            skipped.push(SkippedActivity::new(&id, "no stored track"));
+        }
+    }
+
+    // Write activities.json metadata
+    let meta_json =
+        serde_json::to_string_pretty(&metadata_entries).unwrap_or_else(|_| "[]".to_string());
+    zip.start_file("activities.json", options)
+        .map_err(|e| format!("Failed to write metadata: {}", e))?;
+    zip.write_all(meta_json.as_bytes())
+        .map_err(|e| format!("Failed to write metadata: {}", e))?;
+    total_bytes += meta_json.len() as u64;
+
+    // The archive carries its own omissions, so a user who opens it can
+    // see which activities are absent and why without reading a log.
+    let skipped_json =
+        serde_json::to_string_pretty(&skipped.iter().map(|s| s.as_json()).collect::<Vec<_>>())
+            .unwrap_or_else(|_| "[]".to_string());
+    zip.start_file("skipped.json", options)
+        .map_err(|e| format!("Failed to write skip list: {}", e))?;
+    zip.write_all(skipped_json.as_bytes())
+        .map_err(|e| format!("Failed to write skip list: {}", e))?;
+    total_bytes += skipped_json.len() as u64;
+
+    zip.finish()
+        .map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
+
+    log_unreadable(&skipped);
+    log::info!(
+        "[BulkExport] Exported {} activities ({} skipped), {} bytes uncompressed",
+        exported,
+        skipped.len(),
+        total_bytes
+    );
+
+    Ok(BulkExportResult {
+        exported,
+        skipped: skipped.len() as u32,
+        total_bytes,
+    })
+}
+
+/// The geojson writer, taking the connection rather than the engine, so a
+/// background thread can run it on a connection of its own.
+fn export_geojson(
+    db: &rusqlite::Connection,
+    dest_path: &str,
+    progress: &BulkExportProgress,
+) -> Result<BulkExportResult, String> {
+    use std::io::BufWriter;
+
+    let file = std::fs::File::create(dest_path)
+        .map_err(|e| format!("Failed to create GeoJSON file: {}", e))?;
+    let mut writer = BufWriter::new(file);
+
+    progress.set_total_from(db);
+    let mut exported: u32 = 0;
+    let mut skipped: Vec<SkippedActivity> = Vec::new();
+    let mut total_bytes: u64 = 0;
+
+    // Write FeatureCollection header
+    writer
+        .write_all(b"{\"type\":\"FeatureCollection\",\"features\":[\n")
+        .map_err(|e| format!("Write failed: {}", e))?;
+
+    let mut stmt = db.prepare(
+            "SELECT g.activity_id, g.track_data, m.name, m.sport_type, m.date, m.distance, m.moving_time
+             FROM gps_tracks g
+             LEFT JOIN activity_metrics m ON g.activity_id = m.activity_id
+             ORDER BY m.date DESC"
+        ).map_err(|e| format!("Query failed: {}", e))?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Vec<u8>>(1)?,
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, Option<String>>(3)?,
+                row.get::<_, Option<i64>>(4)?,
+                row.get::<_, Option<f64>>(5)?,
+                row.get::<_, Option<i64>>(6)?,
+            ))
+        })
+        .map_err(|e| format!("Query failed: {}", e))?;
+
+    let mut first = true;
+    for row_result in rows {
+        let (activity_id, track_blob, name, sport_type, date, distance, moving_time) =
+            match row_result {
+                Ok(r) => r,
+                Err(e) => {
+                    skipped.push(SkippedActivity::new(
+                        "unknown",
+                        format!("row read failed: {}", e),
+                    ));
+                    continue;
+                }
+            };
+
+        let points: Vec<GpsPoint> = match TrackRead::from_blob(&track_blob) {
+            TrackRead::Present(points) => points,
+            TrackRead::Missing => {
+                skipped.push(SkippedActivity::new(&activity_id, "no stored track"));
+                continue;
+            }
+            TrackRead::Corrupt(reason) => {
+                skipped.push(SkippedActivity::unreadable(&activity_id, &reason));
+                continue;
+            }
+        };
+
+        if points.is_empty() {
+            skipped.push(SkippedActivity::new(&activity_id, "track holds no points"));
+            continue;
+        }
+
+        let display_name = name.as_deref().unwrap_or(&activity_id);
+        let sport = sport_type.as_deref().unwrap_or("Unknown");
+        let date_str = date.and_then(|ts| {
+            chrono::DateTime::from_timestamp(ts, 0)
+                .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+        });
+
+        // Build coordinates array: [[lng, lat], ...]
+        let coords: Vec<[f64; 2]> = points
+            .iter()
+            .filter(|p| p.latitude.is_finite() && p.longitude.is_finite())
+            .map(|p| [p.longitude, p.latitude])
+            .collect();
+
+        if coords.is_empty() {
+            skipped.push(SkippedActivity::new(
+                &activity_id,
+                "track holds no finite coordinates",
+            ));
+            continue;
+        }
+
+        let feature = serde_json::json!({
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": coords,
+            },
+            "properties": {
+                "id": activity_id,
+                "name": display_name,
+                "sport": sport,
+                "date": date_str.as_deref().unwrap_or(""),
+                "distance": distance.unwrap_or(0.0),
+                "movingTime": moving_time.unwrap_or(0),
+            }
+        });
+
+        let feature_json = serde_json::to_string(&feature)
+            .map_err(|e| format!("JSON serialization failed: {}", e))?;
+
+        if !first {
+            writer
+                .write_all(b",\n")
+                .map_err(|e| format!("Write failed: {}", e))?;
+        }
+        writer
+            .write_all(feature_json.as_bytes())
+            .map_err(|e| format!("Write failed: {}", e))?;
+
+        total_bytes += feature_json.len() as u64;
+        exported += 1;
+        progress.exported.store(exported, Ordering::Relaxed);
+        first = false;
+    }
+
+    // Close the feature array and carry the omissions as a foreign member,
+    // so the file states what it is missing and why.
+    let skipped_json =
+        serde_json::to_string(&skipped.iter().map(|s| s.as_json()).collect::<Vec<_>>())
+            .unwrap_or_else(|_| "[]".to_string());
+    writer
+        .write_all(b"\n],\"skipped\":")
+        .map_err(|e| format!("Write failed: {}", e))?;
+    writer
+        .write_all(skipped_json.as_bytes())
+        .map_err(|e| format!("Write failed: {}", e))?;
+    writer
+        .write_all(b"}")
+        .map_err(|e| format!("Write failed: {}", e))?;
+    writer.flush().map_err(|e| format!("Flush failed: {}", e))?;
+    total_bytes += skipped_json.len() as u64;
+
+    log_unreadable(&skipped);
+    log::info!(
+        "[BulkExport] GeoJSON exported {} activities ({} skipped), {} bytes",
+        exported,
+        skipped.len(),
+        total_bytes
+    );
+
+    Ok(BulkExportResult {
+        exported,
+        skipped: skipped.len() as u32,
+        total_bytes,
+    })
 }
