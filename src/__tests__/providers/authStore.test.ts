@@ -21,7 +21,7 @@ jest.mock('@/shared/native/engine', () => ({
 const mockGetItemAsync = SecureStore.getItemAsync as jest.MockedFunction<
   typeof SecureStore.getItemAsync
 >;
-const _mockSetItemAsync = SecureStore.setItemAsync as jest.MockedFunction<
+const mockSetItemAsync = SecureStore.setItemAsync as jest.MockedFunction<
   typeof SecureStore.setItemAsync
 >;
 const mockDeleteItemAsync = SecureStore.deleteItemAsync as jest.MockedFunction<
@@ -33,6 +33,7 @@ const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
 const ATHLETE_ID_STORAGE_KEY = 'intervals_athlete_id';
 const ACCESS_TOKEN_STORAGE_KEY = 'intervals_access_token';
+const API_KEY_ATHLETE_STORAGE_KEY = 'intervals_api_key_athlete_id';
 
 describe('AuthStore', () => {
   beforeEach(() => {
@@ -400,6 +401,40 @@ describe('AuthStore', () => {
       await useAuthStore.getState().initialize();
 
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    });
+  });
+
+  // The stored key outlives a rejected session, so the re-entry has to be able
+  // to say whose it is before it offers it back.
+  describe('the stored key owner', () => {
+    it('is recorded beside the key', async () => {
+      await useAuthStore.getState().setCredentials('a-key', 'i12345');
+
+      expect(mockSetItemAsync).toHaveBeenCalledWith(
+        API_KEY_ATHLETE_STORAGE_KEY,
+        'i12345',
+        expect.anything()
+      );
+    });
+
+    it('survives a 401, because the key does', async () => {
+      useAuthStore.setState({ apiKey: 'a-key', athleteId: 'i12345', authMethod: 'apiKey' });
+
+      await useAuthStore.getState().handleSessionExpired();
+
+      expect(mockDeleteItemAsync).not.toHaveBeenCalledWith(API_KEY_ATHLETE_STORAGE_KEY);
+    });
+
+    it('goes when an explicit sign-out takes the key', async () => {
+      await useAuthStore.getState().clearCredentials();
+
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(API_KEY_ATHLETE_STORAGE_KEY);
+    });
+
+    it('goes when an OAuth sign-in takes the key', async () => {
+      await useAuthStore.getState().setOAuthCredentials('token', 'i12345');
+
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(API_KEY_ATHLETE_STORAGE_KEY);
     });
   });
 
