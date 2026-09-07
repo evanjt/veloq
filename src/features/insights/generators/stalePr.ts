@@ -163,6 +163,7 @@ export function stalePROpportunityToInsight(
       // this, and stamping it with `now` would age every card at zero days.
       sourceTimestamp: timestamp - opportunity.daysSinceLast * 86_400_000,
       placeName: opportunity.sectionName,
+      sectionId: opportunity.sectionId,
     },
     supportingData: {
       dataPoints: [

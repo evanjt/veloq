@@ -102,6 +102,10 @@ export interface InsightMeta {
   comparisonKind?: 'self' | 'other' | 'none';
   /** Lifetime count of the repeated behaviour - drives repetition gate (G3). */
   repetitionCount?: number;
+  /** The section this insight is about, which is what R9's scores are keyed on. */
+  sectionId?: string;
+  /** What the engine rates that section, filled in by the pipeline for R9. */
+  ranking?: SectionRankingScores;
   /**
    * The place this insight is about, as the generator knows it. R5 credits it
    * only when it survives into the rendered copy, so this is the name to look

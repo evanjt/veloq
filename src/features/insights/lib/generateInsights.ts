@@ -19,6 +19,7 @@ import type {
   FtpTrend,
   PaceTrend,
   SectionPR,
+  SectionRankingScores,
   SectionTrendData,
   TFunc,
 } from '../types';
@@ -142,7 +143,7 @@ function logInsightGeneration(outcome: PipelineOutcome): void {
     const reason = capped ? ` (${capped.reason})` : '';
     // eslint-disable-next-line no-console
     console.log(
-      `[INSIGHTS] [${status}] ${s.insight.category}/${s.insight.id} - score=${s.score.toFixed(0)} (base=${s.breakdown.base.toFixed(0)} conf=${s.breakdown.confidence.toFixed(0)} cat=${s.breakdown.category} spec=${s.breakdown.specificity} self=${s.breakdown.temporalSelf} sig=${s.breakdown.signal})${reason}`
+      `[INSIGHTS] [${status}] ${s.insight.category}/${s.insight.id} - score=${s.score.toFixed(0)} (base=${s.breakdown.base.toFixed(0)} conf=${s.breakdown.confidence.toFixed(0)} ml=${s.breakdown.ranking.toFixed(0)} cat=${s.breakdown.category} spec=${s.breakdown.specificity} self=${s.breakdown.temporalSelf} sig=${s.breakdown.signal})${reason}`
     );
   }
   // eslint-disable-next-line no-console
@@ -274,7 +275,23 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
     }
   }
 
-  // 3. Score (R5–R8 inside scoreInsight)
+  // R9 wants the engine's read on the section behind each insight, and the
+  // ranked list the bundle already carries is where it is. Joined here rather
+  // than threaded through five generators: only `sectionTrend` is built from
+  // the ranked rows, and the other four know a section id and nothing else.
+  const rankingBySection = new Map(
+    (data.sectionTrends ?? [])
+      .filter((s) => s.ranking)
+      .map((s) => [s.sectionId, s.ranking as SectionRankingScores])
+  );
+  for (const insight of passed) {
+    const id = insight.meta?.sectionId;
+    if (!id || insight.meta?.ranking) continue;
+    const ranking = rankingBySection.get(id);
+    if (ranking && insight.meta) insight.meta.ranking = ranking;
+  }
+
+  // 3. Score (R5–R9 inside scoreInsight)
   const scored = passed.map((i) => scoreInsight(i));
 
   // 4. Diversity + surface cap (D9, D10)
