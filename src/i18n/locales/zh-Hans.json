@@ -379,8 +379,8 @@
   "export": {
     "bulkComplete": "导出完成",
     "bulkExport": "导出所有活动 ({{count}})",
-    "bulkExporting": "正在生成 GPX...",
-    "bulkResult": "已导出 {{exported}} 个 GPX 文件，跳过 {{skipped}} 个无GPS活动。",
+    "bulkExporting": "正在生成 {{format}}...",
+    "bulkResult": "已将 {{exported}} 个活动导出为 {{format}}，跳过 {{skipped}} 个无GPS活动。",
     "bulkSharing": "正在打开分享...",
     "error": "导出 GPX 文件失败。",
     "exporting": "正在导出...",
