@@ -13,7 +13,7 @@ use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc;
 use tracematch::{Bounds, GpsPoint};
 
@@ -36,6 +36,32 @@ const CORRUPT_RECORD: &str = "corrupt-activities.json";
 
 /// Distinguishes two marks written inside the same clock tick.
 static DIRTY_TOKEN: AtomicU64 = AtomicU64::new(0);
+
+/// Whether a tile pass is on a thread in this process. There is one handle
+/// slot, so a second pass drops the first's handle and reports its own
+/// progress in place of it, while both workers write the same tile files and
+/// each clears the dirty mark against the token it captured before it began.
+static TILE_PASS_RUNNING: AtomicBool = AtomicBool::new(false);
+
+/// Holds the single tile-pass slot. Release is structural, so a panic in the
+/// pass cannot leave tile generation unstartable for the life of the process.
+struct TilePassGuard;
+
+impl Drop for TilePassGuard {
+    fn drop(&mut self) {
+        TILE_PASS_RUNNING.store(false, Ordering::SeqCst);
+    }
+}
+
+impl TilePassGuard {
+    /// Claim the slot, or `None` when a pass already holds it.
+    fn claim() -> Option<Self> {
+        TILE_PASS_RUNNING
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .ok()
+            .map(|_| TilePassGuard)
+    }
+}
 
 /// Every activity's track, plus the ones whose stored blob did not decode.
 struct LoadedTracks {
@@ -130,7 +156,10 @@ impl PersistentEngine {
     /// (microseconds), then releases. The heavy work runs on a separate thread
     /// with its own SQLite connection.
     ///
-    /// Returns None if no tiles path is configured or no activities exist.
+    /// Returns None if no tiles path is configured, no activities exist, or a
+    /// pass is already running. The engine spawns one at load when the set is
+    /// stale and the GPS sync spawns one whenever it stores a track, so the
+    /// two overlap on the ordinary shape of a cold launch that then syncs.
     pub fn generate_tiles_background(&self) -> Option<TileGenerationHandle> {
         let tiles_path = self.heatmap_tiles_path.clone()?;
         let db_path = self.db_path.clone();
@@ -138,6 +167,11 @@ impl PersistentEngine {
         if self.activity_metadata.is_empty() {
             return None;
         }
+
+        let Some(pass) = TilePassGuard::claim() else {
+            info!("[heatmap] A tile pass is already running - not starting another");
+            return None;
+        };
 
         // Extract all activity (id, bounds) pairs from in-memory metadata.
         // The background thread uses IDs to bulk-load GPS tracks and bounds
@@ -159,26 +193,35 @@ impl PersistentEngine {
         let started_on = read_dirty_token(Path::new(&tiles_path));
 
         std::thread::spawn(move || {
-            let run = background_generate_tiles(
-                &db_path,
-                &tiles_path,
-                &activities,
-                &gen_clone,
-                &total_clone,
-            );
-            // The pass ran, so the marker clears. Holding it for an unreadable
-            // activity would re-run the whole pass at every launch for as long
-            // as the row stays bad. The redraw the incomplete tiles need is
-            // carried by the corrupt record instead, which is scoped to the
-            // tiles those activities reach.
-            clear_dirty_marker(&tiles_path, started_on);
-            if run.corrupt > 0 {
-                log::error!(
-                    "[heatmap] Tile set is incomplete: {} activities were unreadable. The tiles they reach are redrawn on the next run.",
-                    run.corrupt
+            let generated = {
+                // The slot is held for the generation itself, and released
+                // structurally, so a panic anywhere in the pass still frees it.
+                let _pass = pass;
+                let run = background_generate_tiles(
+                    &db_path,
+                    &tiles_path,
+                    &activities,
+                    &gen_clone,
+                    &total_clone,
                 );
-            }
-            tx.send(run.generated).ok();
+                // The pass ran, so the marker clears. Holding it for an
+                // unreadable activity would re-run the whole pass at every
+                // launch for as long as the row stays bad. The redraw the
+                // incomplete tiles need is carried by the corrupt record
+                // instead, which is scoped to the tiles those activities reach.
+                clear_dirty_marker(&tiles_path, started_on);
+                if run.corrupt > 0 {
+                    log::error!(
+                        "[heatmap] Tile set is incomplete: {} activities were unreadable. The tiles they reach are redrawn on the next run.",
+                        run.corrupt
+                    );
+                }
+                run.generated
+            };
+            // The slot is free before the count is sent, so a caller that
+            // blocks on the receiver and then asks for another pass is not
+            // refused by the one it just waited out.
+            tx.send(generated).ok();
             // The worker owns no engine lock, so the announcement is safe to
             // make from here. A screen waiting on the pass hears it instead of
             // draining this receiver on a timer.
@@ -644,5 +687,47 @@ mod tests {
         clear_dirty_marker(&path, token);
 
         assert!(base.join(DIRTY_MARKER).exists());
+    }
+
+    /// Scenario: the engine spawns a tile pass at load when the set is stale,
+    /// and the GPS sync spawns another as soon as it stores a track. There is
+    /// one handle slot, so a second pass makes the first unobservable and the
+    /// two workers write the same tile files.
+    mod one_pass_at_a_time {
+        use super::*;
+        use crate::test_globals::serial_global_state;
+
+        #[test]
+        fn a_second_pass_is_refused_while_one_runs() {
+            let _serial = serial_global_state();
+            let held = TilePassGuard::claim().expect("the slot was free");
+
+            assert!(
+                TilePassGuard::claim().is_none(),
+                "a second pass was started beside the first"
+            );
+
+            drop(held);
+            assert!(
+                TilePassGuard::claim().is_some(),
+                "the slot did not come back when the pass ended"
+            );
+        }
+
+        #[test]
+        fn a_panicking_pass_releases_the_slot() {
+            let _serial = serial_global_state();
+            let claimed = TilePassGuard::claim().expect("the slot was free");
+            let pass = std::thread::spawn(move || {
+                let _held = claimed;
+                panic!("background_generate_tiles");
+            });
+            assert!(pass.join().is_err(), "the pass panicked");
+
+            assert!(
+                TilePassGuard::claim().is_some(),
+                "a panicked pass left tiles unstartable for the process"
+            );
+        }
     }
 }
