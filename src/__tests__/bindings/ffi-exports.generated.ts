@@ -98,8 +98,8 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     file: 'ffi.rs',
     line: 706,
     paramCount: 0,
-    returnType: 'bool',
-    docs: 'Start the elevation backfill on a background thread. Returns false when nothing is outstanding, when a run is already in flight, or when no credential is set yet, so it is safe to call on every launch.',
+    returnType: 'crate::objects::FfiStartOutcome',
+    docs: 'Start the elevation backfill on a background thread. The verdict names the refusal, so an empty queue reads as the job finished rather than as a failure to start. Safe to call on every launch.',
   },
   {
     name: 'pause_elevation_backfill',

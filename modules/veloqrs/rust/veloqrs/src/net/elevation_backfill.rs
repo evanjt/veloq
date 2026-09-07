@@ -58,6 +58,7 @@ use crate::governor::Lane;
 use crate::net::endpoints::{TRACK_STREAM_TYPES, fetch_altitude, fetch_streams};
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::ParsedStreams;
+use crate::objects::FfiStartOutcome;
 use crate::objects::detection::{SlotWait, wait_on_slot};
 use crate::persistence::cutover::CutoverOutcome;
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
@@ -165,7 +166,7 @@ pub fn resume_ladder(
     mut remaining: impl FnMut() -> Option<u64>,
     mut offline: impl FnMut() -> bool,
     mut paused: impl FnMut() -> bool,
-    mut attempt: impl FnMut() -> bool,
+    mut attempt: impl FnMut(),
 ) {
     let mut attempts = 0usize;
     loop {
@@ -225,7 +226,9 @@ fn arm_resume_ladder() {
             },
             crate::net::connectivity::is_offline,
             elevation_backfill_paused,
-            start_pass,
+            || {
+                start_pass();
+            },
         );
     });
 }
@@ -1191,56 +1194,61 @@ fn start_final_detect() -> bool {
 
 /// Start a backfill on a detached thread using the process credential.
 ///
-/// Returns false when there is no credential, when a run is already in flight,
-/// or when the queue is already empty, so a caller can fire this at every
-/// launch and let it decide.
-pub fn start_elevation_backfill() -> bool {
-    let accepted = start_pass();
+/// The verdict names the refusal, so a caller can tell an empty queue, which
+/// is the job finished, from a device that is merely offline. It is safe to
+/// fire at every launch.
+pub fn start_elevation_backfill() -> FfiStartOutcome {
+    let outcome = start_pass();
     // The ladder outlives this call either way. A pass that was refused for
     // want of a credential, and one that ends partial because the connection
     // went away, both need asking again, and nothing outside the engine
     // schedules that any more.
     arm_resume_ladder();
-    accepted
+    outcome
 }
 
-/// One attempt to put a pass on a thread. False when there is nothing to do,
-/// when a run holds the slot, when the device is offline, or when no
-/// credential has arrived yet.
-fn start_pass() -> bool {
+/// One attempt to put a pass on a thread, and why it was refused when it was.
+fn start_pass() -> FfiStartOutcome {
     // A queue that cannot be read is not an empty one, but it is also not a
     // queue a run could work, so this declines and the next launch asks again.
+    // The two are separate answers: an empty queue is the job finished and
+    // stops the caller asking, an unreadable one is worth asking about again.
     let remaining = with_persistent_engine(|engine| engine.elevation_backfill_remaining());
-    if !matches!(remaining, Some(Ok(n)) if n > 0) {
-        return false;
+    match remaining {
+        Some(Ok(n)) if n > 0 => {}
+        Some(Ok(_)) => return FfiStartOutcome::NotOwed,
+        _ => {
+            log::info!("[Elevation] backfill deferred: queue unreadable");
+            return FfiStartOutcome::NotReady;
+        }
     }
-    // The slot is claimed here, not on the thread, so a true below means a
+    // The slot is claimed here, not on the thread, so a `Started` below means a
     // pass holds it: a second start in the same instant is refused rather
     // than spawning alongside, and anything waiting on the slot sees it
     // taken. A decline further down drops the guard and frees it again.
     let Some(slot) = RunGuard::claim() else {
-        return false;
+        return FfiStartOutcome::Busy;
     };
     if elevation_backfill_paused() {
         log::info!("[Elevation] backfill deferred: paused");
-        return false;
+        return FfiStartOutcome::Held;
     }
     // The state TypeScript pushes is advisory, so this only declines on a
     // fresh offline. Unset or stale falls through and the pass runs, which is
     // exactly what happened before there was a state to read.
     if crate::net::connectivity::is_offline() {
         log::info!("[Elevation] backfill deferred: offline");
-        return false;
+        return FfiStartOutcome::Offline;
     }
     let Some(Ok((transport, athlete_id))) = crate::objects::current_session() else {
         log::info!("[Elevation] backfill deferred: no credential yet");
-        return false;
+        return FfiStartOutcome::NotConfigured;
     };
 
     std::thread::spawn(move || {
         run_in_slot(slot, &transport, &athlete_id);
     });
-    true
+    FfiStartOutcome::Started
 }
 
 #[cfg(test)]
@@ -1249,8 +1257,8 @@ mod tests {
     use crate::persistence::sections::conditioning::detection_suspended;
     use crate::persistence::sections::detection_workers_started;
     use crate::test_globals::{
-        clear_detection_handle, drain_backfill, drain_detection, race, seeded_global_engine,
-        serial_global_state,
+        clear_detection_handle, drain_backfill, drain_detection, init_global_engine, race,
+        seeded_global_engine, serial_global_state,
     };
     use tempfile::TempDir;
 
@@ -1633,7 +1641,7 @@ mod tests {
 
             connectivity::set_online(false);
             assert!(
-                !start_elevation_backfill(),
+                !start_elevation_backfill().started(),
                 "a fresh offline must not spawn a pass"
             );
             assert!(
@@ -1643,7 +1651,7 @@ mod tests {
 
             connectivity::reset();
             assert!(
-                start_elevation_backfill(),
+                start_elevation_backfill().started(),
                 "a never-pushed state has to behave exactly as it did before"
             );
 
@@ -1675,13 +1683,13 @@ mod tests {
             connectivity::reset();
             let _creds = crate::objects::test_credentials();
 
-            assert!(start_elevation_backfill());
+            assert!(start_elevation_backfill().started());
             assert!(
                 BACKFILL.running.load(Ordering::SeqCst),
                 "the run flag must be claimed by the time the start reports true"
             );
             assert!(
-                !start_elevation_backfill(),
+                !start_elevation_backfill().started(),
                 "a second start while the first is in flight must be refused"
             );
 
@@ -1689,6 +1697,75 @@ mod tests {
             drain_detection();
             assert!(!BACKFILL.running.load(Ordering::SeqCst));
             assert!(!detection_suspended());
+        }
+
+        /// Scenario: the launch trigger fires the backfill on every start and
+        /// gets the same `false` for five different reasons.
+        /// Expected behaviour: the start names the reason, so a caller can
+        /// tell a connection that comes back from a sign-in that never will.
+        #[test]
+        fn a_refusal_names_its_reason() {
+            use crate::objects::FfiStartOutcome;
+
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            reset_pause();
+
+            let no_credential = start_elevation_backfill();
+            assert_eq!(no_credential, FfiStartOutcome::NotConfigured);
+            assert!(
+                !no_credential.is_retryable(),
+                "waiting does not produce a sign-in"
+            );
+
+            let _creds = crate::objects::test_credentials();
+
+            connectivity::set_online(false);
+            let offline = start_elevation_backfill();
+            assert_eq!(offline, FfiStartOutcome::Offline);
+            assert!(offline.is_retryable(), "a connection comes back");
+            connectivity::reset();
+
+            pause_elevation_backfill();
+            assert_eq!(start_elevation_backfill(), FfiStartOutcome::Held);
+            reset_pause();
+
+            assert_eq!(start_elevation_backfill(), FfiStartOutcome::Started);
+            assert_eq!(
+                start_elevation_backfill(),
+                FfiStartOutcome::Busy,
+                "a pass already holds the slot"
+            );
+
+            drain_backfill();
+            drain_detection();
+            assert!(!detection_suspended());
+        }
+
+        /// The queue running out is the job finishing. It used to arrive as
+        /// the same `false` as being offline, and it is what stamps the app
+        /// version and stops the trigger asking on every later launch.
+        #[test]
+        fn an_empty_queue_is_a_success() {
+            use crate::objects::FfiStartOutcome;
+
+            let _serial = serial_global_state();
+            let _tmp = init_global_engine("no_elevation_owed.db");
+            connectivity::reset();
+            reset_pause();
+            let _creds = crate::objects::test_credentials();
+
+            let outcome = start_elevation_backfill();
+            assert_eq!(outcome, FfiStartOutcome::NotOwed);
+            assert!(
+                !outcome.is_retryable(),
+                "there is nothing later asking could add"
+            );
+            assert!(
+                !BACKFILL.running.load(Ordering::SeqCst),
+                "refusing must not leave the slot claimed"
+            );
         }
 
         /// A stale *online* is harmless: the value is only ever a reason to
@@ -1753,7 +1830,6 @@ mod tests {
                 || false,
                 || {
                     attempts += 1;
-                    true
                 },
             );
             drop(edge_tx);
@@ -1915,7 +1991,7 @@ mod tests {
             reset_pause();
 
             pause_elevation_backfill();
-            assert!(!start_pass(), "a paused install starts no pass");
+            assert!(!start_pass().started(), "a paused install starts no pass");
 
             resume_elevation_backfill();
             assert!(!elevation_backfill_paused());
@@ -1938,7 +2014,7 @@ mod tests {
             );
 
             pause_elevation_backfill();
-            assert!(!start_pass(), "a paused install starts no pass");
+            assert!(!start_pass().started(), "a paused install starts no pass");
             assert!(!pass_running(), "and holds no slot");
 
             reset_pause();

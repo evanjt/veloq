@@ -338,11 +338,11 @@ export function startDetectorCutover(): boolean {
 /**
  * Start the elevation backfill on a background thread.
  *
- * Returns false when nothing is outstanding, when a run is already in flight,
- * or when no credential is set yet, so it is safe to call on every launch.
+ * The verdict names the refusal, so an empty queue reads as the job finished
+ * rather than as a failure to start. Safe to call on every launch.
  */
-export function startElevationBackfill(): boolean {
-  return FfiConverterBool.lift(
+export function startElevationBackfill(): FfiStartOutcome {
+  return FfiConverterTypeFfiStartOutcome.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_elevation_backfill(
@@ -9975,6 +9975,12 @@ export enum FfiStartOutcome {
    * caught error is still a reason and not another bare `false`.
    */
   Failed = 7,
+  /**
+   * The device is offline, and the work needs the network. The engine
+   * sleeps on its own connectivity edge rather than a timer, so a caller
+   * that reads this has somewhere to put the retry.
+   */
+  Offline = 8,
 }
 
 const FfiConverterTypeFfiStartOutcome = (() => {
@@ -9997,6 +10003,8 @@ const FfiConverterTypeFfiStartOutcome = (() => {
           return FfiStartOutcome.NotOwed;
         case 7:
           return FfiStartOutcome.Failed;
+        case 8:
+          return FfiStartOutcome.Offline;
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -10017,6 +10025,8 @@ const FfiConverterTypeFfiStartOutcome = (() => {
           return ordinalConverter.write(6, into);
         case FfiStartOutcome.Failed:
           return ordinalConverter.write(7, into);
+        case FfiStartOutcome.Offline:
+          return ordinalConverter.write(8, into);
       }
     }
     allocationSize(value: TypeName): number {
@@ -20015,7 +20025,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_elevation_backfill() !==
-    54941
+    62057
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_start_elevation_backfill",

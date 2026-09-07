@@ -15,6 +15,8 @@ import { ELEVATION_BACKFILL_STAMP_KEY } from '@/features/routes/lib/elevationBac
 import { SECTION_HEALTH_CHECK_KEY } from '@/features/routes/hooks/useSectionHealthCheck';
 import { TERRAIN_PREVIEW_VERSION_KEY } from '@/features/maps/lib/storage/terrainPreviewCache';
 
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+
 describe('database-local stamps', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();

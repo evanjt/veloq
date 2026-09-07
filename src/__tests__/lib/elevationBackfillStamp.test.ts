@@ -8,10 +8,13 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StartOutcome } from 'veloqrs';
 
 import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
 import { clearDatabaseStamps } from '@/shared/storage/databaseStamps';
 import { getEngine } from '@/shared/native/engine';
+
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
@@ -24,7 +27,7 @@ const VERSION_KEY = 'veloq-elevation-backfill-version';
 
 const engine = {
   getElevationBackfillRemaining: jest.fn(() => 12),
-  startElevationBackfill: jest.fn(() => true),
+  startElevationBackfill: jest.fn(() => StartOutcome.Started),
 };
 
 describe('elevation backfill stamp', () => {
@@ -37,7 +40,7 @@ describe('elevation backfill stamp', () => {
   it('declines while the stamp names the running version', async () => {
     await AsyncStorage.setItem(VERSION_KEY, '0.4.0');
 
-    await expect(startElevationBackfillAfterUpdate()).resolves.toBe(false);
+    await expect(startElevationBackfillAfterUpdate()).resolves.toBe(StartOutcome.NotOwed);
     expect(engine.startElevationBackfill).not.toHaveBeenCalled();
   });
 
@@ -45,7 +48,7 @@ describe('elevation backfill stamp', () => {
     await AsyncStorage.setItem(VERSION_KEY, '0.4.0');
     await clearDatabaseStamps();
 
-    await expect(startElevationBackfillAfterUpdate()).resolves.toBe(true);
+    await expect(startElevationBackfillAfterUpdate()).resolves.toBe(StartOutcome.Started);
     expect(engine.startElevationBackfill).toHaveBeenCalledTimes(1);
   });
 

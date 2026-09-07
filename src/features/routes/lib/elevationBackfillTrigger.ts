@@ -16,6 +16,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { StartOutcome } from 'veloqrs';
 
 import { getEngine } from '@/shared/native/engine';
 
@@ -28,21 +29,21 @@ const VERSION_KEY = ELEVATION_BACKFILL_STAMP_KEY;
  * module's own async work, the version read; the run itself is guarded in
  * Rust, which refuses a second pass while one holds the slot.
  */
-let inFlight: Promise<boolean> | null = null;
+let inFlight: Promise<StartOutcome> | null = null;
 
 function currentAppVersion(): string | null {
   return Constants.expoConfig?.version ?? null;
 }
 
-async function attempt(): Promise<boolean> {
+async function attempt(): Promise<StartOutcome> {
   const version = currentAppVersion();
-  if (!version) return false;
+  if (!version) return StartOutcome.NotReady;
 
   const seen = await AsyncStorage.getItem(VERSION_KEY);
-  if (seen === version) return false;
+  if (seen === version) return StartOutcome.NotOwed;
 
   const engine = getEngine();
-  if (!engine) return false;
+  if (!engine) return StartOutcome.NotReady;
 
   try {
     // Null means the engine could not answer, which is not the same as zero.
@@ -51,19 +52,28 @@ async function attempt(): Promise<boolean> {
       // answer: a refusal to start (no credential yet, a run in flight) or a
       // partial pass leaves the marker unset so the next launch tries again.
       await AsyncStorage.setItem(VERSION_KEY, version);
-      return false;
+      return StartOutcome.NotOwed;
     }
-    return engine.startElevationBackfill();
+    const outcome = engine.startElevationBackfill();
+    // The count above is read before the start, so a pass that drained the
+    // last of the queue leaves it stale by one launch. The start's own
+    // `NotOwed` is the fresher answer and stamps on the same terms: it is the
+    // job finished, not a refusal that lifts.
+    if (outcome === StartOutcome.NotOwed) {
+      await AsyncStorage.setItem(VERSION_KEY, version);
+    }
+    return outcome;
   } catch {
-    return false;
+    return StartOutcome.Failed;
   }
 }
 
 /**
  * Start the backfill if tracks still lack elevation and this app version has
- * not already finished the job. Resolves to whether Rust accepted the run.
+ * not already finished the job. Resolves to Rust's verdict on the run, so a
+ * caller can tell the job finishing from a refusal worth asking about again.
  */
-export function startElevationBackfillAfterUpdate(): Promise<boolean> {
+export function startElevationBackfillAfterUpdate(): Promise<StartOutcome> {
   if (inFlight) return inFlight;
   inFlight = attempt().finally(() => {
     inFlight = null;
