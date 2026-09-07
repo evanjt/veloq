@@ -33,6 +33,7 @@ pub struct DownloadProgress {
     completed: AtomicU32,
     total: AtomicU32,
     active: AtomicBool,
+    cancelled: AtomicBool,
 }
 
 impl DownloadProgress {
@@ -41,6 +42,7 @@ impl DownloadProgress {
             completed: AtomicU32::new(0),
             total: AtomicU32::new(0),
             active: AtomicBool::new(false),
+            cancelled: AtomicBool::new(false),
         }
     }
 }
@@ -48,11 +50,33 @@ impl DownloadProgress {
 /// Global progress instance - single writer (fetch loop), multiple readers (FFI polls)
 static DOWNLOAD_PROGRESS: DownloadProgress = DownloadProgress::new();
 
-/// Reset progress counters at start of fetch operation
+/// Reset progress counters at start of fetch operation.
+///
+/// Clears the cancel with them: the flag belongs to one run, and a cancel that
+/// outlived its run would stop every download after it.
 pub fn reset_download_progress(total: u32) {
     DOWNLOAD_PROGRESS.total.store(total, Ordering::Relaxed);
     DOWNLOAD_PROGRESS.completed.store(0, Ordering::Relaxed);
+    DOWNLOAD_PROGRESS.cancelled.store(false, Ordering::Relaxed);
     DOWNLOAD_PROGRESS.active.store(true, Ordering::Relaxed);
+}
+
+/// Ask the running download to stop. Returns whether there was one.
+///
+/// Cooperative: the fetch-and-store loop checks between activities, so the
+/// activity in flight finishes and lands. Stopping mid-activity would leave a
+/// track half written, and the loop is the only place the library is whole.
+pub fn cancel_download() -> bool {
+    if !DOWNLOAD_PROGRESS.active.load(Ordering::SeqCst) {
+        return false;
+    }
+    DOWNLOAD_PROGRESS.cancelled.store(true, Ordering::SeqCst);
+    true
+}
+
+/// Whether the running download has been asked to stop.
+pub fn download_cancelled() -> bool {
+    DOWNLOAD_PROGRESS.cancelled.load(Ordering::SeqCst)
 }
 
 /// Increment completed counter after each activity fetches
@@ -945,5 +969,41 @@ mod tests {
 
         let f = fetcher_to(server.base_url());
         assert!(crate::runtime::block_on(f.download_fit_file("a1")).is_err());
+    }
+
+    /// Scenario: the fetch-and-store thread runs to its end whatever the
+    /// athlete does, so a download they walked away from keeps taking the write
+    /// lock and keeps spending requests.
+    ///
+    /// Expected behaviour: a run can be asked to stop, and the ask is scoped to
+    /// the run it was made during. A stale cancel must not stop the next one,
+    /// which is why it is cleared by the reset every run already calls.
+    #[test]
+    fn a_run_can_be_cancelled_and_the_next_one_starts_clean() {
+        reset_download_progress(4);
+        assert!(!download_cancelled(), "a fresh run is not cancelled");
+
+        assert!(cancel_download(), "a run was active to cancel");
+        assert!(download_cancelled(), "and it is flagged");
+
+        reset_download_progress(2);
+        assert!(
+            !download_cancelled(),
+            "the next run starts clean, or one cancel stops every download after it"
+        );
+    }
+
+    /// Cancelling when nothing is downloading says so, rather than arming a
+    /// flag that the next run would read.
+    #[test]
+    fn cancelling_an_idle_download_flags_nothing() {
+        reset_download_progress(1);
+        finish_download_progress();
+
+        assert!(!cancel_download(), "there was no run to cancel");
+        assert!(
+            !download_cancelled(),
+            "so nothing is flagged for the next one"
+        );
     }
 }

@@ -113,7 +113,7 @@ describe('FFI Binding Validation', () => {
       // is standalone for the same reason: it is written during init, before
       // there is a handle to hang it on, and it says the library that handle
       // opens is not the one the athlete had.
-      expect(STANDALONE_EXPORTS.length).toBe(20);
+      expect(STANDALONE_EXPORTS.length).toBe(21);
     });
 
     it('should include the known standalone FFI functions', () => {
@@ -122,6 +122,11 @@ describe('FFI Binding Validation', () => {
       expect(names.has('validate_backup_database')).toBe(true);
       expect(names.has('start_fetch_and_store')).toBe(true);
       expect(names.has('take_fetch_and_store_result')).toBe(true);
+      // Standalone with the rest of the fetch lifecycle it belongs to: it
+      // flips a process-wide flag in `http` and never touches the engine, so
+      // an engine method would be the wrong home and would queue behind the
+      // lock the cancel exists to stop taking.
+      expect(names.has('cancel_fetch_and_store')).toBe(true);
       expect(names.has('compute_polyline_overlap')).toBe(true);
       // Deleted with the synthetic detection illustration, its only caller.
       // Named here so a re-add has to answer for itself rather than ride in
