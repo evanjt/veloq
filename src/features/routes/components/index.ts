@@ -23,4 +23,5 @@ export { PreviewCentrePicker } from './preview/PreviewCentrePicker';
 export { PreviewParamPanel } from './preview/PreviewParamPanel';
 export { PreviewMapView } from './preview/PreviewMapView';
 export { PreviewDiffStrip } from './preview/PreviewDiffStrip';
+export { PreviewRunCost } from './preview/PreviewRunCost';
 export { PreviewSectionPopover } from './preview/PreviewSectionPopover';
