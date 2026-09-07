@@ -13,13 +13,18 @@ export function useEFTPHistory(activities: Activity[] | undefined): eFTPPoint[] 
 
     // Filter activities that have eFTP estimates (icu_pm_ftp_watts)
     const withEFTP = activities
-      .filter((a) => a.icu_pm_ftp_watts && a.icu_pm_ftp_watts > 0)
-      .map((a) => ({
-        date: a.start_date_local.split('T')[0], // ISO date only
-        eftp: a.icu_pm_ftp_watts!,
-        activity_id: a.id,
-        activity_name: a.name,
-      }))
+      .flatMap((a) => {
+        const eftp = a.icu_pm_ftp_watts;
+        if (!eftp || eftp <= 0) return [];
+        return [
+          {
+            date: a.start_date_local.split('T')[0], // ISO date only
+            eftp,
+            activity_id: a.id,
+            activity_name: a.name,
+          },
+        ];
+      })
       .sort((a, b) => a.date.localeCompare(b.date)); // Sort chronologically
 
     if (withEFTP.length === 0) return undefined;

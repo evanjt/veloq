@@ -149,7 +149,7 @@ export function useStrengthVolume(period: StrengthPeriod) {
  */
 export function useStrengthProgression(muscleSlug: string | null) {
   return useQuery<StrengthProgression | null>({
-    queryKey: queryKeys.strength.progression(muscleSlug!),
+    queryKey: queryKeys.strength.progression(muscleSlug),
     queryFn: () => {
       const engine = getEngine();
       if (!engine || !muscleSlug || typeof engine.getStrengthSummaryBatch !== 'function') {
@@ -193,7 +193,7 @@ export function useStrengthProgression(muscleSlug: string | null) {
  */
 export function useExercisesForMuscle(period: StrengthPeriod, muscleSlug: string | null) {
   return useQuery<MuscleExerciseSummary>({
-    queryKey: queryKeys.strength.exercisesForMuscle(period, muscleSlug!),
+    queryKey: queryKeys.strength.exercisesForMuscle(period, muscleSlug),
     queryFn: () => {
       const { startTs, endTs } = getTimestampRange(period);
       const engine = getEngine();
@@ -246,7 +246,7 @@ export function useActivitiesForExercise(
   exerciseCategory: number | null
 ) {
   return useQuery<ExerciseActivity[]>({
-    queryKey: queryKeys.strength.activitiesForExercise(period, muscleSlug!, exerciseCategory!),
+    queryKey: queryKeys.strength.activitiesForExercise(period, muscleSlug, exerciseCategory),
     queryFn: () => {
       const { startTs, endTs } = getTimestampRange(period);
       const engine = getEngine();

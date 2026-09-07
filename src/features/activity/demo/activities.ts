@@ -565,7 +565,9 @@ function generateActivities(): ApiActivity[] {
   // === STRESS TEST: 20 runs on the same route with fitness-driven times ===
   // Pre-compute all times, then ensure demo-stress-0 (newest) is the fastest
   const stressTemplate = templates[5]; // route-rio-run-1
-  const stressLocation = getRouteLocation(stressTemplate.route!);
+  const stressLocation = stressTemplate.route
+    ? getRouteLocation(stressTemplate.route)
+    : { locality: null, country: null };
   const stressTimes: number[] = [];
   const stressDaysAgo: number[] = [];
   for (let i = 0; i < 20; i++) {

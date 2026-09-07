@@ -74,7 +74,7 @@ export function useSectionOverlays(
         activityPortion = computedTrace;
       } else {
         // Try activityTraces from section data
-        const activityTrace = match.section.activityTraces?.[activityId!];
+        const activityTrace = activityId ? match.section.activityTraces?.[activityId] : undefined;
         if (activityTrace && activityTrace.length > 0) {
           // Convert RoutePoint to LatLng format
           activityPortion = activityTrace.map(

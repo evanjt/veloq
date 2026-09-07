@@ -44,8 +44,8 @@ export function haversineDistance(
 ): number {
   const lat1 = typeof a === 'number' ? a : a.lat;
   const lng1 = typeof a === 'number' ? (b as number) : a.lng;
-  const lat2 = typeof a === 'number' ? c! : (b as LatLng).lat;
-  const lng2 = typeof a === 'number' ? d! : (b as LatLng).lng;
+  const lat2 = typeof a === 'number' ? (c as number) : (b as LatLng).lat;
+  const lng2 = typeof a === 'number' ? (d as number) : (b as LatLng).lng;
 
   const dLat = (lat2 - lat1) * DEG_TO_RAD;
   const dLng = (lng2 - lng1) * DEG_TO_RAD;

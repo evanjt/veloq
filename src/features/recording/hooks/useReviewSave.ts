@@ -158,7 +158,10 @@ export function useReviewSave({
                 distance: sliced.distance.map((d) => d - distBase),
               }
             : sliced;
-        const adjustedStart = new Date(startTime! + timeBase * 1000);
+        // A recording with no start time is a state the FIT writer has no
+        // answer for. Falling back to now keeps the file valid; the arithmetic
+        // on a null would have dated it to 1970.
+        const adjustedStart = new Date((startTime ?? Date.now()) + timeBase * 1000);
         const fitBuffer = await generateFitFile({
           activityType: type,
           startTime: adjustedStart,
