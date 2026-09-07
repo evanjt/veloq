@@ -367,33 +367,44 @@ export function startElevationBackfill(): boolean {
  * - No ~1.7MB GPS data transfer from Rust to TypeScript
  * - No ~865KB GPS data transfer from TypeScript back to Rust
  * - Direct storage in SQLite without serialization overhead
+ * Start one fetch+store run and answer its id.
+ *
+ * The id is what `take_fetch_and_store_result` reads back with. Three callers
+ * start runs, a silent push arriving during a foreground sync is ordinary, and
+ * before the id they shared one result slot and took each other's answers.
  */
 export function startFetchAndStore(
   activityIds: Array<string>,
   sportTypes: Array<ActivitySportMapping>,
-): void {
-  uniffiCaller.rustCall(
-    /*caller:*/ (callStatus) => {
-      nativeModule().ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store(
-        FfiConverterArrayString.lower(activityIds),
-        FfiConverterArrayTypeActivitySportMapping.lower(sportTypes),
-        callStatus,
-      );
-    },
-    /*liftString:*/ FfiConverterString.lift,
+): /*u64*/ bigint {
+  return FfiConverterUInt64.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store(
+          FfiConverterArrayString.lower(activityIds),
+          FfiConverterArrayTypeActivitySportMapping.lower(sportTypes),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
   );
 }
 /**
- * Take the result from a completed fetch+store operation.
+ * Take the result of one fetch+store run.
  *
- * Returns None if operation is still in progress.
- * Returns the result and clears storage when complete.
+ * `run` is what `start_fetch_and_store` answered. None means that run has not
+ * finished, which is what a caller polls on; it never means another caller's
+ * run has finished.
  */
-export function takeFetchAndStoreResult(): FetchAndStoreResult | undefined {
+export function takeFetchAndStoreResult(
+  run: /*u64*/ bigint,
+): FetchAndStoreResult | undefined {
   return FfiConverterOptionalTypeFetchAndStoreResult.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
+          FfiConverterUInt64.lower(run),
           callStatus,
         );
       },
@@ -19760,7 +19771,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store() !==
-    62119
+    39135
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_start_fetch_and_store",
@@ -19768,7 +19779,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_take_fetch_and_store_result() !==
-    65441
+    40443
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_take_fetch_and_store_result",

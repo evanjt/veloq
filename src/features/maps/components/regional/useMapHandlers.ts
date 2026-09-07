@@ -186,6 +186,12 @@ export function useMapHandlers({
         } else {
           // No local track yet. Ask Rust to download and store this one
           // activity's GPS, then read it back the same way as any other.
+          //
+          // The run id is discarded on purpose: this caller waits for the
+          // track to appear in the engine rather than for the fetch's own
+          // result, so its result is never read. It is filed under its own run
+          // and evicted in turn, which is what stops it being handed to the
+          // sync or the push task as theirs.
           startFetchAndStore(
             [activity.id],
             [

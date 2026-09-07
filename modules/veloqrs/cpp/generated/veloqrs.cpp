@@ -940,11 +940,12 @@ int8_t
 uniffi_veloqrs_fn_func_start_detector_cutover(RustCallStatus *uniffi_out_err);
 int8_t
 uniffi_veloqrs_fn_func_start_elevation_backfill(RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_func_start_fetch_and_store(
-    RustBuffer activity_ids, RustBuffer sport_types,
-    RustCallStatus *uniffi_out_err);
+uint64_t
+uniffi_veloqrs_fn_func_start_fetch_and_store(RustBuffer activity_ids,
+                                             RustBuffer sport_types,
+                                             RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_take_fetch_and_store_result(
-    RustCallStatus *uniffi_out_err);
+    uint64_t run, RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_func_validate_backup_database(RustBuffer path,
                                                 RustCallStatus *uniffi_out_err);
@@ -8420,7 +8421,7 @@ NativeVeloqrs::NativeVeloqrs(
           rt,
           jsi::PropNameID::forAscii(
               rt, "ubrn_uniffi_veloqrs_fn_func_take_fetch_and_store_result"),
-          0,
+          1,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
@@ -17944,14 +17945,14 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_start_fetch_and_store(
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_func_start_fetch_and_store(
+  auto value = uniffi_veloqrs_fn_func_start_fetch_and_store(
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return jsi::Value::undefined();
+  return uniffi_jsi::Bridging<uint64_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
@@ -17959,7 +17960,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_func_take_fetch_and_store_result(&status);
+  auto value = uniffi_veloqrs_fn_func_take_fetch_and_store_result(
+      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 

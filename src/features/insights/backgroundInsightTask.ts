@@ -86,18 +86,31 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForDownloadCompletion(
-  getDownloadProgress: () => { active: boolean }
-): Promise<boolean> {
+/**
+ * Wait for one run's own result.
+ *
+ * This used to poll `getDownloadProgress().active`, which is a single global
+ * flag: with a foreground sync running, the push task could watch that sync's
+ * download finish, return, and take a result that was never its own. A run's
+ * result appears only when that run finishes, so waiting on it is the same
+ * wait without the mistake.
+ */
+interface FetchRunResult {
+  successCount: number;
+  totalPoints: number;
+}
+
+async function waitForRunResult(
+  takeResult: (run: bigint) => FetchRunResult | null | undefined,
+  run: bigint
+): Promise<FetchRunResult | null> {
   const deadline = Date.now() + GPS_DOWNLOAD_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const progress = getDownloadProgress();
-    if (!progress.active) {
-      return true;
-    }
+    const result = takeResult(run);
+    if (result) return result;
     await sleep(GPS_DOWNLOAD_POLL_MS);
   }
-  return false;
+  return null;
 }
 
 /**
@@ -148,12 +161,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
     // so hand it the rehydrated credential before asking it to fetch.
     pushCredentialsToEngine();
 
-    const {
-      startFetchAndStore,
-      getDownloadProgress,
-      takeFetchAndStoreResult,
-      engine,
-    } = require('veloqrs');
+    const { startFetchAndStore, takeFetchAndStoreResult, engine } = require('veloqrs');
 
     const activity = await awaitActivityBody(engine, activityId, ACTIVITY_DETAIL_TIMEOUT_MS);
     if (!activity) return null;
@@ -186,7 +194,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       return activityInfo;
     }
 
-    startFetchAndStore(
+    const run = startFetchAndStore(
       [activityId],
       [
         {
@@ -200,12 +208,10 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
     );
 
     const startTime = Date.now();
-    const completed = await waitForDownloadCompletion(getDownloadProgress);
-    if (!completed) {
+    const result = await waitForRunResult(takeFetchAndStoreResult, run);
+    if (!result) {
       log.warn(`GPS ingest timed out after ${GPS_DOWNLOAD_TIMEOUT_MS}ms for ${activityId}`);
     }
-
-    const result = takeFetchAndStoreResult();
     if (result && result.successCount > 0) {
       const { toActivityMetrics } = require('@/features/activity/lib/activityMetrics');
       engine.setActivityMetrics([toActivityMetrics(activity)]);
