@@ -346,7 +346,16 @@
     "syncError": {
       "title": "La synchronisation n'aboutit pas",
       "lastSynced": "Derniere synchronisation {{when}}",
-      "neverSynced": "Aucune synchronisation n'a abouti"
+      "neverSynced": "Aucune synchronisation n'a abouti",
+      "reason": {
+        "unauthorized": "intervals.icu a refuse votre connexion",
+        "rateLimited": "intervals.icu demande une pause, la synchronisation attend",
+        "server": "intervals.icu a renvoye quelque chose que l'app n'a pas pu utiliser",
+        "network": "Impossible de joindre intervals.icu",
+        "storage": "Un fichier de cet appareil n'a pas pu etre lu",
+        "notConfigured": "Aucune connexion intervals.icu n'est enregistree sur cet appareil",
+        "internal": "La synchronisation s'est arretee pour une raison que l'app ne sait pas nommer"
+      }
     }
   },
   "engine": {
