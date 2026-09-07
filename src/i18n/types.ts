@@ -374,9 +374,11 @@ export interface TranslationResource {
     maxMetricsHint: string;
     appTour: string;
     appTourDescription: string;
-    general: string;
-    data: string;
-    notificationsAndStorage: string;
+    groupShows: string;
+    groupCollects: string;
+    groupKeeps: string;
+    groupTells: string;
+    jobsRunning: string;
     routesAndSections: string;
     heatmapGeneration: string;
     heatmapDescription: string;

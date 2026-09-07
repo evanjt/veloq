@@ -13,6 +13,7 @@ import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext'
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useRecordingPreferences } from '@/features/recording';
 import { useSensorStore } from '@/features/sensors';
+import { useBackgroundJobs } from '@/features/settings';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useLanguageStore, getAvailableLanguages } from '@/shared/app/LanguageStore';
@@ -194,6 +195,15 @@ export default function SettingsScreen() {
       ? t('sensors.pairedCount', { count: pairedSensorCount })
       : t('sensors.nonePairedShort');
 
+  // Subtitle: Background jobs. This spoke has no preference to preview, so the
+  // state of the thing itself is what the row is for: how many are running.
+  const backgroundJobs = useBackgroundJobs();
+  const runningJobCount = backgroundJobs.filter((job) => job.state === 'running').length;
+  const backgroundJobsSubtitle =
+    runningJobCount > 0
+      ? t('settings.jobsRunning', { count: runningJobCount })
+      : t('backgroundJobs.stateIdle');
+
   // Subtitle: Notifications
   const notificationsEnabled = useNotificationPreferences((s) => s.enabled);
 
@@ -248,9 +258,13 @@ export default function SettingsScreen() {
             isDark={isDark}
           />
 
-          {/* General */}
-          <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
-            {t('settings.general', 'GENERAL').toUpperCase()}
+          {/* Grouped by what the athlete is doing, not by which subsystem owns
+              the screen: that is how the heatmap toggle came to sit under sync. */}
+          <Text
+            style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+            testID="settings-group-shows"
+          >
+            {t('settings.groupShows', 'What it shows me').toUpperCase()}
           </Text>
           <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
             <SettingsNavRow
@@ -278,9 +292,11 @@ export default function SettingsScreen() {
             />
           </View>
 
-          {/* Data */}
-          <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
-            {t('settings.data', 'DATA').toUpperCase()}
+          <Text
+            style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+            testID="settings-group-collects"
+          >
+            {t('settings.groupCollects', 'What it collects').toUpperCase()}
           </Text>
           <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
             <SettingsNavRow
@@ -289,21 +305,6 @@ export default function SettingsScreen() {
               subtitle={syncSubtitle}
               onPress={nav('/sync-settings')}
               testID="settings-nav-sync"
-            />
-            <RowDivider isDark={isDark} />
-            <SettingsNavRow
-              icon="map-marker-path"
-              title={t('settings.routesAndSections', 'Routes & Sections')}
-              subtitle={detectionSubtitle}
-              onPress={nav('/detection-settings')}
-              testID="settings-nav-detection"
-            />
-            <RowDivider isDark={isDark} />
-            <SettingsNavRow
-              icon="progress-clock"
-              title={t('backgroundJobs.title')}
-              onPress={nav('/background-jobs')}
-              testID="settings-nav-background-jobs"
             />
             <RowDivider isDark={isDark} />
             <SettingsNavRow
@@ -323,17 +324,21 @@ export default function SettingsScreen() {
             />
           </View>
 
-          {/* Notifications & Storage */}
-          <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
-            {t('settings.notificationsAndStorage', 'NOTIFICATIONS & STORAGE').toUpperCase()}
+          {/* Detection is a computation, but what the athlete manages on that
+              screen is the catalogue it keeps, so it sits here. */}
+          <Text
+            style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+            testID="settings-group-keeps"
+          >
+            {t('settings.groupKeeps', 'What it keeps').toUpperCase()}
           </Text>
           <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
             <SettingsNavRow
-              icon="bell-outline"
-              title={t('notifications.settings.title')}
-              subtitle={notificationsEnabled ? t('common.on') : t('common.off')}
-              onPress={nav('/notification-settings')}
-              testID="settings-nav-notifications"
+              icon="map-marker-path"
+              title={t('settings.routesAndSections', 'Routes & Sections')}
+              subtitle={detectionSubtitle}
+              onPress={nav('/detection-settings')}
+              testID="settings-nav-detection"
             />
             <RowDivider isDark={isDark} />
             <SettingsNavRow
@@ -350,6 +355,32 @@ export default function SettingsScreen() {
               subtitle={formatFileSize(totalCacheSize)}
               onPress={nav('/cache-settings')}
               testID="settings-nav-cache"
+            />
+          </View>
+
+          {/* Background jobs is a status screen rather than a preference, and
+              it is here because it is where the app reports on itself. */}
+          <Text
+            style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+            testID="settings-group-tells"
+          >
+            {t('settings.groupTells', 'What it tells me').toUpperCase()}
+          </Text>
+          <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+            <SettingsNavRow
+              icon="bell-outline"
+              title={t('notifications.settings.title')}
+              subtitle={notificationsEnabled ? t('common.on') : t('common.off')}
+              onPress={nav('/notification-settings')}
+              testID="settings-nav-notifications"
+            />
+            <RowDivider isDark={isDark} />
+            <SettingsNavRow
+              icon="progress-clock"
+              title={t('backgroundJobs.title')}
+              subtitle={backgroundJobsSubtitle}
+              onPress={nav('/background-jobs')}
+              testID="settings-nav-background-jobs"
             />
           </View>
 
