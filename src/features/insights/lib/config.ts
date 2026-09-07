@@ -30,6 +30,8 @@ export interface InsightsConfig {
   /** G3 - minimum lifetime repetitions for trend-type insights. */
   repetition: {
     section_trend_min: number;
+    /** The declining branch alone, which has to earn more than an improvement. */
+    section_trend_declining_min: number;
     efficiency_trend_min: number;
     stale_pr_min_lifetime: number;
     strength_min_sets: number;
@@ -118,6 +120,15 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
 
   repetition: {
     section_trend_min: 3, // Lally 2010 - trend needs ≥3 repetitions
+    // A decline is the one card that tells the athlete they got worse, and it
+    // arrives during the bad patch that produced it. Three traversals inside
+    // the 28-day window is as likely to be weather, traffic or one tired day,
+    // so the declining branch waits for five: the smallest floor a single bad
+    // week on a section ridden every other day cannot reach on its own.
+    // The asymmetry is the decision that the panel is a mirror: a negative
+    // fact is shown when the evidence supports it, and this is what supporting
+    // it means for a trend. Ten is still what saturates the confidence.
+    section_trend_declining_min: 5,
     efficiency_trend_min: 3,
     stale_pr_min_lifetime: 2, // had to have been meaningful at least once
     strength_min_sets: 4,
