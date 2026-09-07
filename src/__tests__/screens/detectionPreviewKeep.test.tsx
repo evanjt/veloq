@@ -1,3 +1,4 @@
+import { StartOutcome } from 'veloqrs';
 import React from 'react';
 import { Alert } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
@@ -48,7 +49,7 @@ jest.mock('expo-router', () => ({
 }));
 
 const mockSetSectionConfig = jest.fn();
-const mockClientForceRedetect = jest.fn(() => true);
+const mockClientForceRedetect = jest.fn(() => StartOutcome.Started);
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
@@ -71,7 +72,7 @@ jest.mock('@/shared/native/engine', () => ({
   },
 }));
 
-const mockForceRescan = jest.fn(() => true);
+const mockForceRescan = jest.fn(() => StartOutcome.Started);
 jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
   useSectionRescan: () => ({
     isScanning: false,
@@ -129,8 +130,8 @@ function pressKeepAndConfirm() {
 describe('keeping a preview starts an observable re-cut', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockForceRescan.mockReturnValue(true);
-    mockClientForceRedetect.mockReturnValue(true);
+    mockForceRescan.mockReturnValue(StartOutcome.Started);
+    mockClientForceRedetect.mockReturnValue(StartOutcome.Started);
   });
 
   it('starts the re-cut through the rescan hook, not the raw client', () => {
@@ -148,7 +149,7 @@ describe('keeping a preview starts an observable re-cut', () => {
   });
 
   it('stays on the screen when the engine refuses the re-cut', () => {
-    mockForceRescan.mockReturnValue(false);
+    mockForceRescan.mockReturnValue(StartOutcome.Held);
 
     pressKeepAndConfirm();
 

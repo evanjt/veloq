@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { StartOutcome } from 'veloqrs';
 import { getPhaseDisplayName } from '@/features/routes/lib/detectionProgress';
 import type {
   PreviewClient,
@@ -36,7 +37,12 @@ export interface PreviewDetectState {
   result: PreviewResult | null;
   /** True when start was refused, ie. another run or the elevation backfill. */
   suspended: boolean;
-  start: (lat: number, lng: number, params: PreviewParams) => boolean;
+  /**
+   * Ask for a preview run. The verdict names the refusal: a run already going
+   * or a backfill holding detection both lift on their own, a missing config
+   * does not.
+   */
+  start: (lat: number, lng: number, params: PreviewParams) => StartOutcome;
   cancel: () => void;
   reset: () => void;
 }
@@ -86,12 +92,13 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
   }, [client]);
 
   const start = useCallback(
-    (lat: number, lng: number, params: PreviewParams): boolean => {
-      if (!client || runningRef.current) return false;
+    (lat: number, lng: number, params: PreviewParams): StartOutcome => {
+      if (!client) return StartOutcome.NotReady;
+      if (runningRef.current) return StartOutcome.Busy;
       const config = client.getSectionConfig();
       if (!config) {
         setStatus('error');
-        return false;
+        return StartOutcome.NotConfigured;
       }
       setSuspended(false);
       // The previous result stands until this run settles. During a run there
@@ -103,9 +110,12 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
       setProgress(null);
       const started = client.startPreviewDetect(lat, lng, { ...config, ...params });
       if (!started) {
+        // The engine refuses only while a detect runs or the backfill holds
+        // detection, and both end, so this is the refusal worth asking about
+        // again rather than the one that never changes.
         setSuspended(true);
         setStatus('idle');
-        return false;
+        return StartOutcome.Held;
       }
       setStatus('running');
       runningRef.current = true;
@@ -113,7 +123,7 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
         client.subscribe('previewFinished', settle),
         client.subscribe('previewPhase', readProgress),
       ];
-      return true;
+      return StartOutcome.Started;
     },
     [client, settle, readProgress]
   );

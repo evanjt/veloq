@@ -15,6 +15,7 @@
 
 use super::error::VeloqError;
 use super::observer;
+use super::start::FfiStartOutcome;
 #[cfg(test)]
 use crate::governor;
 use crate::governor::{AuthMethod, Lane};
@@ -429,6 +430,26 @@ impl SyncService {
         inner.last_error = None;
         inner.last_error_reason = None;
         true
+    }
+
+    /// Claim the slot and build the transport, naming why when either refuses.
+    ///
+    /// The two refusals are opposite situations, a slot held for a moment and a
+    /// credential that is not there, and the caller's only sane reaction to
+    /// them differs. Deciding it here keeps both starts honest and keeps the
+    /// verdict out of the FFI methods, which cannot be tested without the
+    /// global service.
+    fn try_start(&self) -> Result<(Transport, String), FfiStartOutcome> {
+        if !self.try_begin() {
+            return Err(FfiStartOutcome::Busy);
+        }
+        match self.build_transport() {
+            Ok(pair) => Ok(pair),
+            Err(e) => {
+                self.finish(SyncState::Idle, Some(e), false);
+                Err(FfiStartOutcome::NotConfigured)
+            }
+        }
     }
 
     /// Declare how many steps the job will run, so a poll of the status shows
@@ -1131,76 +1152,64 @@ impl SyncManager {
         SYNC_SERVICE.clear_credentials();
     }
 
-    /// Start a sync. Returns instantly: true if a new sync started, false if one
-    /// was already running or credentials are missing. Work runs on the shared
-    /// runtime; observe progress via `get_sync_status`.
-    fn sync_now(&self) -> Result<bool, VeloqError> {
-        if !SYNC_SERVICE.try_begin() {
-            return Ok(false);
-        }
-        match SYNC_SERVICE.build_transport() {
-            Ok((transport, athlete_id)) => {
-                crate::runtime::spawn(async move {
-                    let _guard = FinishGuard;
-                    perform_sync(&SYNC_SERVICE, transport, athlete_id).await;
-                });
-                Ok(true)
-            }
-            Err(e) => {
-                SYNC_SERVICE.finish(SyncState::Idle, Some(e), false);
-                Ok(false)
-            }
-        }
+    /// Start a sync. Returns instantly, naming whether the job started and, if
+    /// not, whether asking again later would. Work runs on the shared runtime;
+    /// observe progress via `get_sync_status`.
+    fn sync_now(&self) -> Result<FfiStartOutcome, VeloqError> {
+        let (transport, athlete_id) = match SYNC_SERVICE.try_start() {
+            Ok(pair) => pair,
+            Err(refusal) => return Ok(refusal),
+        };
+        crate::runtime::spawn(async move {
+            let _guard = FinishGuard;
+            perform_sync(&SYNC_SERVICE, transport, athlete_id).await;
+        });
+        Ok(FfiStartOutcome::Started)
     }
 
-    /// Fetch and store one date window of activities. Returns instantly: true
-    /// if the job started, false if a sync is already running or credentials
-    /// are missing. The feed calls this for windows the default sync misses.
-    fn sync_activities_window(&self, oldest: String, newest: String) -> Result<bool, VeloqError> {
-        if !SYNC_SERVICE.try_begin() {
-            return Ok(false);
-        }
-        match SYNC_SERVICE.build_transport() {
-            Ok((transport, athlete_id)) => {
-                crate::runtime::spawn(async move {
-                    let _guard = FinishGuard;
-                    if !SYNC_SERVICE.still_signed_in(&athlete_id) {
-                        SYNC_SERVICE.finish(SyncState::Idle, None, false);
-                        return;
-                    }
-                    SYNC_SERVICE.begin_steps(1);
-                    match sync_activity_window(&transport, &athlete_id, &oldest, &newest).await {
-                        Ok(()) => {
-                            SYNC_SERVICE.complete_step();
-                            SYNC_SERVICE.finish(SyncState::Idle, None, true);
-                        }
-                        Err(NetError::Unauthorized) => {
-                            if credential_is_rejected(&transport, &athlete_id).await {
-                                SYNC_SERVICE.finish(
-                                    SyncState::AuthExpired,
-                                    Some(SyncFailure::unauthorized()),
-                                    false,
-                                );
-                            } else {
-                                SYNC_SERVICE.finish(
-                                    SyncState::Idle,
-                                    Some(SyncFailure::from(&NetError::Unauthorized)),
-                                    false,
-                                );
-                            }
-                        }
-                        Err(e) => {
-                            SYNC_SERVICE.finish(SyncState::Idle, Some(SyncFailure::from(&e)), false)
-                        }
-                    }
-                });
-                Ok(true)
+    /// Fetch and store one date window of activities. Returns instantly,
+    /// naming whether the job started and, if not, whether asking again later
+    /// would. The feed calls this for windows the default sync misses.
+    fn sync_activities_window(
+        &self,
+        oldest: String,
+        newest: String,
+    ) -> Result<FfiStartOutcome, VeloqError> {
+        let (transport, athlete_id) = match SYNC_SERVICE.try_start() {
+            Ok(pair) => pair,
+            Err(refusal) => return Ok(refusal),
+        };
+        crate::runtime::spawn(async move {
+            let _guard = FinishGuard;
+            if !SYNC_SERVICE.still_signed_in(&athlete_id) {
+                SYNC_SERVICE.finish(SyncState::Idle, None, false);
+                return;
             }
-            Err(e) => {
-                SYNC_SERVICE.finish(SyncState::Idle, Some(e), false);
-                Ok(false)
+            SYNC_SERVICE.begin_steps(1);
+            match sync_activity_window(&transport, &athlete_id, &oldest, &newest).await {
+                Ok(()) => {
+                    SYNC_SERVICE.complete_step();
+                    SYNC_SERVICE.finish(SyncState::Idle, None, true);
+                }
+                Err(NetError::Unauthorized) => {
+                    if credential_is_rejected(&transport, &athlete_id).await {
+                        SYNC_SERVICE.finish(
+                            SyncState::AuthExpired,
+                            Some(SyncFailure::unauthorized()),
+                            false,
+                        );
+                    } else {
+                        SYNC_SERVICE.finish(
+                            SyncState::Idle,
+                            Some(SyncFailure::from(&NetError::Unauthorized)),
+                            false,
+                        );
+                    }
+                }
+                Err(e) => SYNC_SERVICE.finish(SyncState::Idle, Some(SyncFailure::from(&e)), false),
             }
-        }
+        });
+        Ok(FfiStartOutcome::Started)
     }
 
     /// Fetch and store a power curve for a sport and window. Returns false if
@@ -1522,6 +1531,33 @@ mod tests {
         assert_eq!(svc.snapshot().state, SyncState::Syncing);
         // Second begin while running is rejected.
         assert!(!svc.try_begin());
+    }
+
+    #[test]
+    fn try_start_names_a_held_slot_apart_from_a_missing_credential() {
+        let svc = SyncService::new();
+        // No credential: refusing is correct and will stay correct.
+        assert_eq!(
+            svc.try_start().err(),
+            Some(FfiStartOutcome::NotConfigured),
+            "a missing credential is not a busy slot"
+        );
+        assert!(!FfiStartOutcome::NotConfigured.is_retryable());
+        // The failed attempt must not leave the slot claimed.
+        assert_eq!(svc.snapshot().state, SyncState::Idle);
+
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        let (_transport, athlete) = svc.try_start().expect("a configured start is accepted");
+        assert_eq!(athlete, "i1");
+
+        // Now the slot is held, which is the opposite situation and used to
+        // reach the caller as the same `false`.
+        assert_eq!(
+            svc.try_start().err(),
+            Some(FfiStartOutcome::Busy),
+            "a held slot is not a missing credential"
+        );
+        assert!(FfiStartOutcome::Busy.is_retryable());
     }
 
     #[test]

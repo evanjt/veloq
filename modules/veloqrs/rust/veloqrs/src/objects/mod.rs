@@ -11,6 +11,7 @@ mod recordings;
 mod routes;
 pub mod sections;
 mod settings;
+pub mod start;
 pub mod strength;
 mod sync;
 mod tiles;
@@ -19,6 +20,7 @@ pub use detection::DetectionManager;
 pub use engine::VeloqEngine;
 pub use error::VeloqError;
 pub use preview::SectionPreview;
+pub use start::FfiStartOutcome;
 #[cfg(test)]
 pub(crate) use sync::test_credentials;
 pub use sync::{
