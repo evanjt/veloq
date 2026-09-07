@@ -197,12 +197,24 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
 
     match result {
         crate::persistence::WorkerPoll::Died => {
+            // A run that was asked to stop leaves the channel gone too, and it
+            // is not a failure: the worker did what it was told. Read the phase
+            // before clearing the handle, since that is what tells the two
+            // apart.
+            let cancelled = handle_guard.as_ref().is_some_and(|h| {
+                h.get_progress().0 == crate::persistence::sections::detection::PHASE_CANCELLED
+            });
             // The worker thread died without sending (panic or early
             // abort). Clear the handle so the next start() can run,
             // otherwise detection is blocked for the rest of the session.
             *handle_guard = None;
-            log::error!("veloqrs: [DetectionManager] Detection thread died without a result");
-            record_outcome(OUTCOME_ERROR);
+            if cancelled {
+                info!("veloqrs: [DetectionManager] Detection cancelled, the slot is free");
+                record_outcome(OUTCOME_IDLE);
+            } else {
+                log::error!("veloqrs: [DetectionManager] Detection thread died without a result");
+                record_outcome(OUTCOME_ERROR);
+            }
             Ok(DetectionPoll::Died)
         }
         crate::persistence::WorkerPoll::Ready((sections, detection_activity_ids)) => {
@@ -467,6 +479,27 @@ impl DetectionManager {
                 percent,
             }
         }))
+    }
+
+    /// Ask a running detection to stop. Returns whether there was one.
+    ///
+    /// Cooperative: the worker checks between stages, so the call returns at
+    /// once and the run ends on its own clock. A cancel that lands inside the
+    /// detector's own call discards that work rather than shortening it, which
+    /// is the same caveat the preview carries and for the same reason: a
+    /// half-detected catalogue is worse than none.
+    pub fn cancel(&self) -> bool {
+        let guard = SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        match guard.as_ref() {
+            Some(handle) => {
+                handle.request_cancel();
+                info!("veloqrs: [DetectionManager] Cancel requested");
+                true
+            }
+            None => false,
+        }
     }
 
     /// Force full re-detection by clearing processed activity IDs first.
@@ -1105,6 +1138,55 @@ mod tests {
         assert!(died.join().is_err(), "the driver panicked");
 
         assert_eq!(slot_drivers(), before, "an unwind drops the guard");
+    }
+
+    /// Scenario: a detection run started from a screen cannot be stopped. The
+    /// worker loads every track and detects over all of them whatever the
+    /// athlete does next, and `DetectionManager` exposed no cancel at all, so
+    /// no screen could ask.
+    ///
+    /// Expected behaviour: a run can be asked to stop, the ask reaches the
+    /// worker, and the slot it held is free afterwards so the next detection
+    /// can start. A cancel is not an error: the run did what it was told.
+    #[test]
+    fn a_running_detection_can_be_cancelled_and_frees_its_slot() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        wait_for_slot_drivers();
+
+        let manager = DetectionManager::new();
+        assert!(manager.start().expect("start").started(), "the run starts");
+        assert!(manager.cancel(), "a running detection is there to cancel");
+
+        // The worker checks between stages, so the run ends on its own clock.
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while detection_running() && Instant::now() < deadline {
+            let _ = poll_detection_once();
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(!detection_running(), "the slot is free again");
+
+        assert!(
+            manager.start().expect("second start").started(),
+            "and the next detection can start"
+        );
+        wait_for_the_run_to_apply(&manager);
+        timed_poll_to_completion();
+    }
+
+    /// Cancelling when nothing is running says so, rather than arming a flag
+    /// the next run would read.
+    #[test]
+    fn cancelling_an_idle_detection_says_there_was_nothing_to_stop() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+
+        assert!(
+            !DetectionManager::new().cancel(),
+            "there is no run to cancel"
+        );
     }
 
     /// The poll that observes completion, timed. A `Running` poll or two can

@@ -30,6 +30,13 @@ interface SectionRescanState {
    * verdict is returned once and every consumer of it was dropping it.
    */
   refusal: StartOutcome | null;
+  /**
+   * Ask the running scan to stop. False when there was none.
+   *
+   * Cooperative: the worker ends at its next stage boundary, so the spinner
+   * clears when the run reports its end rather than on this call.
+   */
+  cancelScan: () => boolean;
   isScanning: boolean;
   progress: RescanProgress | null;
   result: RescanResult | null;
@@ -127,6 +134,12 @@ export function useSectionRescan(): SectionRescanState {
     return adopt(engine.forceRedetectSections());
   }, [adopt]);
 
+  const cancelScan = useCallback(() => {
+    const engine = getEngine();
+    if (!engine) return false;
+    return engine.cancelSectionDetection();
+  }, []);
+
   const clearResult = useCallback(() => {
     setResult(null);
     setFailed(false);
@@ -160,5 +173,15 @@ export function useSectionRescan(): SectionRescanState {
     };
   }, []);
 
-  return { rescan, forceRescan, refusal, isScanning, progress, result, failed, clearResult };
+  return {
+    rescan,
+    forceRescan,
+    cancelScan,
+    refusal,
+    isScanning,
+    progress,
+    result,
+    failed,
+    clearResult,
+  };
 }

@@ -59,6 +59,13 @@ pub fn detection_workers_started() -> u64 {
 /// retries at once, so a repaired library is never held off by the window.
 const ABANDON_RETRY_SECONDS: i64 = 6 * 3600;
 
+/// The phase a run that was asked to stop leaves behind.
+///
+/// The poll reads the channel as gone for a cancel and for a worker that died,
+/// and the two are not the same thing to report. This is what tells them apart,
+/// and it is already the state a progress reader watches.
+pub const PHASE_CANCELLED: &str = "cancelled";
+
 /// `schema_info` key holding the completeness of the pool the live catalogue
 /// was cut over.
 const POOL_INTEGRITY_KEY: &str = "detection_pool_integrity";
@@ -611,6 +618,8 @@ impl PersistentEngine {
             cache_receiver: cache_rx,
             progress,
             worker_applied: None,
+            // No worker to ask, so the flag is here to satisfy the shape.
+            cancel: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -849,6 +858,9 @@ impl PersistentEngine {
                 cache_receiver: cache_rx,
                 progress,
                 worker_applied,
+                // The echo is one write and already under way; there is no
+                // stage boundary to stop it at.
+                cancel: Arc::new(AtomicBool::new(false)),
             };
         }
 
@@ -864,6 +876,9 @@ impl PersistentEngine {
         let all_activity_ids = activity_ids.clone();
 
         let applied_flag = worker_applied.clone();
+
+        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel_worker = Arc::clone(&cancel);
 
         DETECTION_WORKERS_STARTED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         thread::spawn(move || {
@@ -902,6 +917,16 @@ impl PersistentEngine {
                 return;
             }
 
+            // Between stages, never inside one. Returning without sending is
+            // the abort shape this worker already uses: the poll reads the
+            // channel as gone, clears the handle, and the slot is free for the
+            // next run.
+            if cancel_worker.load(Ordering::SeqCst) {
+                log::info!("veloqrs: [SectionDetection] Cancelled before the groups were built");
+                progress_clone.set_phase(PHASE_CANCELLED, 0);
+                return;
+            }
+
             let groups = if needs_group_recompute {
                 log::info!(
                     "veloqrs: [SectionDetection] Recomputing route groups on background thread..."
@@ -915,6 +940,12 @@ impl PersistentEngine {
                 groups.len(),
                 needs_group_recompute
             );
+
+            if cancel_worker.load(Ordering::SeqCst) {
+                log::info!("veloqrs: [SectionDetection] Cancelled before the track load");
+                progress_clone.set_phase(PHASE_CANCELLED, 0);
+                return;
+            }
 
             progress_clone.set_phase("loading", ids_to_load.len() as u32);
 
@@ -1217,6 +1248,7 @@ impl PersistentEngine {
             cache_receiver: cache_rx,
             progress,
             worker_applied,
+            cancel,
         }
     }
 
