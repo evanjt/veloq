@@ -1290,6 +1290,7 @@
     "previewRun": "Podgląd",
     "previewRunning": "Analizowanie {{count}} aktywności w tym obszarze",
     "previewFailed": "Nie udało się ukończyć podglądu.",
+    "previewSlow": "Trwa to dłużej niż zwykle. Analiza wciąż działa.",
     "previewPoolUnusable": "Niektorych sladow aktywnosci nie mozna odczytac, wiec podglad zostal zatrzymany.",
     "previewCurrentFailed": "Nie udało się odczytać bieżących odcinków dla tego obszaru.",
     "previewSuspended": "Trwa aktualizacja wysokości. Spróbuj ponownie za chwilę.",

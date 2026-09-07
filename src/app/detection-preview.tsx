@@ -59,7 +59,8 @@ export default function DetectionPreviewScreen() {
 
   const client = useMemo(() => getEngine(), []);
   const { centres, labels } = usePreviewCentres(client);
-  const { status, progress, result, suspended, start, cancel, reset } = usePreviewDetect(client);
+  const { status, progress, result, suspended, lapsed, start, cancel, reset } =
+    usePreviewDetect(client);
   // The preview is a settings sandbox: it loads a subset, runs the detector to
   // show what different settings produce, and touches no catalogue until Keep.
   // So the cutover hold that refuses every real detect does not reach it, and
@@ -232,6 +233,11 @@ export default function DetectionPreviewScreen() {
                 ]}
               />
             </View>
+            {lapsed && (
+              <Text style={[styles.notice, { color: textSecondary }]} testID="preview-slow">
+                {t('settings.previewSlow')}
+              </Text>
+            )}
           </View>
         ) : (
           // One row, so a result does not cost a second. Keep takes the accent

@@ -301,6 +301,7 @@ export interface TranslationResource {
     previewRun: string;
     previewRunning: string;
     previewFailed: string;
+    previewSlow: string;
     previewPoolUnusable: string;
     previewSuspended: string;
     previewCurrentFailed: string;
