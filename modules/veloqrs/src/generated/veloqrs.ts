@@ -5231,6 +5231,12 @@ export type FfiRecordingEntry = {
    * the reconcile sweep exists to replay.
    */
   engineReconciled: boolean;
+  /**
+   * The athlete signed in when the recording was saved. `None` on a row
+   * written before the column existed, which is not the same as a row that
+   * belongs to nobody: an unstamped entry is held rather than uploaded.
+   */
+  athleteId?: string;
 };
 
 /**
@@ -5274,6 +5280,7 @@ const FfiConverterTypeFfiRecordingEntry = (() => {
         intervalsActivityId: FfiConverterOptionalString.read(from),
         engineActivityId: FfiConverterOptionalString.read(from),
         engineReconciled: FfiConverterBool.read(from),
+        athleteId: FfiConverterOptionalString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -5296,6 +5303,7 @@ const FfiConverterTypeFfiRecordingEntry = (() => {
       FfiConverterOptionalString.write(value.intervalsActivityId, into);
       FfiConverterOptionalString.write(value.engineActivityId, into);
       FfiConverterBool.write(value.engineReconciled, into);
+      FfiConverterOptionalString.write(value.athleteId, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -5317,7 +5325,8 @@ const FfiConverterTypeFfiRecordingEntry = (() => {
         FfiConverterOptionalString.allocationSize(value.lastError) +
         FfiConverterOptionalString.allocationSize(value.intervalsActivityId) +
         FfiConverterOptionalString.allocationSize(value.engineActivityId) +
-        FfiConverterBool.allocationSize(value.engineReconciled)
+        FfiConverterBool.allocationSize(value.engineReconciled) +
+        FfiConverterOptionalString.allocationSize(value.athleteId)
       );
     }
   }
