@@ -117,7 +117,8 @@ export function useSectionActions({
   // --- name edit state ---
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
-  const [customName, setCustomName] = useState<string | null>(null);
+  const [customName, setCustomName] = useState<string | null>(section?.name ?? null);
+  const [nameShownFor, setNameShownFor] = useState(section?.name);
   const nameInputRef = useRef<TextInput>(null);
 
   // Sync custom name when the section's name changes (e.g. after initial load
@@ -130,9 +131,13 @@ export function useSectionActions({
   // never named. An optimistic rename is not clobbered by this: it writes
   // `customName` and leaves `section.name` alone, so the dependency does not
   // change and this does not run.
-  useEffect(() => {
+  // Taking it while rendering rather than in an effect is what keeps the
+  // previous section's name off the survivor: an effect adopts it one commit
+  // late, and that commit is a painted frame.
+  if (section?.name !== nameShownFor) {
+    setNameShownFor(section?.name);
     setCustomName(section?.name ?? null);
-  }, [section?.name]);
+  }
 
   // --- reference selection state ---
   const [overrideReferenceId, setOverrideReferenceId] = useState<string | null>(null);
