@@ -5,7 +5,6 @@ export { BackupSection } from './BackupSection';
 export { CacheManagementPanel } from './CacheManagementPanel';
 export { DataCacheSection } from './DataCacheSection';
 export { CutoverStatus, CUTOVER_STATUS_TEST_ID } from './CutoverStatus';
-export { DetectionIllustration } from './DetectionIllustration';
 export { DataSourcesSection } from './DataSourcesSection';
 export { DisplaySettings } from './DisplaySettings';
 export { ElevationBackfillStatus } from './ElevationBackfillStatus';

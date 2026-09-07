@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -20,43 +20,9 @@ import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import {
   BackgroundJobsLink,
   CutoverStatus,
-  DetectionIllustration,
   ElevationBackfillStatus,
 } from '@/features/settings/components';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
-import { getEngine, UNIFIED_CONFIG } from '@/shared/native/engine';
-
-type DetectionParams = {
-  proximityThreshold: number;
-  minSectionLength: number;
-  minActivities: number;
-  divergenceThreshold: number;
-};
-
-/** The configuration the detector is validated at, used until the engine
- *  reports what it has persisted. */
-function defaultParams(): DetectionParams {
-  return {
-    proximityThreshold: UNIFIED_CONFIG.proximityThreshold,
-    minSectionLength: UNIFIED_CONFIG.minSectionLength,
-    minActivities: UNIFIED_CONFIG.minActivities,
-    divergenceThreshold: UNIFIED_CONFIG.divergenceThreshold,
-  };
-}
-
-/** What the engine actually has persisted, or the compiled defaults when it
- *  is not ready yet. The illustration has to draw these or it shows numbers
- *  the detector is not using. */
-function loadParams(): DetectionParams {
-  const config = getEngine()?.getSectionConfig();
-  if (!config) return defaultParams();
-  return {
-    proximityThreshold: config.proximityThreshold,
-    minSectionLength: config.minSectionLength,
-    minActivities: config.minActivities,
-    divergenceThreshold: config.divergenceThreshold,
-  };
-}
 
 export default function DetectionSettingsScreen() {
   const { t } = useTranslation();
@@ -71,15 +37,6 @@ export default function DetectionSettingsScreen() {
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
   const danger = isDark ? darkColors.error : colors.error;
-
-  const [params, setParams] = useState<DetectionParams>(loadParams);
-
-  // The engine can still be initialising on the first render, and then the
-  // lazy seed above fell back to the defaults.
-  useEffect(() => {
-    if (!getEngine()?.getSectionConfig()) return;
-    setParams(loadParams());
-  }, []);
 
   const {
     forceRescan,
@@ -147,12 +104,17 @@ export default function DetectionSettingsScreen() {
           style={{ opacity: routeMatchingEnabled ? 1 : 0.4 }}
           pointerEvents={routeMatchingEnabled ? 'auto' : 'none'}
         >
-          <DetectionIllustration
-            proximity={params.proximityThreshold}
-            minSectionLength={params.minSectionLength}
-            minActivities={params.minActivities}
-            divergenceThreshold={params.divergenceThreshold}
-          />
+          <Pressable
+            style={[styles.previewRow, { backgroundColor: surface, borderColor: border }]}
+            onPress={() => router.push('/detection-preview' as Href)}
+            testID="detection-preview-row"
+          >
+            <MaterialCommunityIcons name="map-search-outline" size={20} color={textSecondary} />
+            <Text style={[styles.previewRowText, { color: textPrimary }]}>
+              {t('settings.previewSections')}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={22} color={textSecondary} />
+          </Pressable>
 
           <Pressable
             style={[
@@ -195,18 +157,6 @@ export default function DetectionSettingsScreen() {
               )}
             </Text>
           )}
-
-          <Pressable
-            style={[styles.previewRow, { backgroundColor: surface, borderColor: border }]}
-            onPress={() => router.push('/detection-preview' as Href)}
-            testID="detection-preview-row"
-          >
-            <MaterialCommunityIcons name="map-search-outline" size={20} color={textSecondary} />
-            <Text style={[styles.previewRowText, { color: textPrimary }]}>
-              {t('settings.previewSections')}
-            </Text>
-            <MaterialCommunityIcons name="chevron-right" size={22} color={textSecondary} />
-          </Pressable>
 
           <ElevationBackfillStatus />
 
