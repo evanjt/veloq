@@ -33,6 +33,26 @@ export function pollSectionDetection(host: DelegateHost): string {
   }
 }
 
+/**
+ * How the last finished run ended, taking nothing.
+ *
+ * `pollSectionDetection` receives the completion from the worker's channel, so
+ * whichever caller polls first applies the run and every other caller then sees
+ * idle. Only the follower may do that. A status surface reads this and the
+ * progress instead: neither touches the channel.
+ */
+export function lastSectionDetectionOutcome(host: DelegateHost): string {
+  if (!host.ready) return 'idle';
+  try {
+    return host.timed('lastSectionDetectionOutcome', () =>
+      host.engine.detection().lastOutcome()
+    );
+  } catch (e) {
+    console.error('[Engine] lastSectionDetectionOutcome threw:', e);
+    return 'idle';
+  }
+}
+
 export function getSectionDetectionProgress(host: DelegateHost): SectionDetectionProgress | null {
   if (!host.ready) return null;
   return (

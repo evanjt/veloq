@@ -11397,6 +11397,16 @@ export interface DetectionManagerLike {
   getConfig() /*throws*/ : FfiSectionConfig;
   getMatchStrictness() /*throws*/ : FfiMatchStrictness;
   getProgress() /*throws*/ : FfiDetectionProgress | undefined;
+  /**
+   * How the last finished run ended, without taking anything.
+   *
+   * A status surface reads this and `get_progress`: progress says whether a
+   * run holds the slot now, this says how the previous one ended. Neither
+   * touches the worker's channel, so neither can settle a run the follower
+   * is waiting on, which is what `poll` is for and why only the follower
+   * calls it.
+   */
+  lastOutcome(): string;
   poll() /*throws*/ : string;
   setConfig(config: FfiSectionConfig) /*throws*/ : void;
   setMatchStrictness(
@@ -11496,6 +11506,29 @@ export class DetectionManager
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_progress(
+            uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * How the last finished run ended, without taking anything.
+   *
+   * A status surface reads this and `get_progress`: progress says whether a
+   * run holds the slot now, this says how the previous one ended. Neither
+   * touches the worker's channel, so neither can settle a run the follower
+   * is waiting on, which is what `poll` is for and why only the follower
+   * calls it.
+   */
+  lastOutcome(): string {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_last_outcome(
             uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
             callStatus,
           );
@@ -19936,6 +19969,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_detectionmanager_get_progress",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_last_outcome() !==
+    3203
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_last_outcome",
     );
   }
   if (

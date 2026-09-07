@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 17 standalone `#[uniffi::export]` functions plus
- * 255 methods inside `#[uniffi::export] impl` blocks across
+ * 256 methods inside `#[uniffi::export] impl` blocks across
  * 15 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 272 exports (17 standalone + 255 methods)
+ * Total: 273 exports (17 standalone + 256 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -496,7 +496,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'new',
     camelName: 'new',
     file: 'objects/detection.rs',
-    line: 182,
+    line: 205,
     paramCount: 0,
     returnType: 'Arc<Self>',
     docs: '',
@@ -506,17 +506,27 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'start',
     camelName: 'start',
     file: 'objects/detection.rs',
-    line: 186,
+    line: 209,
     paramCount: 0,
     returnType: 'Result<bool, VeloqError>',
     docs: '',
     object: 'DetectionManager',
   },
   {
+    name: 'last_outcome',
+    camelName: 'lastOutcome',
+    file: 'objects/detection.rs',
+    line: 273,
+    paramCount: 0,
+    returnType: 'String',
+    docs: "How the last finished run ended, without taking anything. A status surface reads this and `get_progress`: progress says whether a run holds the slot now, this says how the previous one ended. Neither touches the worker's channel, so neither can settle a run the follower is waiting on, which is what `poll` is for and why only the follower calls it.",
+    object: 'DetectionManager',
+  },
+  {
     name: 'poll',
     camelName: 'poll',
     file: 'objects/detection.rs',
-    line: 239,
+    line: 281,
     paramCount: 0,
     returnType: 'Result<String, VeloqError>',
     docs: '',
@@ -526,7 +536,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_progress',
     camelName: 'getProgress',
     file: 'objects/detection.rs',
-    line: 248,
+    line: 290,
     paramCount: 0,
     returnType: 'Result<Option<crate::FfiDetectionProgress>, VeloqError>',
     docs: '',
@@ -536,7 +546,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'force_redetect',
     camelName: 'forceRedetect',
     file: 'objects/detection.rs',
-    line: 268,
+    line: 310,
     paramCount: 0,
     returnType: 'Result<bool, VeloqError>',
     docs: 'Force full re-detection by clearing processed activity IDs first. This ensures all activities are re-evaluated against sections. Returns false if detection is already running.',
@@ -546,7 +556,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_config',
     camelName: 'setConfig',
     file: 'objects/detection.rs',
-    line: 315,
+    line: 358,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -556,7 +566,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_config',
     camelName: 'getConfig',
     file: 'objects/detection.rs',
-    line: 321,
+    line: 364,
     paramCount: 0,
     returnType: 'Result<crate::FfiSectionConfig, VeloqError>',
     docs: '',
@@ -566,7 +576,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_match_strictness',
     camelName: 'setMatchStrictness',
     file: 'objects/detection.rs',
-    line: 325,
+    line: 368,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -576,7 +586,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_match_strictness',
     camelName: 'getMatchStrictness',
     file: 'objects/detection.rs',
-    line: 334,
+    line: 377,
     paramCount: 0,
     returnType: 'Result<crate::FfiMatchStrictness, VeloqError>',
     docs: '',
@@ -2796,6 +2806,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'evictTo',
   'new',
   'start',
+  'lastOutcome',
   'poll',
   'getProgress',
   'forceRedetect',
@@ -3076,6 +3087,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   clear_source_tiles: 'clearSourceTiles',
   evict_to: 'evictTo',
   start: 'start',
+  last_outcome: 'lastOutcome',
   poll: 'poll',
   get_progress: 'getProgress',
   force_redetect: 'forceRedetect',
