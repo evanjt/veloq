@@ -1267,7 +1267,7 @@
     "cutoverPhaseArchiving": "正在归档",
     "cutoverPhaseDetecting": "正在检测",
     "cutoverPhaseDiffing": "正在比较",
-    "previewAreaFallback": "区域 {{number}}",
+    "previewAreaFallback": "区域 {{letter}}",
     "previewAreaVisits": "{{count}} 次访问",
     "previewAreaSections": "{{count}} 个路段",
     "sectionMaxLength": "最长路段: {{distance}}",

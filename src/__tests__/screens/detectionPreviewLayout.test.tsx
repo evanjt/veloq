@@ -97,8 +97,8 @@ jest.mock('@/features/routes/hooks/usePreviewCentres', () => ({
       },
     ],
     labels: [
-      { label: 'Home', fallbackNumber: 1 },
-      { label: 'Coast', fallbackNumber: 2 },
+      { label: 'Home', fallbackLetter: 'A' },
+      { label: 'Coast', fallbackLetter: 'B' },
     ],
   }),
 }));

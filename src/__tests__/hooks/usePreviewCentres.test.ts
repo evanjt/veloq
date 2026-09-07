@@ -37,13 +37,13 @@ describe('usePreviewCentres', () => {
     expect(result.current.labels[0].label).toBe('Winterthur');
   });
 
-  it('numbers an area the engine could not name', () => {
+  it('letters an area the engine could not name', () => {
     const { client: c } = client([centre({ locality: null })]);
 
     const { result } = renderHook(() => usePreviewCentres(c));
 
     expect(result.current.labels[0].label).toBeNull();
-    expect(result.current.labels[0].fallbackNumber).toBe(1);
+    expect(result.current.labels[0].fallbackLetter).toBe('A');
   });
 
   it('reads the centres once per mount and not on every render', () => {
