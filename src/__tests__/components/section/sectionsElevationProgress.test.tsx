@@ -38,6 +38,7 @@ function backfill(over: Partial<ElevationBackfillState> = {}): ElevationBackfill
     failed: 0,
     remaining: null,
     isRunning: false,
+    isPaused: false,
     ...over,
   };
 }

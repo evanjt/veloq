@@ -242,6 +242,21 @@ export function isCutoverRunning(): boolean {
   );
 }
 /**
+ * Whether the elevation backfill is paused in this process.
+ */
+export function isElevationBackfillPaused(): boolean {
+  return FfiConverterBool.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_is_elevation_backfill_paused(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Pause the elevation backfill for the rest of this process.
  *
  * The pass in flight ends at its next batch and reports `paused`, and no
@@ -254,6 +269,25 @@ export function pauseElevationBackfill(): boolean {
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Lift a pause on the elevation backfill and start a pass again.
+ *
+ * The pause only a new process could clear left detection held and the
+ * detector cutover unable to run, with a force-quit as the only exit. Returns
+ * whether there was a pause to lift.
+ */
+export function resumeElevationBackfill(): boolean {
+  return FfiConverterBool.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_resume_elevation_backfill(
           callStatus,
         );
       },
@@ -19644,11 +19678,27 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_elevation_backfill_paused() !==
+    6502
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_is_elevation_backfill_paused",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill() !==
     42876
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_pause_elevation_backfill",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_resume_elevation_backfill() !==
+    28172
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_resume_elevation_backfill",
     );
   }
   if (

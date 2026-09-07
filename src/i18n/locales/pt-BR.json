@@ -1311,6 +1311,7 @@
     "previewKeepRefusedTitle": "A nova análise não começou",
     "previewKeepRefused": "Suas configurações foram salvas. Outra análise está em andamento, então o recálculo não começou. Tente novamente em instantes.",
     "elevationBackfillPause": "Pausar download",
+    "elevationBackfillResume": "Retomar download",
     "elevationBackfillPaused": "Download de altitude pausado. Ele será retomado na próxima vez que você abrir o app. Para parar de vez a detecção de trechos, desative Correspondencia de rotas acima.",
     "exportPrivacyTitle": "Deixar sua casa fora das exportações",
     "exportPrivacyDescription": "Corta o início e o fim de cada percurso a 100 m de casa. Apenas a cópia exportada é encurtada.",
