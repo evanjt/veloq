@@ -2,7 +2,7 @@ export * from './components';
 /* eslint-disable import/export -- RouteSignature is disambiguated below on purpose */
 export * from './hooks';
 export * from './constants';
-export { rescanRefusalKey } from './lib/rescanRefusal';
+export { rescanRefusalKey, type RescanRefusalKey } from './lib/rescanRefusal';
 export * from './types';
 
 // types.ts and the route-engine hook both declare RouteSignature (full record vs

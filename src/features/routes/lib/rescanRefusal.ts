@@ -9,7 +9,15 @@ import { StartOutcome } from 'veloqrs';
  * mapping lives here so the two screens that ask cannot disagree about what a
  * verdict means.
  */
-export function rescanRefusalKey(outcome: StartOutcome | null): string | null {
+export type RescanRefusalKey =
+  | 'sections.rescanRefusedBusy'
+  | 'sections.rescanRefusedHeld'
+  | 'sections.rescanRefusedNotReady'
+  | 'sections.rescanRefusedOff'
+  | 'sections.rescanRefusedNothingOwed'
+  | 'sections.rescanRefusedFailed';
+
+export function rescanRefusalKey(outcome: StartOutcome | null): RescanRefusalKey | null {
   switch (outcome) {
     case StartOutcome.Busy:
       return 'sections.rescanRefusedBusy';
