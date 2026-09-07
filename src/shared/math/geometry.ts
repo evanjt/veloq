@@ -2,47 +2,8 @@
  * Geometry utilities for GPS coordinate processing.
  */
 
-import { getEngine } from '@/shared/native/engine';
-
 // Distance lives in one place. See shared/geo/distance.ts.
 export { haversineDistance } from '@/shared/geo/distance';
-
-/** Flatten a RoutePoint[] to [lat, lng, lat, lng, ...] for Rust FFI. */
-function flattenPolyline(polyline: { lat: number; lng: number }[]): number[] {
-  const flat = new Array(polyline.length * 2);
-  for (let i = 0; i < polyline.length; i++) {
-    flat[i * 2] = polyline[i].lat;
-    flat[i * 2 + 1] = polyline[i].lng;
-  }
-  return flat;
-}
-
-/**
- * Compute overlap between two polylines.
- * Returns 0-1 representing the fraction of polylineA points that are close to polylineB.
- * Uses Rust R-tree implementation (O(n log m)).
- *
- * @param polylineA - First polyline
- * @param polylineB - Second polyline
- * @param thresholdMeters - Distance threshold for considering points as matching (default 50m)
- * @returns Overlap ratio (0-1)
- */
-export function computePolylineOverlap(
-  polylineA: { lat: number; lng: number }[],
-  polylineB: { lat: number; lng: number }[],
-  thresholdMeters = 50
-): number {
-  if (polylineA.length === 0 || polylineB.length === 0) return 0;
-
-  const engine = getEngine();
-  if (!engine) return 0;
-
-  return engine.computePolylineOverlap(
-    flattenPolyline(polylineA),
-    flattenPolyline(polylineB),
-    thresholdMeters
-  );
-}
 
 /**
  * Calculate perpendicular distance from a point to a line segment.
