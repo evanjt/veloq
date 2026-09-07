@@ -110,6 +110,7 @@ describe('generateInsights', () => {
               sectionName: 'Hill Climb',
               bestTime: 300,
               daysAgo: 1,
+              traversalCount: 12,
             },
           ],
         },
@@ -127,6 +128,7 @@ describe('generateInsights', () => {
         sectionName: `Section ${i}`,
         bestTime: 100 + i,
         daysAgo: i,
+        traversalCount: 12,
       }));
       const result = generateInsights({ ...EMPTY_INPUT, recentPRs: prs }, mockT);
       const prInsights = result.filter((i) => i.id.startsWith('section_pr-'));
@@ -138,9 +140,9 @@ describe('generateInsights', () => {
         {
           ...EMPTY_INPUT,
           recentPRs: [
-            { sectionId: '', sectionName: 'Test', bestTime: 100, daysAgo: 0 },
-            { sectionId: 's1', sectionName: '', bestTime: 100, daysAgo: 0 },
-            { sectionId: 's2', sectionName: 'Test', bestTime: NaN, daysAgo: 0 },
+            { sectionId: '', sectionName: 'Test', bestTime: 100, daysAgo: 0, traversalCount: 12 },
+            { sectionId: 's1', sectionName: '', bestTime: 100, daysAgo: 0, traversalCount: 12 },
+            { sectionId: 's2', sectionName: 'Test', bestTime: NaN, daysAgo: 0, traversalCount: 12 },
           ],
         },
         mockT
@@ -620,7 +622,9 @@ describe('generateInsights', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          recentPRs: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 0 }],
+          recentPRs: [
+            { sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 0, traversalCount: 12 },
+          ],
           ftpTrend: {
             latestFtp: 260,
             latestDate: BigInt(1000),
@@ -676,7 +680,9 @@ describe('generateInsights', () => {
             previousFtp: 255,
             previousDate: BigInt(500),
           },
-          recentPRs: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 1 }],
+          recentPRs: [
+            { sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 1, traversalCount: 12 },
+          ],
           sectionTrends: [
             {
               sectionId: 's1',
@@ -740,7 +746,9 @@ describe('generateInsights', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          recentPRs: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 0 }],
+          recentPRs: [
+            { sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 0, traversalCount: 12 },
+          ],
           formTsb: 0,
           formCtl: 50,
           formAtl: 50,
@@ -927,7 +935,9 @@ describe('generateInsights - additional edge cases', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
-        recentPRs: [{ sectionId: 's1', sectionName: 'Test', bestTime: 0, daysAgo: 1 }],
+        recentPRs: [
+          { sectionId: 's1', sectionName: 'Test', bestTime: 0, daysAgo: 1, traversalCount: 12 },
+        ],
       },
       mockT
     );
@@ -946,7 +956,9 @@ describe('generateInsights - additional edge cases', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
-        recentPRs: [{ sectionId: 's1', sectionName: 'Test', bestTime: -100, daysAgo: 1 }],
+        recentPRs: [
+          { sectionId: 's1', sectionName: 'Test', bestTime: -100, daysAgo: 1, traversalCount: 12 },
+        ],
       },
       mockT
     );

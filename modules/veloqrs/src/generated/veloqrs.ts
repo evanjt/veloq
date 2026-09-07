@@ -3230,6 +3230,12 @@ export type FfiFtpTrend = {
    * Activity start of that earlier setting (Unix timestamp seconds)
    */
   previousDate?: /*i64*/ bigint;
+  /**
+   * Days carrying an estimate from the one compared against to the newest,
+   * inclusive. The insight ranker weighs a claim by what it stands on, and
+   * a step measured off three days is not the one measured off thirty.
+   */
+  sampleCount: /*u32*/ number;
 };
 
 /**
@@ -3258,6 +3264,7 @@ const FfiConverterTypeFfiFtpTrend = (() => {
         latestDate: FfiConverterOptionalInt64.read(from),
         previousFtp: FfiConverterOptionalUInt16.read(from),
         previousDate: FfiConverterOptionalInt64.read(from),
+        sampleCount: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -3265,13 +3272,15 @@ const FfiConverterTypeFfiFtpTrend = (() => {
       FfiConverterOptionalInt64.write(value.latestDate, into);
       FfiConverterOptionalUInt16.write(value.previousFtp, into);
       FfiConverterOptionalInt64.write(value.previousDate, into);
+      FfiConverterUInt32.write(value.sampleCount, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterOptionalUInt16.allocationSize(value.latestFtp) +
         FfiConverterOptionalInt64.allocationSize(value.latestDate) +
         FfiConverterOptionalUInt16.allocationSize(value.previousFtp) +
-        FfiConverterOptionalInt64.allocationSize(value.previousDate)
+        FfiConverterOptionalInt64.allocationSize(value.previousDate) +
+        FfiConverterUInt32.allocationSize(value.sampleCount)
       );
     }
   }
@@ -4744,6 +4753,11 @@ export type FfiPaceTrend = {
    * Date of previous snapshot (Unix timestamp seconds)
    */
   previousDate?: /*i64*/ bigint;
+  /**
+   * Snapshots the trend was read from, for the same reason as
+   * `FfiFtpTrend::sample_count`.
+   */
+  sampleCount: /*u32*/ number;
 };
 
 /**
@@ -4772,6 +4786,7 @@ const FfiConverterTypeFfiPaceTrend = (() => {
         latestDate: FfiConverterOptionalInt64.read(from),
         previousPace: FfiConverterOptionalFloat64.read(from),
         previousDate: FfiConverterOptionalInt64.read(from),
+        sampleCount: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -4779,13 +4794,15 @@ const FfiConverterTypeFfiPaceTrend = (() => {
       FfiConverterOptionalInt64.write(value.latestDate, into);
       FfiConverterOptionalFloat64.write(value.previousPace, into);
       FfiConverterOptionalInt64.write(value.previousDate, into);
+      FfiConverterUInt32.write(value.sampleCount, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterOptionalFloat64.allocationSize(value.latestPace) +
         FfiConverterOptionalInt64.allocationSize(value.latestDate) +
         FfiConverterOptionalFloat64.allocationSize(value.previousPace) +
-        FfiConverterOptionalInt64.allocationSize(value.previousDate)
+        FfiConverterOptionalInt64.allocationSize(value.previousDate) +
+        FfiConverterUInt32.allocationSize(value.sampleCount)
       );
     }
   }
@@ -5152,6 +5169,12 @@ export type FfiRecentPr = {
   sectionName: string;
   bestTime: /*f64*/ number;
   daysAgo: /*u32*/ number;
+  /**
+   * Lifetime traversals of the section. A record set over three outings and
+   * one set over fifty are different claims, and the ranker has no other way
+   * to tell them apart.
+   */
+  traversalCount: /*u32*/ number;
 };
 
 /**
@@ -5180,6 +5203,7 @@ const FfiConverterTypeFfiRecentPR = (() => {
         sectionName: FfiConverterString.read(from),
         bestTime: FfiConverterFloat64.read(from),
         daysAgo: FfiConverterUInt32.read(from),
+        traversalCount: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -5187,13 +5211,15 @@ const FfiConverterTypeFfiRecentPR = (() => {
       FfiConverterString.write(value.sectionName, into);
       FfiConverterFloat64.write(value.bestTime, into);
       FfiConverterUInt32.write(value.daysAgo, into);
+      FfiConverterUInt32.write(value.traversalCount, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.sectionId) +
         FfiConverterString.allocationSize(value.sectionName) +
         FfiConverterFloat64.allocationSize(value.bestTime) +
-        FfiConverterUInt32.allocationSize(value.daysAgo)
+        FfiConverterUInt32.allocationSize(value.daysAgo) +
+        FfiConverterUInt32.allocationSize(value.traversalCount)
       );
     }
   }

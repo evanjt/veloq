@@ -15,6 +15,7 @@ import { generateEfficiencyTrendInsights } from '@/features/insights/generators/
 import { generateHrvTrendInsight } from '@/features/insights/generators/hrvTrend';
 import { generatePeriodComparisonInsights } from '@/features/insights/generators/periodComparison';
 import { generateSectionChangedInsights } from '@/features/insights/generators/sectionChanged';
+import { generateFitnessMilestoneInsights } from '@/features/insights/generators/fitnessMilestone';
 import { generateSectionPRInsights } from '@/features/insights/generators/sectionPR';
 import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
 import type { Insight } from '@/features/insights/types';
@@ -60,7 +61,7 @@ function everyInsight(): Insight[] {
       t
     ),
     ...generateSectionPRInsights(
-      [{ sectionId: 's3', sectionName: 'Sprint', bestTime: 90, daysAgo: 2 }],
+      [{ sectionId: 's3', sectionName: 'Sprint', bestTime: 90, daysAgo: 2, traversalCount: 4 }],
       NOW,
       t
     ),
@@ -154,4 +155,64 @@ it('reports confidence as its own term, not folded into the priority base', () =
 
   expect(scored.breakdown.confidence).toBe(INSIGHTS_CONFIG.scoring.confidenceWeight);
   expect(scored.breakdown.base).toBe((6 - 2) * 50);
+});
+
+/** One PR, set over `traversalCount` outings. */
+function sectionPr(traversalCount: number) {
+  const insight = generateSectionPRInsights(
+    [{ sectionId: 's9', sectionName: 'Sprint', bestTime: 90, daysAgo: 2, traversalCount }],
+    NOW,
+    t
+  )[0];
+  expect(insight).toBeDefined();
+  return insight;
+}
+
+it('weighs a record by the outings it was set over', () => {
+  // A record over three outings and one over fifty used to be the same claim:
+  // the row carried no count, so the generator declared it had no population.
+  expect(sectionPr(2).confidence).toBeLessThan(sectionPr(8).confidence as number);
+  expect(sectionPr(50).confidence).toBe(1);
+  expect(scoreInsight(sectionPr(8)).score).toBeGreaterThan(scoreInsight(sectionPr(2)).score);
+});
+
+it('weighs an FTP step by the days of estimate behind it', () => {
+  const step = (sampleCount: number) =>
+    generateFitnessMilestoneInsights(
+      { latestFtp: 260, latestDate: NOW, previousFtp: 240, previousDate: NOW, sampleCount },
+      null,
+      null,
+      NOW,
+      t
+    )[0];
+
+  expect(step(3)).toBeDefined();
+  expect(step(3).confidence).toBeLessThan(step(20).confidence as number);
+  expect(step(20).confidence).toBe(1);
+});
+
+it('weighs a pace step by the snapshots behind it', () => {
+  const step = (sampleCount: number) =>
+    generateFitnessMilestoneInsights(
+      {},
+      { latestPace: 3.5, latestDate: NOW, previousPace: 3.2, previousDate: NOW, sampleCount },
+      null,
+      NOW,
+      t
+    )[0];
+
+  expect(step(2)).toBeDefined();
+  expect(step(2).confidence).toBeLessThan(step(10).confidence as number);
+});
+
+it('reads a trend with no count as standing on nothing, not on a default', () => {
+  const noCount = generateFitnessMilestoneInsights(
+    { latestFtp: 260, latestDate: NOW, previousFtp: 240, previousDate: NOW },
+    null,
+    null,
+    NOW,
+    t
+  )[0];
+
+  expect(noCount.confidence).toBe(0);
 });

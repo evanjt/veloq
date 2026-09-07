@@ -247,6 +247,10 @@ pub struct FfiFtpTrend {
     pub previous_ftp: Option<u16>,
     /// Activity start of that earlier setting (Unix timestamp seconds)
     pub previous_date: Option<i64>,
+    /// Days carrying an estimate from the one compared against to the newest,
+    /// inclusive. The insight ranker weighs a claim by what it stands on, and
+    /// a step measured off three days is not the one measured off thirty.
+    pub sample_count: u32,
 }
 
 /// Pace trend data (critical speed for running/swimming).
@@ -260,6 +264,9 @@ pub struct FfiPaceTrend {
     pub previous_pace: Option<f64>,
     /// Date of previous snapshot (Unix timestamp seconds)
     pub previous_date: Option<i64>,
+    /// Snapshots the trend was read from, for the same reason as
+    /// `FfiFtpTrend::sample_count`.
+    pub sample_count: u32,
 }
 
 /// Summary card batch data: combines period stats, FTP trend, and pace trends.
@@ -1481,6 +1488,10 @@ pub struct FfiRecentPR {
     pub section_name: String,
     pub best_time: f64,
     pub days_ago: u32,
+    /// Lifetime traversals of the section. A record set over three outings and
+    /// one set over fifty are different claims, and the ranker has no other way
+    /// to tell them apart.
+    pub traversal_count: u32,
 }
 
 /// Batch insights data: combines period stats, trends, patterns, and recent PRs.
