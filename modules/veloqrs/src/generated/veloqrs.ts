@@ -11981,6 +11981,16 @@ const FfiConverterTypeBasemapManager = new FfiConverterObject(
 
 export interface DetectionManagerLike {
   /**
+   * Ask a running detection to stop. Returns whether there was one.
+   *
+   * Cooperative: the worker checks between stages, so the call returns at
+   * once and the run ends on its own clock. A cancel that lands inside the
+   * detector's own call discards that work rather than shortening it, which
+   * is the same caveat the preview carries and for the same reason: a
+   * half-detected catalogue is worse than none.
+   */
+  cancel(): boolean;
+  /**
    * Force full re-detection by clearing processed activity IDs first.
    * This ensures all activities are re-evaluated against sections.
    * Refuses, and says why, if detection is suspended or already running.
@@ -12032,6 +12042,29 @@ export class DetectionManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeDetectionManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Ask a running detection to stop. Returns whether there was one.
+   *
+   * Cooperative: the worker checks between stages, so the call returns at
+   * once and the run ends on its own clock. A cancel that lands inside the
+   * detector's own call discards that work rather than shortening it, which
+   * is the same caveat the preview carries and for the same reason: a
+   * half-detected catalogue is worse than none.
+   */
+  cancel(): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_cancel(
+            uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
   }
 
   /**
@@ -20837,6 +20870,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_basemapmanager_set_source_template",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_cancel() !==
+    33637
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_cancel",
     );
   }
   if (
