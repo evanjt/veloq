@@ -12,8 +12,6 @@ type ExportState = 'idle' | 'exporting' | 'done' | 'error';
 export function useBulkExport() {
   const [state, setState] = useState<ExportState>('idle');
   const [phase, setPhase] = useState<BulkExportPhase>('generating');
-  const [current, setCurrent] = useState(0);
-  const [total, setTotal] = useState(0);
   const [sizeBytes, setSizeBytes] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const { t } = useTranslation();
@@ -23,8 +21,6 @@ export function useBulkExport() {
       if (state === 'exporting') return;
       setState('exporting');
       setPhase('generating');
-      setCurrent(0);
-      setTotal(0);
       setSizeBytes(0);
       setError(null);
 
@@ -32,8 +28,6 @@ export function useBulkExport() {
         const exportFn = format === 'geojson' ? bulkExportActivitiesGeoJson : bulkExportActivities;
         const result = await exportFn((progress) => {
           setPhase(progress.phase);
-          setCurrent(progress.current);
-          setTotal(progress.total);
           setSizeBytes(progress.sizeBytes);
         });
         setState('done');
@@ -66,8 +60,6 @@ export function useBulkExport() {
     exportAllGeoJson,
     isExporting: state === 'exporting',
     phase,
-    current,
-    total,
     sizeBytes,
     error,
   };
