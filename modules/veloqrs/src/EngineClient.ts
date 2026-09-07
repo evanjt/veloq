@@ -930,6 +930,9 @@ class EngineClient implements DelegateHost {
   getWellnessBodies = (oldest: string, newest: string): string[] =>
     fitnessDelegates.getWellnessBodies(this, oldest, newest);
 
+  getActivityBody = (activityId: string): string | null =>
+    activityDelegates.getActivityBody(this, activityId);
+
   getActivityBodies = (oldestTs: number, newestTs: number): string[] =>
     activityDelegates.getActivityBodies(this, oldestTs, newestTs);
 

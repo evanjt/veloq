@@ -2,22 +2,22 @@
  * The activity's stored body, asking Rust for it when it is absent and waiting
  * for the announcement rather than re-reading on a timer.
  *
- * The read is not cheap: `getActivityBodies` takes the engine lock and hands
- * back every body in the window, each of which has to be parsed to find the
- * one id we are after. On a timer that ran four times a second for as long as
- * the fetch took. Rust announces the landing on `bodyStored` with the id, so
- * between the request and the event this costs no engine call at all.
+ * Two things used to make the read expensive and both are gone. It ran on a
+ * timer, four times a second for as long as the fetch took, and Rust now
+ * announces the landing on `bodyStored` with the id, so between the request
+ * and the event this costs no engine call at all. And it read `getActivityBodies`
+ * over a thirty-day window and parsed every body in JavaScript to find the one
+ * id, which is a page of JSON work in the headless push task, the least
+ * affordable place for it. `activity_bodies` is keyed by the id, so the engine
+ * answers for one activity in one row.
  */
-
-/** How far back to look for the activity a push is about. */
-const LOOKBACK_DAYS = 30;
 
 /** Max time to wait for the engine to store the body. */
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 /** The engine surface this needs, so a caller can hand it a double. */
 export interface ActivityBodyReader {
-  getActivityBodies: (oldestTs: number, newestTs: number) => string[];
+  getActivityBody: (activityId: string) => string | null;
   syncActivityDetail: (activityId: string) => boolean;
   subscribe: (event: string, callback: (payload?: { activityId?: string }) => void) => () => void;
 }
@@ -27,17 +27,14 @@ export function readStoredActivity(
   engine: ActivityBodyReader,
   activityId: string
 ): Record<string, unknown> | null {
-  const newest = Math.floor(Date.now() / 1000) + 86_400;
-  const oldest = newest - LOOKBACK_DAYS * 86_400;
-  for (const body of engine.getActivityBodies(oldest, newest)) {
-    try {
-      const parsed = JSON.parse(body) as Record<string, unknown>;
-      if (parsed?.id === activityId) return parsed;
-    } catch {
-      // A body that will not parse is not the one we are after.
-    }
+  const raw = engine.getActivityBody(activityId);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    // A body that will not parse is no better than one that is not there.
+    return null;
   }
-  return null;
 }
 
 /**

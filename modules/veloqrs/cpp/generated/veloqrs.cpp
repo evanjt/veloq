@@ -162,6 +162,9 @@ uint32_t uniffi_veloqrs_fn_method_activitymanager_debug_clone(
 RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_activity_bodies(
     /*handle*/ uint64_t ptr, int64_t oldest_ts, int64_t newest_ts,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_activity_body(
+    /*handle*/ uint64_t ptr, RustBuffer activity_id,
+    RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_method_activitymanager_get_count(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_detail_data(
@@ -1080,6 +1083,7 @@ uint16_t uniffi_veloqrs_checksum_func_compute_polyline_overlap();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_add();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_debug_clone();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies();
+uint16_t uniffi_veloqrs_checksum_method_activitymanager_get_activity_body();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_get_count();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_get_detail_data();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_get_gps_track();
@@ -4675,6 +4679,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_activitymanager_get_activity_bodies(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_body"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "activitymanager_get_activity_body"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_activitymanager_get_activity_body(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_activitymanager_get_count"] =
@@ -9159,6 +9175,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_"
+        "body"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "activitymanager_get_activity_body"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_activitymanager_get_activity_body(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_count"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -13016,6 +13044,22 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_get_activity_bodies(
                                                         args[0]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_get_activity_body(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_activitymanager_get_activity_body(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -18562,6 +18606,15 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_activitymanager_get_activity_body(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_activitymanager_get_activity_body();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
