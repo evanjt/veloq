@@ -25,8 +25,8 @@ use veloqrs::net::Transport;
 use veloqrs::net::elevation_backfill::{
     BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, BACKFILL_PHASE_PARTIAL,
     BACKFILL_PHASE_PAUSED, BACKFILL_RETRY_ROUNDS, BackfillRun, MAX_CONSECUTIVE_FAILURES,
-    backfill_progress, backfill_retry_delays, detect_runs_started, pause_elevation_backfill,
-    reset_elevation_backfill_pause, run_elevation_backfill,
+    backfill_progress, backfill_retry_delays, detect_runs_started, elevation_backfill_paused,
+    pause_elevation_backfill, reset_elevation_backfill_pause, run_elevation_backfill,
 };
 use veloqrs::objects::{SYNC_SERVICE, SyncState};
 use veloqrs::persistence::persistent_engine_ffi::{
@@ -1831,7 +1831,8 @@ fn a_paused_pass_ends_paused_without_the_final_recut_and_releases_detection() {
     let base = server.base_url();
     let runner = std::thread::spawn(move || run_backfill(&fast_transport(base)));
     wait_for_fetching();
-    assert!(pause_elevation_backfill(), "a pass was in flight to stop");
+    pause_elevation_backfill();
+    assert!(elevation_backfill_paused(), "the pause did not take");
 
     let run = runner.join().expect("runner thread");
     let BackfillRun::Finished(outcome) = run else {
