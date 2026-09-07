@@ -229,6 +229,23 @@ pub(crate) mod test_globals {
         crate::objects::detection::reset_last_outcome();
     }
 
+    /// Wait until no detached driver is polling the shared detection slot.
+    ///
+    /// Three production paths spawn a thread that polls the slot and none of
+    /// them is joined, so one from an earlier test is still running when the
+    /// next starts and takes that run's completion. A test that has to be the
+    /// only poller calls this after clearing the handle.
+    pub(crate) fn wait_for_slot_drivers() {
+        let deadline = Instant::now() + Duration::from_secs(60);
+        while crate::objects::detection::slot_drivers() > 0 {
+            assert!(
+                Instant::now() < deadline,
+                "a detached driver is still polling the detection slot after 60s"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
     /// Drive the winning run to its end so the worker is finished with the
     /// database before the fixture directory goes away.
     pub(crate) fn drain_detection() {
