@@ -37,7 +37,6 @@
     "mapStyle": "Map Style",
     "maxHR": "Maxed out: {{value}} bpm",
     "noDataAvailable": "No data here yet",
-    "zoneDefault": "Zone {{number}}",
     "noHeartRateData": "No ticker data yet",
     "power": "Watts",
     "resetToDefault": "Reset to Default",

@@ -37,7 +37,6 @@
     "mapStyle": "Chartestil",
     "maxHR": "Maximum: {{value}} bpm",
     "noDataAvailable": "Kei Date da",
-    "zoneDefault": "Zoone {{number}}",
     "noHeartRateData": "Kei Pulsdate",
     "power": "Watt",
     "resetToDefault": "Uf Standard zruggsetze",

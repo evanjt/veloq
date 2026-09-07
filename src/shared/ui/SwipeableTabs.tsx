@@ -71,7 +71,7 @@ export function SwipeableTabs({
   const visitedRef = useRef<Set<number>>(new Set([0])); // First tab always visited
 
   // Find initial tab index
-  const getTabIndex = (key: string) => tabs.findIndex((t) => t.key === key);
+  const getTabIndex = useCallback((key: string) => tabs.findIndex((t) => t.key === key), [tabs]);
   const initialIndex = Math.max(0, getTabIndex(activeTab));
 
   const translateX = useSharedValue(-screenWidth * initialIndex);
@@ -106,7 +106,7 @@ export function SwipeableTabs({
     activeTabIndex.value = targetIndex;
     translateX.value = withTiming(targetX, TIMING_CONFIG);
     indicatorProgress.value = withTiming(targetIndex, TIMING_CONFIG);
-  }, [activeTab, tabs, screenWidth, translateX, indicatorProgress, activeTabIndex]);
+  }, [activeTab, getTabIndex, screenWidth, translateX, indicatorProgress, activeTabIndex]);
 
   // Memoize pan gesture to prevent recreation on every render
   const panGesture = useMemo(

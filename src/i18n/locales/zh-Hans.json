@@ -37,7 +37,6 @@
     "mapStyle": "地图样式",
     "maxHR": "最大: {{value}} bpm",
     "noDataAvailable": "无可用数据",
-    "zoneDefault": "区间{{number}}",
     "noHeartRateData": "无心率数据",
     "power": "功率",
     "resetToDefault": "重置为默认",

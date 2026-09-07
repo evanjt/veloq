@@ -37,7 +37,6 @@
     "mapStyle": "マップスタイル",
     "maxHR": "最大: {{value}} bpm",
     "noDataAvailable": "データがありません",
-    "zoneDefault": "ゾーン{{number}}",
     "noHeartRateData": "心拍データなし",
     "power": "パワー",
     "resetToDefault": "デフォルトに戻す",
