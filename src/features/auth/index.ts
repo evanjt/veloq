@@ -34,6 +34,7 @@ export {
   useApiKeyLogin,
   useOAuthLogin,
   useBackupRestore,
+  useApiKeyPrefill,
   useSessionExpiryNotice,
   type DetectedBackup,
   type SessionExpiryNotice,
