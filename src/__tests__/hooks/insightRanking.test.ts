@@ -2,8 +2,7 @@
  * Scenario: the engine computes four ML scores per section and blends them into
  * a relevance composite. They reach TypeScript, the sections tab ranks on them,
  * and the insights tab shows them as data points while no ranking term reads
- * one. Evan's answer to `Q77`: "these five scores should actually mean
- * something and we rank the important ones by how much scoring they get".
+ * one.
  *
  * Expected behaviour: a section insight is ranked by what the engine says the
  * section is worth. An insight with no section has no such score and says so,
