@@ -7,7 +7,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, brand, strengthRamp, bodyDiagram } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  brand,
+  strengthRamp,
+  bodyDiagram,
+  typography,
+} from '@/theme';
 import type { MuscleVolume } from '@/types';
 
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
@@ -129,7 +138,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   bodyTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     textAlign: 'center',
@@ -138,7 +147,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   bodySubtitle: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
   },
@@ -146,7 +155,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   bodyHint: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textDisabled,
     textAlign: 'center',
     marginBottom: spacing.xs,
@@ -168,7 +177,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   subtitleText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   subtitleTextDark: {
@@ -179,7 +188,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   scaleLabel: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 4,
@@ -202,7 +211,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   scaleValue: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
   },
   scaleValueDark: {

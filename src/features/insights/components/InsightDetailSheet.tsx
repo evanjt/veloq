@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   },
   // Text
   subtitle: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.xs,
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   body: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     lineHeight: 20,
     paddingHorizontal: spacing.lg,
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   navLinkText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },

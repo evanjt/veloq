@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, darkColors, spacing, layout, brand } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing, layout, brand, typography } from '@/theme';
 import type { RecordingStatus, RecordingMode } from '@/types';
 
 const BRAND_COLOR = brand.tealLight;
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   stopLabel: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
   },
 });

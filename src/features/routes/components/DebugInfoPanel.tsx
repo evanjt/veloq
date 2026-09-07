@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
 interface DebugInfoPanelProps {
   entries: { label: string; value: string }[];
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surfaceElevated,
   },
   title: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     fontFamily: 'monospace',
     color: colors.textSecondary,
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   label: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontFamily: 'monospace',
     color: colors.textSecondary,
   },
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   value: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontFamily: 'monospace',
     color: colors.textPrimary,
   },

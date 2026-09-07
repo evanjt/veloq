@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity, brand, ink, layout } from '@/theme';
+import { colors, darkColors, spacing, opacity, brand, ink, layout, typography } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 const MAX_EFFORTS = 5;
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   heading: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: 2,
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   date: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   time: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   delta: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   },
   prText: {
     color: ink.white,
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '700',
   },
 });

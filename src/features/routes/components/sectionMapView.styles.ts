@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, darkColors, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -88,13 +88,13 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   nearbyPopupName: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: 2,
   },
   nearbyPopupMeta: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   nearbyPopupViewBtn: {
@@ -104,7 +104,7 @@ export const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   nearbyPopupViewText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.primary,
   },

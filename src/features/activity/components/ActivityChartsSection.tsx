@@ -36,7 +36,7 @@ import type {
   ActivityType,
   WellnessData,
 } from '@/types';
-import { colors, darkColors, spacing, layout, opacity, shadows } from '@/theme';
+import { colors, darkColors, spacing, layout, opacity, shadows, typography } from '@/theme';
 
 interface LatLng {
   latitude: number;
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   intervalsTitle: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     marginRight: 2,
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   zoneChipText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
   },
   deviceAttributionContainer: {
@@ -696,7 +696,7 @@ const styles = StyleSheet.create({
   },
   exportGpxButtonText: {
     color: colors.textOnPrimary,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
 });

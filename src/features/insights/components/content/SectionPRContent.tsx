@@ -11,7 +11,7 @@ import { SectionInsightMap } from './SectionInsightMap';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration, formatShortDate } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity, brand, layout } from '@/theme';
+import { colors, darkColors, spacing, opacity, brand, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
   },
@@ -211,19 +211,19 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   prTime: {
-    fontSize: 32,
+    fontSize: typography.headlineNumber.fontSize,
     fontWeight: '700',
     color: ACCENT_COLOR,
     fontVariant: ['tabular-nums'],
   },
   deltaText: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: ACCENT_COLOR,
     fontVariant: ['tabular-nums'],
   },
   previousText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     fontVariant: ['tabular-nums'],
   },
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.medium,
   },
   contextText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },

@@ -11,7 +11,7 @@ import { Text, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
-import { colors } from '@/theme';
+import { colors, typography } from '@/theme';
 
 export function EngineInitBanner() {
   const { t } = useTranslation();
@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
   text: {
     flex: 1,
     color: colors.warningBannerText,
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
   },
   retryButton: {

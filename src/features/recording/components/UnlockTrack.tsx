@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 
 import { useTheme } from '@/shared/app';
-import { brand, colors, colorWithOpacity, darkColors, spacing } from '@/theme';
+import { brand, colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
 
 const HANDLE_SIZE = 48;
 const TRACK_HEIGHT = 56;
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: '100%',
     textAlign: 'center',
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     letterSpacing: 1,
   },
   handle: {

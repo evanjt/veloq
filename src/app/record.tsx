@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
     minHeight: layout.minTapTarget,
   },
   gpsSettingsLink: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
@@ -663,18 +663,18 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   permissionTitle: {
-    fontSize: 20,
+    fontSize: typography.statsValue.fontSize,
     fontWeight: '600',
     textAlign: 'center',
     marginTop: spacing.sm,
   },
   permissionDescription: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     textAlign: 'center',
     lineHeight: 22,
   },
   permissionError: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.errorDark,
     textAlign: 'center',
   },

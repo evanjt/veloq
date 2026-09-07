@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   chipText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
   },
   chipTextActive: {
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
   },
   chipCount: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '400',
   },
   chipCountActive: {
@@ -470,14 +470,14 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   infoText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   infoTextDark: {
     color: darkColors.textSecondary,
   },
   infoLink: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.primary,
     fontWeight: '600',
   },
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30, 30, 30, 0.8)',
   },
   attributionText: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
   },
   attributionTextDark: {

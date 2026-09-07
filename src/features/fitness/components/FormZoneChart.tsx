@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   formValue: {
-    fontSize: 24,
+    fontSize: typography.statsValueLarge.fontSize,
     fontWeight: '700',
   },
   zoneText: {
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   axisLabel: {
-    fontSize: 8,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 2,

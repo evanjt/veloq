@@ -8,7 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ScreenSafeAreaView } from '@/shared/ui';
 import { replaceTo } from '@/shared/app/navigation';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { createSharedStyles } from '@/styles';
 import { clearAccountData } from '@/shared/storage';
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   title: {
-    fontSize: 32,
+    fontSize: typography.headlineNumber.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: spacing.xs,
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     color: darkColors.textMuted,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: colors.textSecondary,
   },
   card: {
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.error,
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   dividerText: {
     marginHorizontal: spacing.md,
     color: colors.textSecondary,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
   },
   demoButton: {
     borderColor: colors.primary,
@@ -327,13 +327,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   newUserTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
   newUserText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.sm,
   },
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   disclaimerText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   intervalsLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
@@ -370,12 +370,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   linkText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.primary,
     textDecorationLine: 'underline',
   },
   linkTextSmall: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.primary,
     textDecorationLine: 'underline',
   },
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   securityText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
 });

@@ -58,7 +58,7 @@ export const styles = StyleSheet.create({
     gap: 4,
   },
   acceptText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   pinnedChip: {
@@ -67,7 +67,7 @@ export const styles = StyleSheet.create({
     gap: 4,
   },
   pinnedText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   scrollView: {
@@ -101,7 +101,7 @@ export const styles = StyleSheet.create({
   },
   exportGpxButtonText: {
     color: colors.textOnPrimary,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600' as const,
   },
   floatingHeader: {

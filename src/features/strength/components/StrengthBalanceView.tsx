@@ -5,7 +5,16 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, layout, brand, statusBadge } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  opacity,
+  layout,
+  brand,
+  statusBadge,
+  typography,
+} from '@/theme';
 import type { StrengthBalancePair } from '@/types';
 
 import { formatSetCount, formatBalanceRatio } from '../lib/formatting';
@@ -229,7 +238,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   balanceTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -237,7 +246,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   balanceSubtitle: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -256,7 +265,7 @@ const styles = StyleSheet.create({
     backgroundColor: statusBadge.alert.bg,
   },
   balanceHeroBadgeText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -267,7 +276,7 @@ const styles = StyleSheet.create({
     color: statusBadge.watch.text,
   },
   balanceHeroText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     lineHeight: 19,
     color: colors.textSecondary,
     marginTop: spacing.sm,
@@ -294,7 +303,7 @@ const styles = StyleSheet.create({
   },
   balanceRowTitle: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -316,7 +325,7 @@ const styles = StyleSheet.create({
     backgroundColor: statusBadge.bad.bg,
   },
   balanceStatusText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -337,7 +346,7 @@ const styles = StyleSheet.create({
   },
   balanceValueText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   balanceValueTextDark: {
@@ -369,7 +378,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   balanceRatioText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
     marginTop: 6,
@@ -378,7 +387,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   balanceFootnote: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     lineHeight: 16,
     color: colors.textSecondary,
     marginTop: spacing.xs,
@@ -413,7 +422,7 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surface,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: spacing.xs,
@@ -422,7 +431,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   modalIntro: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
@@ -430,7 +439,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   modalPair: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textPrimary,
     paddingVertical: 1,
   },
@@ -438,7 +447,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   modalThresholds: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.xs,
     lineHeight: 17,
@@ -455,7 +464,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlay.subtle,
   },
   modalCloseText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.primary,
   },

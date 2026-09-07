@@ -316,10 +316,10 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   kindLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -330,11 +330,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   forgetText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
   },
   pairText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
   },
   scanButton: {
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
   },
   scanButtonText: {
     color: colors.textOnDark,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
 });

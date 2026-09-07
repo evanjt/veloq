@@ -6,7 +6,7 @@ import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, shadows, ink, layout } from '@/theme';
+import { colors, darkColors, spacing, opacity, shadows, ink, layout, typography } from '@/theme';
 import { DataPointRow } from './DataPointRow';
 import { formatDuration } from '@/shared/format/format';
 import type { InsightSupportingData } from '@/types';
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   sparklineLabel: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   sparklineLabelDark: {
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   sparklineChange: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.sm,
   },
   comparisonHeader: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   comparisonValue: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   comparisonLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   comparisonChangeText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
   },
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   },
   sectionName: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
     marginRight: spacing.sm,
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   sectionBestTime: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   sectionTraversals: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   sectionTraversalsDark: {
