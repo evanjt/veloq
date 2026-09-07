@@ -4,7 +4,7 @@ use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::sections::DetectionRefusal;
 use log::info;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
 use std::time::Duration;
 
 /// How the last run this process finished ended, for surfaces that may look
@@ -119,8 +119,50 @@ pub(crate) fn wait_on_slot_with(
     }
 }
 
+/// Detached threads currently polling the shared detection slot.
+///
+/// Three production paths spawn one and none of them is joined: the
+/// conditioning driver (`persistence/sections/conditioning.rs`), the
+/// elevation re-cut (`net/elevation_backfill.rs`) and the resume ladder's
+/// drain. Each outlives the call that spawned it, and each polls through
+/// `poll_detection_once`, which is the call that publishes an outcome. So a
+/// driver left over from earlier work can settle a run somebody else started.
+static SLOT_DRIVERS: AtomicUsize = AtomicUsize::new(0);
+
+/// How many detached drivers are on the slot right now.
+pub(crate) fn slot_drivers() -> usize {
+    SLOT_DRIVERS.load(Ordering::SeqCst)
+}
+
+/// Counts one detached driver for as long as it lives.
+///
+/// An RAII guard rather than a pair of calls, so a driver that panics mid-poll
+/// still leaves the count where it found it. A leaked count is worse than no
+/// count: whoever waits on it waits for a thread that is already dead.
+pub(crate) struct SlotDriver;
+
+impl SlotDriver {
+    pub(crate) fn started() -> Self {
+        SLOT_DRIVERS.fetch_add(1, Ordering::SeqCst);
+        Self
+    }
+}
+
+impl Drop for SlotDriver {
+    fn drop(&mut self) {
+        SLOT_DRIVERS.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
 /// [`wait_on_slot_with`] against the real clock and the shared poll.
+///
+/// Counted for the whole wait. Every caller of this is polling the slot on
+/// somebody else's behalf, from a thread that outlives the call, and the FFI
+/// poll goes straight to `poll_detection_once` instead. So the count is
+/// exactly the drivers, which is what a caller needing to be the only poller
+/// has to wait out.
 pub(crate) fn wait_on_slot(poll_every: Duration, stop_at_end: bool) -> SlotWait {
+    let _counted = SlotDriver::started();
     let started = std::time::Instant::now();
     wait_on_slot_with(
         SLOT_WAIT_LIMIT,
@@ -662,9 +704,10 @@ mod tests {
     use crate::persistence::sections::preview::SECTION_PREVIEW_HANDLE;
     use crate::test_globals::{
         clear_detection_handle, drain_detection, race, seeded_global_engine, serial_global_state,
+        wait_for_slot_drivers,
     };
     use std::panic::{AssertUnwindSafe, catch_unwind};
-    use std::sync::Mutex;
+    use std::sync::{Barrier, Mutex};
     use std::time::{Duration, Instant};
     use tempfile::TempDir;
 
@@ -923,6 +966,11 @@ mod tests {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
         clear_detection_handle();
+        // The five reads below assert that nothing has polled yet, which only
+        // holds while this test is the only poller. A detached driver from an
+        // earlier test polls the same slot and would take this run's
+        // completion out from under them.
+        wait_for_slot_drivers();
 
         let manager = DetectionManager::new();
         assert_eq!(
@@ -1000,6 +1048,61 @@ mod tests {
             "the outcome outlived the handle, so the next test to clear the \
              handle starts on this run's result"
         );
+    }
+
+    /// Scenario: `wait_on_slot` is what three detached production threads run,
+    /// and each of them polls the shared slot. A driver spawned by an earlier
+    /// test outlives the test that spawned it, so it is still polling when the
+    /// next one starts, takes that run's completion and publishes `complete`
+    /// while the next test is still asserting the run has not settled.
+    ///
+    /// Expected behaviour: a driver on the slot is counted while it runs, so a
+    /// test that needs to be the only poller can wait for the count to reach
+    /// zero instead of hoping.
+    #[test]
+    fn a_driver_on_the_slot_is_counted_while_it_runs() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        wait_for_slot_drivers();
+
+        let at_work = Arc::new(Barrier::new(2));
+        let release = Arc::new(Barrier::new(2));
+        let (started, freed) = (at_work.clone(), release.clone());
+        let driver = std::thread::spawn(move || {
+            let _counted = SlotDriver::started();
+            started.wait();
+            freed.wait();
+        });
+
+        at_work.wait();
+        assert_eq!(slot_drivers(), 1, "the driver is counted while it lives");
+
+        release.wait();
+        wait_for_slot_drivers();
+        assert_eq!(
+            slot_drivers(),
+            0,
+            "and the wait does not return until it is gone"
+        );
+        driver.join().expect("the driver ends");
+    }
+
+    /// A driver that panics still leaves the count where it found it, or the
+    /// next test waits forever on a thread that is already dead.
+    #[test]
+    fn a_driver_that_panics_is_still_uncounted() {
+        let _serial = serial_global_state();
+        wait_for_slot_drivers();
+
+        let before = slot_drivers();
+        let died = std::thread::spawn(|| {
+            let _counted = SlotDriver::started();
+            panic!("the driver dies mid-poll");
+        });
+        assert!(died.join().is_err(), "the driver panicked");
+
+        assert_eq!(slot_drivers(), before, "an unwind drops the guard");
     }
 
     /// The poll that observes completion, timed. A `Running` poll or two can
