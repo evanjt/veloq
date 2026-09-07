@@ -605,6 +605,31 @@ fn insights_computes_performances_for_a_section_visited_on_the_window_edge() {
     assert_eq!(bundle.recent_prs.len(), 1);
 }
 
+/// Scenario: a record set over three outings and one set over fifty are the
+/// same claim to the insight ranker, because the row carries no count.
+///
+/// Expected behaviour: the PR carries the section's traversals, so the ranker
+/// can weigh what the record stands on.
+#[test]
+fn a_recent_pr_carries_the_traversals_it_stands_on() {
+    let mut s = populated_with_pr_candidate(1_700_150_000);
+    let p = insights_params_ending(1_700_200_000);
+
+    let bundle = s.engine.insights_data(&p);
+
+    let pr = bundle
+        .recent_prs
+        .iter()
+        .find(|pr| pr.section_id == "auto1")
+        .expect("the section holds a recent record");
+    assert!(
+        pr.traversal_count >= 3,
+        "a PR slot is earned by returning, so the count is at least the three \
+         outings that earned it: {}",
+        pr.traversal_count
+    );
+}
+
 #[test]
 fn insights_computes_no_performances_on_an_empty_library() {
     let mut s = setup();

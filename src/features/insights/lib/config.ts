@@ -147,6 +147,10 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
     // the same trend over ten.
     confidenceSaturation: {
       efficiency_trend: 10,
+      // A daily FTP series and a pace history are both read in snapshots, and
+      // the pace query caps at twenty, so twenty is as much as either shows.
+      fitness_milestone: 20,
+      section_pr: 10,
       hrv_trend: 7,
       period_comparison: 10,
       section_trend: 10,

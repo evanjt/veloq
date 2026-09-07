@@ -309,6 +309,7 @@ export function computeInsightsFromData(
           sectionName: pr.sectionName,
           bestTime: pr.bestTime,
           daysAgo: pr.daysAgo,
+          traversalCount: pr.traversalCount,
         }))
       : [];
 
