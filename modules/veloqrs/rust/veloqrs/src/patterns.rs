@@ -33,13 +33,6 @@ struct ActivityCluster {
     silhouette: f64,
 }
 
-/// Section info collected from database for enrichment.
-struct SectionInfo {
-    section_id: String,
-    section_name: String,
-    activity_count: u32,
-}
-
 // ============================================================================
 // Constants
 // ============================================================================
@@ -52,10 +45,6 @@ const MAX_K: usize = 6;
 const MIN_K: usize = 2;
 const KMEANS_MAX_ITERATIONS: usize = 100;
 const KMEANS_CONVERGENCE_THRESHOLD: f64 = 1e-6;
-const SECTION_APPEARANCE_THRESHOLD: f64 = 0.5; // 50% of cluster activities
-/// A pattern's half-and-half average has to move by this fraction before the
-/// pattern is called improving or declining.
-const PATTERN_TREND_DEADBAND: f64 = 0.03;
 
 // ============================================================================
 // Public API
@@ -115,7 +104,6 @@ pub fn compute_activity_patterns(
         // Convert each valid cluster to an FfiActivityPattern
         for (cluster_idx, cluster) in clusters.iter().enumerate() {
             if let Some(pattern) = build_pattern(
-                db,
                 &sport_features,
                 &normalised,
                 cluster,
@@ -629,7 +617,6 @@ fn compute_cluster_silhouette(
 
 /// Build an FfiActivityPattern from a cluster, applying quality gates.
 fn build_pattern(
-    db: &Connection,
     features: &[&ActivityFeature],
     _normalised: &[[f64; 4]],
     cluster: &ActivityCluster,
@@ -702,13 +689,6 @@ fn build_pattern(
     // Confidence score
     let confidence = compute_confidence(cluster.silhouette, count, span_days, frequency_per_month);
 
-    // Section enrichment
-    let activity_ids: Vec<&str> = member_features
-        .iter()
-        .map(|f| f.activity_id.as_str())
-        .collect();
-    let common_sections = enrich_with_sections(db, &activity_ids, count);
-
     Some(crate::FfiActivityPattern {
         sport_type: sport_type.to_string(),
         cluster_id,
@@ -722,7 +702,6 @@ fn build_pattern(
         confidence,
         silhouette_score: cluster.silhouette as f32,
         days_since_last,
-        common_sections,
     })
 }
 
@@ -791,195 +770,6 @@ fn compute_season_label(features: &[&&ActivityFeature]) -> String {
         }
         None => "all".to_string(),
     }
-}
-
-// ============================================================================
-// Section Enrichment
-// ============================================================================
-
-/// Enrich pattern with commonly-traversed sections.
-fn enrich_with_sections(
-    db: &Connection,
-    activity_ids: &[&str],
-    cluster_size: usize,
-) -> Vec<crate::FfiPatternSection> {
-    if activity_ids.is_empty() {
-        return Vec::new();
-    }
-
-    // Build SQL placeholders
-    let placeholders: Vec<String> = (0..activity_ids.len())
-        .map(|i| format!("?{}", i + 1))
-        .collect();
-    let placeholder_str = placeholders.join(", ");
-
-    // Query section_activities joined with sections for these activity IDs
-    let query = format!(
-        "SELECT sa.section_id, COALESCE(s.name, ''), COUNT(DISTINCT sa.activity_id) as act_count
-         FROM section_activities sa
-         JOIN sections s ON sa.section_id = s.id
-         WHERE sa.activity_id IN ({}) AND sa.excluded = 0
-         GROUP BY sa.section_id
-         ORDER BY act_count DESC",
-        placeholder_str
-    );
-
-    let mut sections: Vec<SectionInfo> = Vec::new();
-
-    let result = db.prepare(&query);
-    if let Ok(mut stmt) = result {
-        let params: Vec<&dyn rusqlite::types::ToSql> = activity_ids
-            .iter()
-            .map(|id| id as &dyn rusqlite::types::ToSql)
-            .collect();
-
-        let rows = stmt.query_map(params.as_slice(), |row| {
-            Ok(SectionInfo {
-                section_id: row.get(0)?,
-                section_name: row.get(1)?,
-                activity_count: row.get(2)?,
-            })
-        });
-
-        if let Ok(row_iter) = rows {
-            for row in row_iter.flatten() {
-                // Only include sections appearing in >= 50% of cluster activities
-                if row.activity_count as f64 / cluster_size as f64 >= SECTION_APPEARANCE_THRESHOLD {
-                    sections.push(row);
-                }
-            }
-        }
-    }
-
-    // For each qualifying section, get performance data
-    sections
-        .iter()
-        .filter_map(|si| build_pattern_section(db, si, activity_ids))
-        .collect()
-}
-
-/// Build an FfiPatternSection from section info with performance data.
-fn build_pattern_section(
-    db: &Connection,
-    section_info: &SectionInfo,
-    activity_ids: &[&str],
-) -> Option<crate::FfiPatternSection> {
-    // Query lap_time from section_activities for this section and these activities
-    let placeholders: Vec<String> = (0..activity_ids.len())
-        .map(|i| format!("?{}", i + 2)) // +2 because ?1 is section_id
-        .collect();
-    let placeholder_str = placeholders.join(", ");
-
-    let query = format!(
-        "SELECT sa.lap_time, am.date
-         FROM section_activities sa
-         JOIN activity_metrics am ON sa.activity_id = am.activity_id
-         WHERE sa.section_id = ?1
-           AND sa.activity_id IN ({})
-           AND sa.lap_time IS NOT NULL
-           AND sa.excluded = 0
-         ORDER BY am.date DESC",
-        placeholder_str
-    );
-
-    let mut best_time: Option<f64> = None;
-    let mut recent_times: Vec<f64> = Vec::new();
-    let mut all_times: Vec<(i64, f64)> = Vec::new(); // (date, time) for trend
-    let mut traversal_count: u32 = 0;
-
-    let result = db.prepare(&query);
-    if let Ok(mut stmt) = result {
-        let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
-        params.push(Box::new(section_info.section_id.clone()));
-        for id in activity_ids {
-            params.push(Box::new(id.to_string()));
-        }
-
-        let param_refs: Vec<&dyn rusqlite::types::ToSql> =
-            params.iter().map(|p| p.as_ref()).collect();
-
-        let rows = stmt.query_map(param_refs.as_slice(), |row| {
-            Ok((row.get::<_, f64>(0)?, row.get::<_, i64>(1)?))
-        });
-
-        if let Ok(row_iter) = rows {
-            for row in row_iter.flatten() {
-                let (time, date) = row;
-                traversal_count += 1;
-
-                match best_time {
-                    None => best_time = Some(time),
-                    Some(bt) if time < bt => best_time = Some(time),
-                    _ => {}
-                }
-
-                // Collect recent 5 for median
-                if recent_times.len() < 5 {
-                    recent_times.push(time);
-                }
-
-                all_times.push((date, time));
-            }
-        }
-    }
-
-    if traversal_count == 0 {
-        // No performance data, still return section with basic info
-        return Some(crate::FfiPatternSection {
-            section_id: section_info.section_id.clone(),
-            section_name: section_info.section_name.clone(),
-            appearance_rate: section_info.activity_count as f32 / activity_ids.len().max(1) as f32,
-            best_time_secs: 0.0,
-            median_recent_secs: 0.0,
-            trend: None,
-            traversal_count: section_info.activity_count,
-        });
-    }
-
-    // Compute median of recent times
-    recent_times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    let median_recent = if recent_times.is_empty() {
-        0.0
-    } else {
-        let mid = recent_times.len() / 2;
-        if recent_times.len() % 2 == 0 && recent_times.len() >= 2 {
-            (recent_times[mid - 1] + recent_times[mid]) / 2.0
-        } else {
-            recent_times[mid]
-        }
-    };
-
-    // Compute trend: compare first half average vs second half average
-    let trend = compute_time_trend(&all_times);
-
-    Some(crate::FfiPatternSection {
-        section_id: section_info.section_id.clone(),
-        section_name: section_info.section_name.clone(),
-        appearance_rate: section_info.activity_count as f32 / activity_ids.len().max(1) as f32,
-        best_time_secs: best_time.unwrap_or(0.0) as f32,
-        median_recent_secs: median_recent as f32,
-        trend,
-        traversal_count,
-    })
-}
-
-/// Compute trend from time series: -1=declining (slower), 0=stable, 1=improving (faster).
-/// Times are sorted newest first. Lower time = better (improving).
-fn compute_time_trend(times: &[(i64, f64)]) -> Option<i8> {
-    if times.len() < 4 {
-        return None; // Insufficient data for trend
-    }
-
-    let mid = times.len() / 2;
-
-    // times are sorted newest first, so first half = recent, second half = older
-    let recent_avg: f64 = times[..mid].iter().map(|(_, t)| t).sum::<f64>() / mid as f64;
-    let older_avg: f64 =
-        times[mid..].iter().map(|(_, t)| t).sum::<f64>() / (times.len() - mid) as f64;
-
-    // A non-positive or non-finite baseline (zero-duration laps, corrupt data)
-    // has no meaningful trend.
-    crate::trend::classify_time(older_avg, recent_avg, PATTERN_TREND_DEADBAND)
 }
 
 // ============================================================================
@@ -1345,31 +1135,6 @@ mod tests {
             "Well-separated clusters should have high silhouette, got {}",
             sil
         );
-    }
-
-    #[test]
-    fn test_compute_time_trend() {
-        // Improving: recent times are faster (lower)
-        let times = vec![
-            (100, 60.0), // newest: faster
-            (90, 65.0),
-            (80, 70.0),
-            (70, 75.0), // oldest: slower
-        ];
-        assert_eq!(compute_time_trend(&times), Some(1)); // improving
-
-        // Declining: recent times are slower (higher)
-        let times = vec![
-            (100, 75.0), // newest: slower
-            (90, 70.0),
-            (80, 65.0),
-            (70, 60.0), // oldest: faster
-        ];
-        assert_eq!(compute_time_trend(&times), Some(-1)); // declining
-
-        // Insufficient data
-        let times = vec![(100, 60.0), (90, 65.0)];
-        assert_eq!(compute_time_trend(&times), None);
     }
 
     #[test]

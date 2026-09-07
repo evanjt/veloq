@@ -39,10 +39,7 @@ export interface WorkoutStep {
 }
 
 /**
- * Activity patterns and their sections come straight from the engine's k-means
- * clustering, so the generated records are the app types.
+ * Activity patterns come straight from the engine's k-means clustering, so the
+ * generated record is the app type.
  */
-export type {
-  FfiActivityPattern as ActivityPattern,
-  FfiPatternSection as PatternSection,
-} from 'veloqrs';
+export type { FfiActivityPattern as ActivityPattern } from 'veloqrs';
