@@ -31,6 +31,7 @@ function centre(binKey: string) {
     visitTotal: 10,
     sectionCount: 3,
     source: 'activities' as const,
+    locality: null,
   };
 }
 
@@ -40,7 +41,6 @@ function renderPicker(count: number) {
     binKey: c.binKey,
     label: null,
     fallbackNumber: i + 1,
-    join: { seen: 0, withLocality: 0, withPosition: 0, nearestMetres: null },
   }));
   return render(
     <PreviewCentrePicker

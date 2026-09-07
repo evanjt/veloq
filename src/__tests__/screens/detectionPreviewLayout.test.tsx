@@ -76,8 +76,24 @@ jest.mock('@/shared/native/engine', () => ({
 jest.mock('@/features/routes/hooks/usePreviewCentres', () => ({
   usePreviewCentres: () => ({
     centres: [
-      { binKey: 'b1', lat: 1, lng: 2, visitTotal: 10, sectionCount: 3, source: 'visits' },
-      { binKey: 'b2', lat: 3, lng: 4, visitTotal: 6, sectionCount: 1, source: 'sections' },
+      {
+        binKey: 'b1',
+        lat: 1,
+        lng: 2,
+        visitTotal: 10,
+        sectionCount: 3,
+        source: 'visits',
+        locality: null,
+      },
+      {
+        binKey: 'b2',
+        lat: 3,
+        lng: 4,
+        visitTotal: 6,
+        sectionCount: 1,
+        source: 'sections',
+        locality: null,
+      },
     ],
     labels: [
       { label: 'Home', fallbackNumber: 1 },

@@ -54,8 +54,24 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 const CENTRES: PreviewCentre[] = [
-  { binKey: 'a', lat: -33.86, lng: 151.2, visitTotal: 20, sectionCount: 4, source: 'sections' },
-  { binKey: 'b', lat: -37.81, lng: 144.96, visitTotal: 9, sectionCount: 2, source: 'sections' },
+  {
+    binKey: 'a',
+    lat: -33.86,
+    lng: 151.2,
+    visitTotal: 20,
+    sectionCount: 4,
+    source: 'sections',
+    locality: null,
+  },
+  {
+    binKey: 'b',
+    lat: -37.81,
+    lng: 144.96,
+    visitTotal: 9,
+    sectionCount: 2,
+    source: 'sections',
+    locality: null,
+  },
 ];
 
 jest.mock('@/features/routes/hooks/usePreviewCentres', () => ({

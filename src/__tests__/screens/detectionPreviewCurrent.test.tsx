@@ -26,6 +26,7 @@ const CENTRE: PreviewCentre = {
   lng: 8.7,
   visitTotal: 40,
   sectionCount: 2,
+  locality: null,
   source: 'sections',
 };
 
