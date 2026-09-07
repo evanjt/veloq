@@ -626,6 +626,9 @@ void uniffi_veloqrs_fn_method_sectionmanager_exclude_lap(
 void uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
     /*handle*/ uint64_t ptr, RustBuffer section_id, RustBuffer activity_id,
     uint32_t start_index, uint32_t end_index, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_sectionmanager_find_superseded(
+    /*handle*/ uint64_t ptr, RustBuffer custom_section_id,
+    double overlap_threshold, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer
@@ -1261,6 +1264,7 @@ uint16_t uniffi_veloqrs_checksum_method_sectionmanager_enable();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_exclude_activity();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds();
+uint16_t uniffi_veloqrs_checksum_method_sectionmanager_find_superseded();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_all_names();
 uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_get_all_summaries_including_hidden();
@@ -6924,6 +6928,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_find_superseded"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_sectionmanager_find_superseded"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_find_superseded(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_names"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -11110,6 +11127,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_find_superseded"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "sectionmanager_find_superseded"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_find_superseded(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names"] =
@@ -16053,6 +16082,22 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
   return jsi::Value::undefined();
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_find_superseded(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_sectionmanager_find_superseded(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[2]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -19994,6 +20039,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_sectionmanager_find_superseded(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_sectionmanager_find_superseded();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

@@ -6,11 +6,10 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getEngine } from '@/shared/native/engine';
-import { computePolylineOverlap } from '@/shared/math/geometry';
 import { decodeCoords } from 'veloqrs';
 import type { Section as NativeSection } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
-import type { Section, RoutePoint } from '@/types';
+import type { Section } from '@/types';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('CustomSections');
@@ -58,28 +57,10 @@ export interface CreateSectionParams {
 
 /**
  * Overlap threshold for considering sections as superseded.
- * If a custom section overlaps >80% with an auto section, the auto section is hidden.
+ * If a custom section covers more than 80% of an auto section, that auto
+ * section is hidden.
  */
 const OVERLAP_THRESHOLD = 0.8;
-
-/**
- * Find auto-detected sections that significantly overlap with a custom section.
- */
-function findSupersededSections(
-  customPolyline: RoutePoint[],
-  autoSections: { id: string; polyline: RoutePoint[] }[]
-): string[] {
-  const superseded: string[] = [];
-
-  for (const autoSection of autoSections) {
-    const overlap = computePolylineOverlap(autoSection.polyline, customPolyline);
-    if (overlap > OVERLAP_THRESHOLD) {
-      superseded.push(autoSection.id);
-    }
-  }
-
-  return superseded;
-}
 
 /** Engine sections in the app's shape: decoded polyline, custom type, created stamp. */
 function toAppSections(sections: NativeSection[]): Section[] {
@@ -207,17 +188,11 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         );
       }
 
-      // Compute which auto-detected sections this custom section supersedes
+      // Which auto sections this one supersedes is the engine's answer, in one
+      // read. Asking per section decoded every auto polyline here and rebuilt
+      // the same R-tree for each, on the JS thread.
       try {
-        const autoSections = engine.getSectionsByType('auto');
-        const autoSectionsForOverlap = autoSections.map((s) => ({
-          id: s.id,
-          polyline: decodeCoords(s.encodedPolyline).map((pt) => ({
-            lat: pt.latitude,
-            lng: pt.longitude,
-          })),
-        }));
-        const supersededIds = findSupersededSections(result.polyline, autoSectionsForOverlap);
+        const supersededIds = engine.findSupersededSections(result.id, OVERLAP_THRESHOLD);
         if (supersededIds.length > 0) {
           for (const autoId of supersededIds) {
             engine.setSuperseded(autoId, result.id);

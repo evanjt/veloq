@@ -615,6 +615,21 @@ impl SectionManager {
         })?
     }
 
+    /// Auto sections the given custom section covers, in one read.
+    ///
+    /// The tolerance is the 50 m the overlap call has always defaulted to, and
+    /// it stays here rather than on the surface: no caller has ever chosen
+    /// another one.
+    fn find_superseded(
+        &self,
+        custom_section_id: String,
+        overlap_threshold: f64,
+    ) -> Result<Vec<String>, VeloqError> {
+        with_engine_read(|e| {
+            e.find_superseded_auto_sections(&custom_section_id, 50.0, overlap_threshold)
+        })
+    }
+
     fn clear_superseded(&self, custom_section_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.clear_superseded(&custom_section_id)

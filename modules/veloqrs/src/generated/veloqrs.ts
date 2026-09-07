@@ -15138,6 +15138,17 @@ export interface SectionManagerLike {
     startIndex: /*u32*/ number,
     endIndex: /*u32*/ number,
   ) /*throws*/ : void;
+  /**
+   * Auto sections the given custom section covers, in one read.
+   *
+   * The tolerance is the 50 m the overlap call has always defaulted to, and
+   * it stays here rather than on the surface: no caller has ever chosen
+   * another one.
+   */
+  findSuperseded(
+    customSectionId: string,
+    overlapThreshold: /*f64*/ number,
+  ) /*throws*/ : Array<string>;
   getAllNames() /*throws*/ : Map<string, string>;
   /**
    * Get ALL section summaries including disabled/superseded (for restore UI).
@@ -15538,6 +15549,35 @@ export class SectionManager
         );
       },
       /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Auto sections the given custom section covers, in one read.
+   *
+   * The tolerance is the 50 m the overlap call has always defaulted to, and
+   * it stays here rather than on the surface: no caller has ever chosen
+   * another one.
+   */
+  findSuperseded(
+    customSectionId: string,
+    overlapThreshold: /*f64*/ number,
+  ): Array<string> /*throws*/ {
+    return FfiConverterArrayString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_find_superseded(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(customSectionId),
+            FfiConverterFloat64.lower(overlapThreshold),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
     );
   }
 
@@ -21159,6 +21199,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_find_superseded() !==
+    61901
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_find_superseded",
     );
   }
   if (

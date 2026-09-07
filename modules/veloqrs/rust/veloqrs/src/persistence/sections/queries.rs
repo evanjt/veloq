@@ -209,6 +209,77 @@ impl PersistentEngine {
             .unwrap_or(0)
     }
 
+    /// Auto sections a custom section covers, so the caller can hide them.
+    ///
+    /// The measure is the fraction of the *auto* section lying within
+    /// `threshold_meters` of the custom one, strictly above
+    /// `overlap_threshold`. One read: the R-tree over the custom line is built
+    /// once and an auto section whose bounds cannot reach it never has its
+    /// polyline decoded at all.
+    pub fn find_superseded_auto_sections(
+        &self,
+        custom_section_id: &str,
+        threshold_meters: f64,
+        overlap_threshold: f64,
+    ) -> Vec<String> {
+        let custom = self.get_section_polyline(custom_section_id);
+        let index = match crate::persistence::OverlapIndex::new(&custom) {
+            Some(i) => i,
+            None => return Vec::new(),
+        };
+
+        let query = format!(
+            "SELECT id, bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+             FROM sections WHERE section_type = '{}' AND {} AND id != ?",
+            SectionType::Auto.as_str(),
+            Self::VISIBLE_FILTER
+        );
+        let mut stmt = match self.db.prepare(&query) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("veloqrs: find_superseded_auto_sections prepare failed: {e}");
+                return Vec::new();
+            }
+        };
+
+        type Bounds = (String, Option<f64>, Option<f64>, Option<f64>, Option<f64>);
+        let rows = stmt.query_map(params![custom_section_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Option<f64>>(1)?,
+                row.get::<_, Option<f64>>(2)?,
+                row.get::<_, Option<f64>>(3)?,
+                row.get::<_, Option<f64>>(4)?,
+            ))
+        });
+        let rows: Vec<Bounds> = match rows {
+            Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
+            Err(e) => {
+                log::error!("veloqrs: find_superseded_auto_sections query failed: {e}");
+                return Vec::new();
+            }
+        };
+
+        let mut superseded = Vec::new();
+        for (id, min_lat, max_lat, min_lng, max_lng) in rows {
+            // Bounds are optional on the row, and a section without them is
+            // measured rather than skipped.
+            if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) =
+                (min_lat, max_lat, min_lng, max_lng)
+                && !index.bbox_can_reach(min_lat, max_lat, min_lng, max_lng, threshold_meters)
+            {
+                continue;
+            }
+
+            let auto = self.get_section_polyline(&id);
+            if index.fraction_within(&auto, threshold_meters) > overlap_threshold {
+                superseded.push(id);
+            }
+        }
+
+        superseded
+    }
+
     /// Get visible section summaries by type (lightweight, no polylines).
     /// Excludes disabled and superseded sections.
     pub fn get_section_summaries_by_type(
