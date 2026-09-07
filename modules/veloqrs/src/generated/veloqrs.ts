@@ -570,6 +570,67 @@ const FfiConverterTypeActivitySportType = (() => {
 })();
 
 /**
+ * What a running or finished bulk export has done. `skipped` and
+ * `total_bytes` are only meaningful once `state` reads "complete".
+ */
+export type BulkExportPoll = {
+  state: string;
+  exported: /*u32*/ number;
+  total: /*u32*/ number;
+  skipped: /*u32*/ number;
+  totalBytes: /*u64*/ bigint;
+};
+
+/**
+ * Generated factory for {@link BulkExportPoll} record objects.
+ */
+export const BulkExportPoll = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<BulkExportPoll, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<BulkExportPoll>,
+  });
+})();
+
+const FfiConverterTypeBulkExportPoll = (() => {
+  type TypeName = BulkExportPoll;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        state: FfiConverterString.read(from),
+        exported: FfiConverterUInt32.read(from),
+        total: FfiConverterUInt32.read(from),
+        skipped: FfiConverterUInt32.read(from),
+        totalBytes: FfiConverterUInt64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.state, into);
+      FfiConverterUInt32.write(value.exported, into);
+      FfiConverterUInt32.write(value.total, into);
+      FfiConverterUInt32.write(value.skipped, into);
+      FfiConverterUInt64.write(value.totalBytes, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.state) +
+        FfiConverterUInt32.allocationSize(value.exported) +
+        FfiConverterUInt32.allocationSize(value.total) +
+        FfiConverterUInt32.allocationSize(value.skipped) +
+        FfiConverterUInt64.allocationSize(value.totalBytes)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Result of a bulk GPX export.
  */
 export type BulkExportResult = {
@@ -9746,6 +9807,53 @@ const stringConverter = {
 const FfiConverterString = uniffiCreateFfiConverterString(stringConverter);
 
 /**
+ * Which file a bulk export writes.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is
+ * falsy.
+ */
+export enum BulkExportFormat {
+  /**
+   * A ZIP of one GPX file per activity, plus its metadata and skip list.
+   */
+  Gpx = 1,
+  /**
+   * One GeoJSON FeatureCollection holding every track.
+   */
+  GeoJson = 2,
+}
+
+const FfiConverterTypeBulkExportFormat = (() => {
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = BulkExportFormat;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      switch (ordinalConverter.read(from)) {
+        case 1:
+          return BulkExportFormat.Gpx;
+        case 2:
+          return BulkExportFormat.GeoJson;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value) {
+        case BulkExportFormat.Gpx:
+          return ordinalConverter.write(1, into);
+        case BulkExportFormat.GeoJson:
+          return ordinalConverter.write(2, into);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return ordinalConverter.allocationSize(0);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * How a call ended, as the kind the caller branches on.
  *
  * A closed set crossing as an enum rather than a word, so TypeScript compares
@@ -18661,15 +18769,6 @@ const FfiConverterTypeSyncManager = new FfiConverterObject(
 
 export interface VeloqEngineLike {
   activities(): ActivityManagerLike;
-  /**
-   * Bulk export all activities with GPS data as a single GeoJSON FeatureCollection.
-   */
-  bulkExportGeojson(destPath: string) /*throws*/ : BulkExportResult;
-  /**
-   * Bulk export all activities with GPS data as a ZIP of GPX files.
-   * Streams one track at a time - constant memory regardless of activity count.
-   */
-  bulkExportGpx(destPath: string) /*throws*/ : BulkExportResult;
   clear() /*throws*/ : void;
   /**
    * Empty what the engine can re-derive and keep what the athlete made:
@@ -18710,6 +18809,13 @@ export interface VeloqEngineLike {
    * start.
    */
   pollBackup() /*throws*/ : string;
+  /**
+   * Poll the running export. `state` is "idle" | "running" | "complete",
+   * and `exported` against `total` is what a progress bar reads while it
+   * runs. A failed export is an error, and either outcome clears the slot
+   * so the next export can start.
+   */
+  pollBulkExport() /*throws*/ : BulkExportPoll;
   recordings(): RecordingManagerLike;
   routes(): RouteManagerLike;
   sections(): SectionManagerLike;
@@ -18726,6 +18832,13 @@ export interface VeloqEngineLike {
    * so neither the engine lock nor the calling thread waits for it.
    */
   startBackup(destPath: string) /*throws*/ : void;
+  /**
+   * Start a bulk export of every activity with GPS data, in `format`, on a
+   * background thread. Poll `poll_bulk_export` for progress and outcome.
+   * The file is written from a connection of its own, so neither the JS
+   * thread nor the engine's write lock waits for it.
+   */
+  startBulkExport(format: BulkExportFormat, destPath: string) /*throws*/ : void;
   strength(): StrengthManagerLike;
   sync(): SyncManagerLike;
 }
@@ -18769,49 +18882,6 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_activities(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Bulk export all activities with GPS data as a single GeoJSON FeatureCollection.
-   */
-  bulkExportGeojson(destPath: string): BulkExportResult /*throws*/ {
-    return FfiConverterTypeBulkExportResult.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson(
-            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            FfiConverterString.lower(destPath),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Bulk export all activities with GPS data as a ZIP of GPX files.
-   * Streams one track at a time - constant memory regardless of activity count.
-   */
-  bulkExportGpx(destPath: string): BulkExportResult /*throws*/ {
-    return FfiConverterTypeBulkExportResult.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx(
-            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            FfiConverterString.lower(destPath),
             callStatus,
           );
         },
@@ -19074,6 +19144,29 @@ export class VeloqEngine
     );
   }
 
+  /**
+   * Poll the running export. `state` is "idle" | "running" | "complete",
+   * and `exported` against `total` is what a progress bar reads while it
+   * runs. A failed export is an error, and either outcome clears the slot
+   * so the next export can start.
+   */
+  pollBulkExport(): BulkExportPoll /*throws*/ {
+    return FfiConverterTypeBulkExportPoll.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_bulk_export(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   recordings(): RecordingManagerLike {
     return FfiConverterTypeRecordingManager.lift(
       uniffiCaller.rustCall(
@@ -19174,6 +19267,29 @@ export class VeloqEngine
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_backup(
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+          FfiConverterString.lower(destPath),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Start a bulk export of every activity with GPS data, in `format`, on a
+   * background thread. Poll `poll_bulk_export` for progress and outcome.
+   * The file is written from a connection of its own, so neither the JS
+   * thread nor the engine's write lock waits for it.
+   */
+  startBulkExport(format: BulkExportFormat, destPath: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_bulk_export(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+          FfiConverterTypeBulkExportFormat.lower(format),
           FfiConverterString.lower(destPath),
           callStatus,
         );
@@ -20258,22 +20374,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson() !==
-    442
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx() !==
-    30765
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear() !==
     24270
   ) {
@@ -20394,6 +20494,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_bulk_export() !==
+    48301
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_poll_bulk_export",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_recordings() !==
     31277
   ) {
@@ -20447,6 +20555,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_start_backup",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_bulk_export() !==
+    1034
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_start_bulk_export",
     );
   }
   if (
@@ -22108,6 +22224,8 @@ export default Object.freeze({
     FfiConverterTypeActivitySportMapping,
     FfiConverterTypeActivitySportType,
     FfiConverterTypeBasemapManager,
+    FfiConverterTypeBulkExportFormat,
+    FfiConverterTypeBulkExportPoll,
     FfiConverterTypeBulkExportResult,
     FfiConverterTypeCutoverProgress,
     FfiConverterTypeDerivedClear,

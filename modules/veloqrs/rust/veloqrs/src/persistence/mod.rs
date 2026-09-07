@@ -504,6 +504,34 @@ impl BackupHandle {
     }
 }
 
+/// Handle for a background bulk export.
+pub struct BulkExportHandle {
+    receiver: mpsc::Receiver<Result<export::BulkExportResult, String>>,
+    progress: std::sync::Arc<export::BulkExportProgress>,
+}
+
+impl BulkExportHandle {
+    /// Non-blocking poll that also reports a dead worker thread.
+    pub fn poll_state(&self) -> WorkerPoll<Result<export::BulkExportResult, String>> {
+        match self.receiver.try_recv() {
+            Ok(v) => WorkerPoll::Ready(v),
+            Err(mpsc::TryRecvError::Empty) => WorkerPoll::Running,
+            Err(mpsc::TryRecvError::Disconnected) => WorkerPoll::Died,
+        }
+    }
+
+    /// Activities written so far, and how many the export expects to visit.
+    pub fn progress(&self) -> (u32, u32) {
+        self.progress.read()
+    }
+
+    /// Block until the export finishes, returning its outcome.
+    /// Test and bench path; production polls.
+    pub fn recv_blocking(&self) -> Option<Result<export::BulkExportResult, String>> {
+        self.receiver.recv().ok()
+    }
+}
+
 #[cfg(test)]
 impl SectionDetectionHandle {
     /// A finished run whose worker apply never landed, for the poll's
@@ -1980,6 +2008,10 @@ pub mod persistent_engine_ffi {
 
     /// Handle for the running database backup, if any.
     pub static BACKUP_HANDLE: LazyLock<Mutex<Option<BackupHandle>>> =
+        LazyLock::new(|| Mutex::new(None));
+
+    /// Handle for the running bulk export, if any.
+    pub static BULK_EXPORT_HANDLE: LazyLock<Mutex<Option<BulkExportHandle>>> =
         LazyLock::new(|| Mutex::new(None));
 }
 

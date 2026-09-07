@@ -2,18 +2,25 @@
  * Bulk export all activities as a .zip file containing GPX files + metadata JSON.
  *
  * Uses Rust FFI to stream GPS tracks directly from SQLite into a ZIP on disk.
- * Peak memory is ~1 track regardless of activity count.
+ * Peak memory is ~1 track regardless of activity count. The write runs on a
+ * Rust thread with a connection of its own, so this polls it rather than
+ * waiting on it: a library takes seconds to write and the JS thread has frames
+ * to render in the meantime.
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
 import { getEngine } from '@/shared/native/engine';
 import { formatLocalDate } from '@/shared/format/format';
 import { shareExistingFile } from '@/features/settings/lib/shareFile';
+import { BulkExportFormat } from 'veloqrs';
 
 export type BulkExportPhase = 'generating' | 'sharing';
 
 export interface BulkExportProgress {
   phase: BulkExportPhase;
+  /** Activities written so far, and how many the export expects to visit. */
+  current: number;
+  total: number;
   sizeBytes: number;
 }
 
@@ -22,38 +29,63 @@ export interface BulkExportResult {
   skipped: number;
 }
 
+/** How often the running export is asked how far it has got. */
+const POLL_INTERVAL_MS = 250;
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
- * Let the caller's last render reach the screen before the export freezes the
- * thread that would paint it. The write is one blocking FFI call, so a row
- * that announces itself in the same tick announces to nobody.
+ * Start the export and poll it to completion, reporting what has been written
+ * on the way. Exported because it is the whole of the export's behaviour: the
+ * share around it is one call to the OS.
  */
-function paint(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
+export async function runExport(
+  format: BulkExportFormat,
+  plainPath: string,
+  onProgress?: (progress: BulkExportProgress) => void
+): Promise<{ exported: number; skipped: number; totalBytes: number }> {
+  const engine = getEngine();
+  if (!engine) throw new Error('Route engine not available');
+
+  engine.startBulkExport(format, plainPath);
+  onProgress?.({ phase: 'generating', current: 0, total: 0, sizeBytes: 0 });
+
+  for (;;) {
+    const poll = engine.pollBulkExport();
+    if (poll.state === 'complete') {
+      return { exported: poll.exported, skipped: poll.skipped, totalBytes: poll.totalBytes };
+    }
+    // An export that never started, or one another caller collected, leaves
+    // the slot idle. Waiting on it would spin forever.
+    if (poll.state === 'idle') throw new Error('Export did not start');
+    onProgress?.({
+      phase: 'generating',
+      current: poll.exported,
+      total: poll.total,
+      sizeBytes: 0,
+    });
+    await delay(POLL_INTERVAL_MS);
+  }
 }
+
+/** Strip file:// for Rust, which expects a plain filesystem path. */
+const plain = (uri: string) => (uri.startsWith('file://') ? uri.slice(7) : uri);
 
 export async function bulkExportActivities(
   onProgress?: (progress: BulkExportProgress) => void
 ): Promise<BulkExportResult> {
-  const engine = getEngine();
-  if (!engine) throw new Error('Route engine not available');
-
   const dateStr = formatLocalDate(new Date());
-  const filename = `veloq-activities-${dateStr}.zip`;
-  const destUri = `${FileSystem.cacheDirectory}${filename}`;
+  const destUri = `${FileSystem.cacheDirectory}veloq-activities-${dateStr}.zip`;
 
-  // Strip file:// for Rust (expects plain filesystem path)
-  const plainPath = destUri.startsWith('file://') ? destUri.slice(7) : destUri;
+  const result = await runExport(BulkExportFormat.Gpx, plain(destUri), onProgress);
 
-  onProgress?.({ phase: 'generating', sizeBytes: 0 });
-  await paint();
-
-  // Single FFI call - Rust streams all tracks into a ZIP on disk
-  const result = engine.bulkExportGpx(plainPath);
-
-  onProgress?.({ phase: 'sharing', sizeBytes: result.totalBytes });
+  onProgress?.({
+    phase: 'sharing',
+    current: result.exported,
+    total: result.exported,
+    sizeBytes: result.totalBytes,
+  });
   await shareExistingFile(destUri, 'application/zip', 'public.zip-archive');
-
-  // Clean up temp file
   await FileSystem.deleteAsync(destUri, { idempotent: true });
 
   return { exported: result.exported, skipped: result.skipped };
@@ -62,22 +94,18 @@ export async function bulkExportActivities(
 export async function bulkExportActivitiesGeoJson(
   onProgress?: (progress: BulkExportProgress) => void
 ): Promise<BulkExportResult> {
-  const engine = getEngine();
-  if (!engine) throw new Error('Route engine not available');
-
   const dateStr = formatLocalDate(new Date());
-  const filename = `veloq-activities-${dateStr}.geojson`;
-  const destUri = `${FileSystem.cacheDirectory}${filename}`;
-  const plainPath = destUri.startsWith('file://') ? destUri.slice(7) : destUri;
+  const destUri = `${FileSystem.cacheDirectory}veloq-activities-${dateStr}.geojson`;
 
-  onProgress?.({ phase: 'generating', sizeBytes: 0 });
-  await paint();
+  const result = await runExport(BulkExportFormat.GeoJson, plain(destUri), onProgress);
 
-  const result = engine.bulkExportGeoJson(plainPath);
-
-  onProgress?.({ phase: 'sharing', sizeBytes: result.totalBytes });
+  onProgress?.({
+    phase: 'sharing',
+    current: result.exported,
+    total: result.exported,
+    sizeBytes: result.totalBytes,
+  });
   await shareExistingFile(destUri, 'application/geo+json', 'public.json');
-
   await FileSystem.deleteAsync(destUri, { idempotent: true });
 
   return { exported: result.exported, skipped: result.skipped };

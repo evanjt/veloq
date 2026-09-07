@@ -1,10 +1,11 @@
 /**
- * Scenario: a bulk export freezes the JavaScript thread inside one blocking
- * FFI call, and the row above it is meant to show that something is happening.
+ * Scenario: a bulk export of a whole library. The write runs on a Rust thread
+ * with a connection of its own, and the row above it is meant to show what it
+ * has got through.
  *
- * Expected behaviour: the row gets a paint before the freeze, and it is told
- * only what is true. There is no count to report until the call returns, so
- * the export announces the phase and the bytes and nothing else.
+ * Expected behaviour: the export is started once, polled until it reports
+ * complete, and every poll is reported as a count. The JavaScript thread is
+ * never inside the write, so the row paints while it runs.
  */
 
 import {
@@ -13,13 +14,16 @@ import {
   type BulkExportProgress,
 } from '@/features/settings/lib/bulkExport';
 
-const mockBulkExportGpx = jest.fn(() => ({ exported: 402, skipped: 6, totalBytes: 8_400_000 }));
-const mockBulkExportGeoJson = jest.fn(() => ({ exported: 402, skipped: 6, totalBytes: 5_100_000 }));
+const mockStartBulkExport = jest.fn();
+const mockPollBulkExport = jest.fn();
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({ bulkExportGpx: mockBulkExportGpx, bulkExportGeoJson: mockBulkExportGeoJson }),
+  getEngine: () => ({
+    startBulkExport: mockStartBulkExport,
+    pollBulkExport: mockPollBulkExport,
+  }),
 }));
 
 jest.mock('expo-file-system/legacy', () => ({
@@ -31,37 +35,62 @@ jest.mock('@/features/settings/lib/shareFile', () => ({
   shareExistingFile: jest.fn().mockResolvedValue(undefined),
 }));
 
-beforeEach(() => {
-  mockBulkExportGpx.mockClear();
-  mockBulkExportGeoJson.mockClear();
+const running = (exported: number) => ({
+  state: 'running',
+  exported,
+  total: 402,
+  skipped: 0,
+  totalBytes: 0,
 });
 
+const complete = {
+  state: 'complete',
+  exported: 402,
+  total: 402,
+  skipped: 6,
+  totalBytes: 8_400_000,
+};
+
+beforeEach(() => {
+  jest.useFakeTimers();
+  mockStartBulkExport.mockClear();
+  mockPollBulkExport.mockReset();
+  mockPollBulkExport.mockReturnValueOnce(running(0)).mockReturnValueOnce(running(200));
+  mockPollBulkExport.mockReturnValue(complete);
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
+
+/** Drive the poll loop's timers while the export promise is in flight. */
+async function settle<T>(promise: Promise<T>): Promise<T> {
+  for (let i = 0; i < 20; i++) {
+    await Promise.resolve();
+    jest.advanceTimersByTime(250);
+  }
+  return promise;
+}
+
 describe.each([
-  ['gpx', bulkExportActivities, mockBulkExportGpx] as const,
-  ['geojson', bulkExportActivitiesGeoJson, mockBulkExportGeoJson] as const,
-])('%s bulk export', (_format, run, engineCall) => {
-  it('yields to the paint before it freezes the thread', async () => {
-    const seen: BulkExportProgress[] = [];
-    const done = run((progress) => seen.push(progress));
+  ['gpx', bulkExportActivities] as const,
+  ['geojson', bulkExportActivitiesGeoJson] as const,
+])('%s bulk export', (_format, run) => {
+  it('starts the export once and polls it to completion', async () => {
+    const result = await settle(run());
 
-    expect(seen).toHaveLength(1);
-    expect(seen[0].phase).toBe('generating');
-    expect(engineCall).not.toHaveBeenCalled();
-
-    await done;
-    expect(engineCall).toHaveBeenCalledTimes(1);
+    expect(mockStartBulkExport).toHaveBeenCalledTimes(1);
+    expect(mockPollBulkExport.mock.calls.length).toBeGreaterThan(1);
+    expect(result).toEqual({ exported: 402, skipped: 6 });
   });
 
-  it('reports the phase and the bytes, and never a count it does not have', async () => {
+  it('reports the count as it climbs, then the bytes it shared', async () => {
     const seen: BulkExportProgress[] = [];
-    await run((progress) => seen.push(progress));
+    await settle(run((progress) => seen.push(progress)));
 
-    expect(seen.map((p) => p.phase)).toEqual(['generating', 'sharing']);
-    expect(seen[0].sizeBytes).toBe(0);
-    expect(seen[1].sizeBytes).toBeGreaterThan(0);
-    for (const progress of seen) {
-      expect(progress).not.toHaveProperty('current');
-      expect(progress).not.toHaveProperty('total');
-    }
+    expect(seen.map((p) => p.phase)).toEqual(['generating', 'generating', 'generating', 'sharing']);
+    expect(seen.map((p) => p.current)).toEqual([0, 0, 200, 402]);
+    expect(seen[2].total).toBe(402);
+    expect(seen.at(-1)?.sizeBytes).toBe(8_400_000);
   });
 });
