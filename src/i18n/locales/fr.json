@@ -1311,6 +1311,7 @@
     "previewKeepRefusedTitle": "La nouvelle analyse n'a pas démarré",
     "previewKeepRefused": "Vos réglages sont enregistrés. Une autre analyse est en cours, le recalcul n'a donc pas démarré. Réessayez dans un instant.",
     "elevationBackfillPause": "Mettre en pause",
+    "elevationBackfillResume": "Reprendre le téléchargement",
     "elevationBackfillPaused": "Téléchargement de l'altitude en pause. Il reprendra à la prochaine ouverture de l'app. Pour arrêter complètement la détection de sections, désactivez Correspondance de parcours ci-dessus.",
     "exportPrivacyTitle": "Garder votre domicile hors des exports",
     "exportPrivacyDescription": "Rogne le début et la fin de chaque trace dans un rayon de 100 m autour du domicile. Seule la copie exportée est raccourcie.",

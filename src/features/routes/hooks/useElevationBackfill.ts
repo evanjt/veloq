@@ -47,6 +47,12 @@ export interface ElevationBackfillState {
    */
   remaining: number | null;
   isRunning: boolean;
+  /**
+   * Whether the athlete has paused the download. The phase carries the same
+   * fact at rest, but a pass that ends after a pause overwrites it, so this is
+   * the one the resume control reads.
+   */
+  isPaused: boolean;
 }
 
 const IDLE: ElevationBackfillState = {
@@ -56,6 +62,7 @@ const IDLE: ElevationBackfillState = {
   failed: 0,
   remaining: null,
   isRunning: false,
+  isPaused: false,
 };
 
 /** An unrecognised phase reads as idle rather than as a finished run. */
@@ -87,6 +94,7 @@ function read(): ElevationBackfillState {
     // One COUNT, and only when there is no pass to report instead.
     remaining: isRunning ? null : (engine.getElevationBackfillRemaining?.() ?? null),
     isRunning,
+    isPaused: engine.isElevationBackfillPaused?.() ?? false,
   };
 }
 
@@ -96,7 +104,8 @@ function same(a: ElevationBackfillState, b: ElevationBackfillState): boolean {
     a.completed === b.completed &&
     a.total === b.total &&
     a.failed === b.failed &&
-    a.remaining === b.remaining
+    a.remaining === b.remaining &&
+    a.isPaused === b.isPaused
   );
 }
 

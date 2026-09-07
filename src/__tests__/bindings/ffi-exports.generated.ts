@@ -5,7 +5,7 @@
  * This file contains the expected FFI exports extracted from Rust source.
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
- * 17 standalone `#[uniffi::export]` functions plus
+ * 19 standalone `#[uniffi::export]` functions plus
  * 255 methods inside `#[uniffi::export] impl` blocks across
  * 15 UniFFI Objects.
  */
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 272 exports (17 standalone + 255 methods)
+ * Total: 274 exports (19 standalone + 255 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -111,10 +111,28 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     docs: 'Pause the elevation backfill for the rest of this process. The pass in flight ends at its next batch and reports `paused`, and no launch or resume attempt starts another until the app is reopened. Nothing is persisted, so a forgotten pause can never strand the migration. Returns whether a pass was running when the pause landed.',
   },
   {
+    name: 'resume_elevation_backfill',
+    camelName: 'resumeElevationBackfill',
+    file: 'ffi.rs',
+    line: 682,
+    paramCount: 0,
+    returnType: 'bool',
+    docs: 'Lift a pause on the elevation backfill and start a pass again. The pause only a new process could clear left detection held and the detector cutover unable to run, with a force-quit as the only exit. Returns whether there was a pause to lift.',
+  },
+  {
+    name: 'is_elevation_backfill_paused',
+    camelName: 'isElevationBackfillPaused',
+    file: 'ffi.rs',
+    line: 689,
+    paramCount: 0,
+    returnType: 'bool',
+    docs: 'Whether the elevation backfill is paused in this process.',
+  },
+  {
     name: 'get_elevation_backfill_remaining',
     camelName: 'getElevationBackfillRemaining',
     file: 'ffi.rs',
-    line: 685,
+    line: 702,
     paramCount: 0,
     returnType: 'Result<u32, crate::VeloqError>',
     docs: 'How many stored tracks the backfill still has to ask upstream about. Zero means the library has been fully asked, so the launch trigger can stop attempting runs for this install. Raises rather than answering zero when it cannot answer at all. The launch trigger stamps the app version on a zero and the cutover trigger reads one as permission to cut, so an absent engine or a locked database has to reach the caller as the null its delegate already handles.',
@@ -123,7 +141,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_elevation_backfill_progress',
     camelName: 'getElevationBackfillProgress',
     file: 'ffi.rs',
-    line: 695,
+    line: 712,
     paramCount: 0,
     returnType: 'ElevationBackfillProgress',
     docs: "Read the elevation backfill's progress. Safe to poll at any time.",
@@ -132,7 +150,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'is_cutover_pending',
     camelName: 'isCutoverPending',
     file: 'ffi.rs',
-    line: 708,
+    line: 725,
     paramCount: 0,
     returnType: 'bool',
     docs: 'Whether the Corridor-to-Unified cutover is pending.',
@@ -141,7 +159,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'is_cutover_running',
     camelName: 'isCutoverRunning',
     file: 'ffi.rs',
-    line: 714,
+    line: 731,
     paramCount: 0,
     returnType: 'bool',
     docs: 'Whether a cutover run is currently in flight.',
@@ -150,7 +168,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'start_detector_cutover',
     camelName: 'startDetectorCutover',
     file: 'ffi.rs',
-    line: 733,
+    line: 750,
     paramCount: 0,
     returnType: 'bool',
     docs: 'Start the cutover on a background thread. Returns whether a run was started: false means no engine, not owed, or already running. A full cut is a cold detect over the whole library, so it must never be driven from the calling thread.',
@@ -159,7 +177,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_cutover_progress',
     camelName: 'getCutoverProgress',
     file: 'ffi.rs',
-    line: 739,
+    line: 756,
     paramCount: 0,
     returnType: 'CutoverProgress',
     docs: 'How far the running cutover has got.',
@@ -168,7 +186,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_change_card_support',
     camelName: 'getChangeCardSupport',
     file: 'ffi.rs',
-    line: 748,
+    line: 765,
     paramCount: 0,
     returnType: 'crate::FfiChangeCardSupport',
     docs: 'Which claims the change card may make on this build.',
@@ -177,7 +195,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_cutover_diff',
     camelName: 'getCutoverDiff',
     file: 'ffi.rs',
-    line: 772,
+    line: 789,
     paramCount: 0,
     returnType: 'Option<String>',
     docs: 'The stored cutover diff payload, if any.',
@@ -2755,6 +2773,8 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getNetworkPush',
   'startElevationBackfill',
   'pauseElevationBackfill',
+  'resumeElevationBackfill',
+  'isElevationBackfillPaused',
   'getElevationBackfillRemaining',
   'getElevationBackfillProgress',
   'isCutoverPending',
@@ -3037,6 +3057,8 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_network_push: 'getNetworkPush',
   start_elevation_backfill: 'startElevationBackfill',
   pause_elevation_backfill: 'pauseElevationBackfill',
+  resume_elevation_backfill: 'resumeElevationBackfill',
+  is_elevation_backfill_paused: 'isElevationBackfillPaused',
   get_elevation_backfill_remaining: 'getElevationBackfillRemaining',
   get_elevation_backfill_progress: 'getElevationBackfillProgress',
   is_cutover_pending: 'isCutoverPending',

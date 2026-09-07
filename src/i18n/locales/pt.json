@@ -1311,6 +1311,7 @@
     "previewKeepRefusedTitle": "A nova análise não começou",
     "previewKeepRefused": "As tuas definições estão guardadas. Está a decorrer outra análise, por isso o recálculo não começou. Tenta novamente daqui a pouco.",
     "elevationBackfillPause": "Pausar transferência",
+    "elevationBackfillResume": "Retomar transferência",
     "elevationBackfillPaused": "Transferência de altitude em pausa. Será retomada da próxima vez que abrir a app. Para parar de vez a deteção de troços, desligue Correspondencia de percursos acima.",
     "exportPrivacyTitle": "Deixar a casa fora das exportações",
     "exportPrivacyDescription": "Corta o início e o fim de cada percurso a 100 m de casa. Apenas a cópia exportada é encurtada.",
