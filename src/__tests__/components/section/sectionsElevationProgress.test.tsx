@@ -105,7 +105,7 @@ describe('SectionsListHeader elevation progress', () => {
     const tree = render(
       <SectionsListHeader
         {...BASE}
-        detectionHold="elevation"
+        detectionHold="elevation-running"
         elevationBackfill={backfill({ phase: 'fetching', isRunning: true, completed: 2, total: 5 })}
       />
     );

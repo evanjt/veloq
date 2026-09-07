@@ -1066,6 +1066,7 @@
     "deleteSectionConfirm": "Wötsch de Abschnitt würklich lösche? Das chasch nöd rückgängig mache.",
     "detectionPaused": "Erkennig pausiert, während dini Abschnitt migriert werded",
     "detectionPausedElevation": "Erkennig pausiert, während Höhedate glade werded",
+    "detectionHeldElevationPaused": "Die Erkennung pausiert, bis du den Höhendaten-Download in den Einstellungen fortsetzt",
     "disabled": "Deaktiviert",
     "removeSection": "Abschnitt entferne",
     "removeSectionConfirm": "De Abschnitt wird nöd meh i de Aktivitätsdetails oder Insights azeigt. Du chasch ihn us de Lischte widerherstelle.",
