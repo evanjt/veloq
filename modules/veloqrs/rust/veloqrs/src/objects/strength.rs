@@ -142,7 +142,10 @@ impl StrengthManager {
     /// before, so a black-hole network froze the UI for as long as the request
     /// took. The sets land in SQLite and are read back through
     /// `get_exercise_sets`, the same path a cache hit takes.
-    fn fetch_and_parse_exercise_sets(&self, activity_id: String) -> bool {
+    fn fetch_and_parse_exercise_sets(
+        &self,
+        activity_id: String,
+    ) -> crate::objects::start::FfiStartOutcome {
         info!("[Strength] Fetching FIT file for {}", activity_id);
         sync::spawn_once(
             format!("fit:{}", activity_id),
@@ -178,9 +181,13 @@ impl StrengthManager {
     /// Runs in the background for the same reason the single fetch does: the
     /// caller is the sync path on the JS thread, and this loop is one blocking
     /// request per activity.
-    fn batch_fetch_exercise_sets(&self, activity_ids: Vec<String>) -> bool {
+    fn batch_fetch_exercise_sets(
+        &self,
+        activity_ids: Vec<String>,
+    ) -> crate::objects::start::FfiStartOutcome {
         if activity_ids.is_empty() {
-            return false;
+            // An empty list is not a refusal to work, it is no work.
+            return crate::objects::start::FfiStartOutcome::NotOwed;
         }
 
         info!(

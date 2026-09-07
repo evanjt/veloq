@@ -651,25 +651,25 @@ class EngineClient implements DelegateHost {
   syncActivitiesWindow = (oldest: string, newest: string): FfiStartOutcome =>
     syncDelegates.syncActivitiesWindow(this, oldest, newest);
 
-  syncPowerCurve = (sport: string, days: number): boolean =>
+  syncPowerCurve = (sport: string, days: number): FfiStartOutcome =>
     syncDelegates.syncPowerCurve(this, sport, days);
 
-  syncPaceCurve = (sport: string, days: number, gap: boolean): boolean =>
+  syncPaceCurve = (sport: string, days: number, gap: boolean): FfiStartOutcome =>
     syncDelegates.syncPaceCurve(this, sport, days, gap);
 
-  syncActivityIntervals = (activityId: string): boolean =>
+  syncActivityIntervals = (activityId: string): FfiStartOutcome =>
     syncDelegates.syncActivityIntervals(this, activityId);
 
-  syncCalendarEvents = (oldest: string, newest: string): boolean =>
+  syncCalendarEvents = (oldest: string, newest: string): FfiStartOutcome =>
     syncDelegates.syncCalendarEvents(this, oldest, newest);
 
-  syncActivityStreams = (activityId: string, types: string): boolean =>
+  syncActivityStreams = (activityId: string, types: string): FfiStartOutcome =>
     syncDelegates.syncActivityStreams(this, activityId, types);
 
-  syncActivityDetail = (activityId: string): boolean =>
+  syncActivityDetail = (activityId: string): FfiStartOutcome =>
     syncDelegates.syncActivityDetail(this, activityId);
 
-  syncTimeStreams = (activityIds: string[]): boolean =>
+  syncTimeStreams = (activityIds: string[]): FfiStartOutcome =>
     syncDelegates.syncTimeStreams(this, activityIds);
 
   uploadActivityFile = (
@@ -1359,7 +1359,7 @@ class EngineClient implements DelegateHost {
   isFitProcessed = (activityId: string): boolean =>
     strengthDelegates.isFitProcessed(this, activityId);
 
-  fetchAndParseExerciseSets = (activityId: string): boolean =>
+  fetchAndParseExerciseSets = (activityId: string): FfiStartOutcome =>
     strengthDelegates.fetchAndParseExerciseSets(this, activityId);
 
   /**
@@ -1378,7 +1378,7 @@ class EngineClient implements DelegateHost {
   getUnprocessedStrengthIds = (activityIds: string[]): string[] =>
     strengthDelegates.getUnprocessedStrengthIds(this, activityIds);
 
-  batchFetchExerciseSets = (activityIds: string[]): boolean =>
+  batchFetchExerciseSets = (activityIds: string[]): FfiStartOutcome =>
     strengthDelegates.batchFetchExerciseSets(this, activityIds);
 
   /**

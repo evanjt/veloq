@@ -5,6 +5,7 @@
  * and FIT file parsing.
  */
 
+import { FfiStartOutcome } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 import type {
   FfiExerciseActivities,
@@ -24,7 +25,10 @@ export function isFitProcessed(host: DelegateHost, activityId: string): boolean 
   return host.timed('isFitProcessed', () => host.engine.strength().isFitProcessed(activityId));
 }
 
-export function fetchAndParseExerciseSets(host: DelegateHost, activityId: string): boolean {
+export function fetchAndParseExerciseSets(
+  host: DelegateHost,
+  activityId: string
+): FfiStartOutcome {
   return host.timed('fetchAndParseExerciseSets', () =>
     host.engine.strength().fetchAndParseExerciseSets(activityId)
   );
@@ -40,7 +44,10 @@ export function getUnprocessedStrengthIds(host: DelegateHost, activityIds: strin
   );
 }
 
-export function batchFetchExerciseSets(host: DelegateHost, activityIds: string[]): boolean {
+export function batchFetchExerciseSets(
+  host: DelegateHost,
+  activityIds: string[]
+): FfiStartOutcome {
   return host.timed('batchFetchExerciseSets', () =>
     host.engine.strength().batchFetchExerciseSets(activityIds)
   );
