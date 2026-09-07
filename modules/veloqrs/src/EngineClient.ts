@@ -368,6 +368,21 @@ class EngineClient implements DelegateHost {
     return this.initialized;
   }
 
+  /** Start the route/section wipe on a Rust thread. Poll
+   *  `pollClearRoutesAndSections` for the outcome. */
+  startClearRoutesAndSections(): void {
+    if (!this.ready) return;
+    this.timed('startClearRoutesAndSections', () => this.engine.startClearRoutesAndSections());
+  }
+
+  /** Poll the running wipe: "idle" | "running" | "complete". Throws on failure. */
+  pollClearRoutesAndSections(): string {
+    if (!this.ready) return 'idle';
+    return this.timed('pollClearRoutesAndSections', () =>
+      this.engine.pollClearRoutesAndSections()
+    );
+  }
+
   /** Clear only route/section data, keeping GPS tracks and activities.
    *  Used when route matching is toggled off to free storage. */
   clearRoutesAndSections(): void {
