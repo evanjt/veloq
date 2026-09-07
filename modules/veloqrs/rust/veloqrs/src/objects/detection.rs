@@ -2,6 +2,26 @@ use super::error::{VeloqError, with_engine};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use log::info;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
+
+/// How the last run this process finished ended, for surfaces that may look
+/// but must not take.
+///
+/// The completion itself is a taking read: `poll_detection_once` receives it
+/// from the worker's channel and whoever gets there first applies it, so a
+/// second caller sees `Idle`. A status screen polling on a timer therefore
+/// settles a run the follower is still waiting on, and the rescan behind it
+/// reports no change. This is the observable half: written where the outcome
+/// is already known, read by anyone, and it consumes nothing.
+static LAST_DETECTION_OUTCOME: AtomicU8 = AtomicU8::new(OUTCOME_IDLE);
+
+const OUTCOME_IDLE: u8 = 0;
+const OUTCOME_COMPLETE: u8 = 1;
+const OUTCOME_ERROR: u8 = 2;
+
+fn record_outcome(outcome: u8) {
+    LAST_DETECTION_OUTCOME.store(outcome, Ordering::Relaxed);
+}
 
 #[derive(uniffi::Object)]
 pub struct DetectionManager {
@@ -43,6 +63,7 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
             // otherwise detection is blocked for the rest of the session.
             *handle_guard = None;
             log::error!("veloqrs: [DetectionManager] Detection thread died without a result");
+            record_outcome(OUTCOME_ERROR);
             Ok(DetectionPoll::Died)
         }
         crate::persistence::WorkerPoll::Ready((sections, detection_activity_ids)) => {
@@ -70,6 +91,7 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
                     });
                 }
                 info!("veloqrs: [DetectionManager] Section detection complete");
+                record_outcome(OUTCOME_COMPLETE);
                 return Ok(DetectionPoll::Applied);
             }
 
@@ -137,6 +159,7 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
             })??;
 
             info!("veloqrs: [DetectionManager] Section detection complete");
+            record_outcome(OUTCOME_COMPLETE);
             Ok(DetectionPoll::Applied)
         }
         crate::persistence::WorkerPoll::Running => {
@@ -232,8 +255,27 @@ impl DetectionManager {
         }
 
         *handle_guard = Some(handle);
+        // The record describes the last run that finished. A run that has just
+        // started has not, so the previous outcome stops being the answer the
+        // moment this one takes the slot.
+        record_outcome(OUTCOME_IDLE);
         info!("veloqrs: [DetectionManager] Section detection started");
         Ok(true)
+    }
+
+    /// How the last finished run ended, without taking anything.
+    ///
+    /// A status surface reads this and `get_progress`: progress says whether a
+    /// run holds the slot now, this says how the previous one ended. Neither
+    /// touches the worker's channel, so neither can settle a run the follower
+    /// is waiting on, which is what `poll` is for and why only the follower
+    /// calls it.
+    pub fn last_outcome(&self) -> String {
+        match LAST_DETECTION_OUTCOME.load(Ordering::Relaxed) {
+            OUTCOME_COMPLETE => "complete".to_string(),
+            OUTCOME_ERROR => "error".to_string(),
+            _ => "idle".to_string(),
+        }
     }
 
     pub fn poll(&self) -> Result<String, VeloqError> {
@@ -308,6 +350,7 @@ impl DetectionManager {
         }
 
         *handle_guard = Some(handle);
+        record_outcome(OUTCOME_IDLE);
         info!("veloqrs: [DetectionManager] Forced full section re-detection started");
         Ok(true)
     }
@@ -523,6 +566,67 @@ mod tests {
             DetectionPoll::Idle,
             "the applied run leaves the slot free"
         );
+    }
+
+    /// Scenario: the background-jobs screen polled the completion on a one
+    /// second timer, so with that screen open it took the result and the
+    /// follower waiting on the same run saw idle and called it a clean settle.
+    ///
+    /// Expected behaviour: how the last run ended is readable without taking
+    /// anything, so a status surface can show it and the follower still gets
+    /// the completion.
+    #[test]
+    pub fn the_last_outcome_is_readable_without_taking_the_completion() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+
+        let manager = DetectionManager::new();
+        assert_eq!(
+            manager.last_outcome(),
+            "idle",
+            "nothing has finished in this process yet"
+        );
+
+        assert!(manager.start().expect("start"), "the run starts");
+        wait_for_the_run_to_apply(&manager);
+
+        // Read it as often as a one second timer would, before anything polls.
+        for _ in 0..5 {
+            assert_eq!(
+                manager.last_outcome(),
+                "idle",
+                "the run has not settled yet"
+            );
+        }
+
+        assert_eq!(
+            timed_poll_to_completion().0,
+            DetectionPoll::Applied,
+            "the completion is still there for the caller that follows the run"
+        );
+        assert_eq!(
+            manager.last_outcome(),
+            "complete",
+            "and how it ended is readable afterwards"
+        );
+        assert_eq!(
+            manager.last_outcome(),
+            "complete",
+            "reading it does not consume it either"
+        );
+
+        assert!(
+            manager.start().expect("second start"),
+            "a second run starts"
+        );
+        assert_eq!(
+            manager.last_outcome(),
+            "idle",
+            "a started run has not finished, so the previous outcome stops being the answer"
+        );
+        wait_for_the_run_to_apply(&manager);
+        timed_poll_to_completion();
     }
 
     /// The poll that observes completion, timed. A `Running` poll or two can

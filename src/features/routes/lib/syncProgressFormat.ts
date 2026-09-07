@@ -68,30 +68,3 @@ export function formatGpsSyncProgress(
 
   return null;
 }
-
-/**
- * Format bounds sync progress (activity bounds cache sync) for display.
- * Returns null when there's nothing to show.
- */
-export function formatBoundsSyncProgress(
-  boundsProgress: { status: string; completed: number; total: number },
-  t: TFunction
-): SyncDisplayInfo | null {
-  if (boundsProgress.status !== 'syncing') {
-    return null;
-  }
-
-  const percent =
-    boundsProgress.total > 0
-      ? Math.min(100, Math.round((boundsProgress.completed / boundsProgress.total) * 100))
-      : 0;
-
-  return {
-    icon: 'cloud-sync-outline',
-    text: t('cache.syncingActivities') as string,
-    percent,
-    countText:
-      boundsProgress.total > 0 ? `${boundsProgress.completed}/${boundsProgress.total}` : null,
-    indeterminate: false,
-  };
-}

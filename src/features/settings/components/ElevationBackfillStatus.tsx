@@ -1,8 +1,10 @@
 /**
  * Status line for the elevation backfill.
  *
- * The backfill starts on its own after an update. The one control here is a
- * pause, which ends the run in flight and holds until the app is next opened.
+ * The backfill starts on its own after an update. The control here is a pause,
+ * which ends the run in flight, and a resume, which puts it back to work. The
+ * pause used to have no inverse but a force-quit, and detection is held behind
+ * this queue, so a paused install had no way back to a working detector.
  * The queue length is only known once a run has started, so the line reports
  * a count rather than a bar, and each terminal state reads distinctly.
  *
@@ -32,7 +34,7 @@ import { colors, darkColors, spacing, typography, layout, shadows } from '@/them
 export function ElevationBackfillStatus() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { phase, completed, total, failed, remaining } = useElevationBackfill();
+  const { phase, completed, total, failed, remaining, isPaused } = useElevationBackfill();
   const [showWhy, setShowWhy] = useState(false);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -49,8 +51,9 @@ export function ElevationBackfillStatus() {
   if (phase === 'idle' && !outstandingAtRest) return null;
 
   // A pass is either running or armed to run again, so both states can be
-  // paused. Once every track has elevation there is nothing left to stop.
-  const pausable = phase === 'fetching' || phase === 'partial' || outstandingAtRest;
+  // paused. Once every track has elevation there is nothing left to stop, and
+  // a pause already taken offers its inverse rather than itself.
+  const pausable = !isPaused && (phase === 'fetching' || phase === 'partial' || outstandingAtRest);
 
   const status = outstandingAtRest ? (
     <Text
@@ -111,6 +114,19 @@ export function ElevationBackfillStatus() {
           <MaterialCommunityIcons name="pause-circle-outline" size={16} color={colors.primary} />
           <Text style={[styles.pauseText, { color: colors.primary }]}>
             {t('settings.elevationBackfillPause')}
+          </Text>
+        </Pressable>
+      )}
+
+      {isPaused && (
+        <Pressable
+          style={styles.pauseRow}
+          onPress={() => getEngine()?.resumeElevationBackfill()}
+          testID="elevation-backfill-resume"
+        >
+          <MaterialCommunityIcons name="play-circle-outline" size={16} color={colors.primary} />
+          <Text style={[styles.pauseText, { color: colors.primary }]}>
+            {t('settings.elevationBackfillResume')}
           </Text>
         </Pressable>
       )}

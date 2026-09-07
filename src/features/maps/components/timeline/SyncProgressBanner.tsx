@@ -15,12 +15,8 @@ import Animated, {
   useSharedValue,
   cancelAnimation,
 } from 'react-native-reanimated';
-import { useActivityBoundsCache } from '@/features/activity/hooks';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import {
-  formatGpsSyncProgress,
-  formatBoundsSyncProgress,
-} from '@/features/routes/lib/syncProgressFormat';
+import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
 import { colors, ink, typography } from '@/theme';
 
 interface SyncProgressBannerProps {
@@ -30,27 +26,20 @@ interface SyncProgressBannerProps {
 
 export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) {
   const { t } = useTranslation();
-  const { progress: boundsProgress } = useActivityBoundsCache();
-
   // GPS sync progress from shared store
   const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
   const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
 
-  // Check if we're syncing bounds or processing routes
-  const isSyncingBounds = boundsProgress.status === 'syncing';
   const isProcessingRoutes =
     isGpsSyncing &&
     (gpsSyncProgress.status === 'fetching' || gpsSyncProgress.status === 'computing');
 
   // Show immediate feedback when fetching extended date range (before GPS sync starts)
-  const isLoadingExtended = isFetchingExtended && !isSyncingBounds && !isProcessingRoutes;
+  const isLoadingExtended = isFetchingExtended && !isProcessingRoutes;
 
-  // Use shared formatter - bounds syncing takes priority, then GPS sync, then extended fetch
+  // Use shared formatter - GPS sync first, then extended fetch
   const displayInfo = useMemo(() => {
-    if (isSyncingBounds) {
-      return formatBoundsSyncProgress(boundsProgress, t);
-    }
     if (isProcessingRoutes) {
       return formatGpsSyncProgress(gpsSyncProgress, false, t);
     }
@@ -64,7 +53,7 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
       };
     }
     return null;
-  }, [isSyncingBounds, isProcessingRoutes, isLoadingExtended, boundsProgress, gpsSyncProgress, t]);
+  }, [isProcessingRoutes, isLoadingExtended, gpsSyncProgress, t]);
 
   // Should show when visible AND there's something to display
   const shouldShow = visible && displayInfo !== null;

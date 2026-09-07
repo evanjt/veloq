@@ -78,7 +78,13 @@ export function EmptyState({
       )}
 
       {actionLabel && onAction && (
-        <TouchableOpacity style={styles.actionButton} onPress={onAction} activeOpacity={0.8}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={actionLabel}
+          style={styles.actionButton}
+          onPress={onAction}
+          activeOpacity={0.8}
+        >
           <LinearGradient
             colors={[...gradients.primary]}
             start={{ x: 0, y: 0 }}

@@ -1,7 +1,9 @@
 /**
- * Hook for managing activity bounds cache and sync state.
- * The Rust engine handles activity storage and spatial indexing.
- * This hook provides sync progress tracking and cache control functions.
+ * Hook for managing the activity bounds cache.
+ *
+ * The Rust engine handles activity storage and spatial indexing, so there is
+ * no bounds pass here to report progress on. What is left is the count, the
+ * engine's own date range, and the cache controls.
  */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -13,20 +15,11 @@ import { useEngineReady } from '@/shared/native/useEngineReady';
 import { withDatabaseSnapshot } from '@/features/settings/lib/clearSnapshot';
 import { formatLocalDate } from '@/shared/format/format';
 
-export interface SyncProgress {
-  completed: number;
-  total: number;
-  status: 'idle' | 'loading' | 'syncing' | 'complete' | 'error';
-  message?: string;
-}
-
 interface CacheStats {
   /** Total number of cached activities in the Rust engine */
   totalActivities: number;
   /** Last sync timestamp */
   lastSync: string | null;
-  /** Whether background sync is running */
-  isSyncing: boolean;
   /** Oldest activity date in cache (ISO string) */
   oldestDate: string | null;
   /** Newest activity date in cache (ISO string) */
@@ -34,8 +27,6 @@ interface CacheStats {
 }
 
 interface UseActivityBoundsCacheReturn {
-  /** Current sync progress */
-  progress: SyncProgress;
   /** Whether engine data is available */
   isReady: boolean;
   /** Expand sync date range (triggers GlobalDataSync to fetch more data) */
@@ -53,12 +44,6 @@ interface UseActivityBoundsCacheReturn {
  * Activity data is now provided by useEngineMapActivities hook.
  */
 export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
-  const [progress] = useState<SyncProgress>({
-    completed: 0,
-    total: 0,
-    status: 'idle',
-  });
-
   // One stats read covers both the count and the persisted date range.
   const initialStats = useMemo(() => {
     try {
@@ -155,12 +140,11 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     return {
       totalActivities: activityCount,
       lastSync: lastSyncTimestamp,
-      isSyncing: progress.status === 'syncing',
       // Use engine's actual date range - represents what's actually cached
       oldestDate: engineDateRange.oldest,
       newestDate: engineDateRange.newest,
     };
-  }, [activityCount, progress.status, lastSyncTimestamp, engineDateRange]);
+  }, [activityCount, lastSyncTimestamp, engineDateRange]);
 
   // Expand the global sync date range
   const expandRange = useSyncDateRange((s) => s.expandRange);
@@ -209,7 +193,6 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   );
 
   return {
-    progress,
     isReady: isSubscribed,
     syncDateRange,
     clearCache,

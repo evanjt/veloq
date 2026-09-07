@@ -58,6 +58,11 @@ interface NativeModuleInterface {
     newestTs: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_body(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_count(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -244,6 +249,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_progress(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_detectionmanager_last_outcome(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -1562,7 +1571,13 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_is_cutover_running(
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_func_is_elevation_backfill_paused(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_func_resume_elevation_backfill(
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
   ubrn_uniffi_veloqrs_fn_func_set_network_online(
@@ -1579,8 +1594,9 @@ interface NativeModuleInterface {
     activityIds: Uint8Array,
     sportTypes: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): void;
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
+    run: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_validate_backup_database(
@@ -1734,7 +1750,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_get_network_push(): number;
   ubrn_uniffi_veloqrs_checksum_func_is_cutover_pending(): number;
   ubrn_uniffi_veloqrs_checksum_func_is_cutover_running(): number;
+  ubrn_uniffi_veloqrs_checksum_func_is_elevation_backfill_paused(): number;
   ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill(): number;
+  ubrn_uniffi_veloqrs_checksum_func_resume_elevation_backfill(): number;
   ubrn_uniffi_veloqrs_checksum_func_set_network_online(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_detector_cutover(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_elevation_backfill(): number;
@@ -1745,6 +1763,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_add(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_debug_clone(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_body(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_detail_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_gps_track(): number;
@@ -1775,6 +1794,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_config(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_match_strictness(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_progress(): number;
+  ubrn_uniffi_veloqrs_checksum_method_detectionmanager_last_outcome(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_poll(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_set_config(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_set_match_strictness(): number;

@@ -9,6 +9,8 @@
 import {
   startElevationBackfill as ffiStartElevationBackfill,
   pauseElevationBackfill as ffiPauseElevationBackfill,
+  resumeElevationBackfill as ffiResumeElevationBackfill,
+  isElevationBackfillPaused as ffiIsElevationBackfillPaused,
   getElevationBackfillProgress as ffiGetElevationBackfillProgress,
   getElevationBackfillRemaining as ffiGetElevationBackfillRemaining,
   type ElevationBackfillProgress,
@@ -17,7 +19,7 @@ import type { DelegateHost } from './host';
 
 /**
  * Live and terminal states the backfill reports. `paused` is the athlete's
- * own stop: it holds for the process and lifts on the next launch.
+ * own stop: it holds until they resume it or the app is next launched.
  */
 export type ElevationBackfillPhase =
   | 'idle'
@@ -46,8 +48,9 @@ export function startElevationBackfill(host: DelegateHost): boolean {
 
 /**
  * Pause the backfill for the rest of this process. The pass in flight ends at
- * its next batch and reports `paused`, nothing starts another until the app
- * is reopened, and nothing is persisted. Returns whether a pass was running.
+ * its next batch and reports `paused`, nothing starts another until the athlete
+ * resumes or the app is reopened, and nothing is persisted. Returns whether a
+ * pass was running.
  */
 export function pauseElevationBackfill(host: DelegateHost): boolean {
   if (!host.ready) return false;
@@ -55,6 +58,35 @@ export function pauseElevationBackfill(host: DelegateHost): boolean {
     return host.timed('pauseElevationBackfill', () => ffiPauseElevationBackfill());
   } catch (e) {
     console.error('[Engine] pauseElevationBackfill threw:', e);
+    return false;
+  }
+}
+
+/**
+ * Lift a pause and put the download back to work. Returns whether there was a
+ * pause to lift, so a second press answers false rather than starting twice.
+ */
+export function resumeElevationBackfill(host: DelegateHost): boolean {
+  if (!host.ready) return false;
+  try {
+    return host.timed('resumeElevationBackfill', () => ffiResumeElevationBackfill());
+  } catch (e) {
+    console.error('[Engine] resumeElevationBackfill threw:', e);
+    return false;
+  }
+}
+
+/**
+ * Whether the athlete has paused the download in this process. The phase
+ * carries the same fact while it is at rest, but a pass that ends after a
+ * pause overwrites it, so this is the one that stays true.
+ */
+export function isElevationBackfillPaused(host: DelegateHost): boolean {
+  if (!host.ready) return false;
+  try {
+    return ffiIsElevationBackfillPaused();
+  } catch (e) {
+    console.error('[Engine] isElevationBackfillPaused threw:', e);
     return false;
   }
 }

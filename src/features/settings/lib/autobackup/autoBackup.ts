@@ -161,10 +161,32 @@ function shouldBackup(force = false): boolean {
 }
 
 /**
+ * The backup this process is already doing, if any.
+ *
+ * Three triggers reach here, a settled sync, a backgrounding and a foreground,
+ * and two of them can arrive a second apart. The last-backup stamp is not
+ * written until the upload has finished, so both would pass `shouldBackup` and
+ * both would ask Rust for a snapshot. Rust holds one backup handle and refuses
+ * the second outright, throwing "A backup is already running"
+ * (`objects/engine.rs:157-163`), and all three triggers swallow their errors,
+ * so the collision is a wasted database copy nobody sees. The second caller
+ * joins the first instead.
+ */
+let inFlight: Promise<boolean> | null = null;
+
+/**
  * Create a backup snapshot and upload it to the configured backend.
  * Returns true if a backup was created, false if skipped.
  */
 export async function performBackup(force = false): Promise<boolean> {
+  if (inFlight) return inFlight;
+  inFlight = runBackupOnce(force).finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+async function runBackupOnce(force: boolean): Promise<boolean> {
   if (!shouldBackup(force)) return false;
 
   const engine = getEngine();

@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
+
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
 import { colors, typography, spacing, layout, chartStyles } from '@/theme';
@@ -148,11 +150,13 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
           {chartData.length > 0 && (
             <>
               <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
               >
                 {formatMonth(chartData[0].date)}
               </Text>
               <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
               >
                 {formatMonth(chartData[chartData.length - 1].date)}
@@ -163,13 +167,22 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
 
         {/* Y-axis labels */}
         <View style={styles.yAxisOverlay} pointerEvents="none">
-          <Text style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+          >
             {Math.round(maxFTP)}w
           </Text>
-          <Text style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+          >
             {Math.round((minFTP + maxFTP) / 2)}w
           </Text>
-          <Text style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+          >
             {Math.round(minFTP)}w
           </Text>
         </View>

@@ -49,11 +49,30 @@ describe('SectionsListHeader detection hold', () => {
     expect(tree.getByText('Detection paused while your sections migrate')).toBeTruthy();
   });
 
-  it('names the elevation download when the backfill is holding', () => {
-    const tree = renderHeader('elevation');
+  it('names the elevation download while a pass is running', () => {
+    const tree = renderHeader('elevation-running');
 
     expect(tree.getByTestId('detection-paused')).toBeTruthy();
     expect(tree.getByText('Detection paused while elevation downloads')).toBeTruthy();
+  });
+
+  it('says the same for a queue nothing is working on, which is still owed', () => {
+    const tree = renderHeader('elevation-waiting');
+
+    expect(tree.getByText('Detection paused while elevation downloads')).toBeTruthy();
+  });
+
+  /**
+   * A pause was indistinguishable from a download in flight, and it is the one
+   * hold the athlete can lift, so it is the one that has to say where.
+   */
+  it('points a paused download at the control that resumes it', () => {
+    const tree = renderHeader('elevation-paused');
+
+    expect(tree.getByTestId('detection-paused')).toBeTruthy();
+    expect(
+      tree.getByText('Detection is held until you resume the elevation download in Settings')
+    ).toBeTruthy();
   });
 
   it('says nothing once neither holds', () => {

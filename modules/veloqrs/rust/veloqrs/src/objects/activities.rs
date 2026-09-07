@@ -108,6 +108,15 @@ impl ActivityManager {
         })?
     }
 
+    /// One activity's untyped body, or None when the engine has not got it.
+    ///
+    /// A caller after a single activity uses this rather than the window read
+    /// below: the table is keyed by the id, so this is one row instead of a
+    /// page of them parsed in JavaScript to find it.
+    fn get_activity_body(&self, activity_id: String) -> Result<Option<String>, VeloqError> {
+        with_engine(|e| e.get_activity_body(&activity_id))
+    }
+
     /// Untyped activity bodies over an inclusive timestamp window, newest
     /// first. The feed and detail screens read fields no Rust type models, so
     /// they parse these rather than a reconstruction from `activity_metrics`.

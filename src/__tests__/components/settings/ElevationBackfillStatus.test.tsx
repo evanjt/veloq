@@ -17,8 +17,12 @@ jest.mock('@/shared/app', () => ({
 }));
 
 const mockPauseElevationBackfill = jest.fn();
+const mockResumeElevationBackfill = jest.fn();
 jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({ pauseElevationBackfill: mockPauseElevationBackfill }),
+  getEngine: () => ({
+    pauseElevationBackfill: mockPauseElevationBackfill,
+    resumeElevationBackfill: mockResumeElevationBackfill,
+  }),
 }));
 
 const mockUseElevationBackfill = jest.fn();
@@ -34,11 +38,20 @@ function partialRun(failed: number): ElevationBackfillState {
     failed,
     remaining: null,
     isRunning: false,
+    isPaused: false,
   };
 }
 
 function atRest(remaining: number | null): ElevationBackfillState {
-  return { phase: 'idle', completed: 0, total: 0, failed: 0, remaining, isRunning: false };
+  return {
+    phase: 'idle',
+    completed: 0,
+    total: 0,
+    failed: 0,
+    remaining,
+    isRunning: false,
+    isPaused: false,
+  };
 }
 
 function statusText(): string {
@@ -244,6 +257,7 @@ describe('ElevationBackfillStatus pause', () => {
   beforeEach(async () => {
     await changeLanguage('en-AU');
     mockPauseElevationBackfill.mockReset();
+    mockResumeElevationBackfill.mockReset();
   });
 
   function running(): ElevationBackfillState {
@@ -254,11 +268,20 @@ describe('ElevationBackfillStatus pause', () => {
       failed: 0,
       remaining: null,
       isRunning: true,
+      isPaused: false,
     };
   }
 
   function paused(): ElevationBackfillState {
-    return { phase: 'paused', completed: 3, total: 10, failed: 0, remaining: 7, isRunning: false };
+    return {
+      phase: 'paused',
+      completed: 3,
+      total: 10,
+      failed: 0,
+      remaining: 7,
+      isRunning: false,
+      isPaused: true,
+    };
   }
 
   it('offers a pause while the download runs, and it reaches the engine', () => {
@@ -290,6 +313,35 @@ describe('ElevationBackfillStatus pause', () => {
     expect(tree.queryByTestId('elevation-backfill-pause')).toBeNull();
   });
 
+  /**
+   * The pause was process-local with only a force-quit to clear it, and
+   * detection is held behind this queue, so a paused install had no way back.
+   */
+  it('offers a resume once paused, and it reaches the engine', () => {
+    mockUseElevationBackfill.mockReturnValue(paused());
+    const tree = render(<ElevationBackfillStatus />);
+
+    fireEvent.press(tree.getByTestId('elevation-backfill-resume'));
+
+    expect(mockResumeElevationBackfill).toHaveBeenCalledTimes(1);
+    expect(mockPauseElevationBackfill).not.toHaveBeenCalled();
+  });
+
+  it('offers a resume even where the phase has moved off paused', () => {
+    mockUseElevationBackfill.mockReturnValue({ ...atRest(12), isPaused: true });
+    const tree = render(<ElevationBackfillStatus />);
+
+    expect(tree.queryByTestId('elevation-backfill-resume')).not.toBeNull();
+    expect(tree.queryByTestId('elevation-backfill-pause')).toBeNull();
+  });
+
+  it('offers no resume while nothing is paused', () => {
+    mockUseElevationBackfill.mockReturnValue(running());
+    const tree = render(<ElevationBackfillStatus />);
+
+    expect(tree.queryByTestId('elevation-backfill-resume')).toBeNull();
+  });
+
   it('offers no pause once every track has elevation', () => {
     mockUseElevationBackfill.mockReturnValue({
       phase: 'complete',
@@ -298,6 +350,7 @@ describe('ElevationBackfillStatus pause', () => {
       failed: 0,
       remaining: 0,
       isRunning: false,
+      isPaused: false,
     });
     const tree = render(<ElevationBackfillStatus />);
 

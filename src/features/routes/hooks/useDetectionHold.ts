@@ -6,8 +6,28 @@ import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfi
 /** How often the cutover is re-read while it holds. Nothing polls once it lifts. */
 const RECHECK_MS = 5000;
 
-/** Which of the two things is holding detection, or neither. */
-export type DetectionHold = 'elevation' | 'cutover' | null;
+/**
+ * What is holding detection, or neither.
+ *
+ * The backfill's three states are told apart because they end differently and
+ * only one of them is the athlete's to end. A pass in flight ends on its own,
+ * a queue nothing is working on waits on the network, and a pause lifts from
+ * the Settings page. They used to read identically, so a library stuck for a
+ * fortnight looked exactly like one that was busy.
+ */
+export type DetectionHold =
+  | 'elevation-running'
+  | 'elevation-waiting'
+  | 'elevation-paused'
+  | 'cutover'
+  | null;
+
+/** Whether a hold is one of the backfill's, rather than the cutover's. */
+export function isElevationHold(hold: DetectionHold): boolean {
+  return (
+    hold === 'elevation-running' || hold === 'elevation-waiting' || hold === 'elevation-paused'
+  );
+}
 
 function readCutoverHold(): boolean {
   const engine = getEngine();
@@ -32,6 +52,11 @@ function readCutoverHold(): boolean {
  * so on the upgrade path, where both hold, the honest sentence is the one
  * about elevation. An unanswerable count is not a hold: `null` must never read
  * as work owed.
+ *
+ * A pause answers ahead of a pass, because the pass in flight is ending at its
+ * next batch and the pause is what the athlete has to lift. It is not a hold
+ * on its own: with nothing left to download there is nothing for the pause to
+ * hold up.
  *
  * The cutover turns off at most once in an install's life, so it is read on
  * the `sections` channel, which the migration's own detect fires, with a slow
@@ -64,7 +89,9 @@ export function useDetectionHold(): DetectionHold {
     return () => clearInterval(timer);
   }, [cutoverHeld, recheck]);
 
-  if (backfill.isRunning) return 'elevation';
-  if (backfill.remaining !== null && backfill.remaining > 0) return 'elevation';
+  const owed = backfill.remaining !== null && backfill.remaining > 0;
+  if (backfill.isPaused && (owed || backfill.isRunning)) return 'elevation-paused';
+  if (backfill.isRunning) return 'elevation-running';
+  if (owed) return 'elevation-waiting';
   return cutoverHeld ? 'cutover' : null;
 }

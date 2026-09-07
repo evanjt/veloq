@@ -12,7 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import type { DetectionHold } from '@/features/routes/hooks/useDetectionHold';
+import { isElevationHold, type DetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import type { ElevationBackfillState } from '@/features/routes/hooks/useElevationBackfill';
 
 interface SectionsListHeaderProps {
@@ -157,9 +157,11 @@ export function SectionsListHeader({
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
           <Text style={[styles.pausedText, isDark && styles.pausedTextDark]}>
-            {detectionHold === 'elevation'
-              ? t('sections.detectionPausedElevation')
-              : t('sections.detectionPaused')}
+            {detectionHold === 'elevation-paused'
+              ? t('sections.detectionHeldElevationPaused')
+              : isElevationHold(detectionHold)
+                ? t('sections.detectionPausedElevation')
+                : t('sections.detectionPaused')}
           </Text>
         </View>
       )}

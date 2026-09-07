@@ -138,6 +138,7 @@ export interface TranslationResource {
     activities: string;
     undo: string;
     remove: string;
+    rename: string;
     restore: string;
     on: string;
     off: string;
@@ -283,6 +284,7 @@ export interface TranslationResource {
     elevationBackfillWhyTitle: string;
     elevationBackfillWhyBody: string;
     elevationBackfillPause: string;
+    elevationBackfillResume: string;
     elevationBackfillPaused: string;
     previewSections: string;
     cutoverRebuilding: string;
@@ -1029,6 +1031,7 @@ export interface TranslationResource {
     defaultName: string;
     detectionPaused: string;
     detectionPausedElevation: string;
+    detectionHeldElevationPaused: string;
     deleteSection: string;
     deleteSectionConfirm: string;
     duplicateNameMessage: string;
@@ -1127,7 +1130,6 @@ export interface TranslationResource {
     offlineUsingCached: string;
     syncedActivities: string;
     syncedDemoActivities: string;
-    syncingActivities: string;
     fetchingTimeStreams: string;
     finalizingHeatmap: string;
   };

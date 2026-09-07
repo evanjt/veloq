@@ -79,30 +79,11 @@ export const styles = StyleSheet.create({
   listFooterContainer: {
     marginTop: spacing.md,
   },
+  // What is left after the shared `Button` took the ground, the shape, the
+  // type and the press: where this one sits on the screen, and nothing else.
   exportGpxButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: layout.borderRadiusLg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
-    gap: spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  exportGpxButtonDark: {
-    backgroundColor: colors.primary,
-  },
-  exportGpxButtonText: {
-    color: colors.textOnPrimary,
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '600' as const,
   },
   floatingHeader: {
     position: 'absolute',

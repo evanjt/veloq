@@ -242,6 +242,21 @@ export function isCutoverRunning(): boolean {
   );
 }
 /**
+ * Whether the elevation backfill is paused in this process.
+ */
+export function isElevationBackfillPaused(): boolean {
+  return FfiConverterBool.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_is_elevation_backfill_paused(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Pause the elevation backfill for the rest of this process.
  *
  * The pass in flight ends at its next batch and reports `paused`, and no
@@ -254,6 +269,25 @@ export function pauseElevationBackfill(): boolean {
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Lift a pause on the elevation backfill and start a pass again.
+ *
+ * The pause only a new process could clear left detection held and the
+ * detector cutover unable to run, with a force-quit as the only exit. Returns
+ * whether there was a pause to lift.
+ */
+export function resumeElevationBackfill(): boolean {
+  return FfiConverterBool.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_resume_elevation_backfill(
           callStatus,
         );
       },
@@ -333,33 +367,44 @@ export function startElevationBackfill(): boolean {
  * - No ~1.7MB GPS data transfer from Rust to TypeScript
  * - No ~865KB GPS data transfer from TypeScript back to Rust
  * - Direct storage in SQLite without serialization overhead
+ * Start one fetch+store run and answer its id.
+ *
+ * The id is what `take_fetch_and_store_result` reads back with. Three callers
+ * start runs, a silent push arriving during a foreground sync is ordinary, and
+ * before the id they shared one result slot and took each other's answers.
  */
 export function startFetchAndStore(
   activityIds: Array<string>,
   sportTypes: Array<ActivitySportMapping>,
-): void {
-  uniffiCaller.rustCall(
-    /*caller:*/ (callStatus) => {
-      nativeModule().ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store(
-        FfiConverterArrayString.lower(activityIds),
-        FfiConverterArrayTypeActivitySportMapping.lower(sportTypes),
-        callStatus,
-      );
-    },
-    /*liftString:*/ FfiConverterString.lift,
+): /*u64*/ bigint {
+  return FfiConverterUInt64.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store(
+          FfiConverterArrayString.lower(activityIds),
+          FfiConverterArrayTypeActivitySportMapping.lower(sportTypes),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
   );
 }
 /**
- * Take the result from a completed fetch+store operation.
+ * Take the result of one fetch+store run.
  *
- * Returns None if operation is still in progress.
- * Returns the result and clears storage when complete.
+ * `run` is what `start_fetch_and_store` answered. None means that run has not
+ * finished, which is what a caller polls on; it never means another caller's
+ * run has finished.
  */
-export function takeFetchAndStoreResult(): FetchAndStoreResult | undefined {
+export function takeFetchAndStoreResult(
+  run: /*u64*/ bigint,
+): FetchAndStoreResult | undefined {
   return FfiConverterOptionalTypeFetchAndStoreResult.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
+          FfiConverterUInt64.lower(run),
           callStatus,
         );
       },
@@ -10349,6 +10394,14 @@ export interface ActivityManagerLike {
     oldestTs: /*i64*/ bigint,
     newestTs: /*i64*/ bigint,
   ) /*throws*/ : Array<string>;
+  /**
+   * One activity's untyped body, or None when the engine has not got it.
+   *
+   * A caller after a single activity uses this rather than the window read
+   * below: the table is keyed by the id, so this is one row instead of a
+   * page of them parsed in JavaScript to find it.
+   */
+  getActivityBody(activityId: string) /*throws*/ : string | undefined;
   getCount() /*throws*/ : /*u32*/ number;
   /**
    * Everything the activity detail screen paints with, in one engine lock:
@@ -10522,6 +10575,31 @@ export class ActivityManager
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterInt64.lower(oldestTs),
             FfiConverterInt64.lower(newestTs),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * One activity's untyped body, or None when the engine has not got it.
+   *
+   * A caller after a single activity uses this rather than the window read
+   * below: the table is keyed by the id, so this is one row instead of a
+   * page of them parsed in JavaScript to find it.
+   */
+  getActivityBody(activityId: string): string | undefined /*throws*/ {
+    return FfiConverterOptionalString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_body(
+            uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
             callStatus,
           );
         },
@@ -11397,6 +11475,16 @@ export interface DetectionManagerLike {
   getConfig() /*throws*/ : FfiSectionConfig;
   getMatchStrictness() /*throws*/ : FfiMatchStrictness;
   getProgress() /*throws*/ : FfiDetectionProgress | undefined;
+  /**
+   * How the last finished run ended, without taking anything.
+   *
+   * A status surface reads this and `get_progress`: progress says whether a
+   * run holds the slot now, this says how the previous one ended. Neither
+   * touches the worker's channel, so neither can settle a run the follower
+   * is waiting on, which is what `poll` is for and why only the follower
+   * calls it.
+   */
+  lastOutcome(): string;
   poll() /*throws*/ : string;
   setConfig(config: FfiSectionConfig) /*throws*/ : void;
   setMatchStrictness(
@@ -11496,6 +11584,29 @@ export class DetectionManager
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_progress(
+            uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * How the last finished run ended, without taking anything.
+   *
+   * A status surface reads this and `get_progress`: progress says whether a
+   * run holds the slot now, this says how the previous one ended. Neither
+   * touches the worker's channel, so neither can settle a run the follower
+   * is waiting on, which is what `poll` is for and why only the follower
+   * calls it.
+   */
+  lastOutcome(): string {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_last_outcome(
             uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
             callStatus,
           );
@@ -19611,11 +19722,27 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_elevation_backfill_paused() !==
+    6502
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_is_elevation_backfill_paused",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill() !==
     42876
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_pause_elevation_backfill",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_resume_elevation_backfill() !==
+    28172
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_resume_elevation_backfill",
     );
   }
   if (
@@ -19644,7 +19771,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store() !==
-    62119
+    39135
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_start_fetch_and_store",
@@ -19652,7 +19779,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_take_fetch_and_store_result() !==
-    65441
+    40443
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_take_fetch_and_store_result",
@@ -19696,6 +19823,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_body() !==
+    26782
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_get_activity_body",
     );
   }
   if (
@@ -19936,6 +20071,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_detectionmanager_get_progress",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_last_outcome() !==
+    3203
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_last_outcome",
     );
   }
   if (

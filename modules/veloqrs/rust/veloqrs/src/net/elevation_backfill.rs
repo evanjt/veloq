@@ -142,6 +142,7 @@ pub fn resume_ladder(
     mut sleep: impl FnMut(Duration) -> bool,
     mut remaining: impl FnMut() -> Option<u64>,
     mut offline: impl FnMut() -> bool,
+    mut paused: impl FnMut() -> bool,
     mut attempt: impl FnMut() -> bool,
 ) {
     let mut attempts = 0usize;
@@ -153,6 +154,12 @@ pub fn resume_ladder(
         // Zero is the one answer that ends the ladder for good. A queue that
         // cannot be read is not an empty one, so it climbs and asks again.
         if remaining() == Some(0) {
+            return;
+        }
+        // A paused install climbed this ladder for ever, calling a `start_pass`
+        // that declined on the pause every half hour. The climb ends instead
+        // and the resume lays a new one.
+        if paused() {
             return;
         }
         // A rung spent offline costs no request and still moves up the ladder,
@@ -189,6 +196,7 @@ fn arm_resume_ladder() {
                 _ => None,
             },
             crate::net::connectivity::is_offline,
+            elevation_backfill_paused,
             start_pass,
         );
         RESUME_ARMED.store(false, Ordering::SeqCst);
@@ -239,6 +247,28 @@ pub fn pause_elevation_backfill() -> bool {
 /// Whether the download is paused in this process.
 pub fn elevation_backfill_paused() -> bool {
     PAUSED.load(Ordering::SeqCst)
+}
+
+/// Lift the pause and put the download back to work.
+///
+/// The pause was process-local with only a new process to clear it, so an
+/// athlete who paused had no way back: detection stayed held, the detector
+/// cutover never ran, and a force-quit resumed into the same place. Returns
+/// whether there was a pause to lift, so a second press answers false rather
+/// than laying a second ladder.
+pub fn resume_elevation_backfill() -> bool {
+    if !PAUSED.swap(false, Ordering::SeqCst) {
+        return false;
+    }
+    // The phase is what the page reads, so a resume that left it on `paused`
+    // would read as a pause that did not lift. A pass in flight reports its own
+    // phase, so only a stopped one is set here.
+    if !BACKFILL.running.load(Ordering::SeqCst) {
+        set_phase(BACKFILL_PHASE_IDLE);
+    }
+    log::info!("[Elevation] backfill resumed");
+    start_elevation_backfill();
+    true
 }
 
 /// Lift the pause, which in production only a new process does.
@@ -1701,6 +1731,7 @@ mod tests {
                 },
                 &remaining,
                 || false,
+                || false,
                 || {
                     attempts += 1;
                     true
@@ -1809,6 +1840,61 @@ mod tests {
             assert!(!pause_elevation_backfill(), "nothing was running to stop");
             assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PAUSED);
             assert!(elevation_backfill_paused());
+
+            reset_pause();
+        }
+
+        #[test]
+        fn a_resume_lifts_the_pause_without_a_new_process() {
+            let _serial = serial_global_state();
+            reset_pause();
+            set_phase(BACKFILL_PHASE_PARTIAL);
+
+            pause_elevation_backfill();
+            assert!(elevation_backfill_paused());
+            assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PAUSED);
+
+            assert!(
+                resume_elevation_backfill(),
+                "a paused install had a pause to lift"
+            );
+            assert!(
+                !elevation_backfill_paused(),
+                "the flag is the pause, so it has to clear"
+            );
+            assert_ne!(
+                backfill_progress().phase,
+                BACKFILL_PHASE_PAUSED,
+                "a resumed install must not still read paused"
+            );
+
+            reset_pause();
+        }
+
+        #[test]
+        fn a_resume_with_no_pause_to_lift_changes_nothing() {
+            let _serial = serial_global_state();
+            reset_pause();
+            set_phase(BACKFILL_PHASE_PARTIAL);
+
+            assert!(!resume_elevation_backfill(), "there was no pause to lift");
+            assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PARTIAL);
+
+            reset_pause();
+        }
+
+        #[test]
+        fn a_resumed_install_starts_a_pass_again() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            reset_pause();
+
+            pause_elevation_backfill();
+            assert!(!start_pass(), "a paused install starts no pass");
+
+            resume_elevation_backfill();
+            assert!(!elevation_backfill_paused());
 
             reset_pause();
         }

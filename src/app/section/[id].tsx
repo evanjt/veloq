@@ -4,15 +4,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View,
-  ScrollView,
-  StatusBar,
-  TouchableOpacity,
-  InteractionManager,
-  Alert,
-} from 'react-native';
-import { Text } from 'react-native-paper';
+import { View, ScrollView, StatusBar, InteractionManager, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { logScreenRender } from '@/shared/debug/renderTimer';
@@ -56,7 +48,7 @@ import {
 import { getEngine } from '@/shared/native/engine';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import { ScreenErrorBoundary, useHeroMapHeight } from '@/shared/ui';
+import { Button, ScreenErrorBoundary, useHeroMapHeight } from '@/shared/ui';
 import {
   SectionHeader,
   SectionActionRow,
@@ -535,9 +527,16 @@ export default function SectionDetailScreen() {
           {!isTrimming && (
             <View style={styles.listFooterContainer}>
               {section?.polyline?.length > 0 && (
-                <TouchableOpacity
+                <Button
                   testID="section-export-gpx"
-                  style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
+                  label={gpxExporting ? t('export.exporting') : t('export.gpx')}
+                  icon={
+                    <MaterialCommunityIcons
+                      name={gpxExporting ? 'progress-download' : 'download'}
+                      size={20}
+                      color={colors.textOnPrimary}
+                    />
+                  }
                   onPress={() =>
                     exportGpx({
                       name: section.name || 'Section',
@@ -549,17 +548,8 @@ export default function SectionDetailScreen() {
                     })
                   }
                   disabled={gpxExporting}
-                  activeOpacity={0.7}
-                >
-                  <MaterialCommunityIcons
-                    name={gpxExporting ? 'progress-download' : 'download'}
-                    size={20}
-                    color={colors.textOnPrimary}
-                  />
-                  <Text style={styles.exportGpxButtonText}>
-                    {gpxExporting ? t('export.exporting') : t('export.gpx')}
-                  </Text>
-                </TouchableOpacity>
+                  style={styles.exportGpxButton}
+                />
               )}
               <DataRangeFooter days={cacheDays} isDark={isDark} />
               {debugEnabled && section && (

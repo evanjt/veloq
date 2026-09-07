@@ -6,13 +6,18 @@
  * Expected behaviour: the hook asks once, then waits for the engine to
  * announce the landing. No engine call happens between the request and the
  * event.
+ *
+ * And it does not wait for ever. A request that Rust refused outright, which
+ * it does with a bare `false` nobody can read, is announced by nothing, so a
+ * screen waiting on the announcement alone spins until it is closed. The wait
+ * has a deadline and a state the caller can act on when it passes.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 
-import { useEngineBody } from '@/shared/native/engineBodies';
+import { BODY_WAIT_MS, useEngineBody } from '@/shared/native/engineBodies';
 import { getEngine } from '@/shared/native/engine';
 
 jest.mock('@/shared/native/engine', () => ({
@@ -219,5 +224,113 @@ describe('a body that lands before the subscription', () => {
     renderHook(() => useEngineBody(false, jest.fn(), KEY, false), { wrapper });
 
     expect(engine.getBodiesStored).not.toHaveBeenCalled();
+  });
+});
+
+describe('the deadline', () => {
+  it('reports waiting while the request is outstanding', () => {
+    const { result } = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+
+    expect(result.current).toBe('waiting');
+  });
+
+  it('gives up at the deadline and says so', () => {
+    const { result } = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS - 1);
+    });
+    expect(result.current).toBe('waiting');
+
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(result.current).toBe('timedOut');
+  });
+
+  it('reads nothing and asks for nothing when it expires', () => {
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    const request = jest.fn();
+    renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+    invalidate.mockClear();
+    const reads = engine.getBodiesStored.mock.calls.length;
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS);
+    });
+
+    // The deadline ends the wait. It is not a retry and it is not a poll, so
+    // the hook still costs no engine call between the request and the event.
+    expect(invalidate).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(engine.getBodiesStored).toHaveBeenCalledTimes(reads);
+  });
+
+  it('ends the wait when the body is actually present, not when one is announced', () => {
+    const { result, rerender } = renderHook(
+      ({ present }: { present: boolean }) => useEngineBody(present, jest.fn(), KEY),
+      { wrapper, initialProps: { present: false } }
+    );
+
+    // An announcement on the coarse channel may be about some other body, so
+    // it invalidates the query and nothing more. The deadline still stands.
+    act(() => {
+      engine.announce('activities');
+    });
+    expect(result.current).toBe('waiting');
+
+    rerender({ present: true });
+    expect(result.current).toBe('idle');
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS * 2);
+    });
+    expect(result.current).toBe('idle');
+  });
+
+  it('is idle from the start for a body that is already present', () => {
+    const { result } = renderHook(() => useEngineBody(true, jest.fn(), KEY), { wrapper });
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS * 2);
+    });
+
+    expect(result.current).toBe('idle');
+  });
+
+  it('is idle when it is disabled, so a screen that asked for nothing never times out', () => {
+    const { result } = renderHook(() => useEngineBody(false, jest.fn(), KEY, false), { wrapper });
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS * 2);
+    });
+
+    expect(result.current).toBe('idle');
+  });
+
+  it('starts a fresh deadline when the parameters change', () => {
+    const { result, rerender } = renderHook(
+      ({ key }: { key: string[] }) => useEngineBody(false, jest.fn(), key),
+      { wrapper, initialProps: { key: KEY } }
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS);
+    });
+    expect(result.current).toBe('timedOut');
+
+    rerender({ key: ['body', 'a2'] });
+    expect(result.current).toBe('waiting');
+  });
+
+  it('drops its timer on unmount', () => {
+    const { unmount } = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+    unmount();
+
+    expect(() =>
+      act(() => {
+        jest.advanceTimersByTime(BODY_WAIT_MS * 2);
+      })
+    ).not.toThrow();
   });
 });
