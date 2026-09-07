@@ -46,7 +46,9 @@ function lineColour(layerId: string): string {
   return Array.isArray(colour) ? (colour[colour.length - 1] as string) : (colour as string);
 }
 
-function renderMap(over: { showCurrent?: boolean; showProposed?: boolean } = {}) {
+function renderMap(
+  over: { showCurrent?: boolean; showProposed?: boolean; showRemoved?: boolean } = {}
+) {
   return render(
     <PreviewMapView
       result={null}
@@ -55,8 +57,10 @@ function renderMap(over: { showCurrent?: boolean; showProposed?: boolean } = {})
       selectedId={null}
       showCurrent={over.showCurrent ?? true}
       showProposed={over.showProposed ?? true}
+      showRemoved={over.showRemoved ?? true}
       onToggleCurrent={jest.fn()}
       onToggleProposed={jest.fn()}
+      onToggleRemoved={jest.fn()}
       onSelect={jest.fn()}
     />
   );
@@ -77,6 +81,14 @@ describe('preview map legend chips', () => {
     );
     expect(flatStyle(tree.getByTestId('preview-layer-proposed-swatch')).backgroundColor).toBe(
       lineColour('proposed-line')
+    );
+  });
+
+  it('gives the removed catalogue its own chip in the error colour', () => {
+    const tree = renderMap();
+
+    expect(flatStyle(tree.getByTestId('preview-layer-removed-swatch')).backgroundColor).toBe(
+      lineColour('gone-line')
     );
   });
 
