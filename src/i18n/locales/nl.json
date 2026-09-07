@@ -346,7 +346,16 @@
     "syncError": {
       "title": "Synchronisatie komt niet door",
       "lastSynced": "Laatst gesynchroniseerd {{when}}",
-      "neverSynced": "Nog geen synchronisatie voltooid"
+      "neverSynced": "Nog geen synchronisatie voltooid",
+      "reason": {
+        "unauthorized": "intervals.icu weigerde je login",
+        "rateLimited": "intervals.icu vroeg om rust, de synchronisatie wacht",
+        "server": "intervals.icu stuurde iets terug dat de app niet kon gebruiken",
+        "network": "intervals.icu was niet bereikbaar",
+        "storage": "Een bestand op dit toestel kon niet worden gelezen",
+        "notConfigured": "Er is geen intervals.icu-login op dit toestel opgeslagen",
+        "internal": "De synchronisatie stopte om een reden die de app niet kan benoemen"
+      }
     }
   },
   "engine": {

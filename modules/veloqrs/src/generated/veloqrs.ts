@@ -8539,6 +8539,11 @@ export type FfiSyncStatus = {
   completed: /*u32*/ number;
   total: /*u32*/ number;
   lastError?: string;
+  /**
+   * Which kind of failure the message describes, so the banner can render a
+   * translated line rather than the engine's own English.
+   */
+  lastErrorReason?: FfiSyncErrorReason;
 };
 
 /**
@@ -8568,6 +8573,7 @@ const FfiConverterTypeFfiSyncStatus = (() => {
         completed: FfiConverterUInt32.read(from),
         total: FfiConverterUInt32.read(from),
         lastError: FfiConverterOptionalString.read(from),
+        lastErrorReason: FfiConverterOptionalTypeFfiSyncErrorReason.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -8576,6 +8582,10 @@ const FfiConverterTypeFfiSyncStatus = (() => {
       FfiConverterUInt32.write(value.completed, into);
       FfiConverterUInt32.write(value.total, into);
       FfiConverterOptionalString.write(value.lastError, into);
+      FfiConverterOptionalTypeFfiSyncErrorReason.write(
+        value.lastErrorReason,
+        into,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -8583,7 +8593,10 @@ const FfiConverterTypeFfiSyncStatus = (() => {
         FfiConverterUInt32.allocationSize(value.inFlight) +
         FfiConverterUInt32.allocationSize(value.completed) +
         FfiConverterUInt32.allocationSize(value.total) +
-        FfiConverterOptionalString.allocationSize(value.lastError)
+        FfiConverterOptionalString.allocationSize(value.lastError) +
+        FfiConverterOptionalTypeFfiSyncErrorReason.allocationSize(
+          value.lastErrorReason,
+        )
       );
     }
   }
@@ -9859,6 +9872,99 @@ const FfiConverterTypeFfiCallKind = (() => {
           return ordinalConverter.write(5, into);
         case FfiCallKind.Internal:
           return ordinalConverter.write(6, into);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return ordinalConverter.allocationSize(0);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Why the last sync failed, as the kind the banner branches on.
+ *
+ * The message beside it stays, because it carries the detail a bug report
+ * needs, but it is never the thing an athlete reads. A locale table keyed on
+ * the message would break the first time one is reworded, so the classifying
+ * happens here, where the engine already knows which case it is in.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is falsy.
+ */
+export enum FfiSyncErrorReason {
+  /**
+   * The credential was refused, 401.
+   */
+  Unauthorized = 1,
+  /**
+   * The server asked for a pause, 429, and the retries ran out.
+   */
+  RateLimited = 2,
+  /**
+   * The server answered, and with something the sync could not use: a
+   * non-success status, or a body that did not deserialise.
+   */
+  Server = 3,
+  /**
+   * The server was never reached. A dead radio, a captive portal, a timeout.
+   */
+  Network = 4,
+  /**
+   * A file on the device could not be read. Not a network failure.
+   */
+  Storage = 5,
+  /**
+   * There is nothing to sync with: no credential is stored, or the base URL
+   * will not build a transport.
+   */
+  NotConfigured = 6,
+  /**
+   * The sync stopped in a way it has no case for, including a panic.
+   */
+  Internal = 7,
+}
+
+const FfiConverterTypeFfiSyncErrorReason = (() => {
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = FfiSyncErrorReason;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      switch (ordinalConverter.read(from)) {
+        case 1:
+          return FfiSyncErrorReason.Unauthorized;
+        case 2:
+          return FfiSyncErrorReason.RateLimited;
+        case 3:
+          return FfiSyncErrorReason.Server;
+        case 4:
+          return FfiSyncErrorReason.Network;
+        case 5:
+          return FfiSyncErrorReason.Storage;
+        case 6:
+          return FfiSyncErrorReason.NotConfigured;
+        case 7:
+          return FfiSyncErrorReason.Internal;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value) {
+        case FfiSyncErrorReason.Unauthorized:
+          return ordinalConverter.write(1, into);
+        case FfiSyncErrorReason.RateLimited:
+          return ordinalConverter.write(2, into);
+        case FfiSyncErrorReason.Server:
+          return ordinalConverter.write(3, into);
+        case FfiSyncErrorReason.Network:
+          return ordinalConverter.write(4, into);
+        case FfiSyncErrorReason.Storage:
+          return ordinalConverter.write(5, into);
+        case FfiSyncErrorReason.NotConfigured:
+          return ordinalConverter.write(6, into);
+        case FfiSyncErrorReason.Internal:
+          return ordinalConverter.write(7, into);
       }
     }
     allocationSize(value: TypeName): number {
@@ -19368,6 +19474,11 @@ const FfiConverterArrayString = new FfiConverterArray(FfiConverterString);
 // FfiConverter for Array</*u32*/number>
 const FfiConverterArrayUInt32 = new FfiConverterArray(FfiConverterUInt32);
 
+// FfiConverter for FfiSyncErrorReason | undefined
+const FfiConverterOptionalTypeFfiSyncErrorReason = new FfiConverterOptional(
+  FfiConverterTypeFfiSyncErrorReason,
+);
+
 // FfiConverter for EngineObserver | undefined
 const FfiConverterOptionalTypeEngineObserver = new FfiConverterOptional(
   FfiConverterTypeEngineObserver,
@@ -21773,6 +21884,7 @@ export default Object.freeze({
     FfiConverterTypeFfiStrengthSummary,
     FfiConverterTypeFfiSummaryCardData,
     FfiConverterTypeFfiSupersededEntry,
+    FfiConverterTypeFfiSyncErrorReason,
     FfiConverterTypeFfiSyncStatus,
     FfiConverterTypeFfiTimestampRange,
     FfiConverterTypeFfiWeekLoadShape,

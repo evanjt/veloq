@@ -346,7 +346,16 @@
     "syncError": {
       "title": "同步未能完成",
       "lastSynced": "上次同步 {{when}}",
-      "neverSynced": "尚未完成任何同步"
+      "neverSynced": "尚未完成任何同步",
+      "reason": {
+        "unauthorized": "intervals.icu 拒绝了你的登录",
+        "rateLimited": "intervals.icu 要求放慢速度，同步正在等待",
+        "server": "intervals.icu 返回了应用无法使用的内容",
+        "network": "无法连接 intervals.icu",
+        "storage": "无法读取此设备上的文件",
+        "notConfigured": "此设备未保存 intervals.icu 登录信息",
+        "internal": "同步中断，应用无法说明原因"
+      }
     }
   },
   "engine": {

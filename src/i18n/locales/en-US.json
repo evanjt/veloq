@@ -334,7 +334,16 @@
     "syncError": {
       "title": "Sync isn't getting through",
       "lastSynced": "Last synced {{when}}",
-      "neverSynced": "No sync has completed yet"
+      "neverSynced": "No sync has completed yet",
+      "reason": {
+        "unauthorized": "intervals.icu rejected your login",
+        "rateLimited": "intervals.icu asked us to slow down, so sync is waiting",
+        "server": "intervals.icu sent back something the app couldn't use",
+        "network": "Couldn't reach intervals.icu",
+        "storage": "A file on this device couldn't be read",
+        "notConfigured": "No intervals.icu login is stored on this device",
+        "internal": "Sync stopped for a reason the app can't name"
+      }
     }
   },
   "engine": {

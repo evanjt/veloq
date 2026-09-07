@@ -346,7 +346,16 @@
     "syncError": {
       "title": "A sincronizacao nao esta a passar",
       "lastSynced": "Ultima sincronizacao {{when}}",
-      "neverSynced": "Nenhuma sincronizacao concluida"
+      "neverSynced": "Nenhuma sincronizacao concluida",
+      "reason": {
+        "unauthorized": "O intervals.icu recusou o teu inicio de sessao",
+        "rateLimited": "O intervals.icu pediu uma pausa, a sincronizacao esta a aguardar",
+        "server": "O intervals.icu devolveu algo que a app nao conseguiu usar",
+        "network": "Nao foi possivel contactar o intervals.icu",
+        "storage": "Nao foi possivel ler um ficheiro deste dispositivo",
+        "notConfigured": "Nao ha nenhum inicio de sessao do intervals.icu guardado neste dispositivo",
+        "internal": "A sincronizacao parou por um motivo que a app nao sabe nomear"
+      }
     }
   },
   "engine": {

@@ -13,6 +13,9 @@ import { render } from '@testing-library/react-native';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { SyncErrorBanner } from '@/shared/ui/SyncErrorBanner';
+import { SyncErrorReason } from '../__shared__/veloqrsStub';
+
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -32,8 +35,13 @@ jest.mock('@/shared/app/NetworkContext', () => ({
   useNetwork: () => ({ isOnline: mockIsOnline }),
 }));
 
-let mockHealth: { lastError: string | null; lastSuccessAt: string | null } = {
+let mockHealth: {
+  lastError: string | null;
+  lastErrorReason: SyncErrorReason | null;
+  lastSuccessAt: string | null;
+} = {
   lastError: null,
+  lastErrorReason: null,
   lastSuccessAt: null,
 };
 jest.mock('@/shared/native/useSyncHealth', () => ({
@@ -43,7 +51,7 @@ jest.mock('@/shared/native/useSyncHealth', () => ({
 describe('SyncErrorBanner', () => {
   beforeEach(() => {
     mockIsOnline = true;
-    mockHealth = { lastError: null, lastSuccessAt: null };
+    mockHealth = { lastError: null, lastErrorReason: null, lastSuccessAt: null };
     useAuthStore.setState({ isAuthenticated: true });
   });
 
@@ -53,7 +61,11 @@ describe('SyncErrorBanner', () => {
   });
 
   it('names the error when the device reads as online', () => {
-    mockHealth = { lastError: 'HTTP 503 from intervals.icu', lastSuccessAt: null };
+    mockHealth = {
+      lastError: 'HTTP 503 from intervals.icu',
+      lastErrorReason: null,
+      lastSuccessAt: null,
+    };
     const { getByTestId, getByText } = render(<SyncErrorBanner />);
 
     expect(getByTestId('sync-error-banner')).toBeTruthy();
@@ -61,14 +73,18 @@ describe('SyncErrorBanner', () => {
   });
 
   it('says no sync has ever landed when there is no success time', () => {
-    mockHealth = { lastError: 'timed out', lastSuccessAt: null };
+    mockHealth = { lastError: 'timed out', lastErrorReason: null, lastSuccessAt: null };
     const { getByText } = render(<SyncErrorBanner />);
 
     expect(getByText('emptyState.syncError.neverSynced')).toBeTruthy();
   });
 
   it('dates the last successful sync when there is one', () => {
-    mockHealth = { lastError: 'timed out', lastSuccessAt: '2026-08-01T10:00:00.000Z' };
+    mockHealth = {
+      lastError: 'timed out',
+      lastErrorReason: null,
+      lastSuccessAt: '2026-08-01T10:00:00.000Z',
+    };
     const { getByText } = render(<SyncErrorBanner />);
 
     expect(getByText(/emptyState\.syncError\.lastSynced:/)).toBeTruthy();
@@ -76,7 +92,7 @@ describe('SyncErrorBanner', () => {
 
   it('defers to the offline banner when the device is offline', () => {
     mockIsOnline = false;
-    mockHealth = { lastError: 'timed out', lastSuccessAt: null };
+    mockHealth = { lastError: 'timed out', lastErrorReason: null, lastSuccessAt: null };
     const { queryByTestId } = render(<SyncErrorBanner />);
 
     expect(queryByTestId('sync-error-banner')).toBeNull();
@@ -84,18 +100,60 @@ describe('SyncErrorBanner', () => {
 
   it('says nothing to a signed-out user', () => {
     useAuthStore.setState({ isAuthenticated: false });
-    mockHealth = { lastError: 'timed out', lastSuccessAt: null };
+    mockHealth = { lastError: 'timed out', lastErrorReason: null, lastSuccessAt: null };
     const { queryByTestId } = render(<SyncErrorBanner />);
 
     expect(queryByTestId('sync-error-banner')).toBeNull();
   });
 
+  it.each([
+    [SyncErrorReason.Unauthorized, 'unauthorized'],
+    [SyncErrorReason.RateLimited, 'rateLimited'],
+    [SyncErrorReason.Server, 'server'],
+    [SyncErrorReason.Network, 'network'],
+    [SyncErrorReason.Storage, 'storage'],
+    [SyncErrorReason.NotConfigured, 'notConfigured'],
+    [SyncErrorReason.Internal, 'internal'],
+  ])('translates reason %s rather than printing the engine string', (reason, key) => {
+    mockHealth = {
+      lastError: 'HTTP 503: upstream refused',
+      lastErrorReason: reason,
+      lastSuccessAt: null,
+    };
+    const { getByText, queryByText } = render(<SyncErrorBanner />);
+
+    expect(getByText(`emptyState.syncError.reason.${key}`)).toBeTruthy();
+    expect(queryByText('HTTP 503: upstream refused')).toBeNull();
+  });
+
+  it('falls back to the engine string for a reason it does not know', () => {
+    mockHealth = {
+      lastError: 'something new the engine learnt to say',
+      lastErrorReason: 99 as SyncErrorReason,
+      lastSuccessAt: null,
+    };
+    const { getByText } = render(<SyncErrorBanner />);
+
+    expect(getByText('something new the engine learnt to say')).toBeTruthy();
+  });
+
+  it('still says something when the engine gives neither a reason nor a message', () => {
+    mockHealth = { lastError: '', lastErrorReason: SyncErrorReason.Internal, lastSuccessAt: null };
+    const { getByText } = render(<SyncErrorBanner />);
+
+    expect(getByText('emptyState.syncError.reason.internal')).toBeTruthy();
+  });
+
   it('hides again once a later sync clears the error', () => {
-    mockHealth = { lastError: 'timed out', lastSuccessAt: null };
+    mockHealth = { lastError: 'timed out', lastErrorReason: null, lastSuccessAt: null };
     const { queryByTestId, rerender } = render(<SyncErrorBanner />);
     expect(queryByTestId('sync-error-banner')).toBeTruthy();
 
-    mockHealth = { lastError: null, lastSuccessAt: '2026-08-01T10:00:00.000Z' };
+    mockHealth = {
+      lastError: null,
+      lastErrorReason: null,
+      lastSuccessAt: '2026-08-01T10:00:00.000Z',
+    };
     rerender(<SyncErrorBanner />);
     expect(queryByTestId('sync-error-banner')).toBeNull();
   });
