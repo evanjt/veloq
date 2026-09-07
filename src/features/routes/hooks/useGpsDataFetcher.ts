@@ -28,6 +28,7 @@ import { backfillTimeStreams } from '@/features/routes/lib/timeStreamBackfill';
 import { awaitTilePass } from '@/features/routes/lib/tilePass';
 import { debug } from '@/shared/debug/debug';
 import { followDetection, type DetectionEngine } from '@/features/routes/lib/detectionRun';
+import { fetchWithRetry, type FetchPass } from '@/features/routes/lib/gpsFetchRetry';
 
 const log = debug.create('GpsDataFetcher');
 
@@ -441,54 +442,75 @@ export function useGpsDataFetcher() {
         });
       }
 
-      // Start combined fetch+store - Rust downloads GPS data and stores directly
-      // NO FFI round-trip: GPS data never crosses to TypeScript and back
-      startFetchAndStore(activityIds, sportTypes);
-
-      // Poll download progress every 100ms. Rust fetches each activity's map
-      // and then its time stream, and only clears `active` once both are done,
-      // so one counter covers the whole download.
-      // When route matching is on: download = 0-50%, detection = 50-75%, tiles = 75-100%.
-      // When off: download = 0-100%.
+      // One pass over a set of ids. Rust downloads the GPS data and stores it
+      // directly: no FFI round-trip, the data never crosses to TypeScript and
+      // back. `stored` is what earlier passes already put away, so the bar
+      // counts against the whole set and a retry never sends it backwards.
       const downloadBudget = isRouteMatchingEnabled() ? 50 : 100;
-      let pollCount = 0;
-      while (isMountedRef.current && !abortSignal.aborted) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        pollCount++;
+      let stored = 0;
 
-        const progress = getDownloadProgress();
-        if (!progress.active) {
-          if (__DEV__) {
-            log.log(
-              `[fetchApiGps] GPS done after ${pollCount} polls: ${progress.completed}/${progress.total}`
-            );
+      const runPass = async (ids: string[]): Promise<FetchPass | null> => {
+        const pending = new Set(ids);
+        startFetchAndStore(
+          ids,
+          sportTypes.filter((s) => pending.has(s.activityId))
+        );
+
+        // Poll download progress every 100ms. Rust fetches each activity's map
+        // and then its time stream, and only clears `active` once both are done,
+        // so one counter covers the whole download.
+        // When route matching is on: download = 0-50%, detection = 50-75%, tiles = 75-100%.
+        // When off: download = 0-100%.
+        let pollCount = 0;
+        while (isMountedRef.current && !abortSignal.aborted) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          pollCount++;
+
+          const progress = getDownloadProgress();
+          if (!progress.active) {
+            if (__DEV__) {
+              log.log(
+                `[fetchApiGps] GPS done after ${pollCount} polls: ${progress.completed}/${progress.total}`
+              );
+            }
+            break;
           }
-          break;
+
+          const completed = Math.min(stored + progress.completed, activityIds.length);
+          const gpsFraction = activityIds.length > 0 ? completed / activityIds.length : 0;
+          const combined = Math.round(gpsFraction * downloadBudget);
+          updateProgress({
+            status: 'fetching',
+            completed,
+            total: activityIds.length,
+            percent: combined,
+            message: i18n.t('cache.downloadingGpsProgress', { percent: combined }),
+          });
         }
 
-        const gpsFraction = progress.total > 0 ? progress.completed / progress.total : 0;
-        const combined = Math.round(gpsFraction * downloadBudget);
-        updateProgress({
-          status: 'fetching',
-          completed: progress.completed,
-          total: progress.total,
-          percent: combined,
-          message: i18n.t('cache.downloadingGpsProgress', { percent: combined }),
-        });
-      }
+        // Get result (just IDs - no GPS data transfer!)
+        const passResult = takeFetchAndStoreResult();
+        if (__DEV__) {
+          log.log(
+            '[fetchApiGps] takeFetchAndStoreResult returned:',
+            passResult ? `${passResult.successCount}/${passResult.total}` : 'null'
+          );
+        }
+        if (!passResult) return null;
 
-      // Get result (just IDs - no GPS data transfer!)
-      if (__DEV__) {
-        log.log('[fetchApiGps] Calling takeFetchAndStoreResult()...');
-      }
-      const result = takeFetchAndStoreResult();
+        stored += passResult.syncedIds.length;
+        return passResult;
+      };
 
-      if (__DEV__) {
-        log.log(
-          '[fetchApiGps] takeFetchAndStoreResult returned:',
-          result ? `${result.successCount}/${result.total}` : 'null'
-        );
-      }
+      const result = await fetchWithRetry(activityIds, {
+        pass: runPass,
+        isActive: () => isMountedRef.current && !abortSignal.aborted,
+        onRetry: (ids, attempt) => {
+          console.warn(
+            `[fetchApiGps] Retrying ${ids.length} failed GPS download(s), attempt ${attempt}`
+          );
+        },
+      });
 
       if (!result) {
         console.warn('[fetchApiGps] Result was null - Rust may have failed');
@@ -499,15 +521,21 @@ export function useGpsDataFetcher() {
         };
       }
 
+      // Surface in production. A route whose GPS never arrives is the athlete's
+      // symptom and the retries have already run out, so this is the last word.
+      if (result.failedIds.length > 0) {
+        console.warn(
+          `[fetchApiGps] ${result.failedIds.length} GPS download(s) still failing after ` +
+            `${result.attempts} attempt(s): ${result.failedIds.slice(0, 5).join(', ')}`
+        );
+      }
+
       if (__DEV__) {
         // Log Rust result in Expo console (timing logged via adb logcat)
         log.log(
           `[RUST: fetch_and_store] Complete: ${result.successCount}/${result.total} synced, ` +
-            `${result.failedIds.length} failed`
+            `${result.failedIds.length} failed, ${result.recoveredIds.length} recovered on retry`
         );
-        if (result.failedIds.length > 0) {
-          log.log(`[fetchApiGps] Sample failures:`, result.failedIds.slice(0, 3));
-        }
       }
 
       // Check mount state and abort signal
