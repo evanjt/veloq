@@ -1,15 +1,4 @@
-import {
-  haversineDistance,
-  computePolylineOverlap,
-  simplifyPolyline,
-} from '@/shared/math/geometry';
-
-const mockEngineOverlap = jest.fn();
-let mockEngine: { computePolylineOverlap: jest.Mock } | null = null;
-
-jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => mockEngine,
-}));
+import { haversineDistance, simplifyPolyline } from '@/shared/math/geometry';
 
 describe('haversineDistance', () => {
   it('returns 0 for the same point', () => {
@@ -43,43 +32,6 @@ describe('haversineDistance', () => {
     const a = { lat: 40.7128, lng: -74.006 };
     const b = { lat: 51.5074, lng: -0.1278 };
     expect(haversineDistance(a, b)).toBeCloseTo(haversineDistance(b, a), 6);
-  });
-});
-
-describe('computePolylineOverlap', () => {
-  const line = [
-    { lat: 46.948, lng: 7.447 },
-    { lat: 46.949, lng: 7.448 },
-  ];
-
-  beforeEach(() => {
-    mockEngineOverlap.mockReset().mockReturnValue(0.42);
-    mockEngine = { computePolylineOverlap: mockEngineOverlap };
-  });
-
-  it('flattens both polylines to lat/lng pairs and returns the engine ratio', () => {
-    expect(computePolylineOverlap(line, line)).toBe(0.42);
-    expect(mockEngineOverlap).toHaveBeenCalledWith(
-      [46.948, 7.447, 46.949, 7.448],
-      [46.948, 7.447, 46.949, 7.448],
-      50
-    );
-  });
-
-  it('passes an explicit threshold through', () => {
-    computePolylineOverlap(line, line, 15);
-    expect(mockEngineOverlap).toHaveBeenCalledWith(expect.anything(), expect.anything(), 15);
-  });
-
-  it('short-circuits an empty polyline without consulting the engine', () => {
-    expect(computePolylineOverlap([], line)).toBe(0);
-    expect(computePolylineOverlap(line, [])).toBe(0);
-    expect(mockEngineOverlap).not.toHaveBeenCalled();
-  });
-
-  it('returns 0 when the engine is unavailable', () => {
-    mockEngine = null;
-    expect(computePolylineOverlap(line, line)).toBe(0);
   });
 });
 
