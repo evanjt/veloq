@@ -12,6 +12,7 @@
 import {
   PLAY_CHANGELOG_MAX_CHARS,
   changelogCharCount,
+  oversizedChangelogs,
   validateMetadata,
 } from '../../../scripts/validate-store-metadata';
 
@@ -48,5 +49,11 @@ describe('validateMetadata', () => {
 
   it('reports nothing else broken either', () => {
     expect(validateMetadata().map((e) => e.message)).toEqual([]);
+  });
+});
+
+describe('oversizedChangelogs', () => {
+  it('finds no changelog over the cap, for any version code', () => {
+    expect(oversizedChangelogs().map((e) => e.message)).toEqual([]);
   });
 });
