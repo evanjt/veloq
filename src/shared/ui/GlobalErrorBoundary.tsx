@@ -1,7 +1,7 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { recordCrash } from '@/shared/debug/crashLog';
-import { errorScreen } from '@/theme';
+import { errorScreen, layout, typography } from '@/theme';
 
 interface Props {
   children: ReactNode;
@@ -85,20 +85,20 @@ const styles = StyleSheet.create({
   },
   title: {
     color: errorScreen.title,
-    fontSize: 22,
+    fontSize: typography.sectionTitle.fontSize,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 12,
   },
   body: {
     color: errorScreen.detail,
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     textAlign: 'center',
     lineHeight: 22,
   },
   devError: {
     color: errorScreen.message,
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     textAlign: 'center',
     marginTop: 24,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
@@ -107,13 +107,13 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingVertical: 12,
     paddingHorizontal: 32,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     borderWidth: 1,
     borderColor: errorScreen.action,
   },
   reloadText: {
     color: errorScreen.action,
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
   },
 });

@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
   controlButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: darkColors.surface,

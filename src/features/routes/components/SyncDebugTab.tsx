@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { colors, darkColors, spacing, ink } from '@/theme';
+import { colors, darkColors, spacing, ink, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useActivities } from '@/features/activity/hooks';
 import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   },
   section: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     marginBottom: spacing.md,
     overflow: 'hidden',
   },
@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
   },
   sectionContent: {
@@ -506,12 +506,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontFamily: 'monospace',
     color: colors.textSecondary,
   },
   statValue: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontFamily: 'monospace',
     color: colors.textPrimary,
     fontWeight: '500',
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontStyle: 'italic',
   },
   trafficLight: {
@@ -537,10 +537,10 @@ const styles = StyleSheet.create({
   trafficDot: {
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: layout.borderRadiusFull,
   },
   trafficText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   expandText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   idList: {
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.sm,
   },
   idText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontFamily: 'monospace',
     lineHeight: 18,
   },
@@ -571,18 +571,18 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.background,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     marginBottom: spacing.sm,
   },
   actionButtonDark: {
     backgroundColor: darkColors.background,
   },
   actionButtonText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
   },
   statusText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontFamily: 'monospace',
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.xs,
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   stepperLabel: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
   stepperBtn: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.background,
   },
   stepperValue: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
     fontFamily: 'monospace',
     color: colors.textPrimary,
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   hintText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     marginTop: spacing.xs,
     paddingHorizontal: spacing.xs,
   },
@@ -641,13 +641,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.error,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   dangerButtonDisabled: {
     opacity: 0.5,
   },
   dangerButtonText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: ink.white,
   },

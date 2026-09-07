@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.body,
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     marginTop: spacing.md,
     textAlign: 'center',

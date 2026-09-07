@@ -10,7 +10,7 @@
 
 import React, { memo, forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import { colors, spacing } from '@/theme';
+import { colors, spacing, typography } from '@/theme';
 
 const PILL_INSET = 4;
 /** Share of the map the pill may claim before it wraps instead of spreading. */
@@ -100,7 +100,7 @@ const attributionStyles = StyleSheet.create({
     borderRadius: spacing.sm,
   },
   attributionText: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     lineHeight: PILL_LINE_HEIGHT,
     color: colors.textSecondary,
   },

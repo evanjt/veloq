@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: layout.borderRadiusFull,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.elevated,
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   statusPill: {
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 22,
+    borderRadius: layout.borderRadiusFull,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     minHeight: 44,
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
   technicalText: {
     ...typography.caption,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     flex: 1,
   },

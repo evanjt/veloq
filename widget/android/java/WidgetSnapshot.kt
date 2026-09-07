@@ -92,6 +92,12 @@ data class WidgetSnapshot(
   val hrvSparkline: List<Float>,
   /** TSB zone enum per form point (oldest-first); empty on older snapshots. */
   val formZones: List<String>,
+  /**
+   * Seconds since the epoch, when the app wrote this snapshot. Zero on a
+   * snapshot written before the field, which reads as "no age to show" rather
+   * than as 1970.
+   */
+  val generatedAt: Long,
 ) {
   companion object {
     fun read(context: Context): WidgetSnapshot? {
@@ -112,6 +118,7 @@ data class WidgetSnapshot(
       val sparklines = root.optJSONObject("sparklines")
 
       return WidgetSnapshot(
+        generatedAt = root.optLong("generatedAt", 0L),
         form = metric(metrics, "form"),
         fitness = metric(metrics, "fitness"),
         fatigue = metric(metrics, "fatigue"),

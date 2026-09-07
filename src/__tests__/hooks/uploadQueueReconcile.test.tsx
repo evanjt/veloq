@@ -3,7 +3,9 @@
  * never took the id intervals.icu gave it.
  *
  * Expected behaviour: the queue processor replays the write when it mounts,
- * before the next sync window can store the ride a second time.
+ * before the next sync window can store the ride a second time, and then
+ * confirms every landed upload against the server so a ride the app believes
+ * is safe is one it has actually read back.
  */
 
 import { renderHook, waitFor } from '@testing-library/react-native';
@@ -11,6 +13,7 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { reconcileProvisionalUploads } from '@/features/recording/lib/storage/provisionalActivity';
 import { nextPendingUpload } from '@/features/recording/lib/storage/recordingLibrary';
+import { confirmAndDeleteUploaded } from '@/features/recording/lib/upload/confirmUploads';
 
 jest.mock('@/shared/app/NetworkContext', () => ({
   useNetwork: () => ({ isOnline: false }),
@@ -29,17 +32,23 @@ jest.mock('@/features/recording/lib/upload/uploadRecording', () => ({
   uploadRecording: jest.fn(),
 }));
 
+jest.mock('@/features/recording/lib/upload/confirmUploads', () => ({
+  confirmAndDeleteUploaded: jest.fn(async () => 0),
+}));
+
 jest.mock('@/shared/debug/debug', () => ({
   debug: { create: () => ({ log: () => {}, warn: () => {}, error: () => {} }) },
 }));
 
 const mockReconcile = reconcileProvisionalUploads as jest.Mock;
 const mockNextPending = nextPendingUpload as jest.Mock;
+const mockConfirm = confirmAndDeleteUploaded as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockReconcile.mockResolvedValue(0);
   mockNextPending.mockResolvedValue(null);
+  mockConfirm.mockResolvedValue(0);
 });
 
 describe('useUploadQueueProcessor', () => {
@@ -62,5 +71,19 @@ describe('useUploadQueueProcessor', () => {
 
     expect(() => renderHook(() => useUploadQueueProcessor())).not.toThrow();
     await waitFor(() => expect(mockReconcile).toHaveBeenCalled());
+  });
+
+  it('confirms the landed uploads behind the reconcile pass', async () => {
+    renderHook(() => useUploadQueueProcessor());
+
+    await waitFor(() => expect(mockConfirm).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not confirm when the reconcile pass threw, and does not throw either', async () => {
+    mockReconcile.mockRejectedValue(new Error('engine closed'));
+
+    expect(() => renderHook(() => useUploadQueueProcessor())).not.toThrow();
+    await waitFor(() => expect(mockReconcile).toHaveBeenCalled());
+    expect(mockConfirm).not.toHaveBeenCalled();
   });
 });

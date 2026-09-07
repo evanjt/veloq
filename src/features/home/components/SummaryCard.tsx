@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   profilePhoto: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
     backgroundColor: colors.divider,
     justifyContent: 'center',
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     right: 0,
     width: 18,
     height: 18,
-    borderRadius: 9,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
@@ -439,17 +439,17 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   heroSubText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
   },
   heroValue: {
-    fontSize: 24,
+    fontSize: typography.statsValueLarge.fontSize,
     fontWeight: '700',
     lineHeight: 28,
     letterSpacing: -0.5,
   },
   heroValueFixed: {
-    fontSize: 24,
+    fontSize: typography.statsValueLarge.fontSize,
     fontWeight: '700',
     lineHeight: 28,
     letterSpacing: -0.5,
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
     textAlign: 'right' as const,
   },
   secondaryValueFixed: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     lineHeight: 20,
     letterSpacing: -0.3,
@@ -466,13 +466,13 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   secondaryLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
     flexShrink: 1,
   },
   heroTrend: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     marginLeft: 1,
   },
   heroLabel: {
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   zoneDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
   },
 
   // Sparkline - own row, full width

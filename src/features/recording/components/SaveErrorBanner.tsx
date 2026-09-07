@@ -100,6 +100,6 @@ const styles = StyleSheet.create({
   oauthUpgradeBtnText: {
     ...typography.bodyBold,
     color: colors.textOnDark,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
   },
 });

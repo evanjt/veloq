@@ -29,7 +29,7 @@ import { useNetwork } from '@/shared/app/NetworkContext';
 import { useTheme } from '@/shared/app/useTheme';
 import { useSyncHealth } from '@/shared/native/useSyncHealth';
 import { formatDateTime } from '@/shared/format';
-import { amberBanner } from '@/theme';
+import { amberBanner, typography } from '@/theme';
 
 /** The line each reason names. Written out so the key type checks. */
 const REASON_KEY = {
@@ -106,11 +106,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
   },
   detail: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     textAlign: 'center',
   },
 });

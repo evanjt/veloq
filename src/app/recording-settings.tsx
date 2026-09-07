@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
   thresholdBtn: {
     width: layout.minTapTarget,
     height: layout.minTapTarget,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   fieldChipText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   gpsModeRow: {

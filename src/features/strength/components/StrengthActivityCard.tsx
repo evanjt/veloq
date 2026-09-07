@@ -314,11 +314,11 @@ const styles = StyleSheet.create({
   },
   strengthStatRow: {},
   strengthStatValue: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
   },
   strengthStatLabel: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     justifyContent: 'center',
     alignItems: 'center',
   },

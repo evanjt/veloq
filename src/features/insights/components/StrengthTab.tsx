@@ -22,13 +22,13 @@ import {
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { colors, darkColors, spacing, typography, opacity, layout, bodyDiagram } from '@/theme';
 import type { StrengthPeriod, MuscleVolume } from '@/types';
-import { PERIOD_LABEL_KEYS } from '@/shared/app/period';
+import { PERIOD_LABEL_KEYS, DEFAULT_PERIOD } from '@/shared/app/period';
 
 export const StrengthTab = React.memo(function StrengthTab() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const { data: athlete } = useAthlete();
-  const [period, setPeriod] = useState<StrengthPeriod>('1m');
+  const [period, setPeriod] = useState<StrengthPeriod>(DEFAULT_PERIOD);
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const [expandedExercise, setExpandedExercise] = useState<number | null>(null);
 
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   periodButton: {
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
   },
   periodButtonDark: {
@@ -296,12 +296,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
   },
   emptyHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: spacing.lg,

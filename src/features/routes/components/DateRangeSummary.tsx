@@ -13,7 +13,7 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { getIntlLocale } from '@/shared/format/format';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 
 interface DateRangeSummaryProps {
   activityCount: number;
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
   },
   syncText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   summaryRow: {
@@ -132,12 +132,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   countText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   dateText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   expandText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
     marginLeft: spacing.xs,
   },

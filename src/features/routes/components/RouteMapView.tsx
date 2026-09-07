@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     bottom: spacing.sm,
     right: spacing.sm,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 6,
+    borderRadius: spacing.xsPlus,
     padding: spacing.xs,
   },
 });

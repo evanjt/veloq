@@ -253,7 +253,7 @@ const getSectionStyle = (isDark: boolean) => ({
 const getAppIconStyle = (isDark: boolean) => ({
   width: 80,
   height: 80,
-  borderRadius: 20,
+  borderRadius: layout.borderRadiusXl,
   backgroundColor: isDark ? 'rgba(20, 184, 166, 0.15)' : 'rgba(20, 184, 166, 0.1)',
   justifyContent: 'center' as const,
   alignItems: 'center' as const,

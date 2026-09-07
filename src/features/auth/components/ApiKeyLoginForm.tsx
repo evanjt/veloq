@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text, Button, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { CollapsibleSection } from '@/shared/ui/CollapsibleSection';
 
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   apiKeyDescription: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.md,
     lineHeight: 20,
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   linkText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.primary,
     textDecorationLine: 'underline',
   },
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   localModeText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   textDark: {

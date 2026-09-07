@@ -36,7 +36,7 @@ import type {
   ActivityType,
   WellnessData,
 } from '@/types';
-import { colors, darkColors, spacing, layout, opacity, shadows } from '@/theme';
+import { colors, darkColors, spacing, layout, opacity, shadows, typography } from '@/theme';
 
 interface LatLng {
   latitude: number;
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   intervalsTitle: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     marginRight: 2,
@@ -620,16 +620,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 5,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
     gap: 3,
   },
   zoneDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
   },
   zoneChipText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
   },
   deviceAttributionContainer: {
@@ -660,7 +660,7 @@ const styles = StyleSheet.create({
     left: spacing.md,
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: opacity.overlay.medium,
     justifyContent: 'center',
     alignItems: 'center',
@@ -682,7 +682,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 24,
+    borderRadius: layout.borderRadiusLg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     marginHorizontal: spacing.md,
@@ -696,7 +696,7 @@ const styles = StyleSheet.create({
   },
   exportGpxButtonText: {
     color: colors.textOnPrimary,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
 });

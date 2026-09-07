@@ -539,12 +539,12 @@ const styles = StyleSheet.create({
     right: 0,
     height: 6,
     backgroundColor: colors.border,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
   },
   cachedRange: {
     position: 'absolute',
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
   },
   stripeContainer: {
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     height: 6,
     backgroundColor: colors.primary,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
   },
   handleContainer: {
     position: 'absolute',
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   handle: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.surface,
     borderWidth: 2,
     borderColor: colors.primary,
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
   handleInner: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.primary,
   },
   // Bracket handle [ for expandable start
@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
     width: 3,
     height: 24,
     backgroundColor: colors.primary,
-    borderRadius: 1.5,
+    borderRadius: layout.borderRadiusFull,
   },
   bracketHorizontalTop: {
     position: 'absolute',
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 3,
     backgroundColor: colors.primary,
-    borderRadius: 1.5,
+    borderRadius: layout.borderRadiusFull,
   },
   bracketHorizontalBottom: {
     position: 'absolute',
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 3,
     backgroundColor: colors.primary,
-    borderRadius: 1.5,
+    borderRadius: layout.borderRadiusFull,
   },
   bracketHandleDark: {},
   bracketLineDark: {
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
     width: 3,
     height: 24,
     backgroundColor: colors.primary,
-    borderRadius: 1.5,
+    borderRadius: layout.borderRadiusFull,
   },
   lineHandleDark: {
     backgroundColor: colors.primary,

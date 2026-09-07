@@ -14,11 +14,16 @@ import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useActivityBoundsCache, useActivities } from '@/features/activity/hooks';
 import { useEngineMapActivities } from '@/features/maps/hooks';
 import { filterMapActivities } from '@/features/maps';
-import { PERIOD_OPTIONS, getPeriodStart, type MapPeriod } from '@/features/maps/lib/mapPeriod';
+import {
+  PERIOD_OPTIONS,
+  getPeriodStart,
+  type MapPeriod,
+  DEFAULT_MAP_PERIOD,
+} from '@/features/maps/lib/mapPeriod';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { colors, darkColors, ink, spacing, typography } from '@/theme';
+import { colors, darkColors, ink, spacing, typography, layout } from '@/theme';
 import {
   groupTypesByCategory,
   ACTIVITY_CATEGORIES,
@@ -84,7 +89,7 @@ export default function MapScreen() {
 
   // Filter state
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
-  const [period, setPeriod] = useState<MapPeriod>('all');
+  const [period, setPeriod] = useState<MapPeriod>(DEFAULT_MAP_PERIOD);
   const [distanceFilter, setDistanceFilter] = useState<DistanceKey>('all');
 
   // Memoize period start date to keep reference stable across renders
@@ -423,7 +428,7 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
   },
   chipInactive: {
     backgroundColor: 'rgba(0, 0, 0, 0.08)',
@@ -432,7 +437,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   chipText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
   },
   chipTextActive: {
@@ -445,7 +450,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
   },
   chipCount: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '400',
   },
   chipCountActive: {
@@ -465,14 +470,14 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   infoText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   infoTextDark: {
     color: darkColors.textSecondary,
   },
   infoLink: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.primary,
     fontWeight: '600',
   },
@@ -490,7 +495,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30, 30, 30, 0.8)',
   },
   attributionText: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
   },
   attributionTextDark: {

@@ -511,6 +511,9 @@ class EngineClient implements DelegateHost {
   ): Promise<FfiCallOutcome> =>
     syncDelegates.uploadActivityFile(this, filePath, filename, name, pairedEventId);
 
+  confirmActivityUploaded = (intervalsId: string): Promise<FfiCallOutcome> =>
+    syncDelegates.confirmActivityUploaded(this, intervalsId);
+
   createManualActivity = (activity: FfiManualActivity): Promise<FfiCallOutcome> =>
     syncDelegates.createManualActivity(this, activity);
 
@@ -886,6 +889,13 @@ class EngineClient implements DelegateHost {
 
   markRecordingPermissionBlocked = (id: string, nowMs: number): void =>
     recordingDelegates.markRecordingPermissionBlocked(this, id, nowMs);
+
+  holdRecordingForAuth = (id: string, error: string): void =>
+    recordingDelegates.holdRecordingForAuth(this, id, error);
+
+  /** Stops auto-uploading every ride this athlete did not record. */
+  holdRecordingsOfOtherAthletes = (athleteId: string): void =>
+    recordingDelegates.holdRecordingsOfOtherAthletes(this, athleteId);
 
   requeueRecording = (id: string): void => recordingDelegates.requeueRecording(this, id);
 

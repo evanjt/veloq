@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, statusBadge } from '@/theme';
+import { colors, darkColors, spacing, opacity, statusBadge, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
 
 interface FitnessMilestoneContentProps {
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
     alignItems: 'center',
   },
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   currentValue: {
-    fontSize: 24,
+    fontSize: typography.statsValueLarge.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   unit: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '400',
     color: colors.textSecondary,
   },
@@ -161,17 +161,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     marginTop: spacing.xs,
     gap: 4,
   },
   changeText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
   },
   timelineCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
   },
   timelineCardDark: {
@@ -189,12 +189,12 @@ const styles = StyleSheet.create({
   timelineDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
   },
   timelineDotCurrent: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusFull,
   },
   timelineLine: {
     width: 2,
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   timelineLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginBottom: 2,
   },
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   timelineValue: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   },
   contextCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
     gap: 4,
   },
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   contextHeading: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   contextBody: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
     color: colors.textSecondary,
   },

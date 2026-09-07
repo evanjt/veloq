@@ -27,7 +27,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     paddingVertical: 8,
     paddingHorizontal: 14,
   },
@@ -39,7 +39,7 @@ export const styles = StyleSheet.create({
   actionCircle: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: layout.borderRadiusFull,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -53,12 +53,12 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     borderWidth: 1,
     gap: 4,
   },
   acceptText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   pinnedChip: {
@@ -67,7 +67,7 @@ export const styles = StyleSheet.create({
     gap: 4,
   },
   pinnedText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   scrollView: {
@@ -84,7 +84,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 24,
+    borderRadius: layout.borderRadiusLg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     marginHorizontal: spacing.md,
@@ -101,7 +101,7 @@ export const styles = StyleSheet.create({
   },
   exportGpxButtonText: {
     color: colors.textOnPrimary,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600' as const,
   },
   floatingHeader: {
@@ -117,7 +117,7 @@ export const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',

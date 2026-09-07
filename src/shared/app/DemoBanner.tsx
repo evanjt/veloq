@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useTheme } from '@/shared/app';
-import { colors, brand, ink } from '@/theme';
+import { colors, brand, ink, typography } from '@/theme';
 import { clearDemoData } from '@/shared/storage';
 
 export function DemoBanner() {
@@ -97,11 +97,11 @@ const styles = StyleSheet.create({
   text: {
     color: colors.textOnDark,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
   },
   subtext: {
     color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     marginLeft: 8,
   },
   chevron: {

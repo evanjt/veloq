@@ -12,7 +12,7 @@ import {
   formatPace,
   formatElevation,
 } from '@/shared/format/format';
-import { colors, colorWithOpacity, darkColors, spacing } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
 import type { DataFieldType } from '@/types';
 
 export interface HrZoneInfo {
@@ -165,12 +165,12 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   value: {
-    fontSize: 24,
+    fontSize: typography.statsValueLarge.fontSize,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   label: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '400',
     marginTop: 2,
   },

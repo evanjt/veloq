@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
-import { colors, darkColors, mapLayerColors, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors, mapLayerColors, spacing, layout, shadows, typography } from '@/theme';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { TerrainUnavailableNotice } from './TerrainUnavailableNotice';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     borderRadius: spacing.sm,
   },
   attributionText: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
   },
 });

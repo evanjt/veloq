@@ -11,7 +11,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { colors, colorWithOpacity, opacity, spacing, typography } from '@/theme';
+import { colors, colorWithOpacity, opacity, spacing, typography, layout } from '@/theme';
 
 type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: opacity.overlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   typeIcon: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: opacity.overlay.scrim,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     paddingHorizontal: spacing.sm,
     gap: spacing.xs,
   },
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   },
   editNameButton: {
     padding: 6,
-    borderRadius: 6,
+    borderRadius: spacing.xsPlus,
     backgroundColor: opacity.overlayDark.heavy,
   },
   statsRow: {

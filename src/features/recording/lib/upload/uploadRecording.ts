@@ -9,8 +9,7 @@ import {
   markRecordingUploadFailed,
   markRecordingRejected,
   markRecordingPermissionBlocked,
-  discardRecordingFit,
-  discardRecordingStreams,
+  holdRecordingForAuth,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { recordProvisionalUpload } from '@/features/recording/lib/storage/provisionalActivity';
 import { classifyUploadError } from './classifyUploadError';
@@ -56,6 +55,7 @@ async function importRecordedStrengthSets(
 export type UploadRecordingOutcome =
   | 'uploaded'
   | 'permissionBlocked'
+  | 'authExpired'
   | 'rejected'
   | 'retriable'
   | 'network'
@@ -97,19 +97,11 @@ export async function uploadRecording(
     await markRecordingUploaded(entry.id, activityId);
     // The provisional row keeps its key and gains the server's id.
     await recordProvisionalUpload(entry, activityId);
-    // Reads the same FIT, so the discard below has to wait for it.
     await importRecordedStrengthSets(entry, activityId);
-    // A finished upload stays finished even if the files cannot be removed.
-    await discardRecordingFit(entry.id).catch((err: unknown) => {
-      log.warn(`Could not discard FIT for ${entry.id}: ${String(err)}`);
-    });
-    // Only once the engine holds the track: without a row the sidecar is the
-    // app's only copy of it until the activity syncs back down.
-    if (entry.engineActivityId) {
-      await discardRecordingStreams(entry.id).catch((err: unknown) => {
-        log.warn(`Could not discard streams for ${entry.id}: ${String(err)}`);
-      });
-    }
+    // Nothing is deleted here. A 200 says the server took the bytes, not that
+    // the activity survived, and until it has been read back the FIT on the
+    // device is the only copy of the ride. `confirmAndDeleteUploaded` does the
+    // deleting, once it has seen the activity.
     return { outcome: 'uploaded' };
   } catch (uploadErr) {
     const err = classifyUploadError(uploadErr);
@@ -120,6 +112,15 @@ export async function uploadRecording(
     if (err.type === 'http403') {
       await markRecordingPermissionBlocked(entry.id);
       return { outcome: 'permissionBlocked' };
+    }
+
+    // A refused credential is not the ride's fault and re-sending the same
+    // bytes against it cannot help, so the entry waits rather than being
+    // parked as rejected, which nothing requeues. The sign-out this 401 also
+    // triggers leaves it for the athlete who recorded it.
+    if (err.httpStatus === 401) {
+      await holdRecordingForAuth(entry.id, err.apiDetail ?? err.errMsg);
+      return { outcome: 'authExpired', errorDetail: err.apiDetail ?? err.errMsg };
     }
 
     if (err.type === 'network') {

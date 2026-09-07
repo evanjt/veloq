@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 96,
     height: 96,
-    borderRadius: 48, // half of width for circle
+    borderRadius: layout.borderRadiusFull,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.lg,
@@ -141,26 +141,26 @@ const styles = StyleSheet.create({
   iconContainerCompact: {
     width: 64,
     height: 64,
-    borderRadius: 32, // half of width for circle
+    borderRadius: layout.borderRadiusFull,
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: 20,
+    fontSize: typography.statsValue.fontSize,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
   titleCompact: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
   },
   description: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     textAlign: 'center',
     lineHeight: 20,
     maxWidth: 280,
   },
   descriptionCompact: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     maxWidth: 240,
   },
   actionButton: {

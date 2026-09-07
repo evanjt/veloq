@@ -12,7 +12,7 @@ import {
 } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, contributionRamp } from '@/theme';
+import { colors, darkColors, spacing, contributionRamp, layout, typography } from '@/theme';
 
 const COLS = 7;
 const ROWS = 5;
@@ -285,15 +285,15 @@ const styles = StyleSheet.create({
   dot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
   },
   labelText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     flex: 1,
   },
   valueText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
   },
 });

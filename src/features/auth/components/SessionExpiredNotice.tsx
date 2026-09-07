@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, darkColors, spacing } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
 import type { SessionExpiryNotice } from '@/features/auth/hooks';
 
 interface SessionExpiredNoticeProps {
@@ -42,7 +42,7 @@ export const SessionExpiredNotice = React.memo(function SessionExpiredNotice({
 const styles = StyleSheet.create({
   notice: {
     backgroundColor: colorWithOpacity(colors.warning, 0.08),
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   detail: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
     color: colors.textSecondary,
   },

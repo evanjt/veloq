@@ -39,6 +39,7 @@ import { colors, darkColors, spacing, layout, typography, opacity } from '@/them
 import { createSharedStyles } from '@/styles';
 
 import { isNetworkError } from '@/shared/errors/errorHandler';
+import { DEFAULT_PERIOD } from '@/shared/app/period';
 
 export default function FitnessScreen() {
   // Performance timing
@@ -51,7 +52,7 @@ export default function FitnessScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const shared = createSharedStyles(isDark);
-  const [timeRange, setTimeRange] = useState<TimeRange>('3m');
+  const [timeRange, setTimeRange] = useState<TimeRange>(DEFAULT_PERIOD);
 
   // Chart shaders are pre-warmed at app boot by <ShaderWarmup /> in _layout.tsx,
   // so secondary charts can mount on first paint without a shader-compile stutter.

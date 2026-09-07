@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors, darkColors } from './colors';
+import { layout, spacing } from './spacing';
 import { typography } from './typography';
 
 export const chartStyles = StyleSheet.create({
@@ -15,7 +16,7 @@ export const chartStyles = StyleSheet.create({
     color: colors.textSecondary,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 2,
-    borderRadius: 2,
+    borderRadius: spacing.xxs,
     overflow: 'hidden' as const,
   },
   axisLabelDark: {
@@ -47,7 +48,7 @@ export const chartStyles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
     zIndex: 10,
     alignItems: 'center' as const,
   },

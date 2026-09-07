@@ -172,6 +172,28 @@ export function markRecordingPermissionBlocked(
   );
 }
 
+/**
+ * A credential was refused mid-upload. The ride goes back in the queue with its
+ * attempt count intact, since a 401 is not an attempt the ride spent.
+ */
+export function holdRecordingForAuth(host: DelegateHost, id: string, error: string): void {
+  host.write('holdRecordingForAuth', () => host.engine.recordings().holdForAuth(id, error));
+}
+
+/**
+ * An athlete signed in: stop auto-uploading every ride that is not theirs, an
+ * unstamped one included.
+ *
+ * It goes through `write` and not `timed`, so a sign-in that lands before the
+ * engine opens is held and replayed rather than dropped. That is also why it
+ * answers nothing: the count is not known until the write actually runs.
+ */
+export function holdRecordingsOfOtherAthletes(host: DelegateHost, athleteId: string): void {
+  host.write('holdRecordingsOfOtherAthletes', () =>
+    host.engine.recordings().holdOtherAthletes(athleteId)
+  );
+}
+
 export function requeueRecording(host: DelegateHost, id: string): void {
   host.write('requeueRecording', () => host.engine.recordings().requeue(id));
 }

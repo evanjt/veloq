@@ -273,6 +273,42 @@ impl PersistentEngine {
         Ok(changed as u32)
     }
 
+    /// A credential was refused while this ride was uploading.
+    ///
+    /// The ride goes back in the queue exactly as it was: the attempt counter
+    /// and the last attempt are untouched, because a 401 says nothing about the
+    /// ride and spending one of its five attempts on a dead credential would
+    /// retire a recording the server never saw. The error is kept so the
+    /// library can say why it is waiting.
+    pub fn hold_recording_for_auth(&self, id: &str, error: &str) -> SqlResult<()> {
+        self.db.execute(
+            "UPDATE recordings SET upload_status = 'pending', last_error = ? WHERE id = ?",
+            params![error, id],
+        )?;
+        Ok(())
+    }
+
+    /// An athlete has signed in: stop auto-uploading everything that is not
+    /// theirs, and answer how many were held.
+    ///
+    /// What they recorded keeps its place in the queue and drains on its own. A
+    /// row stamped with someone else stops, and so does an unstamped one, which
+    /// predates the column and belongs to nobody the app can name. Neither is
+    /// deleted and neither is hidden: the athlete can still send one up by hand
+    /// from the library.
+    ///
+    /// Only a ride that could still be sent is touched. An upload that already
+    /// landed is not anybody's to demote.
+    pub fn hold_recordings_of_other_athletes(&self, athlete_id: &str) -> SqlResult<u32> {
+        let changed = self.db.execute(
+            "UPDATE recordings SET upload_status = 'localOnly' \
+             WHERE upload_status IN ('pending', 'uploading') \
+             AND (athlete_id IS NULL OR athlete_id != ?)",
+            params![athlete_id],
+        )?;
+        Ok(changed as u32)
+    }
+
     /// On logout: keep every recording, but stop auto-uploading so nothing
     /// lands in a different account after the next login.
     pub fn demote_recordings_to_local_only(&self) -> SqlResult<u32> {
@@ -567,6 +603,80 @@ mod tests {
         assert_eq!(
             e.get_recording("pending").unwrap().unwrap().upload_status,
             "localOnly"
+        );
+    }
+
+    /// Scenario: a credential dies while the queue drains. The ride is not the
+    /// athlete's mistake and re-sending it against a dead credential cannot
+    /// help, so it waits rather than being spent or parked.
+    #[test]
+    fn a_rejected_credential_leaves_the_ride_waiting_with_its_attempts_intact() {
+        let (_dir, e) = engine();
+        let mut held = entry("held", 1_000, "uploading");
+        held.retry_count = 3;
+        held.last_attempt_at = Some(900);
+        e.insert_recording(&held).unwrap();
+
+        e.hold_recording_for_auth("held", "unauthorized").unwrap();
+
+        let row = e.get_recording("held").unwrap().unwrap();
+        assert_eq!(row.upload_status, "pending");
+        assert_eq!(row.retry_count, 3, "a 401 is not an attempt the ride spent");
+        assert_eq!(row.last_attempt_at, Some(900));
+        assert_eq!(row.last_error.as_deref(), Some("unauthorized"));
+    }
+
+    /// Scenario: the phone is signed out by a 401 and someone else signs in.
+    /// Every held ride is still on the device and none of them is theirs.
+    ///
+    /// Expected behaviour: what the signing-in athlete recorded keeps its place
+    /// in the queue, and everything else stops auto-uploading. An unstamped row
+    /// predates the column and is nobody's, so it is held too.
+    #[test]
+    fn signing_in_holds_every_ride_that_is_not_the_signing_athletes() {
+        let (_dir, e) = engine();
+        let mine = entry("mine", 1_000, "pending");
+        let mut theirs = entry("theirs", 2_000, "pending");
+        theirs.athlete_id = Some("i111111".to_string());
+        let mut unstamped = entry("unstamped", 3_000, "pending");
+        unstamped.athlete_id = None;
+        let mut uploaded = entry("uploaded", 4_000, "uploaded");
+        uploaded.athlete_id = Some("i111111".to_string());
+        for row in [&mine, &theirs, &unstamped, &uploaded] {
+            e.insert_recording(row).unwrap();
+        }
+
+        assert_eq!(e.hold_recordings_of_other_athletes("i296629").unwrap(), 2);
+
+        assert_eq!(
+            e.get_recording("mine").unwrap().unwrap().upload_status,
+            "pending"
+        );
+        assert_eq!(
+            e.get_recording("theirs").unwrap().unwrap().upload_status,
+            "localOnly"
+        );
+        assert_eq!(
+            e.get_recording("unstamped").unwrap().unwrap().upload_status,
+            "localOnly"
+        );
+        assert_eq!(
+            e.get_recording("uploaded").unwrap().unwrap().upload_status,
+            "uploaded",
+            "a landed upload is nobody's to demote"
+        );
+    }
+
+    #[test]
+    fn signing_in_again_as_the_same_athlete_changes_nothing() {
+        let (_dir, e) = engine();
+        e.insert_recording(&entry("mine", 1_000, "pending"))
+            .unwrap();
+
+        assert_eq!(e.hold_recordings_of_other_athletes("i296629").unwrap(), 0);
+        assert_eq!(
+            e.get_recording("mine").unwrap().unwrap().upload_status,
+            "pending"
         );
     }
 

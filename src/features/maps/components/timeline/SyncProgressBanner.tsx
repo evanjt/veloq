@@ -21,7 +21,7 @@ import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,
 } from '@/features/routes/lib/syncProgressFormat';
-import { colors, ink } from '@/theme';
+import { colors, ink, typography } from '@/theme';
 
 interface SyncProgressBannerProps {
   /** Whether the banner is visible */
@@ -154,12 +154,12 @@ const styles = StyleSheet.create({
   },
   text: {
     color: colors.textOnDark,
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
   },
   countText: {
     color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
   },
   progressTrack: {
     height: 3,

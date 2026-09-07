@@ -28,7 +28,7 @@ import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { colors, darkColors, spacing, amberBanner } from '@/theme';
+import { colors, darkColors, spacing, amberBanner, layout, typography } from '@/theme';
 
 type TabType = 'insights' | 'strength' | 'routes' | 'sections' | 'debug';
 
@@ -565,20 +565,20 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     backgroundColor: 'rgba(245, 158, 11, 0.1)',
   },
   disabledHintText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   disabledHintLink: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.primary,
     fontWeight: '500',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
   },
   routeMessageCard: {
     margin: spacing.md,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     backgroundColor: amberBanner.light.bg,
     borderWidth: 1,
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   routeMessageTitle: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: amberBanner.light.text,
   },
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
     color: amberBanner.dark.text,
   },
   routeMessageBody: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: amberBanner.light.text,
     marginTop: 2,
   },
@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     backgroundColor: amberBanner.light.bg,
     borderWidth: 1,
     borderColor: amberBanner.light.border,
@@ -648,7 +648,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.xs,
     color: amberBanner.light.text,
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
   },
   engineBannerTextDark: {

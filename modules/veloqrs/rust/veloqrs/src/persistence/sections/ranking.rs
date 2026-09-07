@@ -234,8 +234,13 @@ impl PersistentEngine {
                     0
                 };
 
+                // Judged against the best of the other traversals, so a lone
+                // traversal and a tie both leave the badge off.
                 let latest_is_pr = if let Some(&latest) = data.times.last() {
-                    crate::persistence::records::is_personal_record(latest, best_time_secs)
+                    let (best, second) =
+                        crate::persistence::records::best_two(data.times.iter().cloned());
+                    let rival = crate::persistence::records::rival_of(latest, best, second);
+                    crate::persistence::records::is_personal_record(latest, rival)
                 } else {
                     false
                 };

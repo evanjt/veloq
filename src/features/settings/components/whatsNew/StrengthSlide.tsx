@@ -5,7 +5,7 @@ import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import type { ParseKeys } from 'i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
 // Illustrative values. The four groups are the coarse ones the body diagram
 // rolls its fifteen muscle slugs up into, so `MUSCLE_DISPLAY_NAMES` has no key
@@ -124,10 +124,10 @@ const styles = StyleSheet.create({
   legendDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
   },
   legendText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
   },
   chartRow: {
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     width: 70,
   },
   label: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     textAlignVertical: 'center',
     lineHeight: ROW_HEIGHT,

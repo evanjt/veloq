@@ -13,7 +13,7 @@ import type {
   DirectionSummaryStats,
 } from '@/features/routes/lib/performanceTypes';
 import { SECTION_TIME_RANGES, type SectionTimeRange } from '@/features/routes/constants';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 
 export interface SectionPerformanceSectionProps {
@@ -159,13 +159,13 @@ const styles = StyleSheet.create({
   pill: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
   },
   pillActive: {
     backgroundColor: colors.primary + '20',
   },
   pillText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
   },

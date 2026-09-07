@@ -60,6 +60,12 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
   getLastBackupTimestamp: jest.fn().mockReturnValue(null),
 }));
 
+// The hub reads the job list for the Background Jobs subtitle. What that list
+// is computed from belongs to BackgroundJobsPanel's own tests.
+jest.mock('@/features/settings', () => ({
+  useBackgroundJobs: () => [{ id: 'sync', state: 'idle' }],
+}));
+
 jest.mock('@/features/settings/components', () => ({
   SupportSection: () => null,
   FooterSection: () => null,

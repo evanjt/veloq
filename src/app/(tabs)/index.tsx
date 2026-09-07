@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: opacity.overlay.light,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     paddingHorizontal: layout.cardMargin,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     color: colors.textPrimary,
     paddingVertical: 0,
   },
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
   headerProfile: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: layout.borderRadiusFull,
     marginLeft: spacing.sm,
     backgroundColor: opacity.overlay.light,
     overflow: 'hidden',

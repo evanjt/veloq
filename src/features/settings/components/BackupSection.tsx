@@ -27,7 +27,16 @@ import {
   webdavUrlProblem,
   type BackupBackend,
 } from '@/features/settings/lib/autobackup';
-import { brand, colors, colorWithOpacity, darkColors, spacing, layout, ink } from '@/theme';
+import {
+  brand,
+  colors,
+  colorWithOpacity,
+  darkColors,
+  spacing,
+  layout,
+  ink,
+  typography,
+} from '@/theme';
 import { ExportPrivacyRow } from './ExportPrivacyRow';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
 
@@ -629,7 +638,7 @@ export function BackupSection() {
 
 const styles = StyleSheet.create({
   sectionLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     marginTop: spacing.lg,
@@ -640,7 +649,7 @@ const styles = StyleSheet.create({
   section: {
     backgroundColor: colors.surface,
     marginHorizontal: layout.screenPadding,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     overflow: 'hidden',
   },
   sectionDark: {
@@ -655,11 +664,11 @@ const styles = StyleSheet.create({
   },
   actionText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: colors.textPrimary,
   },
   subtitleText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -675,11 +684,11 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.background,
   },
   statusText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   linkText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.primary,
     fontWeight: '600',
   },
@@ -697,7 +706,7 @@ const styles = StyleSheet.create({
   progressBarContainer: {
     height: 4,
     backgroundColor: colors.border,
-    borderRadius: 2,
+    borderRadius: layout.borderRadiusFull,
     marginTop: 6,
     overflow: 'hidden',
   },
@@ -707,10 +716,10 @@ const styles = StyleSheet.create({
   progressBar: {
     height: '100%',
     backgroundColor: colors.primary,
-    borderRadius: 2,
+    borderRadius: spacing.xxs,
   },
   progressDetail: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -721,19 +730,19 @@ const styles = StyleSheet.create({
   pill: {
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.xs,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     backgroundColor: colors.primary,
   },
   pillDark: {
     backgroundColor: colors.primary,
   },
   pillText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: ink.white,
   },
   backendValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginRight: 4,
   },
@@ -747,9 +756,9 @@ const styles = StyleSheet.create({
     height: 40,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     paddingHorizontal: spacing.sm,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textPrimary,
     backgroundColor: colors.background,
   },
@@ -767,7 +776,7 @@ const styles = StyleSheet.create({
   testButton: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     backgroundColor: colors.primary,
   },
   qrSetupButton: {
@@ -776,13 +785,13 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     borderWidth: 1,
     borderColor: colors.primary,
     borderStyle: 'dashed',
   },
   qrSetupText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.primary,
   },
@@ -794,12 +803,12 @@ const styles = StyleSheet.create({
   },
   plainLanText: { flex: 1, marginBottom: 0 },
   qrHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
   configLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -807,17 +816,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   testButtonText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: ink.white,
   },
   connectionSuccess: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.success ?? colors.run,
     marginTop: spacing.xs,
   },
   connectionError: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.error ?? colors.chartRed,
     marginTop: spacing.xs,
   },
@@ -834,7 +843,7 @@ const styles = StyleSheet.create({
   },
   warningText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   modalOverlay: {
@@ -846,14 +855,14 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '80%',
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     padding: spacing.lg,
   },
   modalContentDark: {
     backgroundColor: darkColors.surfaceCard,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.md,
@@ -864,14 +873,14 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   modalOptionSelected: {
     backgroundColor: colorWithOpacity(brand.tealLight, 0.08),
   },
   modalOptionText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: colors.textPrimary,
   },
   textLight: {

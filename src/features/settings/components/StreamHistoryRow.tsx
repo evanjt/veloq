@@ -23,7 +23,7 @@ import { useTranslation } from 'react-i18next';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { formatFileSize } from '@/shared/format/format';
 import { getEngine } from '@/shared/native/engine';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 
 import {
   DEFAULT_STREAM_RETENTION_DAYS,
@@ -133,11 +133,11 @@ const styles = StyleSheet.create({
     borderTopColor: darkColors.border,
   },
   infoLabel: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
   infoValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   resetText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.primary,
     fontWeight: '500',
   },

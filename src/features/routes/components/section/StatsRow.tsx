@@ -16,7 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { formatPace, formatSwimPace, formatDuration } from '@/shared/format/format';
-import { colors, colorWithOpacity, darkColors, typography } from '@/theme';
+import { colors, colorWithOpacity, darkColors, typography, layout } from '@/theme';
 import type {
   DirectionBestRecord,
   DirectionSummaryStats,
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   countBadge: {
     paddingHorizontal: 5,
     paddingVertical: 1,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     marginLeft: 2,
   },
   countText: {

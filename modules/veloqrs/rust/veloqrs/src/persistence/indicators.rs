@@ -197,8 +197,11 @@ impl PersistentEngine {
                 continue;
             }
 
-            // Find the global best (minimum lap_time)
-            let best_time = traversals.iter().map(|(_, t)| *t).fold(f64::MAX, f64::min);
+            // The best and the second best, so each traversal can be judged
+            // against the best of the others rather than against a set it is
+            // itself in. A tie at the best leaves both facing that time.
+            let (best_time, second_best_time) =
+                crate::persistence::records::best_two(traversals.iter().map(|(_, t)| *t));
 
             let section_name = section_names.get(section_id).cloned().unwrap_or_default();
 
@@ -207,7 +210,9 @@ impl PersistentEngine {
             let mut count = 0u32;
 
             for (activity_id, lap_time) in &traversals {
-                let is_pr = crate::persistence::records::is_personal_record(*lap_time, best_time);
+                let rival =
+                    crate::persistence::records::rival_of(*lap_time, best_time, second_best_time);
+                let is_pr = crate::persistence::records::is_personal_record(*lap_time, rival);
 
                 let trend: i8 = if count == 0 {
                     0

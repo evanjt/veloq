@@ -1497,10 +1497,6 @@ export type FfiActivityPattern = {
    * Days since the most recent activity in this cluster
    */
   daysSinceLast: /*u32*/ number;
-  /**
-   * Sections commonly traversed by activities in this pattern
-   */
-  commonSections: Array<FfiPatternSection>;
 };
 
 /**
@@ -1537,7 +1533,6 @@ const FfiConverterTypeFfiActivityPattern = (() => {
         confidence: FfiConverterFloat32.read(from),
         silhouetteScore: FfiConverterFloat32.read(from),
         daysSinceLast: FfiConverterUInt32.read(from),
-        commonSections: FfiConverterArrayTypeFfiPatternSection.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -1553,7 +1548,6 @@ const FfiConverterTypeFfiActivityPattern = (() => {
       FfiConverterFloat32.write(value.confidence, into);
       FfiConverterFloat32.write(value.silhouetteScore, into);
       FfiConverterUInt32.write(value.daysSinceLast, into);
-      FfiConverterArrayTypeFfiPatternSection.write(value.commonSections, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -1568,10 +1562,7 @@ const FfiConverterTypeFfiActivityPattern = (() => {
         FfiConverterFloat32.allocationSize(value.frequencyPerMonth) +
         FfiConverterFloat32.allocationSize(value.confidence) +
         FfiConverterFloat32.allocationSize(value.silhouetteScore) +
-        FfiConverterUInt32.allocationSize(value.daysSinceLast) +
-        FfiConverterArrayTypeFfiPatternSection.allocationSize(
-          value.commonSections,
-        )
+        FfiConverterUInt32.allocationSize(value.daysSinceLast)
       );
     }
   }
@@ -4691,95 +4682,6 @@ const FfiConverterTypeFfiPaceTrend = (() => {
         FfiConverterOptionalInt64.allocationSize(value.latestDate) +
         FfiConverterOptionalFloat64.allocationSize(value.previousPace) +
         FfiConverterOptionalInt64.allocationSize(value.previousDate)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * A section commonly associated with a training pattern.
- */
-export type FfiPatternSection = {
-  /**
-   * Section identifier
-   */
-  sectionId: string;
-  /**
-   * Section display name
-   */
-  sectionName: string;
-  /**
-   * Fraction of cluster activities that traverse this section (0.0-1.0)
-   */
-  appearanceRate: /*f32*/ number;
-  /**
-   * Best (fastest) traversal time in seconds
-   */
-  bestTimeSecs: /*f32*/ number;
-  /**
-   * Median of the 5 most recent traversal times in seconds
-   */
-  medianRecentSecs: /*f32*/ number;
-  /**
-   * Performance trend: None=insufficient data, -1=declining, 0=stable, 1=improving
-   */
-  trend?: /*i8*/ number;
-  /**
-   * Total number of traversals across cluster activities
-   */
-  traversalCount: /*u32*/ number;
-};
-
-/**
- * Generated factory for {@link FfiPatternSection} record objects.
- */
-export const FfiPatternSection = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiPatternSection, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiPatternSection>,
-  });
-})();
-
-const FfiConverterTypeFfiPatternSection = (() => {
-  type TypeName = FfiPatternSection;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        sectionId: FfiConverterString.read(from),
-        sectionName: FfiConverterString.read(from),
-        appearanceRate: FfiConverterFloat32.read(from),
-        bestTimeSecs: FfiConverterFloat32.read(from),
-        medianRecentSecs: FfiConverterFloat32.read(from),
-        trend: FfiConverterOptionalInt8.read(from),
-        traversalCount: FfiConverterUInt32.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterString.write(value.sectionId, into);
-      FfiConverterString.write(value.sectionName, into);
-      FfiConverterFloat32.write(value.appearanceRate, into);
-      FfiConverterFloat32.write(value.bestTimeSecs, into);
-      FfiConverterFloat32.write(value.medianRecentSecs, into);
-      FfiConverterOptionalInt8.write(value.trend, into);
-      FfiConverterUInt32.write(value.traversalCount, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.sectionId) +
-        FfiConverterString.allocationSize(value.sectionName) +
-        FfiConverterFloat32.allocationSize(value.appearanceRate) +
-        FfiConverterFloat32.allocationSize(value.bestTimeSecs) +
-        FfiConverterFloat32.allocationSize(value.medianRecentSecs) +
-        FfiConverterOptionalInt8.allocationSize(value.trend) +
-        FfiConverterUInt32.allocationSize(value.traversalCount)
       );
     }
   }
@@ -13651,6 +13553,16 @@ export interface RecordingManagerLike {
   demotePendingToLocalOnly() /*throws*/ : /*u32*/ number;
   getRecording(id: string) /*throws*/ : FfiRecordingEntry | undefined;
   /**
+   * A credential was refused mid-upload. The ride goes back in the queue
+   * with its attempts intact, because a 401 is not an attempt it spent.
+   */
+  holdForAuth(id: string, error: string) /*throws*/ : void;
+  /**
+   * An athlete signed in: stop auto-uploading every ride that is not
+   * theirs, unstamped ones included. Returns how many were held.
+   */
+  holdOtherAthletes(athleteId: string) /*throws*/ : /*u32*/ number;
+  /**
    * Every recording, newest first.
    */
   listRecordings() /*throws*/ : Array<FfiRecordingEntry>;
@@ -13893,6 +13805,49 @@ export class RecordingManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_get_recording(
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(id),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * A credential was refused mid-upload. The ride goes back in the queue
+   * with its attempts intact, because a 401 is not an attempt it spent.
+   */
+  holdForAuth(id: string, error: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_hold_for_auth(
+          uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(id),
+          FfiConverterString.lower(error),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * An athlete signed in: stop auto-uploading every ride that is not
+   * theirs, unstamped ones included. Returns how many were held.
+   */
+  holdOtherAthletes(athleteId: string): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_hold_other_athletes(
+            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(athleteId),
             callStatus,
           );
         },
@@ -17774,6 +17729,24 @@ export interface SyncManagerLike {
    */
   clearCredentials(): void;
   /**
+   * Answer whether intervals.icu still holds the activity an upload created.
+   *
+   * A 200 from the upload says the server took the bytes, not that the ride
+   * survived: it can be rejected, deduplicated against an existing activity
+   * or lost afterwards, and the device's copy is the only other one. So the
+   * recording is not deleted until this reads the activity back. `Ok` means
+   * present, `Http` with 404 means gone, and everything else means unknown,
+   * which is not an answer and must not be treated as one.
+   *
+   * It goes through `run_write` for the credential handling rather than for
+   * the verb: a confirmation refused for a dead credential parks the service
+   * exactly as a refused upload does.
+   */
+  confirmActivityUploaded(
+    intervalsId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiCallOutcome>;
+  /**
    * Create an activity with no file behind it, for indoor entries.
    */
   createManualActivity(
@@ -17943,6 +17916,56 @@ export class SyncManager
       },
       /*liftString:*/ FfiConverterString.lift,
     );
+  }
+
+  /**
+   * Answer whether intervals.icu still holds the activity an upload created.
+   *
+   * A 200 from the upload says the server took the bytes, not that the ride
+   * survived: it can be rejected, deduplicated against an existing activity
+   * or lost afterwards, and the device's copy is the only other one. So the
+   * recording is not deleted until this reads the activity back. `Ok` means
+   * present, `Http` with 404 means gone, and everything else means unknown,
+   * which is not an answer and must not be treated as one.
+   *
+   * It goes through `run_write` for the credential handling rather than for
+   * the verb: a confirmation refused for a dead credential parks the service
+   * exactly as a refused upload does.
+   */
+  async confirmActivityUploaded(
+    intervalsId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiCallOutcome> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(intervalsId),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        /*liftFunc:*/ FfiConverterTypeFfiCallOutcome.lift.bind(
+          FfiConverterTypeFfiCallOutcome,
+        ),
+        /*liftString:*/ FfiConverterString.lift,
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
   }
 
   /**
@@ -19289,11 +19312,6 @@ const FfiConverterArrayTypeFfiNearbySectionSummary = new FfiConverterArray(
   FfiConverterTypeFfiNearbySectionSummary,
 );
 
-// FfiConverter for Array<FfiPatternSection>
-const FfiConverterArrayTypeFfiPatternSection = new FfiConverterArray(
-  FfiConverterTypeFfiPatternSection,
-);
-
 // FfiConverter for Array<FfiPreviewCentre>
 const FfiConverterArrayTypeFfiPreviewCentre = new FfiConverterArray(
   FfiConverterTypeFfiPreviewCentre,
@@ -20601,6 +20619,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_hold_for_auth() !==
+    53652
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_hold_for_auth",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_hold_other_athletes() !==
+    45981
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_hold_other_athletes",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_list_recordings() !==
     48617
   ) {
@@ -21489,6 +21523,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded() !==
+    16648
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_create_manual_activity() !==
     62031
   ) {
@@ -21837,7 +21879,6 @@ export default Object.freeze({
     FfiConverterTypeFfiNamedCorridor,
     FfiConverterTypeFfiNearbySectionSummary,
     FfiConverterTypeFfiPaceTrend,
-    FfiConverterTypeFfiPatternSection,
     FfiConverterTypeFfiPeriodStats,
     FfiConverterTypeFfiPreviewCentre,
     FfiConverterTypeFfiPreviewTrack,

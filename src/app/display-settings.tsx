@@ -13,7 +13,7 @@ import {
   type ThemePreference,
 } from '@/shared/app/ThemeProvider';
 import { useUnitPreference, type UnitPreference } from '@/shared/app/UnitPreferenceStore';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { DisplaySettings } from '@/features/settings/components';
 
 export default function DisplaySettingsScreen() {
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     marginLeft: -spacing.xs,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },

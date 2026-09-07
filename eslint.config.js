@@ -83,6 +83,33 @@ module.exports = [
     },
   },
   {
+    // The type and radius scales live in src/theme too, and unlike colour they
+    // are drawn from stylesheets in plain .ts files as often as from
+    // components. A raw radius or a raw font size is a rung nobody named, and
+    // both scales are what the app already draws, so this is what keeps a new
+    // literal off them. The selectors match on `raw` rather than `value`:
+    // esquery compares the attribute as a string and a numeric literal's
+    // `value` is a number, so a regex on `value` matches nothing and the rule
+    // is silently inert.
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    ignores: ['src/__tests__/**', 'src/theme/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Property[key.name="borderRadius"] > Literal[raw=/^[0-9.]+$/]',
+          message:
+            'Raw border radius. Use a layout.borderRadius* token from src/theme. A radius that is half the element is layout.borderRadiusFull.',
+        },
+        {
+          selector: 'Property[key.name="fontSize"] > Literal[raw=/^[0-9.]+$/]',
+          message:
+            'Raw font size. Use typography.<role>.fontSize from src/theme, or add a role there.',
+        },
+      ],
+    },
+  },
+  {
     // Node scripts and Jest setup run outside the app bundle.
     files: [
       'config/**/*.js',

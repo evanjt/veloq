@@ -124,7 +124,7 @@ fn one_section_one_traversal_yields_one_encounter() {
     assert_eq!(e.direction, "same");
     assert_eq!(e.distance_meters, 800.0);
     assert_eq!(e.lap_time, 240.0);
-    assert!(e.is_pr, "single traversal is always its own PR");
+    assert!(!e.is_pr, "a single traversal has beaten nothing");
     assert_eq!(e.history_times.len(), 1);
     assert_eq!(e.history_activity_ids.len(), 1);
     assert_eq!(e.history_activity_ids[0], "a1");
@@ -145,8 +145,11 @@ fn forward_and_reverse_yield_two_independent_encounters() {
     let rev = result.iter().find(|e| e.direction == "reverse").unwrap();
     assert_eq!(same.lap_time, 150.0);
     assert_eq!(rev.lap_time, 160.0);
-    assert!(same.is_pr);
-    assert!(rev.is_pr, "each direction is independently its own PR");
+    assert!(!same.is_pr);
+    assert!(
+        !rev.is_pr,
+        "each direction stands alone, and neither has beaten anything"
+    );
 }
 
 #[test]
@@ -205,13 +208,15 @@ fn disabled_sections_are_filtered_out() {
 }
 
 // ============================================================================
-// PR detection (B-1 regression: relative tolerance, not absolute)
+// PR detection. A record is beaten, not matched and not nearly matched: the
+// 0.5 % band these two tests were written for is retired, so each keeps its
+// case and asserts the opposite of what it used to.
 // ============================================================================
 
 #[test]
-fn pr_short_section_within_relative_tolerance() {
-    // 5s sprint section. Best is 4.99s. Diff = 0.01s, relative = 0.2% < 0.5%.
-    // Both old (0.5s absolute) and new (0.5% relative) would call this a PR.
+fn a_short_section_near_miss_is_not_a_record() {
+    // 5s sprint section. Best is 4.99s, this attempt 5.00s. The retired band
+    // called 0.2 % off a record.
     let setup = setup();
     insert_section(&setup.raw, "s1", "Sprint", 50.0);
     insert_activity(&setup.raw, "a_best", 1_700_000_000, 50.0, 5);
@@ -221,15 +226,14 @@ fn pr_short_section_within_relative_tolerance() {
 
     let r = setup.engine.get_activity_section_encounters("a_now");
     assert_eq!(r.len(), 1);
-    assert!(r[0].is_pr, "5.00s vs best 4.99s (0.2% off) should be PR");
+    assert!(!r[0].is_pr, "5.00s did not beat 4.99s, so it is no record");
 }
 
 #[test]
-fn pr_long_section_relative_tolerance_distinguishes_from_absolute() {
-    // 30-minute climb (1800s). Best 1799s; this attempt 1800s. Diff = 1s.
-    // OLD absolute 0.5s tolerance: 1.0 > 0.5 → NOT PR.
-    // NEW relative 0.5%: 1800 * 0.005 = 9.0; diff 1.0 < 9.0 → IS PR.
-    // This test fails with the old behavior and passes with the fix.
+fn a_long_section_near_miss_is_not_a_record_either() {
+    // 30 minute climb. Best 1799s, this attempt 1800s. The retired band scaled
+    // with the effort, so a whole second off half an hour read as a record.
+    // The length of the effort no longer buys the badge.
     let setup = setup();
     insert_section(&setup.raw, "s1", "Long Climb", 5000.0);
     insert_activity(&setup.raw, "a_best", 1_700_000_000, 5000.0, 1800);
@@ -240,9 +244,42 @@ fn pr_long_section_relative_tolerance_distinguishes_from_absolute() {
     let r = setup.engine.get_activity_section_encounters("a_now");
     assert_eq!(r.len(), 1);
     assert!(
-        r[0].is_pr,
-        "1800.0s vs best 1799.0s on a 30min climb (0.06%) should be PR, proves relative tolerance"
+        !r[0].is_pr,
+        "1800.0s did not beat 1799.0s, however long the climb"
     );
+}
+
+/// Expected behaviour: the site is not simply switched off. An attempt that
+/// beats the best still earns the badge, at either length of effort.
+#[test]
+fn beating_the_best_is_still_a_record_on_the_encounter_list() {
+    for (metres, best, now) in [(50.0_f64, 4.99_f64, 4.90_f64), (5000.0, 1799.0, 1790.0)] {
+        let setup = setup();
+        insert_section(&setup.raw, "s1", "Section", metres);
+        insert_activity(&setup.raw, "a_best", 1_700_000_000, metres, best as i64);
+        insert_traversal(&setup.raw, "s1", "a_best", "same", 0, metres, best);
+        insert_activity(&setup.raw, "a_now", 1_700_086_400, metres, now as i64);
+        insert_traversal(&setup.raw, "s1", "a_now", "same", 0, metres, now);
+
+        let r = setup.engine.get_activity_section_encounters("a_now");
+        assert_eq!(r.len(), 1);
+        assert!(r[0].is_pr, "{now} beat {best} over {metres} m");
+    }
+}
+
+/// Expected behaviour: a first-ever traversal has beaten nothing, and a lapped
+/// session's own laps are not a history to beat.
+#[test]
+fn a_first_traversal_is_not_a_record_however_many_laps_it_holds() {
+    let setup = setup();
+    insert_section(&setup.raw, "s1", "Oval", 400.0);
+    insert_activity(&setup.raw, "a_only", 1_700_000_000, 400.0, 300);
+    insert_traversal(&setup.raw, "s1", "a_only", "same", 0, 400.0, 110.0);
+    insert_traversal(&setup.raw, "s1", "a_only", "same", 200, 400.0, 90.0);
+
+    let r = setup.engine.get_activity_section_encounters("a_only");
+    assert_eq!(r.len(), 1);
+    assert!(!r[0].is_pr, "one session has beaten nothing but itself");
 }
 
 #[test]
@@ -262,13 +299,13 @@ fn not_pr_when_outside_relative_tolerance() {
 
 #[test]
 fn pr_independent_per_direction() {
-    // PR forward, not PR reverse, direction-aware PR detection.
+    // One earlier attempt each way, beaten forward and not beaten in reverse,
+    // so the two directions are judged against their own histories.
     let setup = setup();
     insert_section(&setup.raw, "s1", "Loop", 500.0);
-    // Older reverse traversal sets the reverse best
     insert_activity(&setup.raw, "a_old", 1_700_000_000, 500.0, 100);
-    insert_traversal(&setup.raw, "s1", "a_old", "reverse", 0, 500.0, 80.0);
-    // Current activity: forward is its own PR (no other forward), reverse is NOT
+    insert_traversal(&setup.raw, "s1", "a_old", "same", 0, 500.0, 120.0);
+    insert_traversal(&setup.raw, "s1", "a_old", "reverse", 100, 500.0, 80.0);
     insert_activity(&setup.raw, "a_now", 1_700_086_400, 500.0, 100);
     insert_traversal(&setup.raw, "s1", "a_now", "same", 0, 500.0, 100.0);
     insert_traversal(&setup.raw, "s1", "a_now", "reverse", 100, 500.0, 95.0);
@@ -276,8 +313,11 @@ fn pr_independent_per_direction() {
     let r = setup.engine.get_activity_section_encounters("a_now");
     let same = r.iter().find(|e| e.direction == "same").unwrap();
     let rev = r.iter().find(|e| e.direction == "reverse").unwrap();
-    assert!(same.is_pr, "forward direction has only this attempt → PR");
-    assert!(!rev.is_pr, "reverse 95s vs reverse best 80s (18%) → not PR");
+    assert!(same.is_pr, "forward 100s beat the forward best of 120s");
+    assert!(
+        !rev.is_pr,
+        "reverse 95s did not beat the reverse best of 80s"
+    );
 }
 
 // --- One encounter per (section, direction) ---

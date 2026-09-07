@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { brand, colorWithOpacity, ink, spacing } from '@/theme';
+import { brand, colorWithOpacity, ink, spacing, typography } from '@/theme';
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { navigateTab } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     width: ICON_SIZE + 2,
   },
   label: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
     marginTop: spacing.xs,
   },

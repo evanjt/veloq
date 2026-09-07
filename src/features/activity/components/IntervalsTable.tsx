@@ -11,7 +11,7 @@ import {
   formatPower,
 } from '@/shared/format/format';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import type { ActivityInterval, ActivityType } from '@/types';
 
 interface IntervalsTableProps {
@@ -138,14 +138,14 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.08)',
   },
   indexText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     width: 18,
     textAlign: 'center',
   },
   typeText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   colStat: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
     textAlign: 'right',

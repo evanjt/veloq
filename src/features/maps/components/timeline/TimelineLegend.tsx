@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   legendSwatch: {
     width: 16,
     height: 8,
-    borderRadius: 2,
+    borderRadius: spacing.xxs,
   },
   legendSelected: {
     backgroundColor: colors.primary,

@@ -25,7 +25,7 @@ import { getEngine } from '@/shared/native/engine';
 import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
-import { colors, darkColors, spacing, shadows } from '@/theme';
+import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('ActivitySectionsSection');
@@ -686,14 +686,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   emptyStateTitle: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginTop: spacing.md,
     textAlign: 'center',
   },
   emptyStateDescription: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.sm,
     textAlign: 'center',
@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 24,
+    borderRadius: layout.borderRadiusLg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     marginHorizontal: spacing.md,
@@ -724,7 +724,7 @@ const styles = StyleSheet.create({
   },
   createSectionButtonText: {
     color: colors.textOnPrimary,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
   swipeAction: {
@@ -740,7 +740,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   swipeActionText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textOnDark,
   },
@@ -761,7 +761,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusXl,
     borderWidth: 1,
     borderColor: colors.primary,
   },
@@ -769,7 +769,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   scanButtonText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.primary,
   },
@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
   },
   scanLinkText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.primary,
     fontWeight: '500',
   },
@@ -799,7 +799,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   scanningText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
   // Scan results
@@ -808,7 +808,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   scanResultsTitle: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -819,7 +819,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     marginBottom: spacing.sm,
@@ -832,23 +832,23 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   scanMatchName: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
   scanMatchMeta: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
   addMatchButton: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     backgroundColor: colors.primary,
   },
   addMatchButtonText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textOnPrimary,
   },
@@ -858,7 +858,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   scanNoResultsText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
 });

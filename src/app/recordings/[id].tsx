@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: colors.textOnDark,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
   secondaryButton: {
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   secondaryButtonText: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
 });

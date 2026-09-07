@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
   infoNoticeDark: {},
   infoText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textDisabled,
     lineHeight: 16,
   },
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   summaryText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.gray100,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     paddingHorizontal: spacing.sm,
     paddingVertical: Platform.OS === 'ios' ? 4 : 2,
     marginHorizontal: spacing.md,
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textPrimary,
     paddingVertical: 0,
   },
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
     borderColor: darkColors.border,
   },
   sportFilterLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   sortChipRow: {
@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   sortChipLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   sortChipLabelActive: {
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl * 2,
   },
   emptyTitle: {
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginTop: spacing.md,
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 6,
+    borderRadius: spacing.xsPlus,
     marginBottom: spacing.sm,
     gap: spacing.xs,
     height: 32, // Fixed height to prevent jumps

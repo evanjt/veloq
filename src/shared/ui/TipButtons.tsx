@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   },
   tipLabel: {
     ...typography.caption,
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: 'rgba(255, 255, 255, 0.75)',
     marginTop: 1,
   },

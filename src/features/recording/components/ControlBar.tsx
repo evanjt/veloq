@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, darkColors, spacing, layout, brand } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing, layout, brand, typography } from '@/theme';
 import type { RecordingStatus, RecordingMode } from '@/types';
 
 const BRAND_COLOR = brand.tealLight;
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: layout.borderRadiusFull,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -281,20 +281,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
   // Stop button with long-press progress
   stopButtonWrap: {
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     borderWidth: 2,
     overflow: 'hidden',
   },
   stopButton: {
     height: 56,
     minWidth: 120,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   stopLabel: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
   },
 });

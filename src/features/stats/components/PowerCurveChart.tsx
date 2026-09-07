@@ -4,7 +4,7 @@ import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CurveChart, useChartColors } from '@/shared/charts';
-import { colors, typography, spacing, chartStyles } from '@/theme';
+import { colors, typography, spacing, chartStyles, layout } from '@/theme';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman } from '@/shared/format/format';
 
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   legendDash: {
     width: spacing.md,
     height: 2,
-    borderRadius: 1,
+    borderRadius: layout.borderRadiusFull,
   },
   models: {
     flexDirection: 'row',
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
   unitPill: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusSm,
   },
   unitPillActive: {
     backgroundColor: colors.primary + '20',

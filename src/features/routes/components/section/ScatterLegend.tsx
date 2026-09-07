@@ -9,7 +9,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { brand, colors, darkColors, spacing, typography } from '@/theme';
+import { brand, colors, darkColors, spacing, typography, layout } from '@/theme';
 
 export interface ScatterLegendProps {
   isDark: boolean;
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   legendSwatch: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusFull,
   },
   prSwatch: {
     borderColor: brand.gold,

@@ -17,6 +17,8 @@ import {
   shadows,
   mapStyleSwatch,
   mapStyleSwatchIcon,
+  layout,
+  typography,
 } from '@/theme';
 import type { Activity } from '@/types';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
@@ -237,7 +239,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: 300,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     paddingVertical: 16,
     ...shadows.modal,
   },
@@ -250,7 +252,7 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     letterSpacing: -0.2,
   },
@@ -259,7 +261,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   sectionLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -277,7 +279,7 @@ const styles = StyleSheet.create({
   styleCircle: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: layout.borderRadiusFull,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -287,7 +289,7 @@ const styles = StyleSheet.create({
     borderColor: brand.teal,
   },
   styleLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '400',
   },
   styleLabelSelected: {
@@ -301,7 +303,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   toggleLabel: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '500',
   },
   divider: {
@@ -320,7 +322,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   actionText: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '400',
   },
 });

@@ -39,6 +39,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { TIME_RANGES } from '@/shared/app/constants';
+import { DEFAULT_PERIOD } from '@/shared/app/period';
 
 export default function HealthScreen() {
   const perfEnd = logScreenRender('HealthScreen');
@@ -72,7 +73,7 @@ export default function HealthScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Wellness state
-  const [timeRange, setTimeRange] = useState<TimeRange>('1m');
+  const [timeRange, setTimeRange] = useState<TimeRange>(DEFAULT_PERIOD);
   const [smoothingWindow, setSmoothingWindow] = useState<SmoothingWindow>('auto');
   const [showSmoothingModal, setShowSmoothingModal] = useState(false);
 
@@ -419,7 +420,7 @@ const styles = StyleSheet.create({
   timeRangeButton: {
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
   },
   timeRangeButtonDark: {
@@ -442,7 +443,7 @@ const styles = StyleSheet.create({
   smoothingButton: {
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
     justifyContent: 'center',
     alignItems: 'center',
@@ -498,7 +499,7 @@ const styles = StyleSheet.create({
   smoothingOption: {
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs + 2,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
   },
   smoothingOptionDark: {

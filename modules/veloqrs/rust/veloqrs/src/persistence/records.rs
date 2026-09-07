@@ -1,29 +1,83 @@
 //! The one personal-record rule.
 //!
-//! A traversal is a PR when it equals the best time for its (section or route,
-//! direction) pair. Ties count and float noise counts, a whole second does not.
+//! A traversal is a PR when it **beats** every other effort over its (section
+//! or route, direction) pair. A tie is not a beat and goes unmarked, and an
+//! effort with nothing beside it has beaten nothing, so a first outing is
+//! never a record. Float noise is not a beat either, a whole second is.
 //! Four sites once carried four thresholds: 1 ms, 10 ms, exact integer seconds,
-//! and a 0.5 % relative band.
+//! and a 0.5 % relative band. All four now ask this one question.
 //!
-//! The band is not float noise, it is a different question: "did you match your
-//! best", not "is this your best". The activity screen's encounter list asks it
-//! deliberately and has a regression test that says so, so it keeps its own
-//! predicate here rather than one of the two readings being silently dropped.
+//! The band was the last to go. It asked "did you match your best", which the
+//! activity screen's encounter list badged as a record on efforts up to half a
+//! per cent off. Matching is not beating.
 
 /// Widest gap, in seconds, that still reads as the same time. Integer-second
 /// sources compare exactly under it, and f64 seconds absorb their own noise.
+/// A beat has to clear it, so the two readings partition the line.
 pub const PR_TOLERANCE_SECS: f64 = 0.01;
 
-/// True when `time_secs` is the best time. Non-finite or non-positive inputs
-/// are never a record.
-pub fn is_personal_record(time_secs: f64, best_secs: f64) -> bool {
-    if !time_secs.is_finite() || !best_secs.is_finite() {
+/// True when `time_secs` beats every other effort over the same ground.
+///
+/// `rival_secs` is the best of those other efforts, and `None` says there are
+/// none: a first outing has beaten nothing and is not a record. Non-finite or
+/// non-positive inputs are never a record either.
+pub fn is_personal_record(time_secs: f64, rival_secs: Option<f64>) -> bool {
+    let Some(rival_secs) = rival_secs else {
+        return false;
+    };
+    if !time_secs.is_finite() || !rival_secs.is_finite() {
         return false;
     }
-    if time_secs <= 0.0 || best_secs <= 0.0 {
+    if time_secs <= 0.0 || rival_secs <= 0.0 {
         return false;
     }
-    (time_secs - best_secs).abs() < PR_TOLERANCE_SECS
+    rival_secs - time_secs >= PR_TOLERANCE_SECS
+}
+
+/// The best and the second best of a set of times, ignoring the unusable.
+///
+/// Two efforts tied at the fastest time give the same value twice, which is
+/// what makes a tie leave both of them facing it.
+pub fn best_two(times: impl IntoIterator<Item = f64>) -> (Option<f64>, Option<f64>) {
+    let mut best: Option<f64> = None;
+    let mut second: Option<f64> = None;
+    for t in times {
+        if !t.is_finite() || t <= 0.0 {
+            continue;
+        }
+        match best {
+            Some(b) if t < b => {
+                second = Some(b);
+                best = Some(t);
+            }
+            Some(_) => {
+                if second.is_none_or(|s| t < s) {
+                    second = Some(t);
+                }
+            }
+            None => best = Some(t),
+        }
+    }
+    (best, second)
+}
+
+/// The best of the efforts other than the one being judged, given the best and
+/// the second best of the whole set.
+///
+/// For the effort holding the best time that is the second best, and for any
+/// other it is the best, which it cannot beat. `None` when there is nothing
+/// else, which is the single-effort case.
+pub fn rival_of(
+    time_secs: f64,
+    best_secs: Option<f64>,
+    second_best_secs: Option<f64>,
+) -> Option<f64> {
+    let best = best_secs?;
+    if (time_secs - best).abs() < PR_TOLERANCE_SECS {
+        second_best_secs
+    } else {
+        Some(best)
+    }
 }
 
 /// Share of a section a traversal must cover before it can be its record.
@@ -70,85 +124,103 @@ pub fn complete_traversal_sql() -> String {
     )
 }
 
-/// Relative width of the "matched your best" band used by the activity
-/// screen's section encounters. Scales with effort length, so a 5 s sprint and
-/// a 30 min climb both read fairly.
-pub const NEAR_PR_RELATIVE_TOLERANCE: f64 = 0.005;
-
-/// True when `time_secs` lands inside the band around the best time. Wider than
-/// [`is_personal_record`] on purpose, and never true for degenerate inputs.
-pub fn matches_personal_record(time_secs: f64, best_secs: f64) -> bool {
-    if !time_secs.is_finite() || !best_secs.is_finite() {
-        return false;
-    }
-    if time_secs <= 0.0 || best_secs <= 0.0 {
-        return false;
-    }
-    ((time_secs - best_secs) / best_secs).abs() < NEAR_PR_RELATIVE_TOLERANCE
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn the_best_time_is_a_record() {
-        assert!(is_personal_record(612.4, 612.4));
+    fn beating_the_best_time_is_a_record() {
+        assert!(is_personal_record(611.4, Some(612.4)));
     }
 
     #[test]
-    fn float_noise_still_reads_as_the_best_time() {
-        assert!(is_personal_record(612.4 + 1e-9, 612.4));
-        assert!(is_personal_record(612.4 - 1e-9, 612.4));
+    fn matching_the_best_time_is_not_a_record() {
+        assert!(!is_personal_record(612.4, Some(612.4)));
+    }
+
+    #[test]
+    fn float_noise_is_not_a_beat() {
+        assert!(!is_personal_record(612.4 - 1e-9, Some(612.4)));
+        assert!(!is_personal_record(612.4 + 1e-9, Some(612.4)));
+    }
+
+    #[test]
+    fn having_beaten_nothing_is_not_a_record() {
+        assert!(!is_personal_record(612.4, None));
     }
 
     #[test]
     fn a_whole_second_off_the_best_is_not_a_record() {
-        assert!(!is_personal_record(613.0, 612.0));
-        assert!(!is_personal_record(1801.0, 1800.0));
+        assert!(!is_personal_record(613.0, Some(612.0)));
+        assert!(!is_personal_record(1801.0, Some(1800.0)));
     }
 
     #[test]
     fn a_relative_band_does_not_reopen_on_long_efforts() {
         // 0.4 % of a 30 minute climb is 7 seconds. The old section rule called
         // that a PR, the route rule did not.
-        assert!(!is_personal_record(1807.0, 1800.0));
+        assert!(!is_personal_record(1807.0, Some(1800.0)));
     }
 
     #[test]
-    fn slower_and_faster_are_symmetric() {
-        assert_eq!(
-            is_personal_record(100.005, 100.0),
-            is_personal_record(99.995, 100.0)
-        );
+    fn the_tolerance_partitions_the_line_rather_than_leaving_a_gap() {
+        // Exactly the tolerance is a beat, anything under it is the same time.
+        assert!(is_personal_record(100.0 - PR_TOLERANCE_SECS, Some(100.0)));
+        assert!(!is_personal_record(
+            100.0 - PR_TOLERANCE_SECS / 2.0,
+            Some(100.0)
+        ));
     }
 
+    /// Expected behaviour: only the holder of the best time is measured against
+    /// the second best. Everyone else is measured against the best and loses.
     #[test]
-    fn the_band_scales_with_the_length_of_the_effort() {
-        assert!(matches_personal_record(5.0, 4.99));
-        assert!(matches_personal_record(1800.0, 1799.0));
-        assert!(!matches_personal_record(100.0, 90.0));
+    fn the_rival_is_the_best_of_the_others() {
+        assert_eq!(rival_of(90.0, Some(90.0), Some(100.0)), Some(100.0));
+        assert_eq!(rival_of(100.0, Some(90.0), Some(100.0)), Some(90.0));
+        assert_eq!(rival_of(90.0, Some(90.0), None), None);
+        assert_eq!(rival_of(90.0, None, None), None);
     }
 
+    /// Expected behaviour: the pair is read straight off the set, a tie at the
+    /// front gives the same time twice, and an unusable time is not one of them.
     #[test]
-    fn the_band_is_wider_than_the_record_rule_and_contains_it() {
-        assert!(is_personal_record(1799.0, 1799.0));
-        assert!(matches_personal_record(1799.0, 1799.0));
-        assert!(!is_personal_record(1800.0, 1799.0));
-        assert!(matches_personal_record(1800.0, 1799.0));
+    fn the_best_two_are_the_two_fastest_usable_times() {
+        assert_eq!(best_two([100.0, 90.0, 110.0]), (Some(90.0), Some(100.0)));
+        assert_eq!(best_two([90.0, 90.0]), (Some(90.0), Some(90.0)));
+        assert_eq!(best_two([90.0]), (Some(90.0), None));
+        assert_eq!(best_two([]), (None, None));
+        assert_eq!(best_two([f64::NAN, 0.0, -1.0, 90.0]), (Some(90.0), None));
+    }
+
+    /// Expected behaviour: two efforts tied at the best each face the other, so
+    /// neither beats it.
+    #[test]
+    fn a_tie_at_the_best_leaves_both_facing_that_time() {
+        assert_eq!(rival_of(90.0, Some(90.0), Some(90.0)), Some(90.0));
+        assert!(!is_personal_record(
+            90.0,
+            rival_of(90.0, Some(90.0), Some(90.0))
+        ));
+    }
+
+    /// Expected behaviour: the near miss the retired 0.5 % band called a record
+    /// is not one at either end of the range it was built to serve.
+    #[test]
+    fn a_near_miss_is_not_a_record_at_any_length_of_effort() {
+        assert!(!is_personal_record(5.0, Some(4.99)));
+        assert!(!is_personal_record(1800.0, Some(1799.0)));
     }
 
     #[test]
     fn degenerate_inputs_are_never_a_record() {
-        assert!(!is_personal_record(0.0, 0.0));
-        assert!(!is_personal_record(-5.0, -5.0));
-        assert!(!is_personal_record(f64::NAN, 100.0));
-        assert!(!is_personal_record(100.0, f64::INFINITY));
-        assert!(!is_personal_record(100.0, f64::MAX));
-        assert!(!matches_personal_record(0.0, 100.0));
-        assert!(!matches_personal_record(100.0, 0.0));
-        assert!(!matches_personal_record(f64::NAN, 100.0));
-        assert!(!matches_personal_record(100.0, f64::MAX));
+        assert!(!is_personal_record(0.0, Some(0.0)));
+        assert!(!is_personal_record(-5.0, Some(-5.0)));
+        assert!(!is_personal_record(f64::NAN, Some(100.0)));
+        assert!(!is_personal_record(100.0, Some(f64::INFINITY)));
+        // A sentinel best used to have to be rejected here. Absence is `None`
+        // now, so no caller can express it as a number at all, and the case
+        // that assertion guarded is gone from the type rather than the body.
     }
 
     /// Expected behaviour: a measured lap is judged on how much of the section

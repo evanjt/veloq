@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -740,7 +740,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
     marginLeft: spacing.sm,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     paddingHorizontal: 6,
     paddingVertical: 3,
     shadowColor: colors.shadowBlack,
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
   },
   routeTrendBadgeText: {
     color: ink.white,
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '700',
   },
   overlayName: {
@@ -806,7 +806,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusSm,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderWidth: 1,
@@ -839,7 +839,7 @@ const styles = StyleSheet.create({
     borderColor: colors.textMuted,
   },
   trendCount: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '700',
     letterSpacing: -0.3,
   },
@@ -848,14 +848,14 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   primaryStatValue: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
     letterSpacing: -0.3,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   statDot: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     marginHorizontal: 6,
   },
@@ -927,7 +927,7 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   compactStatValue: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
     letterSpacing: -0.3,
   },

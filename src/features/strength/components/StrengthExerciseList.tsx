@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { colors, darkColors, spacing, layout, brand } from '@/theme';
+import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
 import type { MuscleVolume, ExerciseSummary } from '@/types';
 
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surface,
   },
   exerciseCardTitle: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: spacing.sm,
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   exerciseCardDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: brand.tealLight,
   },
   exerciseCardContent: {
@@ -193,14 +193,14 @@ const styles = StyleSheet.create({
   },
   exerciseCardName: {
     flex: 1,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     color: colors.textPrimary,
   },
   exerciseCardNameDark: {
     color: darkColors.textPrimary,
   },
   exerciseCardMeta: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -229,14 +229,14 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   activityName: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textPrimary,
   },
   activityNameDark: {
     color: darkColors.textPrimary,
   },
   activityDate: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginTop: 1,
   },
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   activityStats: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   activityStatsDark: {
