@@ -8,6 +8,9 @@ import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
 const ATHLETE_ID_STORAGE_KEY = 'intervals_athlete_id';
 const ACCESS_TOKEN_STORAGE_KEY = 'intervals_access_token';
+// Whose the stored API key is. The key outlives a rejected session so the
+// re-entry can offer it back, and this says who it may be offered to.
+const API_KEY_ATHLETE_STORAGE_KEY = 'intervals_api_key_athlete_id';
 
 /**
  * Validates that a credential is non-null and non-empty after trimming.
@@ -47,6 +50,26 @@ export function pushCredentialsToEngine(): void {
     return;
   }
   engine.clearSyncCredentials();
+}
+
+/**
+ * The stored API key, but only for the athlete whose library is on the device.
+ *
+ * A rejected key stays in the keychain so the login form can offer it back,
+ * which is only safe while the two identities agree. On a device handed to
+ * someone else, or one whose library has been wiped, they do not, and the
+ * answer is null.
+ */
+export async function readApiKeyForAthlete(athleteId: string | null): Promise<string | null> {
+  if (!isValidCredential(athleteId)) return null;
+
+  const [apiKey, owner] = await Promise.all([
+    SecureStore.getItemAsync(API_KEY_STORAGE_KEY),
+    SecureStore.getItemAsync(API_KEY_ATHLETE_STORAGE_KEY),
+  ]);
+
+  if (!isValidCredential(apiKey) || owner !== athleteId) return null;
+  return apiKey;
 }
 
 /**
@@ -163,6 +186,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       SecureStore.setItemAsync(ATHLETE_ID_STORAGE_KEY, trimmedAthleteId, {
         keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       }),
+      SecureStore.setItemAsync(API_KEY_ATHLETE_STORAGE_KEY, trimmedAthleteId, {
+        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+      }),
       // Clear OAuth token when using API key auth
       SecureStore.deleteItemAsync(ACCESS_TOKEN_STORAGE_KEY),
     ]);
@@ -199,6 +225,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }),
       // Clear API key when using OAuth
       SecureStore.deleteItemAsync(API_KEY_STORAGE_KEY),
+      SecureStore.deleteItemAsync(API_KEY_ATHLETE_STORAGE_KEY),
     ]);
 
     set({
@@ -251,6 +278,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     await Promise.all([
       SecureStore.deleteItemAsync(API_KEY_STORAGE_KEY),
+      SecureStore.deleteItemAsync(API_KEY_ATHLETE_STORAGE_KEY),
       SecureStore.deleteItemAsync(ATHLETE_ID_STORAGE_KEY),
       SecureStore.deleteItemAsync(ACCESS_TOKEN_STORAGE_KEY),
     ]);

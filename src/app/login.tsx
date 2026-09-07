@@ -25,6 +25,7 @@ import {
   useApiKeyLogin,
   useOAuthLogin,
   useBackupRestore,
+  useApiKeyPrefill,
   useSessionExpiryNotice,
   LanguagePicker,
   OAuthLoginForm,
@@ -59,6 +60,7 @@ export default function LoginScreen() {
   // An expired session is not a failed login, so it never takes the red slot.
   // The two do not stack either: whichever arrived last is the one on screen.
   const [sessionNotice, dismissSessionNotice] = useSessionExpiryNotice();
+  const prefillApiKey = useApiKeyPrefill(sessionNotice);
   const reportError = useCallback(
     (message: string | null) => {
       if (message) dismissSessionNotice();
@@ -191,6 +193,7 @@ export default function LoginScreen() {
             isLoading={isApiKeyLoading}
             disabled={isLoading}
             onOpenDeveloperSettings={handleOpenDeveloperSettings}
+            prefillApiKey={prefillApiKey}
           />
         </View>
 
