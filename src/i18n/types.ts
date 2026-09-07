@@ -306,6 +306,9 @@ export interface TranslationResource {
     previewChanged: string;
     previewNew: string;
     previewGone: string;
+    previewPoolCost: string;
+    previewPoolScope: string;
+    previewPoolUnreadable: string;
     previewStatusUnchanged: string;
     previewStatusChanged: string;
     previewStatusNew: string;
@@ -1110,7 +1113,6 @@ export interface TranslationResource {
     noValidGpsData: string;
     noValidGpsChecked: string;
     offlineUsingCached: string;
-    renderingTerrainPreviews: string;
     syncedActivities: string;
     syncedDemoActivities: string;
     syncingActivities: string;

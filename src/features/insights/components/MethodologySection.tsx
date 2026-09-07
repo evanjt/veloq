@@ -25,11 +25,14 @@ export const MethodologySection = React.memo(function MethodologySection({
   const formula = supportingData?.formula ?? methodology?.formula;
   const algorithmDescription = supportingData?.algorithmDescription;
   const activities = supportingData?.activities;
-  const hasActivities = activities != null && activities.length > 0;
-  const hasDescription = methodology?.description != null;
+  const sourceActivities = activities?.length ? activities : null;
+  const description = methodology?.description ?? null;
 
   const hasAnyContent =
-    formula != null || algorithmDescription != null || hasActivities || hasDescription;
+    formula != null ||
+    algorithmDescription != null ||
+    sourceActivities != null ||
+    description != null;
 
   if (!hasAnyContent) return null;
 
@@ -45,9 +48,9 @@ export const MethodologySection = React.memo(function MethodologySection({
           <Text style={[styles.algorithmText, isDark && styles.algorithmTextDark]}>
             {algorithmDescription}
           </Text>
-        ) : hasDescription ? (
+        ) : description ? (
           <Text style={[styles.algorithmText, isDark && styles.algorithmTextDark]}>
-            {methodology!.description}
+            {description}
           </Text>
         ) : null}
 
@@ -55,7 +58,9 @@ export const MethodologySection = React.memo(function MethodologySection({
         {formula ? <FormulaBlock formula={formula} isDark={isDark} /> : null}
 
         {/* Source activities */}
-        {hasActivities ? <SourceActivitiesList activities={activities!} isDark={isDark} /> : null}
+        {sourceActivities ? (
+          <SourceActivitiesList activities={sourceActivities} isDark={isDark} />
+        ) : null}
       </View>
     </View>
   );

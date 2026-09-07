@@ -31,12 +31,17 @@ function centre(binKey: string) {
     visitTotal: 10,
     sectionCount: 3,
     source: 'activities' as const,
+    locality: null,
   };
 }
 
 function renderPicker(count: number) {
   const centres = Array.from({ length: count }, (_, i) => centre(`b${i}`));
-  const labels = centres.map((c, i) => ({ binKey: c.binKey, label: null, fallbackNumber: i + 1 }));
+  const labels = centres.map((c, i) => ({
+    binKey: c.binKey,
+    label: null,
+    fallbackNumber: i + 1,
+  }));
   return render(
     <PreviewCentrePicker
       centres={centres}

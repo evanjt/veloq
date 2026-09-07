@@ -1,5 +1,5 @@
 /**
- * The detection preview ships twenty-seven settings strings and two section
+ * The detection preview ships thirty settings strings and two section
  * metric labels. Every locale needs a real translation with the interpolation
  * placeholders intact, otherwise the screen reads as English or renders a raw
  * `{{count}}`.
@@ -26,6 +26,9 @@ const SETTINGS_KEYS = [
   'previewChanged',
   'previewNew',
   'previewGone',
+  'previewPoolCost',
+  'previewPoolScope',
+  'previewPoolUnreadable',
   'previewStatusUnchanged',
   'previewStatusChanged',
   'previewStatusNew',
@@ -53,6 +56,8 @@ const PLACEHOLDERS: Record<string, string[]> = {
   previewChanged: ['{{count}}'],
   previewNew: ['{{count}}'],
   previewGone: ['{{count}}'],
+  previewPoolCost: ['{{count}}', '{{duration}}'],
+  previewPoolUnreadable: ['{{count}}'],
 };
 
 const ENGLISH_LOCALES = ['en-AU', 'en-GB', 'en-US'];

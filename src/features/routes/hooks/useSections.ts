@@ -61,7 +61,7 @@ export function useSections(options: UseSectionsOptions = {}): UseSectionsResult
     return engine.getAllSectionsIncludingHidden(sportType).map(convertSectionSummaryToApp);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, skipEngineFetch, sportType, sectionsTrigger]);
-  const engineSections = skipEngineFetch ? preloadedEngineSections! : hookEngineSections;
+  const engineSections = preloadedEngineSections ?? hookEngineSections;
 
   // Load custom sections
   const {

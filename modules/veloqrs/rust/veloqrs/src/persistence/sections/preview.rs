@@ -54,7 +54,20 @@ pub struct PreviewCentre {
     pub visit_total: u32,
     pub section_count: u32,
     pub source: String,
+    /// The place the bin covers, or None when no activity over it names one.
+    pub locality: Option<String>,
 }
+
+/// The (lat, lng) grid indices a bin key names, or None when it will not parse.
+fn bin_indices(bin_key: &str) -> Option<(i64, i64)> {
+    let (lat, lng) = bin_key.split_once(':')?;
+    Some((lat.parse().ok()?, lng.parse().ok()?))
+}
+
+/// Radius around a bin's anchor that an activity must start within to speak
+/// for its name. Half the bin diagonal plus slack for a box just outside the
+/// border.
+const CENTRE_LOCALITY_RADIUS_M: f64 = 5000.0;
 
 /// The five caller-exposed detection knobs, overlaid onto the engine's live
 /// config. Only these cross the boundary: trusting a whole caller-supplied
@@ -173,10 +186,22 @@ impl SectionPreviewHandle {
 /// (sorted) and the union of their padded boxes, or None when no padded box
 /// contains the point. Boxes at the (0, 0, 0, 0) sentinel carry no geometry
 /// and are skipped.
+///
+/// **Chaining is per sport, because the detector's is.** `detect_for_sport`
+/// clusters inside one sport's tracks, so two rides that do not reach each
+/// other are two clusters no matter what else was ridden between them. Joining
+/// every sport into one component instead let a single run whose padded box
+/// touched both drag a second riding area into the pool, to be loaded, decoded
+/// and then separated again by the detector for an identical result.
+///
+/// The pool is still an area rather than one sport: a preview diffs every live
+/// section on that ground, so each sport whose own component holds the point
+/// contributes it, and the union of those components is the pool.
 pub(crate) fn cluster_for(
     boxes: &[(String, tracematch::Bounds)],
     lat: f64,
     lng: f64,
+    sports: &HashMap<String, String>,
     gap_m: f64,
 ) -> Option<(Vec<String>, DegreeBox)> {
     let pad_lat = gap_m * 0.5 / 111_132.0;
@@ -201,29 +226,38 @@ pub(crate) fn cluster_for(
     for i in 0..boxes.len() {
         uf.make_set(i);
     }
+    let sport_of = |i: usize| sports.get(&boxes[i].0).map(String::as_str).unwrap_or("");
     for (i, a) in padded.iter().enumerate() {
         let Some(a) = a else { continue };
         for (j, b) in padded.iter().enumerate().skip(i + 1) {
             let Some(b) = b else { continue };
+            if sport_of(i) != sport_of(j) {
+                continue;
+            }
             if a.0 <= b.1 && b.0 <= a.1 && a.2 <= b.3 && b.2 <= a.3 {
                 uf.union(&i, &j);
             }
         }
     }
 
-    // Any padded box containing the point names the component: two boxes both
-    // holding the point overlap at it, so the component is unique.
-    let seed = padded.iter().enumerate().find_map(|(i, p)| {
-        p.filter(|p| p.0 <= lat && lat <= p.1 && p.2 <= lng && lng <= p.3)
-            .map(|_| i)
-    })?;
-    let root = uf.find(&seed);
+    // One component per sport that has ground at the point. Within a sport the
+    // component is unique, since two boxes both holding the point overlap at
+    // it, so this is at most one root per sport.
+    let roots: HashSet<usize> = padded
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.is_some_and(|p| p.0 <= lat && lat <= p.1 && p.2 <= lng && lng <= p.3))
+        .map(|(i, _)| uf.find(&i))
+        .collect();
+    if roots.is_empty() {
+        return None;
+    }
 
     let mut ids: Vec<String> = Vec::new();
     let mut bbox = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
     for (i, p) in padded.iter().enumerate() {
         let Some(p) = p else { continue };
-        if uf.find(&i) == root {
+        if roots.contains(&uf.find(&i)) {
             ids.push(boxes[i].0.clone());
             bbox.0 = bbox.0.min(p.0);
             bbox.1 = bbox.1.max(p.1);
@@ -499,6 +533,7 @@ impl PersistentEngine {
                 visit_total: b.visit_total,
                 section_count: b.section_count,
                 source: source.to_string(),
+                locality: None,
             })
             .collect();
         centres.sort_by(|a, b| {
@@ -507,7 +542,92 @@ impl PersistentEngine {
                 .then_with(|| a.bin_key.cmp(&b.bin_key))
         });
         centres.truncate(limit as usize);
+        self.name_centres(&mut centres);
         centres
+    }
+
+    /// Sport per activity id, as `cluster_for` and the detector both key on.
+    fn sport_map(&self) -> HashMap<String, String> {
+        self.activity_metadata
+            .values()
+            .map(|m| (m.id.clone(), m.sport_type.clone()))
+            .collect()
+    }
+
+    /// Give each ranked area the name of the place it covers.
+    ///
+    /// The name is the most common `locality` among activities whose bounding
+    /// box sits within `CENTRE_LOCALITY_RADIUS_M` of the bin's anchor, ties
+    /// broken by name so the label is stable across runs. The position comes
+    /// from the activity's stored box and not from `start_latlng`: the sync
+    /// never asks intervals.icu for that field, so no stored body carries one
+    /// and a join on it matched nothing (B423).
+    ///
+    /// The anchor is the centre of the bin box, which is the box the preview
+    /// camera frames, rather than the mean of the bin's members: that mean can
+    /// sit near an edge and name the neighbouring place.
+    fn name_centres(&self, centres: &mut [PreviewCentre]) {
+        if centres.is_empty() {
+            return;
+        }
+
+        let mut located: Vec<(f64, f64, String)> = Vec::new();
+        if let Ok(mut stmt) = self.db.prepare(
+            "SELECT a.min_lat, a.max_lat, a.min_lng, a.max_lng,
+                    json_extract(b.raw, '$.locality')
+             FROM activities a JOIN activity_bodies b ON b.activity_id = a.id
+             WHERE json_extract(b.raw, '$.locality') IS NOT NULL",
+        ) {
+            let rows = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, f64>(0)?,
+                    row.get::<_, f64>(1)?,
+                    row.get::<_, f64>(2)?,
+                    row.get::<_, f64>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            });
+            if let Ok(rows) = rows {
+                for (min_lat, max_lat, min_lng, max_lng, locality) in rows.flatten() {
+                    if min_lat == 0.0 && max_lat == 0.0 && min_lng == 0.0 && max_lng == 0.0 {
+                        continue;
+                    }
+                    located.push((
+                        (min_lat + max_lat) * 0.5,
+                        (min_lng + max_lng) * 0.5,
+                        locality,
+                    ));
+                }
+            }
+        }
+        if located.is_empty() {
+            return;
+        }
+
+        for centre in centres.iter_mut() {
+            let Some((lat_bin, lng_bin)) = bin_indices(&centre.bin_key) else {
+                continue;
+            };
+            let anchor_lat = (lat_bin as f64 + 0.5) * BIN_DEG;
+            let anchor_lng = (lng_bin as f64 + 0.5) * BIN_DEG;
+
+            let mut counts: HashMap<&str, u32> = HashMap::new();
+            for (lat, lng, locality) in &located {
+                let metres =
+                    super::super::haversine_distance_meters(*lat, *lng, anchor_lat, anchor_lng);
+                if metres > CENTRE_LOCALITY_RADIUS_M {
+                    continue;
+                }
+                *counts.entry(locality.as_str()).or_insert(0) += 1;
+            }
+
+            centre.locality = counts
+                .into_iter()
+                .max_by(|(a_name, a_count), (b_name, b_count)| {
+                    a_count.cmp(b_count).then_with(|| b_name.cmp(a_name))
+                })
+                .map(|(name, _)| name.to_string());
+        }
     }
 
     /// The live auto catalogue for the riding area containing (lat, lng), in
@@ -524,8 +644,9 @@ impl PersistentEngine {
             .values()
             .map(|m| (m.id.clone(), m.bounds))
             .collect();
+        let sports = self.sport_map();
         let (_component_ids, padded_bbox) =
-            cluster_for(&boxes, lat, lng, Tunables::DEFAULT.cluster_gap_m)?;
+            cluster_for(&boxes, lat, lng, &sports, Tunables::DEFAULT.cluster_gap_m)?;
 
         let pinned: HashSet<String> = self
             .db
@@ -581,8 +702,14 @@ impl PersistentEngine {
             .values()
             .map(|m| (m.id.clone(), m.bounds))
             .collect();
-        let (component_ids, padded_bbox) =
-            cluster_for(&boxes, lat, lng, Tunables::DEFAULT.cluster_gap_m)?;
+        let sport_map = self.sport_map();
+        let (component_ids, padded_bbox) = cluster_for(
+            &boxes,
+            lat,
+            lng,
+            &sport_map,
+            Tunables::DEFAULT.cluster_gap_m,
+        )?;
 
         let mut effective_config = self.section_config.clone();
         effective_config.proximity_threshold = overlay.proximity_threshold;
@@ -590,12 +717,6 @@ impl PersistentEngine {
         effective_config.max_section_length = overlay.max_section_length;
         effective_config.min_activities = overlay.min_activities;
         effective_config.divergence_threshold = overlay.divergence_threshold;
-
-        let sport_map: HashMap<String, String> = self
-            .activity_metadata
-            .values()
-            .map(|m| (m.id.clone(), m.sport_type.clone()))
-            .collect();
 
         // Live auto sections whose ground can intersect the component. The
         // diff omits everything outside, so far-away sections never surface
@@ -778,5 +899,200 @@ impl PersistentEngine {
             cancel,
             outcome: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn bounds(min_lat: f64, max_lat: f64, min_lng: f64, max_lng: f64) -> tracematch::Bounds {
+        tracematch::Bounds {
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+        }
+    }
+
+    /// Two rides 111 km apart, and one run whose box reaches both.
+    ///
+    /// At the 50 km chaining gap each padded box grows by 25 km a side, so the
+    /// rides do not touch each other and the run touches both. The detector
+    /// clusters inside one sport, so it never joins the rides; the preview
+    /// pool must not either.
+    fn bridged() -> (Vec<(String, tracematch::Bounds)>, HashMap<String, String>) {
+        let boxes = vec![
+            ("ride_near".to_string(), bounds(-0.01, 0.01, -0.01, 0.01)),
+            ("ride_far".to_string(), bounds(-0.01, 0.01, 0.99, 1.01)),
+            ("run_bridge".to_string(), bounds(-0.01, 0.01, 0.4, 0.6)),
+        ];
+        let sports = HashMap::from([
+            ("ride_near".to_string(), "Ride".to_string()),
+            ("ride_far".to_string(), "Ride".to_string()),
+            ("run_bridge".to_string(), "Run".to_string()),
+        ]);
+        (boxes, sports)
+    }
+
+    /// A section stand-in carrying only the fields `diff_catalogues` reads.
+    fn section(id: &str, polyline: Vec<tracematch::GpsPoint>) -> FrequentSection {
+        FrequentSection {
+            id: id.to_string(),
+            name: None,
+            sport_type: "Ride".to_string(),
+            polyline,
+            distance_meters: 1000.0,
+            visit_count: 5,
+            created_at: None,
+            representative_activity_id: String::new(),
+            representative_range: None,
+            activity_ids: Vec::new(),
+            activity_portions: Vec::new(),
+            activity_traces: HashMap::new(),
+            confidence: 0.0,
+            observation_count: 0,
+            average_spread: 0.0,
+            point_density: Vec::new(),
+            scale: None,
+            is_user_defined: false,
+            stability: 0.0,
+            elevation_gain_m: None,
+            avg_grade_percent: None,
+            version: 1,
+            updated_at: None,
+            enrichment: Default::default(),
+            rank: None,
+            consensus_state: None,
+        }
+    }
+
+    /// A ~2.2 km line at (base_lat, base_lng), 200 points ~11 m apart.
+    fn line(base_lat: f64, base_lng: f64) -> Vec<tracematch::GpsPoint> {
+        (0..200)
+            .map(|i| tracematch::GpsPoint {
+                latitude: base_lat + f64::from(i) * 0.0001,
+                longitude: base_lng,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    /// A catalogue dense enough that the greedy pairing has real competition:
+    /// `count` near-parallel lines 20 m apart, so every one shares ground with
+    /// its neighbours and the pairing must still choose its own twin.
+    fn dense_catalogue(count: usize) -> Vec<FrequentSection> {
+        (0..count)
+            .map(|i| section(&format!("s{i}"), line(5.0, 10.0 + i as f64 * 0.0002)))
+            .collect()
+    }
+
+    /// A catalogue diffed against itself is entirely unchanged. Anything else
+    /// is the pairing rather than the detector, so a run reporting most of its
+    /// rows gone would be a defect here rather than a different cut.
+    ///
+    /// `preview_cluster` already asserts this end to end at three sections.
+    /// This is the same property at the scale the device reported, where the
+    /// greedy pairing has hundreds of ground-sharing pairs to choose among.
+    #[test]
+    fn a_catalogue_diffed_against_itself_is_entirely_unchanged() {
+        for count in [3usize, 30, 118] {
+            let catalogue = dense_catalogue(count);
+            let proposed: Vec<&FrequentSection> = catalogue.iter().collect();
+            let (counts, _rows) = diff_catalogues_public(&proposed, &catalogue);
+
+            assert_eq!(counts.gone, 0, "phantom gone rows at {count} sections");
+            assert_eq!(counts.new, 0, "phantom new rows at {count} sections");
+            assert_eq!(
+                counts.changed, 0,
+                "phantom changed rows at {count} sections"
+            );
+            assert_eq!(counts.unchanged, count as u32);
+        }
+    }
+
+    /// A row that really did go is reported once, not as a gone and a new.
+    #[test]
+    fn a_removed_section_is_one_gone_and_nothing_else() {
+        let live = dense_catalogue(30);
+        let kept: Vec<&FrequentSection> = live.iter().skip(1).collect();
+
+        let (counts, _rows) = diff_catalogues_public(&kept, &live);
+
+        assert_eq!(counts.gone, 1);
+        assert_eq!(counts.new, 0);
+        assert_eq!(counts.changed, 0);
+        assert_eq!(counts.unchanged, 29);
+    }
+
+    /// A line far from every live section is new, and takes nothing with it.
+    #[test]
+    fn an_added_section_is_one_new_and_nothing_else() {
+        let live = dense_catalogue(30);
+        let mut proposed = live.clone();
+        proposed.push(section("far", line(40.0, 60.0)));
+        let refs: Vec<&FrequentSection> = proposed.iter().collect();
+
+        let (counts, _rows) = diff_catalogues_public(&refs, &live);
+
+        assert_eq!(counts.new, 1);
+        assert_eq!(counts.gone, 0);
+        assert_eq!(counts.changed, 0);
+        assert_eq!(counts.unchanged, 30);
+    }
+
+    #[test]
+    fn another_sport_does_not_chain_two_components_of_this_one() {
+        let (boxes, sports) = bridged();
+        let (ids, _) = cluster_for(&boxes, 0.0, 0.0, &sports, 50_000.0).expect("seeded");
+        assert_eq!(ids, vec!["ride_near".to_string()]);
+    }
+
+    /// The pool is still an area rather than a sport: a preview diffs every
+    /// live section on that ground, so a run over the point comes with it.
+    #[test]
+    fn a_second_sport_over_the_point_joins_the_pool() {
+        let boxes = vec![
+            ("ride".to_string(), bounds(-0.01, 0.01, -0.01, 0.01)),
+            ("run".to_string(), bounds(-0.02, 0.02, -0.02, 0.02)),
+        ];
+        let sports = HashMap::from([
+            ("ride".to_string(), "Ride".to_string()),
+            ("run".to_string(), "Run".to_string()),
+        ]);
+        let (ids, _) = cluster_for(&boxes, 0.0, 0.0, &sports, 50_000.0).expect("seeded");
+        assert_eq!(ids, vec!["ride".to_string(), "run".to_string()]);
+    }
+
+    /// The far ride's own ground leaves the padded box with it, or the diff
+    /// would report sections out there as gone.
+    #[test]
+    fn the_padded_box_shrinks_to_what_the_pool_covers() {
+        let (boxes, sports) = bridged();
+        let (_, bbox) = cluster_for(&boxes, 0.0, 0.0, &sports, 50_000.0).expect("seeded");
+        assert!(bbox.3 < 0.9, "far ride still inside the box: {bbox:?}");
+    }
+
+    #[test]
+    fn a_point_no_padded_box_holds_has_no_component() {
+        let (boxes, sports) = bridged();
+        assert!(cluster_for(&boxes, 40.0, 40.0, &sports, 50_000.0).is_none());
+    }
+
+    /// An activity with no stored bounds is skipped rather than seeding a
+    /// component at the origin.
+    #[test]
+    fn a_zero_bounds_activity_is_not_a_member() {
+        let boxes = vec![
+            ("ride".to_string(), bounds(-0.01, 0.01, -0.01, 0.01)),
+            ("empty".to_string(), bounds(0.0, 0.0, 0.0, 0.0)),
+        ];
+        let sports = HashMap::from([
+            ("ride".to_string(), "Ride".to_string()),
+            ("empty".to_string(), "Ride".to_string()),
+        ]);
+        let (ids, _) = cluster_for(&boxes, 0.0, 0.0, &sports, 50_000.0).expect("seeded");
+        assert_eq!(ids, vec!["ride".to_string()]);
     }
 }

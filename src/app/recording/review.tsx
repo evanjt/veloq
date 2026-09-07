@@ -72,9 +72,7 @@ export default function ReviewScreen() {
   const [showTypeModal, setShowTypeModal] = useState(false);
 
   const [trimStart, setTrimStart] = useState(0);
-  const [trimEnd, setTrimEnd] = useState(
-    (streams.latlng?.length ?? 0) > 0 ? streams.latlng!.length - 1 : 0
-  );
+  const [trimEnd, setTrimEnd] = useState(Math.max(0, (streams.latlng?.length ?? 0) - 1));
 
   const type = selectedType;
   const canTrim = !isManual && (streams.latlng?.length ?? 0) > 2;

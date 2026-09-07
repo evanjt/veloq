@@ -169,14 +169,12 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
   const [expanded, setExpanded] = useState(false);
 
   // Use pre-loaded consensus points if available (from batch FFI), otherwise lazy-load
-  const hasPreloadedConsensus =
-    isRouteGroup(route) && route.consensusPoints && route.consensusPoints.length > 0;
+  const preloadedConsensus =
+    isRouteGroup(route) && route.consensusPoints?.length ? route.consensusPoints : null;
   const { points: lazyConsensusPoints } = useConsensusRoute(
-    isRouteGroup(route) && !hasPreloadedConsensus ? route.id : null
+    isRouteGroup(route) && !preloadedConsensus ? route.id : null
   );
-  const consensusPoints = hasPreloadedConsensus
-    ? (route as RouteGroup).consensusPoints!
-    : lazyConsensusPoints;
+  const consensusPoints = preloadedConsensus ?? lazyConsensusPoints;
 
   // Display name comes from parent via route.name (which includes custom name from useRouteGroups)
   // This ensures reactivity when names change via the hook chain

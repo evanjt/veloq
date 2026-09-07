@@ -34,7 +34,7 @@ describe('satellite attribution follows the rendered bounds', () => {
     expect(getCombinedSatelliteAttribution(lat, lng, HIGH_ZOOM)).toContain('IGN');
   });
 
-  it('always credits the global base layer', () => {
+  it('credits the global base layer where no regional source covers the point', () => {
     expect(getCombinedSatelliteAttribution(-37.8136, 144.9631, HIGH_ZOOM)).toMatch(/EOX|Sentinel/i);
   });
 

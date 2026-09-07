@@ -13,6 +13,8 @@ import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { colors, spacing } from '@/theme';
 
 const PILL_INSET = 4;
+/** Share of the map the pill may claim before it wraps instead of spreading. */
+const PILL_MAX_WIDTH = '62%';
 const PILL_PADDING_VERTICAL = 5;
 const PILL_LINE_HEIGHT = 12;
 
@@ -81,11 +83,17 @@ const attributionStyles = StyleSheet.create({
     bottom: 0,
     right: 0,
     alignItems: 'flex-end',
+    // Without a ceiling the node grows to the parent's width, and the long
+    // satellite credit then wraps into a full-width band across the bottom of
+    // the map rather than sitting in its corner (B409). The credit is a
+    // licence condition, so it is bounded and wrapped, never truncated.
+    maxWidth: PILL_MAX_WIDTH,
     paddingBottom: PILL_INSET,
     paddingRight: 6,
     zIndex: 5,
   },
   attributionPill: {
+    alignSelf: 'flex-end',
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 10,
     paddingVertical: PILL_PADDING_VERTICAL,

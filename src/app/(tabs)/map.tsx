@@ -13,6 +13,7 @@ import {
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useActivityBoundsCache, useActivities } from '@/features/activity/hooks';
 import { useEngineMapActivities } from '@/features/maps/hooks';
+import { filterMapActivities } from '@/features/maps';
 import { PERIOD_OPTIONS, getPeriodStart, type MapPeriod } from '@/features/maps/lib/mapPeriod';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -48,13 +49,6 @@ function getDistanceOptions(isMetric: boolean): { key: DistanceKey; label: strin
         { key: 'medium', label: '6–30mi' },
         { key: 'long', label: '30mi+' },
       ];
-}
-
-// Thresholds in meters - imperial uses approximate mile equivalents
-function getDistanceThresholds(isMetric: boolean) {
-  return isMetric
-    ? { xshort: 5000, short: 10000, medium: 50000 }
-    : { xshort: 4828, short: 9656, medium: 48280 }; // 3mi, 6mi, 30mi
 }
 
 export default function MapScreen() {
@@ -106,26 +100,17 @@ export default function MapScreen() {
   });
 
   // Apply sport type + distance filters JS-side
-  const displayActivities = useMemo(() => {
-    let result = allActivities;
-    // Sport type filter
-    if (selectedTypes.size > 0 && selectedTypes.size < availableTypes.length) {
-      result = result.filter((a) => selectedTypes.has(a.type));
-    }
-    // Distance filter
-    if (distanceFilter !== 'all') {
-      const thresholds = getDistanceThresholds(isMetric);
-      result = result.filter((a) => {
-        if (distanceFilter === 'xshort') return a.distance < thresholds.xshort;
-        if (distanceFilter === 'short')
-          return a.distance >= thresholds.xshort && a.distance < thresholds.short;
-        if (distanceFilter === 'medium')
-          return a.distance >= thresholds.short && a.distance < thresholds.medium;
-        return a.distance >= thresholds.medium;
-      });
-    }
-    return result;
-  }, [allActivities, selectedTypes, availableTypes.length, distanceFilter]);
+  const displayActivities = useMemo(
+    () =>
+      filterMapActivities(
+        allActivities,
+        selectedTypes,
+        availableTypes.length,
+        distanceFilter,
+        isMetric
+      ),
+    [allActivities, selectedTypes, availableTypes.length, distanceFilter, isMetric]
+  );
 
   // Everything is selected until the athlete narrows it. Choosing while
   // rendering keeps the first frame after the data lands from showing an empty

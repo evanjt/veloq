@@ -184,14 +184,14 @@ const SectionHighlights = React.memo(function SectionHighlights({
         </View>
       )}
       {displayed.map((section) => {
-        const hasPR = section.prTimeSecs != null;
+        const prTimeSecs = section.prTimeSecs ?? null;
         const isRecentPR =
-          hasPR && section.prDaysAgo != null && section.prDaysAgo <= PR_RECENCY_DAYS;
+          prTimeSecs != null && section.prDaysAgo != null && section.prDaysAgo <= PR_RECENCY_DAYS;
         const delta =
-          hasPR && section.previousBestTimeSecs != null
-            ? section.previousBestTimeSecs - section.prTimeSecs!
+          prTimeSecs != null && section.previousBestTimeSecs != null
+            ? section.previousBestTimeSecs - prTimeSecs
             : null;
-        const showDelta = delta != null && delta > 0;
+        const gain = delta != null && delta > 0 ? delta : null;
 
         return (
           <TouchableOpacity
@@ -210,21 +210,19 @@ const SectionHighlights = React.memo(function SectionHighlights({
               {section.name}
             </Text>
             <View style={styles.sectionMeta}>
-              {hasPR && isRecentPR && (
+              {prTimeSecs != null && isRecentPR && (
                 <View style={styles.prCelebration}>
                   <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
-                  <Text style={styles.prTextCelebration}>
-                    PR {formatDuration(section.prTimeSecs!)}
-                  </Text>
-                  {showDelta && (
-                    <Text style={styles.prDelta}>{` \u2212${formatDuration(delta!)}`}</Text>
+                  <Text style={styles.prTextCelebration}>PR {formatDuration(prTimeSecs)}</Text>
+                  {gain != null && (
+                    <Text style={styles.prDelta}>{` \u2212${formatDuration(gain)}`}</Text>
                   )}
                 </View>
               )}
-              {hasPR && !isRecentPR && (
+              {prTimeSecs != null && !isRecentPR && (
                 <Text style={styles.prBadgeAccent}>
-                  PR {formatDuration(section.prTimeSecs!)}
-                  {showDelta ? ` (\u2212${formatDuration(delta!)})` : ''}
+                  PR {formatDuration(prTimeSecs)}
+                  {gain != null ? ` (\u2212${formatDuration(gain)})` : ''}
                 </Text>
               )}
               {section.trend && (

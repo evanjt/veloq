@@ -227,8 +227,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
       // An interval with no moving time still counts as one, it just adds
       // nothing to the total.
       const movingTime = interval.moving_time ?? 0;
-      if (chipMap.has(key)) {
-        const idx = chipMap.get(key)!;
+      const idx = chipMap.get(key);
+      if (idx !== undefined) {
         chips[idx].count++;
         chips[idx].totalTime += movingTime;
       } else {

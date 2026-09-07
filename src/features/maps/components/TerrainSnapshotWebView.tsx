@@ -70,6 +70,18 @@ const MAX_FAILED_SIZE = 30;
 const SNAPSHOT_HEIGHT = 240;
 const POOL_SIZE = 2;
 const MAX_SNAPSHOT_RETRIES = 1;
+/**
+ * How long the whole pool waits after a tile server throttles it, doubling per
+ * consecutive throttle up to the cap.
+ *
+ * A 429 or a 503 is an instruction to wait, and every worker is hitting the
+ * same host, so the one request that saw it is not the thing to back off. The
+ * wait is a floor the athlete cannot pull past either: a pull-to-refresh that
+ * reset it would turn an impatient athlete into the load that caused it
+ * (B418).
+ */
+const TILE_THROTTLE_BACKOFF_MS = 30000;
+const MAX_TILE_THROTTLE_BACKOFF_MS = 300000;
 
 const requestKey = (r: SnapshotRequest) => `${r.activityId}_${r.mapStyle}_${r.flat ? 'f' : 'd'}`;
 
@@ -141,6 +153,14 @@ export const TerrainSnapshotWebView = forwardRef<
   // timed out does not wait for a pull-to-refresh it may never get.
   const idleRetriedRef = useRef(new Set<string>());
   const stalenessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The whole pool's throttle floor, and the one timer that lifts it. Kept on
+  // the pool rather than on a request because every worker shares the hosts.
+  const throttledUntilRef = useRef(0);
+  const throttleBackoffRef = useRef(TILE_THROTTLE_BACKOFF_MS);
+  const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // processNext schedules itself through this, so the callback identity that
+  // fires later is always the current one.
+  const processNextRef = useRef<(() => void) | null>(null);
   // Read by the render loop and the watchdog, both of which run from
   // callbacks that must not be rebuilt on every focus change.
   const suspendedRef = useRef(suspended);
@@ -161,6 +181,13 @@ export const TerrainSnapshotWebView = forwardRef<
       stalenessTimerRef.current = setTimeout(() => {
         stalenessTimerRef.current = null;
         if (workers.some((w) => w.processingRef.current)) {
+          arm();
+          return;
+        }
+        // A pool waiting out a tile throttle is not a stuck pool. The backoff
+        // outlasts this timeout on purpose, so keep watching rather than
+        // failing every queued card for waiting as instructed (B418).
+        if (throttledUntilRef.current > Date.now()) {
           arm();
           return;
         }
@@ -197,7 +224,7 @@ export const TerrainSnapshotWebView = forwardRef<
       });
       armStalenessTimer();
     }
-  }, [workers, armStalenessTimer]);
+  }, [armStalenessTimer]);
 
   // A killed WebView renderer (Android reclaims background webview processes)
   // would otherwise leave the worker permanently dead: mapReady never re-fires,
@@ -223,6 +250,19 @@ export const TerrainSnapshotWebView = forwardRef<
 
   const processNext = useCallback(() => {
     if (suspendedRef.current) return;
+
+    // A tile host asked to be left alone. Nothing is assigned until the wait
+    // is out, and one timer carries it for the whole pool.
+    const throttledFor = throttledUntilRef.current - Date.now();
+    if (throttledFor > 0) {
+      if (throttleTimerRef.current === null) {
+        throttleTimerRef.current = setTimeout(() => {
+          throttleTimerRef.current = null;
+          processNextRef.current?.();
+        }, throttledFor);
+      }
+      return;
+    }
     // Nothing left to render and nothing in flight: this is the moment to
     // give the failures one more go, before the pool goes quiet.
     if (
@@ -273,11 +313,11 @@ export const TerrainSnapshotWebView = forwardRef<
         queueCompletedRef.current += drained;
         updateProgress();
       }
-      if (queueRef.current.length === 0) {
+      const request = queueRef.current.shift();
+      if (!request) {
         break;
       }
 
-      const request = queueRef.current.shift()!;
       worker.processingRef.current = true;
       worker.currentRequestRef.current = request;
       worker.generationRef.current++;
@@ -315,6 +355,7 @@ export const TerrainSnapshotWebView = forwardRef<
       }, SNAPSHOT_TIMEOUT_MS);
     }
   }, [workers, updateProgress]);
+  processNextRef.current = processNext;
 
   // Handle messages from WebView - dispatch via shared bridge.
   // Each handler does its own worker lookup by `data.workerId` because
@@ -350,6 +391,22 @@ export const TerrainSnapshotWebView = forwardRef<
         const worker = workers[data.workerId];
         if (!worker) return;
         if (!data.activityId || !data.base64) return;
+
+        // The worker is not holding this render any more. A timeout, a pause
+        // and a lost WebView all release the worker and either count the
+        // request or put it back on the queue, and the generation only moves
+        // when a new request is assigned, so a worker released with nothing to
+        // take next still matches the abandoned render's generation. Counting
+        // it here counted it twice, which carried `completed` past `total` and
+        // reported the pool done while cards were still queued.
+        if (!worker.processingRef.current) {
+          if (__DEV__) {
+            console.warn(
+              `[TerrainSnapshot:${data.workerId}] Ignoring ${data.activityId}, the render was already abandoned`
+            );
+          }
+          return;
+        }
 
         // Discard stale snapshots from superseded requests
         if (typeof data.gen === 'number' && data.gen !== worker.generationRef.current) {
@@ -410,6 +467,22 @@ export const TerrainSnapshotWebView = forwardRef<
         const worker = workers[data.workerId];
         if (!worker) return;
 
+        // The worker is not holding this render any more. A timeout, a pause
+        // and a lost WebView all release the worker and either count the
+        // request or put it back on the queue, and the generation only moves
+        // when a new request is assigned, so a worker released with nothing to
+        // take next still matches the abandoned render's generation. Counting
+        // it here counted it twice, which carried `completed` past `total` and
+        // reported the pool done while cards were still queued.
+        if (!worker.processingRef.current) {
+          if (__DEV__) {
+            console.warn(
+              `[TerrainSnapshot:${data.workerId}] Ignoring ${data.activityId}, the render was already abandoned`
+            );
+          }
+          return;
+        }
+
         // Discard stale errors from superseded requests
         if (typeof data.gen === 'number' && data.gen !== worker.generationRef.current) {
           if (__DEV__) {
@@ -427,6 +500,21 @@ export const TerrainSnapshotWebView = forwardRef<
         worker.currentRequestRef.current = null;
         const tileErrors = (data.tileErrors as number) ?? 0;
         const attempt = currentRequest?._retryAttempt ?? 0;
+
+        // A throttle is the server asking for time, so the whole pool takes it
+        // rather than the one request that saw it. The floor only ever moves
+        // out while throttles keep arriving, and it is not reset by a retry
+        // path, so nothing the athlete does shortens it (B418).
+        if (((data.tileThrottles as number) ?? 0) > 0) {
+          const now = Date.now();
+          if (now >= throttledUntilRef.current) {
+            throttledUntilRef.current = now + throttleBackoffRef.current;
+            throttleBackoffRef.current = Math.min(
+              throttleBackoffRef.current * 2,
+              MAX_TILE_THROTTLE_BACKOFF_MS
+            );
+          }
+        }
 
         if (currentRequest && attempt < MAX_SNAPSHOT_RETRIES) {
           // Retry: push back to front of queue with incremented attempt
@@ -495,6 +583,10 @@ export const TerrainSnapshotWebView = forwardRef<
   // front of the queue rather than being counted as failed.
   useEffect(() => {
     if (!suspended) {
+      // The pause reported idle, so put the real count back before the pool
+      // runs again. This also re-arms the staleness timer, which the suspend
+      // cleared and which nothing else would call until the next enqueue.
+      updateProgress();
       processNext();
       return;
     }
@@ -513,7 +605,15 @@ export const TerrainSnapshotWebView = forwardRef<
       clearTimeout(stalenessTimerRef.current);
       stalenessTimerRef.current = null;
     }
-  }, [suspended, workers, processNext]);
+    // A pause is neither progress nor failure, and while suspended nothing
+    // that could write idle can run: the timer is cleared, `processNext`
+    // returns immediately and the WebViews are unmounted. So a half-done queue
+    // would report `rendering` for as long as the athlete is off the feed. The
+    // counts stay on their refs, so resuming reports them again.
+    useSyncDateRange
+      .getState()
+      .setTerrainSnapshotProgress({ status: 'idle', completed: 0, total: 0 });
+  }, [suspended, workers, processNext, updateProgress]);
 
   // Clear all pending timers on unmount so callbacks don't fire on a gone component
   useEffect(() => {
@@ -543,7 +643,7 @@ export const TerrainSnapshotWebView = forwardRef<
         if (hasTerrainPreview(request.activityId, request.mapStyle, !request.flat)) return;
         if (queueRef.current.some((r) => requestKey(r) === requestKey(request))) return;
         if (
-          workers.some(
+          (workersRef.current ?? []).some(
             (w) =>
               w.processingRef.current &&
               w.currentRequestRef.current !== null &&
@@ -556,11 +656,18 @@ export const TerrainSnapshotWebView = forwardRef<
         // so it comes back off the total too: leaving it counted is what kept
         // completed from ever catching total while cards kept mounting, and
         // the progress notification posted for the whole session.
+        //
+        // An override is dropped last, not first: the front of the queue is
+        // where it was just put, so the oldest ordinary request goes instead.
         if (queueRef.current.length >= MAX_QUEUE_SIZE) {
-          queueRef.current.shift();
+          const oldest = queueRef.current.findIndex((r) => !r.priority);
+          queueRef.current.splice(oldest === -1 ? 0 : oldest, 1);
           queueTotalRef.current--;
         }
-        queueRef.current.push(request);
+        // A direct instruction about the card in front of the athlete jumps
+        // every card the feed happens to have mounted (B416).
+        if (request.priority) queueRef.current.unshift(request);
+        else queueRef.current.push(request);
         queueTotalRef.current++;
         updateProgress();
         processNext();

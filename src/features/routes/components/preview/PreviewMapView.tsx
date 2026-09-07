@@ -12,7 +12,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { decodeCoords } from 'veloqrs';
-import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import {
   AttributionOverlay,
@@ -22,10 +22,11 @@ import {
   type MapSurfaceRef,
 } from '@/features/maps/components';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import { EMPTY_FEATURE_COLLECTION, type LngLat } from '@/features/maps/lib/coordinates';
 import { sectionCameraSpec } from '@/features/routes/lib/sectionMapCamera';
 import {
+  previewAreaBounds,
   previewCameraBounds,
   type PreviewAreaCentre,
 } from '@/features/routes/lib/previewMapCamera';
@@ -36,6 +37,7 @@ import type {
 import {
   buildPreviewLayers,
   buildPreviewSources,
+  previewLayerSwatch,
   PREVIEW_INTERACTIVE_LAYERS,
 } from './previewMapLayerSpecs';
 
@@ -77,8 +79,10 @@ interface PreviewMapViewProps {
   selectedId: string | null;
   showCurrent: boolean;
   showProposed: boolean;
+  showRemoved: boolean;
   onToggleCurrent: () => void;
   onToggleProposed: () => void;
+  onToggleRemoved: () => void;
   onSelect: (section: PreviewSection | null) => void;
 }
 
@@ -89,13 +93,14 @@ export function PreviewMapView({
   selectedId,
   showCurrent,
   showProposed,
+  showRemoved,
   onToggleCurrent,
   onToggleProposed,
+  onToggleRemoved,
   onSelect,
 }: PreviewMapViewProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { getGlobalMapStyle } = useMapPreferences();
   const surfaceRef = useRef<MapSurfaceRef>(null);
 
   // A finished run supersedes the live catalogue: its rows already carry the
@@ -124,26 +129,66 @@ export function PreviewMapView({
         current.push(feature);
         continue;
       }
-      if (section.status === 'gone') gone.push(feature);
-      else proposed.push(feature);
+      // A removed section draws once, through its own layer. It used to go
+      // into current as well, which put the same line on the map twice and
+      // meant hiding removals left them there in grey (B408).
+      if (section.status === 'gone') {
+        gone.push(feature);
+        continue;
+      }
+      proposed.push(feature);
       if (section.liveId !== null) current.push(feature);
     }
     return { current, proposed, gone };
   }, [result, sections, decoded]);
 
+  // The box the camera clamps to, drawn so the athlete can see which ground
+  // the selected area covers. Same bounds as the camera and the label, so the
+  // three never disagree about what this area is (U44).
+  const areaFeatures = useMemo((): GeoJSON.FeatureCollection => {
+    const area = previewAreaBounds(centre);
+    if (!area) return EMPTY_FEATURE_COLLECTION;
+    const [west, south] = area.sw;
+    const [east, north] = area.ne;
+    return {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [west, south],
+                [east, south],
+                [east, north],
+                [west, north],
+                [west, south],
+              ],
+            ],
+          },
+        },
+      ],
+    };
+  }, [centre]);
+
   const sources = useMemo(() => {
     const selectedSection = sections.find((s) => s.id === selectedId) ?? null;
     const selectedCoords = selectedSection ? (decoded.get(selectedSection.id) ?? []) : [];
     return buildPreviewSources({
+      area: areaFeatures,
       current: showCurrent
         ? { type: 'FeatureCollection', features: features.current }
         : EMPTY_FEATURE_COLLECTION,
       proposed: showProposed
         ? { type: 'FeatureCollection', features: features.proposed }
         : EMPTY_FEATURE_COLLECTION,
-      // Gone lines belong to the current catalogue: they are what the live
-      // config keeps and the proposed one retires.
-      gone: showCurrent
+      // Removals belong to the current catalogue, but they are routinely most
+      // of what the map draws, so they toggle on their own. Reading a diff
+      // where removals dominate means being able to take them off without
+      // losing the catalogue they came from (B408).
+      gone: showRemoved
         ? { type: 'FeatureCollection', features: features.gone }
         : EMPTY_FEATURE_COLLECTION,
       selected:
@@ -154,7 +199,16 @@ export function PreviewMapView({
             }
           : EMPTY_FEATURE_COLLECTION,
     });
-  }, [sections, decoded, features, selectedId, showCurrent, showProposed]);
+  }, [
+    sections,
+    decoded,
+    features,
+    selectedId,
+    showCurrent,
+    showProposed,
+    showRemoved,
+    areaFeatures,
+  ]);
 
   const layers = useMemo(() => buildPreviewLayers(), []);
 
@@ -171,9 +225,19 @@ export function PreviewMapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Frame each area once. Keying the refit on the geometry moved the camera
+  // twice a run, once when the sections emptied and again when the result
+  // landed, and threw away the athlete's own pan and zoom both times. Comparing
+  // two catalogues in one frame is the point of the diff, so a run against the
+  // area already framed leaves the viewport alone. Choosing another area is the
+  // one event that still justifies moving it.
+  const areaKey = centre ? `${centre.lat},${centre.lng}` : null;
+  const framedArea = useRef<string | null>(null);
   useEffect(() => {
-    if (bounds) surfaceRef.current?.fitBounds(bounds, 60, 400);
-  }, [bounds]);
+    if (!bounds || framedArea.current === areaKey) return;
+    framedArea.current = areaKey;
+    surfaceRef.current?.fitBounds(bounds, 60, 400);
+  }, [bounds, areaKey]);
 
   // Attribution is a licence condition, so the credit line has to name the
   // imagery actually drawn. Satellite sources are regional, so it follows the
@@ -183,7 +247,12 @@ export function PreviewMapView({
     zoom: number;
   } | null>(null);
 
-  const mapStyle = getGlobalMapStyle();
+  // Every other map in the app takes the athlete's global basemap, and on this
+  // one that is wrong: the screen exists to read a diff, and satellite imagery
+  // carries as much weight as the lines drawn over it. The street style is the
+  // quietest ground the app has, so it takes that and follows the theme
+  // instead of the preference (B407).
+  const mapStyle: MapStyleType = isDark ? 'dark' : 'light';
   const attribution = useMemo(
     () =>
       computeAttribution({
@@ -218,6 +287,7 @@ export function PreviewMapView({
   const chipBg = isDark ? darkColors.surface : colors.surface;
   const chipBorder = isDark ? darkColors.border : colors.border;
   const chipText = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
 
   return (
     <View style={styles.container}>
@@ -234,34 +304,94 @@ export function PreviewMapView({
       />
       <AttributionOverlay ref={attributionRef} initialAttribution={attribution} />
       <View style={styles.legend} pointerEvents="box-none">
-        <Pressable
-          style={[
-            styles.legendChip,
-            { backgroundColor: chipBg, borderColor: chipBorder },
-            showCurrent && styles.legendChipActive,
-          ]}
-          onPress={onToggleCurrent}
+        <LegendChip
           testID="preview-layer-current"
-        >
-          <Text style={[styles.legendText, { color: showCurrent ? colors.textOnDark : chipText }]}>
-            {t('settings.previewCurrentLayer')}
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[
-            styles.legendChip,
-            { backgroundColor: chipBg, borderColor: chipBorder },
-            showProposed && styles.legendChipActive,
-          ]}
-          onPress={onToggleProposed}
+          label={t('settings.previewCurrentLayer')}
+          swatch={previewLayerSwatch('current-line')}
+          on={showCurrent}
+          onPress={onToggleCurrent}
+          background={chipBg}
+          border={chipBorder}
+          text={chipText}
+          textOn={textPrimary}
+        />
+        <LegendChip
           testID="preview-layer-proposed"
-        >
-          <Text style={[styles.legendText, { color: showProposed ? colors.textOnDark : chipText }]}>
-            {t('settings.previewProposedLayer')}
-          </Text>
-        </Pressable>
+          label={t('settings.previewProposedLayer')}
+          swatch={previewLayerSwatch('proposed-line')}
+          on={showProposed}
+          onPress={onToggleProposed}
+          background={chipBg}
+          border={chipBorder}
+          text={chipText}
+          textOn={textPrimary}
+        />
+        {/* The popover's own word for this status, rather than a second key
+            carrying the same translation in seventeen locales. */}
+        <LegendChip
+          testID="preview-layer-removed"
+          label={t('settings.previewStatusGone')}
+          swatch={previewLayerSwatch('gone-line')}
+          on={showRemoved}
+          onPress={onToggleRemoved}
+          background={chipBg}
+          border={chipBorder}
+          text={chipText}
+          textOn={textPrimary}
+        />
       </View>
     </View>
+  );
+}
+
+/**
+ * One legend chip. The chip itself stays neutral so the swatch is the only
+ * colour on it and reads as the key it is: a filled swatch means the layer is
+ * drawn, a hollow one means it is hidden, and the colour is the line's own.
+ */
+function LegendChip({
+  testID,
+  label,
+  swatch,
+  on,
+  onPress,
+  background,
+  border,
+  text,
+  textOn,
+}: {
+  testID: string;
+  label: string;
+  swatch: string;
+  on: boolean;
+  onPress: () => void;
+  background: string;
+  border: string;
+  text: string;
+  textOn: string;
+}) {
+  return (
+    <Pressable
+      style={[
+        styles.legendChip,
+        { backgroundColor: background, borderColor: border },
+        !on && styles.legendChipOff,
+      ]}
+      onPress={onPress}
+      testID={testID}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: on }}
+      accessibilityLabel={label}
+    >
+      <View
+        testID={`${testID}-swatch`}
+        style={[
+          styles.legendSwatch,
+          { borderColor: swatch, backgroundColor: on ? swatch : 'transparent' },
+        ]}
+      />
+      <Text style={[styles.legendText, { color: on ? textOn : text }]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -275,14 +405,22 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   legendChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  legendChipActive: {
-    backgroundColor: brand.tealLight,
-    borderColor: brand.tealLight,
+  legendChipOff: {
+    opacity: 0.6,
+  },
+  legendSwatch: {
+    width: 14,
+    height: 4,
+    borderRadius: 2,
+    borderWidth: 1,
   },
   legendText: {
     ...typography.caption,

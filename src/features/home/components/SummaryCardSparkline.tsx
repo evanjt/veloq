@@ -68,11 +68,12 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   const onTapRef = useRef(onTap);
   onTapRef.current = onTap;
 
-  const hasFatigue = fatigueData && fatigueData.length === fitnessData.length;
+  const fatigueSeries =
+    fatigueData && fatigueData.length === fitnessData.length ? fatigueData : null;
 
   const domain = useMemo(() => {
     if (fitnessData.length === 0) return { y: [0, 100] as [number, number] };
-    const allValues = hasFatigue ? [...fitnessData, ...fatigueData] : fitnessData;
+    const allValues = fatigueSeries ? [...fitnessData, ...fatigueSeries] : fitnessData;
     const min = Math.min(...allValues);
     const max = Math.max(...allValues);
     // Ensure at least 1 unit range to avoid division by zero
@@ -82,7 +83,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     // so we need enough domain headroom that the plotted extremes stay inside the clip.
     const range = max - min;
     return { y: [min - range * 0.06, max + range * 0.04] as [number, number] };
-  }, [fitnessData, fatigueData, hasFatigue]);
+  }, [fitnessData, fatigueSeries]);
 
   const labelWidth = showLabels ? 42 : 0;
   const chartWidth = width - labelWidth;
@@ -163,14 +164,14 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     const [min, max] = domain.y;
     const plotHeight = CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM;
     const fitnessSvg = buildMonotoneSvg(fitnessData, min, max, chartWidth, PLOT_TOP, plotHeight);
-    const fatigueSvg = hasFatigue
-      ? buildMonotoneSvg(fatigueData!, min, max, chartWidth, PLOT_TOP, plotHeight)
+    const fatigueSvg = fatigueSeries
+      ? buildMonotoneSvg(fatigueSeries, min, max, chartWidth, PLOT_TOP, plotHeight)
       : null;
     return {
       fitness: fitnessSvg ? Skia.Path.MakeFromSVGString(fitnessSvg) : null,
       fatigue: fatigueSvg ? Skia.Path.MakeFromSVGString(fatigueSvg) : null,
     };
-  }, [fitnessData, fatigueData, hasFatigue, domain, chartWidth]);
+  }, [fitnessData, fatigueSeries, domain, chartWidth]);
 
   if (fitnessData.length === 0 || formData.length === 0 || width <= 0) {
     return <View style={{ width, height: totalHeight }} />;

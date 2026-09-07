@@ -54,8 +54,24 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 const CENTRES: PreviewCentre[] = [
-  { binKey: 'a', lat: -33.86, lng: 151.2, visitTotal: 20, sectionCount: 4, source: 'sections' },
-  { binKey: 'b', lat: -37.81, lng: 144.96, visitTotal: 9, sectionCount: 2, source: 'sections' },
+  {
+    binKey: 'a',
+    lat: -33.86,
+    lng: 151.2,
+    visitTotal: 20,
+    sectionCount: 4,
+    source: 'sections',
+    locality: null,
+  },
+  {
+    binKey: 'b',
+    lat: -37.81,
+    lng: 144.96,
+    visitTotal: 9,
+    sectionCount: 2,
+    source: 'sections',
+    locality: null,
+  },
 ];
 
 jest.mock('@/features/routes/hooks/usePreviewCentres', () => ({
@@ -66,7 +82,11 @@ const mockReset = jest.fn();
 const mockPreviewState = {
   status: 'complete' as const,
   progress: null,
-  result: { counts: { current: 2, proposed: 3, unchanged: 1, changed: 1, new: 1, gone: 0 } },
+  result: {
+    counts: { current: 2, proposed: 3, unchanged: 1, changed: 1, new: 1, gone: 0 },
+    pool: { activities: 12, empty: 0, unreadable: 0 },
+    elapsedMs: 900,
+  },
   suspended: false,
   start: jest.fn(() => true),
   cancel: jest.fn(),

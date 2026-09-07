@@ -26,6 +26,7 @@ const CENTRE: PreviewCentre = {
   lng: 8.7,
   visitTotal: 40,
   sectionCount: 2,
+  locality: null,
   source: 'sections',
 };
 
@@ -108,6 +109,7 @@ jest.mock('@/features/routes/components', () => {
     PreviewCentrePicker: () => null,
     PreviewParamPanel: () => null,
     PreviewDiffStrip: () => null,
+    PreviewRunCost: () => null,
     PreviewSectionPopover: () => null,
     PreviewMapView: ({
       currentSections,

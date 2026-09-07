@@ -126,8 +126,12 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
     for (const s of scopes.split(',')) {
       const [cat, perm] = s.trim().split(':');
       if (!cat || !perm) continue;
-      if (!map.has(cat)) map.set(cat, new Set());
-      map.get(cat)!.add(perm.toUpperCase());
+      let perms = map.get(cat);
+      if (!perms) {
+        perms = new Set();
+        map.set(cat, perms);
+      }
+      perms.add(perm.toUpperCase());
     }
     const result: { label: string; level: string }[] = [];
     for (const [cat, perms] of map) {

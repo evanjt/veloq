@@ -90,6 +90,7 @@ jest.mock('@/features/routes/hooks/usePreviewDetect', () => ({
 jest.mock('@/features/routes/components', () => ({
   PreviewCentrePicker: () => null,
   PreviewDiffStrip: () => null,
+  PreviewRunCost: () => null,
   PreviewMapView: () => null,
   PreviewParamPanel: () => null,
   PreviewSectionPopover: () => null,

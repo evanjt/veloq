@@ -24,14 +24,35 @@ const MAX_CACHED_PREVIEWS = 150;
  * (style, hillshade, tile loading, camera, pixel ratio).
  * On mismatch, all cached snapshots are cleared so users get fresh renders.
  */
-const TERRAIN_CACHE_VERSION = 6;
+export const TERRAIN_CACHE_VERSION = 7;
 /** The rendering version the cached previews on this device were drawn at. */
 export const TERRAIN_PREVIEW_VERSION_KEY = 'terrain-preview-cache-version';
 const VERSION_KEY = TERRAIN_PREVIEW_VERSION_KEY;
 
-/** Compound cache key. The drape and the flat basemap are two entries. */
-function cacheKey(activityId: string, style: string, is3D: boolean): string {
-  return is3D ? `${activityId}_${style}_3d` : `${activityId}_${style}`;
+/**
+ * What a render fell back to when the one asked for could not be drawn. Today
+ * the only rung is a 3D drape served as the flat basemap.
+ */
+export type PreviewDowngrade = 'flat';
+
+/**
+ * Compound cache key. The drape and the flat basemap are two entries, and a
+ * drape that had to be drawn flat is a third.
+ *
+ * The downgrade lives in the key rather than beside it because the index is
+ * rebuilt on launch by listing this directory, so a filename is the only state
+ * that survives a restart. Keys for renders that got what they asked for are
+ * unchanged, which is why no cache version bump is owed: every preview already
+ * on a device stays valid and stays not-a-downgrade.
+ */
+function cacheKey(
+  activityId: string,
+  style: string,
+  is3D: boolean,
+  downgradedTo?: PreviewDowngrade
+): string {
+  if (!is3D) return `${activityId}_${style}`;
+  return downgradedTo ? `${activityId}_${style}_3d_${downgradedTo}` : `${activityId}_${style}_3d`;
 }
 
 /** In-memory index of cached compound keys (ordered by insertion) */
@@ -98,14 +119,38 @@ async function ensureDir(): Promise<void> {
  * in-memory index).
  */
 export function hasTerrainPreview(activityId: string, style: string, is3D: boolean): boolean {
-  return cachedKeys.includes(cacheKey(activityId, style, is3D));
+  return (
+    cachedKeys.includes(cacheKey(activityId, style, is3D)) ||
+    cachedKeys.includes(cacheKey(activityId, style, is3D, 'flat'))
+  );
+}
+
+/**
+ * Whether the cached preview for this request is standing in for one that
+ * could not be drawn. A card is served either way, so this is what an upgrade
+ * pass keys on rather than a miss.
+ */
+export function isTerrainPreviewDowngraded(
+  activityId: string,
+  style: string,
+  is3D: boolean
+): boolean {
+  if (cachedKeys.includes(cacheKey(activityId, style, is3D))) return false;
+  return cachedKeys.includes(cacheKey(activityId, style, is3D, 'flat'));
 }
 
 /**
  * Get cached preview URI (file:// path).
  */
 export function getTerrainPreviewUri(activityId: string, style: string, is3D: boolean): string {
-  return `${TERRAIN_DIR}${cacheKey(activityId, style, is3D)}.jpg`;
+  const asked = cacheKey(activityId, style, is3D);
+  if (
+    !cachedKeys.includes(asked) &&
+    cachedKeys.includes(cacheKey(activityId, style, is3D, 'flat'))
+  ) {
+    return `${TERRAIN_DIR}${cacheKey(activityId, style, is3D, 'flat')}.jpg`;
+  }
+  return `${TERRAIN_DIR}${asked}.jpg`;
 }
 
 /**
@@ -116,11 +161,24 @@ export async function saveTerrainPreview(
   activityId: string,
   style: string,
   is3D: boolean,
-  base64: string
+  base64: string,
+  options?: { downgradedTo?: PreviewDowngrade }
 ): Promise<string> {
   await ensureDir();
 
-  const key = cacheKey(activityId, style, is3D);
+  const key = cacheKey(activityId, style, is3D, options?.downgradedTo);
+
+  // The drape finally rendered, so its stand-in is not just superseded, it is
+  // wrong: leaving it indexed would report the activity as downgraded forever.
+  if (!options?.downgradedTo) {
+    const stale = cacheKey(activityId, style, is3D, 'flat');
+    if (cachedKeys.includes(stale)) {
+      cachedKeys = cachedKeys.filter((k) => k !== stale);
+      await FileSystem.deleteAsync(`${TERRAIN_DIR}${stale}.jpg`, { idempotent: true }).catch(
+        () => {}
+      );
+    }
+  }
 
   // Evict oldest if at cap (and the key to save isn't already cached)
   if (!cachedKeys.includes(key) && cachedKeys.length >= MAX_CACHED_PREVIEWS) {
@@ -162,6 +220,30 @@ export async function deleteTerrainPreviewsForActivity(activityId: string): Prom
   for (const key of toDelete) {
     const path = `${TERRAIN_DIR}${key}.jpg`;
     await FileSystem.deleteAsync(path, { idempotent: true }).catch(() => {});
+  }
+}
+
+/**
+ * Drop every cached snapshot for one activity except the one just rendered.
+ *
+ * Called after a render lands, never before, so a failed re-render leaves the
+ * card with the image it already had. Without it every style and render the
+ * athlete has ever tried for an activity stays on disk under its own key, an
+ * unbounded set of orphaned JPEGs per card on anyone who experiments (B416).
+ */
+export async function deleteSupersededTerrainPreviews(
+  activityId: string,
+  style: string,
+  is3D: boolean
+): Promise<void> {
+  const keep = cacheKey(activityId, style, is3D);
+  const prefix = `${activityId}_`;
+  const toDelete = cachedKeys.filter((k) => k.startsWith(prefix) && k !== keep);
+  if (toDelete.length === 0) return;
+  cachedKeys = cachedKeys.filter((k) => !toDelete.includes(k));
+
+  for (const key of toDelete) {
+    await FileSystem.deleteAsync(`${TERRAIN_DIR}${key}.jpg`, { idempotent: true }).catch(() => {});
   }
 }
 

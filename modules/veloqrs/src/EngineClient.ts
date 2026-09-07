@@ -1265,10 +1265,12 @@ class EngineClient implements DelegateHost {
     detectionDelegates.setMatchStrictness(this, minMatchPct, endpointThreshold);
 
   subscribe(event: string, callback: EngineListener): () => void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set());
+    let set = this.listeners.get(event);
+    if (!set) {
+      set = new Set();
+      this.listeners.set(event, set);
     }
-    this.listeners.get(event)!.add(callback);
+    set.add(callback);
 
     return () => {
       this.listeners.get(event)?.delete(callback);

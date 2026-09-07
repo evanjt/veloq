@@ -41,6 +41,7 @@ import {
   PreviewCentrePicker,
   PreviewDiffStrip,
   PreviewMapView,
+  PreviewRunCost,
   PreviewParamPanel,
   PreviewSectionPopover,
 } from '@/features/routes/components';
@@ -81,6 +82,7 @@ export default function DetectionPreviewScreen() {
   const [selected, setSelected] = useState<PreviewSection | null>(null);
   const [showCurrent, setShowCurrent] = useState(true);
   const [showProposed, setShowProposed] = useState(true);
+  const [showRemoved, setShowRemoved] = useState(true);
 
   const bg = isDark ? darkColors.background : colors.background;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -179,8 +181,10 @@ export default function DetectionPreviewScreen() {
           selectedId={selected?.id ?? null}
           showCurrent={showCurrent}
           showProposed={showProposed}
+          showRemoved={showRemoved}
           onToggleCurrent={() => setShowCurrent((v) => !v)}
           onToggleProposed={() => setShowProposed((v) => !v)}
+          onToggleRemoved={() => setShowRemoved((v) => !v)}
           onSelect={setSelected}
         />
         {selected && (
@@ -206,6 +210,8 @@ export default function DetectionPreviewScreen() {
         <PreviewParamPanel params={params} onChange={setParams} disabled={running} />
 
         {result && <PreviewDiffStrip counts={result.counts} />}
+
+        {result && <PreviewRunCost pool={result.pool} elapsedMs={result.elapsedMs} />}
 
         {running ? (
           <View>

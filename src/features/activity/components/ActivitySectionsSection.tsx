@@ -548,7 +548,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         </View>
       );
     },
-    [isDark, isMetric, isScanning, handleRematch, sectionDisplayNames, coordinates]
+    [isDark, isMetric, isScanning, handleRematch, sectionDisplayNames, coordinates, activityId, t]
   );
 
   // Render footer for section list
