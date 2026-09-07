@@ -12,31 +12,31 @@ import {
   type UniffiGcObject,
   type UniffiRustFutureContinuationCallback as RuntimeUniffiRustFutureContinuationCallback,
   type UniffiResult,
-} from "uniffi-bindgen-react-native";
+} from 'uniffi-bindgen-react-native';
 
 interface NativeModuleInterface {
   ubrn_uniffi_internal_fn_func_ffi__string_to_byte_length(
     string: string,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_internal_fn_func_ffi__string_to_arraybuffer(
     string: string,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_internal_fn_func_ffi__arraybuffer_to_string(
     buffer: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): string;
   ubrn_uniffi_veloqrs_fn_clone_activitymanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_activitymanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_constructor_activitymanager_new(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_add(
     ptr: bigint,
@@ -44,81 +44,81 @@ interface NativeModuleInterface {
     allCoords: Uint8Array,
     offsets: Uint8Array,
     sportTypes: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_debug_clone(
     ptr: bigint,
     sourceId: Uint8Array,
     count: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_bodies(
     ptr: bigint,
     oldestTs: bigint,
     newestTs: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_body(
     ptr: bigint,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_count(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_detail_data(
     ptr: bigint,
     activityId: Uint8Array,
     minRouteActivities: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_gps_track(
     ptr: bigint,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_highlights_bundle(
     ptr: bigint,
     activityIds: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_ids(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_missing_time_streams(
     ptr: bigint,
     activityIds: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_stream_body(
     ptr: bigint,
     activityId: Uint8Array,
     types: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_mint_local_id(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_record_upload(
     ptr: bigint,
     activityId: Uint8Array,
     intervalsId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_remove(
     ptr: bigint,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_replace_calendar_events(
     ptr: bigint,
     oldestTs: bigint,
     newestTs: bigint,
     rows: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_set_curve_body(
     ptr: bigint,
@@ -127,60 +127,60 @@ interface NativeModuleInterface {
     days: bigint,
     gap: number,
     raw: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_set_interval_body(
     ptr: bigint,
     activityId: Uint8Array,
     raw: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_set_metrics(
     ptr: bigint,
     metrics: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_set_time_streams(
     ptr: bigint,
     activityIds: Uint8Array,
     allTimes: Uint8Array,
     offsets: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_upsert_activity_bodies(
     ptr: bigint,
     rows: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_clone_basemapmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_basemapmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_constructor_basemapmanager_new(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_source_tiles(
     ptr: bigint,
     source: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_tiles(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_evict_to(
     ptr: bigint,
     source: Uint8Array,
     budgetBytes: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_cache_size(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_or_fetch_tile(
     ptr: bigint,
@@ -188,12 +188,12 @@ interface NativeModuleInterface {
     z: number,
     x: number,
     y: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_source_size(
     ptr: bigint,
     source: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_tile(
     ptr: bigint,
@@ -201,7 +201,7 @@ interface NativeModuleInterface {
     z: number,
     x: number,
     y: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_put_tile(
     ptr: bigint,
@@ -212,210 +212,214 @@ interface NativeModuleInterface {
     ext: Uint8Array,
     bytes: Uint8Array,
     pinned: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_set_path(
     ptr: bigint,
     path: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_set_source_template(
     ptr: bigint,
     source: Uint8Array,
     urlTemplate: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_clone_detectionmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_detectionmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_constructor_detectionmanager_new(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_config(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_match_strictness(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_progress(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_last_outcome(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_poll(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_set_config(
     ptr: bigint,
     config: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_set_match_strictness(
     ptr: bigint,
     minMatchPct: number,
     endpointThreshold: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_start(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_clone_veloqengine(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_veloqengine(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_constructor_veloqengine_create(
     dbPath: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_activities(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_clear(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_derived_data(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_destroy(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_detection(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_fitness(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_streams(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_get_stats(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_heatmap(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_init_outcome(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_is_initialized(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_maps(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_mark_for_recomputation(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_backup(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_bulk_export(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_recordings(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_routes(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_sections(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_set_name_translations(
     ptr: bigint,
     routeWord: Uint8Array,
     sectionWord: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_set_observer(
     ptr: bigint,
     observer: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_settings(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_start_backup(
     ptr: bigint,
     destPath: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_start_bulk_export(
     ptr: bigint,
     format: Uint8Array,
     destPath: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_strength(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_sync(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_clone_fitnessmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_fitnessmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_constructor_fitnessmanager_new(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_compute_hrv_trend(
     ptr: bigint,
     days: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_find_stale_pr_opportunities(
     ptr: bigint,
@@ -423,56 +427,56 @@ interface NativeModuleInterface {
     minGainPercent: number,
     maxOpportunities: number,
     excludeSectionIds: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap(
     ptr: bigint,
     startDate: Uint8Array,
     endDate: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_metric_ids(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_available_sport_types(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_calendar_event_bodies(
     ptr: bigint,
     oldestTs: bigint,
     newestTs: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
     ptr: bigint,
     params: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_interval_body(
     ptr: bigint,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve_body(
     ptr: bigint,
     sport: Uint8Array,
     days: bigint,
     gap: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_power_curve_body(
     ptr: bigint,
     sport: Uint8Array,
     days: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
     ptr: bigint,
     params: Uint8Array,
     previewActivityIds: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_summary_card_data(
     ptr: bigint,
@@ -480,30 +484,30 @@ interface NativeModuleInterface {
     currentEnd: bigint,
     prevStart: bigint,
     prevEnd: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_week_load_shape(
     ptr: bigint,
     startTs: bigint,
     endTs: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_weekly_summaries(
     ptr: bigint,
     weekStarts: Uint8Array,
     weekLengthSecs: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_bodies(
     ptr: bigint,
     oldest: Uint8Array,
     newest: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_sparklines(
     ptr: bigint,
     days: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_widget_snapshot(
     ptr: bigint,
@@ -512,13 +516,13 @@ interface NativeModuleInterface {
     prevStart: bigint,
     prevEnd: bigint,
     sparklineDays: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_zone_distribution(
     ptr: bigint,
     sportType: Uint8Array,
     zoneType: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot(
     ptr: bigint,
@@ -527,34 +531,32 @@ interface NativeModuleInterface {
     dPrime: Uint8Array,
     r2: Uint8Array,
     date: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_upsert_wellness(
     ptr: bigint,
     rows: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_clone_mapmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_mapmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
-  ubrn_uniffi_veloqrs_fn_constructor_mapmanager_new(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): bigint;
+  ubrn_uniffi_veloqrs_fn_constructor_mapmanager_new(uniffi_out_err: UniffiRustCallStatus): bigint;
   ubrn_uniffi_veloqrs_fn_method_mapmanager_get_all_signatures(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_mapmanager_get_screen_data(
     ptr: bigint,
     startDate: bigint,
     endDate: bigint,
     sportTypes: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_mapmanager_query_viewport(
     ptr: bigint,
@@ -562,330 +564,328 @@ interface NativeModuleInterface {
     maxLat: number,
     minLng: number,
     maxLng: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_clone_engineobserver(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_engineobserver(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_init_callback_vtable_engineobserver(
-    vtable: UniffiVTableCallbackInterfaceEngineObserver,
+    vtable: UniffiVTableCallbackInterfaceEngineObserver
   ): void;
   ubrn_uniffi_veloqrs_fn_method_engineobserver_sync_progress(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_engineobserver_sync_settled(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_engineobserver_body_stored(
     ptr: bigint,
     kind: Uint8Array,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_engineobserver_time_streams_stored(
     ptr: bigint,
     activityIds: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_engineobserver_gps_track_stored(
     ptr: bigint,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_engineobserver_fit_parsed(
     ptr: bigint,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_engineobserver_detection_applied(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_engineobserver_tiles_generated(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_engineobserver_backfill_phase(
     ptr: bigint,
     phase: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_engineobserver_cutover_settled(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_engineobserver_preview_phase(
     ptr: bigint,
     phase: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_engineobserver_preview_finished(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_clone_routegroupingpreview(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_routegroupingpreview(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_constructor_routegroupingpreview_new(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_routegroupingpreview_cancel(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_routegroupingpreview_poll(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routegroupingpreview_start(
     ptr: bigint,
     minMatchPercentage: number,
     endpointThreshold: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_routegroupingpreview_take_result(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_clone_sectionpreview(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_sectionpreview(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_constructor_sectionpreview_new(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_sectionpreview_cancel(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionpreview_centres(
     ptr: bigint,
     limit: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionpreview_current(
     ptr: bigint,
     lat: number,
     lng: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionpreview_get_progress(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionpreview_poll(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionpreview_start(
     ptr: bigint,
     lat: number,
     lng: number,
     config: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_sectionpreview_take_result(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_clone_recordingmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_recordingmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_constructor_recordingmanager_new(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_add_recording(
     ptr: bigint,
     entry: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_attach_engine_activity(
     ptr: bigint,
     id: Uint8Array,
     engineActivityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_clear_permission_blocked(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_clear_recordings(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_clear_streams_path(
     ptr: bigint,
     id: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_delete_recording(
     ptr: bigint,
     id: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_demote_pending_to_local_only(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_get_recording(
     ptr: bigint,
     id: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_hold_for_auth(
     ptr: bigint,
     id: Uint8Array,
     error: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_hold_other_athletes(
     ptr: bigint,
     athleteId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_list_recordings(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_permission_blocked(
     ptr: bigint,
     id: Uint8Array,
     nowMs: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_reconciled(
     ptr: bigint,
     id: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_rejected(
     ptr: bigint,
     id: Uint8Array,
     error: Uint8Array,
     nowMs: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_upload_failed(
     ptr: bigint,
     id: Uint8Array,
     error: Uint8Array,
     nowMs: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_uploaded(
     ptr: bigint,
     id: Uint8Array,
     intervalsActivityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_uploading(
     ptr: bigint,
     id: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_next_pending_upload(
     ptr: bigint,
     nowMs: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_permission_blocked_count(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_requeue(
     ptr: bigint,
     id: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_unuploaded_count(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_clone_routemanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_routemanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
-  ubrn_uniffi_veloqrs_fn_constructor_routemanager_new(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): bigint;
+  ubrn_uniffi_veloqrs_fn_constructor_routemanager_new(uniffi_out_err: UniffiRustCallStatus): bigint;
   ubrn_uniffi_veloqrs_fn_method_routemanager_exclude_activity(
     ptr: bigint,
     routeId: Uint8Array,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_activity_route_highlights(
     ptr: bigint,
     activityIds: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_all(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_all_names(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_by_id(
     ptr: bigint,
     groupId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_consensus_route(
     ptr: bigint,
     groupId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_detail_data(
     ptr: bigint,
     groupId: Uint8Array,
     currentActivityId: Uint8Array,
     minGroupActivities: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_excluded_activities(
     ptr: bigint,
     routeId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_excluded_performances(
     ptr: bigint,
     routeId: Uint8Array,
     sportType: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_performances(
     ptr: bigint,
     groupId: Uint8Array,
     currentActivityId: Uint8Array,
     sportType: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_screen_data(
     ptr: bigint,
@@ -898,56 +898,56 @@ interface NativeModuleInterface {
     prioritizeNearestSections: number,
     userLat: number,
     userLng: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_summaries(
     ptr: bigint,
     minActivities: Uint8Array,
     sortKey: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_include_activity(
     ptr: bigint,
     routeId: Uint8Array,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_routemanager_set_name(
     ptr: bigint,
     routeId: Uint8Array,
     name: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_routemanager_set_representative(
     ptr: bigint,
     routeId: Uint8Array,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_clone_sectionmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_sectionmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_constructor_sectionmanager_new(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_accept(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_accept_all(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_clear_superseded(
     ptr: bigint,
     customSectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_create(
     ptr: bigint,
@@ -958,35 +958,35 @@ interface NativeModuleInterface {
     sourceActivityId: Uint8Array,
     startIndex: Uint8Array,
     endIndex: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_delete(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_disable(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_enable(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_exclude_activity(
     ptr: bigint,
     sectionId: Uint8Array,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_exclude_lap(
     ptr: bigint,
     sectionId: Uint8Array,
     activityId: Uint8Array,
     startIndex: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
     ptr: bigint,
@@ -994,105 +994,105 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     startIndex: number,
     endIndex: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_find_superseded(
     ptr: bigint,
     customSectionId: Uint8Array,
     overlapThreshold: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_summaries_including_hidden(
     ptr: bigint,
     sportType: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_by_id(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_calendar_summary(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_chart_data(
     ptr: bigint,
     sectionId: Uint8Array,
     timeRangeDays: number,
     sportFilter: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_count(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_detail_data(
     ptr: bigint,
     sectionId: Uint8Array,
     nearbyRadiusMeters: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_detail_performance(
     ptr: bigint,
     sectionId: Uint8Array,
     timeRangeDays: number,
     sportFilter: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_efficiency_trend(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_activities(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_laps(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_performances(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_extension_track(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_version_coords(
     ptr: bigint,
     sectionId: Uint8Array,
     version: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_versions(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_history(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_lineages(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_near_point(
     ptr: bigint,
@@ -1100,251 +1100,251 @@ interface NativeModuleInterface {
     longitude: number,
     sportType: Uint8Array,
     radiusMeters: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_performances(
     ptr: bigint,
     sectionId: Uint8Array,
     sportType: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_performances_batch(
     ptr: bigint,
     sectionIds: Uint8Array,
     sportType: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_pinned_version(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_polyline(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_recent_changes(
     ptr: bigint,
     days: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_reference_info(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_retired(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_sections(
     ptr: bigint,
     filter: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_summaries(
     ptr: bigint,
     filter: Uint8Array,
     sortKey: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_workout_sections(
     ptr: bigint,
     sportType: Uint8Array,
     limit: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_include_activity(
     ptr: bigint,
     sectionId: Uint8Array,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_include_lap(
     ptr: bigint,
     sectionId: Uint8Array,
     activityId: Uint8Array,
     startIndex: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_index_new_activity(
     ptr: bigint,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_match_activity_to_sections(
     ptr: bigint,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_merge_sections(
     ptr: bigint,
     primaryId: Uint8Array,
     secondaryId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_rematch_activity_to_section(
     ptr: bigint,
     activityId: Uint8Array,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_remove_named_corridor(
     ptr: bigint,
     intentId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_reset_bounds(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_reset_reference(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_revert_to_version(
     ptr: bigint,
     sectionId: Uint8Array,
     version: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_name(
     ptr: bigint,
     sectionId: Uint8Array,
     name: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_reference(
     ptr: bigint,
     sectionId: Uint8Array,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_superseded(
     ptr: bigint,
     autoSectionId: Uint8Array,
     customSectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_trim(
     ptr: bigint,
     sectionId: Uint8Array,
     startIndex: number,
     endIndex: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_unpin(
     ptr: bigint,
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_clone_settingsmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_settingsmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_constructor_settingsmanager_new(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_clear_user_profile_caches(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_delete_setting(
     ptr: bigint,
     key: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_export_privacy_preview(
     ptr: bigint,
     homeLat: number,
     homeLng: number,
     radiusM: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_athlete_profile(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_setting(
     ptr: bigint,
     key: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
     ptr: bigint,
     json: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_setting(
     ptr: bigint,
     key: Uint8Array,
     value: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_settings(
     ptr: bigint,
     pairs: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_sport_settings(
     ptr: bigint,
     json: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_stream_retention_days(
     ptr: bigint,
     days: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_stream_retention_days(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_stream_store_bytes(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_suggest_export_home(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_clone_strengthmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_strengthmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_constructor_strengthmanager_new(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
     ptr: bigint,
     activityIds: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
     ptr: bigint,
     activityId: Uint8Array,
     sets: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
     ptr: bigint,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_activities_for_exercise(
     ptr: bigint,
@@ -1352,400 +1352,386 @@ interface NativeModuleInterface {
     endTs: bigint,
     muscleSlug: Uint8Array,
     exerciseCategory: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercise_sets(
     ptr: bigint,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercises_for_muscle(
     ptr: bigint,
     startTs: bigint,
     endTs: bigint,
     muscleSlug: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_muscle_detail(
     ptr: bigint,
     activityId: Uint8Array,
     muscleSlug: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_muscle_groups(
     ptr: bigint,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_strength_summary(
     ptr: bigint,
     startTs: bigint,
     endTs: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_strength_summary_batch(
     ptr: bigint,
     ranges: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_unprocessed_strength_ids(
     ptr: bigint,
     activityIds: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_has_strength_data(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_import_sets_from_fit(
     ptr: bigint,
     activityId: Uint8Array,
     fitBytes: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_is_fit_processed(
     ptr: bigint,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_clone_syncmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_syncmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
-  ubrn_uniffi_veloqrs_fn_constructor_syncmanager_new(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): bigint;
+  ubrn_uniffi_veloqrs_fn_constructor_syncmanager_new(uniffi_out_err: UniffiRustCallStatus): bigint;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_bodies_stored(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_cancel(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_clear_credentials(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
     ptr: bigint,
-    intervalsId: Uint8Array,
+    intervalsId: Uint8Array
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_create_manual_activity(
     ptr: bigint,
-    activity: Uint8Array,
+    activity: Uint8Array
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_get_sync_status(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_set_credentials(
     ptr: bigint,
     method: Uint8Array,
     secret: Uint8Array,
     athleteId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activities_window(
     ptr: bigint,
     oldest: Uint8Array,
     newest: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_detail(
     ptr: bigint,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_intervals(
     ptr: bigint,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_streams(
     ptr: bigint,
     activityId: Uint8Array,
     types: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_calendar_events(
     ptr: bigint,
     oldest: Uint8Array,
     newest: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_now(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_pace_curve(
     ptr: bigint,
     sport: Uint8Array,
     days: bigint,
     gap: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_power_curve(
     ptr: bigint,
     sport: Uint8Array,
     days: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
     ptr: bigint,
     activityIds: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_upload_activity(
     ptr: bigint,
     filePath: Uint8Array,
     filename: Uint8Array,
     name: Uint8Array,
-    pairedEventId: Uint8Array,
+    pairedEventId: Uint8Array
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_validate_credentials(
     ptr: bigint,
     method: Uint8Array,
-    secret: Uint8Array,
+    secret: Uint8Array
   ): bigint;
   ubrn_uniffi_veloqrs_fn_clone_heatmapmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_free_heatmapmanager(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_constructor_heatmapmanager_new(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
     ptr: bigint,
     basePath: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
     ptr: bigint,
     basePath: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_heatmapmanager_poll(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
     ptr: bigint,
     path: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_fn_func_get_change_card_support(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_get_cutover_diff(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_get_cutover_diff(uniffi_out_err: UniffiRustCallStatus): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_get_cutover_progress(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_get_download_progress(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_get_elevation_backfill_progress(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
-  ubrn_uniffi_veloqrs_fn_func_get_network_push(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_is_cutover_pending(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_is_cutover_running(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ubrn_uniffi_veloqrs_fn_func_get_network_push(uniffi_out_err: UniffiRustCallStatus): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_is_cutover_pending(uniffi_out_err: UniffiRustCallStatus): number;
+  ubrn_uniffi_veloqrs_fn_func_is_cutover_running(uniffi_out_err: UniffiRustCallStatus): number;
   ubrn_uniffi_veloqrs_fn_func_is_elevation_backfill_paused(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
-  ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
+  ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(uniffi_out_err: UniffiRustCallStatus): void;
   ubrn_uniffi_veloqrs_fn_func_resume_elevation_backfill(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_func_set_network_online(
     online: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
-  ubrn_uniffi_veloqrs_fn_func_start_detector_cutover(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ubrn_uniffi_veloqrs_fn_func_start_detector_cutover(uniffi_out_err: UniffiRustCallStatus): number;
   ubrn_uniffi_veloqrs_fn_func_start_elevation_backfill(
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store(
     activityIds: Uint8Array,
     sportTypes: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
     run: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_validate_backup_database(
     path: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap(
     coordsA: Uint8Array,
     coordsB: Uint8Array,
     thresholdMeters: number,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_ffi_veloqrs_rust_future_poll_u8(
     handle: bigint,
     callback: UniffiRustFutureContinuationCallback,
-    callbackData: bigint,
+    callbackData: bigint
   ): void;
   ubrn_ffi_veloqrs_rust_future_cancel_u8(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_free_u8(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_complete_u8(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_ffi_veloqrs_rust_future_poll_i8(
     handle: bigint,
     callback: UniffiRustFutureContinuationCallback,
-    callbackData: bigint,
+    callbackData: bigint
   ): void;
   ubrn_ffi_veloqrs_rust_future_cancel_i8(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_free_i8(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_complete_i8(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_ffi_veloqrs_rust_future_poll_u16(
     handle: bigint,
     callback: UniffiRustFutureContinuationCallback,
-    callbackData: bigint,
+    callbackData: bigint
   ): void;
   ubrn_ffi_veloqrs_rust_future_cancel_u16(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_free_u16(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_complete_u16(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_ffi_veloqrs_rust_future_poll_i16(
     handle: bigint,
     callback: UniffiRustFutureContinuationCallback,
-    callbackData: bigint,
+    callbackData: bigint
   ): void;
   ubrn_ffi_veloqrs_rust_future_cancel_i16(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_free_i16(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_complete_i16(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_ffi_veloqrs_rust_future_poll_u32(
     handle: bigint,
     callback: UniffiRustFutureContinuationCallback,
-    callbackData: bigint,
+    callbackData: bigint
   ): void;
   ubrn_ffi_veloqrs_rust_future_cancel_u32(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_free_u32(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_complete_u32(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_ffi_veloqrs_rust_future_poll_i32(
     handle: bigint,
     callback: UniffiRustFutureContinuationCallback,
-    callbackData: bigint,
+    callbackData: bigint
   ): void;
   ubrn_ffi_veloqrs_rust_future_cancel_i32(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_free_i32(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_complete_i32(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_ffi_veloqrs_rust_future_poll_u64(
     handle: bigint,
     callback: UniffiRustFutureContinuationCallback,
-    callbackData: bigint,
+    callbackData: bigint
   ): void;
   ubrn_ffi_veloqrs_rust_future_cancel_u64(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_free_u64(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_complete_u64(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_ffi_veloqrs_rust_future_poll_i64(
     handle: bigint,
     callback: UniffiRustFutureContinuationCallback,
-    callbackData: bigint,
+    callbackData: bigint
   ): void;
   ubrn_ffi_veloqrs_rust_future_cancel_i64(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_free_i64(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_complete_i64(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): bigint;
   ubrn_ffi_veloqrs_rust_future_poll_f32(
     handle: bigint,
     callback: UniffiRustFutureContinuationCallback,
-    callbackData: bigint,
+    callbackData: bigint
   ): void;
   ubrn_ffi_veloqrs_rust_future_cancel_f32(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_free_f32(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_complete_f32(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_ffi_veloqrs_rust_future_poll_f64(
     handle: bigint,
     callback: UniffiRustFutureContinuationCallback,
-    callbackData: bigint,
+    callbackData: bigint
   ): void;
   ubrn_ffi_veloqrs_rust_future_cancel_f64(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_free_f64(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_complete_f64(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): number;
   ubrn_ffi_veloqrs_rust_future_poll_rust_buffer(
     handle: bigint,
     callback: UniffiRustFutureContinuationCallback,
-    callbackData: bigint,
+    callbackData: bigint
   ): void;
   ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_free_rust_buffer(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_complete_rust_buffer(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): Uint8Array;
   ubrn_ffi_veloqrs_rust_future_poll_void(
     handle: bigint,
     callback: UniffiRustFutureContinuationCallback,
-    callbackData: bigint,
+    callbackData: bigint
   ): void;
   ubrn_ffi_veloqrs_rust_future_cancel_void(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_free_void(handle: bigint): void;
   ubrn_ffi_veloqrs_rust_future_complete_void(
     handle: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): void;
   ubrn_uniffi_veloqrs_checksum_func_get_change_card_support(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_cutover_diff(): number;
@@ -1817,6 +1803,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_stats(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_heatmap(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_init_outcome(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_maps(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation(): number;
@@ -2039,67 +2026,67 @@ interface NativeModuleInterface {
   ubrn_ffi_veloqrs_uniffi_contract_version(): number;
   ubrn_uniffi_internal_fn_method_activitymanager_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_basemapmanager_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_detectionmanager_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_veloqengine_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_fitnessmanager_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_mapmanager_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_engineobserver_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_routegroupingpreview_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_sectionpreview_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_recordingmanager_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_routemanager_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_sectionmanager_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_settingsmanager_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_strengthmanager_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_syncmanager_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer(
     pointer: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
+    uniffi_out_err: UniffiRustCallStatus
   ): UniffiGcObject;
 }
 
@@ -2108,15 +2095,11 @@ interface NativeModuleInterface {
 //
 // We use a getter here rather than simply `globalThis.NativeVeloqrs` so that
 // if/when the startup sequence isn't just so, an empty value isn't inadvertantly cached.
-const getter: () => NativeModuleInterface = () =>
-  (globalThis as any).NativeVeloqrs;
+const getter: () => NativeModuleInterface = () => (globalThis as any).NativeVeloqrs;
 export default getter;
 
 // Structs and function types for calling back into Typescript from Rust.
-export type UniffiRustFutureContinuationCallback = (
-  data: bigint,
-  pollResult: number,
-) => void;
+export type UniffiRustFutureContinuationCallback = (data: bigint, pollResult: number) => void;
 export type UniffiForeignFutureDroppedCallback = (handle: bigint) => void;
 type UniffiCallbackInterfaceFree = (handle: bigint) => void;
 type UniffiCallbackInterfaceClone = (handle: bigint) => UniffiResult<void>;
@@ -2130,7 +2113,7 @@ export type UniffiForeignFutureResultU8 = {
 };
 export type UniffiForeignFutureCompleteU8 = (
   callbackData: bigint,
-  result: UniffiForeignFutureResultU8,
+  result: UniffiForeignFutureResultU8
 ) => void;
 export type UniffiForeignFutureResultI8 = {
   returnValue: number;
@@ -2138,7 +2121,7 @@ export type UniffiForeignFutureResultI8 = {
 };
 export type UniffiForeignFutureCompleteI8 = (
   callbackData: bigint,
-  result: UniffiForeignFutureResultI8,
+  result: UniffiForeignFutureResultI8
 ) => void;
 export type UniffiForeignFutureResultU16 = {
   returnValue: number;
@@ -2146,7 +2129,7 @@ export type UniffiForeignFutureResultU16 = {
 };
 export type UniffiForeignFutureCompleteU16 = (
   callbackData: bigint,
-  result: UniffiForeignFutureResultU16,
+  result: UniffiForeignFutureResultU16
 ) => void;
 export type UniffiForeignFutureResultI16 = {
   returnValue: number;
@@ -2154,7 +2137,7 @@ export type UniffiForeignFutureResultI16 = {
 };
 export type UniffiForeignFutureCompleteI16 = (
   callbackData: bigint,
-  result: UniffiForeignFutureResultI16,
+  result: UniffiForeignFutureResultI16
 ) => void;
 export type UniffiForeignFutureResultU32 = {
   returnValue: number;
@@ -2162,7 +2145,7 @@ export type UniffiForeignFutureResultU32 = {
 };
 export type UniffiForeignFutureCompleteU32 = (
   callbackData: bigint,
-  result: UniffiForeignFutureResultU32,
+  result: UniffiForeignFutureResultU32
 ) => void;
 export type UniffiForeignFutureResultI32 = {
   returnValue: number;
@@ -2170,7 +2153,7 @@ export type UniffiForeignFutureResultI32 = {
 };
 export type UniffiForeignFutureCompleteI32 = (
   callbackData: bigint,
-  result: UniffiForeignFutureResultI32,
+  result: UniffiForeignFutureResultI32
 ) => void;
 export type UniffiForeignFutureResultU64 = {
   returnValue: bigint;
@@ -2178,7 +2161,7 @@ export type UniffiForeignFutureResultU64 = {
 };
 export type UniffiForeignFutureCompleteU64 = (
   callbackData: bigint,
-  result: UniffiForeignFutureResultU64,
+  result: UniffiForeignFutureResultU64
 ) => void;
 export type UniffiForeignFutureResultI64 = {
   returnValue: bigint;
@@ -2186,7 +2169,7 @@ export type UniffiForeignFutureResultI64 = {
 };
 export type UniffiForeignFutureCompleteI64 = (
   callbackData: bigint,
-  result: UniffiForeignFutureResultI64,
+  result: UniffiForeignFutureResultI64
 ) => void;
 export type UniffiForeignFutureResultF32 = {
   returnValue: number;
@@ -2194,7 +2177,7 @@ export type UniffiForeignFutureResultF32 = {
 };
 export type UniffiForeignFutureCompleteF32 = (
   callbackData: bigint,
-  result: UniffiForeignFutureResultF32,
+  result: UniffiForeignFutureResultF32
 ) => void;
 export type UniffiForeignFutureResultF64 = {
   returnValue: number;
@@ -2202,7 +2185,7 @@ export type UniffiForeignFutureResultF64 = {
 };
 export type UniffiForeignFutureCompleteF64 = (
   callbackData: bigint,
-  result: UniffiForeignFutureResultF64,
+  result: UniffiForeignFutureResultF64
 ) => void;
 export type UniffiForeignFutureResultRustBuffer = {
   returnValue: Uint8Array;
@@ -2210,58 +2193,46 @@ export type UniffiForeignFutureResultRustBuffer = {
 };
 export type UniffiForeignFutureCompleteRustBuffer = (
   callbackData: bigint,
-  result: UniffiForeignFutureResultRustBuffer,
+  result: UniffiForeignFutureResultRustBuffer
 ) => void;
 export type UniffiForeignFutureResultVoid = {
   callStatus: UniffiRustCallStatus;
 };
 export type UniffiForeignFutureCompleteVoid = (
   callbackData: bigint,
-  result: UniffiForeignFutureResultVoid,
+  result: UniffiForeignFutureResultVoid
 ) => void;
-type UniffiCallbackInterfaceEngineObserverMethod0 = (
-  uniffiHandle: bigint,
-) => UniffiResult<void>;
-type UniffiCallbackInterfaceEngineObserverMethod1 = (
-  uniffiHandle: bigint,
-) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod0 = (uniffiHandle: bigint) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod1 = (uniffiHandle: bigint) => UniffiResult<void>;
 type UniffiCallbackInterfaceEngineObserverMethod2 = (
   uniffiHandle: bigint,
   kind: Uint8Array,
-  activityId: Uint8Array,
+  activityId: Uint8Array
 ) => UniffiResult<void>;
 type UniffiCallbackInterfaceEngineObserverMethod3 = (
   uniffiHandle: bigint,
-  activityIds: Uint8Array,
+  activityIds: Uint8Array
 ) => UniffiResult<void>;
 type UniffiCallbackInterfaceEngineObserverMethod4 = (
   uniffiHandle: bigint,
-  activityId: Uint8Array,
+  activityId: Uint8Array
 ) => UniffiResult<void>;
 type UniffiCallbackInterfaceEngineObserverMethod5 = (
   uniffiHandle: bigint,
-  activityId: Uint8Array,
+  activityId: Uint8Array
 ) => UniffiResult<void>;
-type UniffiCallbackInterfaceEngineObserverMethod6 = (
-  uniffiHandle: bigint,
-) => UniffiResult<void>;
-type UniffiCallbackInterfaceEngineObserverMethod7 = (
-  uniffiHandle: bigint,
-) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod6 = (uniffiHandle: bigint) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod7 = (uniffiHandle: bigint) => UniffiResult<void>;
 type UniffiCallbackInterfaceEngineObserverMethod8 = (
   uniffiHandle: bigint,
-  phase: Uint8Array,
+  phase: Uint8Array
 ) => UniffiResult<void>;
-type UniffiCallbackInterfaceEngineObserverMethod9 = (
-  uniffiHandle: bigint,
-) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod9 = (uniffiHandle: bigint) => UniffiResult<void>;
 type UniffiCallbackInterfaceEngineObserverMethod10 = (
   uniffiHandle: bigint,
-  phase: Uint8Array,
+  phase: Uint8Array
 ) => UniffiResult<void>;
-type UniffiCallbackInterfaceEngineObserverMethod11 = (
-  uniffiHandle: bigint,
-) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod11 = (uniffiHandle: bigint) => UniffiResult<void>;
 export type UniffiVTableCallbackInterfaceEngineObserver = {
   uniffiFree: UniffiCallbackInterfaceFree;
   uniffiClone: UniffiCallbackInterfaceClone;

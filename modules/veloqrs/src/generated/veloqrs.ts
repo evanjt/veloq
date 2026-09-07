@@ -33,7 +33,7 @@ import nativeModule, {
   type UniffiForeignFutureResultVoid,
   type UniffiForeignFutureCompleteVoid,
   type UniffiVTableCallbackInterfaceEngineObserver,
-} from "./veloqrs-ffi";
+} from './veloqrs-ffi';
 import {
   type FfiConverter,
   type UniffiByteArray,
@@ -73,16 +73,16 @@ import {
   uniffiTraitInterfaceCall,
   uniffiTypeNameSymbol,
   variantOrdinalSymbol,
-} from "uniffi-bindgen-react-native";
+} from 'uniffi-bindgen-react-native';
 
 // Get converters from the other files, if any.
 const uniffiCaller = new UniffiRustCaller(() => ({ code: 0 }));
 
 const uniffiIsDebug =
   // @ts-ignore -- The process global might not be defined
-  typeof process !== "object" ||
+  typeof process !== 'object' ||
   // @ts-ignore -- The process global might not be defined
-  process?.env?.NODE_ENV !== "production" ||
+  process?.env?.NODE_ENV !== 'production' ||
   false;
 // Public interface members begin here.
 
@@ -93,12 +93,10 @@ export function getChangeCardSupport(): FfiChangeCardSupport {
   return FfiConverterTypeFfiChangeCardSupport.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_change_card_support(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_change_card_support(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -108,12 +106,10 @@ export function getCutoverDiff(): string | undefined {
   return FfiConverterOptionalString.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_cutover_diff(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_cutover_diff(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -123,12 +119,10 @@ export function getCutoverProgress(): CutoverProgress {
   return FfiConverterTypeCutoverProgress.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_cutover_progress(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_cutover_progress(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -144,12 +138,10 @@ export function getDownloadProgress(): DownloadProgressResult {
   return FfiConverterTypeDownloadProgressResult.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_download_progress(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_download_progress(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -160,11 +152,11 @@ export function getElevationBackfillProgress(): ElevationBackfillProgress {
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_elevation_backfill_progress(
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -180,16 +172,14 @@ export function getElevationBackfillProgress(): ElevationBackfillProgress {
 export function getElevationBackfillRemaining(): /*u32*/ number /*throws*/ {
   return FfiConverterUInt32.lift(
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -203,12 +193,10 @@ export function getNetworkPush(): NetworkPush | undefined {
   return FfiConverterOptionalTypeNetworkPush.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_network_push(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_network_push(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -218,12 +206,10 @@ export function isCutoverPending(): boolean {
   return FfiConverterBool.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_is_cutover_pending(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_is_cutover_pending(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -233,12 +219,10 @@ export function isCutoverRunning(): boolean {
   return FfiConverterBool.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_is_cutover_running(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_is_cutover_running(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -248,12 +232,10 @@ export function isElevationBackfillPaused(): boolean {
   return FfiConverterBool.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_is_elevation_backfill_paused(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_is_elevation_backfill_paused(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -267,11 +249,9 @@ export function isElevationBackfillPaused(): boolean {
 export function pauseElevationBackfill(): void {
   uniffiCaller.rustCall(
     /*caller:*/ (callStatus) => {
-      nativeModule().ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
-        callStatus,
-      );
+      nativeModule().ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(callStatus);
     },
-    /*liftString:*/ FfiConverterString.lift,
+    /*liftString:*/ FfiConverterString.lift
   );
 }
 /**
@@ -285,12 +265,10 @@ export function resumeElevationBackfill(): boolean {
   return FfiConverterBool.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_resume_elevation_backfill(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_resume_elevation_backfill(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -311,10 +289,10 @@ export function setNetworkOnline(online: boolean): void {
     /*caller:*/ (callStatus) => {
       nativeModule().ubrn_uniffi_veloqrs_fn_func_set_network_online(
         FfiConverterBool.lower(online),
-        callStatus,
+        callStatus
       );
     },
-    /*liftString:*/ FfiConverterString.lift,
+    /*liftString:*/ FfiConverterString.lift
   );
 }
 /**
@@ -327,12 +305,10 @@ export function startDetectorCutover(): boolean {
   return FfiConverterBool.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_detector_cutover(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_detector_cutover(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -345,12 +321,10 @@ export function startElevationBackfill(): boolean {
   return FfiConverterBool.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_elevation_backfill(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_elevation_backfill(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -373,7 +347,7 @@ export function startElevationBackfill(): boolean {
  */
 export function startFetchAndStore(
   activityIds: Array<string>,
-  sportTypes: Array<ActivitySportMapping>,
+  sportTypes: Array<ActivitySportMapping>
 ): /*u64*/ bigint {
   return FfiConverterUInt64.lift(
     uniffiCaller.rustCall(
@@ -381,11 +355,11 @@ export function startFetchAndStore(
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store(
           FfiConverterArrayString.lower(activityIds),
           FfiConverterArrayTypeActivitySportMapping.lower(sportTypes),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -395,19 +369,17 @@ export function startFetchAndStore(
  * finished, which is what a caller polls on; it never means another caller's
  * run has finished.
  */
-export function takeFetchAndStoreResult(
-  run: /*u64*/ bigint,
-): FetchAndStoreResult | undefined {
+export function takeFetchAndStoreResult(run: /*u64*/ bigint): FetchAndStoreResult | undefined {
   return FfiConverterOptionalTypeFetchAndStoreResult.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
           FfiConverterUInt64.lower(run),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -422,17 +394,15 @@ export function takeFetchAndStoreResult(
 export function validateBackupDatabase(path: string): string /*throws*/ {
   return FfiConverterString.lift(
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_validate_backup_database(
           FfiConverterString.lower(path),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 /**
@@ -444,7 +414,7 @@ export function validateBackupDatabase(path: string): string /*throws*/ {
 export function computePolylineOverlap(
   coordsA: Array</*f64*/ number>,
   coordsB: Array</*f64*/ number>,
-  thresholdMeters: /*f64*/ number,
+  thresholdMeters: /*f64*/ number
 ): /*f64*/ number {
   return FfiConverterFloat64.lift(
     uniffiCaller.rustCall(
@@ -453,11 +423,11 @@ export function computePolylineOverlap(
           FfiConverterArrayFloat64.lower(coordsA),
           FfiConverterArrayFloat64.lower(coordsB),
           FfiConverterFloat64.lower(thresholdMeters),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+      /*liftString:*/ FfiConverterString.lift
+    )
   );
 }
 
@@ -483,10 +453,7 @@ export type ActivitySportMapping = {
 export const ActivitySportMapping = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      ActivitySportMapping,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<ActivitySportMapping, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -535,9 +502,7 @@ export type ActivitySportType = {
 export const ActivitySportType = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<ActivitySportType, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<ActivitySportType, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -587,9 +552,7 @@ export type BulkExportPoll = {
 export const BulkExportPoll = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<BulkExportPoll, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<BulkExportPoll, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -645,9 +608,7 @@ export type BulkExportResult = {
 export const BulkExportResult = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<BulkExportResult, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<BulkExportResult, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -703,9 +664,7 @@ export type CutoverProgress = {
 export const CutoverProgress = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<CutoverProgress, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<CutoverProgress, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -752,9 +711,7 @@ export type DerivedClear = {
 export const DerivedClear = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<DerivedClear, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<DerivedClear, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -814,16 +771,12 @@ export type DownloadProgressResult = {
 export const DownloadProgressResult = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      DownloadProgressResult,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<DownloadProgressResult, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<DownloadProgressResult>,
+    defaults: () => Object.freeze(defaults()) as Partial<DownloadProgressResult>,
   });
 })();
 
@@ -893,16 +846,12 @@ export type ElevationBackfillProgress = {
 export const ElevationBackfillProgress = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      ElevationBackfillProgress,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<ElevationBackfillProgress, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<ElevationBackfillProgress>,
+    defaults: () => Object.freeze(defaults()) as Partial<ElevationBackfillProgress>,
   });
 })();
 
@@ -967,10 +916,7 @@ export type ExportPrivacyPreview = {
 export const ExportPrivacyPreview = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      ExportPrivacyPreview,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<ExportPrivacyPreview, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -1049,9 +995,7 @@ export type FetchAndStoreResult = {
 export const FetchAndStoreResult = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FetchAndStoreResult, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FetchAndStoreResult, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -1123,9 +1067,7 @@ export type FfiActivityBody = {
 export const FfiActivityBody = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiActivityBody, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiActivityBody, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -1213,10 +1155,7 @@ export type FfiActivityDetailData = {
 export const FfiActivityDetailData = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiActivityDetailData,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiActivityDetailData, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -1262,15 +1201,9 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         FfiConverterUInt32.allocationSize(value.totalRouteGroupCount) +
         FfiConverterArrayTypeFfiSection.allocationSize(value.matchedSections) +
         FfiConverterArrayTypeFfiSection.allocationSize(value.customSections) +
-        FfiConverterArrayTypeFfiSectionEncounter.allocationSize(
-          value.encounters,
-        ) +
-        FfiConverterTypeFfiActivityHighlightsBundle.allocationSize(
-          value.highlights,
-        ) +
-        FfiConverterArrayTypeFfiSectionTrace.allocationSize(
-          value.sectionTraces,
-        ) +
+        FfiConverterArrayTypeFfiSectionEncounter.allocationSize(value.encounters) +
+        FfiConverterTypeFfiActivityHighlightsBundle.allocationSize(value.highlights) +
+        FfiConverterArrayTypeFfiSectionTrace.allocationSize(value.sectionTraces) +
         FfiConverterArrayString.allocationSize(value.prSectionIds)
       );
     }
@@ -1294,16 +1227,12 @@ export type FfiActivityHighlightsBundle = {
 export const FfiActivityHighlightsBundle = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiActivityHighlightsBundle,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiActivityHighlightsBundle, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiActivityHighlightsBundle>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiActivityHighlightsBundle>,
   });
 })();
 
@@ -1313,25 +1242,17 @@ const FfiConverterTypeFfiActivityHighlightsBundle = (() => {
     read(from: RustBuffer): TypeName {
       return {
         indicators: FfiConverterArrayTypeFfiActivityIndicator.read(from),
-        routeHighlights:
-          FfiConverterArrayTypeFfiActivityRouteHighlight.read(from),
+        routeHighlights: FfiConverterArrayTypeFfiActivityRouteHighlight.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterArrayTypeFfiActivityIndicator.write(value.indicators, into);
-      FfiConverterArrayTypeFfiActivityRouteHighlight.write(
-        value.routeHighlights,
-        into,
-      );
+      FfiConverterArrayTypeFfiActivityRouteHighlight.write(value.routeHighlights, into);
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterArrayTypeFfiActivityIndicator.allocationSize(
-          value.indicators,
-        ) +
-        FfiConverterArrayTypeFfiActivityRouteHighlight.allocationSize(
-          value.routeHighlights,
-        )
+        FfiConverterArrayTypeFfiActivityIndicator.allocationSize(value.indicators) +
+        FfiConverterArrayTypeFfiActivityRouteHighlight.allocationSize(value.routeHighlights)
       );
     }
   }
@@ -1367,10 +1288,7 @@ export type FfiActivityIndicator = {
 export const FfiActivityIndicator = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiActivityIndicator,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiActivityIndicator, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -1479,9 +1397,7 @@ export type FfiActivityMetrics = {
 export const FfiActivityMetrics = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiActivityMetrics, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiActivityMetrics, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -1609,9 +1525,7 @@ export type FfiActivityPattern = {
 export const FfiActivityPattern = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiActivityPattern, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiActivityPattern, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -1707,16 +1621,12 @@ export type FfiActivityRouteHighlight = {
 export const FfiActivityRouteHighlight = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiActivityRouteHighlight,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiActivityRouteHighlight, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiActivityRouteHighlight>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiActivityRouteHighlight>,
   });
 })();
 
@@ -1787,16 +1697,12 @@ export type FfiActivitySectionHighlight = {
 export const FfiActivitySectionHighlight = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiActivitySectionHighlight,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiActivitySectionHighlight, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiActivitySectionHighlight>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiActivitySectionHighlight>,
   });
 })();
 
@@ -1858,9 +1764,7 @@ export type FfiBatchTrace = {
 export const FfiBatchTrace = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiBatchTrace, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiBatchTrace, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -1986,16 +1890,12 @@ export type FfiCalendarDirectionBest = {
 export const FfiCalendarDirectionBest = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiCalendarDirectionBest,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiCalendarDirectionBest, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiCalendarDirectionBest>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiCalendarDirectionBest>,
   });
 })();
 
@@ -2055,10 +1955,7 @@ export type FfiCalendarEventBody = {
 export const FfiCalendarEventBody = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiCalendarEventBody,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiCalendarEventBody, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -2121,16 +2018,12 @@ export type FfiCalendarMonthSummary = {
 export const FfiCalendarMonthSummary = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiCalendarMonthSummary,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiCalendarMonthSummary, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiCalendarMonthSummary>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiCalendarMonthSummary>,
   });
 })();
 
@@ -2148,25 +2041,15 @@ const FfiConverterTypeFfiCalendarMonthSummary = (() => {
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterUInt32.write(value.month, into);
       FfiConverterUInt32.write(value.traversalCount, into);
-      FfiConverterOptionalTypeFfiCalendarDirectionBest.write(
-        value.forward,
-        into,
-      );
-      FfiConverterOptionalTypeFfiCalendarDirectionBest.write(
-        value.reverse,
-        into,
-      );
+      FfiConverterOptionalTypeFfiCalendarDirectionBest.write(value.forward, into);
+      FfiConverterOptionalTypeFfiCalendarDirectionBest.write(value.reverse, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterUInt32.allocationSize(value.month) +
         FfiConverterUInt32.allocationSize(value.traversalCount) +
-        FfiConverterOptionalTypeFfiCalendarDirectionBest.allocationSize(
-          value.forward,
-        ) +
-        FfiConverterOptionalTypeFfiCalendarDirectionBest.allocationSize(
-          value.reverse,
-        )
+        FfiConverterOptionalTypeFfiCalendarDirectionBest.allocationSize(value.forward) +
+        FfiConverterOptionalTypeFfiCalendarDirectionBest.allocationSize(value.reverse)
       );
     }
   }
@@ -2201,9 +2084,7 @@ export type FfiCalendarSummary = {
 export const FfiCalendarSummary = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiCalendarSummary, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiCalendarSummary, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -2225,27 +2106,15 @@ const FfiConverterTypeFfiCalendarSummary = (() => {
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterArrayTypeFfiCalendarYearSummary.write(value.years, into);
-      FfiConverterOptionalTypeFfiCalendarDirectionBest.write(
-        value.forwardPr,
-        into,
-      );
-      FfiConverterOptionalTypeFfiCalendarDirectionBest.write(
-        value.reversePr,
-        into,
-      );
+      FfiConverterOptionalTypeFfiCalendarDirectionBest.write(value.forwardPr, into);
+      FfiConverterOptionalTypeFfiCalendarDirectionBest.write(value.reversePr, into);
       FfiConverterFloat64.write(value.sectionDistance, into);
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterArrayTypeFfiCalendarYearSummary.allocationSize(
-          value.years,
-        ) +
-        FfiConverterOptionalTypeFfiCalendarDirectionBest.allocationSize(
-          value.forwardPr,
-        ) +
-        FfiConverterOptionalTypeFfiCalendarDirectionBest.allocationSize(
-          value.reversePr,
-        ) +
+        FfiConverterArrayTypeFfiCalendarYearSummary.allocationSize(value.years) +
+        FfiConverterOptionalTypeFfiCalendarDirectionBest.allocationSize(value.forwardPr) +
+        FfiConverterOptionalTypeFfiCalendarDirectionBest.allocationSize(value.reversePr) +
         FfiConverterFloat64.allocationSize(value.sectionDistance)
       );
     }
@@ -2285,16 +2154,12 @@ export type FfiCalendarYearSummary = {
 export const FfiCalendarYearSummary = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiCalendarYearSummary,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiCalendarYearSummary, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiCalendarYearSummary>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiCalendarYearSummary>,
   });
 })();
 
@@ -2313,29 +2178,17 @@ const FfiConverterTypeFfiCalendarYearSummary = (() => {
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterInt32.write(value.year, into);
       FfiConverterUInt32.write(value.traversalCount, into);
-      FfiConverterOptionalTypeFfiCalendarDirectionBest.write(
-        value.forward,
-        into,
-      );
-      FfiConverterOptionalTypeFfiCalendarDirectionBest.write(
-        value.reverse,
-        into,
-      );
+      FfiConverterOptionalTypeFfiCalendarDirectionBest.write(value.forward, into);
+      FfiConverterOptionalTypeFfiCalendarDirectionBest.write(value.reverse, into);
       FfiConverterArrayTypeFfiCalendarMonthSummary.write(value.months, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterInt32.allocationSize(value.year) +
         FfiConverterUInt32.allocationSize(value.traversalCount) +
-        FfiConverterOptionalTypeFfiCalendarDirectionBest.allocationSize(
-          value.forward,
-        ) +
-        FfiConverterOptionalTypeFfiCalendarDirectionBest.allocationSize(
-          value.reverse,
-        ) +
-        FfiConverterArrayTypeFfiCalendarMonthSummary.allocationSize(
-          value.months,
-        )
+        FfiConverterOptionalTypeFfiCalendarDirectionBest.allocationSize(value.forward) +
+        FfiConverterOptionalTypeFfiCalendarDirectionBest.allocationSize(value.reverse) +
+        FfiConverterArrayTypeFfiCalendarMonthSummary.allocationSize(value.months)
       );
     }
   }
@@ -2377,9 +2230,7 @@ export type FfiCallOutcome = {
 export const FfiCallOutcome = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiCallOutcome, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiCallOutcome, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -2439,10 +2290,7 @@ export type FfiChangeCardSupport = {
 export const FfiChangeCardSupport = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiChangeCardSupport,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiChangeCardSupport, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -2517,10 +2365,7 @@ export type FfiDetectionProgress = {
 export const FfiDetectionProgress = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiDetectionProgress,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiDetectionProgress, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -2589,9 +2434,7 @@ export type FfiDirectionStats = {
 export const FfiDirectionStats = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiDirectionStats, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiDirectionStats, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -2658,9 +2501,7 @@ export type FfiEfficiencyPoint = {
 export const FfiEfficiencyPoint = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiEfficiencyPoint, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiEfficiencyPoint, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -2741,9 +2582,7 @@ export type FfiEfficiencyTrend = {
 export const FfiEfficiencyTrend = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiEfficiencyTrend, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiEfficiencyTrend, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -2807,9 +2646,7 @@ export type FfiExcludedLap = {
 export const FfiExcludedLap = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiExcludedLap, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiExcludedLap, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -2854,10 +2691,7 @@ export type FfiExerciseActivities = {
 export const FfiExerciseActivities = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiExerciseActivities,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiExerciseActivities, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -2878,9 +2712,7 @@ const FfiConverterTypeFfiExerciseActivities = (() => {
       FfiConverterArrayTypeFfiExerciseActivity.write(value.activities, into);
     }
     allocationSize(value: TypeName): number {
-      return FfiConverterArrayTypeFfiExerciseActivity.allocationSize(
-        value.activities,
-      );
+      return FfiConverterArrayTypeFfiExerciseActivity.allocationSize(value.activities);
     }
   }
   return new FFIConverter();
@@ -2922,9 +2754,7 @@ export type FfiExerciseActivity = {
 export const FfiExerciseActivity = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiExerciseActivity, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiExerciseActivity, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -2990,16 +2820,12 @@ export type FfiExerciseContribution = {
 export const FfiExerciseContribution = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiExerciseContribution,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiExerciseContribution, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiExerciseContribution>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiExerciseContribution>,
   });
 })();
 
@@ -3062,9 +2888,7 @@ export type FfiExerciseSet = {
 export const FfiExerciseSet = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiExerciseSet, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiExerciseSet, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -3157,9 +2981,7 @@ export type FfiExerciseSummary = {
 export const FfiExerciseSummary = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiExerciseSummary, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiExerciseSummary, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -3238,9 +3060,7 @@ export type FfiFtpTrend = {
 export const FfiFtpTrend = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiFtpTrend, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiFtpTrend, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -3293,9 +3113,7 @@ export type FfiGpsPoint = {
 export const FfiGpsPoint = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiGpsPoint, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiGpsPoint, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -3350,16 +3168,12 @@ export type FfiGroupSummariesResult = {
 export const FfiGroupSummariesResult = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiGroupSummariesResult,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiGroupSummariesResult, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiGroupSummariesResult>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiGroupSummariesResult>,
   });
 })();
 
@@ -3417,10 +3231,7 @@ export type FfiGroupWithPolyline = {
 export const FfiGroupWithPolyline = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiGroupWithPolyline,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiGroupWithPolyline, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -3501,9 +3312,7 @@ export type FfiHeatmapDay = {
 export const FfiHeatmapDay = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiHeatmapDay, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiHeatmapDay, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -3559,9 +3368,7 @@ export type FfiHrvTrend = {
 export const FfiHrvTrend = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiHrvTrend, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiHrvTrend, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -3618,16 +3425,12 @@ export type FfiIndexActivitySummary = {
 export const FfiIndexActivitySummary = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiIndexActivitySummary,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiIndexActivitySummary, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiIndexActivitySummary>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiIndexActivitySummary>,
   });
 })();
 
@@ -3733,9 +3536,7 @@ export type FfiInsightsData = {
 export const FfiInsightsData = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiInsightsData, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiInsightsData, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -3760,12 +3561,10 @@ const FfiConverterTypeFfiInsightsData = (() => {
         recentPrs: FfiConverterArrayTypeFfiRecentPR.read(from),
         sectionCount: FfiConverterUInt32.read(from),
         sportTypes: FfiConverterArrayString.read(from),
-        rankedSections:
-          FfiConverterArrayTypeFfiRankedSectionsBySport.read(from),
+        rankedSections: FfiConverterArrayTypeFfiRankedSectionsBySport.read(from),
         efficiencyTrends: FfiConverterArrayTypeFfiEfficiencyTrend.read(from),
         hasStrengthData: FfiConverterBool.read(from),
-        strengthSeries:
-          FfiConverterOptionalTypeFfiStrengthInsightSeries.read(from),
+        strengthSeries: FfiConverterOptionalTypeFfiStrengthInsightSeries.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -3776,26 +3575,14 @@ const FfiConverterTypeFfiInsightsData = (() => {
       FfiConverterTypeFfiFtpTrend.write(value.ftpTrend, into);
       FfiConverterTypeFfiPaceTrend.write(value.runPaceTrend, into);
       FfiConverterArrayTypeFfiActivityPattern.write(value.allPatterns, into);
-      FfiConverterOptionalTypeFfiActivityPattern.write(
-        value.todayPattern,
-        into,
-      );
+      FfiConverterOptionalTypeFfiActivityPattern.write(value.todayPattern, into);
       FfiConverterArrayTypeFfiRecentPR.write(value.recentPrs, into);
       FfiConverterUInt32.write(value.sectionCount, into);
       FfiConverterArrayString.write(value.sportTypes, into);
-      FfiConverterArrayTypeFfiRankedSectionsBySport.write(
-        value.rankedSections,
-        into,
-      );
-      FfiConverterArrayTypeFfiEfficiencyTrend.write(
-        value.efficiencyTrends,
-        into,
-      );
+      FfiConverterArrayTypeFfiRankedSectionsBySport.write(value.rankedSections, into);
+      FfiConverterArrayTypeFfiEfficiencyTrend.write(value.efficiencyTrends, into);
       FfiConverterBool.write(value.hasStrengthData, into);
-      FfiConverterOptionalTypeFfiStrengthInsightSeries.write(
-        value.strengthSeries,
-        into,
-      );
+      FfiConverterOptionalTypeFfiStrengthInsightSeries.write(value.strengthSeries, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3805,25 +3592,15 @@ const FfiConverterTypeFfiInsightsData = (() => {
         FfiConverterTypeFfiPeriodStats.allocationSize(value.todayPeriod) +
         FfiConverterTypeFfiFtpTrend.allocationSize(value.ftpTrend) +
         FfiConverterTypeFfiPaceTrend.allocationSize(value.runPaceTrend) +
-        FfiConverterArrayTypeFfiActivityPattern.allocationSize(
-          value.allPatterns,
-        ) +
-        FfiConverterOptionalTypeFfiActivityPattern.allocationSize(
-          value.todayPattern,
-        ) +
+        FfiConverterArrayTypeFfiActivityPattern.allocationSize(value.allPatterns) +
+        FfiConverterOptionalTypeFfiActivityPattern.allocationSize(value.todayPattern) +
         FfiConverterArrayTypeFfiRecentPR.allocationSize(value.recentPrs) +
         FfiConverterUInt32.allocationSize(value.sectionCount) +
         FfiConverterArrayString.allocationSize(value.sportTypes) +
-        FfiConverterArrayTypeFfiRankedSectionsBySport.allocationSize(
-          value.rankedSections,
-        ) +
-        FfiConverterArrayTypeFfiEfficiencyTrend.allocationSize(
-          value.efficiencyTrends,
-        ) +
+        FfiConverterArrayTypeFfiRankedSectionsBySport.allocationSize(value.rankedSections) +
+        FfiConverterArrayTypeFfiEfficiencyTrend.allocationSize(value.efficiencyTrends) +
         FfiConverterBool.allocationSize(value.hasStrengthData) +
-        FfiConverterOptionalTypeFfiStrengthInsightSeries.allocationSize(
-          value.strengthSeries,
-        )
+        FfiConverterOptionalTypeFfiStrengthInsightSeries.allocationSize(value.strengthSeries)
       );
     }
   }
@@ -3898,9 +3675,7 @@ export type FfiInsightsParams = {
 export const FfiInsightsParams = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiInsightsParams, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiInsightsParams, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -3961,9 +3736,7 @@ const FfiConverterTypeFfiInsightsParams = (() => {
         FfiConverterUInt32.allocationSize(value.efficiencyLimit) +
         FfiConverterUInt32.allocationSize(value.efficiencyMinEfforts) +
         FfiConverterTypeFfiTimestampRange.allocationSize(value.strengthMonth) +
-        FfiConverterArrayTypeFfiTimestampRange.allocationSize(
-          value.strengthWeeks,
-        )
+        FfiConverterArrayTypeFfiTimestampRange.allocationSize(value.strengthWeeks)
       );
     }
   }
@@ -3999,9 +3772,7 @@ export type FfiManualActivity = {
 export const FfiManualActivity = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiManualActivity, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiManualActivity, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -4084,9 +3855,7 @@ export type FfiMapScreenData = {
 export const FfiMapScreenData = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiMapScreenData, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiMapScreenData, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -4114,9 +3883,7 @@ const FfiConverterTypeFfiMapScreenData = (() => {
       return (
         FfiConverterUInt32.allocationSize(value.activityCount) +
         FfiConverterArrayString.allocationSize(value.availableSportTypes) +
-        FfiConverterArrayTypeMapActivityComplete.allocationSize(
-          value.activities,
-        )
+        FfiConverterArrayTypeMapActivityComplete.allocationSize(value.activities)
       );
     }
   }
@@ -4143,9 +3910,7 @@ export type FfiMapSignature = {
 export const FfiMapSignature = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiMapSignature, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiMapSignature, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -4198,9 +3963,7 @@ export type FfiMatchStrictness = {
 export const FfiMatchStrictness = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiMatchStrictness, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiMatchStrictness, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -4251,9 +4014,7 @@ export type FfiMergeCandidate = {
 export const FfiMergeCandidate = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiMergeCandidate, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiMergeCandidate, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -4320,16 +4081,12 @@ export type FfiMuscleExerciseSummary = {
 export const FfiMuscleExerciseSummary = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiMuscleExerciseSummary,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiMuscleExerciseSummary, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiMuscleExerciseSummary>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMuscleExerciseSummary>,
   });
 })();
 
@@ -4348,9 +4105,8 @@ const FfiConverterTypeFfiMuscleExerciseSummary = (() => {
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterArrayTypeFfiExerciseSummary.allocationSize(
-          value.exercises,
-        ) + FfiConverterUInt32.allocationSize(value.periodDays)
+        FfiConverterArrayTypeFfiExerciseSummary.allocationSize(value.exercises) +
+        FfiConverterUInt32.allocationSize(value.periodDays)
       );
     }
   }
@@ -4377,9 +4133,7 @@ export type FfiMuscleGroup = {
 export const FfiMuscleGroup = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiMuscleGroup, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiMuscleGroup, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -4432,10 +4186,7 @@ export type FfiMuscleGroupDetail = {
 export const FfiMuscleGroupDetail = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiMuscleGroupDetail,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiMuscleGroupDetail, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -4470,9 +4221,7 @@ const FfiConverterTypeFfiMuscleGroupDetail = (() => {
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.slug) +
-        FfiConverterArrayTypeFfiExerciseContribution.allocationSize(
-          value.exercises,
-        ) +
+        FfiConverterArrayTypeFfiExerciseContribution.allocationSize(value.exercises) +
         FfiConverterUInt32.allocationSize(value.totalSets) +
         FfiConverterUInt32.allocationSize(value.totalReps) +
         FfiConverterFloat64.allocationSize(value.totalVolumeKg) +
@@ -4524,9 +4273,7 @@ export type FfiMuscleVolume = {
 export const FfiMuscleVolume = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiMuscleVolume, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiMuscleVolume, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -4595,9 +4342,7 @@ export type FfiNamedCorridor = {
 export const FfiNamedCorridor = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiNamedCorridor, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiNamedCorridor, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -4670,16 +4415,12 @@ export type FfiNearbySectionSummary = {
 export const FfiNearbySectionSummary = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiNearbySectionSummary,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiNearbySectionSummary, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiNearbySectionSummary>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiNearbySectionSummary>,
   });
 })();
 
@@ -4752,9 +4493,7 @@ export type FfiPaceTrend = {
 export const FfiPaceTrend = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiPaceTrend, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiPaceTrend, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -4820,9 +4559,7 @@ export type FfiPeriodStats = {
 export const FfiPeriodStats = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiPeriodStats, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiPeriodStats, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -4894,9 +4631,7 @@ export type FfiPreviewCentre = {
 export const FfiPreviewCentre = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiPreviewCentre, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiPreviewCentre, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -4960,9 +4695,7 @@ export type FfiPreviewTrack = {
 export const FfiPreviewTrack = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiPreviewTrack, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiPreviewTrack, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -5026,9 +4759,7 @@ export type FfiRankedSection = {
 export const FfiRankedSection = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiRankedSection, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiRankedSection, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -5108,16 +4839,12 @@ export type FfiRankedSectionsBySport = {
 export const FfiRankedSectionsBySport = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiRankedSectionsBySport,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiRankedSectionsBySport, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiRankedSectionsBySport>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRankedSectionsBySport>,
   });
 })();
 
@@ -5160,9 +4887,7 @@ export type FfiRecentPr = {
 export const FfiRecentPr = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiRecentPr, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiRecentPr, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -5251,9 +4976,7 @@ export type FfiRecordingEntry = {
 export const FfiRecordingEntry = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiRecordingEntry, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiRecordingEntry, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -5356,9 +5079,7 @@ export type FfiRetiredSection = {
 export const FfiRetiredSection = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiRetiredSection, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiRetiredSection, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -5450,9 +5171,7 @@ export type FfiRouteDetailData = {
 export const FfiRouteDetailData = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiRouteDetailData, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiRouteDetailData, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -5493,15 +5212,11 @@ const FfiConverterTypeFfiRouteDetailData = (() => {
         FfiConverterUInt32.allocationSize(value.activityCount) +
         FfiConverterOptionalTypeFfiRouteGroup.allocationSize(value.group) +
         FfiConverterArrayTypeFfiRouteGroup.allocationSize(value.groups) +
-        FfiConverterTypeFfiRoutePerformanceResult.allocationSize(
-          value.performances,
-        ) +
+        FfiConverterTypeFfiRoutePerformanceResult.allocationSize(value.performances) +
         FfiConverterArrayBuffer.allocationSize(value.encodedConsensus) +
         FfiConverterMapStringString.allocationSize(value.routeNames) +
         FfiConverterArrayString.allocationSize(value.excludedActivityIds) +
-        FfiConverterArrayTypeFfiMapSignature.allocationSize(
-          value.mapSignatures,
-        ) +
+        FfiConverterArrayTypeFfiMapSignature.allocationSize(value.mapSignatures) +
         FfiConverterArrayString.allocationSize(value.sectionIds)
       );
     }
@@ -5531,9 +5246,7 @@ export type FfiRouteGroup = {
 export const FfiRouteGroup = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiRouteGroup, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiRouteGroup, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -5612,10 +5325,7 @@ export type FfiRouteGroupPreview = {
 export const FfiRouteGroupPreview = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiRouteGroupPreview,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiRouteGroupPreview, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -5706,9 +5416,7 @@ export type FfiRoutePerformance = {
 export const FfiRoutePerformance = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiRoutePerformance, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiRoutePerformance, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -5828,16 +5536,12 @@ export type FfiRoutePerformanceResult = {
 export const FfiRoutePerformanceResult = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiRoutePerformanceResult,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiRoutePerformanceResult, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiRoutePerformanceResult>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRoutePerformanceResult>,
   });
 })();
 
@@ -5860,19 +5564,10 @@ const FfiConverterTypeFfiRoutePerformanceResult = (() => {
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterArrayTypeFfiRoutePerformance.write(value.performances, into);
-      FfiConverterArrayTypeFfiActivityMetrics.write(
-        value.activityMetrics,
-        into,
-      );
+      FfiConverterArrayTypeFfiActivityMetrics.write(value.activityMetrics, into);
       FfiConverterOptionalTypeFfiRoutePerformance.write(value.best, into);
-      FfiConverterOptionalTypeFfiRoutePerformance.write(
-        value.bestForward,
-        into,
-      );
-      FfiConverterOptionalTypeFfiRoutePerformance.write(
-        value.bestReverse,
-        into,
-      );
+      FfiConverterOptionalTypeFfiRoutePerformance.write(value.bestForward, into);
+      FfiConverterOptionalTypeFfiRoutePerformance.write(value.bestReverse, into);
       FfiConverterOptionalTypeFfiDirectionStats.write(value.forwardStats, into);
       FfiConverterOptionalTypeFfiDirectionStats.write(value.reverseStats, into);
       FfiConverterOptionalUInt32.write(value.currentRank, into);
@@ -5881,25 +5576,13 @@ const FfiConverterTypeFfiRoutePerformanceResult = (() => {
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterArrayTypeFfiRoutePerformance.allocationSize(
-          value.performances,
-        ) +
-        FfiConverterArrayTypeFfiActivityMetrics.allocationSize(
-          value.activityMetrics,
-        ) +
+        FfiConverterArrayTypeFfiRoutePerformance.allocationSize(value.performances) +
+        FfiConverterArrayTypeFfiActivityMetrics.allocationSize(value.activityMetrics) +
         FfiConverterOptionalTypeFfiRoutePerformance.allocationSize(value.best) +
-        FfiConverterOptionalTypeFfiRoutePerformance.allocationSize(
-          value.bestForward,
-        ) +
-        FfiConverterOptionalTypeFfiRoutePerformance.allocationSize(
-          value.bestReverse,
-        ) +
-        FfiConverterOptionalTypeFfiDirectionStats.allocationSize(
-          value.forwardStats,
-        ) +
-        FfiConverterOptionalTypeFfiDirectionStats.allocationSize(
-          value.reverseStats,
-        ) +
+        FfiConverterOptionalTypeFfiRoutePerformance.allocationSize(value.bestForward) +
+        FfiConverterOptionalTypeFfiRoutePerformance.allocationSize(value.bestReverse) +
+        FfiConverterOptionalTypeFfiDirectionStats.allocationSize(value.forwardStats) +
+        FfiConverterOptionalTypeFfiDirectionStats.allocationSize(value.reverseStats) +
         FfiConverterOptionalUInt32.allocationSize(value.currentRank) +
         FfiConverterUInt32.allocationSize(value.attemptCount) +
         FfiConverterOptionalFloat64.allocationSize(value.percentileRank)
@@ -5928,9 +5611,7 @@ export type FfiRouteSignature = {
 export const FfiRouteSignature = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiRouteSignature, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiRouteSignature, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -6009,9 +5690,7 @@ export type FfiRoutesScreenData = {
 export const FfiRoutesScreenData = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiRoutesScreenData, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiRoutesScreenData, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -6057,9 +5736,7 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
         FfiConverterOptionalInt64.allocationSize(value.oldestDate) +
         FfiConverterOptionalInt64.allocationSize(value.newestDate) +
         FfiConverterArrayTypeFfiGroupWithPolyline.allocationSize(value.groups) +
-        FfiConverterArrayTypeFfiSectionWithPolyline.allocationSize(
-          value.sections,
-        ) +
+        FfiConverterArrayTypeFfiSectionWithPolyline.allocationSize(value.sections) +
         FfiConverterBool.allocationSize(value.hasMoreGroups) +
         FfiConverterBool.allocationSize(value.hasMoreSections) +
         FfiConverterBool.allocationSize(value.groupsDirty)
@@ -6123,9 +5800,7 @@ export type FfiSection = {
 export const FfiSection = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiSection, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSection, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -6185,10 +5860,7 @@ const FfiConverterTypeFfiSection = (() => {
       FfiConverterFloat64.write(value.distanceMeters, into);
       FfiConverterOptionalString.write(value.representativeActivityId, into);
       FfiConverterArrayString.write(value.activityIds, into);
-      FfiConverterArrayTypeFfiSectionPortion.write(
-        value.activityPortions,
-        into,
-      );
+      FfiConverterArrayTypeFfiSectionPortion.write(value.activityPortions, into);
       FfiConverterUInt32.write(value.visitCount, into);
       FfiConverterOptionalFloat64.write(value.confidence, into);
       FfiConverterOptionalUInt32.write(value.observationCount, into);
@@ -6224,13 +5896,9 @@ const FfiConverterTypeFfiSection = (() => {
         FfiConverterString.allocationSize(value.sportType) +
         FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
-        FfiConverterOptionalString.allocationSize(
-          value.representativeActivityId,
-        ) +
+        FfiConverterOptionalString.allocationSize(value.representativeActivityId) +
         FfiConverterArrayString.allocationSize(value.activityIds) +
-        FfiConverterArrayTypeFfiSectionPortion.allocationSize(
-          value.activityPortions,
-        ) +
+        FfiConverterArrayTypeFfiSectionPortion.allocationSize(value.activityPortions) +
         FfiConverterUInt32.allocationSize(value.visitCount) +
         FfiConverterOptionalFloat64.allocationSize(value.confidence) +
         FfiConverterOptionalUInt32.allocationSize(value.observationCount) +
@@ -6278,9 +5946,7 @@ export type FfiSectionChange = {
 export const FfiSectionChange = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiSectionChange, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSectionChange, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -6343,9 +6009,7 @@ export type FfiSectionChartData = {
 export const FfiSectionChartData = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiSectionChartData, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSectionChartData, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -6442,10 +6106,7 @@ export type FfiSectionChartPoint = {
 export const FfiSectionChartPoint = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionChartPoint,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiSectionChartPoint, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -6515,9 +6176,7 @@ export type FfiSectionConfig = {
 export const FfiSectionConfig = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiSectionConfig, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSectionConfig, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -6626,10 +6285,7 @@ export type FfiSectionDetailData = {
 export const FfiSectionDetailData = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionDetailData,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiSectionDetailData, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -6653,8 +6309,7 @@ const FfiConverterTypeFfiSectionDetailData = (() => {
         mapSignatures: FfiConverterArrayTypeFfiMapSignature.read(from),
         missingTimeStreamIds: FfiConverterArrayString.read(from),
         history: FfiConverterArrayTypeFfiSectionHistoryEvent.read(from),
-        geometryVersions:
-          FfiConverterArrayTypeFfiSectionGeometryVersion.read(from),
+        geometryVersions: FfiConverterArrayTypeFfiSectionGeometryVersion.read(from),
         pinnedVersion: FfiConverterOptionalInt64.read(from),
         excludedLaps: FfiConverterArrayTypeFfiExcludedLap.read(from),
         efficiencyTrend: FfiConverterOptionalTypeFfiEfficiencyTrend.read(from),
@@ -6667,54 +6322,31 @@ const FfiConverterTypeFfiSectionDetailData = (() => {
       FfiConverterArrayTypeFfiMergeCandidate.write(value.mergeCandidates, into);
       FfiConverterArrayString.write(value.excludedActivityIds, into);
       FfiConverterBool.write(value.hasOriginalBounds, into);
-      FfiConverterArrayTypeFfiActivityMetrics.write(
-        value.activityMetrics,
-        into,
-      );
+      FfiConverterArrayTypeFfiActivityMetrics.write(value.activityMetrics, into);
       FfiConverterArrayTypeFfiMapSignature.write(value.mapSignatures, into);
       FfiConverterArrayString.write(value.missingTimeStreamIds, into);
       FfiConverterArrayTypeFfiSectionHistoryEvent.write(value.history, into);
-      FfiConverterArrayTypeFfiSectionGeometryVersion.write(
-        value.geometryVersions,
-        into,
-      );
+      FfiConverterArrayTypeFfiSectionGeometryVersion.write(value.geometryVersions, into);
       FfiConverterOptionalInt64.write(value.pinnedVersion, into);
       FfiConverterArrayTypeFfiExcludedLap.write(value.excludedLaps, into);
-      FfiConverterOptionalTypeFfiEfficiencyTrend.write(
-        value.efficiencyTrend,
-        into,
-      );
+      FfiConverterOptionalTypeFfiEfficiencyTrend.write(value.efficiencyTrend, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterUInt32.allocationSize(value.activityCount) +
         FfiConverterOptionalTypeFfiSection.allocationSize(value.section) +
-        FfiConverterArrayTypeFfiNearbySectionSummary.allocationSize(
-          value.nearby,
-        ) +
-        FfiConverterArrayTypeFfiMergeCandidate.allocationSize(
-          value.mergeCandidates,
-        ) +
+        FfiConverterArrayTypeFfiNearbySectionSummary.allocationSize(value.nearby) +
+        FfiConverterArrayTypeFfiMergeCandidate.allocationSize(value.mergeCandidates) +
         FfiConverterArrayString.allocationSize(value.excludedActivityIds) +
         FfiConverterBool.allocationSize(value.hasOriginalBounds) +
-        FfiConverterArrayTypeFfiActivityMetrics.allocationSize(
-          value.activityMetrics,
-        ) +
-        FfiConverterArrayTypeFfiMapSignature.allocationSize(
-          value.mapSignatures,
-        ) +
+        FfiConverterArrayTypeFfiActivityMetrics.allocationSize(value.activityMetrics) +
+        FfiConverterArrayTypeFfiMapSignature.allocationSize(value.mapSignatures) +
         FfiConverterArrayString.allocationSize(value.missingTimeStreamIds) +
-        FfiConverterArrayTypeFfiSectionHistoryEvent.allocationSize(
-          value.history,
-        ) +
-        FfiConverterArrayTypeFfiSectionGeometryVersion.allocationSize(
-          value.geometryVersions,
-        ) +
+        FfiConverterArrayTypeFfiSectionHistoryEvent.allocationSize(value.history) +
+        FfiConverterArrayTypeFfiSectionGeometryVersion.allocationSize(value.geometryVersions) +
         FfiConverterOptionalInt64.allocationSize(value.pinnedVersion) +
         FfiConverterArrayTypeFfiExcludedLap.allocationSize(value.excludedLaps) +
-        FfiConverterOptionalTypeFfiEfficiencyTrend.allocationSize(
-          value.efficiencyTrend,
-        )
+        FfiConverterOptionalTypeFfiEfficiencyTrend.allocationSize(value.efficiencyTrend)
       );
     }
   }
@@ -6762,9 +6394,7 @@ export type FfiSectionEncounter = {
 export const FfiSectionEncounter = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiSectionEncounter, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSectionEncounter, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -6845,16 +6475,12 @@ export type FfiSectionExtensionTrack = {
 export const FfiSectionExtensionTrack = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionExtensionTrack,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiSectionExtensionTrack, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiSectionExtensionTrack>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionExtensionTrack>,
   });
 })();
 
@@ -6922,9 +6548,7 @@ export const FfiSectionFilter = (() => {
     activityId: undefined,
   });
   const create = (() => {
-    return uniffiCreateRecord<FfiSectionFilter, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSectionFilter, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -6978,16 +6602,12 @@ export type FfiSectionGeometryVersion = {
 export const FfiSectionGeometryVersion = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionGeometryVersion,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiSectionGeometryVersion, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiSectionGeometryVersion>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionGeometryVersion>,
   });
 })();
 
@@ -7044,16 +6664,12 @@ export type FfiSectionHistoryEvent = {
 export const FfiSectionHistoryEvent = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionHistoryEvent,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiSectionHistoryEvent, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiSectionHistoryEvent>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionHistoryEvent>,
   });
 })();
 
@@ -7132,9 +6748,7 @@ export type FfiSectionLap = {
 export const FfiSectionLap = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiSectionLap, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSectionLap, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -7205,9 +6819,7 @@ export type FfiSectionLineage = {
 export const FfiSectionLineage = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiSectionLineage, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSectionLineage, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -7262,9 +6874,7 @@ export type FfiSectionMatch = {
 export const FfiSectionMatch = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiSectionMatch, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSectionMatch, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -7345,9 +6955,7 @@ export type FfiSectionNearPoint = {
 export const FfiSectionNearPoint = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiSectionNearPoint, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSectionNearPoint, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -7413,16 +7021,14 @@ export type FfiSectionPerformanceBatchEntry = {
 export const FfiSectionPerformanceBatchEntry = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionPerformanceBatchEntry,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiSectionPerformanceBatchEntry, ReturnType<typeof defaults>>(
+      defaults
+    );
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiSectionPerformanceBatchEntry>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionPerformanceBatchEntry>,
   });
 })();
 
@@ -7473,16 +7079,12 @@ export type FfiSectionPerformanceData = {
 export const FfiSectionPerformanceData = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionPerformanceData,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiSectionPerformanceData, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiSectionPerformanceData>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionPerformanceData>,
   });
 })();
 
@@ -7497,24 +7099,14 @@ const FfiConverterTypeFfiSectionPerformanceData = (() => {
       };
     }
     write(value: TypeName, into: RustBuffer): void {
-      FfiConverterOptionalTypeFfiCalendarSummary.write(
-        value.calendarSummary,
-        into,
-      );
-      FfiConverterTypeFfiSectionPerformanceResult.write(
-        value.performances,
-        into,
-      );
+      FfiConverterOptionalTypeFfiCalendarSummary.write(value.calendarSummary, into);
+      FfiConverterTypeFfiSectionPerformanceResult.write(value.performances, into);
       FfiConverterTypeFfiSectionChartData.write(value.chartData, into);
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterOptionalTypeFfiCalendarSummary.allocationSize(
-          value.calendarSummary,
-        ) +
-        FfiConverterTypeFfiSectionPerformanceResult.allocationSize(
-          value.performances,
-        ) +
+        FfiConverterOptionalTypeFfiCalendarSummary.allocationSize(value.calendarSummary) +
+        FfiConverterTypeFfiSectionPerformanceResult.allocationSize(value.performances) +
         FfiConverterTypeFfiSectionChartData.allocationSize(value.chartData)
       );
     }
@@ -7573,16 +7165,12 @@ export type FfiSectionPerformanceRecord = {
 export const FfiSectionPerformanceRecord = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionPerformanceRecord,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiSectionPerformanceRecord, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiSectionPerformanceRecord>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionPerformanceRecord>,
   });
 })();
 
@@ -7674,16 +7262,12 @@ export type FfiSectionPerformanceResult = {
 export const FfiSectionPerformanceResult = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionPerformanceResult,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiSectionPerformanceResult, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiSectionPerformanceResult>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionPerformanceResult>,
   });
 })();
 
@@ -7693,56 +7277,33 @@ const FfiConverterTypeFfiSectionPerformanceResult = (() => {
     read(from: RustBuffer): TypeName {
       return {
         records: FfiConverterArrayTypeFfiSectionPerformanceRecord.read(from),
-        bestRecord:
-          FfiConverterOptionalTypeFfiSectionPerformanceRecord.read(from),
-        bestForwardRecord:
-          FfiConverterOptionalTypeFfiSectionPerformanceRecord.read(from),
-        bestReverseRecord:
-          FfiConverterOptionalTypeFfiSectionPerformanceRecord.read(from),
+        bestRecord: FfiConverterOptionalTypeFfiSectionPerformanceRecord.read(from),
+        bestForwardRecord: FfiConverterOptionalTypeFfiSectionPerformanceRecord.read(from),
+        bestReverseRecord: FfiConverterOptionalTypeFfiSectionPerformanceRecord.read(from),
         forwardStats: FfiConverterOptionalTypeFfiDirectionStats.read(from),
         reverseStats: FfiConverterOptionalTypeFfiDirectionStats.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
-      FfiConverterArrayTypeFfiSectionPerformanceRecord.write(
-        value.records,
-        into,
-      );
-      FfiConverterOptionalTypeFfiSectionPerformanceRecord.write(
-        value.bestRecord,
-        into,
-      );
-      FfiConverterOptionalTypeFfiSectionPerformanceRecord.write(
-        value.bestForwardRecord,
-        into,
-      );
-      FfiConverterOptionalTypeFfiSectionPerformanceRecord.write(
-        value.bestReverseRecord,
-        into,
-      );
+      FfiConverterArrayTypeFfiSectionPerformanceRecord.write(value.records, into);
+      FfiConverterOptionalTypeFfiSectionPerformanceRecord.write(value.bestRecord, into);
+      FfiConverterOptionalTypeFfiSectionPerformanceRecord.write(value.bestForwardRecord, into);
+      FfiConverterOptionalTypeFfiSectionPerformanceRecord.write(value.bestReverseRecord, into);
       FfiConverterOptionalTypeFfiDirectionStats.write(value.forwardStats, into);
       FfiConverterOptionalTypeFfiDirectionStats.write(value.reverseStats, into);
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterArrayTypeFfiSectionPerformanceRecord.allocationSize(
-          value.records,
+        FfiConverterArrayTypeFfiSectionPerformanceRecord.allocationSize(value.records) +
+        FfiConverterOptionalTypeFfiSectionPerformanceRecord.allocationSize(value.bestRecord) +
+        FfiConverterOptionalTypeFfiSectionPerformanceRecord.allocationSize(
+          value.bestForwardRecord
         ) +
         FfiConverterOptionalTypeFfiSectionPerformanceRecord.allocationSize(
-          value.bestRecord,
+          value.bestReverseRecord
         ) +
-        FfiConverterOptionalTypeFfiSectionPerformanceRecord.allocationSize(
-          value.bestForwardRecord,
-        ) +
-        FfiConverterOptionalTypeFfiSectionPerformanceRecord.allocationSize(
-          value.bestReverseRecord,
-        ) +
-        FfiConverterOptionalTypeFfiDirectionStats.allocationSize(
-          value.forwardStats,
-        ) +
-        FfiConverterOptionalTypeFfiDirectionStats.allocationSize(
-          value.reverseStats,
-        )
+        FfiConverterOptionalTypeFfiDirectionStats.allocationSize(value.forwardStats) +
+        FfiConverterOptionalTypeFfiDirectionStats.allocationSize(value.reverseStats)
       );
     }
   }
@@ -7766,9 +7327,7 @@ export type FfiSectionPortion = {
 export const FfiSectionPortion = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiSectionPortion, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSectionPortion, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -7824,16 +7383,12 @@ export type FfiSectionRecalcResult = {
 export const FfiSectionRecalcResult = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionRecalcResult,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiSectionRecalcResult, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiSectionRecalcResult>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionRecalcResult>,
   });
 })();
 
@@ -7877,16 +7432,12 @@ export type FfiSectionReferenceInfo = {
 export const FfiSectionReferenceInfo = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionReferenceInfo,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiSectionReferenceInfo, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiSectionReferenceInfo>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionReferenceInfo>,
   });
 })();
 
@@ -7933,16 +7484,12 @@ export type FfiSectionSummariesResult = {
 export const FfiSectionSummariesResult = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionSummariesResult,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiSectionSummariesResult, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiSectionSummariesResult>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionSummariesResult>,
   });
 })();
 
@@ -7989,9 +7536,7 @@ export type FfiSectionTrace = {
 export const FfiSectionTrace = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiSectionTrace, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSectionTrace, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -8064,16 +7609,12 @@ export type FfiSectionWithPolyline = {
 export const FfiSectionWithPolyline = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionWithPolyline,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiSectionWithPolyline, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiSectionWithPolyline>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionWithPolyline>,
   });
 })();
 
@@ -8195,10 +7736,7 @@ export type FfiStalePrOpportunity = {
 export const FfiStalePrOpportunity = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiStalePrOpportunity,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiStalePrOpportunity, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -8278,9 +7816,7 @@ export type FfiStartupData = {
 export const FfiStartupData = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiStartupData, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiStartupData, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -8328,16 +7864,12 @@ export type FfiStrengthInsightSeries = {
 export const FfiStrengthInsightSeries = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiStrengthInsightSeries,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiStrengthInsightSeries, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiStrengthInsightSeries>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiStrengthInsightSeries>,
   });
 })();
 
@@ -8388,9 +7920,7 @@ export type FfiStrengthSummary = {
 export const FfiStrengthSummary = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiStrengthSummary, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiStrengthSummary, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -8416,9 +7946,7 @@ const FfiConverterTypeFfiStrengthSummary = (() => {
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterArrayTypeFfiMuscleVolume.allocationSize(
-          value.muscleVolumes,
-        ) +
+        FfiConverterArrayTypeFfiMuscleVolume.allocationSize(value.muscleVolumes) +
         FfiConverterUInt32.allocationSize(value.activityCount) +
         FfiConverterUInt32.allocationSize(value.totalSets)
       );
@@ -8445,9 +7973,7 @@ export type FfiSummaryCardData = {
 export const FfiSummaryCardData = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiSummaryCardData, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSummaryCardData, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -8502,9 +8028,7 @@ export type FfiSupersededEntry = {
 export const FfiSupersededEntry = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiSupersededEntry, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSupersededEntry, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -8558,9 +8082,7 @@ export type FfiSyncStatus = {
 export const FfiSyncStatus = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiSyncStatus, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiSyncStatus, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -8588,10 +8110,7 @@ const FfiConverterTypeFfiSyncStatus = (() => {
       FfiConverterUInt32.write(value.completed, into);
       FfiConverterUInt32.write(value.total, into);
       FfiConverterOptionalString.write(value.lastError, into);
-      FfiConverterOptionalTypeFfiSyncErrorReason.write(
-        value.lastErrorReason,
-        into,
-      );
+      FfiConverterOptionalTypeFfiSyncErrorReason.write(value.lastErrorReason, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -8600,9 +8119,7 @@ const FfiConverterTypeFfiSyncStatus = (() => {
         FfiConverterUInt32.allocationSize(value.completed) +
         FfiConverterUInt32.allocationSize(value.total) +
         FfiConverterOptionalString.allocationSize(value.lastError) +
-        FfiConverterOptionalTypeFfiSyncErrorReason.allocationSize(
-          value.lastErrorReason,
-        )
+        FfiConverterOptionalTypeFfiSyncErrorReason.allocationSize(value.lastErrorReason)
       );
     }
   }
@@ -8623,9 +8140,7 @@ export type FfiTimestampRange = {
 export const FfiTimestampRange = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiTimestampRange, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiTimestampRange, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -8686,9 +8201,7 @@ export type FfiWeekLoadShape = {
 export const FfiWeekLoadShape = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiWeekLoadShape, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiWeekLoadShape, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -8754,9 +8267,7 @@ export type FfiWeeklySummary = {
 export const FfiWeeklySummary = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiWeeklySummary, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiWeeklySummary, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -8833,9 +8344,7 @@ export type FfiWellnessRow = {
 export const FfiWellnessRow = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiWellnessRow, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiWellnessRow, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -8925,10 +8434,7 @@ export type FfiWellnessSparklines = {
 export const FfiWellnessSparklines = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiWellnessSparklines,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiWellnessSparklines, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -9004,10 +8510,7 @@ export type FfiWidgetSnapshotData = {
 export const FfiWidgetSnapshotData = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      FfiWidgetSnapshotData,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<FfiWidgetSnapshotData, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -9029,10 +8532,7 @@ const FfiConverterTypeFfiWidgetSnapshotData = (() => {
       };
     }
     write(value: TypeName, into: RustBuffer): void {
-      FfiConverterOptionalTypeFfiWellnessSparklines.write(
-        value.sparklines,
-        into,
-      );
+      FfiConverterOptionalTypeFfiWellnessSparklines.write(value.sparklines, into);
       FfiConverterTypeFfiSummaryCardData.write(value.summary, into);
       FfiConverterOptionalTypeFfiActivityMetrics.write(value.latest, into);
       FfiConverterBool.write(value.latestIsPr, into);
@@ -9040,13 +8540,9 @@ const FfiConverterTypeFfiWidgetSnapshotData = (() => {
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterOptionalTypeFfiWellnessSparklines.allocationSize(
-          value.sparklines,
-        ) +
+        FfiConverterOptionalTypeFfiWellnessSparklines.allocationSize(value.sparklines) +
         FfiConverterTypeFfiSummaryCardData.allocationSize(value.summary) +
-        FfiConverterOptionalTypeFfiActivityMetrics.allocationSize(
-          value.latest,
-        ) +
+        FfiConverterOptionalTypeFfiActivityMetrics.allocationSize(value.latest) +
         FfiConverterBool.allocationSize(value.latestIsPr) +
         FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.latestGps)
       );
@@ -9084,9 +8580,7 @@ export type FfiWorkoutSection = {
 export const FfiWorkoutSection = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiWorkoutSection, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<FfiWorkoutSection, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -9177,9 +8671,7 @@ export type GroupSummary = {
 export const GroupSummary = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<GroupSummary, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<GroupSummary, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -9267,9 +8759,7 @@ export type MapActivityComplete = {
 export const MapActivityComplete = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<MapActivityComplete, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<MapActivityComplete, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -9337,9 +8827,7 @@ export type NetworkPush = {
 export const NetworkPush = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<NetworkPush, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<NetworkPush, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -9399,10 +8887,7 @@ export type PersistentEngineStats = {
 export const PersistentEngineStats = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<
-      PersistentEngineStats,
-      ReturnType<typeof defaults>
-    >(defaults);
+    return uniffiCreateRecord<PersistentEngineStats, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -9566,9 +9051,7 @@ export type SectionSummary = {
 export const SectionSummary = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<SectionSummary, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<SectionSummary, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -9645,9 +9128,7 @@ const FfiConverterTypeSectionSummary = (() => {
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
         FfiConverterUInt32.allocationSize(value.visitCount) +
         FfiConverterUInt32.allocationSize(value.activityCount) +
-        FfiConverterOptionalString.allocationSize(
-          value.representativeActivityId,
-        ) +
+        FfiConverterOptionalString.allocationSize(value.representativeActivityId) +
         FfiConverterFloat64.allocationSize(value.confidence) +
         FfiConverterOptionalString.allocationSize(value.scale) +
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
@@ -9685,9 +9166,7 @@ export type SettingPair = {
 export const SettingPair = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<SettingPair, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<SettingPair, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -9741,9 +9220,7 @@ export type SuggestedHome = {
 export const SuggestedHome = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<SuggestedHome, ReturnType<typeof defaults>>(
-      defaults,
-    );
+    return uniffiCreateRecord<SuggestedHome, ReturnType<typeof defaults>>(defaults);
   })();
   return Object.freeze({
     create,
@@ -9784,24 +9261,15 @@ const FfiConverterTypeSuggestedHome = (() => {
 const stringConverter = {
   stringToBytes: (s: string) =>
     uniffiCaller.rustCall((status) =>
-      nativeModule().ubrn_uniffi_internal_fn_func_ffi__string_to_arraybuffer(
-        s,
-        status,
-      ),
+      nativeModule().ubrn_uniffi_internal_fn_func_ffi__string_to_arraybuffer(s, status)
     ),
   bytesToString: (ab: UniffiByteArray) =>
     uniffiCaller.rustCall((status) =>
-      nativeModule().ubrn_uniffi_internal_fn_func_ffi__arraybuffer_to_string(
-        ab,
-        status,
-      ),
+      nativeModule().ubrn_uniffi_internal_fn_func_ffi__arraybuffer_to_string(ab, status)
     ),
   stringByteLength: (s: string) =>
     uniffiCaller.rustCall((status) =>
-      nativeModule().ubrn_uniffi_internal_fn_func_ffi__string_to_byte_length(
-        s,
-        status,
-      ),
+      nativeModule().ubrn_uniffi_internal_fn_func_ffi__string_to_byte_length(s, status)
     ),
 };
 const FfiConverterString = uniffiCreateFfiConverterString(stringConverter);
@@ -9924,6 +9392,93 @@ const FfiConverterTypeFfiCallKind = (() => {
         case FfiCallKind.Network:
           return ordinalConverter.write(5, into);
         case FfiCallKind.Internal:
+          return ordinalConverter.write(6, into);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return ordinalConverter.allocationSize(0);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * How the last engine init ended.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is falsy.
+ */
+export enum FfiInitOutcome {
+  /**
+   * The engine is open. A database that was quarantined and replaced ends
+   * here too: the athlete lost a cache the next sync refills, and the
+   * engine works.
+   */
+  Opened = 1,
+  /**
+   * Another connection held the file. The same file opens on the retry, so
+   * nothing is wrong with it and nothing is asked of the athlete.
+   */
+  Busy = 2,
+  /**
+   * The database was written by a newer build than this one. It is healthy
+   * and it is deliberately left where it is, so the remedy is to update the
+   * app, never to clear anything.
+   */
+  ForwardSchema = 3,
+  /**
+   * Nothing could be written where the database belongs: the directory
+   * could not be created, or an unusable file could not be replaced. A full
+   * disk and a denied permission both land here.
+   */
+  StorageUnavailable = 4,
+  /**
+   * Init has not run yet in this process.
+   */
+  NotAttempted = 5,
+  /**
+   * The init call itself threw. Rust never answers with this: it is the
+   * outcome TypeScript records when the FFI boundary fails, so a caught
+   * error is still a reason and not another bare `false`.
+   */
+  Failed = 6,
+}
+
+const FfiConverterTypeFfiInitOutcome = (() => {
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = FfiInitOutcome;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      switch (ordinalConverter.read(from)) {
+        case 1:
+          return FfiInitOutcome.Opened;
+        case 2:
+          return FfiInitOutcome.Busy;
+        case 3:
+          return FfiInitOutcome.ForwardSchema;
+        case 4:
+          return FfiInitOutcome.StorageUnavailable;
+        case 5:
+          return FfiInitOutcome.NotAttempted;
+        case 6:
+          return FfiInitOutcome.Failed;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value) {
+        case FfiInitOutcome.Opened:
+          return ordinalConverter.write(1, into);
+        case FfiInitOutcome.Busy:
+          return ordinalConverter.write(2, into);
+        case FfiInitOutcome.ForwardSchema:
+          return ordinalConverter.write(3, into);
+        case FfiInitOutcome.StorageUnavailable:
+          return ordinalConverter.write(4, into);
+        case FfiInitOutcome.NotAttempted:
+          return ordinalConverter.write(5, into);
+        case FfiInitOutcome.Failed:
           return ordinalConverter.write(6, into);
       }
     }
@@ -10174,31 +9729,28 @@ const FfiConverterTypeSyncState = (() => {
 
 // Enum: VeloqError
 export enum VeloqError_Tags {
-  NotInitialized = "NotInitialized",
-  LockFailed = "LockFailed",
-  Database = "Database",
-  NotFound = "NotFound",
-  ParseError = "ParseError",
-  ReferenceActivity = "ReferenceActivity",
-  TileStore = "TileStore",
+  NotInitialized = 'NotInitialized',
+  LockFailed = 'LockFailed',
+  Database = 'Database',
+  NotFound = 'NotFound',
+  ParseError = 'ParseError',
+  ReferenceActivity = 'ReferenceActivity',
+  TileStore = 'TileStore',
 }
 export const VeloqError = (() => {
   type NotInitialized__interface = {
     tag: VeloqError_Tags.NotInitialized;
   };
 
-  class NotInitialized_
-    extends UniffiError
-    implements NotInitialized__interface
-  {
+  class NotInitialized_ extends UniffiError implements NotInitialized__interface {
     /**
      * @private
      * This field is private and should not be used, use `tag` instead.
      */
-    readonly [uniffiTypeNameSymbol] = "VeloqError";
+    readonly [uniffiTypeNameSymbol] = 'VeloqError';
     readonly tag = VeloqError_Tags.NotInitialized;
     constructor() {
-      super("VeloqError", "NotInitialized");
+      super('VeloqError', 'NotInitialized');
     }
 
     static new(): NotInitialized_ {
@@ -10223,10 +9775,10 @@ export const VeloqError = (() => {
      * @private
      * This field is private and should not be used, use `tag` instead.
      */
-    readonly [uniffiTypeNameSymbol] = "VeloqError";
+    readonly [uniffiTypeNameSymbol] = 'VeloqError';
     readonly tag = VeloqError_Tags.LockFailed;
     constructor() {
-      super("VeloqError", "LockFailed");
+      super('VeloqError', 'LockFailed');
     }
 
     static new(): LockFailed_ {
@@ -10252,11 +9804,11 @@ export const VeloqError = (() => {
      * @private
      * This field is private and should not be used, use `tag` instead.
      */
-    readonly [uniffiTypeNameSymbol] = "VeloqError";
+    readonly [uniffiTypeNameSymbol] = 'VeloqError';
     readonly tag = VeloqError_Tags.Database;
     readonly inner: Readonly<{ msg: string }>;
     constructor(inner: { msg: string }) {
-      super("VeloqError", "Database");
+      super('VeloqError', 'Database');
       this.inner = Object.freeze(inner);
     }
 
@@ -10287,11 +9839,11 @@ export const VeloqError = (() => {
      * @private
      * This field is private and should not be used, use `tag` instead.
      */
-    readonly [uniffiTypeNameSymbol] = "VeloqError";
+    readonly [uniffiTypeNameSymbol] = 'VeloqError';
     readonly tag = VeloqError_Tags.NotFound;
     readonly inner: Readonly<{ msg: string }>;
     constructor(inner: { msg: string }) {
-      super("VeloqError", "NotFound");
+      super('VeloqError', 'NotFound');
       this.inner = Object.freeze(inner);
     }
 
@@ -10322,11 +9874,11 @@ export const VeloqError = (() => {
      * @private
      * This field is private and should not be used, use `tag` instead.
      */
-    readonly [uniffiTypeNameSymbol] = "VeloqError";
+    readonly [uniffiTypeNameSymbol] = 'VeloqError';
     readonly tag = VeloqError_Tags.ParseError;
     readonly inner: Readonly<{ msg: string }>;
     constructor(inner: { msg: string }) {
-      super("VeloqError", "ParseError");
+      super('VeloqError', 'ParseError');
       this.inner = Object.freeze(inner);
     }
 
@@ -10352,19 +9904,16 @@ export const VeloqError = (() => {
     inner: Readonly<{ msg: string }>;
   };
 
-  class ReferenceActivity_
-    extends UniffiError
-    implements ReferenceActivity__interface
-  {
+  class ReferenceActivity_ extends UniffiError implements ReferenceActivity__interface {
     /**
      * @private
      * This field is private and should not be used, use `tag` instead.
      */
-    readonly [uniffiTypeNameSymbol] = "VeloqError";
+    readonly [uniffiTypeNameSymbol] = 'VeloqError';
     readonly tag = VeloqError_Tags.ReferenceActivity;
     readonly inner: Readonly<{ msg: string }>;
     constructor(inner: { msg: string }) {
-      super("VeloqError", "ReferenceActivity");
+      super('VeloqError', 'ReferenceActivity');
       this.inner = Object.freeze(inner);
     }
 
@@ -10395,11 +9944,11 @@ export const VeloqError = (() => {
      * @private
      * This field is private and should not be used, use `tag` instead.
      */
-    readonly [uniffiTypeNameSymbol] = "VeloqError";
+    readonly [uniffiTypeNameSymbol] = 'VeloqError';
     readonly tag = VeloqError_Tags.TileStore;
     readonly inner: Readonly<{ msg: string }>;
     constructor(inner: { msg: string }) {
-      super("VeloqError", "TileStore");
+      super('VeloqError', 'TileStore');
       this.inner = Object.freeze(inner);
     }
 
@@ -10421,7 +9970,7 @@ export const VeloqError = (() => {
   }
 
   function instanceOf(obj: any): obj is VeloqError {
-    return obj[uniffiTypeNameSymbol] === "VeloqError";
+    return obj[uniffiTypeNameSymbol] === 'VeloqError';
   }
 
   return Object.freeze({
@@ -10437,7 +9986,7 @@ export const VeloqError = (() => {
 })();
 
 export type VeloqError = InstanceType<
-  (typeof VeloqError)[keyof Omit<typeof VeloqError, "instanceOf">]
+  (typeof VeloqError)[keyof Omit<typeof VeloqError, 'instanceOf'>]
 >;
 
 // FfiConverter for enum VeloqError
@@ -10567,31 +10116,22 @@ const FfiConverterTypeVeloqError = (() => {
 })();
 
 // FfiConverter for Map<string, string>
-const FfiConverterMapStringString = new FfiConverterMap(
-  FfiConverterString,
-  FfiConverterString,
-);
+const FfiConverterMapStringString = new FfiConverterMap(FfiConverterString, FfiConverterString);
 
 export interface ActivityManagerLike {
   add(
     activityIds: Array<string>,
     allCoords: Array</*f64*/ number>,
     offsets: Array</*u32*/ number>,
-    sportTypes: Array<string>,
+    sportTypes: Array<string>
   ) /*throws*/ : void;
-  debugClone(
-    sourceId: string,
-    count: /*u32*/ number,
-  ) /*throws*/ : /*u32*/ number;
+  debugClone(sourceId: string, count: /*u32*/ number) /*throws*/ : /*u32*/ number;
   /**
    * Untyped activity bodies over an inclusive timestamp window, newest
    * first. The feed and detail screens read fields no Rust type models, so
    * they parse these rather than a reconstruction from `activity_metrics`.
    */
-  getActivityBodies(
-    oldestTs: /*i64*/ bigint,
-    newestTs: /*i64*/ bigint,
-  ) /*throws*/ : Array<string>;
+  getActivityBodies(oldestTs: /*i64*/ bigint, newestTs: /*i64*/ bigint) /*throws*/ : Array<string>;
   /**
    * One activity's untyped body, or None when the engine has not got it.
    *
@@ -10612,7 +10152,7 @@ export interface ActivityManagerLike {
    */
   getDetailData(
     activityId: string,
-    minRouteActivities: /*u32*/ number,
+    minRouteActivities: /*u32*/ number
   ) /*throws*/ : FfiActivityDetailData;
   getGpsTrack(activityId: string) /*throws*/ : Array<FfiGpsPoint>;
   /**
@@ -10620,9 +10160,7 @@ export interface ActivityManagerLike {
    * trends) and route highlights for the same batch of activity IDs in a
    * single FFI round-trip. Consumed by `useActivitySectionHighlights`.
    */
-  getHighlightsBundle(
-    activityIds: Array<string>,
-  ) /*throws*/ : FfiActivityHighlightsBundle;
+  getHighlightsBundle(activityIds: Array<string>) /*throws*/ : FfiActivityHighlightsBundle;
   getIds() /*throws*/ : Array<string>;
   getMissingTimeStreams(activityIds: Array<string>) /*throws*/ : Array<string>;
   /**
@@ -10631,10 +10169,7 @@ export interface ActivityManagerLike {
    * already stored. `None` when neither can answer the selection, which is
    * what makes the caller fetch.
    */
-  getStreamBody(
-    activityId: string,
-    types: string,
-  ) /*throws*/ : string | undefined;
+  getStreamBody(activityId: string, types: string) /*throws*/ : string | undefined;
   /**
    * A key for a ride this device recorded and no server has named. The key
    * never moves: `record_upload` writes the server's id beside it.
@@ -10652,7 +10187,7 @@ export interface ActivityManagerLike {
   replaceCalendarEvents(
     oldestTs: /*i64*/ bigint,
     newestTs: /*i64*/ bigint,
-    rows: Array<FfiCalendarEventBody>,
+    rows: Array<FfiCalendarEventBody>
   ) /*throws*/ : void;
   /**
    * Store a curve payload directly, for demo seeding. `kind` is
@@ -10663,7 +10198,7 @@ export interface ActivityManagerLike {
     sport: string,
     days: /*i64*/ bigint,
     gap: boolean,
-    raw: string,
+    raw: string
   ) /*throws*/ : void;
   /**
    * Store an activity's interval payload directly, for demo seeding.
@@ -10673,7 +10208,7 @@ export interface ActivityManagerLike {
   setTimeStreams(
     activityIds: Array<string>,
     allTimes: Array</*u32*/ number>,
-    offsets: Array</*u32*/ number>,
+    offsets: Array</*u32*/ number>
   ) /*throws*/ : void;
   /**
    * Store untyped activity bodies. Demo mode seeds the same table a live
@@ -10686,38 +10221,30 @@ export interface ActivityManagerLike {
  */
 export type ActivityManagerInterface = ActivityManagerLike;
 
-export class ActivityManager
-  extends UniffiAbstractObject
-  implements ActivityManagerLike
-{
-  readonly [uniffiTypeNameSymbol] = "ActivityManager";
+export class ActivityManager extends UniffiAbstractObject implements ActivityManagerLike {
+  readonly [uniffiTypeNameSymbol] = 'ActivityManager';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   constructor() {
     super();
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_activitymanager_new(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_activitymanager_new(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeActivityManagerObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeActivityManagerObjectFactory.bless(pointer);
   }
 
   add(
     activityIds: Array<string>,
     allCoords: Array</*f64*/ number>,
     offsets: Array</*u32*/ number>,
-    sportTypes: Array<string>,
+    sportTypes: Array<string>
   ): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_add(
           uniffiTypeActivityManagerObjectFactory.clonePointer(this),
@@ -10725,32 +10252,27 @@ export class ActivityManager
           FfiConverterArrayFloat64.lower(allCoords),
           FfiConverterArrayUInt32.lower(offsets),
           FfiConverterArrayString.lower(sportTypes),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
-  debugClone(
-    sourceId: string,
-    count: /*u32*/ number,
-  ): /*u32*/ number /*throws*/ {
+  debugClone(sourceId: string, count: /*u32*/ number): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_debug_clone(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sourceId),
             FfiConverterUInt32.lower(count),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -10759,25 +10281,20 @@ export class ActivityManager
    * first. The feed and detail screens read fields no Rust type models, so
    * they parse these rather than a reconstruction from `activity_metrics`.
    */
-  getActivityBodies(
-    oldestTs: /*i64*/ bigint,
-    newestTs: /*i64*/ bigint,
-  ): Array<string> /*throws*/ {
+  getActivityBodies(oldestTs: /*i64*/ bigint, newestTs: /*i64*/ bigint): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_bodies(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterInt64.lower(oldestTs),
             FfiConverterInt64.lower(newestTs),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -10791,35 +10308,31 @@ export class ActivityManager
   getActivityBody(activityId: string): string | undefined /*throws*/ {
     return FfiConverterOptionalString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_body(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getCount(): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_count(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -10834,41 +10347,37 @@ export class ActivityManager
    */
   getDetailData(
     activityId: string,
-    minRouteActivities: /*u32*/ number,
+    minRouteActivities: /*u32*/ number
   ): FfiActivityDetailData /*throws*/ {
     return FfiConverterTypeFfiActivityDetailData.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_detail_data(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
             FfiConverterUInt32.lower(minRouteActivities),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getGpsTrack(activityId: string): Array<FfiGpsPoint> /*throws*/ {
     return FfiConverterArrayTypeFfiGpsPoint.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_gps_track(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -10877,58 +10386,50 @@ export class ActivityManager
    * trends) and route highlights for the same batch of activity IDs in a
    * single FFI round-trip. Consumed by `useActivitySectionHighlights`.
    */
-  getHighlightsBundle(
-    activityIds: Array<string>,
-  ): FfiActivityHighlightsBundle /*throws*/ {
+  getHighlightsBundle(activityIds: Array<string>): FfiActivityHighlightsBundle /*throws*/ {
     return FfiConverterTypeFfiActivityHighlightsBundle.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_highlights_bundle(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterArrayString.lower(activityIds),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getIds(): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_ids(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getMissingTimeStreams(activityIds: Array<string>): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_missing_time_streams(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterArrayString.lower(activityIds),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -10938,25 +10439,20 @@ export class ActivityManager
    * already stored. `None` when neither can answer the selection, which is
    * what makes the caller fetch.
    */
-  getStreamBody(
-    activityId: string,
-    types: string,
-  ): string | undefined /*throws*/ {
+  getStreamBody(activityId: string, types: string): string | undefined /*throws*/ {
     return FfiConverterOptionalString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_stream_body(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
             FfiConverterString.lower(types),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -10970,11 +10466,11 @@ export class ActivityManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_mint_local_id(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -10985,35 +10481,31 @@ export class ActivityManager
   recordUpload(activityId: string, intervalsId: string): boolean /*throws*/ {
     return FfiConverterBool.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_record_upload(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
             FfiConverterString.lower(intervalsId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   remove(activityId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_remove(
           uniffiTypeActivityManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(activityId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -11023,22 +10515,20 @@ export class ActivityManager
   replaceCalendarEvents(
     oldestTs: /*i64*/ bigint,
     newestTs: /*i64*/ bigint,
-    rows: Array<FfiCalendarEventBody>,
+    rows: Array<FfiCalendarEventBody>
   ): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_replace_calendar_events(
           uniffiTypeActivityManagerObjectFactory.clonePointer(this),
           FfiConverterInt64.lower(oldestTs),
           FfiConverterInt64.lower(newestTs),
           FfiConverterArrayTypeFfiCalendarEventBody.lower(rows),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -11051,12 +10541,10 @@ export class ActivityManager
     sport: string,
     days: /*i64*/ bigint,
     gap: boolean,
-    raw: string,
+    raw: string
   ): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_set_curve_body(
           uniffiTypeActivityManagerObjectFactory.clonePointer(this),
@@ -11065,10 +10553,10 @@ export class ActivityManager
           FfiConverterInt64.lower(days),
           FfiConverterBool.lower(gap),
           FfiConverterString.lower(raw),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -11077,56 +10565,50 @@ export class ActivityManager
    */
   setIntervalBody(activityId: string, raw: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_set_interval_body(
           uniffiTypeActivityManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(activityId),
           FfiConverterString.lower(raw),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   setMetrics(metrics: Array<FfiActivityMetrics>): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_set_metrics(
           uniffiTypeActivityManagerObjectFactory.clonePointer(this),
           FfiConverterArrayTypeFfiActivityMetrics.lower(metrics),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   setTimeStreams(
     activityIds: Array<string>,
     allTimes: Array</*u32*/ number>,
-    offsets: Array</*u32*/ number>,
+    offsets: Array</*u32*/ number>
   ): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_set_time_streams(
           uniffiTypeActivityManagerObjectFactory.clonePointer(this),
           FfiConverterArrayString.lower(activityIds),
           FfiConverterArrayUInt32.lower(allTimes),
           FfiConverterArrayUInt32.lower(offsets),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -11136,17 +10618,15 @@ export class ActivityManager
    */
   upsertActivityBodies(rows: Array<FfiActivityBody>): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_upsert_activity_bodies(
           uniffiTypeActivityManagerObjectFactory.clonePointer(this),
           FfiConverterArrayTypeFfiActivityBody.lower(rows),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -11168,73 +10648,63 @@ export class ActivityManager
   }
 }
 
-const uniffiTypeActivityManagerObjectFactory: UniffiObjectFactory<ActivityManagerLike> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): ActivityManagerLike {
-        const instance = Object.create(ActivityManager.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "ActivityManager";
-        return instance;
-      },
+const uniffiTypeActivityManagerObjectFactory: UniffiObjectFactory<ActivityManagerLike> = (() => {
+  return {
+    create(pointer: UniffiHandle): ActivityManagerLike {
+      const instance = Object.create(ActivityManager.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'ActivityManager';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_activitymanager_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_activitymanager_ffi__bless_pointer(
+            p,
+            status
+          ),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: ActivityManagerLike): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: ActivityManagerLike): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: ActivityManagerLike): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_activitymanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: ActivityManagerLike): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_activitymanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_activitymanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_activitymanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is ActivityManagerLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "ActivityManager"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is ActivityManagerLike {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'ActivityManager';
+    },
+  };
+})();
 // FfiConverter for ActivityManagerLike
 const FfiConverterTypeActivityManager = new FfiConverterObject(
-  uniffiTypeActivityManagerObjectFactory,
+  uniffiTypeActivityManagerObjectFactory
 );
 
 /**
@@ -11258,10 +10728,7 @@ export interface BasemapManagerLike {
    * Bring one source under a byte budget, least recently read first and the
    * pinned pre-seed last.
    */
-  evictTo(
-    source: string,
-    budgetBytes: /*u64*/ bigint,
-  ) /*throws*/ : /*u32*/ number;
+  evictTo(source: string, budgetBytes: /*u64*/ bigint) /*throws*/ : /*u32*/ number;
   /**
    * Total bytes across every source, answered without a WebView.
    */
@@ -11274,7 +10741,7 @@ export interface BasemapManagerLike {
     source: string,
     z: /*u8*/ number,
     x: /*u32*/ number,
-    y: /*u32*/ number,
+    y: /*u32*/ number
   ): ArrayBuffer | undefined;
   /**
    * Bytes held for one source.
@@ -11288,7 +10755,7 @@ export interface BasemapManagerLike {
     source: string,
     z: /*u8*/ number,
     x: /*u32*/ number,
-    y: /*u32*/ number,
+    y: /*u32*/ number
   ): ArrayBuffer | undefined;
   /**
    * Store one tile. `pinned` marks the pre-seeded offline base, which
@@ -11301,7 +10768,7 @@ export interface BasemapManagerLike {
     y: /*u32*/ number,
     ext: string,
     bytes: ArrayBuffer,
-    pinned: boolean,
+    pinned: boolean
   ) /*throws*/ : void;
   /**
    * Set the filesystem path for the basemap tile tree. Called once at
@@ -11328,26 +10795,20 @@ export type BasemapManagerInterface = BasemapManagerLike;
  * to choose: a basemap tile cannot be redrawn from local data, so it must not
  * be handed a path the OS purges.
  */
-export class BasemapManager
-  extends UniffiAbstractObject
-  implements BasemapManagerLike
-{
-  readonly [uniffiTypeNameSymbol] = "BasemapManager";
+export class BasemapManager extends UniffiAbstractObject implements BasemapManagerLike {
+  readonly [uniffiTypeNameSymbol] = 'BasemapManager';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   constructor() {
     super();
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_basemapmanager_new(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_basemapmanager_new(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeBasemapManagerObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeBasemapManagerObjectFactory.bless(pointer);
   }
 
   /**
@@ -11356,18 +10817,16 @@ export class BasemapManager
   clearSourceTiles(source: string): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_source_tiles(
             uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(source),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -11377,17 +10836,15 @@ export class BasemapManager
   clearTiles(): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_tiles(
             uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -11395,25 +10852,20 @@ export class BasemapManager
    * Bring one source under a byte budget, least recently read first and the
    * pinned pre-seed last.
    */
-  evictTo(
-    source: string,
-    budgetBytes: /*u64*/ bigint,
-  ): /*u32*/ number /*throws*/ {
+  evictTo(source: string, budgetBytes: /*u64*/ bigint): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_evict_to(
             uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(source),
             FfiConverterUInt64.lower(budgetBytes),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -11426,11 +10878,11 @@ export class BasemapManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_cache_size(
             uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -11442,7 +10894,7 @@ export class BasemapManager
     source: string,
     z: /*u8*/ number,
     x: /*u32*/ number,
-    y: /*u32*/ number,
+    y: /*u32*/ number
   ): ArrayBuffer | undefined {
     return FfiConverterOptionalArrayBuffer.lift(
       uniffiCaller.rustCall(
@@ -11453,11 +10905,11 @@ export class BasemapManager
             FfiConverterUInt8.lower(z),
             FfiConverterUInt32.lower(x),
             FfiConverterUInt32.lower(y),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -11471,11 +10923,11 @@ export class BasemapManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_source_size(
             uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(source),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -11487,7 +10939,7 @@ export class BasemapManager
     source: string,
     z: /*u8*/ number,
     x: /*u32*/ number,
-    y: /*u32*/ number,
+    y: /*u32*/ number
   ): ArrayBuffer | undefined {
     return FfiConverterOptionalArrayBuffer.lift(
       uniffiCaller.rustCall(
@@ -11498,11 +10950,11 @@ export class BasemapManager
             FfiConverterUInt8.lower(z),
             FfiConverterUInt32.lower(x),
             FfiConverterUInt32.lower(y),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -11517,12 +10969,10 @@ export class BasemapManager
     y: /*u32*/ number,
     ext: string,
     bytes: ArrayBuffer,
-    pinned: boolean,
+    pinned: boolean
   ): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_put_tile(
           uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
@@ -11533,10 +10983,10 @@ export class BasemapManager
           FfiConverterString.lower(ext),
           FfiConverterArrayBuffer.lower(bytes),
           FfiConverterBool.lower(pinned),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -11550,10 +11000,10 @@ export class BasemapManager
         nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_set_path(
           uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(path),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -11569,10 +11019,10 @@ export class BasemapManager
           uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(source),
           FfiConverterString.lower(urlTemplate),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -11594,73 +11044,63 @@ export class BasemapManager
   }
 }
 
-const uniffiTypeBasemapManagerObjectFactory: UniffiObjectFactory<BasemapManagerLike> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): BasemapManagerLike {
-        const instance = Object.create(BasemapManager.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "BasemapManager";
-        return instance;
-      },
+const uniffiTypeBasemapManagerObjectFactory: UniffiObjectFactory<BasemapManagerLike> = (() => {
+  return {
+    create(pointer: UniffiHandle): BasemapManagerLike {
+      const instance = Object.create(BasemapManager.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'BasemapManager';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_basemapmanager_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_basemapmanager_ffi__bless_pointer(
+            p,
+            status
+          ),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: BasemapManagerLike): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: BasemapManagerLike): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: BasemapManagerLike): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_basemapmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: BasemapManagerLike): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_basemapmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_basemapmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_basemapmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is BasemapManagerLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "BasemapManager"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is BasemapManagerLike {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'BasemapManager';
+    },
+  };
+})();
 // FfiConverter for BasemapManagerLike
 const FfiConverterTypeBasemapManager = new FfiConverterObject(
-  uniffiTypeBasemapManagerObjectFactory,
+  uniffiTypeBasemapManagerObjectFactory
 );
 
 export interface DetectionManagerLike {
@@ -11687,7 +11127,7 @@ export interface DetectionManagerLike {
   setConfig(config: FfiSectionConfig) /*throws*/ : void;
   setMatchStrictness(
     minMatchPct: /*f64*/ number,
-    endpointThreshold: /*f64*/ number,
+    endpointThreshold: /*f64*/ number
   ) /*throws*/ : void;
   start() /*throws*/ : FfiStartOutcome;
 }
@@ -11696,26 +11136,20 @@ export interface DetectionManagerLike {
  */
 export type DetectionManagerInterface = DetectionManagerLike;
 
-export class DetectionManager
-  extends UniffiAbstractObject
-  implements DetectionManagerLike
-{
-  readonly [uniffiTypeNameSymbol] = "DetectionManager";
+export class DetectionManager extends UniffiAbstractObject implements DetectionManagerLike {
+  readonly [uniffiTypeNameSymbol] = 'DetectionManager';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   constructor() {
     super();
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_detectionmanager_new(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_detectionmanager_new(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeDetectionManagerObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeDetectionManagerObjectFactory.bless(pointer);
   }
 
   /**
@@ -11726,68 +11160,60 @@ export class DetectionManager
   forceRedetect(): FfiStartOutcome /*throws*/ {
     return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
             uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getConfig(): FfiSectionConfig /*throws*/ {
     return FfiConverterTypeFfiSectionConfig.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_config(
             uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getMatchStrictness(): FfiMatchStrictness /*throws*/ {
     return FfiConverterTypeFfiMatchStrictness.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_match_strictness(
             uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getProgress(): FfiDetectionProgress | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiDetectionProgress.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_progress(
             uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -11806,81 +11232,73 @@ export class DetectionManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_last_outcome(
             uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   poll(): string /*throws*/ {
     return FfiConverterString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_poll(
             uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   setConfig(config: FfiSectionConfig): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_set_config(
           uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
           FfiConverterTypeFfiSectionConfig.lower(config),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   setMatchStrictness(
     minMatchPct: /*f64*/ number,
-    endpointThreshold: /*f64*/ number,
+    endpointThreshold: /*f64*/ number
   ): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_set_match_strictness(
           uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
           FfiConverterFloat64.lower(minMatchPct),
           FfiConverterFloat64.lower(endpointThreshold),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   start(): FfiStartOutcome /*throws*/ {
     return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_start(
             uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -11902,73 +11320,63 @@ export class DetectionManager
   }
 }
 
-const uniffiTypeDetectionManagerObjectFactory: UniffiObjectFactory<DetectionManagerLike> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): DetectionManagerLike {
-        const instance = Object.create(DetectionManager.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "DetectionManager";
-        return instance;
-      },
+const uniffiTypeDetectionManagerObjectFactory: UniffiObjectFactory<DetectionManagerLike> = (() => {
+  return {
+    create(pointer: UniffiHandle): DetectionManagerLike {
+      const instance = Object.create(DetectionManager.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'DetectionManager';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_detectionmanager_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_detectionmanager_ffi__bless_pointer(
+            p,
+            status
+          ),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: DetectionManagerLike): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: DetectionManagerLike): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: DetectionManagerLike): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_detectionmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: DetectionManagerLike): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_detectionmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_detectionmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_detectionmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is DetectionManagerLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "DetectionManager"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is DetectionManagerLike {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'DetectionManager';
+    },
+  };
+})();
 // FfiConverter for DetectionManagerLike
 const FfiConverterTypeDetectionManager = new FfiConverterObject(
-  uniffiTypeDetectionManagerObjectFactory,
+  uniffiTypeDetectionManagerObjectFactory
 );
 
 /**
@@ -12036,19 +11444,15 @@ export interface EngineObserver {
  * One method per event, each naming what landed rather than which query to
  * refetch, so the routing stays on the TypeScript side.
  */
-export class EngineObserverImpl
-  extends UniffiAbstractObject
-  implements EngineObserver
-{
-  readonly [uniffiTypeNameSymbol] = "EngineObserverImpl";
+export class EngineObserverImpl extends UniffiAbstractObject implements EngineObserver {
+  readonly [uniffiTypeNameSymbol] = 'EngineObserverImpl';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   // No primary constructor declared for this class.
   private constructor(pointer: UniffiHandle) {
     super();
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeEngineObserverImplObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeEngineObserverImplObjectFactory.bless(pointer);
   }
 
   /**
@@ -12060,10 +11464,10 @@ export class EngineObserverImpl
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_sync_progress(
           uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -12075,10 +11479,10 @@ export class EngineObserverImpl
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_sync_settled(
           uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -12092,10 +11496,10 @@ export class EngineObserverImpl
           uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
           FfiConverterString.lower(kind),
           FfiConverterString.lower(activityId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -12108,10 +11512,10 @@ export class EngineObserverImpl
         nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_time_streams_stored(
           uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
           FfiConverterArrayString.lower(activityIds),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -12124,10 +11528,10 @@ export class EngineObserverImpl
         nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_gps_track_stored(
           uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
           FfiConverterString.lower(activityId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -12140,10 +11544,10 @@ export class EngineObserverImpl
         nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_fit_parsed(
           uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
           FfiConverterString.lower(activityId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -12155,10 +11559,10 @@ export class EngineObserverImpl
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_detection_applied(
           uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -12170,10 +11574,10 @@ export class EngineObserverImpl
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_tiles_generated(
           uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -12186,10 +11590,10 @@ export class EngineObserverImpl
         nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_backfill_phase(
           uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
           FfiConverterString.lower(phase),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -12201,10 +11605,10 @@ export class EngineObserverImpl
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_cutover_settled(
           uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -12218,10 +11622,10 @@ export class EngineObserverImpl
         nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_preview_phase(
           uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
           FfiConverterString.lower(phase),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -12233,10 +11637,10 @@ export class EngineObserverImpl
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_preview_finished(
           uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -12258,73 +11662,63 @@ export class EngineObserverImpl
   }
 }
 
-const uniffiTypeEngineObserverImplObjectFactory: UniffiObjectFactory<EngineObserver> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): EngineObserver {
-        const instance = Object.create(EngineObserverImpl.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "EngineObserverImpl";
-        return instance;
-      },
+const uniffiTypeEngineObserverImplObjectFactory: UniffiObjectFactory<EngineObserver> = (() => {
+  return {
+    create(pointer: UniffiHandle): EngineObserver {
+      const instance = Object.create(EngineObserverImpl.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'EngineObserverImpl';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_engineobserver_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_engineobserver_ffi__bless_pointer(
+            p,
+            status
+          ),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: EngineObserver): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: EngineObserver): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: EngineObserver): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_engineobserver(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: EngineObserver): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_engineobserver(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_engineobserver(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_engineobserver(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is EngineObserver {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "EngineObserverImpl"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is EngineObserver {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'EngineObserverImpl';
+    },
+  };
+})();
 // FfiConverter for EngineObserver
 const FfiConverterTypeEngineObserver = new FfiConverterObjectWithCallbacks(
-  uniffiTypeEngineObserverImplObjectFactory,
+  uniffiTypeEngineObserverImplObjectFactory
 );
 
 // Add a vtavble for the callbacks that go in EngineObserver.
@@ -12351,7 +11745,7 @@ const uniffiCallbackInterfaceEngineObserver: {
         /*makeCall:*/ uniffiMakeCall,
         /*handleSuccess:*/ uniffiHandleSuccess,
         /*handleError:*/ uniffiHandleError,
-        /*lowerString:*/ FfiConverterString.lower,
+        /*lowerString:*/ FfiConverterString.lower
       );
       return uniffiResult;
     },
@@ -12369,20 +11763,16 @@ const uniffiCallbackInterfaceEngineObserver: {
         /*makeCall:*/ uniffiMakeCall,
         /*handleSuccess:*/ uniffiHandleSuccess,
         /*handleError:*/ uniffiHandleError,
-        /*lowerString:*/ FfiConverterString.lower,
+        /*lowerString:*/ FfiConverterString.lower
       );
       return uniffiResult;
     },
-    bodyStored: (
-      uniffiHandle: bigint,
-      kind: Uint8Array,
-      activityId: Uint8Array,
-    ) => {
+    bodyStored: (uniffiHandle: bigint, kind: Uint8Array, activityId: Uint8Array) => {
       const uniffiMakeCall = (): void => {
         const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
         return jsCallback.bodyStored(
           FfiConverterString.lift(kind),
-          FfiConverterString.lift(activityId),
+          FfiConverterString.lift(activityId)
         );
       };
       const uniffiResult = UniffiResult.ready<void>();
@@ -12394,16 +11784,14 @@ const uniffiCallbackInterfaceEngineObserver: {
         /*makeCall:*/ uniffiMakeCall,
         /*handleSuccess:*/ uniffiHandleSuccess,
         /*handleError:*/ uniffiHandleError,
-        /*lowerString:*/ FfiConverterString.lower,
+        /*lowerString:*/ FfiConverterString.lower
       );
       return uniffiResult;
     },
     timeStreamsStored: (uniffiHandle: bigint, activityIds: Uint8Array) => {
       const uniffiMakeCall = (): void => {
         const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
-        return jsCallback.timeStreamsStored(
-          FfiConverterArrayString.lift(activityIds),
-        );
+        return jsCallback.timeStreamsStored(FfiConverterArrayString.lift(activityIds));
       };
       const uniffiResult = UniffiResult.ready<void>();
       const uniffiHandleSuccess = (obj: any) => {};
@@ -12414,7 +11802,7 @@ const uniffiCallbackInterfaceEngineObserver: {
         /*makeCall:*/ uniffiMakeCall,
         /*handleSuccess:*/ uniffiHandleSuccess,
         /*handleError:*/ uniffiHandleError,
-        /*lowerString:*/ FfiConverterString.lower,
+        /*lowerString:*/ FfiConverterString.lower
       );
       return uniffiResult;
     },
@@ -12432,7 +11820,7 @@ const uniffiCallbackInterfaceEngineObserver: {
         /*makeCall:*/ uniffiMakeCall,
         /*handleSuccess:*/ uniffiHandleSuccess,
         /*handleError:*/ uniffiHandleError,
-        /*lowerString:*/ FfiConverterString.lower,
+        /*lowerString:*/ FfiConverterString.lower
       );
       return uniffiResult;
     },
@@ -12450,7 +11838,7 @@ const uniffiCallbackInterfaceEngineObserver: {
         /*makeCall:*/ uniffiMakeCall,
         /*handleSuccess:*/ uniffiHandleSuccess,
         /*handleError:*/ uniffiHandleError,
-        /*lowerString:*/ FfiConverterString.lower,
+        /*lowerString:*/ FfiConverterString.lower
       );
       return uniffiResult;
     },
@@ -12468,7 +11856,7 @@ const uniffiCallbackInterfaceEngineObserver: {
         /*makeCall:*/ uniffiMakeCall,
         /*handleSuccess:*/ uniffiHandleSuccess,
         /*handleError:*/ uniffiHandleError,
-        /*lowerString:*/ FfiConverterString.lower,
+        /*lowerString:*/ FfiConverterString.lower
       );
       return uniffiResult;
     },
@@ -12486,7 +11874,7 @@ const uniffiCallbackInterfaceEngineObserver: {
         /*makeCall:*/ uniffiMakeCall,
         /*handleSuccess:*/ uniffiHandleSuccess,
         /*handleError:*/ uniffiHandleError,
-        /*lowerString:*/ FfiConverterString.lower,
+        /*lowerString:*/ FfiConverterString.lower
       );
       return uniffiResult;
     },
@@ -12504,7 +11892,7 @@ const uniffiCallbackInterfaceEngineObserver: {
         /*makeCall:*/ uniffiMakeCall,
         /*handleSuccess:*/ uniffiHandleSuccess,
         /*handleError:*/ uniffiHandleError,
-        /*lowerString:*/ FfiConverterString.lower,
+        /*lowerString:*/ FfiConverterString.lower
       );
       return uniffiResult;
     },
@@ -12522,7 +11910,7 @@ const uniffiCallbackInterfaceEngineObserver: {
         /*makeCall:*/ uniffiMakeCall,
         /*handleSuccess:*/ uniffiHandleSuccess,
         /*handleError:*/ uniffiHandleError,
-        /*lowerString:*/ FfiConverterString.lower,
+        /*lowerString:*/ FfiConverterString.lower
       );
       return uniffiResult;
     },
@@ -12540,7 +11928,7 @@ const uniffiCallbackInterfaceEngineObserver: {
         /*makeCall:*/ uniffiMakeCall,
         /*handleSuccess:*/ uniffiHandleSuccess,
         /*handleError:*/ uniffiHandleError,
-        /*lowerString:*/ FfiConverterString.lower,
+        /*lowerString:*/ FfiConverterString.lower
       );
       return uniffiResult;
     },
@@ -12558,7 +11946,7 @@ const uniffiCallbackInterfaceEngineObserver: {
         /*makeCall:*/ uniffiMakeCall,
         /*handleSuccess:*/ uniffiHandleSuccess,
         /*handleError:*/ uniffiHandleError,
-        /*lowerString:*/ FfiConverterString.lower,
+        /*lowerString:*/ FfiConverterString.lower
       );
       return uniffiResult;
     },
@@ -12572,7 +11960,7 @@ const uniffiCallbackInterfaceEngineObserver: {
   },
   register: () => {
     nativeModule().ubrn_uniffi_veloqrs_fn_init_callback_vtable_engineobserver(
-      uniffiCallbackInterfaceEngineObserver.vtable,
+      uniffiCallbackInterfaceEngineObserver.vtable
     );
   },
 };
@@ -12605,12 +11993,9 @@ export interface FitnessManagerLike {
     staleThresholdDays: /*u32*/ number,
     minGainPercent: /*f64*/ number,
     maxOpportunities: /*u32*/ number,
-    excludeSectionIds: Array<string>,
+    excludeSectionIds: Array<string>
   ) /*throws*/ : Array<FfiStalePrOpportunity>;
-  getActivityHeatmap(
-    startDate: string,
-    endDate: string,
-  ) /*throws*/ : Array<FfiHeatmapDay>;
+  getActivityHeatmap(startDate: string, endDate: string) /*throws*/ : Array<FfiHeatmapDay>;
   /**
    * Get all activity IDs that have metrics stored (GPS and non-GPS).
    */
@@ -12621,7 +12006,7 @@ export interface FitnessManagerLike {
    */
   getCalendarEventBodies(
     oldestTs: /*i64*/ bigint,
-    newestTs: /*i64*/ bigint,
+    newestTs: /*i64*/ bigint
   ) /*throws*/ : Array<string>;
   /**
    * Batch insights data: combines period stats, trends, patterns, recent PRs
@@ -12639,16 +12024,13 @@ export interface FitnessManagerLike {
   getPaceCurveBody(
     sport: string,
     days: /*i64*/ bigint,
-    gap: boolean,
+    gap: boolean
   ) /*throws*/ : string | undefined;
   /**
    * A stored power curve body, or `None` when that sport and window have
    * never been fetched. `None` means "ask for it", not "no data".
    */
-  getPowerCurveBody(
-    sport: string,
-    days: /*i64*/ bigint,
-  ) /*throws*/ : string | undefined;
+  getPowerCurveBody(sport: string, days: /*i64*/ bigint) /*throws*/ : string | undefined;
   /**
    * The feed's first paint in a single engine lock: the summary card and
    * the GPS preview tracks. `params` supplies the summary card's two week
@@ -12657,13 +12039,13 @@ export interface FitnessManagerLike {
    */
   getStartupData(
     params: FfiInsightsParams,
-    previewActivityIds: Array<string>,
+    previewActivityIds: Array<string>
   ) /*throws*/ : FfiStartupData;
   getSummaryCardData(
     currentStart: /*i64*/ bigint,
     currentEnd: /*i64*/ bigint,
     prevStart: /*i64*/ bigint,
-    prevEnd: /*i64*/ bigint,
+    prevEnd: /*i64*/ bigint
   ) /*throws*/ : FfiSummaryCardData;
   /**
    * A week's load day by day, with how evenly it was spread, or none when
@@ -12671,7 +12053,7 @@ export interface FitnessManagerLike {
    */
   getWeekLoadShape(
     startTs: /*i64*/ bigint,
-    endTs: /*i64*/ bigint,
+    endTs: /*i64*/ bigint
   ) /*throws*/ : FfiWeekLoadShape | undefined;
   /**
    * Weekly training totals over a range, one entry per Monday-anchored
@@ -12683,7 +12065,7 @@ export interface FitnessManagerLike {
    */
   getWeeklySummaries(
     weekStarts: Array</*i64*/ bigint>,
-    weekLengthSecs: /*i64*/ bigint,
+    weekLengthSecs: /*i64*/ bigint
   ) /*throws*/ : Array<FfiWeeklySummary>;
   /**
    * Untyped wellness bodies over an inclusive date window, oldest first.
@@ -12697,9 +12079,7 @@ export interface FitnessManagerLike {
    * least once. Replaces the 5 parallel useMemo passes in
    * `useSummaryCardData.ts` - TS is now a thin pass-through.
    */
-  getWellnessSparklines(
-    days: /*u32*/ number,
-  ) /*throws*/ : FfiWellnessSparklines | undefined;
+  getWellnessSparklines(days: /*u32*/ number) /*throws*/ : FfiWellnessSparklines | undefined;
   /**
    * Everything the home-screen widget snapshot is composed from: wellness
    * sparklines, the summary card, and the latest activity with its record
@@ -12710,18 +12090,15 @@ export interface FitnessManagerLike {
     currentEnd: /*i64*/ bigint,
     prevStart: /*i64*/ bigint,
     prevEnd: /*i64*/ bigint,
-    sparklineDays: /*u32*/ number,
+    sparklineDays: /*u32*/ number
   ) /*throws*/ : FfiWidgetSnapshotData;
-  getZoneDistribution(
-    sportType: string,
-    zoneType: string,
-  ) /*throws*/ : Array</*f64*/ number>;
+  getZoneDistribution(sportType: string, zoneType: string) /*throws*/ : Array</*f64*/ number>;
   savePaceSnapshot(
     sportType: string,
     criticalSpeed: /*f64*/ number,
     dPrime: /*f64*/ number | undefined,
     r2: /*f64*/ number | undefined,
-    date: /*i64*/ bigint,
+    date: /*i64*/ bigint
   ) /*throws*/ : void;
   /**
    * Sync a batch of wellness rows from the intervals.icu API into SQLite.
@@ -12734,26 +12111,20 @@ export interface FitnessManagerLike {
  */
 export type FitnessManagerInterface = FitnessManagerLike;
 
-export class FitnessManager
-  extends UniffiAbstractObject
-  implements FitnessManagerLike
-{
-  readonly [uniffiTypeNameSymbol] = "FitnessManager";
+export class FitnessManager extends UniffiAbstractObject implements FitnessManagerLike {
+  readonly [uniffiTypeNameSymbol] = 'FitnessManager';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   constructor() {
     super();
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_fitnessmanager_new(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_fitnessmanager_new(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeFitnessManagerObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeFitnessManagerObjectFactory.bless(pointer);
   }
 
   /**
@@ -12764,18 +12135,16 @@ export class FitnessManager
   computeHrvTrend(days: /*u32*/ number): FfiHrvTrend | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiHrvTrend.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_compute_hrv_trend(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterUInt32.lower(days),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -12800,13 +12169,11 @@ export class FitnessManager
     staleThresholdDays: /*u32*/ number,
     minGainPercent: /*f64*/ number,
     maxOpportunities: /*u32*/ number,
-    excludeSectionIds: Array<string>,
+    excludeSectionIds: Array<string>
   ): Array<FfiStalePrOpportunity> /*throws*/ {
     return FfiConverterArrayTypeFfiStalePrOpportunity.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_find_stale_pr_opportunities(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
@@ -12814,33 +12181,28 @@ export class FitnessManager
             FfiConverterFloat64.lower(minGainPercent),
             FfiConverterUInt32.lower(maxOpportunities),
             FfiConverterArrayString.lower(excludeSectionIds),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
-  getActivityHeatmap(
-    startDate: string,
-    endDate: string,
-  ): Array<FfiHeatmapDay> /*throws*/ {
+  getActivityHeatmap(startDate: string, endDate: string): Array<FfiHeatmapDay> /*throws*/ {
     return FfiConverterArrayTypeFfiHeatmapDay.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(startDate),
             FfiConverterString.lower(endDate),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -12850,34 +12212,30 @@ export class FitnessManager
   getActivityMetricIds(): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_metric_ids(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getAvailableSportTypes(): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_available_sport_types(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -12886,23 +12244,21 @@ export class FitnessManager
    */
   getCalendarEventBodies(
     oldestTs: /*i64*/ bigint,
-    newestTs: /*i64*/ bigint,
+    newestTs: /*i64*/ bigint
   ): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_calendar_event_bodies(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterInt64.lower(oldestTs),
             FfiConverterInt64.lower(newestTs),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -12914,18 +12270,16 @@ export class FitnessManager
   getInsightsData(params: FfiInsightsParams): FfiInsightsData /*throws*/ {
     return FfiConverterTypeFfiInsightsData.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterTypeFfiInsightsParams.lower(params),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -12935,18 +12289,16 @@ export class FitnessManager
   getIntervalBody(activityId: string): string | undefined /*throws*/ {
     return FfiConverterOptionalString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_interval_body(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -12956,24 +12308,22 @@ export class FitnessManager
   getPaceCurveBody(
     sport: string,
     days: /*i64*/ bigint,
-    gap: boolean,
+    gap: boolean
   ): string | undefined /*throws*/ {
     return FfiConverterOptionalString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve_body(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sport),
             FfiConverterInt64.lower(days),
             FfiConverterBool.lower(gap),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -12981,25 +12331,20 @@ export class FitnessManager
    * A stored power curve body, or `None` when that sport and window have
    * never been fetched. `None` means "ask for it", not "no data".
    */
-  getPowerCurveBody(
-    sport: string,
-    days: /*i64*/ bigint,
-  ): string | undefined /*throws*/ {
+  getPowerCurveBody(sport: string, days: /*i64*/ bigint): string | undefined /*throws*/ {
     return FfiConverterOptionalString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_power_curve_body(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sport),
             FfiConverterInt64.lower(days),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13011,23 +12356,21 @@ export class FitnessManager
    */
   getStartupData(
     params: FfiInsightsParams,
-    previewActivityIds: Array<string>,
+    previewActivityIds: Array<string>
   ): FfiStartupData /*throws*/ {
     return FfiConverterTypeFfiStartupData.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterTypeFfiInsightsParams.lower(params),
             FfiConverterArrayString.lower(previewActivityIds),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13035,13 +12378,11 @@ export class FitnessManager
     currentStart: /*i64*/ bigint,
     currentEnd: /*i64*/ bigint,
     prevStart: /*i64*/ bigint,
-    prevEnd: /*i64*/ bigint,
+    prevEnd: /*i64*/ bigint
   ): FfiSummaryCardData /*throws*/ {
     return FfiConverterTypeFfiSummaryCardData.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_summary_card_data(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
@@ -13049,11 +12390,11 @@ export class FitnessManager
             FfiConverterInt64.lower(currentEnd),
             FfiConverterInt64.lower(prevStart),
             FfiConverterInt64.lower(prevEnd),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13063,23 +12404,21 @@ export class FitnessManager
    */
   getWeekLoadShape(
     startTs: /*i64*/ bigint,
-    endTs: /*i64*/ bigint,
+    endTs: /*i64*/ bigint
   ): FfiWeekLoadShape | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiWeekLoadShape.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_week_load_shape(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterInt64.lower(startTs),
             FfiConverterInt64.lower(endTs),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13093,23 +12432,21 @@ export class FitnessManager
    */
   getWeeklySummaries(
     weekStarts: Array</*i64*/ bigint>,
-    weekLengthSecs: /*i64*/ bigint,
+    weekLengthSecs: /*i64*/ bigint
   ): Array<FfiWeeklySummary> /*throws*/ {
     return FfiConverterArrayTypeFfiWeeklySummary.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_weekly_summaries(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterArrayInt64.lower(weekStarts),
             FfiConverterInt64.lower(weekLengthSecs),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13121,19 +12458,17 @@ export class FitnessManager
   getWellnessBodies(oldest: string, newest: string): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_bodies(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(oldest),
             FfiConverterString.lower(newest),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13143,23 +12478,19 @@ export class FitnessManager
    * least once. Replaces the 5 parallel useMemo passes in
    * `useSummaryCardData.ts` - TS is now a thin pass-through.
    */
-  getWellnessSparklines(
-    days: /*u32*/ number,
-  ): FfiWellnessSparklines | undefined /*throws*/ {
+  getWellnessSparklines(days: /*u32*/ number): FfiWellnessSparklines | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiWellnessSparklines.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_sparklines(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterUInt32.lower(days),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13173,13 +12504,11 @@ export class FitnessManager
     currentEnd: /*i64*/ bigint,
     prevStart: /*i64*/ bigint,
     prevEnd: /*i64*/ bigint,
-    sparklineDays: /*u32*/ number,
+    sparklineDays: /*u32*/ number
   ): FfiWidgetSnapshotData /*throws*/ {
     return FfiConverterTypeFfiWidgetSnapshotData.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_widget_snapshot(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
@@ -13188,33 +12517,28 @@ export class FitnessManager
             FfiConverterInt64.lower(prevStart),
             FfiConverterInt64.lower(prevEnd),
             FfiConverterUInt32.lower(sparklineDays),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
-  getZoneDistribution(
-    sportType: string,
-    zoneType: string,
-  ): Array</*f64*/ number> /*throws*/ {
+  getZoneDistribution(sportType: string, zoneType: string): Array</*f64*/ number> /*throws*/ {
     return FfiConverterArrayFloat64.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_zone_distribution(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sportType),
             FfiConverterString.lower(zoneType),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13223,12 +12547,10 @@ export class FitnessManager
     criticalSpeed: /*f64*/ number,
     dPrime: /*f64*/ number | undefined,
     r2: /*f64*/ number | undefined,
-    date: /*i64*/ bigint,
+    date: /*i64*/ bigint
   ): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot(
           uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
@@ -13237,10 +12559,10 @@ export class FitnessManager
           FfiConverterOptionalFloat64.lower(dPrime),
           FfiConverterOptionalFloat64.lower(r2),
           FfiConverterInt64.lower(date),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -13250,17 +12572,15 @@ export class FitnessManager
    */
   upsertWellness(rows: Array<FfiWellnessRow>): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_upsert_wellness(
           uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
           FfiConverterArrayTypeFfiWellnessRow.lower(rows),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -13282,73 +12602,63 @@ export class FitnessManager
   }
 }
 
-const uniffiTypeFitnessManagerObjectFactory: UniffiObjectFactory<FitnessManagerLike> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): FitnessManagerLike {
-        const instance = Object.create(FitnessManager.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "FitnessManager";
-        return instance;
-      },
+const uniffiTypeFitnessManagerObjectFactory: UniffiObjectFactory<FitnessManagerLike> = (() => {
+  return {
+    create(pointer: UniffiHandle): FitnessManagerLike {
+      const instance = Object.create(FitnessManager.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'FitnessManager';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_fitnessmanager_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_fitnessmanager_ffi__bless_pointer(
+            p,
+            status
+          ),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: FitnessManagerLike): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: FitnessManagerLike): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: FitnessManagerLike): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_fitnessmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: FitnessManagerLike): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_fitnessmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_fitnessmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_fitnessmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is FitnessManagerLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "FitnessManager"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is FitnessManagerLike {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'FitnessManager';
+    },
+  };
+})();
 // FfiConverter for FitnessManagerLike
 const FfiConverterTypeFitnessManager = new FfiConverterObject(
-  uniffiTypeFitnessManagerObjectFactory,
+  uniffiTypeFitnessManagerObjectFactory
 );
 
 export interface HeatmapManagerLike {
@@ -13384,26 +12694,20 @@ export interface HeatmapManagerLike {
  */
 export type HeatmapManagerInterface = HeatmapManagerLike;
 
-export class HeatmapManager
-  extends UniffiAbstractObject
-  implements HeatmapManagerLike
-{
-  readonly [uniffiTypeNameSymbol] = "HeatmapManager";
+export class HeatmapManager extends UniffiAbstractObject implements HeatmapManagerLike {
+  readonly [uniffiTypeNameSymbol] = 'HeatmapManager';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   constructor() {
     super();
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_heatmapmanager_new(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_heatmapmanager_new(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeHeatmapManagerObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeHeatmapManagerObjectFactory.bless(pointer);
   }
 
   /**
@@ -13412,18 +12716,16 @@ export class HeatmapManager
   clearTiles(basePath: string): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
             uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(basePath),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13432,16 +12734,14 @@ export class HeatmapManager
    */
   clearTilesPath(): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path(
           uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -13452,18 +12752,16 @@ export class HeatmapManager
   getCacheSize(basePath: string): /*u64*/ bigint /*throws*/ {
     return FfiConverterUInt64.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
             uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(basePath),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13473,17 +12771,15 @@ export class HeatmapManager
   getProgress(): Array</*u32*/ number> /*throws*/ {
     return FfiConverterArrayUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
             uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13493,17 +12789,15 @@ export class HeatmapManager
   poll(): string /*throws*/ {
     return FfiConverterString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_poll(
             uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13513,17 +12807,15 @@ export class HeatmapManager
    */
   setTilesPath(path: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
           uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(path),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -13545,73 +12837,63 @@ export class HeatmapManager
   }
 }
 
-const uniffiTypeHeatmapManagerObjectFactory: UniffiObjectFactory<HeatmapManagerLike> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): HeatmapManagerLike {
-        const instance = Object.create(HeatmapManager.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "HeatmapManager";
-        return instance;
-      },
+const uniffiTypeHeatmapManagerObjectFactory: UniffiObjectFactory<HeatmapManagerLike> = (() => {
+  return {
+    create(pointer: UniffiHandle): HeatmapManagerLike {
+      const instance = Object.create(HeatmapManager.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'HeatmapManager';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer(
+            p,
+            status
+          ),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: HeatmapManagerLike): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: HeatmapManagerLike): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: HeatmapManagerLike): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_heatmapmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: HeatmapManagerLike): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_heatmapmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_heatmapmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_heatmapmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is HeatmapManagerLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "HeatmapManager"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is HeatmapManagerLike {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'HeatmapManager';
+    },
+  };
+})();
 // FfiConverter for HeatmapManagerLike
 const FfiConverterTypeHeatmapManager = new FfiConverterObject(
-  uniffiTypeHeatmapManagerObjectFactory,
+  uniffiTypeHeatmapManagerObjectFactory
 );
 
 export interface MapManagerLike {
@@ -13623,13 +12905,13 @@ export interface MapManagerLike {
   getScreenData(
     startDate: /*i64*/ bigint,
     endDate: /*i64*/ bigint,
-    sportTypes: Array<string>,
+    sportTypes: Array<string>
   ) /*throws*/ : FfiMapScreenData;
   queryViewport(
     minLat: /*f64*/ number,
     maxLat: /*f64*/ number,
     minLng: /*f64*/ number,
-    maxLng: /*f64*/ number,
+    maxLng: /*f64*/ number
   ) /*throws*/ : Array<string>;
 }
 /**
@@ -13638,38 +12920,33 @@ export interface MapManagerLike {
 export type MapManagerInterface = MapManagerLike;
 
 export class MapManager extends UniffiAbstractObject implements MapManagerLike {
-  readonly [uniffiTypeNameSymbol] = "MapManager";
+  readonly [uniffiTypeNameSymbol] = 'MapManager';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   constructor() {
     super();
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_mapmanager_new(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_mapmanager_new(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeMapManagerObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeMapManagerObjectFactory.bless(pointer);
   }
 
   getAllSignatures(): Array<FfiMapSignature> /*throws*/ {
     return FfiConverterArrayTypeFfiMapSignature.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_mapmanager_get_all_signatures(
             uniffiTypeMapManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13680,24 +12957,22 @@ export class MapManager extends UniffiAbstractObject implements MapManagerLike {
   getScreenData(
     startDate: /*i64*/ bigint,
     endDate: /*i64*/ bigint,
-    sportTypes: Array<string>,
+    sportTypes: Array<string>
   ): FfiMapScreenData /*throws*/ {
     return FfiConverterTypeFfiMapScreenData.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_mapmanager_get_screen_data(
             uniffiTypeMapManagerObjectFactory.clonePointer(this),
             FfiConverterInt64.lower(startDate),
             FfiConverterInt64.lower(endDate),
             FfiConverterArrayString.lower(sportTypes),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13705,13 +12980,11 @@ export class MapManager extends UniffiAbstractObject implements MapManagerLike {
     minLat: /*f64*/ number,
     maxLat: /*f64*/ number,
     minLng: /*f64*/ number,
-    maxLng: /*f64*/ number,
+    maxLng: /*f64*/ number
   ): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_mapmanager_query_viewport(
             uniffiTypeMapManagerObjectFactory.clonePointer(this),
@@ -13719,11 +12992,11 @@ export class MapManager extends UniffiAbstractObject implements MapManagerLike {
             FfiConverterFloat64.lower(maxLat),
             FfiConverterFloat64.lower(minLng),
             FfiConverterFloat64.lower(maxLng),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13745,74 +13018,59 @@ export class MapManager extends UniffiAbstractObject implements MapManagerLike {
   }
 }
 
-const uniffiTypeMapManagerObjectFactory: UniffiObjectFactory<MapManagerLike> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): MapManagerLike {
-        const instance = Object.create(MapManager.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "MapManager";
-        return instance;
-      },
+const uniffiTypeMapManagerObjectFactory: UniffiObjectFactory<MapManagerLike> = (() => {
+  return {
+    create(pointer: UniffiHandle): MapManagerLike {
+      const instance = Object.create(MapManager.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'MapManager';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_mapmanager_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_mapmanager_ffi__bless_pointer(p, status),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: MapManagerLike): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: MapManagerLike): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: MapManagerLike): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_mapmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: MapManagerLike): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_mapmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_mapmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_mapmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is MapManagerLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "MapManager"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is MapManagerLike {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'MapManager';
+    },
+  };
+})();
 // FfiConverter for MapManagerLike
-const FfiConverterTypeMapManager = new FfiConverterObject(
-  uniffiTypeMapManagerObjectFactory,
-);
+const FfiConverterTypeMapManager = new FfiConverterObject(uniffiTypeMapManagerObjectFactory);
 
 /**
  * The recording index's FFI surface.
@@ -13884,31 +13142,18 @@ export interface RecordingManagerLike {
   /**
    * A server-side rejection automatic retries cannot fix.
    */
-  markRejected(
-    id: string,
-    error: string,
-    nowMs: /*i64*/ bigint,
-  ) /*throws*/ : void;
+  markRejected(id: string, error: string, nowMs: /*i64*/ bigint) /*throws*/ : void;
   /**
    * A retriable failure. Returns the attempt count it now stands at, so the
    * caller can log the same "retry n of m" line it used to compute itself.
    */
-  markUploadFailed(
-    id: string,
-    error: string,
-    nowMs: /*i64*/ bigint,
-  ) /*throws*/ : /*u32*/ number;
-  markUploaded(
-    id: string,
-    intervalsActivityId: string | undefined,
-  ) /*throws*/ : void;
+  markUploadFailed(id: string, error: string, nowMs: /*i64*/ bigint) /*throws*/ : /*u32*/ number;
+  markUploaded(id: string, intervalsActivityId: string | undefined) /*throws*/ : void;
   markUploading(id: string) /*throws*/ : void;
   /**
    * The next recording due an automatic upload, respecting the backoff.
    */
-  nextPendingUpload(
-    nowMs: /*i64*/ bigint,
-  ) /*throws*/ : FfiRecordingEntry | undefined;
+  nextPendingUpload(nowMs: /*i64*/ bigint) /*throws*/ : FfiRecordingEntry | undefined;
   permissionBlockedCount() /*throws*/ : /*u32*/ number;
   /**
    * A manual retry, or a requeue after an upgrade.
@@ -13933,26 +13178,20 @@ export type RecordingManagerInterface = RecordingManagerLike;
  * stay TypeScript's to write and delete, because the upload streams the FIT
  * rather than reading it into memory.
  */
-export class RecordingManager
-  extends UniffiAbstractObject
-  implements RecordingManagerLike
-{
-  readonly [uniffiTypeNameSymbol] = "RecordingManager";
+export class RecordingManager extends UniffiAbstractObject implements RecordingManagerLike {
+  readonly [uniffiTypeNameSymbol] = 'RecordingManager';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   constructor() {
     super();
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_recordingmanager_new(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_recordingmanager_new(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeRecordingManagerObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeRecordingManagerObjectFactory.bless(pointer);
   }
 
   /**
@@ -13963,18 +13202,16 @@ export class RecordingManager
   addRecording(entry: FfiRecordingEntry): boolean /*throws*/ {
     return FfiConverterBool.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_add_recording(
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
             FfiConverterTypeFfiRecordingEntry.lower(entry),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -13984,18 +13221,16 @@ export class RecordingManager
    */
   attachEngineActivity(id: string, engineActivityId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_attach_engine_activity(
           uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(id),
           FfiConverterString.lower(engineActivityId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -14006,17 +13241,15 @@ export class RecordingManager
   clearPermissionBlocked(): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_clear_permission_blocked(
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -14028,17 +13261,15 @@ export class RecordingManager
   clearRecordings(): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_clear_recordings(
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -14047,17 +13278,15 @@ export class RecordingManager
    */
   clearStreamsPath(id: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_clear_streams_path(
           uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(id),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -14068,18 +13297,16 @@ export class RecordingManager
   deleteRecording(id: string): FfiRecordingEntry | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiRecordingEntry.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_delete_recording(
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(id),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -14090,35 +13317,31 @@ export class RecordingManager
   demotePendingToLocalOnly(): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_demote_pending_to_local_only(
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getRecording(id: string): FfiRecordingEntry | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiRecordingEntry.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_get_recording(
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(id),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -14128,18 +13351,16 @@ export class RecordingManager
    */
   holdForAuth(id: string, error: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_hold_for_auth(
           uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(id),
           FfiConverterString.lower(error),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -14150,18 +13371,16 @@ export class RecordingManager
   holdOtherAthletes(athleteId: string): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_hold_other_athletes(
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(athleteId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -14171,34 +13390,30 @@ export class RecordingManager
   listRecordings(): Array<FfiRecordingEntry> /*throws*/ {
     return FfiConverterArrayTypeFfiRecordingEntry.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_list_recordings(
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   markPermissionBlocked(id: string, nowMs: /*i64*/ bigint): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_permission_blocked(
           uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(id),
           FfiConverterInt64.lower(nowMs),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -14208,42 +13423,34 @@ export class RecordingManager
    */
   markReconciled(id: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_reconciled(
           uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(id),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   /**
    * A server-side rejection automatic retries cannot fix.
    */
-  markRejected(
-    id: string,
-    error: string,
-    nowMs: /*i64*/ bigint,
-  ): void /*throws*/ {
+  markRejected(id: string, error: string, nowMs: /*i64*/ bigint): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_rejected(
           uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(id),
           FfiConverterString.lower(error),
           FfiConverterInt64.lower(nowMs),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -14251,103 +13458,84 @@ export class RecordingManager
    * A retriable failure. Returns the attempt count it now stands at, so the
    * caller can log the same "retry n of m" line it used to compute itself.
    */
-  markUploadFailed(
-    id: string,
-    error: string,
-    nowMs: /*i64*/ bigint,
-  ): /*u32*/ number /*throws*/ {
+  markUploadFailed(id: string, error: string, nowMs: /*i64*/ bigint): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_upload_failed(
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(id),
             FfiConverterString.lower(error),
             FfiConverterInt64.lower(nowMs),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
-  markUploaded(
-    id: string,
-    intervalsActivityId: string | undefined,
-  ): void /*throws*/ {
+  markUploaded(id: string, intervalsActivityId: string | undefined): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_uploaded(
           uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(id),
           FfiConverterOptionalString.lower(intervalsActivityId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   markUploading(id: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_uploading(
           uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(id),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   /**
    * The next recording due an automatic upload, respecting the backoff.
    */
-  nextPendingUpload(
-    nowMs: /*i64*/ bigint,
-  ): FfiRecordingEntry | undefined /*throws*/ {
+  nextPendingUpload(nowMs: /*i64*/ bigint): FfiRecordingEntry | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiRecordingEntry.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_next_pending_upload(
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
             FfiConverterInt64.lower(nowMs),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   permissionBlockedCount(): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_permission_blocked_count(
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -14356,17 +13544,15 @@ export class RecordingManager
    */
   requeue(id: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_requeue(
           uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(id),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -14376,17 +13562,15 @@ export class RecordingManager
   unuploadedCount(): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_unuploaded_count(
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -14408,73 +13592,63 @@ export class RecordingManager
   }
 }
 
-const uniffiTypeRecordingManagerObjectFactory: UniffiObjectFactory<RecordingManagerLike> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): RecordingManagerLike {
-        const instance = Object.create(RecordingManager.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "RecordingManager";
-        return instance;
-      },
+const uniffiTypeRecordingManagerObjectFactory: UniffiObjectFactory<RecordingManagerLike> = (() => {
+  return {
+    create(pointer: UniffiHandle): RecordingManagerLike {
+      const instance = Object.create(RecordingManager.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'RecordingManager';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_recordingmanager_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_recordingmanager_ffi__bless_pointer(
+            p,
+            status
+          ),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: RecordingManagerLike): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: RecordingManagerLike): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: RecordingManagerLike): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_recordingmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: RecordingManagerLike): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_recordingmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_recordingmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_recordingmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is RecordingManagerLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "RecordingManager"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is RecordingManagerLike {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'RecordingManager';
+    },
+  };
+})();
 // FfiConverter for RecordingManagerLike
 const FfiConverterTypeRecordingManager = new FfiConverterObject(
-  uniffiTypeRecordingManagerObjectFactory,
+  uniffiTypeRecordingManagerObjectFactory
 );
 
 /**
@@ -14501,10 +13675,7 @@ export interface RouteGroupingPreviewLike {
    * engine's live one. Returns false when a preview is already running or
    * the library has no signatures to group.
    */
-  start(
-    minMatchPercentage: /*f64*/ number,
-    endpointThreshold: /*f64*/ number,
-  ) /*throws*/ : boolean;
+  start(minMatchPercentage: /*f64*/ number, endpointThreshold: /*f64*/ number) /*throws*/ : boolean;
   /**
    * The one payload, once. None while running or after taken.
    */
@@ -14522,11 +13693,8 @@ export type RouteGroupingPreviewInterface = RouteGroupingPreviewLike;
  * the cached signatures. Nothing is written, and the engine's own groups,
  * match info and route identities are untouched.
  */
-export class RouteGroupingPreview
-  extends UniffiAbstractObject
-  implements RouteGroupingPreviewLike
-{
-  readonly [uniffiTypeNameSymbol] = "RouteGroupingPreview";
+export class RouteGroupingPreview extends UniffiAbstractObject implements RouteGroupingPreviewLike {
+  readonly [uniffiTypeNameSymbol] = 'RouteGroupingPreview';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   constructor() {
@@ -14534,14 +13702,13 @@ export class RouteGroupingPreview
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_routegroupingpreview_new(
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeRouteGroupingPreviewObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeRouteGroupingPreviewObjectFactory.bless(pointer);
   }
 
   /**
@@ -14551,16 +13718,14 @@ export class RouteGroupingPreview
    */
   cancel(): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_routegroupingpreview_cancel(
           uniffiTypeRouteGroupingPreviewObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -14570,17 +13735,15 @@ export class RouteGroupingPreview
   poll(): string /*throws*/ {
     return FfiConverterString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routegroupingpreview_poll(
             uniffiTypeRouteGroupingPreviewObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -14590,25 +13753,20 @@ export class RouteGroupingPreview
    * engine's live one. Returns false when a preview is already running or
    * the library has no signatures to group.
    */
-  start(
-    minMatchPercentage: /*f64*/ number,
-    endpointThreshold: /*f64*/ number,
-  ): boolean /*throws*/ {
+  start(minMatchPercentage: /*f64*/ number, endpointThreshold: /*f64*/ number): boolean /*throws*/ {
     return FfiConverterBool.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routegroupingpreview_start(
             uniffiTypeRouteGroupingPreviewObjectFactory.clonePointer(this),
             FfiConverterFloat64.lower(minMatchPercentage),
             FfiConverterFloat64.lower(endpointThreshold),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -14618,17 +13776,15 @@ export class RouteGroupingPreview
   takeResult(): Array<FfiRouteGroupPreview> | undefined /*throws*/ {
     return FfiConverterOptionalArrayTypeFfiRouteGroupPreview.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routegroupingpreview_take_result(
             uniffiTypeRouteGroupingPreviewObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -14657,7 +13813,7 @@ const uniffiTypeRouteGroupingPreviewObjectFactory: UniffiObjectFactory<RouteGrou
         const instance = Object.create(RouteGroupingPreview.prototype);
         instance[pointerLiteralSymbol] = pointer;
         instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "RouteGroupingPreview";
+        instance[uniffiTypeNameSymbol] = 'RouteGroupingPreview';
         return instance;
       },
 
@@ -14666,9 +13822,9 @@ const uniffiTypeRouteGroupingPreviewObjectFactory: UniffiObjectFactory<RouteGrou
           /*caller:*/ (status) =>
             nativeModule().ubrn_uniffi_internal_fn_method_routegroupingpreview_ffi__bless_pointer(
               p,
-              status,
+              status
             ),
-          /*liftString:*/ FfiConverterString.lift,
+          /*liftString:*/ FfiConverterString.lift
         );
       },
 
@@ -14687,36 +13843,27 @@ const uniffiTypeRouteGroupingPreviewObjectFactory: UniffiObjectFactory<RouteGrou
         const pointer = this.pointer(obj);
         return uniffiCaller.rustCall(
           /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_routegroupingpreview(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
+            nativeModule().ubrn_uniffi_veloqrs_fn_clone_routegroupingpreview(pointer, callStatus),
+          /*liftString:*/ FfiConverterString.lift
         );
       },
 
       freePointer(pointer: UniffiHandle): void {
         uniffiCaller.rustCall(
           /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_routegroupingpreview(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
+            nativeModule().ubrn_uniffi_veloqrs_fn_free_routegroupingpreview(pointer, callStatus),
+          /*liftString:*/ FfiConverterString.lift
         );
       },
 
       isConcreteType(obj: any): obj is RouteGroupingPreviewLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "RouteGroupingPreview"
-        );
+        return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'RouteGroupingPreview';
       },
     };
   })();
 // FfiConverter for RouteGroupingPreviewLike
 const FfiConverterTypeRouteGroupingPreview = new FfiConverterObject(
-  uniffiTypeRouteGroupingPreviewObjectFactory,
+  uniffiTypeRouteGroupingPreviewObjectFactory
 );
 
 export interface RouteManagerLike {
@@ -14725,7 +13872,7 @@ export interface RouteManagerLike {
    * Batch-query route highlights (PRs and trends) for a list of activity IDs.
    */
   getActivityRouteHighlights(
-    activityIds: Array<string>,
+    activityIds: Array<string>
   ) /*throws*/ : Array<FfiActivityRouteHighlight>;
   getAll() /*throws*/ : Array<FfiRouteGroup>;
   getAllNames() /*throws*/ : Map<string, string>;
@@ -14744,17 +13891,17 @@ export interface RouteManagerLike {
   getDetailData(
     groupId: string,
     currentActivityId: string | undefined,
-    minGroupActivities: /*u32*/ number,
+    minGroupActivities: /*u32*/ number
   ) /*throws*/ : FfiRouteDetailData;
   getExcludedActivities(routeId: string) /*throws*/ : Array<string>;
   getExcludedPerformances(
     routeId: string,
-    sportType: string | undefined,
+    sportType: string | undefined
   ) /*throws*/ : FfiRoutePerformanceResult;
   getPerformances(
     groupId: string,
     currentActivityId: string | undefined,
-    sportType: string | undefined,
+    sportType: string | undefined
   ) /*throws*/ : FfiRoutePerformanceResult;
   getScreenData(
     groupLimit: /*u32*/ number,
@@ -14765,7 +13912,7 @@ export interface RouteManagerLike {
     prioritizeNearestGroups: boolean,
     prioritizeNearestSections: boolean,
     userLat: /*f64*/ number,
-    userLng: /*f64*/ number,
+    userLng: /*f64*/ number
   ) /*throws*/ : FfiRoutesScreenData;
   /**
    * Group summaries with the total count beside them.
@@ -14775,7 +13922,7 @@ export interface RouteManagerLike {
    */
   getSummaries(
     minActivities: /*u32*/ number | undefined,
-    sortKey: string | undefined,
+    sortKey: string | undefined
   ) /*throws*/ : FfiGroupSummariesResult;
   includeActivity(routeId: string, activityId: string) /*throws*/ : void;
   setName(routeId: string, name: string) /*throws*/ : void;
@@ -14786,42 +13933,34 @@ export interface RouteManagerLike {
  */
 export type RouteManagerInterface = RouteManagerLike;
 
-export class RouteManager
-  extends UniffiAbstractObject
-  implements RouteManagerLike
-{
-  readonly [uniffiTypeNameSymbol] = "RouteManager";
+export class RouteManager extends UniffiAbstractObject implements RouteManagerLike {
+  readonly [uniffiTypeNameSymbol] = 'RouteManager';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   constructor() {
     super();
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_routemanager_new(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_routemanager_new(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeRouteManagerObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeRouteManagerObjectFactory.bless(pointer);
   }
 
   excludeActivity(routeId: string, activityId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_exclude_activity(
           uniffiTypeRouteManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(routeId),
           FfiConverterString.lower(activityId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -14829,74 +13968,66 @@ export class RouteManager
    * Batch-query route highlights (PRs and trends) for a list of activity IDs.
    */
   getActivityRouteHighlights(
-    activityIds: Array<string>,
+    activityIds: Array<string>
   ): Array<FfiActivityRouteHighlight> /*throws*/ {
     return FfiConverterArrayTypeFfiActivityRouteHighlight.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_activity_route_highlights(
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
             FfiConverterArrayString.lower(activityIds),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getAll(): Array<FfiRouteGroup> /*throws*/ {
     return FfiConverterArrayTypeFfiRouteGroup.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_all(
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getAllNames(): Map<string, string> /*throws*/ {
     return FfiConverterMapStringString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_all_names(
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getById(groupId: string): FfiRouteGroup | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiRouteGroup.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_by_id(
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(groupId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -14908,18 +14039,16 @@ export class RouteManager
   getConsensusRoute(groupId: string): ArrayBuffer /*throws*/ {
     return FfiConverterArrayBuffer.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_consensus_route(
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(groupId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -14931,88 +14060,80 @@ export class RouteManager
   getDetailData(
     groupId: string,
     currentActivityId: string | undefined,
-    minGroupActivities: /*u32*/ number,
+    minGroupActivities: /*u32*/ number
   ): FfiRouteDetailData /*throws*/ {
     return FfiConverterTypeFfiRouteDetailData.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_detail_data(
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(groupId),
             FfiConverterOptionalString.lower(currentActivityId),
             FfiConverterUInt32.lower(minGroupActivities),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getExcludedActivities(routeId: string): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_excluded_activities(
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(routeId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getExcludedPerformances(
     routeId: string,
-    sportType: string | undefined,
+    sportType: string | undefined
   ): FfiRoutePerformanceResult /*throws*/ {
     return FfiConverterTypeFfiRoutePerformanceResult.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_excluded_performances(
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(routeId),
             FfiConverterOptionalString.lower(sportType),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getPerformances(
     groupId: string,
     currentActivityId: string | undefined,
-    sportType: string | undefined,
+    sportType: string | undefined
   ): FfiRoutePerformanceResult /*throws*/ {
     return FfiConverterTypeFfiRoutePerformanceResult.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_performances(
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(groupId),
             FfiConverterOptionalString.lower(currentActivityId),
             FfiConverterOptionalString.lower(sportType),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -15025,13 +14146,11 @@ export class RouteManager
     prioritizeNearestGroups: boolean,
     prioritizeNearestSections: boolean,
     userLat: /*f64*/ number,
-    userLng: /*f64*/ number,
+    userLng: /*f64*/ number
   ): FfiRoutesScreenData /*throws*/ {
     return FfiConverterTypeFfiRoutesScreenData.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_screen_data(
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
@@ -15044,11 +14163,11 @@ export class RouteManager
             FfiConverterBool.lower(prioritizeNearestSections),
             FfiConverterFloat64.lower(userLat),
             FfiConverterFloat64.lower(userLng),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -15060,74 +14179,66 @@ export class RouteManager
    */
   getSummaries(
     minActivities: /*u32*/ number | undefined,
-    sortKey: string | undefined,
+    sortKey: string | undefined
   ): FfiGroupSummariesResult /*throws*/ {
     return FfiConverterTypeFfiGroupSummariesResult.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_summaries(
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
             FfiConverterOptionalUInt32.lower(minActivities),
             FfiConverterOptionalString.lower(sortKey),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   includeActivity(routeId: string, activityId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_include_activity(
           uniffiTypeRouteManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(routeId),
           FfiConverterString.lower(activityId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   setName(routeId: string, name: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_set_name(
           uniffiTypeRouteManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(routeId),
           FfiConverterString.lower(name),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   setRepresentative(routeId: string, activityId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_set_representative(
           uniffiTypeRouteManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(routeId),
           FfiConverterString.lower(activityId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -15149,74 +14260,59 @@ export class RouteManager
   }
 }
 
-const uniffiTypeRouteManagerObjectFactory: UniffiObjectFactory<RouteManagerLike> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): RouteManagerLike {
-        const instance = Object.create(RouteManager.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "RouteManager";
-        return instance;
-      },
+const uniffiTypeRouteManagerObjectFactory: UniffiObjectFactory<RouteManagerLike> = (() => {
+  return {
+    create(pointer: UniffiHandle): RouteManagerLike {
+      const instance = Object.create(RouteManager.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'RouteManager';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_routemanager_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_routemanager_ffi__bless_pointer(p, status),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: RouteManagerLike): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: RouteManagerLike): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: RouteManagerLike): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_routemanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: RouteManagerLike): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_routemanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_routemanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_routemanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is RouteManagerLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "RouteManager"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is RouteManagerLike {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'RouteManager';
+    },
+  };
+})();
 // FfiConverter for RouteManagerLike
-const FfiConverterTypeRouteManager = new FfiConverterObject(
-  uniffiTypeRouteManagerObjectFactory,
-);
+const FfiConverterTypeRouteManager = new FfiConverterObject(uniffiTypeRouteManagerObjectFactory);
 
 export interface SectionManagerLike {
   accept(sectionId: string) /*throws*/ : void;
@@ -15229,22 +14325,18 @@ export interface SectionManagerLike {
     name: string | undefined,
     sourceActivityId: string | undefined,
     startIndex: /*u32*/ number | undefined,
-    endIndex: /*u32*/ number | undefined,
+    endIndex: /*u32*/ number | undefined
   ) /*throws*/ : string;
   delete_(sectionId: string) /*throws*/ : void;
   disable(sectionId: string) /*throws*/ : void;
   enable(sectionId: string) /*throws*/ : void;
   excludeActivity(sectionId: string, activityId: string) /*throws*/ : void;
-  excludeLap(
-    sectionId: string,
-    activityId: string,
-    startIndex: /*u32*/ number,
-  ) /*throws*/ : void;
+  excludeLap(sectionId: string, activityId: string, startIndex: /*u32*/ number) /*throws*/ : void;
   expandBounds(
     sectionId: string,
     activityId: string,
     startIndex: /*u32*/ number,
-    endIndex: /*u32*/ number,
+    endIndex: /*u32*/ number
   ) /*throws*/ : void;
   /**
    * Auto sections the given custom section covers, in one read.
@@ -15255,19 +14347,15 @@ export interface SectionManagerLike {
    */
   findSuperseded(
     customSectionId: string,
-    overlapThreshold: /*f64*/ number,
+    overlapThreshold: /*f64*/ number
   ) /*throws*/ : Array<string>;
   getAllNames() /*throws*/ : Map<string, string>;
   /**
    * Get ALL section summaries including disabled/superseded (for restore UI).
    */
-  getAllSummariesIncludingHidden(
-    sportType: string | undefined,
-  ) /*throws*/ : Array<SectionSummary>;
+  getAllSummariesIncludingHidden(sportType: string | undefined) /*throws*/ : Array<SectionSummary>;
   getById(sectionId: string) /*throws*/ : FfiSection | undefined;
-  getCalendarSummary(
-    sectionId: string,
-  ) /*throws*/ : FfiCalendarSummary | undefined;
+  getCalendarSummary(sectionId: string) /*throws*/ : FfiCalendarSummary | undefined;
   /**
    * Pre-computed chart payload for the section-detail screen: per-lap
    * points, speed ranks, best/avg/last stats - all in one FFI round-trip.
@@ -15276,7 +14364,7 @@ export interface SectionManagerLike {
   getChartData(
     sectionId: string,
     timeRangeDays: /*u32*/ number,
-    sportFilter: string | undefined,
+    sportFilter: string | undefined
   ) /*throws*/ : FfiSectionChartData;
   /**
    * Total number of sections, without deserializing any section blobs.
@@ -15291,7 +14379,7 @@ export interface SectionManagerLike {
    */
   getDetailData(
     sectionId: string,
-    nearbyRadiusMeters: /*f64*/ number,
+    nearbyRadiusMeters: /*f64*/ number
   ) /*throws*/ : FfiSectionDetailData;
   /**
    * The lap-time reads for the section detail screen: calendar summary,
@@ -15301,27 +14389,18 @@ export interface SectionManagerLike {
   getDetailPerformance(
     sectionId: string,
     timeRangeDays: /*u32*/ number,
-    sportFilter: string | undefined,
+    sportFilter: string | undefined
   ) /*throws*/ : FfiSectionPerformanceData;
-  getEfficiencyTrend(
-    sectionId: string,
-  ) /*throws*/ : FfiEfficiencyTrend | undefined;
+  getEfficiencyTrend(sectionId: string) /*throws*/ : FfiEfficiencyTrend | undefined;
   getExcludedActivities(sectionId: string) /*throws*/ : Array<string>;
   getExcludedLaps(sectionId: string) /*throws*/ : Array<FfiExcludedLap>;
-  getExcludedPerformances(
-    sectionId: string,
-  ) /*throws*/ : FfiSectionPerformanceResult;
+  getExcludedPerformances(sectionId: string) /*throws*/ : FfiSectionPerformanceResult;
   getExtensionTrack(sectionId: string) /*throws*/ : FfiSectionExtensionTrack;
   /**
    * A stored version's line, coordinate-encoded like a section polyline.
    */
-  getGeometryVersionCoords(
-    sectionId: string,
-    version: /*i64*/ bigint,
-  ) /*throws*/ : ArrayBuffer;
-  getGeometryVersions(
-    sectionId: string,
-  ) /*throws*/ : Array<FfiSectionGeometryVersion>;
+  getGeometryVersionCoords(sectionId: string, version: /*i64*/ bigint) /*throws*/ : ArrayBuffer;
+  getGeometryVersions(sectionId: string) /*throws*/ : Array<FfiSectionGeometryVersion>;
   getHistory(sectionId: string) /*throws*/ : Array<FfiSectionHistoryEvent>;
   getLineages() /*throws*/ : Array<FfiSectionLineage>;
   getNamedCorridors() /*throws*/ : Array<FfiNamedCorridor>;
@@ -15335,11 +14414,11 @@ export interface SectionManagerLike {
     latitude: /*f64*/ number,
     longitude: /*f64*/ number,
     sportType: string | undefined,
-    radiusMeters: /*f64*/ number,
+    radiusMeters: /*f64*/ number
   ) /*throws*/ : Array<FfiSectionNearPoint>;
   getPerformances(
     sectionId: string,
-    sportType: string | undefined,
+    sportType: string | undefined
   ) /*throws*/ : FfiSectionPerformanceResult;
   /**
    * Tier 3.2: batched section-performance fetch. Returns one entry per
@@ -15349,7 +14428,7 @@ export interface SectionManagerLike {
    */
   getPerformancesBatch(
     sectionIds: Array<string>,
-    sportType: string | undefined,
+    sportType: string | undefined
   ) /*throws*/ : Array<FfiSectionPerformanceBatchEntry>;
   getPinnedVersion(sectionId: string) /*throws*/ : /*i64*/ bigint | undefined;
   /**
@@ -15380,7 +14459,7 @@ export interface SectionManagerLike {
    */
   getSummaries(
     filter: FfiSectionFilter,
-    sortKey: string | undefined,
+    sortKey: string | undefined
   ) /*throws*/ : FfiSectionSummariesResult;
   /**
    * Home-screen "Sections for you" list. Composes ML ranking + performance
@@ -15389,14 +14468,10 @@ export interface SectionManagerLike {
    */
   getWorkoutSections(
     sportType: string,
-    limit: /*u32*/ number,
+    limit: /*u32*/ number
   ) /*throws*/ : Array<FfiWorkoutSection>;
   includeActivity(sectionId: string, activityId: string) /*throws*/ : void;
-  includeLap(
-    sectionId: string,
-    activityId: string,
-    startIndex: /*u32*/ number,
-  ) /*throws*/ : void;
+  includeLap(sectionId: string, activityId: string, startIndex: /*u32*/ number) /*throws*/ : void;
   /**
    * Cheap post-ingest indexing for one freshly downloaded activity: match it
    * against existing sections, insert junction rows, regroup incrementally,
@@ -15408,9 +14483,7 @@ export interface SectionManagerLike {
    * Match an activity's GPS track against all existing sections.
    * Returns all matches found (may be empty if activity doesn't traverse any section).
    */
-  matchActivityToSections(
-    activityId: string,
-  ) /*throws*/ : Array<FfiSectionMatch>;
+  matchActivityToSections(activityId: string) /*throws*/ : Array<FfiSectionMatch>;
   /**
    * Merge two sections. Moves all traversal history from secondary into primary.
    * Recomputes consensus polyline. Deletes secondary. Returns the primary section ID.
@@ -15420,25 +14493,15 @@ export interface SectionManagerLike {
    * Force-match a single activity to a specific section with relaxed thresholds.
    * Returns true if a match was found and the section_activities row was inserted.
    */
-  rematchActivityToSection(
-    activityId: string,
-    sectionId: string,
-  ) /*throws*/ : boolean;
+  rematchActivityToSection(activityId: string, sectionId: string) /*throws*/ : boolean;
   removeNamedCorridor(intentId: string) /*throws*/ : void;
   resetBounds(sectionId: string) /*throws*/ : void;
   resetReference(sectionId: string) /*throws*/ : void;
   revertToVersion(sectionId: string, version: /*i64*/ bigint) /*throws*/ : void;
   setName(sectionId: string, name: string) /*throws*/ : void;
   setReference(sectionId: string, activityId: string) /*throws*/ : void;
-  setSuperseded(
-    autoSectionId: string,
-    customSectionId: string,
-  ) /*throws*/ : void;
-  trim(
-    sectionId: string,
-    startIndex: /*u32*/ number,
-    endIndex: /*u32*/ number,
-  ) /*throws*/ : void;
+  setSuperseded(autoSectionId: string, customSectionId: string) /*throws*/ : void;
+  trim(sectionId: string, startIndex: /*u32*/ number, endIndex: /*u32*/ number) /*throws*/ : void;
   unpin(sectionId: string) /*throws*/ : void;
 }
 /**
@@ -15446,74 +14509,62 @@ export interface SectionManagerLike {
  */
 export type SectionManagerInterface = SectionManagerLike;
 
-export class SectionManager
-  extends UniffiAbstractObject
-  implements SectionManagerLike
-{
-  readonly [uniffiTypeNameSymbol] = "SectionManager";
+export class SectionManager extends UniffiAbstractObject implements SectionManagerLike {
+  readonly [uniffiTypeNameSymbol] = 'SectionManager';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   constructor() {
     super();
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_sectionmanager_new(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_sectionmanager_new(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeSectionManagerObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeSectionManagerObjectFactory.bless(pointer);
   }
 
   accept(sectionId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_accept(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   acceptAll(): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_accept_all(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   clearSuperseded(customSectionId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_clear_superseded(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(customSectionId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -15524,13 +14575,11 @@ export class SectionManager
     name: string | undefined,
     sourceActivityId: string | undefined,
     startIndex: /*u32*/ number | undefined,
-    endIndex: /*u32*/ number | undefined,
+    endIndex: /*u32*/ number | undefined
   ): string /*throws*/ {
     return FfiConverterString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_create(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
@@ -15541,98 +14590,84 @@ export class SectionManager
             FfiConverterOptionalString.lower(sourceActivityId),
             FfiConverterOptionalUInt32.lower(startIndex),
             FfiConverterOptionalUInt32.lower(endIndex),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   delete_(sectionId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_delete(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   disable(sectionId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_disable(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   enable(sectionId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_enable(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   excludeActivity(sectionId: string, activityId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_exclude_activity(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
           FfiConverterString.lower(activityId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
-  excludeLap(
-    sectionId: string,
-    activityId: string,
-    startIndex: /*u32*/ number,
-  ): void /*throws*/ {
+  excludeLap(sectionId: string, activityId: string, startIndex: /*u32*/ number): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_exclude_lap(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
           FfiConverterString.lower(activityId),
           FfiConverterUInt32.lower(startIndex),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -15640,12 +14675,10 @@ export class SectionManager
     sectionId: string,
     activityId: string,
     startIndex: /*u32*/ number,
-    endIndex: /*u32*/ number,
+    endIndex: /*u32*/ number
   ): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
@@ -15653,10 +14686,10 @@ export class SectionManager
           FfiConverterString.lower(activityId),
           FfiConverterUInt32.lower(startIndex),
           FfiConverterUInt32.lower(endIndex),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -15669,101 +14702,87 @@ export class SectionManager
    */
   findSuperseded(
     customSectionId: string,
-    overlapThreshold: /*f64*/ number,
+    overlapThreshold: /*f64*/ number
   ): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_find_superseded(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(customSectionId),
             FfiConverterFloat64.lower(overlapThreshold),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getAllNames(): Map<string, string> /*throws*/ {
     return FfiConverterMapStringString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   /**
    * Get ALL section summaries including disabled/superseded (for restore UI).
    */
-  getAllSummariesIncludingHidden(
-    sportType: string | undefined,
-  ): Array<SectionSummary> /*throws*/ {
+  getAllSummariesIncludingHidden(sportType: string | undefined): Array<SectionSummary> /*throws*/ {
     return FfiConverterArrayTypeSectionSummary.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_summaries_including_hidden(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterOptionalString.lower(sportType),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getById(sectionId: string): FfiSection | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiSection.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_by_id(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
-  getCalendarSummary(
-    sectionId: string,
-  ): FfiCalendarSummary | undefined /*throws*/ {
+  getCalendarSummary(sectionId: string): FfiCalendarSummary | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiCalendarSummary.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_calendar_summary(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -15775,24 +14794,22 @@ export class SectionManager
   getChartData(
     sectionId: string,
     timeRangeDays: /*u32*/ number,
-    sportFilter: string | undefined,
+    sportFilter: string | undefined
   ): FfiSectionChartData /*throws*/ {
     return FfiConverterTypeFfiSectionChartData.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_chart_data(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
             FfiConverterUInt32.lower(timeRangeDays),
             FfiConverterOptionalString.lower(sportFilter),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -15803,17 +14820,15 @@ export class SectionManager
   getCount(): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_count(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -15825,23 +14840,21 @@ export class SectionManager
    */
   getDetailData(
     sectionId: string,
-    nearbyRadiusMeters: /*f64*/ number,
+    nearbyRadiusMeters: /*f64*/ number
   ): FfiSectionDetailData /*throws*/ {
     return FfiConverterTypeFfiSectionDetailData.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_detail_data(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
             FfiConverterFloat64.lower(nearbyRadiusMeters),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -15853,215 +14866,184 @@ export class SectionManager
   getDetailPerformance(
     sectionId: string,
     timeRangeDays: /*u32*/ number,
-    sportFilter: string | undefined,
+    sportFilter: string | undefined
   ): FfiSectionPerformanceData /*throws*/ {
     return FfiConverterTypeFfiSectionPerformanceData.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_detail_performance(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
             FfiConverterUInt32.lower(timeRangeDays),
             FfiConverterOptionalString.lower(sportFilter),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
-  getEfficiencyTrend(
-    sectionId: string,
-  ): FfiEfficiencyTrend | undefined /*throws*/ {
+  getEfficiencyTrend(sectionId: string): FfiEfficiencyTrend | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiEfficiencyTrend.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_efficiency_trend(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getExcludedActivities(sectionId: string): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_activities(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getExcludedLaps(sectionId: string): Array<FfiExcludedLap> /*throws*/ {
     return FfiConverterArrayTypeFfiExcludedLap.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_laps(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
-  getExcludedPerformances(
-    sectionId: string,
-  ): FfiSectionPerformanceResult /*throws*/ {
+  getExcludedPerformances(sectionId: string): FfiSectionPerformanceResult /*throws*/ {
     return FfiConverterTypeFfiSectionPerformanceResult.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_performances(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getExtensionTrack(sectionId: string): FfiSectionExtensionTrack /*throws*/ {
     return FfiConverterTypeFfiSectionExtensionTrack.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_extension_track(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   /**
    * A stored version's line, coordinate-encoded like a section polyline.
    */
-  getGeometryVersionCoords(
-    sectionId: string,
-    version: /*i64*/ bigint,
-  ): ArrayBuffer /*throws*/ {
+  getGeometryVersionCoords(sectionId: string, version: /*i64*/ bigint): ArrayBuffer /*throws*/ {
     return FfiConverterArrayBuffer.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_version_coords(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
             FfiConverterInt64.lower(version),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
-  getGeometryVersions(
-    sectionId: string,
-  ): Array<FfiSectionGeometryVersion> /*throws*/ {
+  getGeometryVersions(sectionId: string): Array<FfiSectionGeometryVersion> /*throws*/ {
     return FfiConverterArrayTypeFfiSectionGeometryVersion.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_versions(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getHistory(sectionId: string): Array<FfiSectionHistoryEvent> /*throws*/ {
     return FfiConverterArrayTypeFfiSectionHistoryEvent.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_history(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getLineages(): Array<FfiSectionLineage> /*throws*/ {
     return FfiConverterArrayTypeFfiSectionLineage.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_lineages(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getNamedCorridors(): Array<FfiNamedCorridor> /*throws*/ {
     return FfiConverterArrayTypeFfiNamedCorridor.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -16075,13 +15057,11 @@ export class SectionManager
     latitude: /*f64*/ number,
     longitude: /*f64*/ number,
     sportType: string | undefined,
-    radiusMeters: /*f64*/ number,
+    radiusMeters: /*f64*/ number
   ): Array<FfiSectionNearPoint> /*throws*/ {
     return FfiConverterArrayTypeFfiSectionNearPoint.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_near_point(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
@@ -16089,33 +15069,31 @@ export class SectionManager
             FfiConverterFloat64.lower(longitude),
             FfiConverterOptionalString.lower(sportType),
             FfiConverterFloat64.lower(radiusMeters),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getPerformances(
     sectionId: string,
-    sportType: string | undefined,
+    sportType: string | undefined
   ): FfiSectionPerformanceResult /*throws*/ {
     return FfiConverterTypeFfiSectionPerformanceResult.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_performances(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
             FfiConverterOptionalString.lower(sportType),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -16127,41 +15105,37 @@ export class SectionManager
    */
   getPerformancesBatch(
     sectionIds: Array<string>,
-    sportType: string | undefined,
+    sportType: string | undefined
   ): Array<FfiSectionPerformanceBatchEntry> /*throws*/ {
     return FfiConverterArrayTypeFfiSectionPerformanceBatchEntry.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_performances_batch(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterArrayString.lower(sectionIds),
             FfiConverterOptionalString.lower(sportType),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getPinnedVersion(sectionId: string): /*i64*/ bigint | undefined /*throws*/ {
     return FfiConverterOptionalInt64.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_pinned_version(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -16173,71 +15147,63 @@ export class SectionManager
   getPolyline(sectionId: string): ArrayBuffer /*throws*/ {
     return FfiConverterArrayBuffer.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_polyline(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getRecentChanges(days: /*u32*/ number): Array<FfiSectionChange> /*throws*/ {
     return FfiConverterArrayTypeFfiSectionChange.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_recent_changes(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterUInt32.lower(days),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getReferenceInfo(sectionId: string): FfiSectionReferenceInfo /*throws*/ {
     return FfiConverterTypeFfiSectionReferenceInfo.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_reference_info(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getRetired(): Array<FfiRetiredSection> /*throws*/ {
     return FfiConverterArrayTypeFfiRetiredSection.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_retired(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -16252,18 +15218,16 @@ export class SectionManager
   getSections(filter: FfiSectionFilter): Array<FfiSection> /*throws*/ {
     return FfiConverterArrayTypeFfiSection.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_sections(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterTypeFfiSectionFilter.lower(filter),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -16277,23 +15241,21 @@ export class SectionManager
    */
   getSummaries(
     filter: FfiSectionFilter,
-    sortKey: string | undefined,
+    sortKey: string | undefined
   ): FfiSectionSummariesResult /*throws*/ {
     return FfiConverterTypeFfiSectionSummariesResult.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_summaries(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterTypeFfiSectionFilter.lower(filter),
             FfiConverterOptionalString.lower(sortKey),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -16304,62 +15266,52 @@ export class SectionManager
    */
   getWorkoutSections(
     sportType: string,
-    limit: /*u32*/ number,
+    limit: /*u32*/ number
   ): Array<FfiWorkoutSection> /*throws*/ {
     return FfiConverterArrayTypeFfiWorkoutSection.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_workout_sections(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sportType),
             FfiConverterUInt32.lower(limit),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   includeActivity(sectionId: string, activityId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_include_activity(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
           FfiConverterString.lower(activityId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
-  includeLap(
-    sectionId: string,
-    activityId: string,
-    startIndex: /*u32*/ number,
-  ): void /*throws*/ {
+  includeLap(sectionId: string, activityId: string, startIndex: /*u32*/ number): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_include_lap(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
           FfiConverterString.lower(activityId),
           FfiConverterUInt32.lower(startIndex),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -16372,18 +15324,16 @@ export class SectionManager
   indexNewActivity(activityId: string): FfiIndexActivitySummary /*throws*/ {
     return FfiConverterTypeFfiIndexActivitySummary.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_index_new_activity(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -16391,23 +15341,19 @@ export class SectionManager
    * Match an activity's GPS track against all existing sections.
    * Returns all matches found (may be empty if activity doesn't traverse any section).
    */
-  matchActivityToSections(
-    activityId: string,
-  ): Array<FfiSectionMatch> /*throws*/ {
+  matchActivityToSections(activityId: string): Array<FfiSectionMatch> /*throws*/ {
     return FfiConverterArrayTypeFfiSectionMatch.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_match_activity_to_sections(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -16418,19 +15364,17 @@ export class SectionManager
   mergeSections(primaryId: string, secondaryId: string): string /*throws*/ {
     return FfiConverterString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_merge_sections(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(primaryId),
             FfiConverterString.lower(secondaryId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -16438,182 +15382,152 @@ export class SectionManager
    * Force-match a single activity to a specific section with relaxed thresholds.
    * Returns true if a match was found and the section_activities row was inserted.
    */
-  rematchActivityToSection(
-    activityId: string,
-    sectionId: string,
-  ): boolean /*throws*/ {
+  rematchActivityToSection(activityId: string, sectionId: string): boolean /*throws*/ {
     return FfiConverterBool.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_rematch_activity_to_section(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
             FfiConverterString.lower(sectionId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   removeNamedCorridor(intentId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_remove_named_corridor(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(intentId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   resetBounds(sectionId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_reset_bounds(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   resetReference(sectionId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_reset_reference(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   revertToVersion(sectionId: string, version: /*i64*/ bigint): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_revert_to_version(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
           FfiConverterInt64.lower(version),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   setName(sectionId: string, name: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_name(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
           FfiConverterString.lower(name),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   setReference(sectionId: string, activityId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_reference(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
           FfiConverterString.lower(activityId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
-  setSuperseded(
-    autoSectionId: string,
-    customSectionId: string,
-  ): void /*throws*/ {
+  setSuperseded(autoSectionId: string, customSectionId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_superseded(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(autoSectionId),
           FfiConverterString.lower(customSectionId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
-  trim(
-    sectionId: string,
-    startIndex: /*u32*/ number,
-    endIndex: /*u32*/ number,
-  ): void /*throws*/ {
+  trim(sectionId: string, startIndex: /*u32*/ number, endIndex: /*u32*/ number): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_trim(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
           FfiConverterUInt32.lower(startIndex),
           FfiConverterUInt32.lower(endIndex),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
   unpin(sectionId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_unpin(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -16635,73 +15549,63 @@ export class SectionManager
   }
 }
 
-const uniffiTypeSectionManagerObjectFactory: UniffiObjectFactory<SectionManagerLike> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): SectionManagerLike {
-        const instance = Object.create(SectionManager.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "SectionManager";
-        return instance;
-      },
+const uniffiTypeSectionManagerObjectFactory: UniffiObjectFactory<SectionManagerLike> = (() => {
+  return {
+    create(pointer: UniffiHandle): SectionManagerLike {
+      const instance = Object.create(SectionManager.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'SectionManager';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_sectionmanager_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_sectionmanager_ffi__bless_pointer(
+            p,
+            status
+          ),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: SectionManagerLike): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: SectionManagerLike): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: SectionManagerLike): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_sectionmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: SectionManagerLike): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_sectionmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_sectionmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_sectionmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is SectionManagerLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "SectionManager"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is SectionManagerLike {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'SectionManager';
+    },
+  };
+})();
 // FfiConverter for SectionManagerLike
 const FfiConverterTypeSectionManager = new FfiConverterObject(
-  uniffiTypeSectionManagerObjectFactory,
+  uniffiTypeSectionManagerObjectFactory
 );
 
 export interface SectionPreviewLike {
@@ -16723,10 +15627,7 @@ export interface SectionPreviewLike {
    * catalogue the next run will diff against. None when no activity covers
    * the point.
    */
-  current(
-    lat: /*f64*/ number,
-    lng: /*f64*/ number,
-  ) /*throws*/ : string | undefined;
+  current(lat: /*f64*/ number, lng: /*f64*/ number) /*throws*/ : string | undefined;
   getProgress() /*throws*/ : FfiDetectionProgress | undefined;
   /**
    * "idle" | "running" | "complete" | "cancelled" | "pool_unusable" | "error"
@@ -16739,11 +15640,7 @@ export interface SectionPreviewLike {
    * detect is running, detection is suspended for a backfill, or no
    * activity covers the point.
    */
-  start(
-    lat: /*f64*/ number,
-    lng: /*f64*/ number,
-    config: FfiSectionConfig,
-  ) /*throws*/ : boolean;
+  start(lat: /*f64*/ number, lng: /*f64*/ number, config: FfiSectionConfig) /*throws*/ : boolean;
   /**
    * The one JSON payload, once. None while running or after taken.
    */
@@ -16754,26 +15651,20 @@ export interface SectionPreviewLike {
  */
 export type SectionPreviewInterface = SectionPreviewLike;
 
-export class SectionPreview
-  extends UniffiAbstractObject
-  implements SectionPreviewLike
-{
-  readonly [uniffiTypeNameSymbol] = "SectionPreview";
+export class SectionPreview extends UniffiAbstractObject implements SectionPreviewLike {
+  readonly [uniffiTypeNameSymbol] = 'SectionPreview';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   constructor() {
     super();
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_sectionpreview_new(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_sectionpreview_new(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeSectionPreviewObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeSectionPreviewObjectFactory.bless(pointer);
   }
 
   /**
@@ -16782,16 +15673,14 @@ export class SectionPreview
    */
   cancel(): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_cancel(
           uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -16803,18 +15692,16 @@ export class SectionPreview
   centres(limit: /*u32*/ number): Array<FfiPreviewCentre> /*throws*/ {
     return FfiConverterArrayTypeFfiPreviewCentre.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_centres(
             uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
             FfiConverterUInt32.lower(limit),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -16825,42 +15712,35 @@ export class SectionPreview
    * catalogue the next run will diff against. None when no activity covers
    * the point.
    */
-  current(
-    lat: /*f64*/ number,
-    lng: /*f64*/ number,
-  ): string | undefined /*throws*/ {
+  current(lat: /*f64*/ number, lng: /*f64*/ number): string | undefined /*throws*/ {
     return FfiConverterOptionalString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_current(
             uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
             FfiConverterFloat64.lower(lat),
             FfiConverterFloat64.lower(lng),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getProgress(): FfiDetectionProgress | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiDetectionProgress.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_get_progress(
             uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -16870,17 +15750,15 @@ export class SectionPreview
   poll(): string /*throws*/ {
     return FfiConverterString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_poll(
             uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -16891,27 +15769,21 @@ export class SectionPreview
    * detect is running, detection is suspended for a backfill, or no
    * activity covers the point.
    */
-  start(
-    lat: /*f64*/ number,
-    lng: /*f64*/ number,
-    config: FfiSectionConfig,
-  ): boolean /*throws*/ {
+  start(lat: /*f64*/ number, lng: /*f64*/ number, config: FfiSectionConfig): boolean /*throws*/ {
     return FfiConverterBool.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_start(
             uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
             FfiConverterFloat64.lower(lat),
             FfiConverterFloat64.lower(lng),
             FfiConverterTypeFfiSectionConfig.lower(config),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -16921,17 +15793,15 @@ export class SectionPreview
   takeResult(): string | undefined /*throws*/ {
     return FfiConverterOptionalString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_take_result(
             uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -16953,73 +15823,63 @@ export class SectionPreview
   }
 }
 
-const uniffiTypeSectionPreviewObjectFactory: UniffiObjectFactory<SectionPreviewLike> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): SectionPreviewLike {
-        const instance = Object.create(SectionPreview.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "SectionPreview";
-        return instance;
-      },
+const uniffiTypeSectionPreviewObjectFactory: UniffiObjectFactory<SectionPreviewLike> = (() => {
+  return {
+    create(pointer: UniffiHandle): SectionPreviewLike {
+      const instance = Object.create(SectionPreview.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'SectionPreview';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_sectionpreview_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_sectionpreview_ffi__bless_pointer(
+            p,
+            status
+          ),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: SectionPreviewLike): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: SectionPreviewLike): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: SectionPreviewLike): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_sectionpreview(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: SectionPreviewLike): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_sectionpreview(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_sectionpreview(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_sectionpreview(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is SectionPreviewLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "SectionPreview"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is SectionPreviewLike {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'SectionPreview';
+    },
+  };
+})();
 // FfiConverter for SectionPreviewLike
 const FfiConverterTypeSectionPreview = new FfiConverterObject(
-  uniffiTypeSectionPreviewObjectFactory,
+  uniffiTypeSectionPreviewObjectFactory
 );
 
 export interface SettingsManagerLike {
@@ -17042,7 +15902,7 @@ export interface SettingsManagerLike {
   exportPrivacyPreview(
     homeLat: /*f64*/ number,
     homeLng: /*f64*/ number,
-    radiusM: /*f64*/ number,
+    radiusM: /*f64*/ number
   ) /*throws*/ : ExportPrivacyPreview;
   getAthleteProfile() /*throws*/ : string | undefined;
   /**
@@ -17089,26 +15949,20 @@ export interface SettingsManagerLike {
  */
 export type SettingsManagerInterface = SettingsManagerLike;
 
-export class SettingsManager
-  extends UniffiAbstractObject
-  implements SettingsManagerLike
-{
-  readonly [uniffiTypeNameSymbol] = "SettingsManager";
+export class SettingsManager extends UniffiAbstractObject implements SettingsManagerLike {
+  readonly [uniffiTypeNameSymbol] = 'SettingsManager';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   constructor() {
     super();
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_settingsmanager_new(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_settingsmanager_new(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeSettingsManagerObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeSettingsManagerObjectFactory.bless(pointer);
   }
 
   /**
@@ -17118,16 +15972,14 @@ export class SettingsManager
    */
   clearUserProfileCaches(): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_clear_user_profile_caches(
           uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -17136,17 +15988,15 @@ export class SettingsManager
    */
   deleteSetting(key: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_delete_setting(
           uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(key),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -17159,41 +16009,37 @@ export class SettingsManager
   exportPrivacyPreview(
     homeLat: /*f64*/ number,
     homeLng: /*f64*/ number,
-    radiusM: /*f64*/ number,
+    radiusM: /*f64*/ number
   ): ExportPrivacyPreview /*throws*/ {
     return FfiConverterTypeExportPrivacyPreview.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_export_privacy_preview(
             uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
             FfiConverterFloat64.lower(homeLat),
             FfiConverterFloat64.lower(homeLng),
             FfiConverterFloat64.lower(radiusM),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getAthleteProfile(): string | undefined /*throws*/ {
     return FfiConverterOptionalString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_athlete_profile(
             uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17203,51 +16049,45 @@ export class SettingsManager
   getSetting(key: string): string | undefined /*throws*/ {
     return FfiConverterOptionalString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_setting(
             uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(key),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getSportSettings(): string | undefined /*throws*/ {
     return FfiConverterOptionalString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings(
             uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   setAthleteProfile(json: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
           uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(json),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -17256,18 +16096,16 @@ export class SettingsManager
    */
   setSetting(key: string, value: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_setting(
           uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(key),
           FfiConverterString.lower(value),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -17278,34 +16116,30 @@ export class SettingsManager
   setSettings(pairs: Array<SettingPair>): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_settings(
             uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
             FfiConverterArrayTypeSettingPair.lower(pairs),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   setSportSettings(json: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_sport_settings(
           uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(json),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -17315,17 +16149,15 @@ export class SettingsManager
    */
   setStreamRetentionDays(days: /*i64*/ bigint): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_stream_retention_days(
           uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
           FfiConverterInt64.lower(days),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -17338,17 +16170,15 @@ export class SettingsManager
   streamRetentionDays(): /*i64*/ bigint /*throws*/ {
     return FfiConverterInt64.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_stream_retention_days(
             uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17358,17 +16188,15 @@ export class SettingsManager
   streamStoreBytes(): /*i64*/ bigint /*throws*/ {
     return FfiConverterInt64.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_stream_store_bytes(
             uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17380,17 +16208,15 @@ export class SettingsManager
   suggestExportHome(): SuggestedHome | undefined /*throws*/ {
     return FfiConverterOptionalTypeSuggestedHome.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_suggest_export_home(
             uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17412,73 +16238,63 @@ export class SettingsManager
   }
 }
 
-const uniffiTypeSettingsManagerObjectFactory: UniffiObjectFactory<SettingsManagerLike> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): SettingsManagerLike {
-        const instance = Object.create(SettingsManager.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "SettingsManager";
-        return instance;
-      },
+const uniffiTypeSettingsManagerObjectFactory: UniffiObjectFactory<SettingsManagerLike> = (() => {
+  return {
+    create(pointer: UniffiHandle): SettingsManagerLike {
+      const instance = Object.create(SettingsManager.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'SettingsManager';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_settingsmanager_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_settingsmanager_ffi__bless_pointer(
+            p,
+            status
+          ),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: SettingsManagerLike): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: SettingsManagerLike): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: SettingsManagerLike): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_settingsmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: SettingsManagerLike): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_settingsmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_settingsmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_settingsmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is SettingsManagerLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "SettingsManager"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is SettingsManagerLike {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'SettingsManager';
+    },
+  };
+})();
 // FfiConverter for SettingsManagerLike
 const FfiConverterTypeSettingsManager = new FfiConverterObject(
-  uniffiTypeSettingsManagerObjectFactory,
+  uniffiTypeSettingsManagerObjectFactory
 );
 
 export interface StrengthManagerLike {
@@ -17498,10 +16314,7 @@ export interface StrengthManagerLike {
    * fetch_and_parse_exercise_sets. Also marks the activity as FIT-processed
    * so the normal code path won't attempt to re-download.
    */
-  bulkInsertExerciseSets(
-    activityId: string,
-    sets: Array<FfiExerciseSet>,
-  ) /*throws*/ : void;
+  bulkInsertExerciseSets(activityId: string, sets: Array<FfiExerciseSet>) /*throws*/ : void;
   /**
    * Start a FIT download for one activity, parse its exercise sets and store
    * them. Returns false when a download for this activity is already in
@@ -17521,7 +16334,7 @@ export interface StrengthManagerLike {
     startTs: /*i64*/ bigint,
     endTs: /*i64*/ bigint,
     muscleSlug: string,
-    exerciseCategory: /*u16*/ number,
+    exerciseCategory: /*u16*/ number
   ) /*throws*/ : FfiExerciseActivities;
   /**
    * Get cached exercise sets for an activity (from SQLite).
@@ -17535,17 +16348,14 @@ export interface StrengthManagerLike {
   getExercisesForMuscle(
     startTs: /*i64*/ bigint,
     endTs: /*i64*/ bigint,
-    muscleSlug: string,
+    muscleSlug: string
   ) /*throws*/ : FfiMuscleExerciseSummary;
   /**
    * Per-activity muscle detail: groups exercise sets by display name,
    * classifies primary/secondary role, returns totals + sorted exercise
    * list. Replaces the group-by/reduce loop in `useMuscleDetail.ts`.
    */
-  getMuscleDetail(
-    activityId: string,
-    muscleSlug: string,
-  ) /*throws*/ : FfiMuscleGroupDetail;
+  getMuscleDetail(activityId: string, muscleSlug: string) /*throws*/ : FfiMuscleGroupDetail;
   /**
    * Get aggregated muscle groups for an activity.
    * Returns slugs matching react-native-body-highlighter format.
@@ -17558,22 +16368,18 @@ export interface StrengthManagerLike {
    */
   getStrengthSummary(
     startTs: /*i64*/ bigint,
-    endTs: /*i64*/ bigint,
+    endTs: /*i64*/ bigint
   ) /*throws*/ : FfiStrengthSummary;
   /**
    * Batch variant of `get_strength_summary`. Aggregates each range under a
    * single engine lock, so the insights hook can request a monthly window
    * plus N trailing weekly windows in one FFI round-trip.
    */
-  getStrengthSummaryBatch(
-    ranges: Array<FfiTimestampRange>,
-  ) /*throws*/ : Array<FfiStrengthSummary>;
+  getStrengthSummaryBatch(ranges: Array<FfiTimestampRange>) /*throws*/ : Array<FfiStrengthSummary>;
   /**
    * Get activity IDs from the input list that have not been FIT-processed yet.
    */
-  getUnprocessedStrengthIds(
-    activityIds: Array<string>,
-  ) /*throws*/ : Array<string>;
+  getUnprocessedStrengthIds(activityIds: Array<string>) /*throws*/ : Array<string>;
   /**
    * Check if there are any strength activities with exercise data.
    */
@@ -17585,10 +16391,7 @@ export interface StrengthManagerLike {
    * file, backup). Also marks the activity as FIT-processed so the
    * network path won't attempt to re-download.
    */
-  importSetsFromFit(
-    activityId: string,
-    fitBytes: ArrayBuffer,
-  ) /*throws*/ : /*u32*/ number;
+  importSetsFromFit(activityId: string, fitBytes: ArrayBuffer) /*throws*/ : /*u32*/ number;
   /**
    * Check if FIT file has been processed for this activity.
    */
@@ -17599,26 +16402,20 @@ export interface StrengthManagerLike {
  */
 export type StrengthManagerInterface = StrengthManagerLike;
 
-export class StrengthManager
-  extends UniffiAbstractObject
-  implements StrengthManagerLike
-{
-  readonly [uniffiTypeNameSymbol] = "StrengthManager";
+export class StrengthManager extends UniffiAbstractObject implements StrengthManagerLike {
+  readonly [uniffiTypeNameSymbol] = 'StrengthManager';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   constructor() {
     super();
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_strengthmanager_new(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_strengthmanager_new(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeStrengthManagerObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeStrengthManagerObjectFactory.bless(pointer);
   }
 
   /**
@@ -17636,11 +16433,11 @@ export class StrengthManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterArrayString.lower(activityIds),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17651,23 +16448,18 @@ export class StrengthManager
    * fetch_and_parse_exercise_sets. Also marks the activity as FIT-processed
    * so the normal code path won't attempt to re-download.
    */
-  bulkInsertExerciseSets(
-    activityId: string,
-    sets: Array<FfiExerciseSet>,
-  ): void /*throws*/ {
+  bulkInsertExerciseSets(activityId: string, sets: Array<FfiExerciseSet>): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
           uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(activityId),
           FfiConverterArrayTypeFfiExerciseSet.lower(sets),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -17688,11 +16480,11 @@ export class StrengthManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17704,13 +16496,11 @@ export class StrengthManager
     startTs: /*i64*/ bigint,
     endTs: /*i64*/ bigint,
     muscleSlug: string,
-    exerciseCategory: /*u16*/ number,
+    exerciseCategory: /*u16*/ number
   ): FfiExerciseActivities /*throws*/ {
     return FfiConverterTypeFfiExerciseActivities.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_activities_for_exercise(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
@@ -17718,11 +16508,11 @@ export class StrengthManager
             FfiConverterInt64.lower(endTs),
             FfiConverterString.lower(muscleSlug),
             FfiConverterUInt16.lower(exerciseCategory),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17733,18 +16523,16 @@ export class StrengthManager
   getExerciseSets(activityId: string): Array<FfiExerciseSet> /*throws*/ {
     return FfiConverterArrayTypeFfiExerciseSet.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercise_sets(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17755,24 +16543,22 @@ export class StrengthManager
   getExercisesForMuscle(
     startTs: /*i64*/ bigint,
     endTs: /*i64*/ bigint,
-    muscleSlug: string,
+    muscleSlug: string
   ): FfiMuscleExerciseSummary /*throws*/ {
     return FfiConverterTypeFfiMuscleExerciseSummary.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercises_for_muscle(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterInt64.lower(startTs),
             FfiConverterInt64.lower(endTs),
             FfiConverterString.lower(muscleSlug),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17781,25 +16567,20 @@ export class StrengthManager
    * classifies primary/secondary role, returns totals + sorted exercise
    * list. Replaces the group-by/reduce loop in `useMuscleDetail.ts`.
    */
-  getMuscleDetail(
-    activityId: string,
-    muscleSlug: string,
-  ): FfiMuscleGroupDetail /*throws*/ {
+  getMuscleDetail(activityId: string, muscleSlug: string): FfiMuscleGroupDetail /*throws*/ {
     return FfiConverterTypeFfiMuscleGroupDetail.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_muscle_detail(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
             FfiConverterString.lower(muscleSlug),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17810,18 +16591,16 @@ export class StrengthManager
   getMuscleGroups(activityId: string): Array<FfiMuscleGroup> /*throws*/ {
     return FfiConverterArrayTypeFfiMuscleGroup.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_muscle_groups(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17832,23 +16611,21 @@ export class StrengthManager
    */
   getStrengthSummary(
     startTs: /*i64*/ bigint,
-    endTs: /*i64*/ bigint,
+    endTs: /*i64*/ bigint
   ): FfiStrengthSummary /*throws*/ {
     return FfiConverterTypeFfiStrengthSummary.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_strength_summary(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterInt64.lower(startTs),
             FfiConverterInt64.lower(endTs),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17857,46 +16634,38 @@ export class StrengthManager
    * single engine lock, so the insights hook can request a monthly window
    * plus N trailing weekly windows in one FFI round-trip.
    */
-  getStrengthSummaryBatch(
-    ranges: Array<FfiTimestampRange>,
-  ): Array<FfiStrengthSummary> /*throws*/ {
+  getStrengthSummaryBatch(ranges: Array<FfiTimestampRange>): Array<FfiStrengthSummary> /*throws*/ {
     return FfiConverterArrayTypeFfiStrengthSummary.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_strength_summary_batch(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterArrayTypeFfiTimestampRange.lower(ranges),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   /**
    * Get activity IDs from the input list that have not been FIT-processed yet.
    */
-  getUnprocessedStrengthIds(
-    activityIds: Array<string>,
-  ): Array<string> /*throws*/ {
+  getUnprocessedStrengthIds(activityIds: Array<string>): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_unprocessed_strength_ids(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterArrayString.lower(activityIds),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17906,17 +16675,15 @@ export class StrengthManager
   hasStrengthData(): boolean /*throws*/ {
     return FfiConverterBool.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_has_strength_data(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17927,25 +16694,20 @@ export class StrengthManager
    * file, backup). Also marks the activity as FIT-processed so the
    * network path won't attempt to re-download.
    */
-  importSetsFromFit(
-    activityId: string,
-    fitBytes: ArrayBuffer,
-  ): /*u32*/ number /*throws*/ {
+  importSetsFromFit(activityId: string, fitBytes: ArrayBuffer): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_import_sets_from_fit(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
             FfiConverterArrayBuffer.lower(fitBytes),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17955,18 +16717,16 @@ export class StrengthManager
   isFitProcessed(activityId: string): boolean /*throws*/ {
     return FfiConverterBool.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_is_fit_processed(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -17988,73 +16748,63 @@ export class StrengthManager
   }
 }
 
-const uniffiTypeStrengthManagerObjectFactory: UniffiObjectFactory<StrengthManagerLike> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): StrengthManagerLike {
-        const instance = Object.create(StrengthManager.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "StrengthManager";
-        return instance;
-      },
+const uniffiTypeStrengthManagerObjectFactory: UniffiObjectFactory<StrengthManagerLike> = (() => {
+  return {
+    create(pointer: UniffiHandle): StrengthManagerLike {
+      const instance = Object.create(StrengthManager.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'StrengthManager';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_strengthmanager_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_strengthmanager_ffi__bless_pointer(
+            p,
+            status
+          ),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: StrengthManagerLike): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: StrengthManagerLike): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: StrengthManagerLike): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_strengthmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: StrengthManagerLike): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_strengthmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_strengthmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_strengthmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is StrengthManagerLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "StrengthManager"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is StrengthManagerLike {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'StrengthManager';
+    },
+  };
+})();
 // FfiConverter for StrengthManagerLike
 const FfiConverterTypeStrengthManager = new FfiConverterObject(
-  uniffiTypeStrengthManagerObjectFactory,
+  uniffiTypeStrengthManagerObjectFactory
 );
 
 /**
@@ -18093,14 +16843,14 @@ export interface SyncManagerLike {
    */
   confirmActivityUploaded(
     intervalsId: string,
-    asyncOpts_?: { signal: AbortSignal },
+    asyncOpts_?: { signal: AbortSignal }
   ): Promise<FfiCallOutcome>;
   /**
    * Create an activity with no file behind it, for indoor entries.
    */
   createManualActivity(
     activity: FfiManualActivity,
-    asyncOpts_?: { signal: AbortSignal },
+    asyncOpts_?: { signal: AbortSignal }
   ): Promise<FfiCallOutcome>;
   /**
    * Current status snapshot.
@@ -18109,20 +16859,13 @@ export interface SyncManagerLike {
   /**
    * Set the credential once (method = "oauth" | "api_key"). Never passed per request.
    */
-  setCredentials(
-    method: string,
-    secret: string,
-    athleteId: string,
-  ) /*throws*/ : void;
+  setCredentials(method: string, secret: string, athleteId: string) /*throws*/ : void;
   /**
    * Fetch and store one date window of activities. Returns instantly,
    * naming whether the job started and, if not, whether asking again later
    * would. The feed calls this for windows the default sync misses.
    */
-  syncActivitiesWindow(
-    oldest: string,
-    newest: string,
-  ) /*throws*/ : FfiStartOutcome;
+  syncActivitiesWindow(oldest: string, newest: string) /*throws*/ : FfiStartOutcome;
   /**
    * Fetch and store an activity's full detail body, replacing the lighter
    * row the list sync wrote.
@@ -18176,7 +16919,7 @@ export interface SyncManagerLike {
     filename: string,
     name: string | undefined,
     pairedEventId: /*i64*/ bigint | undefined,
-    asyncOpts_?: { signal: AbortSignal },
+    asyncOpts_?: { signal: AbortSignal }
   ): Promise<FfiCallOutcome>;
   /**
    * Check a credential against `/athlete/me` and report the athlete it
@@ -18186,7 +16929,7 @@ export interface SyncManagerLike {
   validateCredentials(
     method: string,
     secret: string,
-    asyncOpts_?: { signal: AbortSignal },
+    asyncOpts_?: { signal: AbortSignal }
   ): Promise<FfiCallOutcome>;
 }
 /**
@@ -18197,26 +16940,20 @@ export type SyncManagerInterface = SyncManagerLike;
 /**
  * The FFI service object. The single thing TypeScript calls for I/O.
  */
-export class SyncManager
-  extends UniffiAbstractObject
-  implements SyncManagerLike
-{
-  readonly [uniffiTypeNameSymbol] = "SyncManager";
+export class SyncManager extends UniffiAbstractObject implements SyncManagerLike {
+  readonly [uniffiTypeNameSymbol] = 'SyncManager';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   constructor() {
     super();
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_syncmanager_new(
-          callStatus,
-        );
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_syncmanager_new(callStatus);
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeSyncManagerObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeSyncManagerObjectFactory.bless(pointer);
   }
 
   /**
@@ -18232,11 +16969,11 @@ export class SyncManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_bodies_stored(
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -18248,10 +16985,10 @@ export class SyncManager
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_cancel(
           uniffiTypeSyncManagerObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -18263,10 +17000,10 @@ export class SyncManager
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_clear_credentials(
           uniffiTypeSyncManagerObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -18286,7 +17023,7 @@ export class SyncManager
    */
   async confirmActivityUploaded(
     intervalsId: string,
-    asyncOpts_?: { signal: AbortSignal },
+    asyncOpts_?: { signal: AbortSignal }
   ): Promise<FfiCallOutcome> {
     const __stack = uniffiIsDebug ? new Error().stack : undefined;
     try {
@@ -18295,22 +17032,16 @@ export class SyncManager
         /*rustFutureFunc:*/ () => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(intervalsId),
+            FfiConverterString.lower(intervalsId)
           );
         },
-        /*pollFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
-        /*cancelFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
-        /*completeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
-        /*freeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
-        /*liftFunc:*/ FfiConverterTypeFfiCallOutcome.lift.bind(
-          FfiConverterTypeFfiCallOutcome,
-        ),
+        /*pollFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        /*liftFunc:*/ FfiConverterTypeFfiCallOutcome.lift.bind(FfiConverterTypeFfiCallOutcome),
         /*liftString:*/ FfiConverterString.lift,
-        /*asyncOpts:*/ asyncOpts_,
+        /*asyncOpts:*/ asyncOpts_
       );
     } catch (__error: any) {
       if (uniffiIsDebug && __error instanceof Error) {
@@ -18325,7 +17056,7 @@ export class SyncManager
    */
   async createManualActivity(
     activity: FfiManualActivity,
-    asyncOpts_?: { signal: AbortSignal },
+    asyncOpts_?: { signal: AbortSignal }
   ): Promise<FfiCallOutcome> {
     const __stack = uniffiIsDebug ? new Error().stack : undefined;
     try {
@@ -18334,22 +17065,16 @@ export class SyncManager
         /*rustFutureFunc:*/ () => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_create_manual_activity(
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
-            FfiConverterTypeFfiManualActivity.lower(activity),
+            FfiConverterTypeFfiManualActivity.lower(activity)
           );
         },
-        /*pollFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
-        /*cancelFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
-        /*completeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
-        /*freeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
-        /*liftFunc:*/ FfiConverterTypeFfiCallOutcome.lift.bind(
-          FfiConverterTypeFfiCallOutcome,
-        ),
+        /*pollFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        /*liftFunc:*/ FfiConverterTypeFfiCallOutcome.lift.bind(FfiConverterTypeFfiCallOutcome),
         /*liftString:*/ FfiConverterString.lift,
-        /*asyncOpts:*/ asyncOpts_,
+        /*asyncOpts:*/ asyncOpts_
       );
     } catch (__error: any) {
       if (uniffiIsDebug && __error instanceof Error) {
@@ -18368,36 +17093,30 @@ export class SyncManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_get_sync_status(
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   /**
    * Set the credential once (method = "oauth" | "api_key"). Never passed per request.
    */
-  setCredentials(
-    method: string,
-    secret: string,
-    athleteId: string,
-  ): void /*throws*/ {
+  setCredentials(method: string, secret: string, athleteId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_set_credentials(
           uniffiTypeSyncManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(method),
           FfiConverterString.lower(secret),
           FfiConverterString.lower(athleteId),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -18406,25 +17125,20 @@ export class SyncManager
    * naming whether the job started and, if not, whether asking again later
    * would. The feed calls this for windows the default sync misses.
    */
-  syncActivitiesWindow(
-    oldest: string,
-    newest: string,
-  ): FfiStartOutcome /*throws*/ {
+  syncActivitiesWindow(oldest: string, newest: string): FfiStartOutcome /*throws*/ {
     return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activities_window(
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(oldest),
             FfiConverterString.lower(newest),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -18439,11 +17153,11 @@ export class SyncManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_detail(
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -18457,11 +17171,11 @@ export class SyncManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_intervals(
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -18477,11 +17191,11 @@ export class SyncManager
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
             FfiConverterString.lower(types),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -18497,11 +17211,11 @@ export class SyncManager
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(oldest),
             FfiConverterString.lower(newest),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -18513,17 +17227,15 @@ export class SyncManager
   syncNow(): FfiStartOutcome /*throws*/ {
     return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_now(
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -18540,11 +17252,11 @@ export class SyncManager
             FfiConverterString.lower(sport),
             FfiConverterInt64.lower(days),
             FfiConverterBool.lower(gap),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -18560,11 +17272,11 @@ export class SyncManager
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sport),
             FfiConverterInt64.lower(days),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -18580,11 +17292,11 @@ export class SyncManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
             FfiConverterArrayString.lower(activityIds),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -18600,7 +17312,7 @@ export class SyncManager
     filename: string,
     name: string | undefined,
     pairedEventId: /*i64*/ bigint | undefined,
-    asyncOpts_?: { signal: AbortSignal },
+    asyncOpts_?: { signal: AbortSignal }
   ): Promise<FfiCallOutcome> {
     const __stack = uniffiIsDebug ? new Error().stack : undefined;
     try {
@@ -18612,22 +17324,16 @@ export class SyncManager
             FfiConverterString.lower(filePath),
             FfiConverterString.lower(filename),
             FfiConverterOptionalString.lower(name),
-            FfiConverterOptionalInt64.lower(pairedEventId),
+            FfiConverterOptionalInt64.lower(pairedEventId)
           );
         },
-        /*pollFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
-        /*cancelFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
-        /*completeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
-        /*freeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
-        /*liftFunc:*/ FfiConverterTypeFfiCallOutcome.lift.bind(
-          FfiConverterTypeFfiCallOutcome,
-        ),
+        /*pollFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        /*liftFunc:*/ FfiConverterTypeFfiCallOutcome.lift.bind(FfiConverterTypeFfiCallOutcome),
         /*liftString:*/ FfiConverterString.lift,
-        /*asyncOpts:*/ asyncOpts_,
+        /*asyncOpts:*/ asyncOpts_
       );
     } catch (__error: any) {
       if (uniffiIsDebug && __error instanceof Error) {
@@ -18645,7 +17351,7 @@ export class SyncManager
   async validateCredentials(
     method: string,
     secret: string,
-    asyncOpts_?: { signal: AbortSignal },
+    asyncOpts_?: { signal: AbortSignal }
   ): Promise<FfiCallOutcome> {
     const __stack = uniffiIsDebug ? new Error().stack : undefined;
     try {
@@ -18655,22 +17361,16 @@ export class SyncManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_validate_credentials(
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(method),
-            FfiConverterString.lower(secret),
+            FfiConverterString.lower(secret)
           );
         },
-        /*pollFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
-        /*cancelFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
-        /*completeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
-        /*freeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
-        /*liftFunc:*/ FfiConverterTypeFfiCallOutcome.lift.bind(
-          FfiConverterTypeFfiCallOutcome,
-        ),
+        /*pollFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        /*liftFunc:*/ FfiConverterTypeFfiCallOutcome.lift.bind(FfiConverterTypeFfiCallOutcome),
         /*liftString:*/ FfiConverterString.lift,
-        /*asyncOpts:*/ asyncOpts_,
+        /*asyncOpts:*/ asyncOpts_
       );
     } catch (__error: any) {
       if (uniffiIsDebug && __error instanceof Error) {
@@ -18698,74 +17398,59 @@ export class SyncManager
   }
 }
 
-const uniffiTypeSyncManagerObjectFactory: UniffiObjectFactory<SyncManagerLike> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): SyncManagerLike {
-        const instance = Object.create(SyncManager.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "SyncManager";
-        return instance;
-      },
+const uniffiTypeSyncManagerObjectFactory: UniffiObjectFactory<SyncManagerLike> = (() => {
+  return {
+    create(pointer: UniffiHandle): SyncManagerLike {
+      const instance = Object.create(SyncManager.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'SyncManager';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_syncmanager_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_syncmanager_ffi__bless_pointer(p, status),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: SyncManagerLike): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: SyncManagerLike): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: SyncManagerLike): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_syncmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: SyncManagerLike): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_syncmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_syncmanager(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_syncmanager(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is SyncManagerLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "SyncManager"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is SyncManagerLike {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'SyncManager';
+    },
+  };
+})();
 // FfiConverter for SyncManagerLike
-const FfiConverterTypeSyncManager = new FfiConverterObject(
-  uniffiTypeSyncManagerObjectFactory,
-);
+const FfiConverterTypeSyncManager = new FfiConverterObject(uniffiTypeSyncManagerObjectFactory);
 
 export interface VeloqEngineLike {
   activities(): ActivityManagerLike;
@@ -18800,6 +17485,14 @@ export interface VeloqEngineLike {
   getBackupMetadata() /*throws*/ : string;
   getStats() /*throws*/ : PersistentEngineStats;
   heatmap(): HeatmapManagerLike;
+  /**
+   * How the last init in this process ended.
+   *
+   * `is_initialized` says whether the engine is usable, which is what the
+   * caller needs to decide what to do next. This says why it is not, which
+   * is what the athlete needs to decide what to do about it.
+   */
+  initOutcome(): FfiInitOutcome;
   isInitialized(): boolean;
   maps(): MapManagerLike;
   markForRecomputation() /*throws*/ : void;
@@ -18847,19 +17540,15 @@ export interface VeloqEngineLike {
  */
 export type VeloqEngineInterface = VeloqEngineLike;
 
-export class VeloqEngine
-  extends UniffiAbstractObject
-  implements VeloqEngineLike
-{
-  readonly [uniffiTypeNameSymbol] = "VeloqEngine";
+export class VeloqEngine extends UniffiAbstractObject implements VeloqEngineLike {
+  readonly [uniffiTypeNameSymbol] = 'VeloqEngine';
   readonly [destructorGuardSymbol]: UniffiGcObject;
   readonly [pointerLiteralSymbol]: UniffiHandle;
   // No primary constructor declared for this class.
   private constructor(pointer: UniffiHandle) {
     super();
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] =
-      uniffiTypeVeloqEngineObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] = uniffiTypeVeloqEngineObjectFactory.bless(pointer);
   }
 
   static create(dbPath: string): VeloqEngineLike {
@@ -18868,11 +17557,11 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_veloqengine_create(
             FfiConverterString.lower(dbPath),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -18882,26 +17571,24 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_activities(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   clear(): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_clear(
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -18912,17 +17599,15 @@ export class VeloqEngine
   clearDerivedData(): DerivedClear /*throws*/ {
     return FfiConverterTypeDerivedClear.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_derived_data(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -18932,16 +17617,14 @@ export class VeloqEngine
    */
   clearRoutesAndSections(): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -18954,10 +17637,10 @@ export class VeloqEngine
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_destroy(
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -18967,11 +17650,11 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_detection(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -18981,11 +17664,11 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_fitness(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -18996,34 +17679,30 @@ export class VeloqEngine
   getActivitiesNeedingTimeStreams(): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_streams(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getActivityCount(): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -19034,34 +17713,30 @@ export class VeloqEngine
   getBackupMetadata(): string /*throws*/ {
     return FfiConverterString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   getStats(): PersistentEngineStats /*throws*/ {
     return FfiConverterTypePersistentEngineStats.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_get_stats(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -19071,11 +17746,32 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_heatmap(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
+    );
+  }
+
+  /**
+   * How the last init in this process ended.
+   *
+   * `is_initialized` says whether the engine is usable, which is what the
+   * caller needs to decide what to do next. This says why it is not, which
+   * is what the athlete needs to decide what to do about it.
+   */
+  initOutcome(): FfiInitOutcome {
+    return FfiConverterTypeFfiInitOutcome.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_init_outcome(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -19085,11 +17781,11 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_is_initialized(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -19099,26 +17795,24 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_maps(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
   markForRecomputation(): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_mark_for_recomputation(
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -19130,17 +17824,15 @@ export class VeloqEngine
   pollBackup(): string /*throws*/ {
     return FfiConverterString.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_backup(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -19153,17 +17845,15 @@ export class VeloqEngine
   pollBulkExport(): BulkExportPoll /*throws*/ {
     return FfiConverterTypeBulkExportPoll.lift(
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_bulk_export(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -19173,11 +17863,11 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_recordings(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -19187,11 +17877,11 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_routes(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -19201,11 +17891,11 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_sections(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -19216,10 +17906,10 @@ export class VeloqEngine
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           FfiConverterString.lower(routeWord),
           FfiConverterString.lower(sectionWord),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -19233,10 +17923,10 @@ export class VeloqEngine
         nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_set_observer(
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           FfiConverterOptionalTypeEngineObserver.lower(observer),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -19246,11 +17936,11 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_settings(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -19261,17 +17951,15 @@ export class VeloqEngine
    */
   startBackup(destPath: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_backup(
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           FfiConverterString.lower(destPath),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -19283,18 +17971,16 @@ export class VeloqEngine
    */
   startBulkExport(format: BulkExportFormat, destPath: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(FfiConverterTypeVeloqError),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_bulk_export(
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           FfiConverterTypeBulkExportFormat.lower(format),
           FfiConverterString.lower(destPath),
-          callStatus,
+          callStatus
         );
       },
-      /*liftString:*/ FfiConverterString.lift,
+      /*liftString:*/ FfiConverterString.lift
     );
   }
 
@@ -19304,11 +17990,11 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_strength(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -19318,11 +18004,11 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_sync(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
+            callStatus
           );
         },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
+        /*liftString:*/ FfiConverterString.lift
+      )
     );
   }
 
@@ -19344,87 +18030,68 @@ export class VeloqEngine
   }
 }
 
-const uniffiTypeVeloqEngineObjectFactory: UniffiObjectFactory<VeloqEngineLike> =
-  (() => {
-    return {
-      create(pointer: UniffiHandle): VeloqEngineLike {
-        const instance = Object.create(VeloqEngine.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "VeloqEngine";
-        return instance;
-      },
+const uniffiTypeVeloqEngineObjectFactory: UniffiObjectFactory<VeloqEngineLike> = (() => {
+  return {
+    create(pointer: UniffiHandle): VeloqEngineLike {
+      const instance = Object.create(VeloqEngine.prototype);
+      instance[pointerLiteralSymbol] = pointer;
+      instance[destructorGuardSymbol] = this.bless(pointer);
+      instance[uniffiTypeNameSymbol] = 'VeloqEngine';
+      return instance;
+    },
 
-      bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-          /*caller:*/ (status) =>
-            nativeModule().ubrn_uniffi_internal_fn_method_veloqengine_ffi__bless_pointer(
-              p,
-              status,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    bless(p: UniffiHandle): UniffiGcObject {
+      return uniffiCaller.rustCall(
+        /*caller:*/ (status) =>
+          nativeModule().ubrn_uniffi_internal_fn_method_veloqengine_ffi__bless_pointer(p, status),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      unbless(ptr: UniffiGcObject) {
-        ptr.markDestroyed();
-      },
+    unbless(ptr: UniffiGcObject) {
+      ptr.markDestroyed();
+    },
 
-      pointer(obj: VeloqEngineLike): UniffiHandle {
-        if ((obj as any)[destructorGuardSymbol] === undefined) {
-          throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj as any)[pointerLiteralSymbol];
-      },
+    pointer(obj: VeloqEngineLike): UniffiHandle {
+      if ((obj as any)[destructorGuardSymbol] === undefined) {
+        throw new UniffiInternalError.UnexpectedNullPointer();
+      }
+      return (obj as any)[pointerLiteralSymbol];
+    },
 
-      clonePointer(obj: VeloqEngineLike): UniffiHandle {
-        const pointer = this.pointer(obj);
-        return uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_clone_veloqengine(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    clonePointer(obj: VeloqEngineLike): UniffiHandle {
+      const pointer = this.pointer(obj);
+      return uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_clone_veloqengine(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-          /*caller:*/ (callStatus) =>
-            nativeModule().ubrn_uniffi_veloqrs_fn_free_veloqengine(
-              pointer,
-              callStatus,
-            ),
-          /*liftString:*/ FfiConverterString.lift,
-        );
-      },
+    freePointer(pointer: UniffiHandle): void {
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) =>
+          nativeModule().ubrn_uniffi_veloqrs_fn_free_veloqengine(pointer, callStatus),
+        /*liftString:*/ FfiConverterString.lift
+      );
+    },
 
-      isConcreteType(obj: any): obj is VeloqEngineLike {
-        return (
-          obj[destructorGuardSymbol] &&
-          obj[uniffiTypeNameSymbol] === "VeloqEngine"
-        );
-      },
-    };
-  })();
+    isConcreteType(obj: any): obj is VeloqEngineLike {
+      return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === 'VeloqEngine';
+    },
+  };
+})();
 // FfiConverter for VeloqEngineLike
-const FfiConverterTypeVeloqEngine = new FfiConverterObject(
-  uniffiTypeVeloqEngineObjectFactory,
-);
+const FfiConverterTypeVeloqEngine = new FfiConverterObject(uniffiTypeVeloqEngineObjectFactory);
 
 // FfiConverter for boolean | undefined
 const FfiConverterOptionalBool = new FfiConverterOptional(FfiConverterBool);
 
 // FfiConverter for ArrayBuffer | undefined
-const FfiConverterOptionalArrayBuffer = new FfiConverterOptional(
-  FfiConverterArrayBuffer,
-);
+const FfiConverterOptionalArrayBuffer = new FfiConverterOptional(FfiConverterArrayBuffer);
 
 // FfiConverter for /*f64*/number | undefined
-const FfiConverterOptionalFloat64 = new FfiConverterOptional(
-  FfiConverterFloat64,
-);
+const FfiConverterOptionalFloat64 = new FfiConverterOptional(FfiConverterFloat64);
 
 // FfiConverter for /*i32*/number | undefined
 const FfiConverterOptionalInt32 = new FfiConverterOptional(FfiConverterInt32);
@@ -19437,99 +18104,94 @@ const FfiConverterOptionalInt8 = new FfiConverterOptional(FfiConverterInt8);
 
 // FfiConverter for FetchAndStoreResult | undefined
 const FfiConverterOptionalTypeFetchAndStoreResult = new FfiConverterOptional(
-  FfiConverterTypeFetchAndStoreResult,
+  FfiConverterTypeFetchAndStoreResult
 );
 
 // FfiConverter for FfiActivityMetrics | undefined
 const FfiConverterOptionalTypeFfiActivityMetrics = new FfiConverterOptional(
-  FfiConverterTypeFfiActivityMetrics,
+  FfiConverterTypeFfiActivityMetrics
 );
 
 // FfiConverter for FfiActivityPattern | undefined
 const FfiConverterOptionalTypeFfiActivityPattern = new FfiConverterOptional(
-  FfiConverterTypeFfiActivityPattern,
+  FfiConverterTypeFfiActivityPattern
 );
 
 // FfiConverter for FfiBounds | undefined
-const FfiConverterOptionalTypeFfiBounds = new FfiConverterOptional(
-  FfiConverterTypeFfiBounds,
-);
+const FfiConverterOptionalTypeFfiBounds = new FfiConverterOptional(FfiConverterTypeFfiBounds);
 
 // FfiConverter for FfiCalendarDirectionBest | undefined
-const FfiConverterOptionalTypeFfiCalendarDirectionBest =
-  new FfiConverterOptional(FfiConverterTypeFfiCalendarDirectionBest);
+const FfiConverterOptionalTypeFfiCalendarDirectionBest = new FfiConverterOptional(
+  FfiConverterTypeFfiCalendarDirectionBest
+);
 
 // FfiConverter for FfiCalendarSummary | undefined
 const FfiConverterOptionalTypeFfiCalendarSummary = new FfiConverterOptional(
-  FfiConverterTypeFfiCalendarSummary,
+  FfiConverterTypeFfiCalendarSummary
 );
 
 // FfiConverter for FfiDetectionProgress | undefined
 const FfiConverterOptionalTypeFfiDetectionProgress = new FfiConverterOptional(
-  FfiConverterTypeFfiDetectionProgress,
+  FfiConverterTypeFfiDetectionProgress
 );
 
 // FfiConverter for FfiDirectionStats | undefined
 const FfiConverterOptionalTypeFfiDirectionStats = new FfiConverterOptional(
-  FfiConverterTypeFfiDirectionStats,
+  FfiConverterTypeFfiDirectionStats
 );
 
 // FfiConverter for FfiEfficiencyTrend | undefined
 const FfiConverterOptionalTypeFfiEfficiencyTrend = new FfiConverterOptional(
-  FfiConverterTypeFfiEfficiencyTrend,
+  FfiConverterTypeFfiEfficiencyTrend
 );
 
 // FfiConverter for FfiHrvTrend | undefined
-const FfiConverterOptionalTypeFfiHrvTrend = new FfiConverterOptional(
-  FfiConverterTypeFfiHrvTrend,
-);
+const FfiConverterOptionalTypeFfiHrvTrend = new FfiConverterOptional(FfiConverterTypeFfiHrvTrend);
 
 // FfiConverter for FfiRecordingEntry | undefined
 const FfiConverterOptionalTypeFfiRecordingEntry = new FfiConverterOptional(
-  FfiConverterTypeFfiRecordingEntry,
+  FfiConverterTypeFfiRecordingEntry
 );
 
 // FfiConverter for FfiRouteGroup | undefined
 const FfiConverterOptionalTypeFfiRouteGroup = new FfiConverterOptional(
-  FfiConverterTypeFfiRouteGroup,
+  FfiConverterTypeFfiRouteGroup
 );
 
 // FfiConverter for FfiRoutePerformance | undefined
 const FfiConverterOptionalTypeFfiRoutePerformance = new FfiConverterOptional(
-  FfiConverterTypeFfiRoutePerformance,
+  FfiConverterTypeFfiRoutePerformance
 );
 
 // FfiConverter for FfiSection | undefined
-const FfiConverterOptionalTypeFfiSection = new FfiConverterOptional(
-  FfiConverterTypeFfiSection,
-);
+const FfiConverterOptionalTypeFfiSection = new FfiConverterOptional(FfiConverterTypeFfiSection);
 
 // FfiConverter for FfiSectionPerformanceRecord | undefined
-const FfiConverterOptionalTypeFfiSectionPerformanceRecord =
-  new FfiConverterOptional(FfiConverterTypeFfiSectionPerformanceRecord);
+const FfiConverterOptionalTypeFfiSectionPerformanceRecord = new FfiConverterOptional(
+  FfiConverterTypeFfiSectionPerformanceRecord
+);
 
 // FfiConverter for FfiStrengthInsightSeries | undefined
-const FfiConverterOptionalTypeFfiStrengthInsightSeries =
-  new FfiConverterOptional(FfiConverterTypeFfiStrengthInsightSeries);
+const FfiConverterOptionalTypeFfiStrengthInsightSeries = new FfiConverterOptional(
+  FfiConverterTypeFfiStrengthInsightSeries
+);
 
 // FfiConverter for FfiWeekLoadShape | undefined
 const FfiConverterOptionalTypeFfiWeekLoadShape = new FfiConverterOptional(
-  FfiConverterTypeFfiWeekLoadShape,
+  FfiConverterTypeFfiWeekLoadShape
 );
 
 // FfiConverter for FfiWellnessSparklines | undefined
 const FfiConverterOptionalTypeFfiWellnessSparklines = new FfiConverterOptional(
-  FfiConverterTypeFfiWellnessSparklines,
+  FfiConverterTypeFfiWellnessSparklines
 );
 
 // FfiConverter for NetworkPush | undefined
-const FfiConverterOptionalTypeNetworkPush = new FfiConverterOptional(
-  FfiConverterTypeNetworkPush,
-);
+const FfiConverterOptionalTypeNetworkPush = new FfiConverterOptional(FfiConverterTypeNetworkPush);
 
 // FfiConverter for SuggestedHome | undefined
 const FfiConverterOptionalTypeSuggestedHome = new FfiConverterOptional(
-  FfiConverterTypeSuggestedHome,
+  FfiConverterTypeSuggestedHome
 );
 
 // FfiConverter for string | undefined
@@ -19552,302 +18214,265 @@ const FfiConverterArrayInt64 = new FfiConverterArray(FfiConverterInt64);
 
 // FfiConverter for Array<ActivitySportMapping>
 const FfiConverterArrayTypeActivitySportMapping = new FfiConverterArray(
-  FfiConverterTypeActivitySportMapping,
+  FfiConverterTypeActivitySportMapping
 );
 
 // FfiConverter for Array<FfiActivityBody>
-const FfiConverterArrayTypeFfiActivityBody = new FfiConverterArray(
-  FfiConverterTypeFfiActivityBody,
-);
+const FfiConverterArrayTypeFfiActivityBody = new FfiConverterArray(FfiConverterTypeFfiActivityBody);
 
 // FfiConverter for Array<FfiActivityIndicator>
 const FfiConverterArrayTypeFfiActivityIndicator = new FfiConverterArray(
-  FfiConverterTypeFfiActivityIndicator,
+  FfiConverterTypeFfiActivityIndicator
 );
 
 // FfiConverter for Array<FfiActivityMetrics>
 const FfiConverterArrayTypeFfiActivityMetrics = new FfiConverterArray(
-  FfiConverterTypeFfiActivityMetrics,
+  FfiConverterTypeFfiActivityMetrics
 );
 
 // FfiConverter for Array<FfiActivityPattern>
 const FfiConverterArrayTypeFfiActivityPattern = new FfiConverterArray(
-  FfiConverterTypeFfiActivityPattern,
+  FfiConverterTypeFfiActivityPattern
 );
 
 // FfiConverter for Array<FfiActivityRouteHighlight>
 const FfiConverterArrayTypeFfiActivityRouteHighlight = new FfiConverterArray(
-  FfiConverterTypeFfiActivityRouteHighlight,
+  FfiConverterTypeFfiActivityRouteHighlight
 );
 
 // FfiConverter for Array<FfiCalendarEventBody>
 const FfiConverterArrayTypeFfiCalendarEventBody = new FfiConverterArray(
-  FfiConverterTypeFfiCalendarEventBody,
+  FfiConverterTypeFfiCalendarEventBody
 );
 
 // FfiConverter for Array<FfiCalendarMonthSummary>
 const FfiConverterArrayTypeFfiCalendarMonthSummary = new FfiConverterArray(
-  FfiConverterTypeFfiCalendarMonthSummary,
+  FfiConverterTypeFfiCalendarMonthSummary
 );
 
 // FfiConverter for Array<FfiCalendarYearSummary>
 const FfiConverterArrayTypeFfiCalendarYearSummary = new FfiConverterArray(
-  FfiConverterTypeFfiCalendarYearSummary,
+  FfiConverterTypeFfiCalendarYearSummary
 );
 
 // FfiConverter for Array<FfiEfficiencyPoint>
 const FfiConverterArrayTypeFfiEfficiencyPoint = new FfiConverterArray(
-  FfiConverterTypeFfiEfficiencyPoint,
+  FfiConverterTypeFfiEfficiencyPoint
 );
 
 // FfiConverter for Array<FfiEfficiencyTrend>
 const FfiConverterArrayTypeFfiEfficiencyTrend = new FfiConverterArray(
-  FfiConverterTypeFfiEfficiencyTrend,
+  FfiConverterTypeFfiEfficiencyTrend
 );
 
 // FfiConverter for Array<FfiExcludedLap>
-const FfiConverterArrayTypeFfiExcludedLap = new FfiConverterArray(
-  FfiConverterTypeFfiExcludedLap,
-);
+const FfiConverterArrayTypeFfiExcludedLap = new FfiConverterArray(FfiConverterTypeFfiExcludedLap);
 
 // FfiConverter for Array<FfiExerciseActivity>
 const FfiConverterArrayTypeFfiExerciseActivity = new FfiConverterArray(
-  FfiConverterTypeFfiExerciseActivity,
+  FfiConverterTypeFfiExerciseActivity
 );
 
 // FfiConverter for Array<FfiExerciseContribution>
 const FfiConverterArrayTypeFfiExerciseContribution = new FfiConverterArray(
-  FfiConverterTypeFfiExerciseContribution,
+  FfiConverterTypeFfiExerciseContribution
 );
 
 // FfiConverter for Array<FfiExerciseSet>
-const FfiConverterArrayTypeFfiExerciseSet = new FfiConverterArray(
-  FfiConverterTypeFfiExerciseSet,
-);
+const FfiConverterArrayTypeFfiExerciseSet = new FfiConverterArray(FfiConverterTypeFfiExerciseSet);
 
 // FfiConverter for Array<FfiExerciseSummary>
 const FfiConverterArrayTypeFfiExerciseSummary = new FfiConverterArray(
-  FfiConverterTypeFfiExerciseSummary,
+  FfiConverterTypeFfiExerciseSummary
 );
 
 // FfiConverter for Array<FfiGpsPoint>
-const FfiConverterArrayTypeFfiGpsPoint = new FfiConverterArray(
-  FfiConverterTypeFfiGpsPoint,
-);
+const FfiConverterArrayTypeFfiGpsPoint = new FfiConverterArray(FfiConverterTypeFfiGpsPoint);
 
 // FfiConverter for Array<FfiGroupWithPolyline>
 const FfiConverterArrayTypeFfiGroupWithPolyline = new FfiConverterArray(
-  FfiConverterTypeFfiGroupWithPolyline,
+  FfiConverterTypeFfiGroupWithPolyline
 );
 
 // FfiConverter for Array<FfiHeatmapDay>
-const FfiConverterArrayTypeFfiHeatmapDay = new FfiConverterArray(
-  FfiConverterTypeFfiHeatmapDay,
-);
+const FfiConverterArrayTypeFfiHeatmapDay = new FfiConverterArray(FfiConverterTypeFfiHeatmapDay);
 
 // FfiConverter for Array<FfiMapSignature>
-const FfiConverterArrayTypeFfiMapSignature = new FfiConverterArray(
-  FfiConverterTypeFfiMapSignature,
-);
+const FfiConverterArrayTypeFfiMapSignature = new FfiConverterArray(FfiConverterTypeFfiMapSignature);
 
 // FfiConverter for Array<FfiMergeCandidate>
 const FfiConverterArrayTypeFfiMergeCandidate = new FfiConverterArray(
-  FfiConverterTypeFfiMergeCandidate,
+  FfiConverterTypeFfiMergeCandidate
 );
 
 // FfiConverter for Array<FfiMuscleGroup>
-const FfiConverterArrayTypeFfiMuscleGroup = new FfiConverterArray(
-  FfiConverterTypeFfiMuscleGroup,
-);
+const FfiConverterArrayTypeFfiMuscleGroup = new FfiConverterArray(FfiConverterTypeFfiMuscleGroup);
 
 // FfiConverter for Array<FfiMuscleVolume>
-const FfiConverterArrayTypeFfiMuscleVolume = new FfiConverterArray(
-  FfiConverterTypeFfiMuscleVolume,
-);
+const FfiConverterArrayTypeFfiMuscleVolume = new FfiConverterArray(FfiConverterTypeFfiMuscleVolume);
 
 // FfiConverter for Array<FfiNamedCorridor>
 const FfiConverterArrayTypeFfiNamedCorridor = new FfiConverterArray(
-  FfiConverterTypeFfiNamedCorridor,
+  FfiConverterTypeFfiNamedCorridor
 );
 
 // FfiConverter for Array<FfiNearbySectionSummary>
 const FfiConverterArrayTypeFfiNearbySectionSummary = new FfiConverterArray(
-  FfiConverterTypeFfiNearbySectionSummary,
+  FfiConverterTypeFfiNearbySectionSummary
 );
 
 // FfiConverter for Array<FfiPreviewCentre>
 const FfiConverterArrayTypeFfiPreviewCentre = new FfiConverterArray(
-  FfiConverterTypeFfiPreviewCentre,
+  FfiConverterTypeFfiPreviewCentre
 );
 
 // FfiConverter for Array<FfiPreviewTrack>
-const FfiConverterArrayTypeFfiPreviewTrack = new FfiConverterArray(
-  FfiConverterTypeFfiPreviewTrack,
-);
+const FfiConverterArrayTypeFfiPreviewTrack = new FfiConverterArray(FfiConverterTypeFfiPreviewTrack);
 
 // FfiConverter for Array<FfiRankedSection>
 const FfiConverterArrayTypeFfiRankedSection = new FfiConverterArray(
-  FfiConverterTypeFfiRankedSection,
+  FfiConverterTypeFfiRankedSection
 );
 
 // FfiConverter for Array<FfiRankedSectionsBySport>
 const FfiConverterArrayTypeFfiRankedSectionsBySport = new FfiConverterArray(
-  FfiConverterTypeFfiRankedSectionsBySport,
+  FfiConverterTypeFfiRankedSectionsBySport
 );
 
 // FfiConverter for Array<FfiRecentPr>
-const FfiConverterArrayTypeFfiRecentPR = new FfiConverterArray(
-  FfiConverterTypeFfiRecentPR,
-);
+const FfiConverterArrayTypeFfiRecentPR = new FfiConverterArray(FfiConverterTypeFfiRecentPR);
 
 // FfiConverter for Array<FfiRecordingEntry>
 const FfiConverterArrayTypeFfiRecordingEntry = new FfiConverterArray(
-  FfiConverterTypeFfiRecordingEntry,
+  FfiConverterTypeFfiRecordingEntry
 );
 
 // FfiConverter for Array<FfiRetiredSection>
 const FfiConverterArrayTypeFfiRetiredSection = new FfiConverterArray(
-  FfiConverterTypeFfiRetiredSection,
+  FfiConverterTypeFfiRetiredSection
 );
 
 // FfiConverter for Array<FfiRouteGroup>
-const FfiConverterArrayTypeFfiRouteGroup = new FfiConverterArray(
-  FfiConverterTypeFfiRouteGroup,
-);
+const FfiConverterArrayTypeFfiRouteGroup = new FfiConverterArray(FfiConverterTypeFfiRouteGroup);
 
 // FfiConverter for Array<FfiRouteGroupPreview>
 const FfiConverterArrayTypeFfiRouteGroupPreview = new FfiConverterArray(
-  FfiConverterTypeFfiRouteGroupPreview,
+  FfiConverterTypeFfiRouteGroupPreview
 );
 
 // FfiConverter for Array<FfiRoutePerformance>
 const FfiConverterArrayTypeFfiRoutePerformance = new FfiConverterArray(
-  FfiConverterTypeFfiRoutePerformance,
+  FfiConverterTypeFfiRoutePerformance
 );
 
 // FfiConverter for Array<FfiSection>
-const FfiConverterArrayTypeFfiSection = new FfiConverterArray(
-  FfiConverterTypeFfiSection,
-);
+const FfiConverterArrayTypeFfiSection = new FfiConverterArray(FfiConverterTypeFfiSection);
 
 // FfiConverter for Array<FfiSectionChange>
 const FfiConverterArrayTypeFfiSectionChange = new FfiConverterArray(
-  FfiConverterTypeFfiSectionChange,
+  FfiConverterTypeFfiSectionChange
 );
 
 // FfiConverter for Array<FfiSectionChartPoint>
 const FfiConverterArrayTypeFfiSectionChartPoint = new FfiConverterArray(
-  FfiConverterTypeFfiSectionChartPoint,
+  FfiConverterTypeFfiSectionChartPoint
 );
 
 // FfiConverter for Array<FfiSectionEncounter>
 const FfiConverterArrayTypeFfiSectionEncounter = new FfiConverterArray(
-  FfiConverterTypeFfiSectionEncounter,
+  FfiConverterTypeFfiSectionEncounter
 );
 
 // FfiConverter for Array<FfiSectionGeometryVersion>
 const FfiConverterArrayTypeFfiSectionGeometryVersion = new FfiConverterArray(
-  FfiConverterTypeFfiSectionGeometryVersion,
+  FfiConverterTypeFfiSectionGeometryVersion
 );
 
 // FfiConverter for Array<FfiSectionHistoryEvent>
 const FfiConverterArrayTypeFfiSectionHistoryEvent = new FfiConverterArray(
-  FfiConverterTypeFfiSectionHistoryEvent,
+  FfiConverterTypeFfiSectionHistoryEvent
 );
 
 // FfiConverter for Array<FfiSectionLap>
-const FfiConverterArrayTypeFfiSectionLap = new FfiConverterArray(
-  FfiConverterTypeFfiSectionLap,
-);
+const FfiConverterArrayTypeFfiSectionLap = new FfiConverterArray(FfiConverterTypeFfiSectionLap);
 
 // FfiConverter for Array<FfiSectionLineage>
 const FfiConverterArrayTypeFfiSectionLineage = new FfiConverterArray(
-  FfiConverterTypeFfiSectionLineage,
+  FfiConverterTypeFfiSectionLineage
 );
 
 // FfiConverter for Array<FfiSectionMatch>
-const FfiConverterArrayTypeFfiSectionMatch = new FfiConverterArray(
-  FfiConverterTypeFfiSectionMatch,
-);
+const FfiConverterArrayTypeFfiSectionMatch = new FfiConverterArray(FfiConverterTypeFfiSectionMatch);
 
 // FfiConverter for Array<FfiSectionNearPoint>
 const FfiConverterArrayTypeFfiSectionNearPoint = new FfiConverterArray(
-  FfiConverterTypeFfiSectionNearPoint,
+  FfiConverterTypeFfiSectionNearPoint
 );
 
 // FfiConverter for Array<FfiSectionPerformanceBatchEntry>
-const FfiConverterArrayTypeFfiSectionPerformanceBatchEntry =
-  new FfiConverterArray(FfiConverterTypeFfiSectionPerformanceBatchEntry);
+const FfiConverterArrayTypeFfiSectionPerformanceBatchEntry = new FfiConverterArray(
+  FfiConverterTypeFfiSectionPerformanceBatchEntry
+);
 
 // FfiConverter for Array<FfiSectionPerformanceRecord>
 const FfiConverterArrayTypeFfiSectionPerformanceRecord = new FfiConverterArray(
-  FfiConverterTypeFfiSectionPerformanceRecord,
+  FfiConverterTypeFfiSectionPerformanceRecord
 );
 
 // FfiConverter for Array<FfiSectionPortion>
 const FfiConverterArrayTypeFfiSectionPortion = new FfiConverterArray(
-  FfiConverterTypeFfiSectionPortion,
+  FfiConverterTypeFfiSectionPortion
 );
 
 // FfiConverter for Array<FfiSectionTrace>
-const FfiConverterArrayTypeFfiSectionTrace = new FfiConverterArray(
-  FfiConverterTypeFfiSectionTrace,
-);
+const FfiConverterArrayTypeFfiSectionTrace = new FfiConverterArray(FfiConverterTypeFfiSectionTrace);
 
 // FfiConverter for Array<FfiSectionWithPolyline>
 const FfiConverterArrayTypeFfiSectionWithPolyline = new FfiConverterArray(
-  FfiConverterTypeFfiSectionWithPolyline,
+  FfiConverterTypeFfiSectionWithPolyline
 );
 
 // FfiConverter for Array<FfiStalePrOpportunity>
 const FfiConverterArrayTypeFfiStalePrOpportunity = new FfiConverterArray(
-  FfiConverterTypeFfiStalePrOpportunity,
+  FfiConverterTypeFfiStalePrOpportunity
 );
 
 // FfiConverter for Array<FfiStrengthSummary>
 const FfiConverterArrayTypeFfiStrengthSummary = new FfiConverterArray(
-  FfiConverterTypeFfiStrengthSummary,
+  FfiConverterTypeFfiStrengthSummary
 );
 
 // FfiConverter for Array<FfiTimestampRange>
 const FfiConverterArrayTypeFfiTimestampRange = new FfiConverterArray(
-  FfiConverterTypeFfiTimestampRange,
+  FfiConverterTypeFfiTimestampRange
 );
 
 // FfiConverter for Array<FfiWeeklySummary>
 const FfiConverterArrayTypeFfiWeeklySummary = new FfiConverterArray(
-  FfiConverterTypeFfiWeeklySummary,
+  FfiConverterTypeFfiWeeklySummary
 );
 
 // FfiConverter for Array<FfiWellnessRow>
-const FfiConverterArrayTypeFfiWellnessRow = new FfiConverterArray(
-  FfiConverterTypeFfiWellnessRow,
-);
+const FfiConverterArrayTypeFfiWellnessRow = new FfiConverterArray(FfiConverterTypeFfiWellnessRow);
 
 // FfiConverter for Array<FfiWorkoutSection>
 const FfiConverterArrayTypeFfiWorkoutSection = new FfiConverterArray(
-  FfiConverterTypeFfiWorkoutSection,
+  FfiConverterTypeFfiWorkoutSection
 );
 
 // FfiConverter for Array<GroupSummary>
-const FfiConverterArrayTypeGroupSummary = new FfiConverterArray(
-  FfiConverterTypeGroupSummary,
-);
+const FfiConverterArrayTypeGroupSummary = new FfiConverterArray(FfiConverterTypeGroupSummary);
 
 // FfiConverter for Array<MapActivityComplete>
 const FfiConverterArrayTypeMapActivityComplete = new FfiConverterArray(
-  FfiConverterTypeMapActivityComplete,
+  FfiConverterTypeMapActivityComplete
 );
 
 // FfiConverter for Array<SectionSummary>
-const FfiConverterArrayTypeSectionSummary = new FfiConverterArray(
-  FfiConverterTypeSectionSummary,
-);
+const FfiConverterArrayTypeSectionSummary = new FfiConverterArray(FfiConverterTypeSectionSummary);
 
 // FfiConverter for Array<SettingPair>
-const FfiConverterArrayTypeSettingPair = new FfiConverterArray(
-  FfiConverterTypeSettingPair,
-);
+const FfiConverterArrayTypeSettingPair = new FfiConverterArray(FfiConverterTypeSettingPair);
 
 // FfiConverter for Array<string>
 const FfiConverterArrayString = new FfiConverterArray(FfiConverterString);
@@ -19857,27 +18482,24 @@ const FfiConverterArrayUInt32 = new FfiConverterArray(FfiConverterUInt32);
 
 // FfiConverter for FfiSyncErrorReason | undefined
 const FfiConverterOptionalTypeFfiSyncErrorReason = new FfiConverterOptional(
-  FfiConverterTypeFfiSyncErrorReason,
+  FfiConverterTypeFfiSyncErrorReason
 );
 
 // FfiConverter for EngineObserver | undefined
 const FfiConverterOptionalTypeEngineObserver = new FfiConverterOptional(
-  FfiConverterTypeEngineObserver,
+  FfiConverterTypeEngineObserver
 );
 
 // FfiConverter for Array<FfiRouteGroupPreview> | undefined
-const FfiConverterOptionalArrayTypeFfiRouteGroupPreview =
-  new FfiConverterOptional(FfiConverterArrayTypeFfiRouteGroupPreview);
+const FfiConverterOptionalArrayTypeFfiRouteGroupPreview = new FfiConverterOptional(
+  FfiConverterArrayTypeFfiRouteGroupPreview
+);
 
 // FfiConverter for Array<string> | undefined
-const FfiConverterOptionalArrayString = new FfiConverterOptional(
-  FfiConverterArrayString,
-);
+const FfiConverterOptionalArrayString = new FfiConverterOptional(FfiConverterArrayString);
 
 // FfiConverter for Array</*u32*/number> | undefined
-const FfiConverterOptionalArrayUInt32 = new FfiConverterOptional(
-  FfiConverterArrayUInt32,
-);
+const FfiConverterOptionalArrayUInt32 = new FfiConverterOptional(FfiConverterArrayUInt32);
 
 /**
  * This should be called before anything else.
@@ -19893,180 +18515,120 @@ function uniffiEnsureInitialized() {
   // Get the bindings contract version from our ComponentInterface
   const bindingsContractVersion = 30;
   // Get the scaffolding contract version by calling the into the dylib
-  const scaffoldingContractVersion =
-    nativeModule().ubrn_ffi_veloqrs_uniffi_contract_version();
+  const scaffoldingContractVersion = nativeModule().ubrn_ffi_veloqrs_uniffi_contract_version();
   if (bindingsContractVersion !== scaffoldingContractVersion) {
     throw new UniffiInternalError.ContractVersionMismatch(
       scaffoldingContractVersion,
-      bindingsContractVersion,
+      bindingsContractVersion
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_change_card_support() !== 55123) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_func_get_change_card_support'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_cutover_diff() !== 21804) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_func_get_cutover_diff'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_cutover_progress() !== 54863) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_func_get_cutover_progress'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_download_progress() !== 60736) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_func_get_download_progress'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_change_card_support() !==
-    55123
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_progress() !== 50851
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_get_change_card_support",
+      'uniffi_veloqrs_checksum_func_get_elevation_backfill_progress'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_cutover_diff() !==
-    21804
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining() !== 22900
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_get_cutover_diff",
+      'uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_cutover_progress() !==
-    54863
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_network_push() !== 50292) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_get_cutover_progress",
+      'uniffi_veloqrs_checksum_func_get_network_push'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_download_progress() !==
-    60736
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_cutover_pending() !== 63840) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_get_download_progress",
+      'uniffi_veloqrs_checksum_func_is_cutover_pending'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_progress() !==
-    50851
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_cutover_running() !== 39788) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_get_elevation_backfill_progress",
+      'uniffi_veloqrs_checksum_func_is_cutover_running'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining() !==
-    22900
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_elevation_backfill_paused() !== 6502) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining",
+      'uniffi_veloqrs_checksum_func_is_elevation_backfill_paused'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_network_push() !==
-    50292
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill() !== 31073) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_get_network_push",
+      'uniffi_veloqrs_checksum_func_pause_elevation_backfill'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_cutover_pending() !==
-    63840
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_resume_elevation_backfill() !== 28172) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_is_cutover_pending",
+      'uniffi_veloqrs_checksum_func_resume_elevation_backfill'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_cutover_running() !==
-    39788
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_set_network_online() !== 23758) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_is_cutover_running",
+      'uniffi_veloqrs_checksum_func_set_network_online'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_elevation_backfill_paused() !==
-    6502
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_detector_cutover() !== 46310) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_is_elevation_backfill_paused",
+      'uniffi_veloqrs_checksum_func_start_detector_cutover'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill() !==
-    31073
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_elevation_backfill() !== 54941) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_pause_elevation_backfill",
+      'uniffi_veloqrs_checksum_func_start_elevation_backfill'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_resume_elevation_backfill() !==
-    28172
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store() !== 39135) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_resume_elevation_backfill",
+      'uniffi_veloqrs_checksum_func_start_fetch_and_store'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_set_network_online() !==
-    23758
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_take_fetch_and_store_result() !== 40443) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_set_network_online",
+      'uniffi_veloqrs_checksum_func_take_fetch_and_store_result'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_detector_cutover() !==
-    46310
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_validate_backup_database() !== 53210) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_start_detector_cutover",
+      'uniffi_veloqrs_checksum_func_validate_backup_database'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_elevation_backfill() !==
-    54941
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap() !== 33353) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_start_elevation_backfill",
+      'uniffi_veloqrs_checksum_func_compute_polyline_overlap'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store() !==
-    39135
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_add() !== 61671) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_start_fetch_and_store",
+      'uniffi_veloqrs_checksum_method_activitymanager_add'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_take_fetch_and_store_result() !==
-    40443
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_debug_clone() !== 65278) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_take_fetch_and_store_result",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_validate_backup_database() !==
-    53210
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_validate_backup_database",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap() !==
-    33353
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_compute_polyline_overlap",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_add() !==
-    61671
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_add",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_debug_clone() !==
-    65278
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_debug_clone",
+      'uniffi_veloqrs_checksum_method_activitymanager_debug_clone'
     );
   }
   if (
@@ -20074,39 +18636,33 @@ function uniffiEnsureInitialized() {
     4630
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies",
+      'uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_body() !==
-    26782
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_body() !== 26782
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_get_activity_body",
+      'uniffi_veloqrs_checksum_method_activitymanager_get_activity_body'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_count() !== 22460) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_activitymanager_get_count'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_count() !==
-    22460
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_detail_data() !== 47946
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_get_count",
+      'uniffi_veloqrs_checksum_method_activitymanager_get_detail_data'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_detail_data() !==
-    47946
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_gps_track() !== 48766
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_get_detail_data",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_gps_track() !==
-    48766
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_get_gps_track",
+      'uniffi_veloqrs_checksum_method_activitymanager_get_gps_track'
     );
   }
   if (
@@ -20114,15 +18670,12 @@ function uniffiEnsureInitialized() {
     21725
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_get_highlights_bundle",
+      'uniffi_veloqrs_checksum_method_activitymanager_get_highlights_bundle'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_ids() !==
-    32241
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_ids() !== 32241) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_get_ids",
+      'uniffi_veloqrs_checksum_method_activitymanager_get_ids'
     );
   }
   if (
@@ -20130,39 +18683,33 @@ function uniffiEnsureInitialized() {
     65355
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_get_missing_time_streams",
+      'uniffi_veloqrs_checksum_method_activitymanager_get_missing_time_streams'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_stream_body() !==
-    19961
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_stream_body() !== 19961
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_get_stream_body",
+      'uniffi_veloqrs_checksum_method_activitymanager_get_stream_body'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_mint_local_id() !==
-    16630
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_mint_local_id() !== 16630
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_mint_local_id",
+      'uniffi_veloqrs_checksum_method_activitymanager_mint_local_id'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_record_upload() !==
-    53025
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_record_upload() !== 53025
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_record_upload",
+      'uniffi_veloqrs_checksum_method_activitymanager_record_upload'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_remove() !==
-    58571
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_remove() !== 58571) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_remove",
+      'uniffi_veloqrs_checksum_method_activitymanager_remove'
     );
   }
   if (
@@ -20170,39 +18717,33 @@ function uniffiEnsureInitialized() {
     59578
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_replace_calendar_events",
+      'uniffi_veloqrs_checksum_method_activitymanager_replace_calendar_events'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_curve_body() !==
-    14622
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_curve_body() !== 14622
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_set_curve_body",
+      'uniffi_veloqrs_checksum_method_activitymanager_set_curve_body'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_interval_body() !==
-    56739
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_interval_body() !== 56739
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_set_interval_body",
+      'uniffi_veloqrs_checksum_method_activitymanager_set_interval_body'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_metrics() !== 35728) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_activitymanager_set_metrics'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_metrics() !==
-    35728
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_time_streams() !== 41109
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_set_metrics",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_time_streams() !==
-    41109
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_set_time_streams",
+      'uniffi_veloqrs_checksum_method_activitymanager_set_time_streams'
     );
   }
   if (
@@ -20210,79 +18751,60 @@ function uniffiEnsureInitialized() {
     56169
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_upsert_activity_bodies",
+      'uniffi_veloqrs_checksum_method_activitymanager_upsert_activity_bodies'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles() !==
-    63068
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles() !== 63068
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles",
+      'uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles() !== 53056) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_evict_to() !== 44266) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_basemapmanager_evict_to'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles() !==
-    53056
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size() !== 40845
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles",
+      'uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_evict_to() !==
-    44266
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_or_fetch_tile() !== 44444
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_basemapmanager_evict_to",
+      'uniffi_veloqrs_checksum_method_basemapmanager_get_or_fetch_tile'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size() !==
-    40845
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_source_size() !== 24800
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size",
+      'uniffi_veloqrs_checksum_method_basemapmanager_get_source_size'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_or_fetch_tile() !==
-    44444
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_tile() !== 54110) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_basemapmanager_get_or_fetch_tile",
+      'uniffi_veloqrs_checksum_method_basemapmanager_get_tile'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_source_size() !==
-    24800
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_put_tile() !== 10104) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_basemapmanager_get_source_size",
+      'uniffi_veloqrs_checksum_method_basemapmanager_put_tile'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_tile() !==
-    54110
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_path() !== 2512) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_basemapmanager_get_tile",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_put_tile() !==
-    10104
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_basemapmanager_put_tile",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_path() !==
-    2512
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_basemapmanager_set_path",
+      'uniffi_veloqrs_checksum_method_basemapmanager_set_path'
     );
   }
   if (
@@ -20290,23 +18812,19 @@ function uniffiEnsureInitialized() {
     38954
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_basemapmanager_set_source_template",
+      'uniffi_veloqrs_checksum_method_basemapmanager_set_source_template'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_force_redetect() !==
-    30611
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_force_redetect() !== 30611
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_detectionmanager_force_redetect",
+      'uniffi_veloqrs_checksum_method_detectionmanager_force_redetect'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_config() !==
-    16638
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_config() !== 16638) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_detectionmanager_get_config",
+      'uniffi_veloqrs_checksum_method_detectionmanager_get_config'
     );
   }
   if (
@@ -20314,39 +18832,29 @@ function uniffiEnsureInitialized() {
     27194
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_detectionmanager_get_match_strictness",
+      'uniffi_veloqrs_checksum_method_detectionmanager_get_match_strictness'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_progress() !==
-    61114
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_progress() !== 61114
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_detectionmanager_get_progress",
+      'uniffi_veloqrs_checksum_method_detectionmanager_get_progress'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_last_outcome() !==
-    3203
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_last_outcome() !== 3203) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_detectionmanager_last_outcome",
+      'uniffi_veloqrs_checksum_method_detectionmanager_last_outcome'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_poll() !==
-    4216
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_poll() !== 4216) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_detectionmanager_poll",
+      'uniffi_veloqrs_checksum_method_detectionmanager_poll'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_set_config() !==
-    19300
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_set_config() !== 19300) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_detectionmanager_set_config",
+      'uniffi_veloqrs_checksum_method_detectionmanager_set_config'
     );
   }
   if (
@@ -20354,39 +18862,29 @@ function uniffiEnsureInitialized() {
     43685
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_detectionmanager_set_match_strictness",
+      'uniffi_veloqrs_checksum_method_detectionmanager_set_match_strictness'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_start() !== 50806) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_detectionmanager_start'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_activities() !== 22755) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_veloqengine_activities'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear() !== 24270) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_veloqengine_clear'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_start() !==
-    50806
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear_derived_data() !== 20909
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_detectionmanager_start",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_activities() !==
-    22755
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_activities",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear() !==
-    24270
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_clear",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear_derived_data() !==
-    20909
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_clear_derived_data",
+      'uniffi_veloqrs_checksum_method_veloqengine_clear_derived_data'
     );
   }
   if (
@@ -20394,31 +18892,22 @@ function uniffiEnsureInitialized() {
     40566
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections",
+      'uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_destroy() !==
-    60067
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_destroy() !== 60067) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_destroy",
+      'uniffi_veloqrs_checksum_method_veloqengine_destroy'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_detection() !==
-    34499
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_detection() !== 34499) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_detection",
+      'uniffi_veloqrs_checksum_method_veloqengine_detection'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_fitness() !==
-    36603
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_fitness() !== 36603) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_fitness",
+      'uniffi_veloqrs_checksum_method_veloqengine_fitness'
     );
   }
   if (
@@ -20426,55 +18915,46 @@ function uniffiEnsureInitialized() {
     43744
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams",
+      'uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count() !==
-    24355
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count() !== 24355
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_get_activity_count",
+      'uniffi_veloqrs_checksum_method_veloqengine_get_activity_count'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata() !==
-    29693
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata() !== 29693
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata",
+      'uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_stats() !==
-    33012
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_stats() !== 33012) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_get_stats",
+      'uniffi_veloqrs_checksum_method_veloqengine_get_stats'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_heatmap() !==
-    8116
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_heatmap() !== 8116) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_heatmap",
+      'uniffi_veloqrs_checksum_method_veloqengine_heatmap'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized() !==
-    10249
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_init_outcome() !== 20566) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_is_initialized",
+      'uniffi_veloqrs_checksum_method_veloqengine_init_outcome'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_maps() !==
-    42940
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized() !== 10249) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_maps",
+      'uniffi_veloqrs_checksum_method_veloqengine_is_initialized'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_maps() !== 42940) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_veloqengine_maps'
     );
   }
   if (
@@ -20482,111 +18962,76 @@ function uniffiEnsureInitialized() {
     29247
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation",
+      'uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_backup() !== 48388) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_veloqengine_poll_backup'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_bulk_export() !== 48301) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_veloqengine_poll_bulk_export'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_recordings() !== 31277) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_veloqengine_recordings'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_routes() !== 6175) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_veloqengine_routes'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_sections() !== 65121) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_veloqengine_sections'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_backup() !==
-    48388
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_set_name_translations() !== 58762
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_poll_backup",
+      'uniffi_veloqrs_checksum_method_veloqengine_set_name_translations'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_set_observer() !== 43138) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_veloqengine_set_observer'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_settings() !== 53803) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_veloqengine_settings'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_backup() !== 24871) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_veloqengine_start_backup'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_bulk_export() !== 1034) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_veloqengine_start_bulk_export'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_strength() !== 10166) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_veloqengine_strength'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_sync() !== 44196) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_veloqengine_sync'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_bulk_export() !==
-    48301
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend() !== 40474
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_poll_bulk_export",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_recordings() !==
-    31277
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_recordings",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_routes() !==
-    6175
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_routes",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_sections() !==
-    65121
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_sections",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_set_name_translations() !==
-    58762
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_set_name_translations",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_set_observer() !==
-    43138
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_set_observer",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_settings() !==
-    53803
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_settings",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_backup() !==
-    24871
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_start_backup",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_bulk_export() !==
-    1034
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_start_bulk_export",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_strength() !==
-    10166
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_strength",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_sync() !==
-    44196
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_sync",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend() !==
-    40474
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend'
     );
   }
   if (
@@ -20594,7 +19039,7 @@ function uniffiEnsureInitialized() {
     46931
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_find_stale_pr_opportunities",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_find_stale_pr_opportunities'
     );
   }
   if (
@@ -20602,7 +19047,7 @@ function uniffiEnsureInitialized() {
     2572
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap'
     );
   }
   if (
@@ -20610,7 +19055,7 @@ function uniffiEnsureInitialized() {
     35903
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_metric_ids",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_metric_ids'
     );
   }
   if (
@@ -20618,7 +19063,7 @@ function uniffiEnsureInitialized() {
     18354
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_available_sport_types",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_available_sport_types'
     );
   }
   if (
@@ -20626,23 +19071,21 @@ function uniffiEnsureInitialized() {
     15334
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_calendar_event_bodies",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_calendar_event_bodies'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data() !==
-    8401
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data() !== 8401
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_interval_body() !==
-    18920
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_interval_body() !== 18920
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_interval_body",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_interval_body'
     );
   }
   if (
@@ -20650,7 +19093,7 @@ function uniffiEnsureInitialized() {
     31854
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve_body",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve_body'
     );
   }
   if (
@@ -20658,15 +19101,14 @@ function uniffiEnsureInitialized() {
     6853
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve_body",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve_body'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data() !==
-    57928
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data() !== 57928
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data'
     );
   }
   if (
@@ -20674,7 +19116,7 @@ function uniffiEnsureInitialized() {
     44044
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data'
     );
   }
   if (
@@ -20682,7 +19124,7 @@ function uniffiEnsureInitialized() {
     23960
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_week_load_shape",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_week_load_shape'
     );
   }
   if (
@@ -20690,7 +19132,7 @@ function uniffiEnsureInitialized() {
     26182
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_weekly_summaries",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_weekly_summaries'
     );
   }
   if (
@@ -20698,7 +19140,7 @@ function uniffiEnsureInitialized() {
     17656
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_bodies",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_bodies'
     );
   }
   if (
@@ -20706,7 +19148,7 @@ function uniffiEnsureInitialized() {
     14877
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_sparklines",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_sparklines'
     );
   }
   if (
@@ -20714,7 +19156,7 @@ function uniffiEnsureInitialized() {
     54490
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_widget_snapshot",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_widget_snapshot'
     );
   }
   if (
@@ -20722,239 +19164,174 @@ function uniffiEnsureInitialized() {
     6504
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot() !==
-    20489
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot() !== 20489
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness() !==
-    34868
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness() !== 34868
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness",
+      'uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures() !== 9435) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_screen_data() !== 16743) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_mapmanager_get_screen_data'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_query_viewport() !== 44013) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_mapmanager_query_viewport'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_sync_progress() !== 62184) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_engineobserver_sync_progress'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_sync_settled() !== 19642) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_engineobserver_sync_settled'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_body_stored() !== 60472) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_engineobserver_body_stored'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures() !==
-    9435
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_time_streams_stored() !== 5378
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures",
+      'uniffi_veloqrs_checksum_method_engineobserver_time_streams_stored'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_screen_data() !==
-    16743
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_gps_track_stored() !== 43970
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_mapmanager_get_screen_data",
+      'uniffi_veloqrs_checksum_method_engineobserver_gps_track_stored'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_fit_parsed() !== 19682) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_engineobserver_fit_parsed'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_query_viewport() !==
-    44013
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_detection_applied() !== 17812
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_mapmanager_query_viewport",
+      'uniffi_veloqrs_checksum_method_engineobserver_detection_applied'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_sync_progress() !==
-    62184
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_tiles_generated() !== 3208
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_engineobserver_sync_progress",
+      'uniffi_veloqrs_checksum_method_engineobserver_tiles_generated'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_sync_settled() !==
-    19642
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_backfill_phase() !== 20625
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_engineobserver_sync_settled",
+      'uniffi_veloqrs_checksum_method_engineobserver_backfill_phase'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_body_stored() !==
-    60472
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_cutover_settled() !== 29940
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_engineobserver_body_stored",
+      'uniffi_veloqrs_checksum_method_engineobserver_cutover_settled'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_preview_phase() !== 9863) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_engineobserver_preview_phase'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_time_streams_stored() !==
-    5378
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_preview_finished() !== 29719
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_engineobserver_time_streams_stored",
+      'uniffi_veloqrs_checksum_method_engineobserver_preview_finished'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_cancel() !== 35444) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_routegroupingpreview_cancel'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_poll() !== 34564) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_routegroupingpreview_poll'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_start() !== 58618) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_routegroupingpreview_start'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_gps_track_stored() !==
-    43970
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_take_result() !== 17568
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_engineobserver_gps_track_stored",
+      'uniffi_veloqrs_checksum_method_routegroupingpreview_take_result'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_cancel() !== 25120) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionpreview_cancel'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_centres() !== 22879) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionpreview_centres'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_current() !== 3028) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionpreview_current'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_get_progress() !== 62565) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionpreview_get_progress'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_poll() !== 49176) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionpreview_poll'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_start() !== 55443) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionpreview_start'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_take_result() !== 25527) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionpreview_take_result'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_fit_parsed() !==
-    19682
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_add_recording() !== 52400
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_engineobserver_fit_parsed",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_detection_applied() !==
-    17812
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_engineobserver_detection_applied",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_tiles_generated() !==
-    3208
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_engineobserver_tiles_generated",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_backfill_phase() !==
-    20625
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_engineobserver_backfill_phase",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_cutover_settled() !==
-    29940
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_engineobserver_cutover_settled",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_preview_phase() !==
-    9863
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_engineobserver_preview_phase",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_preview_finished() !==
-    29719
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_engineobserver_preview_finished",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_cancel() !==
-    35444
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routegroupingpreview_cancel",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_poll() !==
-    34564
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routegroupingpreview_poll",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_start() !==
-    58618
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routegroupingpreview_start",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_take_result() !==
-    17568
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routegroupingpreview_take_result",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_cancel() !==
-    25120
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionpreview_cancel",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_centres() !==
-    22879
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionpreview_centres",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_current() !==
-    3028
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionpreview_current",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_get_progress() !==
-    62565
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionpreview_get_progress",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_poll() !==
-    49176
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionpreview_poll",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_start() !==
-    55443
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionpreview_start",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_take_result() !==
-    25527
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionpreview_take_result",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_add_recording() !==
-    52400
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_add_recording",
+      'uniffi_veloqrs_checksum_method_recordingmanager_add_recording'
     );
   }
   if (
@@ -20962,7 +19339,7 @@ function uniffiEnsureInitialized() {
     38031
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_attach_engine_activity",
+      'uniffi_veloqrs_checksum_method_recordingmanager_attach_engine_activity'
     );
   }
   if (
@@ -20970,15 +19347,14 @@ function uniffiEnsureInitialized() {
     20590
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_clear_permission_blocked",
+      'uniffi_veloqrs_checksum_method_recordingmanager_clear_permission_blocked'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_clear_recordings() !==
-    57558
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_clear_recordings() !== 57558
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_clear_recordings",
+      'uniffi_veloqrs_checksum_method_recordingmanager_clear_recordings'
     );
   }
   if (
@@ -20986,15 +19362,14 @@ function uniffiEnsureInitialized() {
     21267
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_clear_streams_path",
+      'uniffi_veloqrs_checksum_method_recordingmanager_clear_streams_path'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_delete_recording() !==
-    11870
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_delete_recording() !== 11870
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_delete_recording",
+      'uniffi_veloqrs_checksum_method_recordingmanager_delete_recording'
     );
   }
   if (
@@ -21002,23 +19377,21 @@ function uniffiEnsureInitialized() {
     37557
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_demote_pending_to_local_only",
+      'uniffi_veloqrs_checksum_method_recordingmanager_demote_pending_to_local_only'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_get_recording() !==
-    10161
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_get_recording() !== 10161
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_get_recording",
+      'uniffi_veloqrs_checksum_method_recordingmanager_get_recording'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_hold_for_auth() !==
-    53652
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_hold_for_auth() !== 53652
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_hold_for_auth",
+      'uniffi_veloqrs_checksum_method_recordingmanager_hold_for_auth'
     );
   }
   if (
@@ -21026,15 +19399,14 @@ function uniffiEnsureInitialized() {
     45981
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_hold_other_athletes",
+      'uniffi_veloqrs_checksum_method_recordingmanager_hold_other_athletes'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_list_recordings() !==
-    48617
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_list_recordings() !== 48617
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_list_recordings",
+      'uniffi_veloqrs_checksum_method_recordingmanager_list_recordings'
     );
   }
   if (
@@ -21042,23 +19414,21 @@ function uniffiEnsureInitialized() {
     6026
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_mark_permission_blocked",
+      'uniffi_veloqrs_checksum_method_recordingmanager_mark_permission_blocked'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_reconciled() !==
-    63233
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_reconciled() !== 63233
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_mark_reconciled",
+      'uniffi_veloqrs_checksum_method_recordingmanager_mark_reconciled'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_rejected() !==
-    56986
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_rejected() !== 56986
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_mark_rejected",
+      'uniffi_veloqrs_checksum_method_recordingmanager_mark_rejected'
     );
   }
   if (
@@ -21066,23 +19436,21 @@ function uniffiEnsureInitialized() {
     58152
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_mark_upload_failed",
+      'uniffi_veloqrs_checksum_method_recordingmanager_mark_upload_failed'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_uploaded() !==
-    11132
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_uploaded() !== 11132
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_mark_uploaded",
+      'uniffi_veloqrs_checksum_method_recordingmanager_mark_uploaded'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_uploading() !==
-    35611
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_uploading() !== 35611
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_mark_uploading",
+      'uniffi_veloqrs_checksum_method_recordingmanager_mark_uploading'
     );
   }
   if (
@@ -21090,7 +19458,7 @@ function uniffiEnsureInitialized() {
     30066
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_next_pending_upload",
+      'uniffi_veloqrs_checksum_method_recordingmanager_next_pending_upload'
     );
   }
   if (
@@ -21098,31 +19466,26 @@ function uniffiEnsureInitialized() {
     44009
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_permission_blocked_count",
+      'uniffi_veloqrs_checksum_method_recordingmanager_permission_blocked_count'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_requeue() !== 50912) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_recordingmanager_requeue'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_requeue() !==
-    50912
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_unuploaded_count() !== 27861
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_requeue",
+      'uniffi_veloqrs_checksum_method_recordingmanager_unuploaded_count'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_unuploaded_count() !==
-    27861
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_exclude_activity() !== 31869
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_unuploaded_count",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_exclude_activity() !==
-    31869
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_exclude_activity",
+      'uniffi_veloqrs_checksum_method_routemanager_exclude_activity'
     );
   }
   if (
@@ -21130,47 +19493,34 @@ function uniffiEnsureInitialized() {
     6947
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_activity_route_highlights",
+      'uniffi_veloqrs_checksum_method_routemanager_get_activity_route_highlights'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all() !== 5487) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_routemanager_get_all'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all_names() !== 22449) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_routemanager_get_all_names'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_by_id() !== 3711) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_routemanager_get_by_id'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all() !==
-    5487
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_consensus_route() !== 36666
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_all",
+      'uniffi_veloqrs_checksum_method_routemanager_get_consensus_route'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all_names() !==
-    22449
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_detail_data() !== 12067) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_all_names",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_by_id() !==
-    3711
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_by_id",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_consensus_route() !==
-    36666
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_consensus_route",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_detail_data() !==
-    12067
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_detail_data",
+      'uniffi_veloqrs_checksum_method_routemanager_get_detail_data'
     );
   }
   if (
@@ -21178,7 +19528,7 @@ function uniffiEnsureInitialized() {
     49615
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_excluded_activities",
+      'uniffi_veloqrs_checksum_method_routemanager_get_excluded_activities'
     );
   }
   if (
@@ -21186,151 +19536,109 @@ function uniffiEnsureInitialized() {
     18927
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_excluded_performances",
+      'uniffi_veloqrs_checksum_method_routemanager_get_excluded_performances'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_performances() !==
-    27410
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_performances() !== 27410
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_performances",
+      'uniffi_veloqrs_checksum_method_routemanager_get_performances'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_screen_data() !== 9639) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_routemanager_get_screen_data'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries() !== 61118) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_routemanager_get_summaries'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_screen_data() !==
-    9639
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_include_activity() !== 27818
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_screen_data",
+      'uniffi_veloqrs_checksum_method_routemanager_include_activity'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_set_name() !== 45774) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_routemanager_set_name'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries() !==
-    61118
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_set_representative() !== 54072
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_summaries",
+      'uniffi_veloqrs_checksum_method_routemanager_set_representative'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_accept() !== 11006) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_accept'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_accept_all() !== 47896) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_accept_all'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_include_activity() !==
-    27818
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_clear_superseded() !== 23395
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_include_activity",
+      'uniffi_veloqrs_checksum_method_sectionmanager_clear_superseded'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_create() !== 59450) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_create'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_delete() !== 50983) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_delete'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_disable() !== 34833) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_disable'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_enable() !== 48788) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_enable'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_set_name() !==
-    45774
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_activity() !== 59291
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_set_name",
+      'uniffi_veloqrs_checksum_method_sectionmanager_exclude_activity'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap() !== 15936) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds() !== 21302) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_set_representative() !==
-    54072
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_find_superseded() !== 61901
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_set_representative",
+      'uniffi_veloqrs_checksum_method_sectionmanager_find_superseded'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_accept() !==
-    11006
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names() !== 23962) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_accept",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_accept_all() !==
-    47896
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_accept_all",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_clear_superseded() !==
-    23395
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_clear_superseded",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_create() !==
-    59450
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_create",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_delete() !==
-    50983
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_delete",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_disable() !==
-    34833
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_disable",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_enable() !==
-    48788
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_enable",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_activity() !==
-    59291
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_exclude_activity",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap() !==
-    15936
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds() !==
-    21302
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_find_superseded() !==
-    61901
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_find_superseded",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names() !==
-    23962
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_all_names",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_all_names'
     );
   }
   if (
@@ -21338,15 +19646,12 @@ function uniffiEnsureInitialized() {
     37909
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_all_summaries_including_hidden",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_all_summaries_including_hidden'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_id() !==
-    637
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_id() !== 637) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_by_id",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_by_id'
     );
   }
   if (
@@ -21354,31 +19659,26 @@ function uniffiEnsureInitialized() {
     2977
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_calendar_summary",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_calendar_summary'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_chart_data() !==
-    27343
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_chart_data() !== 27343
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_chart_data",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_chart_data'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_count() !== 1440) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_count'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_count() !==
-    1440
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_detail_data() !== 58379
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_count",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_detail_data() !==
-    58379
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_detail_data",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_detail_data'
     );
   }
   if (
@@ -21386,7 +19686,7 @@ function uniffiEnsureInitialized() {
     55694
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_detail_performance",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_detail_performance'
     );
   }
   if (
@@ -21394,7 +19694,7 @@ function uniffiEnsureInitialized() {
     39610
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_efficiency_trend",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_efficiency_trend'
     );
   }
   if (
@@ -21402,15 +19702,14 @@ function uniffiEnsureInitialized() {
     36984
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_activities",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_activities'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_laps() !==
-    32279
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_laps() !== 32279
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_laps",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_laps'
     );
   }
   if (
@@ -21418,7 +19717,7 @@ function uniffiEnsureInitialized() {
     705
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_performances",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_performances'
     );
   }
   if (
@@ -21426,7 +19725,7 @@ function uniffiEnsureInitialized() {
     63932
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_extension_track",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_extension_track'
     );
   }
   if (
@@ -21434,7 +19733,7 @@ function uniffiEnsureInitialized() {
     32640
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_version_coords",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_version_coords'
     );
   }
   if (
@@ -21442,47 +19741,38 @@ function uniffiEnsureInitialized() {
     6310
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_history() !== 21918) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_history'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_lineages() !== 34740) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_lineages'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_history() !==
-    21918
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors() !== 6713
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_history",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_lineages() !==
-    34740
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_near_point() !== 38937
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_lineages",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_near_point'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors() !==
-    6713
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances() !== 50767
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_near_point() !==
-    38937
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_near_point",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances() !==
-    50767
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_performances",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_performances'
     );
   }
   if (
@@ -21490,63 +19780,48 @@ function uniffiEnsureInitialized() {
     53171
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_pinned_version() !==
-    63552
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_pinned_version() !== 63552
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_pinned_version",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_pinned_version'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_polyline() !== 40293) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_polyline'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_polyline() !==
-    40293
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_recent_changes() !== 17006
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_polyline",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_recent_changes'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_recent_changes() !==
-    17006
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info() !== 43158
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_recent_changes",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info() !==
-    43158
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_retired() !== 36172) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_retired'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_retired() !==
-    36172
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_sections() !== 24056) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_retired",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_sections'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_sections() !==
-    24056
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries() !== 46943) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_sections",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries() !==
-    46943
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_summaries",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_summaries'
     );
   }
   if (
@@ -21554,31 +19829,26 @@ function uniffiEnsureInitialized() {
     6017
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_workout_sections",
+      'uniffi_veloqrs_checksum_method_sectionmanager_get_workout_sections'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_activity() !==
-    24339
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_activity() !== 24339
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_include_activity",
+      'uniffi_veloqrs_checksum_method_sectionmanager_include_activity'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_lap() !== 50847) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_include_lap'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_lap() !==
-    50847
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_index_new_activity() !== 6116
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_include_lap",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_index_new_activity() !==
-    6116
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_index_new_activity",
+      'uniffi_veloqrs_checksum_method_sectionmanager_index_new_activity'
     );
   }
   if (
@@ -21586,15 +19856,14 @@ function uniffiEnsureInitialized() {
     26456
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections",
+      'uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_merge_sections() !==
-    44813
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_merge_sections() !== 44813
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_merge_sections",
+      'uniffi_veloqrs_checksum_method_sectionmanager_merge_sections'
     );
   }
   if (
@@ -21602,7 +19871,7 @@ function uniffiEnsureInitialized() {
     1531
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section",
+      'uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section'
     );
   }
   if (
@@ -21610,71 +19879,53 @@ function uniffiEnsureInitialized() {
     55247
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_remove_named_corridor",
+      'uniffi_veloqrs_checksum_method_sectionmanager_remove_named_corridor'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds() !== 45224) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds() !==
-    45224
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_reference() !== 39960
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds",
+      'uniffi_veloqrs_checksum_method_sectionmanager_reset_reference'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_reference() !==
-    39960
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version() !== 35912
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_reset_reference",
+      'uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_name() !== 27856) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_set_name'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_reference() !== 33434) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_sectionmanager_set_reference'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version() !==
-    35912
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_superseded() !== 42272
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version",
+      'uniffi_veloqrs_checksum_method_sectionmanager_set_superseded'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_name() !==
-    27856
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_trim() !== 42034) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_set_name",
+      'uniffi_veloqrs_checksum_method_sectionmanager_trim'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_reference() !==
-    33434
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_unpin() !== 38624) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_set_reference",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_superseded() !==
-    42272
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_set_superseded",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_trim() !==
-    42034
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_trim",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_unpin() !==
-    38624
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_unpin",
+      'uniffi_veloqrs_checksum_method_sectionmanager_unpin'
     );
   }
   if (
@@ -21682,15 +19933,14 @@ function uniffiEnsureInitialized() {
     65287
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_clear_user_profile_caches",
+      'uniffi_veloqrs_checksum_method_settingsmanager_clear_user_profile_caches'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_delete_setting() !==
-    6015
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_delete_setting() !== 6015
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_delete_setting",
+      'uniffi_veloqrs_checksum_method_settingsmanager_delete_setting'
     );
   }
   if (
@@ -21698,7 +19948,7 @@ function uniffiEnsureInitialized() {
     3926
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_export_privacy_preview",
+      'uniffi_veloqrs_checksum_method_settingsmanager_export_privacy_preview'
     );
   }
   if (
@@ -21706,15 +19956,12 @@ function uniffiEnsureInitialized() {
     18956
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile",
+      'uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_setting() !==
-    52759
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_setting() !== 52759) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_get_setting",
+      'uniffi_veloqrs_checksum_method_settingsmanager_get_setting'
     );
   }
   if (
@@ -21722,7 +19969,7 @@ function uniffiEnsureInitialized() {
     14187
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings",
+      'uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings'
     );
   }
   if (
@@ -21730,23 +19977,17 @@ function uniffiEnsureInitialized() {
     60840
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile",
+      'uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_setting() !==
-    9910
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_setting() !== 9910) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_set_setting",
+      'uniffi_veloqrs_checksum_method_settingsmanager_set_setting'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_settings() !==
-    34826
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_settings() !== 34826) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_set_settings",
+      'uniffi_veloqrs_checksum_method_settingsmanager_set_settings'
     );
   }
   if (
@@ -21754,7 +19995,7 @@ function uniffiEnsureInitialized() {
     43262
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings",
+      'uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings'
     );
   }
   if (
@@ -21762,7 +20003,7 @@ function uniffiEnsureInitialized() {
     33965
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_set_stream_retention_days",
+      'uniffi_veloqrs_checksum_method_settingsmanager_set_stream_retention_days'
     );
   }
   if (
@@ -21770,7 +20011,7 @@ function uniffiEnsureInitialized() {
     12066
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_stream_retention_days",
+      'uniffi_veloqrs_checksum_method_settingsmanager_stream_retention_days'
     );
   }
   if (
@@ -21778,7 +20019,7 @@ function uniffiEnsureInitialized() {
     57031
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_stream_store_bytes",
+      'uniffi_veloqrs_checksum_method_settingsmanager_stream_store_bytes'
     );
   }
   if (
@@ -21786,7 +20027,7 @@ function uniffiEnsureInitialized() {
     43916
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_home",
+      'uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_home'
     );
   }
   if (
@@ -21794,7 +20035,7 @@ function uniffiEnsureInitialized() {
     57349
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets",
+      'uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets'
     );
   }
   if (
@@ -21802,7 +20043,7 @@ function uniffiEnsureInitialized() {
     63799
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets",
+      'uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets'
     );
   }
   if (
@@ -21810,7 +20051,7 @@ function uniffiEnsureInitialized() {
     1736
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets",
+      'uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets'
     );
   }
   if (
@@ -21818,15 +20059,14 @@ function uniffiEnsureInitialized() {
     27188
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_get_activities_for_exercise",
+      'uniffi_veloqrs_checksum_method_strengthmanager_get_activities_for_exercise'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_sets() !==
-    40842
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_sets() !== 40842
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_sets",
+      'uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_sets'
     );
   }
   if (
@@ -21834,23 +20074,21 @@ function uniffiEnsureInitialized() {
     26780
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_get_exercises_for_muscle",
+      'uniffi_veloqrs_checksum_method_strengthmanager_get_exercises_for_muscle'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_detail() !==
-    62779
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_detail() !== 62779
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_detail",
+      'uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_detail'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_groups() !==
-    35639
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_groups() !== 35639
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_groups",
+      'uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_groups'
     );
   }
   if (
@@ -21858,7 +20096,7 @@ function uniffiEnsureInitialized() {
     12114
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_get_strength_summary",
+      'uniffi_veloqrs_checksum_method_strengthmanager_get_strength_summary'
     );
   }
   if (
@@ -21866,7 +20104,7 @@ function uniffiEnsureInitialized() {
     41299
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_get_strength_summary_batch",
+      'uniffi_veloqrs_checksum_method_strengthmanager_get_strength_summary_batch'
     );
   }
   if (
@@ -21874,15 +20112,14 @@ function uniffiEnsureInitialized() {
     58339
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_get_unprocessed_strength_ids",
+      'uniffi_veloqrs_checksum_method_strengthmanager_get_unprocessed_strength_ids'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data() !==
-    64638
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data() !== 64638
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data",
+      'uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data'
     );
   }
   if (
@@ -21890,39 +20127,31 @@ function uniffiEnsureInitialized() {
     8018
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit",
+      'uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed() !==
-    22145
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed() !== 22145
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed",
+      'uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_bodies_stored() !== 23413) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_syncmanager_bodies_stored'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_cancel() !== 48199) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_syncmanager_cancel'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_bodies_stored() !==
-    23413
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials() !== 55262
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_bodies_stored",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_cancel() !==
-    48199
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_cancel",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials() !==
-    55262
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_clear_credentials",
+      'uniffi_veloqrs_checksum_method_syncmanager_clear_credentials'
     );
   }
   if (
@@ -21930,7 +20159,7 @@ function uniffiEnsureInitialized() {
     16648
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded",
+      'uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded'
     );
   }
   if (
@@ -21938,23 +20167,17 @@ function uniffiEnsureInitialized() {
     62031
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_create_manual_activity",
+      'uniffi_veloqrs_checksum_method_syncmanager_create_manual_activity'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status() !==
-    46855
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status() !== 46855) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_get_sync_status",
+      'uniffi_veloqrs_checksum_method_syncmanager_get_sync_status'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_set_credentials() !==
-    22689
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_set_credentials() !== 22689) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_set_credentials",
+      'uniffi_veloqrs_checksum_method_syncmanager_set_credentials'
     );
   }
   if (
@@ -21962,15 +20185,14 @@ function uniffiEnsureInitialized() {
     61289
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_sync_activities_window",
+      'uniffi_veloqrs_checksum_method_syncmanager_sync_activities_window'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_detail() !==
-    9245
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_detail() !== 9245
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_sync_activity_detail",
+      'uniffi_veloqrs_checksum_method_syncmanager_sync_activity_detail'
     );
   }
   if (
@@ -21978,239 +20200,166 @@ function uniffiEnsureInitialized() {
     1542
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_sync_activity_intervals",
+      'uniffi_veloqrs_checksum_method_syncmanager_sync_activity_intervals'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_streams() !==
-    63568
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_streams() !== 63568
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_sync_activity_streams",
+      'uniffi_veloqrs_checksum_method_syncmanager_sync_activity_streams'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_calendar_events() !==
-    3539
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_calendar_events() !== 3539
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_sync_calendar_events",
+      'uniffi_veloqrs_checksum_method_syncmanager_sync_calendar_events'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_now() !== 53800) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_syncmanager_sync_now'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve() !== 23002) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve() !== 11625) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_now() !==
-    53800
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams() !== 13380
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_sync_now",
+      'uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_upload_activity() !== 17894) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_syncmanager_upload_activity'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve() !==
-    23002
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_validate_credentials() !== 26740
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve",
+      'uniffi_veloqrs_checksum_method_syncmanager_validate_credentials'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles() !== 18983) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve() !==
-    11625
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path() !== 51643
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve",
+      'uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams() !==
-    13380
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size() !== 11524
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams",
+      'uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress() !== 13378) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_heatmapmanager_get_progress'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll() !== 27592) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_heatmapmanager_poll'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path() !== 1770) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_activitymanager_new() !== 63207) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_constructor_activitymanager_new'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_basemapmanager_new() !== 46809) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_constructor_basemapmanager_new'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_detectionmanager_new() !== 63058) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_constructor_detectionmanager_new'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_veloqengine_create() !== 21648) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_constructor_veloqengine_create'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_fitnessmanager_new() !== 13786) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_constructor_fitnessmanager_new'
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_mapmanager_new() !== 2860) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      'uniffi_veloqrs_checksum_constructor_mapmanager_new'
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_upload_activity() !==
-    17894
+    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_routegroupingpreview_new() !== 36096
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_upload_activity",
+      'uniffi_veloqrs_checksum_constructor_routegroupingpreview_new'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_validate_credentials() !==
-    26740
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_sectionpreview_new() !== 51441) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_validate_credentials",
+      'uniffi_veloqrs_checksum_constructor_sectionpreview_new'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles() !==
-    18983
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_recordingmanager_new() !== 7397) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles",
+      'uniffi_veloqrs_checksum_constructor_recordingmanager_new'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path() !==
-    51643
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_routemanager_new() !== 38739) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path",
+      'uniffi_veloqrs_checksum_constructor_routemanager_new'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size() !==
-    11524
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_sectionmanager_new() !== 33473) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size",
+      'uniffi_veloqrs_checksum_constructor_sectionmanager_new'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress() !==
-    13378
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_settingsmanager_new() !== 10438) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_heatmapmanager_get_progress",
+      'uniffi_veloqrs_checksum_constructor_settingsmanager_new'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll() !==
-    27592
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_strengthmanager_new() !== 40232) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_heatmapmanager_poll",
+      'uniffi_veloqrs_checksum_constructor_strengthmanager_new'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path() !==
-    1770
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_syncmanager_new() !== 27433) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path",
+      'uniffi_veloqrs_checksum_constructor_syncmanager_new'
     );
   }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_activitymanager_new() !==
-    63207
-  ) {
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_heatmapmanager_new() !== 18819) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_activitymanager_new",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_basemapmanager_new() !==
-    46809
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_basemapmanager_new",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_detectionmanager_new() !==
-    63058
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_detectionmanager_new",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_veloqengine_create() !==
-    21648
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_veloqengine_create",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_fitnessmanager_new() !==
-    13786
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_fitnessmanager_new",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_mapmanager_new() !==
-    2860
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_mapmanager_new",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_routegroupingpreview_new() !==
-    36096
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_routegroupingpreview_new",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_sectionpreview_new() !==
-    51441
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_sectionpreview_new",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_recordingmanager_new() !==
-    7397
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_recordingmanager_new",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_routemanager_new() !==
-    38739
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_routemanager_new",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_sectionmanager_new() !==
-    33473
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_sectionmanager_new",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_settingsmanager_new() !==
-    10438
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_settingsmanager_new",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_strengthmanager_new() !==
-    40232
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_strengthmanager_new",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_syncmanager_new() !==
-    27433
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_syncmanager_new",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_heatmapmanager_new() !==
-    18819
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_constructor_heatmapmanager_new",
+      'uniffi_veloqrs_checksum_constructor_heatmapmanager_new'
     );
   }
 
@@ -22270,6 +20419,7 @@ export default Object.freeze({
     FfiConverterTypeFfiHeatmapDay,
     FfiConverterTypeFfiHrvTrend,
     FfiConverterTypeFfiIndexActivitySummary,
+    FfiConverterTypeFfiInitOutcome,
     FfiConverterTypeFfiInsightsData,
     FfiConverterTypeFfiInsightsParams,
     FfiConverterTypeFfiManualActivity,

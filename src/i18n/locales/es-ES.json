@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "El motor de rutas no se pudo inicializar. Las rutas y secciones podrían no estar disponibles."
+    "initFailed": "El motor de rutas no se pudo inicializar. Las rutas y secciones podrían no estar disponibles.",
+    "initReason": {
+      "busy": "Otra cosa estaba usando la base de datos. Vuelve a intentarlo en un momento.",
+      "forwardSchema": "Estos datos se guardaron con una versión más nueva de Veloq. Actualiza la aplicación para abrirlos.",
+      "storageUnavailable": "No se ha podido escribir la base de datos. Libera espacio e inténtalo de nuevo.",
+      "failed": "El motor de rutas se paró por un motivo que la aplicación no sabe nombrar."
+    }
   },
   "errorState": {
     "defaultTitle": "Algo ha salido mal",
