@@ -9,7 +9,7 @@ import { usePathname } from 'expo-router';
 
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
-import { colors, darkColors, brand, spacing, shadows, layout } from '@/theme';
+import { colors, darkColors, brand, spacing, shadows, layout, typography } from '@/theme';
 import { TAB_BAR_HEIGHT, GRADIENT_HEIGHT } from '@/shared/ui/BottomTabBar';
 import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
@@ -96,12 +96,12 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   elapsed: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   label: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
   },
 });

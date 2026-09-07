@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 
 import { getLastInsightOutcome } from '../lib/generateInsights';
 
@@ -42,7 +42,9 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
         <View style={styles.header}>
           <Text style={[styles.title, { color: textColor }]}>Insight pipeline debug</Text>
           <Pressable onPress={onClose} style={styles.closeBtn}>
-            <Text style={{ color: textColor, fontSize: 15 }}>Close</Text>
+            <Text style={{ color: textColor, fontSize: typography.bodyMedium.fontSize }}>
+              Close
+            </Text>
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={styles.scroll}>
@@ -126,7 +128,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   title: {
-    fontSize: 20,
+    fontSize: typography.statsValue.fontSize,
     fontWeight: '600',
   },
   closeBtn: {
@@ -134,7 +136,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   section: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     marginTop: spacing.md,
     marginBottom: spacing.xs,
@@ -145,7 +147,7 @@ const styles = StyleSheet.create({
   },
   row: {
     fontFamily: 'monospace',
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     paddingVertical: 2,
   },
 });

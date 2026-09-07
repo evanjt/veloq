@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     marginLeft: -spacing.xs,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },

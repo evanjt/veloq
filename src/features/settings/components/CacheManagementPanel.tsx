@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 
 export interface CacheManagementPanelProps {
   isDark: boolean;
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: colors.textPrimary,
   },
   actionTextDisabled: {

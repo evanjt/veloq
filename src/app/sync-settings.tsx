@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import {
   ActivitySyncRow,
   BackgroundJobsLink,
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     marginLeft: -spacing.xs,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },

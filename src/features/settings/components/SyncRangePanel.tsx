@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     borderRadius: spacing.xxs,
   },
   progressText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   progressTextDark: {
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     height: 22,
   },
   resultText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.primary,
   },
   resultTextDark: {

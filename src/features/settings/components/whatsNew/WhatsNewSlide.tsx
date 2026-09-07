@@ -3,7 +3,7 @@ import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 
 interface WhatsNewSlideProps {
   icon: string;
@@ -44,13 +44,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    fontSize: 22,
+    fontSize: typography.sectionTitle.fontSize,
     fontWeight: '700',
     textAlign: 'center',
     marginTop: spacing.sm,
   },
   body: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     textAlign: 'center',
     lineHeight: 22,
   },

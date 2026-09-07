@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, mapStylePreview, spacing } from '@/theme';
+import { colors, darkColors, mapStylePreview, spacing, typography } from '@/theme';
 import { type MapStyleType } from '@/features/maps/components/mapStyles';
 
 const CIRCLE_SIZE = 70;
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '10deg' }],
   },
   label: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
     marginTop: 2,

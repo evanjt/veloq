@@ -8,7 +8,16 @@ import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
 import { SectionInsightMap } from './SectionInsightMap';
-import { colors, darkColors, spacing, opacity, shadows, insightIcon, layout } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  opacity,
+  shadows,
+  insightIcon,
+  layout,
+  typography,
+} from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 
 interface StalePRContentProps {
@@ -183,7 +192,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   contextHeading: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -191,7 +200,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   contextBody: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
     color: colors.textPrimary,
   },
@@ -199,7 +208,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   contextMeta: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   contextMetaDark: {
@@ -220,14 +229,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dataLabel: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   dataLabelDark: {
     color: darkColors.textSecondary,
   },
   dataValue: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -273,7 +282,7 @@ const styles = StyleSheet.create({
   },
   sectionName: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -281,7 +290,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   bestTime: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },

@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   proximityText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textDisabled,
   },
   proximityTextDark: {
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(192, 132, 252, 0.15)',
   },
   customTagText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
     color: colors.chartPurple,
   },
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     backgroundColor: colorWithOpacity(darkColors.amberIcon, 0.15),
   },
   disabledTagText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
     color: colors.amberIcon,
   },

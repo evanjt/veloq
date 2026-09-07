@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
 const INSIGHT_ITEMS = [
   { icon: 'trophy-outline', label: 'Section PRs', color: colors.warning },
@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusMd,
   },
   label: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
   },
 });

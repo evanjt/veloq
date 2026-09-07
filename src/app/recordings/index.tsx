@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
   },
   statusText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
   },
 });

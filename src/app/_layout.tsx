@@ -39,7 +39,7 @@ import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
 import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { i18n } from '@/i18n';
-import { lightTheme, darkTheme, colors, darkColors, amberBanner } from '@/theme';
+import { lightTheme, darkTheme, colors, darkColors, amberBanner, typography } from '@/theme';
 import {
   ShaderWarmup,
   OfflineBanner,
@@ -489,7 +489,7 @@ export default function RootLayout() {
                                 colorScheme === 'dark'
                                   ? amberBanner.dark.text
                                   : amberBanner.light.text,
-                              fontSize: 13,
+                              fontSize: typography.bodyCompact.fontSize,
                               lineHeight: 18,
                             }}
                           >
@@ -504,7 +504,7 @@ export default function RootLayout() {
                                 colorScheme === 'dark'
                                   ? amberBanner.dark.subtext
                                   : amberBanner.light.subtext,
-                              fontSize: 12,
+                              fontSize: typography.caption.fontSize,
                             }}
                             numberOfLines={2}
                           >

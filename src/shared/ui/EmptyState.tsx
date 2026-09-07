@@ -145,22 +145,22 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: 20,
+    fontSize: typography.statsValue.fontSize,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
   titleCompact: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
   },
   description: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     textAlign: 'center',
     lineHeight: 20,
     maxWidth: 280,
   },
   descriptionCompact: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     maxWidth: 240,
   },
   actionButton: {

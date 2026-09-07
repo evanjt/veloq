@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   ftpValue: {
-    fontSize: 32,
+    fontSize: typography.headlineNumber.fontSize,
     fontWeight: '700',
   },
   changeBadge: {

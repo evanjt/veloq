@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
   technicalText: {
     ...typography.caption,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     flex: 1,
   },

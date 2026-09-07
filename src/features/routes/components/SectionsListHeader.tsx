@@ -11,7 +11,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { DetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import type { ElevationBackfillState } from '@/features/routes/hooks/useElevationBackfill';
 
@@ -103,7 +103,7 @@ export function SectionsListHeader({
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
             >
               <MaterialCommunityIcons name="pin-outline" size={13} color={colors.primary} />
-              <Text style={{ fontSize: 12, color: colors.primary }}>
+              <Text style={{ fontSize: typography.caption.fontSize, color: colors.primary }}>
                 {t('sections.acceptAllSections')}
               </Text>
             </TouchableOpacity>
@@ -111,7 +111,7 @@ export function SectionsListHeader({
           {acceptAllResult !== null && (
             <Text
               style={{
-                fontSize: 11,
+                fontSize: typography.label.fontSize,
                 color: isDark ? darkColors.textSecondary : colors.textSecondary,
               }}
             >
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textPrimary,
     paddingVertical: 0,
   },
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   summaryText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   pausedText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   pausedTextDark: {

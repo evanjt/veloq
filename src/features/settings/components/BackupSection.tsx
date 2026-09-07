@@ -27,7 +27,16 @@ import {
   webdavUrlProblem,
   type BackupBackend,
 } from '@/features/settings/lib/autobackup';
-import { brand, colors, colorWithOpacity, darkColors, spacing, layout, ink } from '@/theme';
+import {
+  brand,
+  colors,
+  colorWithOpacity,
+  darkColors,
+  spacing,
+  layout,
+  ink,
+  typography,
+} from '@/theme';
 import { ExportPrivacyRow } from './ExportPrivacyRow';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
 
@@ -629,7 +638,7 @@ export function BackupSection() {
 
 const styles = StyleSheet.create({
   sectionLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     marginTop: spacing.lg,
@@ -655,11 +664,11 @@ const styles = StyleSheet.create({
   },
   actionText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: colors.textPrimary,
   },
   subtitleText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -675,11 +684,11 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.background,
   },
   statusText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   linkText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.primary,
     fontWeight: '600',
   },
@@ -710,7 +719,7 @@ const styles = StyleSheet.create({
     borderRadius: spacing.xxs,
   },
   progressDetail: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -728,12 +737,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   pillText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: ink.white,
   },
   backendValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginRight: 4,
   },
@@ -749,7 +758,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: layout.borderRadiusSm,
     paddingHorizontal: spacing.sm,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textPrimary,
     backgroundColor: colors.background,
   },
@@ -782,7 +791,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   qrSetupText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.primary,
   },
@@ -794,12 +803,12 @@ const styles = StyleSheet.create({
   },
   plainLanText: { flex: 1, marginBottom: 0 },
   qrHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
   configLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -807,17 +816,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   testButtonText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: ink.white,
   },
   connectionSuccess: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.success ?? colors.run,
     marginTop: spacing.xs,
   },
   connectionError: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.error ?? colors.chartRed,
     marginTop: spacing.xs,
   },
@@ -834,7 +843,7 @@ const styles = StyleSheet.create({
   },
   warningText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   modalOverlay: {
@@ -853,7 +862,7 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surfaceCard,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.md,
@@ -871,7 +880,7 @@ const styles = StyleSheet.create({
   },
   modalOptionText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: colors.textPrimary,
   },
   textLight: {

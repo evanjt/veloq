@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '@/theme';
+import { colors, typography } from '@/theme';
 import type { MapSurfaceRef } from '../MapSurface';
 import { CLUSTER_CIRCLE_LAYER_ID } from './regionalMapLayerSpecs';
 
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   },
   countLabelVisible: {
     color: colors.textOnDark,
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     textAlign: 'center',
   },

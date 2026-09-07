@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, layout } from '@/theme';
+import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { useChartColors } from '@/shared/charts';
 import type { Insight } from '@/types';
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   barLabelText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
   },
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   barValueText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
     textAlign: 'center',
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   changeText: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '700',
   },
   countRow: {
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   countValue: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   countLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
     textAlign: 'center',

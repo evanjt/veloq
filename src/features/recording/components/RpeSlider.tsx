@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   rpeScaleLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontVariant: ['tabular-nums'],
   },
 });

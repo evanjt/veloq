@@ -4,7 +4,16 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, layout, brand, statusBadge } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  opacity,
+  layout,
+  brand,
+  statusBadge,
+  typography,
+} from '@/theme';
 import type { ExerciseSummary, MuscleVolume, StrengthProgression } from '@/types';
 
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
@@ -202,7 +211,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   progressTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -210,7 +219,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   progressSubtitle: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -242,7 +251,7 @@ const styles = StyleSheet.create({
     backgroundColor: statusBadge.neutralStrong.bg,
   },
   trendText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -268,7 +277,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statValue: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -276,14 +285,14 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   statLabelDark: {
     color: darkColors.textSecondary,
   },
   periodHint: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginLeft: 'auto',
   },
@@ -306,7 +315,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   metaValue: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -314,7 +323,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   metaLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },

@@ -41,7 +41,7 @@ import { convertLatLngTuples, decodePolyline } from '@/shared/geo/polyline';
 import type { Section as NativeSection } from 'veloqrs';
 import { useExerciseSets, ExerciseTable, MuscleGroupView } from '@/features/strength';
 import { useAthlete } from '@/shared/app/useAthlete';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import {
   setCameraOverride,
   getCameraOverride,
@@ -749,7 +749,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   noMapTitle: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -765,7 +765,7 @@ const styles = StyleSheet.create({
     borderBottomColor: darkColors.border,
   },
   descriptionText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     lineHeight: 20,
   },

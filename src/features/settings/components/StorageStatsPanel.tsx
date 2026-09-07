@@ -7,7 +7,7 @@ import { type TileCacheStats } from '@/features/maps/lib/terrainSnapshotEvents';
 import { TILE_CACHE_BUDGET_CHOICES_MB } from '@/features/maps/lib/tileCacheBudget';
 import { useTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
 import { mapCacheTotal } from '../lib/mapCacheTotal';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
 import { StreamHistoryRow } from './StreamHistoryRow';
 
@@ -371,12 +371,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 28,
+    fontSize: typography.screenTitle.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   statLabelClickable: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.primary,
     marginTop: 2,
   },
@@ -402,11 +402,11 @@ const styles = StyleSheet.create({
     borderTopColor: darkColors.border,
   },
   infoLabel: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
   infoValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   clearInlineText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.primary,
     fontWeight: '500',
   },
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   storageLegendText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
 });

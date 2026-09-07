@@ -23,7 +23,7 @@ import {
   formatPerformanceDelta,
   formatShortDateWithYear,
 } from '@/shared/format/format';
-import { colors, darkColors, layout } from '@/theme';
+import { colors, darkColors, layout, typography } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 
 /** Scatter chart point - adds the computed X coordinate to the base record. */
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     height: 44,
   },
   chartHint: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textMuted,
     textAlign: 'center',
   },
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tooltipName: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: 1,
@@ -266,12 +266,12 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   lapBadgeText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '700',
     color: colors.textSecondary,
   },
   tooltipDelta: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
   },
   tooltipMeta: {
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   tooltipDate: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textMuted,
   },
   reverseBadge: {
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   tooltipSpeed: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
   },
   textLight: {

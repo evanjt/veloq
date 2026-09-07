@@ -20,6 +20,7 @@ import {
   ink,
   verdictColor,
   layout,
+  typography,
 } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 
@@ -254,7 +255,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   contextHeading: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   contextBody: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
     color: colors.textPrimary,
   },
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   contextMeta: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   contextMetaDark: {
@@ -312,7 +313,7 @@ const styles = StyleSheet.create({
   },
   sectionName: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -334,7 +335,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   bestTime: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -342,7 +343,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   traversals: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   traversalsDark: {
@@ -365,7 +366,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   noEfforts: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     paddingVertical: spacing.xs,
   },
@@ -380,7 +381,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   legendText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   legendTextDark: {

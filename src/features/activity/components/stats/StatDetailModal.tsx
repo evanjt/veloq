@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalValue: {
-    fontSize: 32,
+    fontSize: typography.headlineNumber.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
