@@ -209,6 +209,10 @@ ${cacheEvictionScript(tileCacheBudgetMb)}
     });
 
     window._tileErrorCount = 0;
+    // Counted apart from the errors above. A 429 or a 503 is the server asking
+    // to be left alone, which is a different event from a decode failure and
+    // the pool answers it by waiting rather than by retrying (B418).
+    window._tileThrottleCount = 0;
 
     window.map.on('error', function(e) {
       var msg = e.error ? e.error.message : JSON.stringify(e);
@@ -220,6 +224,9 @@ ${cacheEvictionScript(tileCacheBudgetMb)}
       window._rn_log('Map error: ' + msg);
       if (e.sourceId || (e.error && (status >= 400 || /tile|source|fetch|network|load/i.test(msg)))) {
         window._tileErrorCount++;
+        if (status === 429 || status === 503 || /HTTP (429|503)/.test(msg)) {
+          window._tileThrottleCount++;
+        }
       }
     });
 

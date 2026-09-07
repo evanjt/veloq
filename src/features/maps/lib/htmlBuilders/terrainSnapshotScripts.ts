@@ -129,6 +129,7 @@ export function buildRenderSnapshotScript(
                         gen: myGen,
                         error: 'White tile detected',
                         tileErrors: window._tileErrorCount,
+                        tileThrottles: window._tileThrottleCount,
                       }));
                       return;
                     }
@@ -171,6 +172,7 @@ export function buildRenderSnapshotScript(
                         gen: myGen,
                         error: 'Gap detected (' + gapCount + '/6)',
                         tileErrors: window._tileErrorCount,
+                        tileThrottles: window._tileThrottleCount,
                       }));
                       return;
                     }
@@ -186,6 +188,7 @@ export function buildRenderSnapshotScript(
                       gen: myGen,
                       error: 'Tile errors: ' + window._tileErrorCount,
                       tileErrors: window._tileErrorCount,
+                      tileThrottles: window._tileThrottleCount,
                     }));
                     return;
                   }
@@ -201,6 +204,7 @@ export function buildRenderSnapshotScript(
                     gen: myGen,
                     base64: base64,
                     tileErrors: window._tileErrorCount,
+                    tileThrottles: window._tileThrottleCount,
                   }));
                 } catch(e) {
                   window._rn_log('Capture error: ' + e.message);
@@ -211,6 +215,7 @@ export function buildRenderSnapshotScript(
                     gen: myGen,
                     error: e.message,
                     tileErrors: window._tileErrorCount,
+                    tileThrottles: window._tileThrottleCount,
                   }));
                 }
               }
@@ -368,6 +373,7 @@ export function buildRenderSnapshotScript(
                         type: 'snapshotError', workerId: workerId, activityId: activityId,
                         gen: myGen, error: 'Fast path render timeout',
                         tileErrors: window._tileErrorCount,
+                        tileThrottles: window._tileThrottleCount,
                       }));
                     }
                   }, 6000);
@@ -498,6 +504,7 @@ export function buildRenderSnapshotScript(
                     gen: myGen,
                     error: 'Render timeout',
                     tileErrors: window._tileErrorCount,
+                    tileThrottles: window._tileThrottleCount,
                   }));
                 }
               }, 6000);
