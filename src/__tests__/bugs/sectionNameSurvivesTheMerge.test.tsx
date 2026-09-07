@@ -11,7 +11,7 @@
  * that section has no name of its own.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Text } from 'react-native';
 import { render } from '@testing-library/react-native';
 
@@ -60,6 +60,9 @@ function sectionOf(id: string, name?: string): FrequentSection {
   };
 }
 
+/** Every committed name, so a frame drawn with the previous one is visible. */
+const committed: (string | null)[] = [];
+
 function Probe({ section }: { section: FrequentSection }) {
   const { customName } = useSectionActions({
     id: section.id,
@@ -69,10 +72,17 @@ function Probe({ section }: { section: FrequentSection }) {
     onSectionRefresh: jest.fn(),
     sectionRefreshKey: 0,
   });
+  useEffect(() => {
+    committed.push(customName);
+  });
   return <Text testID="name">{customName ?? 'none'}</Text>;
 }
 
 describe('the name on a section the athlete was moved to', () => {
+  beforeEach(() => {
+    committed.length = 0;
+  });
+
   it('clears when the survivor of a merge has no name of its own', () => {
     const tree = render(<Probe section={sectionOf('s_a', 'The Wall')} />);
     expect(tree.getByTestId('name').props.children).toBe('The Wall');
@@ -88,6 +98,18 @@ describe('the name on a section the athlete was moved to', () => {
     tree.rerender(<Probe section={sectionOf('s_b', 'River Loop')} />);
 
     expect(tree.getByTestId('name').props.children).toBe('River Loop');
+  });
+
+  it('never commits a frame carrying the previous section name', () => {
+    const tree = render(<Probe section={sectionOf('s_a', 'The Wall')} />);
+
+    // The hook's other state settles on its own schedule, so only what is
+    // committed from the move onwards says anything about the name.
+    committed.length = 0;
+    tree.rerender(<Probe section={sectionOf('s_b', 'River Loop')} />);
+
+    expect(committed.length).toBeGreaterThan(0);
+    expect(committed).not.toContain('The Wall');
   });
 
   it('shows no name at all for a first section that was never named', () => {

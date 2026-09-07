@@ -58,12 +58,14 @@ export function useRouteSignatures(enabled = true): Record<string, RouteSignatur
     }
   }, [enabled]);
 
-  // Clear signatures when disabled (releases memory on tab switch)
-  useEffect(() => {
-    if (!enabled) {
-      setSignatures({});
-    }
-  }, [enabled]);
+  // Clear signatures when disabled (releases memory on tab switch). Dropping
+  // them while rendering means the disabled tab never commits a frame still
+  // holding them.
+  const [signaturesFor, setSignaturesFor] = useState(enabled);
+  if (enabled !== signaturesFor) {
+    setSignaturesFor(enabled);
+    if (!enabled) setSignatures({});
+  }
 
   const engine = useEngineReady();
   useEffect(() => {

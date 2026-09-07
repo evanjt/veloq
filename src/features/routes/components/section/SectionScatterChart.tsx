@@ -115,10 +115,14 @@ export function SectionScatterChart({
     null
   );
 
-  // Clear selection when chart data changes (e.g., sport type filter switch)
-  useEffect(() => {
+  // Clear selection when chart data changes (e.g., sport type filter switch).
+  // Clearing while rendering keeps the previous selection out of the first
+  // frame drawn against the new data.
+  const [selectionFor, setSelectionFor] = useState(chartData);
+  if (chartData !== selectionFor) {
+    setSelectionFor(chartData);
     setSelectedPoint(null);
-  }, [chartData]);
+  }
 
   const { width: windowWidth } = useWindowDimensions();
   const chartWidth = windowWidth - CHART_INSET;

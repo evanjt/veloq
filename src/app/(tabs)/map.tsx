@@ -127,12 +127,12 @@ export default function MapScreen() {
     return result;
   }, [allActivities, selectedTypes, availableTypes.length, distanceFilter]);
 
-  // Initialize selected types when data loads
-  useEffect(() => {
-    if (availableTypes.length > 0 && selectedTypes.size === 0) {
-      setSelectedTypes(new Set(availableTypes));
-    }
-  }, [availableTypes]);
+  // Everything is selected until the athlete narrows it. Choosing while
+  // rendering keeps the first frame after the data lands from showing an empty
+  // map, and it converges: the set is no longer empty once it runs.
+  if (availableTypes.length > 0 && selectedTypes.size === 0) {
+    setSelectedTypes(new Set(availableTypes));
+  }
 
   const router = useRouter();
 
