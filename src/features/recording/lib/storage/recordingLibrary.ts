@@ -283,6 +283,31 @@ export async function markRecordingPermissionBlocked(id: string): Promise<void> 
   library().markRecordingPermissionBlocked(id, Date.now());
 }
 
+/**
+ * A credential was refused mid-upload. The ride goes back in the queue with its
+ * attempt count intact: a 401 says nothing about the ride, and spending one of
+ * its attempts on a dead credential would retire a recording the server never
+ * saw.
+ */
+export async function holdRecordingForAuth(id: string, error: string): Promise<void> {
+  library().holdRecordingForAuth(id, error);
+  log.log(`Holding ${id}: the credential was refused`);
+}
+
+/**
+ * An athlete signed in: stop auto-uploading every ride that is not theirs.
+ *
+ * What they recorded keeps its place in the queue. A ride stamped with someone
+ * else, and an unstamped one from before the stamp existed, becomes local-only,
+ * so nothing lands in the wrong account. Neither is deleted, and either can
+ * still be sent up by hand.
+ */
+export async function holdRecordingsOfOtherAthletes(athleteId: string): Promise<number> {
+  const held = library().holdRecordingsOfOtherAthletes(athleteId);
+  if (held > 0) log.log(`Held ${held} recording(s) belonging to another athlete`);
+  return held;
+}
+
 /** Manual retry (or post-upgrade requeue): back to 'pending' with a clean slate. */
 export async function requeueRecording(id: string): Promise<void> {
   library().requeueRecording(id);

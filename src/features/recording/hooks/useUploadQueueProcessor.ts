@@ -2,11 +2,13 @@ import { useEffect, useRef, useCallback } from 'react';
 import { AppState } from 'react-native';
 
 import { useNetwork } from '@/shared/app/NetworkContext';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import {
   nextPendingUpload,
   migrateLegacyUploadQueue,
   adoptAsyncStorageIndex,
+  holdRecordingsOfOtherAthletes,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { reconcileProvisionalUploads } from '@/features/recording/lib/storage/provisionalActivity';
 import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
@@ -25,6 +27,7 @@ const RETRY_TICK_MS = 2 * 60 * 1000;
  */
 export function useUploadQueueProcessor() {
   const { isOnline } = useNetwork();
+  const athleteId = useAuthStore((state) => state.athleteId);
   const needsUpgrade = useUploadPermissionStore((s) => s.needsUpgrade);
   const isProcessing = useRef(false);
 
@@ -34,6 +37,16 @@ export function useUploadQueueProcessor() {
   useEffect(() => {
     void migrateLegacyUploadQueue().then(adoptAsyncStorageIndex);
   }, []);
+
+  // A forced sign-out holds the queue rather than demoting it, so whoever
+  // signs in next can meet rides that are not theirs. Theirs keep their place;
+  // everything else stops auto-uploading before a single one is sent.
+  useEffect(() => {
+    if (!athleteId) return;
+    holdRecordingsOfOtherAthletes(athleteId).catch((err: unknown) => {
+      log.warn(`Could not hold another athlete's recordings: ${String(err)}`);
+    });
+  }, [athleteId]);
 
   // An upload whose engine write missed leaves a row the sync will duplicate.
   useEffect(() => {
@@ -58,6 +71,12 @@ export function useUploadQueueProcessor() {
         }
         if (result.outcome === 'network' || result.outcome === 'retriable') {
           break; // Backoff applies; wait for the next trigger
+        }
+        if (result.outcome === 'authExpired') {
+          // Every entry would meet the same refused credential, and the ride is
+          // held rather than spent. The sign-out this 401 triggers is what
+          // gets the athlete back.
+          break;
         }
         // uploaded / rejected / missing → move on to the next entry
         next = await nextPendingUpload();

@@ -105,6 +105,18 @@ impl RecordingManager {
         with_engine(|e| e.set_recording_permission_blocked(&id, now_ms).map_err(db))?
     }
 
+    /// A credential was refused mid-upload. The ride goes back in the queue
+    /// with its attempts intact, because a 401 is not an attempt it spent.
+    fn hold_for_auth(&self, id: String, error: String) -> Result<(), VeloqError> {
+        with_engine(|e| e.hold_recording_for_auth(&id, &error).map_err(db))?
+    }
+
+    /// An athlete signed in: stop auto-uploading every ride that is not
+    /// theirs, unstamped ones included. Returns how many were held.
+    fn hold_other_athletes(&self, athlete_id: String) -> Result<u32, VeloqError> {
+        with_engine(|e| e.hold_recordings_of_other_athletes(&athlete_id).map_err(db))?
+    }
+
     /// A manual retry, or a requeue after an upgrade.
     fn requeue(&self, id: String) -> Result<(), VeloqError> {
         with_engine(|e| e.requeue_recording(&id).map_err(db))?
