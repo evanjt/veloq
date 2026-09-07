@@ -9,6 +9,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { colors, colorWithOpacity, opacity, spacing, typography, layout } from '@/theme';
@@ -48,6 +49,8 @@ export function DetailHero({
   attributionClearance = 0,
   children,
 }: DetailHeroProps) {
+  const { t } = useTranslation();
+
   return (
     <View testID={containerTestID} style={[styles.heroSection, { height }]}>
       <View style={styles.mapContainer}>{children}</View>
@@ -65,6 +68,8 @@ export function DetailHero({
       >
         <TouchableOpacity
           testID={backTestID}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
           style={styles.backButton}
           onPress={onBack}
           activeOpacity={0.7}
@@ -108,6 +113,8 @@ export interface HeroNameRowProps {
 }
 
 export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowProps) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.nameRow}>
       {icon && (
@@ -132,18 +139,27 @@ export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowPro
           />
           <TouchableOpacity
             testID={`${editable.testIDPrefix}-rename-save`}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.save')}
             onPress={editable.onSave}
             style={styles.editNameButton}
           >
             <MaterialCommunityIcons name="check" size={20} color={colors.success} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={editable.onCancel} style={styles.editNameButton}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t('common.cancel')}
+            onPress={editable.onCancel}
+            style={styles.editNameButton}
+          >
             <MaterialCommunityIcons name="close" size={20} color={colors.error} />
           </TouchableOpacity>
         </View>
       ) : editable ? (
         <TouchableOpacity
           testID={`${editable.testIDPrefix}-rename-button`}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.rename')}
           onPress={editable.onStartEdit}
           style={styles.nameEditTouchable}
           activeOpacity={0.7}
