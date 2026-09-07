@@ -96,7 +96,10 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       titleKey: 'whatsNew.v040.sectionsTitle',
       bodyKey: 'whatsNew.v040.sectionsBody',
       icon: 'history',
-      showMeRoute: '/insights',
+      // The sections sub-tab, not the screen's default one: the ledger, the
+      // revert, the pin and the retired list this slide describes are all
+      // behind it, and the bare route drops the athlete on insights.
+      showMeRoute: '/insights?tab=sections',
       get Component() {
         return require('./SectionChangeCardSlide').SectionChangeCardSlide;
       },
