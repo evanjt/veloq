@@ -288,13 +288,14 @@ describe('rules.scoreInsight', () => {
       },
     });
     const { score, breakdown } = scoreInsight(insight);
-    // base = (6 - 1) * 50 + 1 * 30 = 280
+    // base = (6 - 1) * 50 = 250, confidence = 1 * 30 = 30
     // category section_pr = 15
     // specificity all3 = 10
     // temporalSelf = 5
     // signal in corridor = 10
     // total = 320
-    expect(breakdown.base).toBe(280);
+    expect(breakdown.base).toBe(250);
+    expect(breakdown.confidence).toBe(30);
     expect(breakdown.category).toBe(15);
     expect(breakdown.specificity).toBe(10);
     expect(breakdown.temporalSelf).toBe(5);
@@ -309,6 +310,7 @@ describe('rules.applyMixAndCap (D9, D10)', () => {
     score,
     breakdown: {
       base: 0,
+      confidence: 0,
       category: 0,
       specificity: 0,
       temporalSelf: 0,

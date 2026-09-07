@@ -123,7 +123,12 @@ export interface Insight {
   alternatives?: InsightAlternative[];
   supportingData?: InsightSupportingData;
   methodology?: InsightMethodology;
-  confidence?: number;
+  /**
+   * R4 - how much population the claim stands on, 0 to 1, or `null` where the
+   * generator has none to count. Absent only on a hand-built insight, and the
+   * ranker scores that as the absence it is rather than substituting a middle.
+   */
+  confidence?: number | null;
   meta?: InsightMeta;
 }
 

@@ -60,7 +60,7 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
               {onScreen.map((insight, index) => {
                 const scored = scoredById.get(insight.id);
                 const breakdown = scored
-                  ? ` (cat=${scored.breakdown.category} spec=${scored.breakdown.specificity} self=${scored.breakdown.temporalSelf} sig=${scored.breakdown.signal})`
+                  ? ` (conf=${scored.breakdown.confidence.toFixed(0)} cat=${scored.breakdown.category} spec=${scored.breakdown.specificity} self=${scored.breakdown.temporalSelf} sig=${scored.breakdown.signal})`
                   : '';
                 return (
                   <Text

@@ -57,6 +57,14 @@ export interface InsightsConfig {
 
   /** R5/R7 + category base bonuses. Tunable without code changes. */
   scoring: {
+    /** R4 - points a confidence of 1 is worth. */
+    confidenceWeight: number;
+    /**
+     * R4 - observations at which a category's claim is as well founded as it
+     * gets. Categories absent from this table have no population to count and
+     * declare that instead of computing one.
+     */
+    confidenceSaturation: Partial<Record<InsightCategory, number>>;
     specificityBonus: { all3: number; any2: number };
     temporalSelfBonus: number;
     categoryBase: Record<InsightCategory, number>;
@@ -131,6 +139,21 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
   },
 
   scoring: {
+    confidenceWeight: 30,
+    // Each saturation is a multiple of the category's repetition floor, which
+    // is the point the generator may speak at all. Reaching it means the claim
+    // has as much behind it as this generator can put there; below it the
+    // score is proportionally thinner, so a trend over two efforts ranks under
+    // the same trend over ten.
+    confidenceSaturation: {
+      efficiency_trend: 10,
+      hrv_trend: 7,
+      period_comparison: 10,
+      section_trend: 10,
+      stale_pr: 10,
+      strength_balance: 8,
+      strength_progression: 6,
+    },
     specificityBonus: { all3: 10, any2: 5 },
     temporalSelfBonus: 5,
     categoryBase: {
@@ -197,4 +220,33 @@ export function maxPerCategoryFor(
   cfg: InsightsConfig = INSIGHTS_CONFIG
 ): number {
   return cfg.surface.maxPerCategoryOverride[category] ?? cfg.surface.maxPerCategory;
+}
+
+// R4 - how much population an insight's claim stands on. A generator either
+// counts what it measured or says it counted nothing, and the ranker treats
+// the two differently. An uncomputed confidence used to take a flat 0.5, which
+// is why a generator that measured nothing outscored one that honestly
+// measured two days of seven.
+
+/**
+ * A generator with no population to count says so with this rather than
+ * leaving the field out. A section that was recut is a ledger fact, and a
+ * personal record is one measured effort, not a sample of them.
+ */
+export const NO_POPULATION = null;
+
+/**
+ * Confidence from `observations`, against the category's saturation count.
+ * A category with no saturation entry has nothing to count against, so it
+ * declares an absence rather than inventing one.
+ */
+export function confidenceFrom(
+  category: InsightCategory,
+  observations: number,
+  cfg: InsightsConfig = INSIGHTS_CONFIG
+): number | null {
+  const saturation = cfg.scoring.confidenceSaturation[category];
+  if (saturation == null || saturation <= 0) return NO_POPULATION;
+  if (!Number.isFinite(observations) || observations <= 0) return 0;
+  return Math.min(1, observations / saturation);
 }
