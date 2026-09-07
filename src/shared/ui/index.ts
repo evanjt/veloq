@@ -8,6 +8,8 @@ export {
 export { BottomTabBar, TAB_BAR_HEIGHT, TAB_BAR_SAFE_PADDING } from './BottomTabBar';
 export { CompassArrow, StaticCompassArrow } from './CompassArrow';
 export { AnimatedPressable, AnimatedButton } from './AnimatedPressable';
+export { Button, ToggleButton } from './Button';
+export type { ButtonProps, ButtonSize, ButtonVariant, ToggleButtonProps } from './Button';
 export { EmptyState, NetworkErrorState, ErrorStatePreset } from './EmptyState';
 export { DeviceAttribution, isGarminDevice } from './GarminAttribution';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
