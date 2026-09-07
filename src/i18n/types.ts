@@ -754,6 +754,12 @@ export interface TranslationResource {
       insightsBody: string;
       strengthTitle: string;
       strengthBody: string;
+      strengthChest: string;
+      strengthBack: string;
+      strengthShoulders: string;
+      strengthLegs: string;
+      strengthThisWeek: string;
+      strengthLastWeek: string;
       sectionTrimTitle: string;
       sectionTrimBody: string;
       backupTitle: string;
