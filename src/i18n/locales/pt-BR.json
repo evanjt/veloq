@@ -1278,6 +1278,7 @@
     "previewRunning": "Analisando {{count}} atividades nesta área",
     "previewFailed": "Não foi possível concluir a pré-visualização.",
     "previewPoolUnusable": "Alguns dos seus registros de atividade nao podem ser lidos, entao a previa foi interrompida.",
+    "previewCurrentFailed": "Não foi possível ler os trechos atuais desta área.",
     "previewSuspended": "Atualização de elevação em andamento. Tente novamente em instantes.",
     "previewMigrating": "Sua biblioteca ainda está migrando, então estes resultados podem mudar um pouco ao terminar",
     "previewUnchanged": "{{count}} sem mudanças",

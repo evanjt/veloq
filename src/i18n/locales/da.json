@@ -1278,6 +1278,7 @@
     "previewRunning": "Analyserer {{count}} aktiviteter i dette område",
     "previewFailed": "Forhåndsvisningen kunne ikke fuldføres.",
     "previewPoolUnusable": "Nogle af dine aktivitetsspor kan ikke laeses, saa forhaandsvisningen blev afbrudt.",
+    "previewCurrentFailed": "Kunne ikke læse de nuværende afsnit for dette område.",
     "previewSuspended": "Højdeopdatering i gang. Prøv igen om lidt.",
     "previewMigrating": "Dit bibliotek migrerer stadig, så resultaterne kan ændre sig lidt, når det er færdigt",
     "previewUnchanged": "{{count}} uændrede",
