@@ -696,10 +696,10 @@ pub struct NetworkPush {
 
 /// Start the elevation backfill on a background thread.
 ///
-/// Returns false when nothing is outstanding, when a run is already in flight,
-/// or when no credential is set yet, so it is safe to call on every launch.
+/// The verdict names the refusal, so an empty queue reads as the job finished
+/// rather than as a failure to start. Safe to call on every launch.
 #[uniffi::export]
-pub fn start_elevation_backfill() -> bool {
+pub fn start_elevation_backfill() -> crate::objects::FfiStartOutcome {
     init_logging();
     crate::net::elevation_backfill::start_elevation_backfill()
 }
