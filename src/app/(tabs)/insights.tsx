@@ -366,6 +366,7 @@ export default function InsightsScreen() {
     [
       activityCount,
       engineBannerDismissed,
+      setEngineBannerDismissed,
       engineInitFailed,
       groupsDirty,
       isDark,

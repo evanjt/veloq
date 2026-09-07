@@ -111,17 +111,20 @@ export const SectionRow = memo(function SectionRow({
   }, [polyline]);
 
   // Normalize point to SVG coordinates
-  const normalizePoint = (lat: number, lng: number): { x: number; y: number } => {
-    if (!bounds) return { x: 0, y: 0 };
-    return {
-      x:
-        PREVIEW_PADDING +
-        ((lng - bounds.minLng) / bounds.range) * (PREVIEW_WIDTH - 2 * PREVIEW_PADDING),
-      y:
-        PREVIEW_PADDING +
-        (1 - (lat - bounds.minLat) / bounds.range) * (PREVIEW_HEIGHT - 2 * PREVIEW_PADDING),
-    };
-  };
+  const normalizePoint = useCallback(
+    (lat: number, lng: number): { x: number; y: number } => {
+      if (!bounds) return { x: 0, y: 0 };
+      return {
+        x:
+          PREVIEW_PADDING +
+          ((lng - bounds.minLng) / bounds.range) * (PREVIEW_WIDTH - 2 * PREVIEW_PADDING),
+        y:
+          PREVIEW_PADDING +
+          (1 - (lat - bounds.minLat) / bounds.range) * (PREVIEW_HEIGHT - 2 * PREVIEW_PADDING),
+      };
+    },
+    [bounds]
+  );
 
   // Normalize section polyline
   const sectionPolylineString = useMemo(() => {
@@ -132,7 +135,7 @@ export const SectionRow = memo(function SectionRow({
         return `${x},${y}`;
       })
       .join(' ');
-  }, [polyline, bounds]);
+  }, [polyline, bounds, normalizePoint]);
 
   // Normalize activity traces
   const normalizedTraces = useMemo(() => {
@@ -147,7 +150,7 @@ export const SectionRow = memo(function SectionRow({
         .join(' '),
       color: TRACE_COLORS[idx % TRACE_COLORS.length],
     }));
-  }, [activityTraces, bounds]);
+  }, [activityTraces, bounds, normalizePoint]);
 
   const hasTraces = normalizedTraces.length > 0;
   const hasSectionPolyline = sectionPolylineString.length > 0;
@@ -169,7 +172,7 @@ export const SectionRow = memo(function SectionRow({
       start: normalized[0],
       end: normalized[normalized.length - 1],
     };
-  }, [polyline, bounds]);
+  }, [polyline, bounds, normalizePoint]);
 
   return (
     <TouchableOpacity

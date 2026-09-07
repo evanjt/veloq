@@ -40,32 +40,37 @@ export const ActivityPopup = memo(function ActivityPopup({
   const isMetric = useMetricSystem();
   const { isDark } = useTheme();
 
+  const activityType = selected?.activity.type;
+  const activityDate = selected?.activity.date;
+  const activityDistance = selected?.activity.distance;
+  const activityDuration = selected?.activity.duration;
+
   // Memoize config lookup
   const config = useMemo(
-    () => (selected ? getActivityTypeConfig(selected.activity.type) : null),
-    [selected?.activity.type]
+    () => (activityType ? getActivityTypeConfig(activityType) : null),
+    [activityType]
   );
 
   // Memoize icon name
   const activityIcon = useMemo(
-    () => (selected ? getActivityIcon(selected.activity.type) : 'run'),
-    [selected?.activity.type]
+    () => (activityType ? getActivityIcon(activityType) : 'run'),
+    [activityType]
   );
 
   // Memoize formatted values
   const formattedDate = useMemo(
-    () => (selected ? formatFullDateWithWeekday(selected.activity.date) : ''),
-    [selected?.activity.date]
+    () => (activityDate ? formatFullDateWithWeekday(activityDate) : ''),
+    [activityDate]
   );
 
   const formattedDistance = useMemo(
-    () => (selected ? formatDistance(selected.activity.distance, isMetric) : ''),
-    [selected?.activity.distance, isMetric]
+    () => (activityDistance === undefined ? '' : formatDistance(activityDistance, isMetric)),
+    [activityDistance, isMetric]
   );
 
   const formattedDuration = useMemo(
-    () => (selected ? formatDuration(selected.activity.duration) : ''),
-    [selected?.activity.duration]
+    () => (activityDuration === undefined ? '' : formatDuration(activityDuration)),
+    [activityDuration]
   );
 
   // Always render but hide when no selection - avoids mount/unmount overhead

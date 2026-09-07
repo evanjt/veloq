@@ -47,12 +47,8 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
     // Determine which zones to use (activity > sport settings > local)
     // Note: hr_zones from API may be Zone[] or number[] depending on endpoint
     const apiZones = activityZones ?? (settings?.hr_zones as number[] | undefined);
-    // hr_zone_names is an optional field on some sport settings responses
-    const zoneNames = (settings as { hr_zone_names?: string[] } | undefined)?.hr_zone_names;
-
     let builtZones: {
       id: number;
-      name: string;
       minBpm: number;
       maxBpm: number;
       min: number;
@@ -64,10 +60,8 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
       // API format: array of BPM upper bounds
       builtZones = apiZones.map((upperBpm, idx) => {
         const lowerBpm = idx === 0 ? 0 : apiZones[idx - 1];
-        const zoneName = zoneNames?.[idx] || t('activity.zoneDefault', { number: idx + 1 });
         return {
           id: idx + 1,
-          name: zoneName,
           minBpm: lowerBpm,
           maxBpm: upperBpm,
           min: lowerBpm / maxHR,
