@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 17 standalone `#[uniffi::export]` functions plus
- * 254 methods inside `#[uniffi::export] impl` blocks across
+ * 255 methods inside `#[uniffi::export] impl` blocks across
  * 15 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 271 exports (17 standalone + 254 methods)
+ * Total: 272 exports (17 standalone + 255 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -2603,10 +2603,20 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'SyncManager',
   },
   {
+    name: 'confirm_activity_uploaded',
+    camelName: 'confirmActivityUploaded',
+    file: 'objects/sync.rs',
+    line: 1396,
+    paramCount: 1,
+    returnType: 'FfiCallOutcome',
+    docs: "Answer whether intervals.icu still holds the activity an upload created. A 200 from the upload says the server took the bytes, not that the ride survived: it can be rejected, deduplicated against an existing activity or lost afterwards, and the device's copy is the only other one. So the recording is not deleted until this reads the activity back. `Ok` means present, `Http` with 404 means gone, and everything else means unknown, which is not an answer and must not be treated as one. It goes through `run_write` for the credential handling rather than for the verb: a confirmation refused for a dead credential parks the service exactly as a refused upload does.",
+    object: 'SyncManager',
+  },
+  {
     name: 'create_manual_activity',
     camelName: 'createManualActivity',
     file: 'objects/sync.rs',
-    line: 1385,
+    line: 1406,
     paramCount: 1,
     returnType: 'FfiCallOutcome',
     docs: 'Create an activity with no file behind it, for indoor entries.',
@@ -2616,7 +2626,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'validate_credentials',
     camelName: 'validateCredentials',
     file: 'objects/sync.rs',
-    line: 1401,
+    line: 1422,
     paramCount: 2,
     returnType: 'FfiCallOutcome',
     docs: 'Check a credential against `/athlete/me` and report the athlete it belongs to. Login confirms a key this way before committing it, so the credential under test is deliberately not the one the service holds.',
@@ -2626,7 +2636,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'cancel',
     camelName: 'cancel',
     file: 'objects/sync.rs',
-    line: 1429,
+    line: 1450,
     paramCount: 0,
     returnType: 'void',
     docs: 'Soft-cancel the running sync.',
@@ -2636,7 +2646,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_sync_status',
     camelName: 'getSyncStatus',
     file: 'objects/sync.rs',
-    line: 1434,
+    line: 1455,
     paramCount: 0,
     returnType: 'FfiSyncStatus',
     docs: 'Current status snapshot.',
@@ -2646,7 +2656,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'bodies_stored',
     camelName: 'bodiesStored',
     file: 'objects/sync.rs',
-    line: 1443,
+    line: 1464,
     paramCount: 0,
     returnType: 'u64',
     docs: 'How many on-demand bodies have landed in SQLite this session. An on-demand fetch settles on a Rust thread with no way to reach the TypeScript listener map, so a reader waiting on a body watches this and fans a change out over the engine channel when it moves.',
@@ -2995,6 +3005,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'syncActivityDetail',
   'syncTimeStreams',
   'uploadActivity',
+  'confirmActivityUploaded',
   'createManualActivity',
   'validateCredentials',
   'cancel',
@@ -3243,6 +3254,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   sync_activity_detail: 'syncActivityDetail',
   sync_time_streams: 'syncTimeStreams',
   upload_activity: 'uploadActivity',
+  confirm_activity_uploaded: 'confirmActivityUploaded',
   create_manual_activity: 'createManualActivity',
   validate_credentials: 'validateCredentials',
   get_sync_status: 'getSyncStatus',

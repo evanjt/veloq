@@ -42,6 +42,10 @@ jest.mock('@/features/recording/lib/upload/uploadRecording', () => ({
   uploadRecording: jest.fn(),
 }));
 
+jest.mock('@/features/recording/lib/upload/confirmUploads', () => ({
+  confirmAndDeleteUploaded: jest.fn(async () => 0),
+}));
+
 jest.mock('@/shared/debug/debug', () => ({
   debug: { create: () => ({ log: () => {}, warn: () => {}, error: () => {} }) },
 }));

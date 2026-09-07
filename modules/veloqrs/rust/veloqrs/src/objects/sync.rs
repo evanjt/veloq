@@ -1381,6 +1381,27 @@ impl SyncManager {
         .await
     }
 
+    /// Answer whether intervals.icu still holds the activity an upload created.
+    ///
+    /// A 200 from the upload says the server took the bytes, not that the ride
+    /// survived: it can be rejected, deduplicated against an existing activity
+    /// or lost afterwards, and the device's copy is the only other one. So the
+    /// recording is not deleted until this reads the activity back. `Ok` means
+    /// present, `Http` with 404 means gone, and everything else means unknown,
+    /// which is not an answer and must not be treated as one.
+    ///
+    /// It goes through `run_write` for the credential handling rather than for
+    /// the verb: a confirmation refused for a dead credential parks the service
+    /// exactly as a refused upload does.
+    async fn confirm_activity_uploaded(&self, intervals_id: String) -> FfiCallOutcome {
+        run_write(move |transport, _athlete_id| async move {
+            endpoints::fetch_activity_body(&transport, &intervals_id, Lane::Backfill)
+                .await
+                .map(|_| Some(intervals_id))
+        })
+        .await
+    }
+
     /// Create an activity with no file behind it, for indoor entries.
     async fn create_manual_activity(&self, activity: FfiManualActivity) -> FfiCallOutcome {
         run_write(move |transport, athlete_id| async move {

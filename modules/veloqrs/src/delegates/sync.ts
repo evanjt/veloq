@@ -174,6 +174,22 @@ export function uploadActivityFile(
     );
 }
 
+/**
+ * Read an uploaded activity back from intervals.icu, to confirm it is there.
+ *
+ * `Ok` means present, an `Http` outcome carrying 404 means gone, and every
+ * other outcome means the question was not answered. Only the first is a
+ * confirmation: deleting the device's copy on anything else throws the ride
+ * away on a network the caller could simply have asked again.
+ */
+export function confirmActivityUploaded(
+  host: DelegateHost,
+  intervalsId: string
+): Promise<FfiCallOutcome> {
+  if (!host.ready) return Promise.resolve(engineUnavailable('confirm the upload'));
+  return host.engine.sync().confirmActivityUploaded(intervalsId);
+}
+
 /** Create an activity with no file behind it, for indoor entries. */
 export function createManualActivity(
   host: DelegateHost,

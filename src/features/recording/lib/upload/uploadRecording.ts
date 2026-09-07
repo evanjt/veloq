@@ -10,8 +10,6 @@ import {
   markRecordingRejected,
   markRecordingPermissionBlocked,
   holdRecordingForAuth,
-  discardRecordingFit,
-  discardRecordingStreams,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { recordProvisionalUpload } from '@/features/recording/lib/storage/provisionalActivity';
 import { classifyUploadError } from './classifyUploadError';
@@ -99,19 +97,11 @@ export async function uploadRecording(
     await markRecordingUploaded(entry.id, activityId);
     // The provisional row keeps its key and gains the server's id.
     await recordProvisionalUpload(entry, activityId);
-    // Reads the same FIT, so the discard below has to wait for it.
     await importRecordedStrengthSets(entry, activityId);
-    // A finished upload stays finished even if the files cannot be removed.
-    await discardRecordingFit(entry.id).catch((err: unknown) => {
-      log.warn(`Could not discard FIT for ${entry.id}: ${String(err)}`);
-    });
-    // Only once the engine holds the track: without a row the sidecar is the
-    // app's only copy of it until the activity syncs back down.
-    if (entry.engineActivityId) {
-      await discardRecordingStreams(entry.id).catch((err: unknown) => {
-        log.warn(`Could not discard streams for ${entry.id}: ${String(err)}`);
-      });
-    }
+    // Nothing is deleted here. A 200 says the server took the bytes, not that
+    // the activity survived, and until it has been read back the FIT on the
+    // device is the only copy of the ride. `confirmAndDeleteUploaded` does the
+    // deleting, once it has seen the activity.
     return { outcome: 'uploaded' };
   } catch (uploadErr) {
     const err = classifyUploadError(uploadErr);
