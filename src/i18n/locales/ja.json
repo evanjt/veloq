@@ -373,8 +373,8 @@
   "export": {
     "bulkComplete": "エクスポート完了",
     "bulkExport": "すべてのアクティビティをエクスポート ({{count}})",
-    "bulkExporting": "GPX生成中...",
-    "bulkResult": "{{exported}}件のGPXファイルをエクスポート、{{skipped}}件のGPSなしアクティビティをスキップしました。",
+    "bulkExporting": "{{format}}生成中...",
+    "bulkResult": "{{exported}}件のアクティビティを{{format}}でエクスポート、GPSなしの{{skipped}}件をスキップしました。",
     "bulkSharing": "共有シートを開いています...",
     "error": "GPXファイルのエクスポートに失敗しました。",
     "exporting": "エクスポート中...",

@@ -255,6 +255,7 @@ export function BackupSection() {
     exportAll,
     exportAllGeoJson,
     isExporting: bulkExporting,
+    format: bulkFormat,
     phase: bulkPhase,
     sizeBytes: bulkSizeBytes,
   } = useBulkExport();
@@ -581,7 +582,12 @@ export function BackupSection() {
         <View style={styles.actionRow}>
           <MaterialCommunityIcons name="map-marker-path" size={22} color={colors.primary} />
           {bulkExporting ? (
-            <BulkExportProgress phase={bulkPhase} sizeBytes={bulkSizeBytes} isDark={isDark} />
+            <BulkExportProgress
+              phase={bulkPhase}
+              format={bulkFormat}
+              sizeBytes={bulkSizeBytes}
+              isDark={isDark}
+            />
           ) : (
             <>
               <Text style={[styles.actionText, isDark && styles.textLight]}>
