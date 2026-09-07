@@ -87,6 +87,25 @@ const uniffiIsDebug =
 // Public interface members begin here.
 
 /**
+ * Ask the running cutover to stop at its next step boundary.
+ *
+ * The cut is a cold detect over the whole library, spawned unattended at
+ * launch, and the only lever before this was a force-quit, which the
+ * in-flight token undid on the next launch anyway. Stopping costs the run's
+ * work and nothing else: the migration is still owed and the next launch runs
+ * it again from the top.
+ */
+export function cancelDetectorCutover(): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_veloqrs_fn_func_cancel_detector_cutover(
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift,
+  );
+}
+/**
  * Get current download progress for FFI polling.
  *
  * TypeScript should poll this every 100ms during fetch operations
@@ -20394,6 +20413,14 @@ function uniffiEnsureInitialized() {
     throw new UniffiInternalError.ContractVersionMismatch(
       scaffoldingContractVersion,
       bindingsContractVersion,
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_cancel_detector_cutover() !==
+    38367
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_cancel_detector_cutover",
     );
   }
   if (

@@ -1289,6 +1289,8 @@
     "previewSections": "Se sektionsændringer på forhånd",
     "cutoverRebuilding": "Genopbygger sektioner: {{phase}}",
     "cutoverFailed": "Genopbygningen af sektioner blev ikke fuldført.",
+    "cutoverStop": "Stop",
+    "cutoverStopping": "Stopper. Det fortsætter, næste gang du åbner Veloq.",
     "cutoverPhaseDraining": "tømmer køen",
     "cutoverPhaseArchiving": "arkiverer",
     "cutoverPhaseDetecting": "registrerer",

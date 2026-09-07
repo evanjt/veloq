@@ -1289,6 +1289,8 @@
     "previewSections": "Voorbeeld van sectiewijzigingen",
     "cutoverRebuilding": "Secties opnieuw opbouwen: {{phase}}",
     "cutoverFailed": "Het opnieuw opbouwen van secties is niet voltooid.",
+    "cutoverStop": "Stoppen",
+    "cutoverStopping": "Wordt gestopt. Het gaat verder als je Veloq weer opent.",
     "cutoverPhaseDraining": "wachtrij legen",
     "cutoverPhaseArchiving": "archiveren",
     "cutoverPhaseDetecting": "detecteren",

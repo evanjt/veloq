@@ -9,6 +9,7 @@
 import {
   isCutoverPending as ffiIsCutoverPending,
   isCutoverRunning as ffiIsCutoverRunning,
+  cancelDetectorCutover as ffiCancelDetectorCutover,
   startDetectorCutover as ffiStartDetectorCutover,
   getCutoverProgress as ffiGetCutoverProgress,
   getCutoverDiff as ffiGetCutoverDiff,
@@ -147,6 +148,22 @@ export function startDetectorCutover(host: DelegateHost): boolean {
   } catch (e) {
     console.error('[Engine] startDetectorCutover threw:', e);
     return false;
+  }
+}
+
+/**
+ * Ask the running cutover to stop at its next step boundary.
+ *
+ * Costs the run's work and nothing else: the migration is still owed and the
+ * next launch runs it again from the top. Safe with nothing running, and safe
+ * before the engine is ready, where there is nothing to stop.
+ */
+export function cancelDetectorCutover(host: DelegateHost): void {
+  if (!host.ready) return;
+  try {
+    host.timed('cancelDetectorCutover', () => ffiCancelDetectorCutover());
+  } catch (e) {
+    console.error('[Engine] cancelDetectorCutover threw:', e);
   }
 }
 

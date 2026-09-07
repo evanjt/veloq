@@ -49,6 +49,31 @@ const CUTOVER_INFLIGHT: &str = "unified-1-inflight";
 
 static CUTOVER_RUNNING: AtomicBool = AtomicBool::new(false);
 
+/// Set by [`cancel_cutover`], read at every step boundary of the run.
+///
+/// The flag belongs to the run it stops and is cleared when the next one
+/// claims the slot, so a cancel means "not this session" and never "not
+/// ever". Only the token says whether the migration is owed, and a cancel does
+/// not touch it: the run this stops is retried from the top on the next
+/// launch, which is the same thing a force-quit at the same point gets.
+static CUTOVER_CANCELLED: AtomicBool = AtomicBool::new(false);
+
+/// Ask the running cutover to stop at its next step boundary.
+///
+/// The cut is a cold detect over the whole library on the launch path, and
+/// until this the only lever was a force-quit, which the in-flight token undid
+/// on the next launch anyway. Cancelling costs the run's work and nothing
+/// else: every point it can stop at is a point the crash path already leaves
+/// the library at, so the next launch resumes from the top.
+pub fn cancel_cutover() {
+    CUTOVER_CANCELLED.store(true, Ordering::SeqCst);
+}
+
+/// Whether the run in flight has been asked to stop.
+pub fn cutover_cancelled() -> bool {
+    CUTOVER_CANCELLED.load(Ordering::SeqCst)
+}
+
 /// Whether section ids derive from the ground rather than the clock. Until
 /// they do, two devices cut the same library into the same sections under
 /// different ids, and the card must not claim otherwise.
@@ -170,6 +195,9 @@ impl Drop for PhaseClock {
 pub enum CutoverOutcome {
     NotOwed,
     Completed(String),
+    /// The athlete stopped it. The migration is still owed and the next launch
+    /// runs it again, so this is neither a success nor a failure.
+    Cancelled,
 }
 
 /// Start a cutover on a detached thread.
@@ -193,7 +221,7 @@ pub fn start_cutover() -> bool {
     std::thread::spawn(|| {
         // The flag is already claimed, so the run adopts it rather than
         // taking it again.
-        let outcome = run_cutover_claimed();
+        let outcome = run_cutover_claimed(&|_phase: &str| cutover_cancelled());
         if let Err(ref e) = outcome {
             log::warn!("veloqrs: [cutover] Run failed: {}", e);
         }
@@ -718,11 +746,47 @@ pub fn run_cutover() -> Result<CutoverOutcome, String> {
     {
         return Err("cutover already running".into());
     }
-    run_cutover_claimed()
+    run_cutover_claimed(&|_phase: &str| cutover_cancelled())
+}
+
+/// [`run_cutover`] with its stop signal handed in.
+///
+/// The signal is asked at each step boundary and is given the phase the run is
+/// about to leave, so a test can stop the run exactly where it means to rather
+/// than racing a real cancel against a fixture that finishes in milliseconds.
+/// Production hands in [`cutover_cancelled`].
+pub fn run_cutover_with(
+    should_stop: &(dyn Fn(&str) -> bool + Sync),
+) -> Result<CutoverOutcome, String> {
+    if CUTOVER_RUNNING
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return Err("cutover already running".into());
+    }
+    run_cutover_claimed(should_stop)
 }
 
 /// The run itself, with [`CUTOVER_RUNNING`] already claimed by the caller.
-fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
+fn run_cutover_claimed(
+    should_stop: &(dyn Fn(&str) -> bool + Sync),
+) -> Result<CutoverOutcome, String> {
+    /// Stop here if the athlete has asked to. Every call site is a point the
+    /// crash path already leaves the library at, so stopping needs no state of
+    /// its own: the token is untouched and the next launch runs it again.
+    macro_rules! stop_if_cancelled {
+        ($phase:expr, $clock:expr) => {
+            if should_stop($phase) {
+                info!(
+                    "veloqrs: [cutover] Stopped at the athlete's request in {}",
+                    $phase
+                );
+                $clock;
+                return Ok(CutoverOutcome::Cancelled);
+            }
+        };
+    }
+
     // Clears the flag and announces the settle on every exit path, so a failure
     // partway is heard as well as a completion. Declared first, so it drops
     // after the phase clock and the suspension and nothing holds the engine
@@ -741,6 +805,11 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
         }
     }
     let mut guard = RunGuard { announce: false };
+
+    // The cancel belongs to the run it stopped. Cleared here, where the slot
+    // is already claimed, so a flag left standing cannot refuse the next
+    // launch's run before it has started.
+    CUTOVER_CANCELLED.store(false, Ordering::SeqCst);
 
     // A failure anywhere below leaves the phase saying so: this covers a
     // failure before the clock enters its first phase, and `PhaseClock::drop`
@@ -766,7 +835,9 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
     // and a token that both say Unified. Drive it to its end first; the
     // suspension keeps the slot empty once it drains.
     clock.enter(PHASE_DRAINING);
+    stop_if_cancelled!(PHASE_DRAINING, clock.finish(PHASE_IDLE));
     drain_detection_slot()?;
+    stop_if_cancelled!(PHASE_DRAINING, clock.finish(PHASE_IDLE));
 
     // Step 1: archive. Additive and idempotent per token, so a crash here
     // leaves the user on Corridor with an intact catalogue and the cutover
@@ -776,6 +847,10 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
         .ok_or("no engine")?
         .map_err(|e| format!("archive failed: {}", e))?;
     info!("veloqrs: [cutover] Archived {} sections", archived);
+    // The archive is additive and idempotent per token, so stopping here is
+    // the state a crash here already leaves: still on the old detector, with
+    // the catalogue intact and the cutover owed.
+    stop_if_cancelled!(PHASE_ARCHIVING, clock.finish(PHASE_IDLE));
 
     // Step 2: commit the switch. Config, in-flight token and the cleared
     // processed set land together, so a crash after this point resumes rather
@@ -787,6 +862,9 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
     // Step 3: cold detect through the unchecked path, since the guard we hold
     // would otherwise refuse our own run.
     clock.enter(PHASE_DETECTING);
+    // Past the switch the token is in flight, which is exactly what makes the
+    // next launch run this again from the top.
+    stop_if_cancelled!(PHASE_DETECTING, clock.finish(PHASE_IDLE));
     // The pool as it stood when the detect was spawned. A sync running
     // alongside a multi-minute cut adds activities the detect never saw, and
     // the apply below clears `sections_dirty` for all of them.
@@ -797,6 +875,11 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
 
     // Drive the detect to completion.
     let (main, cache_update) = handle.recv_with_cache();
+    // A cancel arriving inside the detect discards the result rather than
+    // shortening the run, the same honest caveat the preview carries: the
+    // detect is one call and it does not read this flag. Discarding is safe
+    // because nothing has been applied, so the next launch redoes it.
+    stop_if_cancelled!(PHASE_DETECTING, clock.finish(PHASE_IDLE));
     let (sections, processed_ids) = main.ok_or("detect failed")?;
 
     with_persistent_engine(|e| {

@@ -1289,6 +1289,8 @@
     "previewSections": "Pré-visualizar alterações de troços",
     "cutoverRebuilding": "A reconstruir secções: {{phase}}",
     "cutoverFailed": "A reconstrução das secções não terminou.",
+    "cutoverStop": "Parar",
+    "cutoverStopping": "A parar. Retoma da próxima vez que abrir o Veloq.",
     "cutoverPhaseDraining": "a esvaziar a fila",
     "cutoverPhaseArchiving": "a arquivar",
     "cutoverPhaseDetecting": "a detetar",
