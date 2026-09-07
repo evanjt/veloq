@@ -7,7 +7,7 @@
   "~app -> maps": 20,
   "activity -> maps": 20,
   "settings -> maps": 20,
-  "routes -> activity": 17,
+  "routes -> activity": 16,
   "insights -> routes": 15,
   "settings -> routes": 14,
   "activity -> routes": 10,
