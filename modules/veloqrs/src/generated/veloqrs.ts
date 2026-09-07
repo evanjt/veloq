@@ -87,6 +87,33 @@ const uniffiIsDebug =
 // Public interface members begin here.
 
 /**
+ * Get current download progress for FFI polling.
+ *
+ * TypeScript should poll this every 100ms during fetch operations
+ * to get smooth progress updates without cross-thread callback issues.
+ *
+ * Returns DownloadProgressResult with completed/total/active fields.
+ * When active is false, the download has completed (or never started).
+ * Ask the running fetch-and-store to stop. Returns whether there was one.
+ *
+ * Cooperative and scoped to the run: the loop checks between activities, so
+ * the one in flight finishes and lands, and the attach tail still runs over
+ * whatever did. The flag is cleared by the reset every run makes, so a cancel
+ * cannot outlive the download it was aimed at.
+ */
+export function cancelFetchAndStore(): boolean {
+  return FfiConverterBool.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_cancel_fetch_and_store(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Which claims the change card may make on this build.
  */
 export function getChangeCardSupport(): FfiChangeCardSupport {
@@ -131,15 +158,6 @@ export function getCutoverProgress(): CutoverProgress {
     ),
   );
 }
-/**
- * Get current download progress for FFI polling.
- *
- * TypeScript should poll this every 100ms during fetch operations
- * to get smooth progress updates without cross-thread callback issues.
- *
- * Returns DownloadProgressResult with completed/total/active fields.
- * When active is false, the download has completed (or never started).
- */
 export function getDownloadProgress(): DownloadProgressResult {
   return FfiConverterTypeDownloadProgressResult.lift(
     uniffiCaller.rustCall(
@@ -20379,6 +20397,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_cancel_fetch_and_store() !==
+    25572
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_cancel_fetch_and_store",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_change_card_support() !==
     55123
   ) {
@@ -20404,7 +20430,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_download_progress() !==
-    60736
+    59677
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_get_download_progress",
