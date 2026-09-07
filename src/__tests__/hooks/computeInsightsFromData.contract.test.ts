@@ -46,8 +46,7 @@ function makePattern(
   primaryDay: number,
   confidence: number,
   avgDurationSecs: number,
-  activityCount: number,
-  commonSections: InsightsData['allPatterns'][0]['commonSections']
+  activityCount: number
 ): InsightsData['allPatterns'][0] {
   return {
     sportType,
@@ -62,7 +61,6 @@ function makePattern(
     confidence,
     silhouetteScore: 0.7,
     daysSinceLast: 3,
-    commonSections,
   };
 }
 
@@ -143,18 +141,8 @@ function buildFfiData(): InsightsData {
       previousDate: BigInt(1_700_000_000),
     },
     allPatterns: [
-      makePattern('Ride', 6, 0.9, 3 * 3600, 12, [
-        {
-          sectionId: 'sec-ride-climb-A',
-          sectionName: 'Sunday Climb',
-          appearanceRate: 0.8,
-          trend: -1,
-          medianRecentSecs: 720,
-          bestTimeSecs: 690,
-          traversalCount: 14,
-        },
-      ]),
-      makePattern('Run', 2, 0.8, 45 * 60, 9, []),
+      makePattern('Ride', 6, 0.9, 3 * 3600, 12),
+      makePattern('Run', 2, 0.8, 45 * 60, 9),
     ],
     todayPattern: undefined,
     recentPrs: [
@@ -363,6 +351,18 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
     const improving = trends.find((i) => i.icon === 'trending-up');
     expect(improving?.priority).toBe(2);
     expect(trends.find((i) => i.icon === 'trending-down')?.priority).toBe(3);
+  });
+
+  // Section trends come from the engine's ranked batch and from nothing else.
+  // Patterns used to be a fallback when the batch was empty; what it built
+  // carried no `daysSinceLast` and no ranking, so it could not pass the
+  // recency gate or score on the tiebreak, and it produced nothing either way.
+  it('produces no section trends when the ranked batch is empty', () => {
+    const ffiData = { ...buildFfiData(), rankedSections: [] } as InsightsData;
+
+    const insights = computeInsightsFromData(ffiData, buildWellness(), t, buildSummaryCardData());
+
+    expect(insights.filter((i) => i.id.startsWith('section_trend-'))).toEqual([]);
   });
 
   it('section-derived insights only reference sections present in the FFI ranked-batch', () => {

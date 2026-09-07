@@ -1497,10 +1497,6 @@ export type FfiActivityPattern = {
    * Days since the most recent activity in this cluster
    */
   daysSinceLast: /*u32*/ number;
-  /**
-   * Sections commonly traversed by activities in this pattern
-   */
-  commonSections: Array<FfiPatternSection>;
 };
 
 /**
@@ -1537,7 +1533,6 @@ const FfiConverterTypeFfiActivityPattern = (() => {
         confidence: FfiConverterFloat32.read(from),
         silhouetteScore: FfiConverterFloat32.read(from),
         daysSinceLast: FfiConverterUInt32.read(from),
-        commonSections: FfiConverterArrayTypeFfiPatternSection.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -1553,7 +1548,6 @@ const FfiConverterTypeFfiActivityPattern = (() => {
       FfiConverterFloat32.write(value.confidence, into);
       FfiConverterFloat32.write(value.silhouetteScore, into);
       FfiConverterUInt32.write(value.daysSinceLast, into);
-      FfiConverterArrayTypeFfiPatternSection.write(value.commonSections, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -1568,10 +1562,7 @@ const FfiConverterTypeFfiActivityPattern = (() => {
         FfiConverterFloat32.allocationSize(value.frequencyPerMonth) +
         FfiConverterFloat32.allocationSize(value.confidence) +
         FfiConverterFloat32.allocationSize(value.silhouetteScore) +
-        FfiConverterUInt32.allocationSize(value.daysSinceLast) +
-        FfiConverterArrayTypeFfiPatternSection.allocationSize(
-          value.commonSections,
-        )
+        FfiConverterUInt32.allocationSize(value.daysSinceLast)
       );
     }
   }
@@ -4691,95 +4682,6 @@ const FfiConverterTypeFfiPaceTrend = (() => {
         FfiConverterOptionalInt64.allocationSize(value.latestDate) +
         FfiConverterOptionalFloat64.allocationSize(value.previousPace) +
         FfiConverterOptionalInt64.allocationSize(value.previousDate)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * A section commonly associated with a training pattern.
- */
-export type FfiPatternSection = {
-  /**
-   * Section identifier
-   */
-  sectionId: string;
-  /**
-   * Section display name
-   */
-  sectionName: string;
-  /**
-   * Fraction of cluster activities that traverse this section (0.0-1.0)
-   */
-  appearanceRate: /*f32*/ number;
-  /**
-   * Best (fastest) traversal time in seconds
-   */
-  bestTimeSecs: /*f32*/ number;
-  /**
-   * Median of the 5 most recent traversal times in seconds
-   */
-  medianRecentSecs: /*f32*/ number;
-  /**
-   * Performance trend: None=insufficient data, -1=declining, 0=stable, 1=improving
-   */
-  trend?: /*i8*/ number;
-  /**
-   * Total number of traversals across cluster activities
-   */
-  traversalCount: /*u32*/ number;
-};
-
-/**
- * Generated factory for {@link FfiPatternSection} record objects.
- */
-export const FfiPatternSection = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiPatternSection, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiPatternSection>,
-  });
-})();
-
-const FfiConverterTypeFfiPatternSection = (() => {
-  type TypeName = FfiPatternSection;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        sectionId: FfiConverterString.read(from),
-        sectionName: FfiConverterString.read(from),
-        appearanceRate: FfiConverterFloat32.read(from),
-        bestTimeSecs: FfiConverterFloat32.read(from),
-        medianRecentSecs: FfiConverterFloat32.read(from),
-        trend: FfiConverterOptionalInt8.read(from),
-        traversalCount: FfiConverterUInt32.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterString.write(value.sectionId, into);
-      FfiConverterString.write(value.sectionName, into);
-      FfiConverterFloat32.write(value.appearanceRate, into);
-      FfiConverterFloat32.write(value.bestTimeSecs, into);
-      FfiConverterFloat32.write(value.medianRecentSecs, into);
-      FfiConverterOptionalInt8.write(value.trend, into);
-      FfiConverterUInt32.write(value.traversalCount, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.sectionId) +
-        FfiConverterString.allocationSize(value.sectionName) +
-        FfiConverterFloat32.allocationSize(value.appearanceRate) +
-        FfiConverterFloat32.allocationSize(value.bestTimeSecs) +
-        FfiConverterFloat32.allocationSize(value.medianRecentSecs) +
-        FfiConverterOptionalInt8.allocationSize(value.trend) +
-        FfiConverterUInt32.allocationSize(value.traversalCount)
       );
     }
   }
@@ -19289,11 +19191,6 @@ const FfiConverterArrayTypeFfiNearbySectionSummary = new FfiConverterArray(
   FfiConverterTypeFfiNearbySectionSummary,
 );
 
-// FfiConverter for Array<FfiPatternSection>
-const FfiConverterArrayTypeFfiPatternSection = new FfiConverterArray(
-  FfiConverterTypeFfiPatternSection,
-);
-
 // FfiConverter for Array<FfiPreviewCentre>
 const FfiConverterArrayTypeFfiPreviewCentre = new FfiConverterArray(
   FfiConverterTypeFfiPreviewCentre,
@@ -21837,7 +21734,6 @@ export default Object.freeze({
     FfiConverterTypeFfiNamedCorridor,
     FfiConverterTypeFfiNearbySectionSummary,
     FfiConverterTypeFfiPaceTrend,
-    FfiConverterTypeFfiPatternSection,
     FfiConverterTypeFfiPeriodStats,
     FfiConverterTypeFfiPreviewCentre,
     FfiConverterTypeFfiPreviewTrack,
