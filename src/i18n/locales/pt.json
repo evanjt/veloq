@@ -662,6 +662,7 @@
     "securityNote": "As suas credenciais sao guardadas em seguranca no seu dispositivo",
     "sessionDataKept": "As suas atividades, secções e definições continuam neste dispositivo.",
     "sessionSignedOut": "A sua sessão foi terminada.",
+    "sessionKeyRejected": "A sua chave API foi recusada.",
     "sessionRestore": "Inicie sessão novamente para as recuperar.",
     "sessionRestoreAthlete": "Inicie sessão novamente como {{athleteId}} para as recuperar.",
     "subtitle": "Ligar ao Intervals.icu",

@@ -662,6 +662,7 @@
     "securityNote": "Your details are safe as houses on your device",
     "sessionDataKept": "Your activities, sections and settings are still on this device.",
     "sessionSignedOut": "You have been signed out.",
+    "sessionKeyRejected": "Your API key got knocked back.",
     "sessionRestore": "Sign in again to get them back.",
     "sessionRestoreAthlete": "Sign in again as {{athleteId}} to get them back.",
     "subtitle": "Hook up to Intervals.icu",

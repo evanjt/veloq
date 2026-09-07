@@ -684,6 +684,7 @@
     "securityNote": "Your credentials are stored securely on your device",
     "sessionDataKept": "Your activities, sections, and settings are still on this device.",
     "sessionSignedOut": "You have been signed out.",
+    "sessionKeyRejected": "Your API key was rejected.",
     "sessionRestore": "Sign in again to get them back.",
     "sessionRestoreAthlete": "Sign in again as {{athleteId}} to get them back.",
     "subtitle": "Connect to Intervals.icu",
