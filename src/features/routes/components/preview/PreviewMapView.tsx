@@ -12,7 +12,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { decodeCoords } from 'veloqrs';
-import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import {
   AttributionOverlay,
@@ -36,6 +36,7 @@ import type {
 import {
   buildPreviewLayers,
   buildPreviewSources,
+  previewLayerSwatch,
   PREVIEW_INTERACTIVE_LAYERS,
 } from './previewMapLayerSpecs';
 
@@ -228,6 +229,7 @@ export function PreviewMapView({
   const chipBg = isDark ? darkColors.surface : colors.surface;
   const chipBorder = isDark ? darkColors.border : colors.border;
   const chipText = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
 
   return (
     <View style={styles.container}>
@@ -244,34 +246,81 @@ export function PreviewMapView({
       />
       <AttributionOverlay ref={attributionRef} initialAttribution={attribution} />
       <View style={styles.legend} pointerEvents="box-none">
-        <Pressable
-          style={[
-            styles.legendChip,
-            { backgroundColor: chipBg, borderColor: chipBorder },
-            showCurrent && styles.legendChipActive,
-          ]}
-          onPress={onToggleCurrent}
+        <LegendChip
           testID="preview-layer-current"
-        >
-          <Text style={[styles.legendText, { color: showCurrent ? colors.textOnDark : chipText }]}>
-            {t('settings.previewCurrentLayer')}
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[
-            styles.legendChip,
-            { backgroundColor: chipBg, borderColor: chipBorder },
-            showProposed && styles.legendChipActive,
-          ]}
-          onPress={onToggleProposed}
+          label={t('settings.previewCurrentLayer')}
+          swatch={previewLayerSwatch('current-line')}
+          on={showCurrent}
+          onPress={onToggleCurrent}
+          background={chipBg}
+          border={chipBorder}
+          text={chipText}
+          textOn={textPrimary}
+        />
+        <LegendChip
           testID="preview-layer-proposed"
-        >
-          <Text style={[styles.legendText, { color: showProposed ? colors.textOnDark : chipText }]}>
-            {t('settings.previewProposedLayer')}
-          </Text>
-        </Pressable>
+          label={t('settings.previewProposedLayer')}
+          swatch={previewLayerSwatch('proposed-line')}
+          on={showProposed}
+          onPress={onToggleProposed}
+          background={chipBg}
+          border={chipBorder}
+          text={chipText}
+          textOn={textPrimary}
+        />
       </View>
     </View>
+  );
+}
+
+/**
+ * One legend chip. The chip itself stays neutral so the swatch is the only
+ * colour on it and reads as the key it is: a filled swatch means the layer is
+ * drawn, a hollow one means it is hidden, and the colour is the line's own.
+ */
+function LegendChip({
+  testID,
+  label,
+  swatch,
+  on,
+  onPress,
+  background,
+  border,
+  text,
+  textOn,
+}: {
+  testID: string;
+  label: string;
+  swatch: string;
+  on: boolean;
+  onPress: () => void;
+  background: string;
+  border: string;
+  text: string;
+  textOn: string;
+}) {
+  return (
+    <Pressable
+      style={[
+        styles.legendChip,
+        { backgroundColor: background, borderColor: border },
+        !on && styles.legendChipOff,
+      ]}
+      onPress={onPress}
+      testID={testID}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: on }}
+      accessibilityLabel={label}
+    >
+      <View
+        testID={`${testID}-swatch`}
+        style={[
+          styles.legendSwatch,
+          { borderColor: swatch, backgroundColor: on ? swatch : 'transparent' },
+        ]}
+      />
+      <Text style={[styles.legendText, { color: on ? textOn : text }]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -285,14 +334,22 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   legendChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  legendChipActive: {
-    backgroundColor: brand.tealLight,
-    borderColor: brand.tealLight,
+  legendChipOff: {
+    opacity: 0.6,
+  },
+  legendSwatch: {
+    width: 14,
+    height: 4,
+    borderRadius: 2,
+    borderWidth: 1,
   },
   legendText: {
     ...typography.caption,
