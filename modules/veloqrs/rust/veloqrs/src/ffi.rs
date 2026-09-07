@@ -337,6 +337,10 @@ pub fn start_fetch_and_store(
 
     // Spawn background thread
     std::thread::spawn(move || {
+        // The flag is cleared on the way out of this thread however it leaves.
+        // A panic unwinds this one thread and the process carries on, so the
+        // tail below is not reached and the only consumer polls forever.
+        let _progress_guard = crate::http::DownloadFinishGuard;
         let thread_start = Instant::now();
         info!(
             "[RUST: start_fetch_and_store] Thread started for {} activities",
@@ -546,8 +550,6 @@ pub fn start_fetch_and_store(
                 total_time_ms: total_time,
             },
         );
-
-        crate::http::finish_download_progress();
 
         info!(
             "[RUST: start_fetch_and_store] Thread complete ({} ms)",
