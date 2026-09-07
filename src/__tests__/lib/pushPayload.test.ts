@@ -67,7 +67,9 @@ describe('extractPushPayload', () => {
     expect(result.activityId).toBe('123');
   });
 
-  it('returns none when there is no event_type anywhere (visible-push wake)', () => {
+  // The shape a visible tray push arrives in, which reaches the task only
+  // while the app is in the foreground.
+  it('returns none when there is no event_type anywhere', () => {
     const result = extractPushPayload({ notification: { title: 'Activity Recorded' } });
     expect(result.eventType).toBeUndefined();
     expect(result.sourceShape).toBe('none');
