@@ -2,6 +2,8 @@ import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react'
 import { View, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
+
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -330,10 +332,16 @@ export const FitnessChart = React.memo(function FitnessChart({
 
             {/* X-axis labels */}
             <View style={styles.xAxisOverlay} pointerEvents="none">
-              <Text style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+              >
                 {chartData.length > 0 ? formatShortDate(chartData[0].date) : ''}
               </Text>
-              <Text style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+              >
                 {chartData.length > 0 ? formatShortDate(chartData[chartData.length - 1].date) : ''}
               </Text>
             </View>

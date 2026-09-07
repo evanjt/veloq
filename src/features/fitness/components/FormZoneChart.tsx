@@ -2,6 +2,8 @@ import React, { useMemo, useRef, useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
+
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
 import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -214,11 +216,22 @@ export const FormZoneChart = React.memo(function FormZoneChart({
 
           {/* Y-axis labels */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+            >
               {Math.round(maxForm)}
             </Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>0</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+            >
+              0
+            </Text>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+            >
               {Math.round(minForm)}
             </Text>
           </View>
