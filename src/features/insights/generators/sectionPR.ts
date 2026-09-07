@@ -63,6 +63,7 @@ export function generateSectionPRInsights(
           sourceTimestamp: now - pr.daysAgo * DAY_MS,
           comparisonKind: 'self',
           placeName: pr.sectionName,
+          sectionId: pr.sectionId,
         },
       })
     );

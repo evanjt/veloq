@@ -59,6 +59,15 @@ export interface InsightsConfig {
   scoring: {
     /** R4 - points a confidence of 1 is worth. */
     confidenceWeight: number;
+    /** R9 - points a section the engine rates at its ceiling is worth. */
+    rankingWeight: number;
+    /** R9 - how the engine's four component scores blend for an insight. */
+    rankingWeights: {
+      recency: number;
+      improvement: number;
+      anomaly: number;
+      engagement: number;
+    };
     /**
      * R4 - observations at which a category's claim is as well founded as it
      * gets. Categories absent from this table have no population to count and
@@ -140,6 +149,18 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
 
   scoring: {
     confidenceWeight: 30,
+    // R9 sits between confidence (30) and the category base (up to 15): the
+    // engine's read on a section should be able to reorder within a priority
+    // and never across one.
+    rankingWeight: 20,
+    // The engine's own weights, from `persistence/sections/ranking.rs`, which
+    // is the blend the sections tab's Relevance sort already ranks by. The
+    // default reproduces a formula that ships rather than inventing one.
+    //
+    // Read the components and never `relevanceScore`: that field IS this blend
+    // of these four, so a term taking it beside them would weigh every
+    // component twice.
+    rankingWeights: { recency: 0.35, improvement: 0.3, anomaly: 0.2, engagement: 0.15 },
     // Each saturation is a multiple of the category's repetition floor, which
     // is the point the generator may speak at all. Reaching it means the claim
     // has as much behind it as this generator can put there; below it the

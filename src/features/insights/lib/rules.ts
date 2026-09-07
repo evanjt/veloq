@@ -38,6 +38,7 @@ export interface ScoredInsight {
     specificity: number;
     temporalSelf: number;
     signal: number;
+    ranking: number;
   };
 }
 
@@ -201,6 +202,34 @@ export function confidenceScore(insight: Insight, cfg: InsightsConfig = INSIGHTS
 }
 
 /**
+ * R9 - what the engine says the section behind this insight is worth.
+ *
+ * The four component scores are the engine's own, computed per section in
+ * `persistence/sections/ranking.rs`, and the sections tab's Relevance sort
+ * already ranks on their blend. This is that blend, read by the insight ranker
+ * so a section the engine rates highly can outrank one it does not.
+ *
+ * **Never read `relevance`.** It is exactly this blend of the other four, so a
+ * term taking it beside its own components counts every component twice.
+ *
+ * An insight with no section has no such score. It takes zero and its rank
+ * comes from the other terms, the same rule `confidence` follows: a declared
+ * absence is not a middle.
+ */
+export function mlScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CONFIG): number {
+  const r = insight.meta?.ranking;
+  if (!r) return 0;
+  const w = cfg.scoring.rankingWeights;
+  const blend =
+    w.recency * r.recency +
+    w.improvement * r.improvement +
+    w.anomaly * r.anomaly +
+    w.engagement * r.engagement;
+  if (!Number.isFinite(blend)) return 0;
+  return Math.min(1, Math.max(0, blend)) * cfg.scoring.rankingWeight;
+}
+
+/**
  * R7 - temporal-self framing bonus (Kappen 2018).
  */
 export function temporalSelfScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CONFIG): number {
@@ -222,8 +251,9 @@ export function scoreInsight(
   const specificity = specificityScore(insight, cfg);
   const temporalSelf = temporalSelfScore(insight, cfg);
   const signal = signalScore(insight, cfg);
+  const ranking = mlScore(insight, cfg);
 
-  const total = base + confidence + category + specificity + temporalSelf + signal;
+  const total = base + confidence + category + specificity + temporalSelf + signal + ranking;
 
   return {
     insight,
@@ -235,6 +265,7 @@ export function scoreInsight(
       specificity,
       temporalSelf,
       signal,
+      ranking,
     },
   };
 }
