@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 19 standalone `#[uniffi::export]` functions plus
- * 256 methods inside `#[uniffi::export] impl` blocks across
+ * 257 methods inside `#[uniffi::export] impl` blocks across
  * 15 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 275 exports (19 standalone + 256 methods)
+ * Total: 276 exports (19 standalone + 257 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -261,10 +261,20 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'ActivityManager',
   },
   {
+    name: 'get_activity_body',
+    camelName: 'getActivityBody',
+    file: 'objects/activities.rs',
+    line: 116,
+    paramCount: 1,
+    returnType: 'Result<Option<String>, VeloqError>',
+    docs: "One activity's untyped body, or None when the engine has not got it. A caller after a single activity uses this rather than the window read below: the table is keyed by the id, so this is one row instead of a page of them parsed in JavaScript to find it.",
+    object: 'ActivityManager',
+  },
+  {
     name: 'get_activity_bodies',
     camelName: 'getActivityBodies',
     file: 'objects/activities.rs',
-    line: 114,
+    line: 123,
     paramCount: 2,
     returnType: 'Result<Vec<String>, VeloqError>',
     docs: 'Untyped activity bodies over an inclusive timestamp window, newest first. The feed and detail screens read fields no Rust type models, so they parse these rather than a reconstruction from `activity_metrics`.',
@@ -274,7 +284,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_interval_body',
     camelName: 'setIntervalBody',
     file: 'objects/activities.rs',
-    line: 128,
+    line: 137,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
     docs: "Store an activity's interval payload directly, for demo seeding.",
@@ -284,7 +294,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_curve_body',
     camelName: 'setCurveBody',
     file: 'objects/activities.rs',
-    line: 139,
+    line: 148,
     paramCount: 5,
     returnType: 'Result<(), VeloqError>',
     docs: 'Store a curve payload directly, for demo seeding. `kind` is "power" or "pace".',
@@ -294,7 +304,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'replace_calendar_events',
     camelName: 'replaceCalendarEvents',
     file: 'objects/activities.rs',
-    line: 165,
+    line: 174,
     paramCount: 3,
     returnType: 'Result<(), VeloqError>',
     docs: 'Replace the calendar events in a window, for demo seeding.',
@@ -304,7 +314,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_stream_body',
     camelName: 'getStreamBody',
     file: 'objects/activities.rs',
-    line: 187,
+    line: 196,
     paramCount: 2,
     returnType: 'Result<Option<String>, VeloqError>',
     docs: 'A stream payload for an activity and series selection: the cached server body, or one rebuilt from the points and times the ingest already stored. `None` when neither can answer the selection, which is what makes the caller fetch.',
@@ -314,7 +324,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_time_streams',
     camelName: 'setTimeStreams',
     file: 'objects/activities.rs',
-    line: 200,
+    line: 209,
     paramCount: 3,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -324,7 +334,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_missing_time_streams',
     camelName: 'getMissingTimeStreams',
     file: 'objects/activities.rs',
-    line: 211,
+    line: 220,
     paramCount: 1,
     returnType: 'Result<Vec<String>, VeloqError>',
     docs: '',
@@ -334,7 +344,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_gps_track',
     camelName: 'getGpsTrack',
     file: 'objects/activities.rs',
-    line: 218,
+    line: 227,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiGpsPoint>, VeloqError>',
     docs: '',
@@ -344,7 +354,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'mint_local_id',
     camelName: 'mintLocalId',
     file: 'objects/activities.rs',
-    line: 228,
+    line: 237,
     paramCount: 0,
     returnType: 'String',
     docs: "A key for a ride this device recorded and no server has named. The key never moves: `record_upload` writes the server's id beside it.",
@@ -354,7 +364,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'record_upload',
     camelName: 'recordUpload',
     file: 'objects/activities.rs',
-    line: 234,
+    line: 243,
     paramCount: 2,
     returnType: 'Result<bool, VeloqError>',
     docs: 'Write the id intervals.icu gave a locally keyed ride once its upload landed. False when no row was waiting for one.',
@@ -364,7 +374,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'remove',
     camelName: 'remove',
     file: 'objects/activities.rs',
-    line: 243,
+    line: 252,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -374,7 +384,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'debug_clone',
     camelName: 'debugClone',
     file: 'objects/activities.rs',
-    line: 258,
+    line: 267,
     paramCount: 2,
     returnType: 'Result<u32, VeloqError>',
     docs: '',
@@ -384,7 +394,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_highlights_bundle',
     camelName: 'getHighlightsBundle',
     file: 'objects/activities.rs',
-    line: 265,
+    line: 274,
     paramCount: 1,
     returnType: 'Result<crate::FfiActivityHighlightsBundle, VeloqError>',
     docs: 'Combined activity-list highlight bundle: section indicators (PRs + trends) and route highlights for the same batch of activity IDs in a single FFI round-trip. Consumed by `useActivitySectionHighlights`.',
@@ -394,7 +404,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_detail_data',
     camelName: 'getDetailData',
     file: 'objects/activities.rs',
-    line: 282,
+    line: 291,
     paramCount: 2,
     returnType: 'Result<crate::FfiActivityDetailData, VeloqError>',
     docs: "Everything the activity detail screen paints with, in one engine lock: engine counts, route groups, matched and custom sections, encounters, indicator highlights, this activity's portion of each section it traverses, and the sections where it holds the record. `min_route_activities` filters the returned route groups here, so the screen does not filter them after the fact.",
@@ -2799,6 +2809,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getCount',
   'setMetrics',
   'upsertActivityBodies',
+  'getActivityBody',
   'getActivityBodies',
   'setIntervalBody',
   'setCurveBody',
@@ -3084,6 +3095,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_count: 'getCount',
   set_metrics: 'setMetrics',
   upsert_activity_bodies: 'upsertActivityBodies',
+  get_activity_body: 'getActivityBody',
   get_activity_bodies: 'getActivityBodies',
   set_interval_body: 'setIntervalBody',
   set_curve_body: 'setCurveBody',

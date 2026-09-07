@@ -10383,6 +10383,14 @@ export interface ActivityManagerLike {
     oldestTs: /*i64*/ bigint,
     newestTs: /*i64*/ bigint,
   ) /*throws*/ : Array<string>;
+  /**
+   * One activity's untyped body, or None when the engine has not got it.
+   *
+   * A caller after a single activity uses this rather than the window read
+   * below: the table is keyed by the id, so this is one row instead of a
+   * page of them parsed in JavaScript to find it.
+   */
+  getActivityBody(activityId: string) /*throws*/ : string | undefined;
   getCount() /*throws*/ : /*u32*/ number;
   /**
    * Everything the activity detail screen paints with, in one engine lock:
@@ -10556,6 +10564,31 @@ export class ActivityManager
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterInt64.lower(oldestTs),
             FfiConverterInt64.lower(newestTs),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * One activity's untyped body, or None when the engine has not got it.
+   *
+   * A caller after a single activity uses this rather than the window read
+   * below: the table is keyed by the id, so this is one row instead of a
+   * page of them parsed in JavaScript to find it.
+   */
+  getActivityBody(activityId: string): string | undefined /*throws*/ {
+    return FfiConverterOptionalString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_body(
+            uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
             callStatus,
           );
         },
@@ -19779,6 +19812,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_body() !==
+    26782
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_get_activity_body",
     );
   }
   if (

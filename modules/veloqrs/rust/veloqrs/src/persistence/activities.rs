@@ -1719,6 +1719,22 @@ impl PersistentEngine {
         tx.commit()
     }
 
+    /// One activity's untyped body, or None when the engine has not got it.
+    ///
+    /// `activity_bodies` is keyed by the id, so this is a primary-key lookup.
+    /// The window read below is for the feed, which wants a page; a caller
+    /// after a single activity that scans that page and parses every body to
+    /// find one id does the whole window's JSON work in JavaScript.
+    pub fn get_activity_body(&self, activity_id: &str) -> Option<String> {
+        self.db
+            .query_row(
+                "SELECT raw FROM activity_bodies WHERE activity_id = ?",
+                params![activity_id],
+                |row| row.get::<_, String>(0),
+            )
+            .ok()
+    }
+
     /// Untyped activity bodies over an inclusive timestamp window, newest
     /// first to match the order intervals.icu returns and the feed renders.
     pub fn get_activity_bodies(&self, oldest_ts: i64, newest_ts: i64) -> SqlResult<Vec<String>> {
