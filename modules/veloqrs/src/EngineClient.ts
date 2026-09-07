@@ -445,8 +445,7 @@ class EngineClient implements DelegateHost {
   pollSectionDetection = (): string => detectionDelegates.pollSectionDetection(this);
 
   /** How the last finished run ended. Reads nothing the follower needs. */
-  lastSectionDetectionOutcome = (): string =>
-    detectionDelegates.lastSectionDetectionOutcome(this);
+  lastSectionDetectionOutcome = (): string => detectionDelegates.lastSectionDetectionOutcome(this);
 
   getSectionDetectionProgress = (): SectionDetectionProgress | null =>
     detectionDelegates.getSectionDetectionProgress(this);
@@ -1140,6 +1139,9 @@ class EngineClient implements DelegateHost {
 
   setSuperseded = (autoSectionId: string, customSectionId: string): boolean =>
     sectionDelegates.setSuperseded(this, autoSectionId, customSectionId);
+
+  findSupersededSections = (customSectionId: string, overlapThreshold: number): string[] =>
+    sectionDelegates.findSupersededSections(this, customSectionId, overlapThreshold);
 
   clearSuperseded = (customSectionId: string): boolean =>
     sectionDelegates.clearSuperseded(this, customSectionId);
