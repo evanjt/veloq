@@ -563,6 +563,7 @@
     },
     "aboutTitle": "Informazioni sugli approfondimenti",
     "aboutBody": "Le metriche di allenamento sono stime basate su modelli pubblicati di scienza dello sport. Le risposte individuali variano significativamente. Questi approfondimenti sono solo informativi, non costituiscono consiglio medico o di allenamento.",
+    "aboutRanking": "Le schede sono ordinate in base a quanto hanno da dire: quanto sono recenti, quanto si discostano dalle tue abitudini, quanto e cambiato e quanto spesso lo fai. Non in base al fatto che la notizia sia buona.",
     "efficiencyTrend": {
       "seriesLabel": "Frequenza cardiaca per unità di passo, dal passaggio più vecchio al più recente",
       "title": "FC in calo su {{name}}",

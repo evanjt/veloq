@@ -10,7 +10,7 @@ import {
   SwipeableTabs,
   type SwipeableTab,
 } from '@/shared/ui';
-import { InsightsPanel, StrengthTab, useInsights } from '@/features/insights';
+import { aboutInsightsBody, InsightsPanel, StrengthTab, useInsights } from '@/features/insights';
 import { DateRangeSummary } from '@/features/routes/components/DateRangeSummary';
 import { RoutesList } from '@/features/routes/components/RoutesList';
 import { SectionsList } from '@/features/routes/components/SectionsList';
@@ -512,15 +512,7 @@ export default function InsightsScreen() {
             icon="information-outline"
             size={20}
             iconColor={isDark ? darkColors.textMuted : colors.textMuted}
-            onPress={() =>
-              Alert.alert(
-                t('insights.aboutTitle', 'About Insights'),
-                t(
-                  'insights.aboutBody',
-                  'Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only \u2014 not medical or coaching advice.'
-                )
-              )
-            }
+            onPress={() => Alert.alert(t('insights.aboutTitle'), aboutInsightsBody(t, activeTab))}
             style={styles.infoButton}
           />
         </View>

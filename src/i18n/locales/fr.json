@@ -563,6 +563,7 @@
     },
     "aboutTitle": "À propos des aperçus",
     "aboutBody": "Les métriques d'entraînement sont des estimations basées sur des modèles publiés en science du sport. Les réponses individuelles varient considérablement. Ces aperçus sont purement informatifs, ils ne constituent pas un avis médical ou d'entraînement.",
+    "aboutRanking": "Les cartes sont classees selon ce qu'elles ont a dire : leur fraicheur, leur ecart avec vos habitudes, l'ampleur du changement et la frequence a laquelle vous le faites. Pas selon que la nouvelle soit bonne.",
     "efficiencyTrend": {
       "seriesLabel": "Fréquence cardiaque par unité d'allure, du passage le plus ancien au plus récent",
       "title": "FC en baisse sur {{name}}",

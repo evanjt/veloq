@@ -605,6 +605,9 @@ export interface TranslationResource {
       body: string;
     };
     title: string;
+    aboutTitle: string;
+    aboutBody: string;
+    aboutRanking: string;
     noInsights: string;
     noInsightsHint: string;
     sectionPr: string;
