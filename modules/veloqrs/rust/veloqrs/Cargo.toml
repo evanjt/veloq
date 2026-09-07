@@ -315,6 +315,10 @@ name = "database_wipe_cost"
 required-features = ["synthetic"]
 
 [[bench]]
+name = "attach_finalize_cost"
+required-features = ["synthetic"]
+
+[[bench]]
 name = "live_section_replay"
 
 [[bin]]
