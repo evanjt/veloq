@@ -33,6 +33,7 @@ const EMPTY_FTP_TREND: FfiFtpTrend = {
   latestDate: undefined,
   previousFtp: undefined,
   previousDate: undefined,
+  sampleCount: 0,
 };
 
 const EMPTY_PACE_TREND: FfiPaceTrend = {
@@ -40,6 +41,7 @@ const EMPTY_PACE_TREND: FfiPaceTrend = {
   latestDate: undefined,
   previousPace: undefined,
   previousDate: undefined,
+  sampleCount: 0,
 };
 
 export function getActivityMetricIds(host: DelegateHost): string[] {
