@@ -93,3 +93,24 @@ export async function pollDownloadProgress(options: PollOptions): Promise<PollOu
 
   return 'cancelled';
 }
+
+/**
+ * Tell Rust to stop a download this screen has stopped waiting for.
+ *
+ * The poll returning is not the download ending: the fetch thread runs to its
+ * end whatever the caller does, so leaving the screen or giving up on a stalled
+ * run left it taking the write lock and spending requests for nobody. A run
+ * that settled on its own is left alone, because there is nothing to stop and
+ * the flag belongs to whatever starts next.
+ *
+ * `cancel` is handed in for the same reason `read` is: this module owns the
+ * schedule and nothing native, so its tests need no binding.
+ */
+export function abandonDownload(outcome: PollOutcome, cancel: () => void): void {
+  if (outcome === 'settled') return;
+  try {
+    cancel();
+  } catch {
+    // An older library has no cancel. The download finishes as it used to.
+  }
+}
