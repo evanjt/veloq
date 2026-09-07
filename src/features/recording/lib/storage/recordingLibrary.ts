@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { debug } from '@/shared/debug/debug';
 import { getEngine } from '@/shared/native/engine';
+import { getStoredCredentials } from '@/shared/app/AuthStore';
 import type {
   ActivityType,
   RecordingLibraryEntry,
@@ -168,6 +169,10 @@ export async function saveRecording(
       createdAt: Date.now(),
       uploadStatus: params.uploadStatus,
       retryCount: 0,
+      // Whose ride this is, read once at save time. A forced sign-out holds
+      // pending entries instead of demoting them, so this is what keeps one
+      // athlete's recording out of the next athlete's account.
+      athleteId: getStoredCredentials().athleteId ?? undefined,
     };
 
     library().addRecording(toEngineEntry(entry));
