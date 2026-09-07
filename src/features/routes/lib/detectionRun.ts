@@ -9,6 +9,11 @@
  * `getSectionDetectionProgress`, one mutex and three atomic loads, which
  * never drains the worker's channel and so cannot consume the completion the
  * event reports.
+ *
+ * The one case where the timer does read the status is an engine that says it
+ * cannot announce. Registering the observer is withheld when the binding's
+ * checksum check throws, and then no event ever arrives, so following one is
+ * following nothing.
  */
 
 /** The channel Rust announces a finished run on. */
@@ -30,6 +35,24 @@ export interface DetectionEngine {
   subscribe(event: string, listener: () => void): () => void;
   pollSectionDetection(): string;
   getSectionDetectionProgress(): DetectionProgress | null | undefined;
+  /** False when the observer was withheld, so nothing will ever announce. */
+  eventsAreLive?(): boolean;
+}
+
+/**
+ * Whether the event is worth waiting for.
+ *
+ * A handle that cannot say is taken as able to announce, which is what every
+ * handle did before this existed. A handle that throws is not: a host that
+ * cannot answer a local read is not one to stake a spinner on.
+ */
+function canAnnounce(engine: DetectionEngine): boolean {
+  if (!engine.eventsAreLive) return true;
+  try {
+    return engine.eventsAreLive();
+  } catch {
+    return false;
+  }
 }
 
 export interface FollowOptions {
@@ -118,11 +141,18 @@ export function followDetection(
 
     if (readTerminal()) return;
 
+    // Rust announces the end on every exit path, so the status is read on the
+    // event and not on the timer. That holds only while the observer is
+    // registered: when it was withheld, the announcement never comes and this
+    // is the only thing left that can end the run.
+    const pollsTerminal = !canAnnounce(engine);
+
     ticker = setInterval(() => {
       if (isActive && !isActive()) {
         settle('abandoned');
         return;
       }
+      if (pollsTerminal && readTerminal()) return;
       if (!onProgress) return;
       try {
         const progress = engine.getSectionDetectionProgress();
