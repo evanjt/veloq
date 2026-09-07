@@ -82,4 +82,16 @@ export function buildPreviewLayers(): MapLayerSpec[] {
   ];
 }
 
+/**
+ * The colour a legend chip's swatch takes for the layer it toggles, read off
+ * the layer's own paint so the key cannot drift from the line. `proposed-line`
+ * paints new sections apart with a match expression, and the swatch takes its
+ * fallback, the colour every other proposed line gets.
+ */
+export function previewLayerSwatch(layerId: string): string {
+  const colour = buildPreviewLayers().find((l) => l.id === layerId)?.paint?.['line-color'];
+  if (Array.isArray(colour)) return colour[colour.length - 1] as string;
+  return typeof colour === 'string' ? colour : colors.neutralLine;
+}
+
 export { EMPTY_FEATURE_COLLECTION };
