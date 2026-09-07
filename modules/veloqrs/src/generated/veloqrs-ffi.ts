@@ -1576,7 +1576,7 @@ interface NativeModuleInterface {
   ): number;
   ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): void;
   ubrn_uniffi_veloqrs_fn_func_resume_elevation_backfill(
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
