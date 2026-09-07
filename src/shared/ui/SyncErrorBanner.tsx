@@ -6,6 +6,13 @@
  * failing, and every screen just looks empty. It names the engine's error and
  * the last time data actually arrived, so missing activities read as a sync
  * problem rather than an empty account.
+ *
+ * The engine's own message is never what an athlete reads. It is written in
+ * English, in the engine's vocabulary, and it changes whenever a message is
+ * reworded. The engine classifies the failure instead, and the reason it hands
+ * over picks a translated line. The message stays as the fallback for a reason
+ * a shipped build has no string for, which is what an engine newer than the
+ * bundle produces.
  */
 
 import React from 'react';
@@ -15,6 +22,7 @@ import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { SyncErrorReason } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNetwork } from '@/shared/app/NetworkContext';
@@ -23,18 +31,31 @@ import { useSyncHealth } from '@/shared/native/useSyncHealth';
 import { formatDateTime } from '@/shared/format';
 import { amberBanner } from '@/theme';
 
+/** The line each reason names. Written out so the key type checks. */
+const REASON_KEY = {
+  [SyncErrorReason.Unauthorized]: 'emptyState.syncError.reason.unauthorized',
+  [SyncErrorReason.RateLimited]: 'emptyState.syncError.reason.rateLimited',
+  [SyncErrorReason.Server]: 'emptyState.syncError.reason.server',
+  [SyncErrorReason.Network]: 'emptyState.syncError.reason.network',
+  [SyncErrorReason.Storage]: 'emptyState.syncError.reason.storage',
+  [SyncErrorReason.NotConfigured]: 'emptyState.syncError.reason.notConfigured',
+  [SyncErrorReason.Internal]: 'emptyState.syncError.reason.internal',
+} as const satisfies Record<SyncErrorReason, string>;
+
 export function SyncErrorBanner() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { isOnline } = useNetwork();
   const { isDark } = useTheme();
-  const { lastError, lastSuccessAt } = useSyncHealth();
+  const { lastError, lastErrorReason, lastSuccessAt } = useSyncHealth();
 
   // The offline banner already owns the no-connection case, and both live in the
   // same top slot. A logged-out user has no sync to report on, and the engine
   // keeps the error from the session that just ended.
-  if (!isAuthenticated || !isOnline || !lastError) {
+  const reasonKey = lastErrorReason === null ? undefined : REASON_KEY[lastErrorReason];
+
+  if (!isAuthenticated || !isOnline || (!lastError && !reasonKey)) {
     return null;
   }
 
@@ -56,7 +77,7 @@ export function SyncErrorBanner() {
             </Text>
           </View>
           <Text numberOfLines={2} style={[styles.detail, { color: palette.subtext }]}>
-            {lastError}
+            {reasonKey ? t(reasonKey) : lastError}
           </Text>
           <Text style={[styles.detail, { color: palette.subtext }]}>
             {lastSuccessAt

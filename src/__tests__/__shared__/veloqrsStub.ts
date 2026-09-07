@@ -29,6 +29,17 @@ export enum CallKind {
   Internal = 6,
 }
 
+/** `FfiSyncErrorReason` as generated, held to the source by the same test. */
+export enum SyncErrorReason {
+  Unauthorized = 1,
+  RateLimited = 2,
+  Server = 3,
+  Network = 4,
+  Storage = 5,
+  NotConfigured = 6,
+  Internal = 7,
+}
+
 /** `SyncState` as generated, held to the source by the same test. */
 export enum SyncState {
   Idle = 1,
@@ -96,6 +107,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
   return {
     CallKind,
     SyncState,
+    SyncErrorReason,
     decodeCoords,
     createPreviewClientStub,
     startFetchAndStore,

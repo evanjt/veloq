@@ -346,7 +346,16 @@
     "syncError": {
       "title": "Synchronisierig chunt nid dure",
       "lastSynced": "Zletscht gsynced {{when}}",
-      "neverSynced": "Nonig e Synchronisierig fertig"
+      "neverSynced": "Nonig e Synchronisierig fertig",
+      "reason": {
+        "unauthorized": "intervals.icu hat deine Anmeldung abgelehnt",
+        "rateLimited": "intervals.icu bittet um eine Pause, die Synchronisierung wartet",
+        "server": "intervals.icu hat etwas zurueckgeschickt, das die App nicht verwenden kann",
+        "network": "intervals.icu war nicht erreichbar",
+        "storage": "Eine Datei auf diesem Geraet konnte nicht gelesen werden",
+        "notConfigured": "Auf diesem Geraet ist keine intervals.icu-Anmeldung gespeichert",
+        "internal": "Die Synchronisierung endete aus einem Grund, den die App nicht benennen kann"
+      }
     }
   },
   "engine": {

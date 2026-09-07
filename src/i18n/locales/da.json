@@ -346,7 +346,16 @@
     "syncError": {
       "title": "Synkronisering kommer ikke igennem",
       "lastSynced": "Sidst synkroniseret {{when}}",
-      "neverSynced": "Ingen synkronisering er gennemfoert"
+      "neverSynced": "Ingen synkronisering er gennemfoert",
+      "reason": {
+        "unauthorized": "intervals.icu afviste dit login",
+        "rateLimited": "intervals.icu bad os saenke farten, saa synkronisering venter",
+        "server": "intervals.icu sendte noget tilbage, appen ikke kunne bruge",
+        "network": "Kunne ikke naa intervals.icu",
+        "storage": "En fil paa denne enhed kunne ikke laeses",
+        "notConfigured": "Der er ikke gemt noget intervals.icu-login paa denne enhed",
+        "internal": "Synkroniseringen stoppede af en grund, appen ikke kan navngive"
+      }
     }
   },
   "engine": {
