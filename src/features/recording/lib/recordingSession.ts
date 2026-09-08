@@ -14,13 +14,14 @@ import {
 import {
   clearRecordingNotification,
   installRecordingNotificationActions,
+  locationServiceRunning,
   updateRecordingNotification,
 } from './recordingNotification';
 import { getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
 import { createAutoPauseDetector, type AutoPauseConfig } from './autoPause';
 import { getSportCategory } from './sportCategoryDetector';
 import { buildRecordingBackup, saveRecordingBackup } from './storage/recordingBackup';
-import { BACKUP_INTERVAL_MS, LIVE_ACTIVITY_REFRESH_MS } from './constants';
+import { BACKUP_INTERVAL_MS, LIVE_ACTIVITY_REFRESH_MS, SERVICE_WATCH_MS } from './constants';
 import {
   beginLiveActivity,
   finishLiveActivity,
@@ -40,6 +41,7 @@ let appStateSub: { remove: () => void } | null = null;
 let appState: AppStateStatus = 'active';
 let indoorTimer: Timer | null = null;
 let backupTimer: Timer | null = null;
+let serviceWatchTimer: Timer | null = null;
 let liveActivityTimer: Timer | null = null;
 let backupArmedFor: string | null = null;
 let detector: AutoPauseDetector | null = null;
@@ -135,6 +137,45 @@ function stopForegroundWatch(): void {
  * instead, and a refused start leaves `serviceStarted` false so the next
  * transition into `active` retries it.
  */
+/**
+ * Keep re-deciding whether the service is running, for as long as the ride is.
+ *
+ * The one-shot check that used to decide this could only ever raise the warning:
+ * a service that came up a moment after it was asked for left the athlete told
+ * to pause and resume a ride that was recording fine, and nothing re-asked. It
+ * is also the recovery path for a service that is genuinely refused, which
+ * previously waited on an app-state transition that a foreground app never
+ * makes. A state that can only be entered is not a state.
+ */
+function armServiceWatch(): void {
+  if (serviceWatchTimer) return;
+  serviceWatchTimer = setInterval(() => {
+    void (async () => {
+      if (!running || useRecordingStore.getState().mode !== 'gps') return;
+      let live: boolean | null;
+      try {
+        live = await locationServiceRunning();
+      } catch (e) {
+        log.warn('Could not read the running services:', e);
+        return;
+      }
+      // Null is "cannot tell", which is not a failure to report.
+      if (live == null) return;
+      useRecordingLiveStore.getState().setBackgroundTrackingFailed(!live);
+      if (!live) {
+        serviceStarted = false;
+        await startForegroundService();
+      }
+    })();
+  }, SERVICE_WATCH_MS);
+}
+
+function disarmServiceWatch(): void {
+  if (!serviceWatchTimer) return;
+  clearInterval(serviceWatchTimer);
+  serviceWatchTimer = null;
+}
+
 async function startForegroundService(): Promise<void> {
   if (serviceStarted) return;
   try {
@@ -147,6 +188,7 @@ async function startForegroundService(): Promise<void> {
   }
   // Told to the rider rather than logged and dropped: on screen this outranks
   // the GPS-signal warning, which a refused service is otherwise mistaken for.
+  // The watch below un-tells it if the service was merely slow.
   useRecordingLiveStore.getState().setBackgroundTrackingFailed(!serviceStarted);
 }
 
@@ -160,6 +202,7 @@ export async function ensureLocationWatch(): Promise<boolean> {
   // it was refused, which is no reason to hold up the first fix.
   if (appState === 'active') await startForegroundWatch();
   await startForegroundService();
+  armServiceWatch();
   return true;
 }
 
@@ -295,6 +338,7 @@ function stopSession(): void {
     clearInterval(liveActivityTimer);
     liveActivityTimer = null;
   }
+  disarmServiceWatch();
   finishLiveActivity();
   backupArmedFor = null;
   serviceStarted = false;
