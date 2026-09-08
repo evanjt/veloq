@@ -13,6 +13,9 @@
  * task is the least affordable place to do a page of JSON work.
  */
 
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+
+import { StartOutcome } from 'veloqrs';
 import { awaitActivityBody, readStoredActivity } from '@/features/insights/lib/awaitActivityBody';
 
 type Listener = (payload?: { kind?: string; activityId?: string }) => void;
@@ -34,7 +37,7 @@ function fakeEngine(stored: Record<string, string> = {}) {
     },
     syncActivityDetail(activityId: string) {
       engine.detailRequests.push(activityId);
-      return true;
+      return StartOutcome.Started;
     },
     subscribe(event: string, callback: Listener) {
       const set = listeners.get(event) ?? new Set<Listener>();
