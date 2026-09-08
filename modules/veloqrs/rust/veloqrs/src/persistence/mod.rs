@@ -1814,6 +1814,14 @@ pub static PERSISTENT_ENGINE: LazyLock<RwLock<Option<PersistentEngine>>> =
 // `&self` methods that don't dereference `self.db`.
 unsafe impl Sync for PersistentEngine {}
 
+/// Close the process-wide engine, so a test can exercise the path a caller
+/// takes before init has run. Every fixture that opens one takes
+/// `serial_global_state` first, so this cannot land under another test.
+#[cfg(test)]
+pub(crate) fn clear_persistent_engine() {
+    *PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner()) = None;
+}
+
 /// Acquire the **write** lock on the global persistent engine.
 ///
 /// Required for any closure that needs `&mut PersistentEngine` -
