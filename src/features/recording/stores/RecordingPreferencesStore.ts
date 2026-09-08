@@ -26,6 +26,11 @@ const DEFAULT_DATA_FIELDS: Record<string, DataFieldType[]> = {
 
 interface RecordingPreferencesState {
   recentActivityTypes: ActivityType[];
+  /**
+   * Whether the Always location dialog has been put to the athlete. iOS shows it
+   * once, so this is asked-not-granted: a denial must never lead to a second ask.
+   */
+  alwaysLocationAsked: boolean;
   autoPauseEnabled: boolean;
   autoPauseThresholds: Record<string, number>;
   dataFields: Record<string, DataFieldType[]>;
@@ -52,10 +57,12 @@ interface RecordingPreferencesState {
   setAutoPauseDuration: (ms: number) => void;
   setKeepAwake: (enabled: boolean) => void;
   dismissBatteryOptNudge: () => void;
+  markAlwaysLocationAsked: () => void;
 }
 
 export const useRecordingPreferences = create<RecordingPreferencesState>((set) => ({
   recentActivityTypes: [],
+  alwaysLocationAsked: false,
   autoPauseEnabled: true,
   autoPauseThresholds: { ...DEFAULT_AUTO_PAUSE_THRESHOLDS },
   dataFields: { ...DEFAULT_DATA_FIELDS },
@@ -112,6 +119,8 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
             typeof parsed.keepAwakeEnabled === 'boolean' ? parsed.keepAwakeEnabled : true,
           batteryOptDismissed:
             typeof parsed.batteryOptDismissed === 'boolean' ? parsed.batteryOptDismissed : false,
+          alwaysLocationAsked:
+            typeof parsed.alwaysLocationAsked === 'boolean' ? parsed.alwaysLocationAsked : false,
           isLoaded: true,
         });
       } else {
@@ -132,6 +141,14 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
       persistPreferences({ ...state, recentActivityTypes: updated });
       setRecentRecordingTypes(updated);
       return { recentActivityTypes: updated };
+    });
+  },
+
+  markAlwaysLocationAsked: () => {
+    set((state) => {
+      if (state.alwaysLocationAsked) return state;
+      persistPreferences({ ...state, alwaysLocationAsked: true });
+      return { alwaysLocationAsked: true };
     });
   },
 
@@ -217,6 +234,7 @@ async function persistPreferences(state: Partial<RecordingPreferencesState>): Pr
       autoPauseDurationMs: state.autoPauseDurationMs,
       keepAwakeEnabled: state.keepAwakeEnabled,
       batteryOptDismissed: state.batteryOptDismissed,
+      alwaysLocationAsked: state.alwaysLocationAsked,
     };
     await setSetting(STORAGE_KEY, JSON.stringify(data));
   } catch {

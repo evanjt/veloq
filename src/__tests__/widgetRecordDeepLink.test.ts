@@ -44,12 +44,14 @@ function raw(overrides: Partial<RawWidgetData> = {}): RawWidgetData {
 describe('the deep link is composed once, in the snapshot', () => {
   it('starts the ride for a known sport', () => {
     const snap = composeSnapshot(raw({ recentRecordingTypes: ['Ride'] }));
-    expect(snap.recordShortcuts[0].url).toBe('veloq://recording/Ride');
+    expect(snap.recordShortcuts[0].url).toBe('veloq://recording/Ride?from=quickstart');
   });
 
   it('escapes a sport whose name is not URL-safe', () => {
     const snap = composeSnapshot(raw({ recentRecordingTypes: ['Stand Up Paddling'] }));
-    expect(snap.recordShortcuts[0].url).toBe('veloq://recording/Stand%20Up%20Paddling');
+    expect(snap.recordShortcuts[0].url).toBe(
+      'veloq://recording/Stand%20Up%20Paddling?from=quickstart'
+    );
   });
 
   it('names the picker as the fallback, and only there', () => {
