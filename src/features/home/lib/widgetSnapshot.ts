@@ -26,6 +26,7 @@ import {
   formatSwimPace,
 } from '@/shared/format';
 import { getEngine } from '@/shared/native/engine';
+import { getLastRecordingType } from '@/shared/recording';
 import type { WidgetSnapshotData } from 'veloqrs';
 import { widgetActivityTint, widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
@@ -33,7 +34,7 @@ import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import { useDashboardPreferences, type SummaryCardPreferences } from '../store';
 import { TREND_DEADBAND, trendDirection } from '@/shared/format/trend';
 
-export const WIDGET_SNAPSHOT_SCHEMA_VERSION = 4;
+export const WIDGET_SNAPSHOT_SCHEMA_VERSION = 5;
 
 /** Trailing wellness window the widget sparklines cover. */
 const SPARKLINE_DAYS = 30;
@@ -182,6 +183,12 @@ export interface WidgetSnapshot {
   summaryCard: WidgetSummaryCard | null;
   display: WidgetDisplay;
   theme: { light: WidgetPalette; dark: WidgetPalette };
+  /**
+   * Sport the record surfaces should start, so a widget tap opens an already
+   * running ride rather than the picker. Null until something has been
+   * recorded, which is the signal to fall back to the picker.
+   */
+  lastRecordingType: string | null;
 }
 
 // Minimal structural shapes of the engine returns we consume, kept local so this
@@ -236,6 +243,8 @@ export interface RawWidgetData {
   nowSeconds: number;
   /** i18n lookup; falls back to the raw key when absent (pure-test safe). */
   translate?: (key: string) => string;
+  /** Most recently recorded sport, or null/blank when there is none. */
+  lastRecordingType?: string | null;
 }
 
 // The default for the integer point metrics: fitness, fatigue and resting HR.
@@ -341,7 +350,14 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
     summaryCard: composeSummaryCard(raw, t),
     display: buildDisplay(t, impact, getFormZone(num(form[form.length - 1]))),
     theme: { light: widgetPalette.light, dark: widgetPalette.dark },
+    lastRecordingType: cleanType(raw.lastRecordingType),
   };
+}
+
+/** A blank sport is no sport: the natives fall back on null, not on an empty path. */
+function cleanType(type: string | null | undefined): string | null {
+  const trimmed = typeof type === 'string' ? type.trim() : '';
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 /** Form metric with its zone, so natives colour by enum and never do TSB maths. */
@@ -634,6 +650,7 @@ export function gatherWidgetSnapshot(opts: {
     isMetric: opts.isMetric,
     nowSeconds,
     translate: opts.translate,
+    lastRecordingType: getLastRecordingType(),
   });
 }
 

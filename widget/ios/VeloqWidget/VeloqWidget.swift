@@ -73,27 +73,35 @@ struct VeloqWidget: Widget {
 
 // Kept compiled but NOT in either bundle body below: the record surface isn't
 // ready for the gallery yet. Restore by adding VeloqRecordWidget() back to the
-// bundles. Static content, renders purely from the generated WidgetTheme.Record
-// chrome; the whole widget deep-links into the record screen.
+// bundles. The chrome renders purely from the generated WidgetTheme.Record
+// values; the snapshot is read for one field, the last recorded sport, which
+// decides whether the tap starts a ride or opens the picker.
 struct RecordEntry: TimelineEntry {
   let date: Date
+  let lastRecordingType: String?
 }
 
 struct RecordProvider: TimelineProvider {
   func placeholder(in context: Context) -> RecordEntry {
-    RecordEntry(date: Date())
+    RecordEntry(date: Date(), lastRecordingType: nil)
   }
 
   func getSnapshot(in context: Context, completion: @escaping (RecordEntry) -> Void) {
-    completion(RecordEntry(date: Date()))
+    completion(entry())
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<RecordEntry>) -> Void) {
-    completion(Timeline(entries: [RecordEntry(date: Date())], policy: .never))
+    completion(Timeline(entries: [entry()], policy: .never))
+  }
+
+  private func entry() -> RecordEntry {
+    RecordEntry(date: Date(), lastRecordingType: WidgetSnapshotStore.load()?.lastRecordingType)
   }
 }
 
 struct RecordWidgetView: View {
+  let lastRecordingType: String?
+
   var body: some View {
     VStack(spacing: WidgetTheme.Layout.gap) {
       ZStack {
@@ -109,7 +117,7 @@ struct RecordWidgetView: View {
         .foregroundColor(WidgetTheme.Record.foreground)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .widgetURL(URL(string: "veloq://record"))
+    .widgetURL(RecordDeepLink.url(for: lastRecordingType))
     .widgetBackground(
       LinearGradient(
         colors: [WidgetTheme.Record.gradientStart, WidgetTheme.Record.gradientEnd],
@@ -121,8 +129,8 @@ struct VeloqRecordWidget: Widget {
   let kind = "VeloqRecordWidget"
 
   var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: RecordProvider()) { _ in
-      RecordWidgetView()
+    StaticConfiguration(kind: kind, provider: RecordProvider()) { entry in
+      RecordWidgetView(lastRecordingType: entry.lastRecordingType)
     }
     .configurationDisplayName("Record")
     .description("Start recording an activity.")
