@@ -1,18 +1,22 @@
 /**
- * Scenario: every real detect is refused while the detector cutover is owed,
- * and the sections page says detection is paused. The preview is not on that
- * path and is not held: it loads a subset, runs the detector to show what
- * different settings produce, and touches no catalogue until the athlete
- * accepts.
+ * Scenario: a config change clears the processed set so the whole library is
+ * re-detected, and that re-detect is asynchronous. Between the write and its
+ * completion the sliders read as untouched, because they show the new config,
+ * and the proposal is cut with it. The live side is still the previous
+ * config's cut, so every section that moved is reported once as gone and once
+ * as new.
  *
- * Expected behaviour: it keeps running during the hold and says the library is
- * still migrating. A notice, not a door.
+ * Expected behaviour: the screen says the live catalogue has not caught up,
+ * with the count, so the athlete can tell that apart from a detector
+ * regression. It was 89 gone of 118 on the device with no detector fault at
+ * all, and nothing on screen said why.
  */
 
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import DetectionPreviewScreen from '@/app/detection-preview';
+import { initializeI18n, changeLanguage } from '@/i18n';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -40,10 +44,9 @@ jest.mock('@/shared/app', () => ({
   useScreenSafeAreaEdges: () => [],
 }));
 
-const mockHold = jest.fn<'elevation' | 'cutover' | null, []>(() => null);
 jest.mock('@/features/routes', () => ({
   ...jest.requireActual('@/features/routes/hooks/useDetectionHold'),
-  useDetectionHold: () => mockHold(),
+  useDetectionHold: () => null,
 }));
 
 jest.mock('@/features/routes/hooks/usePreviewDetect', () => ({
@@ -57,8 +60,6 @@ jest.mock('@/features/routes/hooks/usePreviewDetect', () => ({
   }),
 }));
 
-// The panel and the map are their own screens' business; this one is about
-// the notice.
 jest.mock('@/features/routes/components', () => ({
   PreviewCentrePicker: () => null,
   PreviewDiffStrip: () => null,
@@ -78,10 +79,12 @@ jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
   useSectionRescan: () => ({ forceRescan: jest.fn() }),
 }));
 
+const mockAwaiting = jest.fn<number | null, []>(() => 0);
+
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
-    sectionDetectionAwaiting: () => 0,
     getSectionConfig: () => null,
+    sectionDetectionAwaiting: () => mockAwaiting(),
     subscribe: () => () => {},
   }),
   UNIFIED_CONFIG: {
@@ -93,30 +96,49 @@ jest.mock('@/shared/native/engine', () => ({
   },
 }));
 
-describe('the preview during the detector cutover', () => {
-  beforeEach(() => {
-    mockHold.mockReturnValue(null);
+describe('the preview against a catalogue that has not caught up', () => {
+  beforeAll(async () => {
+    await initializeI18n('en-AU');
   });
 
-  it('says the library is still migrating while the cutover is owed', () => {
-    mockHold.mockReturnValue('cutover');
+  beforeEach(async () => {
+    await changeLanguage('en-AU');
+    mockAwaiting.mockReturnValue(0);
+  });
+
+  it('says the catalogue is behind when the config change cleared the whole set', () => {
+    mockAwaiting.mockReturnValue(118);
     const { getByTestId } = render(<DetectionPreviewScreen />);
 
-    expect(getByTestId('preview-migrating')).toBeTruthy();
+    expect(getByTestId('preview-stale-catalogue')).toBeTruthy();
   });
 
-  it('says nothing on a database that owes no cutover', () => {
-    const { queryByTestId } = render(<DetectionPreviewScreen />);
+  /// The count is in the sentence rather than a fixed warning, because it is
+  /// what separates "three new rides" from "the whole library". Asserted
+  /// against the rendered sentence, so a regression to a countless string
+  /// fails here rather than passing on a key that still resolves.
+  it('names how many activities the live catalogue has never seen', () => {
+    mockAwaiting.mockReturnValue(118);
+    const { getByTestId } = render(<DetectionPreviewScreen />);
 
-    expect(queryByTestId('preview-migrating')).toBeNull();
+    expect(getByTestId('preview-stale-catalogue')).toHaveTextContent(
+      /has not seen 118 of your activities yet/
+    );
   });
 
-  /// The elevation backfill is a different kind of gate and has its own
-  /// refusal; this notice is about the cutover alone.
-  it('says nothing while the elevation backfill holds', () => {
-    mockHold.mockReturnValue('elevation');
+  it('says nothing when the catalogue has seen every activity', () => {
     const { queryByTestId } = render(<DetectionPreviewScreen />);
 
-    expect(queryByTestId('preview-migrating')).toBeNull();
+    expect(queryByTestId('preview-stale-catalogue')).toBeNull();
+  });
+
+  /// An engine that cannot answer must not read as "everything is fine", but
+  /// it must not invent a staleness either. Silence is the honest answer, and
+  /// it is what the count returning null means.
+  it('says nothing when the engine cannot answer', () => {
+    mockAwaiting.mockReturnValue(null);
+    const { queryByTestId } = render(<DetectionPreviewScreen />);
+
+    expect(queryByTestId('preview-stale-catalogue')).toBeNull();
   });
 });

@@ -308,6 +308,7 @@ export interface TranslationResource {
     previewSuspended: string;
     previewCurrentFailed: string;
     previewMigrating: string;
+    previewStaleCatalogue: string;
     previewUnchanged: string;
     previewChanged: string;
     previewNew: string;

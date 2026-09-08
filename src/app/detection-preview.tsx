@@ -62,6 +62,16 @@ export default function DetectionPreviewScreen() {
   const migrating = useDetectionHold() === 'cutover';
   const { forceRescan } = useSectionRescan();
 
+  // A config change clears the processed set and the re-detect that follows is
+  // asynchronous, so the sliders can show the new config while the live
+  // catalogue is still the old one's cut. The diff then reports every section
+  // that moved between the two configs once as gone and once as new, which
+  // reads exactly like a detector regression. This is the count of activities
+  // the live catalogue has never seen, which is that gap and also the milder
+  // one of a few rides synced since the last detect. `null` is an engine that
+  // cannot answer, and it says nothing rather than inventing either state.
+  const awaitingDetection = useMemo(() => client?.sectionDetectionAwaiting() ?? null, [client]);
+
   const [centre, setCentre] = useState<PreviewCentre | null>(null);
   const [params, setParams] = useState<PreviewParams>(() => {
     const config = client?.getSectionConfig();
@@ -306,6 +316,11 @@ export default function DetectionPreviewScreen() {
         {migrating && (
           <Text style={[styles.notice, { color: textSecondary }]} testID="preview-migrating">
             {t('settings.previewMigrating')}
+          </Text>
+        )}
+        {awaitingDetection !== null && awaitingDetection > 0 && (
+          <Text style={[styles.notice, { color: textSecondary }]} testID="preview-stale-catalogue">
+            {t('settings.previewStaleCatalogue', { count: awaitingDetection })}
           </Text>
         )}
       </View>

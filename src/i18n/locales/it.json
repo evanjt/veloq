@@ -1308,6 +1308,7 @@
     "previewCurrentFailed": "Impossibile leggere i tratti attuali di quest'area.",
     "previewSuspended": "Aggiornamento dell'altitudine in corso. Riprova tra poco.",
     "previewMigrating": "La tua libreria è ancora in migrazione, questi risultati potrebbero cambiare leggermente al termine",
+    "previewStaleCatalogue": "Il catalogo attivo non ha ancora visto {{count}} delle tue attività, quindi le sezioni mostrate come rimosse o nuove potrebbero essere solo il rilevamento che si aggiorna",
     "previewUnchanged": "{{count}} invariate",
     "previewChanged": "{{count}} modificate",
     "previewNew": "{{count}} nuove",

@@ -1308,6 +1308,7 @@
     "previewCurrentFailed": "Kunne ikke læse de nuværende afsnit for dette område.",
     "previewSuspended": "Højdeopdatering i gang. Prøv igen om lidt.",
     "previewMigrating": "Dit bibliotek migrerer stadig, så resultaterne kan ændre sig lidt, når det er færdigt",
+    "previewStaleCatalogue": "Det aktive katalog har endnu ikke set {{count}} af dine aktiviteter, så afsnit vist som fjernet eller nye kan blot være registreringen, der indhenter",
     "previewUnchanged": "{{count}} uændrede",
     "previewChanged": "{{count}} ændrede",
     "previewNew": "{{count}} nye",

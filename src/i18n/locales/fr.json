@@ -1308,6 +1308,7 @@
     "previewCurrentFailed": "Impossible de lire les sections actuelles de cette zone.",
     "previewSuspended": "Mise à jour de l'altitude en cours. Réessayez dans un instant.",
     "previewMigrating": "Ta bibliothèque est encore en cours de migration, ces résultats peuvent légèrement changer ensuite",
+    "previewStaleCatalogue": "Le catalogue actif n'a pas encore vu {{count}} de vos activités : les sections affichées comme supprimées ou nouvelles peuvent n'être que la détection qui rattrape son retard",
     "previewUnchanged": "{{count}} inchangées",
     "previewChanged": "{{count}} modifiées",
     "previewNew": "{{count}} nouvelles",
