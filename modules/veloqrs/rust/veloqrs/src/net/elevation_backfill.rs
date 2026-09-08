@@ -818,6 +818,31 @@ fn re_ask(
     transport: &Transport,
     first: Walk,
 ) -> (BackfillOutcome, Option<Stopped>, Vec<(String, String)>) {
+    re_ask_with(
+        first,
+        |delay| {
+            std::thread::sleep(delay);
+            true
+        },
+        |queue| drain_queue(transport, queue, false),
+    )
+}
+
+/// The ladder itself, with the waiting and the asking handed in.
+///
+/// Split from [`re_ask`] the way [`drain_queue_with`] is split from
+/// [`drain_queue`], and for the same reason `resume_ladder` takes its sleep:
+/// the schedule is an array, and a test that has to spend it to read it costs
+/// the suite the whole ladder and asserts on wall clock, which is what
+/// `B285` and `B317` already failed on.
+///
+/// `wait` returning false ends the re-asking at that round, which is both how
+/// a test skips the ladder and the only cancel this pass has.
+fn re_ask_with(
+    first: Walk,
+    mut wait: impl FnMut(Duration) -> bool,
+    mut ask: impl FnMut(&[(String, String)]) -> Walk,
+) -> (BackfillOutcome, Option<Stopped>, Vec<(String, String)>) {
     let Walk {
         mut outcome,
         stopped,
@@ -839,9 +864,11 @@ fn re_ask(
             refused.len(),
             delay
         );
-        std::thread::sleep(delay);
+        if !wait(delay) {
+            break;
+        }
 
-        let round = drain_queue(transport, &refused, false);
+        let round = ask(&refused);
         outcome.elevated += round.outcome.elevated;
         outcome.unavailable += round.outcome.unavailable;
         outcome.failed += round.outcome.failed;
@@ -1829,6 +1856,198 @@ mod tests {
             connectivity::reset();
         }
     }
+    /// Scenario: a pass finished its walk with tracks the connection refused,
+    /// and the ladder above the lane's own retries decides how often it asks
+    /// again.
+    ///
+    /// Expected behaviour: the schedule is the ladder, longest last, and a
+    /// wait that ends the re-asking ends it at that round. Neither is worth
+    /// wall-clock time to assert, so the wait is handed in.
+    mod re_asking {
+        use super::*;
+
+        fn owed(n: usize) -> Vec<(String, String)> {
+            (0..n)
+                .map(|i| (format!("a{}", i), "Ride".to_string()))
+                .collect()
+        }
+
+        fn refused_walk(n: usize) -> Walk {
+            Walk {
+                outcome: BackfillOutcome::default(),
+                stopped: None,
+                refused: owed(n),
+                unasked: Vec::new(),
+            }
+        }
+
+        /// A round that refuses everything it was handed, so the ladder runs
+        /// to its last rung.
+        fn refuse_again(queue: &[(String, String)]) -> Walk {
+            Walk {
+                outcome: BackfillOutcome::default(),
+                stopped: None,
+                refused: queue.to_vec(),
+                unasked: Vec::new(),
+            }
+        }
+
+        #[test]
+        fn the_re_asking_is_bounded_and_waits_longer_each_round() {
+            let mut waited: Vec<Duration> = Vec::new();
+            let mut asked = 0usize;
+
+            let (outcome, stopped, still_owed) = re_ask_with(
+                refused_walk(1),
+                |delay| {
+                    waited.push(delay);
+                    true
+                },
+                |queue| {
+                    asked += 1;
+                    refuse_again(queue)
+                },
+            );
+
+            assert_eq!(
+                waited,
+                backfill_retry_delays().to_vec(),
+                "the rounds waited something other than the ladder"
+            );
+            assert!(
+                waited.windows(2).all(|w| w[1] > w[0]),
+                "each round has to wait longer than the one before it"
+            );
+            assert_eq!(
+                asked, BACKFILL_RETRY_ROUNDS,
+                "one ask per rung, and no more"
+            );
+            assert!(stopped.is_none());
+            assert_eq!(outcome.elevated, 0);
+            assert_eq!(
+                still_owed.len(),
+                1,
+                "a track refused on every round is still owed"
+            );
+        }
+
+        #[test]
+        fn a_wait_that_ends_the_re_asking_stops_at_that_round() {
+            let mut waited = 0usize;
+            let mut asked = 0usize;
+
+            let (_outcome, stopped, still_owed) = re_ask_with(
+                refused_walk(2),
+                |_delay| {
+                    waited += 1;
+                    waited < 2
+                },
+                |queue| {
+                    asked += 1;
+                    refuse_again(queue)
+                },
+            );
+
+            assert_eq!(waited, 2, "the second rung is where the wait said stop");
+            assert_eq!(
+                asked, 1,
+                "the round whose wait was cut short must not ask anyway"
+            );
+            assert!(
+                stopped.is_none(),
+                "a cancelled ladder is not a walk that stopped"
+            );
+            assert_eq!(still_owed.len(), 2, "both tracks are still owed");
+        }
+
+        #[test]
+        fn nothing_refused_waits_for_nothing() {
+            let mut waited = 0usize;
+            let mut asked = 0usize;
+
+            let (_outcome, stopped, still_owed) = re_ask_with(
+                refused_walk(0),
+                |_delay| {
+                    waited += 1;
+                    true
+                },
+                |queue| {
+                    asked += 1;
+                    refuse_again(queue)
+                },
+            );
+
+            assert_eq!(waited, 0, "a pass that owes nothing must not back off");
+            assert_eq!(asked, 0);
+            assert!(stopped.is_none());
+            assert!(still_owed.is_empty());
+        }
+
+        #[test]
+        fn a_walk_that_already_stopped_is_not_re_asked() {
+            let mut waited = 0usize;
+            let walk = Walk {
+                outcome: BackfillOutcome::default(),
+                stopped: Some(Stopped::Offline),
+                refused: owed(1),
+                unasked: owed(2),
+            };
+
+            let (_outcome, stopped, still_owed) = re_ask_with(
+                walk,
+                |_delay| {
+                    waited += 1;
+                    true
+                },
+                |queue| refuse_again(queue),
+            );
+
+            assert_eq!(waited, 0, "an offline pass must not spend the ladder");
+            assert!(matches!(stopped, Some(Stopped::Offline)));
+            assert_eq!(
+                still_owed.len(),
+                1,
+                "a stopped walk hands back what it was refused, and its unasked \
+                 tracks stay where the caller left them"
+            );
+        }
+
+        #[test]
+        fn a_round_that_stops_ends_the_ladder_where_it_stands() {
+            let mut waited = 0usize;
+            let mut asked = 0usize;
+
+            let (_outcome, stopped, still_owed) = re_ask_with(
+                refused_walk(3),
+                |_delay| {
+                    waited += 1;
+                    true
+                },
+                |queue| {
+                    asked += 1;
+                    Walk {
+                        outcome: BackfillOutcome::default(),
+                        stopped: Some(Stopped::Offline),
+                        refused: queue[..1].to_vec(),
+                        unasked: queue[1..].to_vec(),
+                    }
+                },
+            );
+
+            assert_eq!(waited, 1);
+            assert_eq!(
+                asked, 1,
+                "the ladder must not climb past a round that stopped"
+            );
+            assert!(matches!(stopped, Some(Stopped::Offline)));
+            assert_eq!(
+                still_owed.len(),
+                3,
+                "what a stopped round never asked about is still owed"
+            );
+        }
+    }
+
     /// Scenario: a pass ended partial because the connection went away, and
     /// the ladder is sleeping on a long rung when the device comes back. The
     /// rung has to end there, not thirty minutes later, and the climb has to
