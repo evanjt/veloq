@@ -2,13 +2,9 @@ import { useCallback } from 'react';
 import { router } from 'expo-router';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import {
-  buildRecordingBackup,
-  clearRecordingBackup,
-  saveRecordingBackup,
-} from '@/features/recording/lib/storage/recordingBackup';
+import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
+import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
 import { resetAutoPause } from '@/features/recording/lib/recordingSession';
-import { navigateTo } from '@/shared/app/navigation';
 import type { ActivityType } from '@/features/activity/types';
 
 export function useRecordingHandlers({
@@ -31,14 +27,11 @@ export function useRecordingHandlers({
   }, []);
 
   // `stopRecording` and `reset` end the session, which stops the location
-  // watch, so neither handler tears down tracking itself.
+  // watch, so neither handler tears down tracking itself. The stop sequence
+  // itself lives in `endRecordingSession`, because the notification's STOP
+  // button has to do the same three things and used to do only the first.
   const handleStop = useCallback(async () => {
-    useRecordingStore.getState().stopRecording();
-    // Persist the stopped session so an app kill on the review screen cannot
-    // lose the recording. Cleared only after a successful save or a discard.
-    const backup = buildRecordingBackup(useRecordingStore.getState());
-    if (backup) await saveRecordingBackup(backup);
-    navigateTo('/recording/review');
+    await endRecordingSession();
   }, []);
 
   const handleDiscard = useCallback(async () => {
