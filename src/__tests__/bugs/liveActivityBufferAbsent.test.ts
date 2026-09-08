@@ -1,19 +1,21 @@
 /**
- * Scenario: the Live Activity payload was sized with `Buffer.byteLength`, a
- * Node API. Hermes has no `Buffer` and the app ships no polyfill, so the first
- * card update of every ride threw a ReferenceError on device. Jest runs under
- * Node, where `Buffer` is a global, so the suite could not see it.
+ * Scenario: the payload size is counted in the app rather than taken from
+ * `Buffer`. The suite beside this one covers the runtime that has no `Buffer`
+ * and the multi-byte labels. What is left is the counter's agreement with a
+ * real encoder, including the input a hand-rolled counter gets wrong: a high
+ * surrogate that begins no pair.
  *
- * Expected behaviour: the size is measured without `Buffer`, and it is a UTF-8
- * byte count, not a UTF-16 code-unit count, because that is what ActivityKit's
- * 4 KB limit is denominated in.
+ * Expected behaviour: the count equals `Buffer.byteLength`. These are contract
+ * tests, not regression tests, and they pass against a counter that assumes the
+ * pair as well: `JSON.stringify` escapes a lone surrogate to six ASCII bytes
+ * before the counter sees it, so nothing reaches the branch through this entry
+ * point. They pin the contract for the next caller that does not go through
+ * `JSON.stringify`, since an undercount is what lets a payload past the cap.
  */
 
 import {
-  CONTENT_STATE_MAX_BYTES,
   buildContentState,
   contentStateBytes,
-  fitContentState,
   type LiveActivityContentState,
 } from '@/features/recording/lib/liveActivity/contentState';
 import type { RecordingGpsPoint } from '@/features/recording/types';
@@ -30,26 +32,6 @@ function track(count: number): RecordingGpsPoint[] {
   }));
 }
 
-const base = {
-  now: 1_700_000_600_000,
-  startTime: 1_700_000_000_000,
-  pausedDurationMs: 0,
-  distanceLabel: '12.4 km',
-  speedLabel: '28.1 km/h',
-  gps: track(20),
-};
-
-/** The runtime the app actually ships on: no `Buffer` anywhere. */
-function withoutBuffer<T>(body: () => T): T {
-  const held = (globalThis as { Buffer?: unknown }).Buffer;
-  delete (globalThis as { Buffer?: unknown }).Buffer;
-  try {
-    return body();
-  } finally {
-    (globalThis as { Buffer?: unknown }).Buffer = held;
-  }
-}
-
 const state = (over: Partial<LiveActivityContentState> = {}): LiveActivityContentState => ({
   status: 'recording',
   timerFrom: 1_700_000_000_000,
@@ -60,56 +42,37 @@ const state = (over: Partial<LiveActivityContentState> = {}): LiveActivityConten
   ...over,
 });
 
-it('sizes a payload on a runtime with no Buffer', () => {
-  expect(withoutBuffer(() => contentStateBytes(state()))).toBeGreaterThan(0);
-});
+const encoded = (s: LiveActivityContentState) => Buffer.byteLength(JSON.stringify(s), 'utf8');
 
-it('builds a card carrying a trace on a runtime with no Buffer', () => {
-  // A single fix yields no outline, so nothing is ever measured and the bug
-  // hides. The throw arrives with the first update that carries a trace.
-  const built = withoutBuffer(() => buildContentState({ ...base, status: 'recording' }));
+it('agrees with a real encoder on a card carrying a trace', () => {
+  const built = buildContentState({
+    now: 1_700_000_600_000,
+    startTime: 1_700_000_000_000,
+    pausedDurationMs: 0,
+    distanceLabel: '12.4 km',
+    speedLabel: '28.1 km/h',
+    gps: track(20),
+    status: 'recording',
+  });
 
   expect(built.trace).not.toBeNull();
+  expect(contentStateBytes(built)).toBe(encoded(built));
 });
 
-it('still shrinks an oversized trace on a runtime with no Buffer', () => {
-  const built = withoutBuffer(() =>
-    buildContentState({ ...base, status: 'recording', gps: track(50_000) })
-  );
+it('agrees on a surrogate pair, which is one code point of four bytes', () => {
+  const paired = state({ distanceLabel: '12.4 km \u{1f6b4}' });
 
-  expect(withoutBuffer(() => contentStateBytes(built))).toBeLessThanOrEqual(
-    CONTENT_STATE_MAX_BYTES
-  );
+  expect(contentStateBytes(paired)).toBe(encoded(paired));
 });
 
-it('counts UTF-8 bytes, not UTF-16 code units, which is what the 4 KB limit means', () => {
-  // "3,2 km" in a locale that uses a non-breaking space, plus an emoji: 2 bytes
-  // and 4 bytes respectively where a code-unit count would say 1 and 2.
-  const ascii = contentStateBytes(state({ distanceLabel: 'aaaaaa' }));
-  const wide = contentStateBytes(state({ distanceLabel: 'aaaa \u{1f6b4}' }));
+it('agrees on a high surrogate that begins no pair', () => {
+  const lone = state({ distanceLabel: '\ud800€' });
 
-  expect(wide - ascii).toBe(4);
+  expect(contentStateBytes(lone)).toBe(encoded(lone));
 });
 
-it('agrees with Buffer, which is the measurement it replaces', () => {
-  const built = buildContentState({ ...base, status: 'recording' });
-  const json = JSON.stringify(built);
+it('agrees on a trailing high surrogate at the end of a label', () => {
+  const trailing = state({ distanceLabel: '12.4 km \ud800' });
 
-  expect(contentStateBytes(built)).toBe(Buffer.byteLength(json, 'utf8'));
-});
-
-it('measures a lone surrogate the way an encoder does, rather than throwing', () => {
-  const lone = state({ distanceLabel: '\ud800' });
-
-  expect(withoutBuffer(() => contentStateBytes(lone))).toBe(
-    Buffer.byteLength(JSON.stringify(lone), 'utf8')
-  );
-});
-
-it('leaves fitContentState able to drop the trace entirely', () => {
-  const fitted = withoutBuffer(() =>
-    fitContentState(state({ trace: { points: [[0, 0]], aspect: 1 } }), 10)
-  );
-
-  expect(fitted.trace).toBeNull();
+  expect(contentStateBytes(trailing)).toBe(encoded(trailing));
 });
