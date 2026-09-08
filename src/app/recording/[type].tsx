@@ -33,6 +33,7 @@ import { useKmSplitBannerEffect } from '@/features/recording/hooks/useKmSplitBan
 import { useHrZoneColorEffect } from '@/features/recording/hooks/useHrZoneColorEffect';
 import { useGpsSessionEffect } from '@/features/recording/hooks/useGpsSessionEffect';
 import { useInitRecordingEffect } from '@/features/recording/hooks/useInitRecordingEffect';
+import { useAlwaysLocationPrompt } from '@/features/recording';
 import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKeepAwake';
 import { useSensorSession, useSensorIssue } from '@/features/sensors';
 import { useConsensusRoute } from '@/features/routes/hooks/useEngine';
@@ -46,7 +47,11 @@ export default function RecordingScreen() {
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const isMetric = useMetricSystem();
-  const { type, pairedEventId } = useLocalSearchParams<{ type: string; pairedEventId?: string }>();
+  const { type, pairedEventId, from } = useLocalSearchParams<{
+    type: string;
+    pairedEventId?: string;
+    from?: string;
+  }>();
 
   const activityType = type as ActivityType;
   const mode = getRecordingMode(activityType);
@@ -118,6 +123,7 @@ export default function RecordingScreen() {
     onDiscard: handleDiscard,
   });
   useInitRecordingEffect(status, activityType, mode, pairedEventId);
+  useAlwaysLocationPrompt(from === 'quickstart', status);
   useSensorSession();
   const sensorIssue = useSensorIssue();
 

@@ -56,8 +56,12 @@ describe('the snapshot carries the recent sports as one pre-localised list', () 
       })
     );
     expect(snap.recordShortcuts).toEqual([
-      { type: 'Ride', label: 'Vélo', url: 'veloq://recording/Ride' },
-      { type: 'OpenWaterSwim', label: 'OpenWaterSwim', url: 'veloq://recording/OpenWaterSwim' },
+      { type: 'Ride', label: 'Vélo', url: 'veloq://recording/Ride?from=quickstart' },
+      {
+        type: 'OpenWaterSwim',
+        label: 'OpenWaterSwim',
+        url: 'veloq://recording/OpenWaterSwim?from=quickstart',
+      },
     ]);
   });
 
@@ -138,5 +142,21 @@ describe('the Quick Settings tile is the same intent behind the shade', () => {
     );
     expect(fs.existsSync(tile)).toBe(true);
     expect(fs.readFileSync(tile, 'utf8')).toContain('package com.veloq.app.widget');
+  });
+});
+
+describe('a quick-start link says where it came from, so Always can be asked once', () => {
+  it('marks the URL the snapshot composes', () => {
+    const snap = composeSnapshot(raw({ recentRecordingTypes: ['Ride'] }));
+    expect(snap.recordShortcuts[0].url).toBe('veloq://recording/Ride?from=quickstart');
+  });
+
+  it('declares the permission Android needs for it, or the request is refused silently', () => {
+    const app = JSON.parse(readFile('app.json'));
+    expect(app.expo.android.permissions).toContain('ACCESS_BACKGROUND_LOCATION');
+    const location = app.expo.plugins.find(
+      (p: unknown) => Array.isArray(p) && p[0] === 'expo-location'
+    );
+    expect(location[1].isAndroidBackgroundLocationEnabled).toBe(true);
   });
 });
