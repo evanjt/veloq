@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { setLastRecordingType } from '@/shared/recording';
+import { setRecentRecordingTypes } from '@/shared/recording';
 import { getSetting, setSetting } from '@/shared/storage';
 import type { ActivityType, DataFieldType } from '@/types';
 
@@ -75,7 +75,7 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
         const recentActivityTypes = Array.isArray(parsed.recentActivityTypes)
           ? parsed.recentActivityTypes
           : [];
-        setLastRecordingType(recentActivityTypes[0]);
+        setRecentRecordingTypes(recentActivityTypes);
         set({
           recentActivityTypes,
           autoPauseEnabled:
@@ -130,7 +130,7 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
       const filtered = state.recentActivityTypes.filter((t) => t !== type);
       const updated = [type, ...filtered].slice(0, 4);
       persistPreferences({ ...state, recentActivityTypes: updated });
-      setLastRecordingType(updated[0]);
+      setRecentRecordingTypes(updated);
       return { recentActivityTypes: updated };
     });
   },

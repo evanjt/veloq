@@ -13,8 +13,7 @@ struct StartRecordingIntent: AppIntent {
   static var openAppWhenRun: Bool = true
 
   func perform() async throws -> some IntentResult & OpensIntent {
-    let type = WidgetSnapshotStore.load()?.lastRecordingType
-    return .result(opensIntent: OpenURLIntent(RecordDeepLink.url(for: type)))
+    return .result(opensIntent: OpenURLIntent(RecordDeepLink.url(for: WidgetSnapshotStore.load())))
   }
 }
 

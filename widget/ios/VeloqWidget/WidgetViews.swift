@@ -902,7 +902,7 @@ struct LargeWidgetView: View {
         footerMetric(snapshot?.display.metricLabels.rhr ?? "RHR", rhr)
       }
       Spacer()
-      Link(destination: RecordDeepLink.url(for: snapshot?.lastRecordingType)) {
+      Link(destination: RecordDeepLink.url(for: snapshot)) {
         Image(systemName: "record.circle")
           .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
           .foregroundColor(palette.primary)

@@ -13,13 +13,19 @@ import { i18n } from '@/i18n';
 import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
 import { debug } from '@/shared/debug/debug';
 
-import { gatherWidgetSnapshot, type WidgetSnapshot } from './widgetSnapshot';
+import {
+  gatherWidgetSnapshot,
+  type WidgetRecordShortcut,
+  type WidgetSnapshot,
+} from './widgetSnapshot';
 
 const log = debug.create('Widget');
 
 interface VeloqWidgetModule {
   writeSnapshot(json: string): void;
   reloadWidgets(): void;
+  /** Android only: the recent sports as launcher shortcuts. Absent on iOS. */
+  publishRecordShortcuts?(shortcuts: WidgetRecordShortcut[]): void;
 }
 
 const VeloqWidget = requireOptionalNativeModule<VeloqWidgetModule>('VeloqWidget');
@@ -29,6 +35,9 @@ export function writeWidgetSnapshot(snapshot: WidgetSnapshot): void {
   try {
     VeloqWidget.writeSnapshot(JSON.stringify(snapshot));
     VeloqWidget.reloadWidgets();
+    // The launcher holds its own copy of the shortcut list, so it is pushed
+    // rather than read from the file the widgets poll.
+    VeloqWidget.publishRecordShortcuts?.(snapshot.recordShortcuts);
   } catch (e) {
     log.warn('writeWidgetSnapshot failed:', e);
   }
