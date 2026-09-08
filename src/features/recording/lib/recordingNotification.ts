@@ -16,6 +16,7 @@ import { brand } from '@/theme';
 import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
 import { debug } from '@/shared/debug/debug';
 import { formatDistance, formatDuration, formatSpeed } from '@/shared/format/format';
+import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import type { RecordingStatus } from '../types';
 
@@ -141,8 +142,14 @@ export function buildRecordingNotificationPayload(
   };
 }
 
-/** Drive the same store transitions the recording screen's buttons drive. */
-export function applyRecordingNotificationAction(action: RecordingNotificationAction): void {
+/**
+ * Drive the same transitions the recording screen's buttons drive. Stop is the
+ * one that is more than a store call: it also writes the backup and goes to
+ * review, so it goes through `endRecordingSession` rather than repeating them.
+ */
+export async function applyRecordingNotificationAction(
+  action: RecordingNotificationAction
+): Promise<void> {
   const store = useRecordingStore.getState();
   switch (action) {
     case 'pause':
@@ -155,7 +162,7 @@ export function applyRecordingNotificationAction(action: RecordingNotificationAc
       store.addLap();
       break;
     case 'stop':
-      store.stopRecording();
+      await endRecordingSession();
       break;
   }
 }
