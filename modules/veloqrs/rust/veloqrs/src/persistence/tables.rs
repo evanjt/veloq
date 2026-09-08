@@ -163,6 +163,11 @@ static TABLES: &[Table] = &[
         "lap and interval bodies from the server",
     ),
     t(
+        "job_attempts",
+        Derived,
+        "what has been asked for and what it cost; losing it costs one attempt",
+    ),
+    t(
         "overlap_cache",
         Derived,
         "a pairwise answer the detector recomputes",

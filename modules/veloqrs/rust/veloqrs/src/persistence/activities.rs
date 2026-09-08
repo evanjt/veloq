@@ -684,6 +684,7 @@ impl PersistentEngine {
              DELETE FROM overlap_cache;
              DELETE FROM processed_activities;
              DELETE FROM athlete_profile;
+             DELETE FROM job_attempts;
              DELETE FROM sport_settings;",
         )?;
 
