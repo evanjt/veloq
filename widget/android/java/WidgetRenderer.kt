@@ -309,6 +309,7 @@ object WidgetRenderer {
 
     // One gate with the standalone Quick-Record widget: INCLUDE_RECORD_WIDGET in
     // with-android-widget.js writes this bool and drops that receiver together.
+    // On since 2026-09-08, so the branch is the off switch rather than the state.
     if (context.resources.getBoolean(R.bool.widget_record_enabled)) {
       v.setViewVisibility(R.id.large_record, View.VISIBLE)
       v.setOnClickPendingIntent(R.id.large_record, recordIntent(context, snap))

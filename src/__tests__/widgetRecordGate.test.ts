@@ -1,13 +1,15 @@
 /**
- * Scenario: the record surface is not ready to ship, so `INCLUDE_RECORD_WIDGET`
- * keeps the Quick-Record widget out of the gallery.
+ * Scenario: `INCLUDE_RECORD_WIDGET` decides whether the Quick-Record widget is in
+ * the gallery, and it is now on.
  *
  * Expected behaviour: that one flag gates every widget route into recording, on
  * both platforms. The standalone widget is not the only one, the Dashboard
  * widget's large layout carries a record button over the same deep link, so the
  * flag has to reach the layout as well as the manifest. On iOS the same flag
  * decides whether `VeloqRecordWidget` is in either bundle, which is what puts a
- * widget in the gallery.
+ * widget in the gallery. Both states are asserted, because the flag is the only
+ * thing between a shipped widget and no widget at all, and every resource it
+ * pulls in has to exist for the on state to build.
  */
 
 import fs from 'fs';
@@ -37,8 +39,8 @@ function runIosBundles(): string {
 }
 
 describe('the record gate is one flag', () => {
-  it('is off, which is the state Q13 asked for', () => {
-    expect(flags.INCLUDE_RECORD_WIDGET).toBe(false);
+  it('is on: Q13 asked for it off until recording was wired end to end, and it is', () => {
+    expect(flags.INCLUDE_RECORD_WIDGET).toBe(true);
   });
 
   it('is the same flag both plugins read', () => {
@@ -46,14 +48,30 @@ describe('the record gate is one flag', () => {
     expect(iosPlugin.INCLUDE_RECORD_WIDGET).toBe(flags.INCLUDE_RECORD_WIDGET);
   });
 
-  it('keeps the standalone receiver out of the manifest while it is off', () => {
-    const app: { receiver: { $: Record<string, string> }[] } = {
-      receiver: [{ $: { 'android:name': '.widget.VeloqRecordWidgetProvider' } }],
-    };
+  it('registers the standalone receiver while it is on', () => {
+    const app: { receiver: { $: Record<string, string> }[] } = { receiver: [] };
     plugin.applyReceivers(app);
     const names = app.receiver.map((r) => r.$['android:name']);
-    expect(names).not.toContain('.widget.VeloqRecordWidgetProvider');
+    expect(names).toContain('.widget.VeloqRecordWidgetProvider');
     expect(names).toContain('.widget.VeloqWidgetProvider');
+  });
+
+  it('gives that receiver an info resource that exists, or the manifest will not build', () => {
+    const app: { receiver: { $: Record<string, string> }[] } = { receiver: [] };
+    plugin.applyReceivers(app);
+    const record = app.receiver.find(
+      (r) => r.$['android:name'] === '.widget.VeloqRecordWidgetProvider'
+    );
+    expect(record).toBeDefined();
+    const root = runSourcesMod();
+    for (const file of ['res/xml/widget_record_info.xml', 'res/layout/widget_record.xml']) {
+      expect(fs.existsSync(path.join(root, 'app/src/main', file))).toBe(true);
+    }
+    expect(
+      fs.existsSync(
+        path.join(root, 'app/src/main/java/com/veloq/app/widget/VeloqRecordWidgetProvider.kt')
+      )
+    ).toBe(true);
   });
 
   it('writes the flag into the widget resources so the layouts can read it', () => {
@@ -85,22 +103,22 @@ describe('the record gate is one flag', () => {
     expect(button.slice(0, button.indexOf('/>'))).toContain('android:visibility="gone"');
   });
 
-  it('keeps the record widget out of both iOS bundles while it is off', () => {
+  it('puts the record widget in both iOS bundles, which is what the flag being on means', () => {
     const swift = runIosBundles();
     expect(swift).toContain('struct VeloqWidgets: WidgetBundle');
     expect(swift).toContain('struct VeloqWidgetsConfigurable: WidgetBundle');
     expect(swift).toContain('VeloqLatestActivityWidget()');
-    expect(flags.INCLUDE_RECORD_WIDGET).toBe(false);
-    expect(swift).not.toContain('VeloqRecordWidget()');
-  });
-
-  it('puts it in both bundles when the flag is on, so neither platform is forgotten', () => {
-    const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'widget-gate-ios-on-'));
-    iosPlugin.writeWidgetBundles(dest, true);
-    const swift = fs.readFileSync(path.join(dest, 'WidgetBundles.swift'), 'utf8');
     const configurable = swift.indexOf('struct VeloqWidgetsConfigurable');
     expect(swift.indexOf('VeloqRecordWidget()')).toBeGreaterThan(-1);
     expect(swift.indexOf('VeloqRecordWidget()', configurable)).toBeGreaterThan(configurable);
+  });
+
+  it('takes it back out of both bundles when the flag is off, so the gate still works', () => {
+    const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'widget-gate-ios-off-'));
+    iosPlugin.writeWidgetBundles(dest, false);
+    const swift = fs.readFileSync(path.join(dest, 'WidgetBundles.swift'), 'utf8');
+    expect(swift).not.toContain('VeloqRecordWidget()');
+    expect(swift).toContain('VeloqLatestActivityWidget()');
   });
 
   it('compiles the generated bundles, which exist only under ios/', () => {

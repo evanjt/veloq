@@ -22,7 +22,7 @@ const path = require("path");
 // link.
 const { INCLUDE_RECORD_WIDGET } = require("./widgetFlags");
 
-// Dashboard (all sizes, tap-to-cycle hero), Latest Activity, and the flagged-off
+// Dashboard (all sizes, tap-to-cycle hero), Latest Activity, and the
 // Quick-Record button. Excluded receivers are actively removed so an incremental
 // prebuild can't keep a stale registration.
 const RECEIVERS = [
