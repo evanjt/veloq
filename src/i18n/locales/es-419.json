@@ -1303,7 +1303,7 @@
     "previewRun": "Vista previa",
     "previewRunning": "Analizando {{count}} actividades en esta zona",
     "previewFailed": "No se pudo completar la vista previa.",
-    "previewSlow": "Está tardando más de lo habitual. Sigue en marcha.",
+    "runSlow": "Está tardando más de lo habitual. Sigue en marcha.",
     "previewPoolUnusable": "Algunos de tus registros de actividad no se pueden leer, por lo que la vista previa se detuvo.",
     "previewCurrentFailed": "No se pudieron leer los tramos actuales de esta zona.",
     "previewSuspended": "Actualización de altitud en curso. Intenta de nuevo en un momento.",
