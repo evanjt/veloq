@@ -12,7 +12,7 @@ import java.io.File
  * Version skew happens in both directions, so every field added after schema 2 is
  * nullable with a hide/neutral default.
  *
- * Shape mirrors `src/features/home/lib/widgetSnapshot.ts` (schema version 4).
+ * Shape mirrors `src/features/home/lib/widgetSnapshot.ts` (schema version 5).
  */
 private const val SNAPSHOT_FILE = "widget-snapshot.json"
 
@@ -98,6 +98,11 @@ data class WidgetSnapshot(
    * than as 1970.
    */
   val generatedAt: Long,
+  /**
+   * Sport a record tap should start. Null on a snapshot written before schema 5,
+   * or before anything was recorded, which sends the tap to the picker instead.
+   */
+  val lastRecordingType: String?,
 ) {
   companion object {
     fun read(context: Context): WidgetSnapshot? {
@@ -153,6 +158,7 @@ data class WidgetSnapshot(
         fatigueSparkline = floatArray(sparklines?.optJSONArray("fatigue")),
         hrvSparkline = floatArray(sparklines?.optJSONArray("hrv")),
         formZones = stringArray(sparklines?.optJSONArray("formZones")),
+        lastRecordingType = root.optString("lastRecordingType", "").takeIf { it.isNotEmpty() },
       )
     }
 
