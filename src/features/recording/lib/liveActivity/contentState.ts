@@ -39,8 +39,41 @@ export interface ContentStateInput {
   gps: RecordingGpsPoint[];
 }
 
+/**
+ * UTF-8 byte length, counted here rather than taken from `Buffer`. `Buffer` is
+ * a Node global that Hermes has not got and this app polyfills nowhere, so the
+ * measurement threw on device while passing under Jest, which runs on Node.
+ * `TextEncoder` would allocate the whole encoding to read its length, and this
+ * runs on every card refresh.
+ *
+ * A lone surrogate is counted as three, which is what an encoder writes for the
+ * replacement character it substitutes.
+ */
+function utf8ByteLength(text: string): number {
+  let bytes = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const code = text.charCodeAt(i);
+    if (code < 0x80) {
+      bytes += 1;
+    } else if (code < 0x800) {
+      bytes += 2;
+    } else if (code >= 0xd800 && code <= 0xdbff && i + 1 < text.length) {
+      const low = text.charCodeAt(i + 1);
+      if (low >= 0xdc00 && low <= 0xdfff) {
+        bytes += 4;
+        i += 1;
+      } else {
+        bytes += 3;
+      }
+    } else {
+      bytes += 3;
+    }
+  }
+  return bytes;
+}
+
 export function contentStateBytes(state: LiveActivityContentState): number {
-  return Buffer.byteLength(JSON.stringify(state), 'utf8');
+  return utf8ByteLength(JSON.stringify(state));
 }
 
 /**
