@@ -61,10 +61,12 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
+const mockRescan = { isScanning: false, lapsed: false };
 jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
   useSectionRescan: () => ({
     forceRescan: jest.fn(),
-    isScanning: false,
+    isScanning: mockRescan.isScanning,
+    lapsed: mockRescan.lapsed,
     result: null,
     failed: false,
     clearResult: jest.fn(),
@@ -137,5 +139,38 @@ describe('detection settings screen', () => {
     expect(order.indexOf('detection-preview-row')).toBeLessThan(
       order.indexOf('detection-rescan-button')
     );
+  });
+});
+
+/**
+ * Scenario: the rescan's end comes from an announcement, and a long detect and
+ * one that will never end look identical while it is going.
+ *
+ * Expected behaviour: a run past its foreground budget says so on the screen,
+ * and a run inside it says nothing.
+ */
+describe('a rescan that is taking a while', () => {
+  afterEach(() => {
+    mockRescan.isScanning = false;
+    mockRescan.lapsed = false;
+  });
+
+  it('says nothing while the run is inside its budget', () => {
+    mockRescan.isScanning = true;
+
+    expect(render(<DetectionSettingsScreen />).queryByTestId('detection-rescan-slow')).toBeNull();
+  });
+
+  it('tells the athlete a lapsed run is still going', () => {
+    mockRescan.isScanning = true;
+    mockRescan.lapsed = true;
+
+    expect(render(<DetectionSettingsScreen />).getByTestId('detection-rescan-slow')).toBeTruthy();
+  });
+
+  it('says nothing once the run is over', () => {
+    mockRescan.lapsed = true;
+
+    expect(render(<DetectionSettingsScreen />).queryByTestId('detection-rescan-slow')).toBeNull();
   });
 });

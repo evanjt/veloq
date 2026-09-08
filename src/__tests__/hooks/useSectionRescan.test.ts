@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { isRetryableStart, StartOutcome } from 'veloqrs';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
+import { DETECTION_FOLLOW_MS, DETECTION_FOREGROUND_MS } from '@/features/routes/lib/detectionRun';
 import { getEngine } from '@/shared/native/engine';
 
 /**
@@ -319,5 +320,107 @@ describe('a refusal the screen can show', () => {
       result.current.rescan();
     });
     expect(result.current.refusal).toBe(StartOutcome.NotReady);
+  });
+});
+
+/**
+ * Scenario: the run's end comes from the `detectionApplied` announcement and,
+ * where events are not live, from a status poll. Neither is guaranteed: the
+ * observer is deliberately withheld when the binding checksum check throws, so
+ * on a build whose library is out of step with its bindings this path has no
+ * event at all.
+ *
+ * Expected behaviour: the follow carries the three budgets `followDetection`
+ * already offers. A long run says so and keeps going; a run past the budget the
+ * engine itself caps at is a distinguishable failure rather than a spinner.
+ */
+describe('a rescan that is never told it ended', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    for (const key of Object.keys(listeners)) delete listeners[key];
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function scanning() {
+    const engine = engineWith({ pollSectionDetection: jest.fn(() => 'running') });
+    mockedGetEngine.mockReturnValue(engine as never);
+    const hook = renderHook(() => useSectionRescan());
+    act(() => {
+      hook.result.current.rescan();
+    });
+    expect(hook.result.current.isScanning).toBe(true);
+    return hook;
+  }
+
+  it('says a run is taking a while, and keeps following it', () => {
+    const { result } = scanning();
+    expect(result.current.lapsed).toBe(false);
+
+    act(() => {
+      jest.advanceTimersByTime(DETECTION_FOREGROUND_MS);
+    });
+
+    expect(result.current.lapsed).toBe(true);
+    expect(result.current.isScanning).toBe(true);
+  });
+
+  it('gives up at the budget the engine itself caps the wait at', async () => {
+    const { result } = scanning();
+
+    await act(async () => {
+      jest.advanceTimersByTime(DETECTION_FOLLOW_MS);
+    });
+
+    expect(result.current.isScanning).toBe(false);
+    expect(result.current.failed).toBe(true);
+    expect(result.current.progress).toBeNull();
+  });
+
+  it('does not report a timeout as a rescan that changed nothing', async () => {
+    const { result } = scanning();
+
+    await act(async () => {
+      jest.advanceTimersByTime(DETECTION_FOLLOW_MS);
+    });
+
+    expect(result.current.result).toBeNull();
+  });
+
+  it('clears the lapse when the next run starts', async () => {
+    const { result } = scanning();
+    act(() => {
+      jest.advanceTimersByTime(DETECTION_FOREGROUND_MS);
+    });
+    expect(result.current.lapsed).toBe(true);
+
+    await act(async () => {
+      jest.advanceTimersByTime(DETECTION_FOLLOW_MS);
+    });
+    act(() => {
+      result.current.rescan();
+    });
+
+    expect(result.current.lapsed).toBe(false);
+  });
+
+  it('stops following once the hook goes away', () => {
+    const engine = engineWith({ pollSectionDetection: jest.fn(() => 'running') });
+    mockedGetEngine.mockReturnValue(engine as never);
+    const { result, unmount } = renderHook(() => useSectionRescan());
+    act(() => {
+      result.current.rescan();
+    });
+
+    const readsAtUnmount = engine.getSectionDetectionProgress.mock.calls.length;
+    unmount();
+    act(() => {
+      jest.advanceTimersByTime(DETECTION_FOLLOW_MS);
+    });
+
+    expect(engine.getSectionDetectionProgress.mock.calls.length).toBe(readsAtUnmount);
   });
 });
