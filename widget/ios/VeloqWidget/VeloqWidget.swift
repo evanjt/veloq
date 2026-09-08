@@ -78,12 +78,12 @@ struct VeloqWidget: Widget {
 // decides whether the tap starts a ride or opens the picker.
 struct RecordEntry: TimelineEntry {
   let date: Date
-  let lastRecordingType: String?
+  let url: URL
 }
 
 struct RecordProvider: TimelineProvider {
   func placeholder(in context: Context) -> RecordEntry {
-    RecordEntry(date: Date(), lastRecordingType: nil)
+    RecordEntry(date: Date(), url: RecordDeepLink.picker)
   }
 
   func getSnapshot(in context: Context, completion: @escaping (RecordEntry) -> Void) {
@@ -95,12 +95,12 @@ struct RecordProvider: TimelineProvider {
   }
 
   private func entry() -> RecordEntry {
-    RecordEntry(date: Date(), lastRecordingType: WidgetSnapshotStore.load()?.lastRecordingType)
+    RecordEntry(date: Date(), url: RecordDeepLink.url(for: WidgetSnapshotStore.load()))
   }
 }
 
 struct RecordWidgetView: View {
-  let lastRecordingType: String?
+  let url: URL
 
   var body: some View {
     VStack(spacing: WidgetTheme.Layout.gap) {
@@ -117,7 +117,7 @@ struct RecordWidgetView: View {
         .foregroundColor(WidgetTheme.Record.foreground)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .widgetURL(RecordDeepLink.url(for: lastRecordingType))
+    .widgetURL(url)
     .widgetBackground(
       LinearGradient(
         colors: [WidgetTheme.Record.gradientStart, WidgetTheme.Record.gradientEnd],
@@ -130,7 +130,7 @@ struct VeloqRecordWidget: Widget {
 
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: RecordProvider()) { entry in
-      RecordWidgetView(lastRecordingType: entry.lastRecordingType)
+      RecordWidgetView(url: entry.url)
     }
     .configurationDisplayName("Record")
     .description("Start recording an activity.")

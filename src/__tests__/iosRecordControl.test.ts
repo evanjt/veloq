@@ -36,7 +36,7 @@ describe('the Record control is an iOS 18 ControlWidget in the existing extensio
   });
 
   it('opens the deep link every other record surface uses, so one rule picks the sport', () => {
-    expect(CONTROL).toContain('WidgetSnapshotStore.load()?.lastRecordingType');
+    expect(CONTROL).toContain('WidgetSnapshotStore.load()');
     expect(CONTROL).toContain('RecordDeepLink.url(for:');
     expect(CONTROL).toContain('OpenURLIntent(');
     // No second literal: the picker fallback lives in RecordDeepLink and nowhere else.
@@ -44,7 +44,7 @@ describe('the Record control is an iOS 18 ControlWidget in the existing extensio
   });
 
   it('resolves to a URL rather than an optional, so no surface force-unwraps one', () => {
-    expect(MODEL).toContain('static func url(for lastRecordingType: String?) -> URL');
+    expect(MODEL).toContain('static func url(for snapshot: WidgetSnapshot?) -> URL');
     expect(MODEL).not.toContain('-> URL?');
   });
 

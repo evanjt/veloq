@@ -151,9 +151,17 @@ struct WidgetSnapshot: Codable {
   let summaryCard: WidgetSummaryCard?
   let display: WidgetDisplay
   let theme: WidgetThemeData
-  /// Sport a record tap should start. Nil on a snapshot written before schema 5,
-  /// or before anything was recorded, which sends the tap to the picker instead.
-  let lastRecordingType: String?
+  /// Recent sports, most recent first, pre-localised, each carrying the deep link
+  /// that starts it. Nil on a snapshot written before schema 6, and empty before
+  /// anything was recorded, both of which send a tap to the picker instead.
+  let recordShortcuts: [WidgetRecordShortcut]?
+}
+
+/// One recent sport: the id, the name a surface shows, and the link that starts it.
+struct WidgetRecordShortcut: Codable {
+  let type: String
+  let label: String
+  let url: String
 }
 
 /// A tap on record starts the ride, so it deep-links to the recording screen for
@@ -164,11 +172,10 @@ enum RecordDeepLink {
   /// has to unwrap and none can invent a second fallback.
   static let picker = URL(string: "veloq://record")!
 
-  static func url(for lastRecordingType: String?) -> URL {
-    let type = lastRecordingType?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    guard !type.isEmpty,
-      let encoded = type.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
-      let url = URL(string: "veloq://recording/\(encoded)")
+  /// The link the snapshot carries for the most recent sport. It is composed in
+  /// `widgetSnapshot.ts` and read here, so the rule lives in one place.
+  static func url(for snapshot: WidgetSnapshot?) -> URL {
+    guard let raw = snapshot?.recordShortcuts?.first?.url, let url = URL(string: raw)
     else { return picker }
     return url
   }

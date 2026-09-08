@@ -373,17 +373,17 @@ object WidgetRenderer {
   // ---- intents ------------------------------------------------------------------
 
   /**
-   * A tap on record starts the ride, so it deep-links to the recording screen for
-   * a known sport. The picker is the fallback and nothing else: an unknown sport
-   * would otherwise open an empty path.
+   * A tap on record starts the ride, so it takes the deep link the snapshot
+   * carries for the most recent sport. The picker is the fallback and nothing
+   * else: with no sport known there is no recording screen to open.
    */
-  fun recordUrl(lastRecordingType: String?): String {
-    val type = lastRecordingType?.trim().orEmpty()
-    return if (type.isEmpty()) "veloq://record" else "veloq://recording/" + Uri.encode(type)
-  }
+  const val RECORD_PICKER_URL = "veloq://record"
+
+  fun recordUrl(snap: WidgetSnapshot?): String =
+    snap?.recordShortcuts?.firstOrNull()?.url ?: RECORD_PICKER_URL
 
   fun recordIntent(context: Context, snap: WidgetSnapshot?): PendingIntent =
-    deepLink(context, recordUrl(snap?.lastRecordingType), 0)
+    deepLink(context, recordUrl(snap), 0)
 
   private fun deepLink(context: Context, url: String, requestCode: Int): PendingIntent {
     val intent =

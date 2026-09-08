@@ -1,1 +1,5 @@
-export { getLastRecordingType, setLastRecordingType } from './lastRecordingType';
+export {
+  getLastRecordingType,
+  getRecentRecordingTypes,
+  setRecentRecordingTypes,
+} from './lastRecordingType';

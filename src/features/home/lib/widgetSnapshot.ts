@@ -26,7 +26,7 @@ import {
   formatSwimPace,
 } from '@/shared/format';
 import { getEngine } from '@/shared/native/engine';
-import { getLastRecordingType } from '@/shared/recording';
+import { getRecentRecordingTypes } from '@/shared/recording';
 import type { WidgetSnapshotData } from 'veloqrs';
 import { widgetActivityTint, widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
@@ -34,7 +34,7 @@ import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import { useDashboardPreferences, type SummaryCardPreferences } from '../store';
 import { TREND_DEADBAND, trendDirection } from '@/shared/format/trend';
 
-export const WIDGET_SNAPSHOT_SCHEMA_VERSION = 5;
+export const WIDGET_SNAPSHOT_SCHEMA_VERSION = 6;
 
 /** Trailing wellness window the widget sparklines cover. */
 const SPARKLINE_DAYS = 30;
@@ -143,6 +143,23 @@ export interface WidgetDisplay {
   impactLine: string | null;
 }
 
+/**
+ * One recent sport: the id, the name a surface shows, and the deep link that
+ * starts it. The URL is composed here and nowhere else, so no native holds a
+ * second copy of the rule and no surface can drift from the others.
+ */
+export interface WidgetRecordShortcut {
+  type: string;
+  label: string;
+  url: string;
+}
+
+/** Where a record surface goes when no sport is known: the picker, as before. */
+export const RECORD_PICKER_URL = 'veloq://record';
+
+/** What a launcher will show on a long press, and what the list is capped at. */
+export const RECORD_SHORTCUT_LIMIT = 3;
+
 export interface WidgetSnapshot {
   schemaVersion: number;
   /** Unix seconds. */
@@ -184,11 +201,13 @@ export interface WidgetSnapshot {
   display: WidgetDisplay;
   theme: { light: WidgetPalette; dark: WidgetPalette };
   /**
-   * Sport the record surfaces should start, so a widget tap opens an already
-   * running ride rather than the picker. Null until something has been
-   * recorded, which is the signal to fall back to the picker.
+   * The recent sports, most recent first, pre-localised. One source for every
+   * record surface: the widgets and the iOS control take the head, the Android
+   * launcher publishes the list as dynamic shortcuts and the Quick Settings tile
+   * draws the head's label. Empty until something has been recorded, which is
+   * the signal to fall back to the picker.
    */
-  lastRecordingType: string | null;
+  recordShortcuts: WidgetRecordShortcut[];
 }
 
 // Minimal structural shapes of the engine returns we consume, kept local so this
@@ -243,8 +262,8 @@ export interface RawWidgetData {
   nowSeconds: number;
   /** i18n lookup; falls back to the raw key when absent (pure-test safe). */
   translate?: (key: string) => string;
-  /** Most recently recorded sport, or null/blank when there is none. */
-  lastRecordingType?: string | null;
+  /** Recent sports, most recent first. Blanks and repeats are dropped here. */
+  recentRecordingTypes?: string[] | null;
 }
 
 // The default for the integer point metrics: fitness, fatigue and resting HR.
@@ -350,14 +369,34 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
     summaryCard: composeSummaryCard(raw, t),
     display: buildDisplay(t, impact, getFormZone(num(form[form.length - 1]))),
     theme: { light: widgetPalette.light, dark: widgetPalette.dark },
-    lastRecordingType: cleanType(raw.lastRecordingType),
+    recordShortcuts: composeRecordShortcuts(raw.recentRecordingTypes, t),
   };
 }
 
-/** A blank sport is no sport: the natives fall back on null, not on an empty path. */
-function cleanType(type: string | null | undefined): string | null {
-  const trimmed = typeof type === 'string' ? type.trim() : '';
-  return trimmed.length > 0 ? trimmed : null;
+/**
+ * A blank sport is no sport and a repeat is one entry, so no surface gets an
+ * empty path or the same sport twice. Labels come from the translations the app
+ * already carries, which is why no native holds a sport-to-name map.
+ */
+function composeRecordShortcuts(
+  types: string[] | null | undefined,
+  t: (key: string) => string
+): WidgetRecordShortcut[] {
+  const seen = new Set<string>();
+  const out: WidgetRecordShortcut[] = [];
+  for (const raw of types ?? []) {
+    const type = typeof raw === 'string' ? raw.trim() : '';
+    if (type.length === 0 || seen.has(type)) continue;
+    seen.add(type);
+    const label = t(`activityTypes.${type}`);
+    out.push({
+      type,
+      label: label === `activityTypes.${type}` ? type : label,
+      url: `veloq://recording/${encodeURIComponent(type)}`,
+    });
+    if (out.length === RECORD_SHORTCUT_LIMIT) break;
+  }
+  return out;
 }
 
 /** Form metric with its zone, so natives colour by enum and never do TSB maths. */
@@ -650,7 +689,7 @@ export function gatherWidgetSnapshot(opts: {
     isMetric: opts.isMetric,
     nowSeconds,
     translate: opts.translate,
-    lastRecordingType: getLastRecordingType(),
+    recentRecordingTypes: getRecentRecordingTypes(),
   });
 }
 

@@ -3,6 +3,10 @@ package com.veloq.widget
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -11,6 +15,7 @@ import java.io.File
 // Infrastructure constant (not theme). The AppWidgetProvider reads the same file from
 // the app's private filesDir, provider and module run in the same app process.
 private const val SNAPSHOT_FILE = "widget-snapshot.json"
+
 
 /**
  * Bridges the JS snapshot pipeline to the Android home-screen widget: writes the
@@ -37,6 +42,36 @@ class VeloqWidgetModule : Module() {
       if (!tmp.renameTo(dest)) {
         dest.writeText(json)
         tmp.delete()
+      }
+    }
+
+    /**
+     * The recent sports as launcher shortcuts, most recent first, taken from the
+     * same pre-localised list the snapshot carries. Each fires the deep link that
+     * opens the app already recording, so a long press on the icon is one tap to
+     * a ride. An empty list clears them rather than leaving a stale sport behind.
+     */
+    Function("publishRecordShortcuts") { shortcuts: List<Map<String, String>> ->
+      val ctx = context.applicationContext
+      val entries =
+        shortcuts.mapNotNull { entry ->
+          val type = entry["type"]?.trim().orEmpty()
+          val url = entry["url"]?.trim().orEmpty()
+          if (type.isEmpty() || url.isEmpty()) return@mapNotNull null
+          val label = entry["label"]?.trim().orEmpty().ifEmpty { type }
+          val intent =
+            Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply { `package` = ctx.packageName }
+          ShortcutInfoCompat.Builder(ctx, "record-$type")
+            .setShortLabel(label)
+            .setLongLabel(label)
+            .setIcon(IconCompat.createWithResource(ctx, ctx.applicationInfo.icon))
+            .setIntent(intent)
+            .build()
+        }
+      if (entries.isEmpty()) {
+        ShortcutManagerCompat.removeAllDynamicShortcuts(ctx)
+      } else {
+        ShortcutManagerCompat.setDynamicShortcuts(ctx, entries)
       }
     }
 

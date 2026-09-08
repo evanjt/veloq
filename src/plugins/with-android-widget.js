@@ -133,9 +133,36 @@ function applyReceivers(app) {
     }
 }
 
+// The Quick Settings tile rides the same gate as the widget: one record surface
+// off means every record surface off. Removed rather than skipped, so an
+// incremental prebuild cannot keep a stale registration.
+const TILE_SERVICE = ".widget.RecordTileService";
+
+function applyServices(app, include = INCLUDE_RECORD_WIDGET) {
+  app.service = app.service || [];
+  app.service = app.service.filter((s) => s.$?.["android:name"] !== TILE_SERVICE);
+  if (!include) return;
+  app.service.push({
+    $: {
+      "android:name": TILE_SERVICE,
+      "android:exported": "true",
+      "android:icon": "@drawable/widget_record_roundel",
+      "android:label": "@string/app_name",
+      "android:permission": "android.permission.BIND_QUICK_SETTINGS_TILE",
+    },
+    "intent-filter": [
+      {
+        action: [{ $: { "android:name": "android.service.quicksettings.action.QS_TILE" } }],
+      },
+    ],
+  });
+}
+
 function withWidgetReceiver(config) {
   return withAndroidManifest(config, (mod) => {
-    applyReceivers(AndroidConfig.Manifest.getMainApplicationOrThrow(mod.modResults));
+    const app = AndroidConfig.Manifest.getMainApplicationOrThrow(mod.modResults);
+    applyReceivers(app);
+    applyServices(app);
     return mod;
   });
 }
@@ -148,4 +175,5 @@ module.exports = function withAndroidWidget(config) {
 
 module.exports.INCLUDE_RECORD_WIDGET = INCLUDE_RECORD_WIDGET;
 module.exports.applyReceivers = applyReceivers;
+module.exports.applyServices = applyServices;
 module.exports.writeWidgetSources = writeWidgetSources;
