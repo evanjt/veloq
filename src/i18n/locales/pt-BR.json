@@ -997,7 +997,10 @@
     "returnToRecording": "Voltar à gravação",
     "batteryOptNudge": "Gravações longas funcionam melhor com a otimização de bateria desativada para o Veloq.",
     "batteryOptOpenSettings": "Abrir configurações de bateria",
-    "writeScopeNotGranted": "A permissão de escrita não foi concedida"
+    "writeScopeNotGranted": "A permissão de escrita não foi concedida",
+    "signInRequired": "Entre para gravar",
+    "signInDescription": "A gravação precisa da sua conta intervals.icu, para o treino ter onde ficar.",
+    "signInAction": "Entrar"
   },
   "routeDetail": {
     "routeNotFound": "Rota nao encontrada"

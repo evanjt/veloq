@@ -999,7 +999,10 @@
     "returnToRecording": "Wróć do nagrywania",
     "batteryOptNudge": "Długie nagrania działają najlepiej z wyłączoną optymalizacją baterii dla Veloq.",
     "batteryOptOpenSettings": "Otwórz ustawienia baterii",
-    "writeScopeNotGranted": "Nie przyznano uprawnień do zapisu"
+    "writeScopeNotGranted": "Nie przyznano uprawnień do zapisu",
+    "signInRequired": "Zaloguj się, aby nagrywać",
+    "signInDescription": "Nagrywanie wymaga konta intervals.icu, żeby aktywność miała gdzie trafić.",
+    "signInAction": "Zaloguj się"
   },
   "routeDetail": {
     "routeNotFound": "Nie znaleziono trasy"

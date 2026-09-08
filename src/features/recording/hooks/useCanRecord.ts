@@ -3,12 +3,14 @@ import { useUploadPermissionStore } from '@/features/recording/stores/UploadPerm
 
 type CanRecordResult = {
   canRecord: boolean;
-  reason: 'ok' | 'no_permission';
+  reason: 'ok' | 'no_permission' | 'not_signed_in';
 };
 
 /**
  * Determines whether the current user can record and upload activities.
  *
+ * - No account at all: blocked, and said as a sign-in problem rather than a
+ *   scope one. The two need different gates and used to share a reason.
  * - API key users: always allowed (personal API keys have all permissions)
  * - Demo users: always allowed
  * - OAuth users: allowed only if their token includes ACTIVITY:WRITE scope.
@@ -18,6 +20,12 @@ type CanRecordResult = {
 export function useCanRecord(): CanRecordResult {
   const authMethod = useAuthStore((s) => s.authMethod);
   const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
+
+  // Nobody is signed in, so the ride has nowhere to go. Every one-tap surface
+  // reaches the recording screen directly, so this is the case that matters.
+  if (authMethod == null) {
+    return { canRecord: false, reason: 'not_signed_in' };
+  }
 
   // API key users always have full permissions - can't scope API keys
   if (authMethod === 'apiKey') {

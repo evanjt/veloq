@@ -997,7 +997,10 @@
     "returnToRecording": "記録に戻る",
     "batteryOptNudge": "長時間の記録には、Veloqのバッテリー最適化をオフにすることをおすすめします。",
     "batteryOptOpenSettings": "バッテリー設定を開く",
-    "writeScopeNotGranted": "書き込み権限が付与されませんでした"
+    "writeScopeNotGranted": "書き込み権限が付与されませんでした",
+    "signInRequired": "記録するにはサインイン",
+    "signInDescription": "記録にはintervals.icuのアカウントが必要です。アクティビティの保存先になります。",
+    "signInAction": "サインイン"
   },
   "routeDetail": {
     "routeNotFound": "ルートが見つかりません"

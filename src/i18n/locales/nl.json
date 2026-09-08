@@ -997,7 +997,10 @@
     "returnToRecording": "Terug naar de opname",
     "batteryOptNudge": "Lange opnames werken het best met batterijoptimalisatie uitgeschakeld voor Veloq.",
     "batteryOptOpenSettings": "Batterij-instellingen openen",
-    "writeScopeNotGranted": "Schrijfrechten zijn niet verleend"
+    "writeScopeNotGranted": "Schrijfrechten zijn niet verleend",
+    "signInRequired": "Log in om op te nemen",
+    "signInDescription": "Opnemen vereist je intervals.icu-account, zodat de rit ergens naartoe kan.",
+    "signInAction": "Inloggen"
   },
   "routeDetail": {
     "routeNotFound": "Route niet gevonden"
