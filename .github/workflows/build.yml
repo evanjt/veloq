@@ -31,11 +31,45 @@ env:
   NODE_VERSION: "22"
 
 jobs:
+  # A pull request pays for the iOS build only when something native can
+  # change. The gate's APK is the app check for everything else. push,
+  # schedule and dispatch skip this job and build unconditionally below.
+  changes:
+    name: Detect Native Changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      native: ${{ steps.filter.outputs.native }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            native:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'app.json'
+              - 'app.config.js'
+              - 'plugins/**'
+              - 'expo-modules/**'
+              - 'modules/**'
+              - 'ios/**'
+              - 'patches/**'
+              - '.github/workflows/build.yml'
+              - '.github/actions/**'
+
   # ============================================
   # Build Android
   # ============================================
+  # Not on pull requests: the E2E gate builds and exercises the APK there, and
+  # this job's PR artefact was downloaded by nothing. e2e-smoke needs it on
+  # push, schedule and dispatch, which still build.
   build-android:
     name: Build Android
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -377,6 +411,8 @@ jobs:
   # ============================================
   build-ios:
     name: Build iOS
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.native == 'true') }}
     runs-on: macos-26
     timeout-minutes: 120
     outputs:
@@ -395,6 +431,21 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '26.2'
+
+      # `apple.ccacheEnabled` in app.json routes every clang call through
+      # ccache, so a second build of the same pods is a cache read. The store
+      # is keyed per commit and restored from the newest, so it grows across
+      # runs rather than starting cold on every pull request.
+      - name: Setup ccache
+        run: brew install ccache
+
+      - name: Cache ccache store
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/ccache
+          key: ccache-ios-${{ github.sha }}
+          restore-keys: |
+            ccache-ios-
 
       - name: Get version info
         id: version

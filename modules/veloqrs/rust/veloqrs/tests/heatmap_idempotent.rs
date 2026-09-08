@@ -5,7 +5,7 @@
 //! the channel closes quickly. Protects the Tier 1.1 loop-inversion rewrite
 //! from quietly dropping the "skip if exists" short-circuit.
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
@@ -63,25 +63,27 @@ fn second_pass_generates_nothing_new() {
     );
 
     // Warm pass: every tile on disk already, skip path must short-circuit.
-    let start = Instant::now();
     let handle = engine
         .generate_tiles_background()
         .expect("the cold pass was drained, so the slot is free");
     let warm_generated = handle.recv_blocking().expect("warm run should complete");
-    let warm_elapsed = start.elapsed();
 
     assert_eq!(
         warm_generated, 0,
         "warm pass should not write any new tiles (every coord already on disk)"
     );
     // The zero count above cannot see a regression that renders first and
-    // skips the write after; only elapsed time can. Bound it relative to the
-    // cold pass so system load, which inflates both, cannot flake the test.
-    let bound = (cold_elapsed / 2).max(Duration::from_millis(250));
-    assert!(
-        warm_elapsed < bound,
-        "warm pass took {}ms against a cold pass of {}ms, skip-if-exists may be rendering before checking",
-        warm_elapsed.as_millis(),
+    // skips the write after. The scheduled total can: it is stored once the
+    // existence filter has run and before any tile is rasterised, so a pass
+    // that reaches the renderer with anything left reports it here. This used
+    // to be an elapsed-time bound against the cold pass, which measured the
+    // build profile rather than the skip: with the dependencies optimised the
+    // load and sweep that both passes share are three quarters of a cold pass.
+    let (_, warm_scheduled) = handle.get_progress();
+    assert_eq!(
+        warm_scheduled,
+        0,
+        "warm pass scheduled {warm_scheduled} tiles for rendering against a cold pass of {}ms, skip-if-exists is running after the plan",
         cold_elapsed.as_millis()
     );
 }
