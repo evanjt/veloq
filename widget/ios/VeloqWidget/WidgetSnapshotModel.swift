@@ -160,14 +160,17 @@ struct WidgetSnapshot: Codable {
 /// a known sport. The picker is the fallback and nothing else: an unknown sport
 /// would otherwise open an empty path.
 enum RecordDeepLink {
-  static let picker = "veloq://record"
+  /// Force-unwrapped once, on a literal that cannot fail to parse, so no caller
+  /// has to unwrap and none can invent a second fallback.
+  static let picker = URL(string: "veloq://record")!
 
-  static func url(for lastRecordingType: String?) -> URL? {
+  static func url(for lastRecordingType: String?) -> URL {
     let type = lastRecordingType?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     guard !type.isEmpty,
-      let encoded = type.addingPercentEncoding(withAllowedCharacters: .alphanumerics)
-    else { return URL(string: picker) }
-    return URL(string: "veloq://recording/\(encoded)")
+      let encoded = type.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
+      let url = URL(string: "veloq://recording/\(encoded)")
+    else { return picker }
+    return url
   }
 }
 

@@ -69,9 +69,16 @@ function widgetSwiftFiles(projectRoot) {
 }
 
 function writeWidgetBundles(destDir, includeRecord = INCLUDE_RECORD_WIDGET) {
-  const record = includeRecord ? "\n    VeloqRecordWidget()" : "";
-  // The Live Activity is 16.2, the bundle body is not, so it is gated inside the
-  // result builder rather than on the bundle itself.
+  // The Control rides the same gate as the widget: one record surface off means
+  // every record surface off. It is iOS 18 and the bundle body is not, so it is
+  // gated inside the result builder, the way the Live Activity is gated at 16.2.
+  const record = includeRecord
+    ? `
+    VeloqRecordWidget()
+    if #available(iOS 18.0, *) {
+      VeloqRecordControl()
+    }`
+    : "";
   const liveActivity = `
     if #available(iOS 16.2, *) {
       VeloqRecordingLiveActivity()
