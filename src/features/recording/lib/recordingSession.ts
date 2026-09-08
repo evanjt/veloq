@@ -155,8 +155,11 @@ export async function ensureLocationWatch(): Promise<boolean> {
   if (useRecordingStore.getState().mode !== 'gps') return false;
   const { status } = await Location.getForegroundPermissionsAsync();
   if (status !== 'granted') return false;
-  await startForegroundService();
+  // The screen's own watch first. It is what the rider sees, it costs
+  // milliseconds, and verifying the service can take seconds on the path where
+  // it was refused, which is no reason to hold up the first fix.
   if (appState === 'active') await startForegroundWatch();
+  await startForegroundService();
   return true;
 }
 

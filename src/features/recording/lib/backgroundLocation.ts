@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import { debug } from '@/shared/debug/debug';
 import { brand } from '@/theme';
 import { getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
-import { updateRecordingNotification } from './recordingNotification';
+import { locationServiceRunning, updateRecordingNotification } from './recordingNotification';
 import {
   buildRecordingBackup,
   loadRecordingBackup,
@@ -14,6 +14,11 @@ import {
 const log = debug.create('BackgroundLocation');
 
 export const BACKGROUND_LOCATION_TASK = 'veloq-background-location';
+
+const SERVICE_CHECK_DELAY_MS = 400;
+const SERVICE_CHECK_RETRIES = 6;
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // True once this runtime has rehydrated a session from disk. A headless
 // runtime is torn down with the batch, so the flag is only ever set for the
@@ -135,11 +140,37 @@ export async function startBackgroundLocation(options?: {
 }
 
 /**
- * Whether the location task is actually running. `startLocationUpdatesAsync`
- * resolves even when Android refuses the foreground service, so this is the only
- * thing that separates a service that started from one that did not.
+ * Whether the location foreground service is actually running.
+ * `startLocationUpdatesAsync` resolves even when Android refuses it, so the
+ * promise says nothing and something else has to answer.
+ *
+ * Two cheaper answers were tried on a device and both lie, so neither is worth
+ * reaching for again. The task registry, `hasStartedLocationUpdatesAsync`,
+ * answers whether the task is **registered**, and an abnormally ended ride
+ * leaves it registered across a process restart. The service's notification is
+ * worse: `manager.notify` takes ownership of the id, so the re-posted one
+ * outlives the service and the process both, and was measured still on screen
+ * with no app process alive.
+ *
+ * Android's own list of this app's running services is the one leftovers cannot
+ * fake. The registry stays as the fallback for where the module is absent, which
+ * is iOS, where nothing refuses the service in the first place.
  */
 export async function backgroundLocationRunning(): Promise<boolean> {
+  try {
+    // The service comes up asynchronously, so absence has to be waited out
+    // before it counts as a refusal. A refused start showed no service at all
+    // for fifteen seconds, so this separates slow from never with room to spare.
+    for (let attempt = 0; attempt <= SERVICE_CHECK_RETRIES; attempt++) {
+      const running = await locationServiceRunning();
+      if (running == null) break;
+      if (running) return true;
+      if (attempt < SERVICE_CHECK_RETRIES) await delay(SERVICE_CHECK_DELAY_MS);
+    }
+    if ((await locationServiceRunning()) != null) return false;
+  } catch (e) {
+    log.warn('Could not read the running services:', e);
+  }
   try {
     return await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
   } catch (e) {

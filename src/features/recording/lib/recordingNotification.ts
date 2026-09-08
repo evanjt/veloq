@@ -70,11 +70,24 @@ interface VeloqRecordingNotificationModule {
    * runtime that drew the notification.
    */
   drainPendingActions(): string[];
+  /** Whether expo-location's foreground service is in Android's running list. */
+  serviceRunning(): boolean;
 }
 
 const VeloqRecordingNotification = requireOptionalNativeModule<VeloqRecordingNotificationModule>(
   'VeloqRecordingNotification'
 );
+
+/**
+ * Whether expo-location's foreground service is running, read from Android's own
+ * list of this app's services. Null where the module is absent and there is
+ * nothing to ask: null is not false, so the caller falls back rather than
+ * treating "cannot tell" as "did not start".
+ */
+export async function locationServiceRunning(): Promise<boolean | null> {
+  if (!VeloqRecordingNotification?.serviceRunning) return null;
+  return VeloqRecordingNotification.serviceRunning();
+}
 
 /** Flatten `[lat, lng]` pairs, keeping the first and last point of a long trace. */
 export function decimateTrace(

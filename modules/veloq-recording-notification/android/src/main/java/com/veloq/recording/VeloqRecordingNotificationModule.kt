@@ -1,5 +1,6 @@
 package com.veloq.recording
 
+import android.app.ActivityManager
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -17,6 +18,11 @@ import org.json.JSONObject
 // expo-location names the foreground service's channel "<appId>:<taskName>"
 // (LocationTaskService.onStartCommand), which is the only handle it exposes.
 private const val LOCATION_TASK_NAME = "veloq-background-location"
+
+// The service expo-location runs the location task in. Named rather than derived
+// because `getRunningServices` reports a class name and nothing else identifies
+// it.
+private const val LOCATION_SERVICE_CLASS = "expo.modules.location.services.LocationTaskService"
 
 // The service posts its notification asynchronously after the app backgrounds,
 // so the first update can arrive before there is anything to replace.
@@ -55,6 +61,35 @@ class VeloqRecordingNotificationModule : Module() {
     Function("clear") { cancelRetry() }
 
     Function("drainPendingActions") { RecordingActionReceiver.drainPending(context) }
+
+    // Whether the location foreground service is actually running.
+    //
+    // Two cheaper answers were measured on a device and both lie. The task
+    // registry (`hasStartedLocationUpdatesAsync`) answers whether the task is
+    // registered, and a ride that ended abnormally leaves it registered across a
+    // process restart. The service's notification is worse: `manager.notify`
+    // takes ownership of the id, so a re-posted one outlives both the service
+    // and the process, and was measured still on screen with no app process
+    // alive at all.
+    //
+    // `getRunningServices` is deprecated and still correct here: since Android 8
+    // it returns only the caller's own services, which is exactly the scope
+    // wanted. A dead service is simply absent, and nothing stale can add one.
+    @Suppress("DEPRECATION")
+    Function("serviceRunning") {
+      val manager = context.getSystemService(ActivityManager::class.java)
+      manager?.getRunningServices(Int.MAX_VALUE)?.any {
+        it.service.className == LOCATION_SERVICE_CLASS && it.foreground
+      } == true
+    }
+  }
+
+  /** expo-location's own foreground-service notification, or null when there is none. */
+  private fun serviceNotification(): android.service.notification.StatusBarNotification? {
+    val manager = context.getSystemService(NotificationManager::class.java) ?: return null
+    return manager.activeNotifications.firstOrNull {
+      it.notification.channelId?.endsWith(":$LOCATION_TASK_NAME") == true
+    }
   }
 
   private fun cancelRetry() {
@@ -65,9 +100,7 @@ class VeloqRecordingNotificationModule : Module() {
   private fun post(payload: JSONObject, attempt: Int) {
     cancelRetry()
     val manager = context.getSystemService(NotificationManager::class.java) ?: return
-    val target = manager.activeNotifications.firstOrNull {
-      it.notification.channelId?.endsWith(":$LOCATION_TASK_NAME") == true
-    }
+    val target = serviceNotification()
     if (target == null) {
       if (attempt >= MAX_RETRIES) return
       val retry = Runnable { post(payload, attempt + 1) }
