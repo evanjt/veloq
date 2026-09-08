@@ -40,34 +40,28 @@ export interface ContentStateInput {
 }
 
 /**
- * UTF-8 byte length, counted here rather than taken from `Buffer`. `Buffer` is
- * a Node global that Hermes has not got and this app polyfills nowhere, so the
- * measurement threw on device while passing under Jest, which runs on Node.
- * `TextEncoder` would allocate the whole encoding to read its length, and this
- * runs on every card refresh.
- *
- * A lone surrogate is counted as three, which is what an encoder writes for the
- * replacement character it substitutes.
+ * UTF-8 length of a string, counted here rather than taken from a runtime global.
+ * `Buffer` is Node's and the app does not have it, and `TextEncoder` allocates the
+ * whole encoded copy to be asked for its length. This runs on every fit pass.
  */
 function utf8ByteLength(text: string): number {
   let bytes = 0;
   for (let i = 0; i < text.length; i += 1) {
     const code = text.charCodeAt(i);
-    if (code < 0x80) {
-      bytes += 1;
-    } else if (code < 0x800) {
-      bytes += 2;
-    } else if (code >= 0xd800 && code <= 0xdbff && i + 1 < text.length) {
+    if (code < 0x80) bytes += 1;
+    else if (code < 0x800) bytes += 2;
+    else if (code >= 0xd800 && code <= 0xdbff && i + 1 < text.length) {
+      // A surrogate pair is one code point of four bytes, not two of three. A
+      // high surrogate followed by anything else is not a pair: it is three
+      // bytes for the replacement character an encoder substitutes, and the
+      // next unit still carries its own. Assuming the pair undercounts, which
+      // is the direction that lets a payload past the cap.
       const low = text.charCodeAt(i + 1);
       if (low >= 0xdc00 && low <= 0xdfff) {
         bytes += 4;
         i += 1;
-      } else {
-        bytes += 3;
-      }
-    } else {
-      bytes += 3;
-    }
+      } else bytes += 3;
+    } else bytes += 3;
   }
   return bytes;
 }
