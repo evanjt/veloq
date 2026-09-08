@@ -24,8 +24,8 @@ use veloqrs::governor::{AuthMethod, Governor, NoopPolicy};
 use veloqrs::net::Transport;
 use veloqrs::net::elevation_backfill::{
     BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, BACKFILL_PHASE_PARTIAL,
-    BACKFILL_PHASE_PAUSED, BACKFILL_RETRY_ROUNDS, BackfillRun, MAX_CONSECUTIVE_FAILURES,
-    backfill_progress, backfill_retry_delays, detect_runs_started, elevation_backfill_paused,
+    BACKFILL_PHASE_PAUSED, BackfillRun, MAX_CONSECUTIVE_FAILURES, backfill_progress,
+    backfill_retry_delays, detect_runs_started, elevation_backfill_paused,
     pause_elevation_backfill, reset_elevation_backfill_pause, run_elevation_backfill,
 };
 use veloqrs::objects::{SYNC_SERVICE, SyncState};
@@ -1199,54 +1199,10 @@ fn a_transient_failure_is_re_asked_inside_the_pass_rather_than_next_launch() {
     assert_eq!(backfill_progress().phase, BACKFILL_PHASE_COMPLETE);
 }
 
-#[test]
-fn the_re_asking_is_bounded_and_waits_longer_each_round() {
-    let _serial = serial();
-    let (_dir, _path) = seeded_engine(&["a"]);
-
-    let server = MockServer::start();
-    let mock = server.mock(|when, then| {
-        when.path("/activity/a/streams.json");
-        then.status(429)
-            .header("Retry-After", "0")
-            .body("slow down");
-    });
-
-    let started = Instant::now();
-    let run = run_backfill(&fast_transport(server.base_url()));
-    let elapsed = started.elapsed();
-    let BackfillRun::Finished(outcome) = run else {
-        panic!("expected a finished pass, got {run:?}");
-    };
-
-    assert_eq!(
-        outcome.failed, 1,
-        "one track failed, however many times it was asked"
-    );
-    assert_eq!(outcome.elevated, 0);
-    assert_eq!(
-        mock.hits(),
-        HITS_PER_ASK * (1 + BACKFILL_RETRY_ROUNDS),
-        "the first ask plus one per bounded round, and no more"
-    );
-
-    let ladder: Duration = backfill_retry_delays().iter().sum();
-    assert!(
-        elapsed >= ladder,
-        "the rounds ran back to back instead of backing off: {elapsed:?} < {ladder:?}"
-    );
-    assert!(
-        backfill_retry_delays().windows(2).all(|w| w[1] > w[0]),
-        "each round has to wait longer than the one before it"
-    );
-    assert_eq!(
-        backfill_progress().phase,
-        BACKFILL_PHASE_PARTIAL,
-        "the queue is not drained, so the next run still has work"
-    );
-    assert_eq!(queue_ids().len(), 1);
-}
-
+/// The ladder's own schedule, and the round a cancel ends it at, are pinned
+/// by `re_asking` in `net::elevation_backfill`, which hands the wait in rather
+/// than spending it. A pass that asks and is refused on every rung is the one
+/// shape that costs the whole ladder in real time, so it is not asserted here.
 #[test]
 fn an_answer_about_one_activity_is_asked_once_and_not_re_asked() {
     let _serial = serial();
