@@ -73,6 +73,12 @@ function syncInFlight(): boolean {
   }
 }
 
+/** How often the absent engine is asked for, and for how long. */
+const ENGINE_WAIT_INTERVAL_MS = 200;
+
+/** Ten seconds. An engine that is not open by then failed to open. */
+const ENGINE_WAIT_TICKS = 50;
+
 /**
  * A counter that advances when the engine says a sync reached a terminal
  * state. The channel carries no payload, so the value is only a signal.
@@ -86,12 +92,22 @@ function useSyncSettled(): number {
     if (unsubscribe) return unsubscribe;
     // The engine can arrive after this screen mounts, and a launch sync
     // settles once. Missing it would leave the feed on its first read.
+    //
+    // The wait is capped because an engine that failed to open never arrives,
+    // and the uncapped version asked five times a second for as long as the
+    // feed was open. Giving up leaves the feed on its first read, which is
+    // where it was going to be either way.
+    let attempts = 0;
     const interval = setInterval(() => {
       const engine = getEngine();
-      if (!engine) return;
+      if (!engine) {
+        attempts += 1;
+        if (attempts >= ENGINE_WAIT_TICKS) clearInterval(interval);
+        return;
+      }
       unsubscribe = engine.subscribe('syncSettled', bump);
       clearInterval(interval);
-    }, 200);
+    }, ENGINE_WAIT_INTERVAL_MS);
     return () => {
       clearInterval(interval);
       unsubscribe?.();
