@@ -114,6 +114,9 @@ screenshots/
 modules/veloq-widget/android/build/
 modules/veloq-widget/android/.gradle/
 modules/veloq-widget/android/.cxx/
+modules/veloq-recording-notification/android/build/
+modules/veloq-recording-notification/android/.gradle/
+modules/veloq-recording-notification/android/.cxx/
 
 # Private device databases and exports. Real training data never enters the repo.
 modules/veloqrs/rust/veloqrs/tests/fixtures/private/
