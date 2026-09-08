@@ -1662,6 +1662,7 @@
     "progressCount": "{{completed}} of {{total}}",
     "progressPercent": "{{percent}}%",
     "remaining": "{{count}} still to fetch",
+    "cutoverWaiting": "Waiting to rebuild your sections",
     "statePaused": "Paused until the app is next opened"
   },
   "period": {
