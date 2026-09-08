@@ -46,8 +46,8 @@ onFlowComplete:
 - takeScreenshot: "screenshots/recordings-library"
 
 # Back to the record screen
-- tapOn:
-    id: "recordings-back"
+# The header is the platform's now, so leaving is the OS back button.
+- back
 
 - extendedWaitUntil:
     visible:

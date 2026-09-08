@@ -8,6 +8,7 @@ import { installGlobalCrashHandler, setCrashScreen } from '@/shared/debug/crashL
 
 import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { PaperProvider, Text } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -38,6 +39,8 @@ import {
 } from '@/features/maps/lib/mapMemoryReclaimer';
 import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
+import { SCREEN_HEADERS } from '@/shared/app/screenHeaders';
+import { RecordingTitle } from '@/features/recording';
 import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { i18n } from '@/i18n';
@@ -397,7 +400,9 @@ export default function RootLayout() {
   const [appReady, setAppReady] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
   const colorScheme = useResolvedColorScheme();
-  const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
+  const isDark = colorScheme === 'dark';
+  const theme = isDark ? darkTheme : lightTheme;
+  const { t } = useTranslation();
 
   useEffect(() => {
     initializeApp()
@@ -543,36 +548,39 @@ export default function RootLayout() {
                     <ShaderWarmup />
                     <Stack
                       screenOptions={{
-                        headerShown: false,
                         // iOS: Use default animation for native feel with gesture support
                         // Android: Slide from right for Material Design
                         animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
                         // Enable swipe-back gesture on both platforms
                         gestureEnabled: true,
                         gestureDirection: 'horizontal',
-                        // iOS: Blur effect for any translucent headers
-                        headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,
-                        headerTransparent: Platform.OS === 'ios',
+                        headerStyle: {
+                          backgroundColor: isDark ? darkColors.surface : colors.surface,
+                        },
+                        headerTintColor: isDark ? darkColors.textPrimary : colors.textPrimary,
+                        headerTitleStyle: { fontSize: typography.cardTitle.fontSize },
                       }}
                     >
-                      {/* Tabs group - no animation, instant switching */}
-                      <Stack.Screen
-                        name="(tabs)"
-                        options={{
-                          animation: 'none',
-                        }}
-                      />
-                      {/* An active recording must not be swipeable away. The
-                          back gesture runs in the same direction as the
-                          slide-to-unlock track, so a stray palm swipe would
-                          drop the rider out of the screen mid-ride. Leaving is
-                          deliberate: stop the recording, or use the header. */}
-                      <Stack.Screen
-                        name="recording/[type]"
-                        options={{
-                          gestureEnabled: false,
-                        }}
-                      />
+                      {Object.entries(SCREEN_HEADERS).map(([name, header]) => (
+                        <Stack.Screen
+                          key={name}
+                          name={name}
+                          options={{
+                            headerShown: header !== null,
+                            title: header?.title ?? (header?.titleKey ? t(header.titleKey) : ''),
+                            // Tabs group - no animation, instant switching
+                            animation: name === '(tabs)' ? 'none' : undefined,
+                            // An active recording must not be swipeable away. The
+                            // back gesture runs in the same direction as the
+                            // slide-to-unlock track, so a stray palm swipe would
+                            // drop the rider out of the screen mid-ride. Leaving is
+                            // deliberate: stop the recording, or use the header.
+                            gestureEnabled: name !== 'recording/[type]',
+                            headerTitle:
+                              name === 'recordings/[id]' ? () => <RecordingTitle /> : undefined,
+                          }}
+                        />
+                      ))}
                     </Stack>
                     <BottomTabBar />
                   </AuthGate>

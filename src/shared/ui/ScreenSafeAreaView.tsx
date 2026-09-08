@@ -17,10 +17,21 @@ interface ScreenSafeAreaViewProps {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /**
+   * The screen sits under a native stack header, which already clears the
+   * status bar. Taking the top edge as well would pad it a second time.
+   */
+  hasNativeHeader?: boolean;
 }
 
-export function ScreenSafeAreaView({ children, style, testID }: ScreenSafeAreaViewProps) {
-  const edges = useScreenSafeAreaEdges();
+export function ScreenSafeAreaView({
+  children,
+  style,
+  testID,
+  hasNativeHeader = false,
+}: ScreenSafeAreaViewProps) {
+  const screenEdges = useScreenSafeAreaEdges();
+  const edges = hasNativeHeader ? screenEdges.filter((edge) => edge !== 'top') : screenEdges;
 
   return (
     <SafeAreaView edges={edges} style={style} testID={testID}>

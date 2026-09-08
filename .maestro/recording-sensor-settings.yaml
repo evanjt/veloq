@@ -71,8 +71,8 @@ onFlowComplete:
 - takeScreenshot: "screenshots/sensor-settings"
 
 # Back out
-- tapOn:
-    id: "sensor-settings-back"
+# The header is the platform's now, so leaving is the OS back button.
+- back
 
 - extendedWaitUntil:
     visible:
