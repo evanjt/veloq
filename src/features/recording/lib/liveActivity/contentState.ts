@@ -39,8 +39,28 @@ export interface ContentStateInput {
   gps: RecordingGpsPoint[];
 }
 
+/**
+ * UTF-8 length of a string, counted here rather than taken from a runtime global.
+ * `Buffer` is Node's and the app does not have it, and `TextEncoder` allocates the
+ * whole encoded copy to be asked for its length. This runs on every fit pass.
+ */
+function utf8ByteLength(text: string): number {
+  let bytes = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const code = text.charCodeAt(i);
+    if (code < 0x80) bytes += 1;
+    else if (code < 0x800) bytes += 2;
+    else if (code >= 0xd800 && code <= 0xdbff && i + 1 < text.length) {
+      // A surrogate pair is one code point of four bytes, not two of three.
+      bytes += 4;
+      i += 1;
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
 export function contentStateBytes(state: LiveActivityContentState): number {
-  return Buffer.byteLength(JSON.stringify(state), 'utf8');
+  return utf8ByteLength(JSON.stringify(state));
 }
 
 /**
