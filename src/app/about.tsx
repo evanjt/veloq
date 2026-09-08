@@ -83,23 +83,8 @@ export default function AboutScreen() {
   const shared = createSharedStyles(isDark);
 
   return (
-    <ScreenSafeAreaView testID="about-screen" style={shared.container}>
+    <ScreenSafeAreaView hasNativeHeader testID="about-screen" style={shared.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Header with back button */}
-        <View style={shared.header}>
-          <TouchableOpacity
-            testID="nav-back-button"
-            onPress={() => router.back()}
-            style={shared.backButton}
-            accessibilityLabel={t('common.back')}
-            accessibilityRole="button"
-          >
-            <MaterialCommunityIcons name="arrow-left" size={24} color={themeColors.text} />
-          </TouchableOpacity>
-          <Text style={shared.headerTitle}>{t('about.title')}</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
         {/* App Info */}
         <View testID="about-app-info" style={styles.section(isDark)}>
           <View style={styles.appInfo}>
@@ -271,9 +256,6 @@ const styles = {
   // Static styles
   content: {
     paddingBottom: spacing.xl,
-  },
-  headerSpacer: {
-    width: 32,
   },
   sectionLabel: {
     ...typography.caption,

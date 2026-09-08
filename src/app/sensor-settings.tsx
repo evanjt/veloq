@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -97,24 +96,10 @@ export default function SensorSettingsScreen() {
 
   return (
     <ScreenSafeAreaView
+      hasNativeHeader
       testID="sensor-settings-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
-      <View style={styles.header}>
-        <TouchableOpacity
-          testID="sensor-settings-back"
-          onPress={() => router.back()}
-          style={styles.backButton}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.back', 'Back')}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: textPrimary }]}>
-          {t('sensors.title', 'Sensors')}
-        </Text>
-      </View>
-
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -256,22 +241,6 @@ export default function SensorSettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...typography.sectionTitle,
-    marginLeft: spacing.xs,
   },
   scrollContent: {
     paddingTop: spacing.sm,

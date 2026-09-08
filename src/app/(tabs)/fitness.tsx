@@ -181,7 +181,7 @@ export default function FitnessScreen() {
     return (
       <ScreenSafeAreaView style={shared.container}>
         <View style={styles.header}>
-          <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
+          <Text style={shared.screenTitle}>{t('fitnessScreen.title')}</Text>
         </View>
         <View style={styles.skeletonContainer}>
           <StatsPillSkeleton />
@@ -198,7 +198,7 @@ export default function FitnessScreen() {
     return (
       <ScreenSafeAreaView style={shared.container}>
         <View style={styles.header}>
-          <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
+          <Text style={shared.screenTitle}>{t('fitnessScreen.title')}</Text>
         </View>
         <View style={shared.loadingContainer}>
           {networkError ? (
@@ -216,7 +216,7 @@ export default function FitnessScreen() {
       <ScreenSafeAreaView style={shared.container} testID="fitness-screen">
         {/* Header */}
         <View style={styles.header}>
-          <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
+          <Text style={shared.screenTitle}>{t('fitnessScreen.title')}</Text>
           {/* Subtle loading indicator in header when fetching in background (not during pull-to-refresh) */}
           {isFetching && !isRefreshing && (
             <ActivityIndicator size="small" color={colors.primary} style={styles.headerSpinner} />

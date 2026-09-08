@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
+import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
@@ -149,6 +149,17 @@ export default function ReviewScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
+      {/* A GPS recording opens on a map hero that runs under the status bar and
+          carries its own back control, so the native header is off there. The
+          non-GPS screen takes it, and loses it while an upload is in flight,
+          which is what the old header's disabled back button did. */}
+      <Stack.Screen
+        options={{
+          headerShown: !hasGps,
+          headerBackVisible: !isProcessing,
+          gestureEnabled: !isProcessing,
+        }}
+      />
       {/* Map hero (top portion) */}
       {hasGps && (
         <ReviewMapHero
@@ -164,28 +175,6 @@ export default function ReviewScreen() {
           onBack={handleBack}
           disabled={isProcessing}
         />
-      )}
-
-      {/* Header (only for non-GPS activities) */}
-      {!hasGps && (
-        <View style={[styles.header, { paddingTop: insets.top }]}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-            disabled={isProcessing}
-            accessibilityRole="button"
-            accessibilityLabel={t('common.back')}
-          >
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={24}
-              color={isProcessing ? textSecondary : textPrimary}
-            />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: textPrimary }]}>
-            {t('recording.reviewActivity', 'Review Activity')}
-          </Text>
-        </View>
       )}
 
       {/* Bottom sheet content */}
@@ -343,23 +332,6 @@ export default function ReviewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  // Non-GPS header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...typography.sectionTitle,
-    marginLeft: spacing.xs,
   },
   // Bottom content
   scrollContent: {
