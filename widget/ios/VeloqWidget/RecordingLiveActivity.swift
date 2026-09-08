@@ -22,20 +22,28 @@ struct VeloqRecordingLiveActivity: Widget {
             .padding(.leading, WidgetTheme.Layout.gap)
         }
         DynamicIslandExpandedRegion(.trailing) {
-          VStack(alignment: .trailing, spacing: 2) {
-            Text(context.state.distanceLabel)
-              .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
-            Text(context.state.speedLabel)
-              .font(.system(size: WidgetTheme.TypeScale.label))
-              .foregroundStyle(.secondary)
+          // The control sits with the numbers it acts on. In the bottom region it
+          // was diagonally opposite the clock, holding a row open on its own.
+          HStack(spacing: WidgetTheme.Layout.gap) {
+            VStack(alignment: .trailing, spacing: 2) {
+              Text(context.state.distanceLabel)
+                .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
+              Text(context.state.speedLabel)
+                .font(.system(size: WidgetTheme.TypeScale.label))
+                .foregroundStyle(.secondary)
+            }
+            RecordingControl(state: context.state)
           }
           .padding(.trailing, WidgetTheme.Layout.gap)
         }
         DynamicIslandExpandedRegion(.bottom) {
-          HStack(spacing: WidgetTheme.Layout.gap) {
-            RecordingTrace(trace: context.state.trace)
-              .frame(height: 34)
-            RecordingControl(state: context.state)
+          // Only when there is a shape to draw. An indoor ride never has one, and
+          // a GPS ride has none until its first fixes land, so an unconditional
+          // region is a band of empty black for the whole session or the worst
+          // part of it.
+          if let trace = context.state.trace, trace.points.count >= 2 {
+            RecordingTrace(trace: trace)
+              .frame(height: 40)
           }
         }
       } compactLeading: {
@@ -68,8 +76,12 @@ private struct RecordingLockScreenView: View {
           .foregroundStyle(.secondary)
       }
       Spacer(minLength: 0)
-      RecordingTrace(trace: state.trace)
-        .frame(width: 72, height: 56)
+      // Same rule as the island: no trace, no reserved box. Indoor recordings
+      // never have one, so the card would carry a 72x56 hole all session.
+      if let trace = state.trace, trace.points.count >= 2 {
+        RecordingTrace(trace: trace)
+          .frame(width: 72, height: 56)
+      }
       RecordingControl(state: state)
     }
     .padding(WidgetTheme.Layout.padding)
@@ -112,11 +124,12 @@ private struct RecordingClock: View {
 /// arbitrary size: the payload is capped at 4 KB and the JS side decimates to fit.
 @available(iOS 16.2, *)
 private struct RecordingTrace: View {
-  let trace: VeloqRecordingAttributes.ContentState.Trace?
+  let trace: VeloqRecordingAttributes.ContentState.Trace
 
   var body: some View {
     GeometryReader { geo in
-      if let points = trace?.points, points.count >= 2 {
+      let points = trace.points
+      if points.count >= 2 {
         Path { path in
           for (index, point) in points.enumerated() {
             guard point.count >= 2 else { continue }
