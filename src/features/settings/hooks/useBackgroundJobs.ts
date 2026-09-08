@@ -60,6 +60,8 @@ interface DetectionStatus {
   completed: number;
   total: number;
   percent: number | null;
+  /** What a run still owes while none is holding the slot. */
+  awaiting: number | null;
   phase: string | null;
 }
 
@@ -68,6 +70,7 @@ const DETECTION_IDLE: DetectionStatus = {
   completed: 0,
   total: 0,
   percent: null,
+  awaiting: null,
   phase: null,
 };
 
@@ -94,25 +97,29 @@ function readDetection(previous: DetectionStatus): DetectionStatus {
     return DETECTION_IDLE;
   }
   if (!progress) {
+    const awaiting = readDetectionAwaiting();
     let outcome = 'idle';
     try {
       outcome = engine.lastSectionDetectionOutcome?.() ?? 'idle';
     } catch {
       outcome = 'idle';
     }
-    if (outcome === 'error') return { ...DETECTION_IDLE, state: 'failed' };
+    if (outcome === 'error') return { ...DETECTION_IDLE, state: 'failed', awaiting };
     // A finished run keeps whatever the last read saw, so the row does not
     // snap back to zero the instant it settles.
     const settled: BackgroundJobState = outcome === 'complete' ? 'complete' : 'idle';
-    return previous.state === settled && previous.phase === null
+    return previous.state === settled && previous.phase === null && previous.awaiting === awaiting
       ? previous
-      : { ...previous, state: settled, phase: null };
+      : { ...previous, state: settled, phase: null, awaiting };
   }
   return {
     state: 'running',
     completed: progress.completed,
     total: progress.total,
     percent: progress.percent,
+    // A run in flight is not also waiting, and the row already says it is
+    // running, so the count is what a resting row rests on and nothing else.
+    awaiting: null,
     phase: progress.phase,
   };
 }
@@ -123,6 +130,7 @@ function sameDetection(a: DetectionStatus, b: DetectionStatus): boolean {
     a.completed === b.completed &&
     a.total === b.total &&
     a.percent === b.percent &&
+    a.awaiting === b.awaiting &&
     a.phase === b.phase
   );
 }
@@ -143,6 +151,21 @@ function useDetectionStatus(): DetectionStatus {
   }, []);
 
   return state;
+}
+
+/**
+ * The activities detection has never seen. Read on the same timer the progress
+ * is, since nothing announces a run starting and nothing announces the pool
+ * moving under one either.
+ */
+function readDetectionAwaiting(): number | null {
+  const engine = getEngine();
+  if (!engine) return null;
+  try {
+    return engine.sectionDetectionAwaiting?.() ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function readRemaining(): number | null {
@@ -265,7 +288,7 @@ export function useBackgroundJobs(): BackgroundJob[] {
       completed: detection.completed,
       total: detection.total,
       percent: detection.percent,
-      remaining: null,
+      remaining: detection.awaiting,
       phase: detection.phase,
     },
     {

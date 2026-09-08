@@ -633,6 +633,26 @@ impl PersistentEngine {
         Some(result)
     }
 
+    /// How many stored activities have never been through a detect.
+    ///
+    /// The jobs screen lists every job always, with a resting state, and a
+    /// resting row is only honest if it says what is waiting. Detection's phase
+    /// cannot say: it is a process-global value starting at idle, so after a
+    /// relaunch it reads idle whatever is outstanding.
+    ///
+    /// `processed_activities` is the durable half and is read back by
+    /// `load_processed_activity_ids`, so this counts against the table rather
+    /// than the in-memory set: the two agree once loaded, and only the table
+    /// survives the launch the row has to be honest across.
+    pub fn activities_awaiting_detection(&self) -> SqlResult<u64> {
+        self.db.query_row(
+            "SELECT COUNT(*) FROM activities
+             WHERE id NOT IN (SELECT activity_id FROM processed_activities)",
+            [],
+            |row| row.get::<_, i64>(0).map(|n| n.max(0) as u64),
+        )
+    }
+
     pub fn save_processed_activity_ids(&mut self, activity_ids: &[String]) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
         let mut stmt =

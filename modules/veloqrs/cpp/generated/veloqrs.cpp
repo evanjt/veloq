@@ -247,6 +247,8 @@ void uniffi_veloqrs_fn_free_detectionmanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_constructor_detectionmanager_new(
     RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_method_detectionmanager_awaiting_count(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_detectionmanager_cancel(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
@@ -1150,6 +1152,7 @@ uint16_t uniffi_veloqrs_checksum_method_basemapmanager_get_tile();
 uint16_t uniffi_veloqrs_checksum_method_basemapmanager_put_tile();
 uint16_t uniffi_veloqrs_checksum_method_basemapmanager_set_path();
 uint16_t uniffi_veloqrs_checksum_method_basemapmanager_set_source_template();
+uint16_t uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_cancel();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_force_redetect();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_get_config();
@@ -5123,6 +5126,19 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_constructor_detectionmanager_new(
                 rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_detectionmanager_awaiting_count"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_detectionmanager_awaiting_count"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_detectionmanager_awaiting_count(
+                    rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_detectionmanager_cancel"] =
       jsi::Function::createFromHostFunction(
@@ -9793,6 +9809,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_basemapmanager_set_source_template(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "detectionmanager_awaiting_count"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_detectionmanager_cancel"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -13991,6 +14019,21 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_detectionmanager_new(
 
   return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
                                                          value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_awaiting_count(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_detectionmanager_awaiting_count(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_cancel(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -19491,6 +19534,14 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_basemapmanager_set_source_template();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

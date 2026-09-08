@@ -1630,6 +1630,7 @@ export interface TranslationResource {
     progressCount: string;
     progressPercent: string;
     remaining: string;
+    detectionWaiting: string;
     cutoverWaiting: string;
   };
 }
