@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 22 standalone `#[uniffi::export]` functions plus
- * 266 methods inside `#[uniffi::export] impl` blocks across
+ * 267 methods inside `#[uniffi::export] impl` blocks across
  * 15 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 288 exports (22 standalone + 266 methods)
+ * Total: 289 exports (22 standalone + 267 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -2878,10 +2878,20 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'HeatmapManager',
   },
   {
+    name: 'cancel',
+    camelName: 'cancel',
+    file: 'objects/tiles.rs',
+    line: 97,
+    paramCount: 0,
+    returnType: 'Result<bool, VeloqError>',
+    docs: 'Stop the heatmap work the athlete has lost interest in. Both the tile pass and the invalidation sweep, because both are heatmap work and neither is worth finishing once the screen that wanted it is gone. Cancelling costs a stale heatmap that the next pass redraws, which is the whole reason this is the cheapest thing in the engine to make cancellable. Returns whether anything was running to stop.',
+    object: 'HeatmapManager',
+  },
+  {
     name: 'get_progress',
     camelName: 'getProgress',
     file: 'objects/tiles.rs',
-    line: 91,
+    line: 125,
     paramCount: 0,
     returnType: 'Result<Vec<u32>, VeloqError>',
     docs: 'Get tile generation progress: (processed, total). Returns (0, 0) if idle.',
@@ -2891,7 +2901,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 2291,
+    line: 2343,
     paramCount: 3,
     returnType: 'f64',
     docs: "Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB. Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...]. Uses an R-tree on polylineB for O(n log m) instead of O(n*m). Returns 0.0-1.0.",
@@ -3188,6 +3198,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'clearTiles',
   'getCacheSize',
   'poll',
+  'cancel',
   'getProgress',
   'computePolylineOverlap',
 ]);

@@ -91,6 +91,8 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
 
   const handleClearMapCache = useCallback(async () => {
     await clearTerrainPreviews();
+    // A pass still drawing would put its tiles back after this clear.
+    getEngine()?.cancelHeatmapWork();
     getEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
     emitClearTileCache();
     setTerrainCacheSize(0);
@@ -149,6 +151,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             await clearCache();
             await clearTerrainPreviews();
             emitClearTileCache();
+            getEngine()?.cancelHeatmapWork();
             getEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
             setTerrainCacheSize(0);
             setHeatmapCacheSize(0);

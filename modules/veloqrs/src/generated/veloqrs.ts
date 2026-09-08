@@ -13702,6 +13702,16 @@ const FfiConverterTypeFitnessManager = new FfiConverterObject(
 
 export interface HeatmapManagerLike {
   /**
+   * Stop the heatmap work the athlete has lost interest in.
+   *
+   * Both the tile pass and the invalidation sweep, because both are
+   * heatmap work and neither is worth finishing once the screen that wanted
+   * it is gone. Cancelling costs a stale heatmap that the next pass redraws,
+   * which is the whole reason this is the cheapest thing in the engine to
+   * make cancellable. Returns whether anything was running to stop.
+   */
+  cancel() /*throws*/ : boolean;
+  /**
    * Clear all heatmap tiles from disk.
    */
   clearTiles(basePath: string) /*throws*/ : /*u32*/ number;
@@ -13753,6 +13763,32 @@ export class HeatmapManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeHeatmapManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Stop the heatmap work the athlete has lost interest in.
+   *
+   * Both the tile pass and the invalidation sweep, because both are
+   * heatmap work and neither is worth finishing once the screen that wanted
+   * it is gone. Cancelling costs a stale heatmap that the next pass redraws,
+   * which is the whole reason this is the cheapest thing in the engine to
+   * make cancellable. Returns whether anything was running to stop.
+   */
+  cancel(): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_cancel(
+            uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
   }
 
   /**
@@ -22686,6 +22722,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_validate_credentials",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_cancel() !==
+    41462
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_heatmapmanager_cancel",
     );
   }
   if (
