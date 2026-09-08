@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
@@ -224,31 +223,11 @@ export default function SettingsScreen() {
   return (
     <ScreenErrorBoundary screenName="Settings">
       <ScreenSafeAreaView
+        hasNativeHeader
         testID="settings-screen"
         style={[styles.container, isDark && styles.containerDark]}
       >
         <ScrollView testID="settings-scrollview" contentContainerStyle={styles.content}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              testID="nav-back-button"
-              onPress={() => router.back()}
-              style={styles.backButton}
-              accessibilityLabel={t('common.back')}
-              accessibilityRole="button"
-            >
-              <MaterialCommunityIcons
-                name="arrow-left"
-                size={24}
-                color={isDark ? colors.textOnDark : colors.textPrimary}
-              />
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-              {t('settings.title')}
-            </Text>
-            <View style={styles.headerSpacer} />
-          </View>
-
           {/* Account */}
           <AccountRow
             athlete={athlete}
@@ -416,25 +395,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: layout.screenPadding,
-    paddingVertical: spacing.md,
-  },
-  backButton: {
-    padding: spacing.xs,
-    marginLeft: -spacing.xs,
-  },
-  headerTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  headerSpacer: {
-    width: 32,
   },
   textLight: {
     color: colors.textOnDark,

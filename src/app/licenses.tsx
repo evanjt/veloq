@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { ScreenSafeAreaView } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import type { ParseKeys } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
@@ -450,23 +449,8 @@ export default function LicensesScreen() {
   const shared = createSharedStyles(isDark);
 
   return (
-    <ScreenSafeAreaView testID="licenses-screen" style={shared.container}>
+    <ScreenSafeAreaView hasNativeHeader testID="licenses-screen" style={shared.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Header with back button */}
-        <View style={shared.header}>
-          <TouchableOpacity
-            testID="nav-back-button"
-            onPress={() => router.back()}
-            style={shared.backButton}
-            accessibilityLabel={t('common.back')}
-            accessibilityRole="button"
-          >
-            <MaterialCommunityIcons name="arrow-left" size={24} color={themeColors.text} />
-          </TouchableOpacity>
-          <Text style={shared.headerTitle}>{t('licenses.title')}</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
         {/* Intro text */}
         <View style={styles.introContainer}>
           <Text style={[styles.introText, { color: themeColors.textSecondary }]}>
@@ -498,9 +482,6 @@ export default function LicensesScreen() {
 const styles = {
   content: {
     paddingBottom: spacing.xl,
-  },
-  headerSpacer: {
-    width: 32,
   },
   introContainer: {
     paddingHorizontal: layout.screenPadding,

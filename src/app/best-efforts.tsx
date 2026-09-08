@@ -174,29 +174,10 @@ export default function BestEffortsScreen() {
   return (
     <ScreenErrorBoundary screenName="BestEfforts">
       <ScreenSafeAreaView
+        hasNativeHeader
         style={[styles.container, isDark && styles.containerDark]}
         testID="best-efforts-screen"
       >
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-            accessibilityLabel={t('common.back')}
-            accessibilityRole="button"
-            testID="best-efforts-back"
-          >
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={24}
-              color={isDark ? darkColors.textPrimary : colors.textPrimary}
-            />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, isDark && styles.headerTitleDark]}>
-            {t('bestEffortsScreen.title')}
-          </Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
         <View
           style={[styles.rangeToggleContainer, isDark && styles.rangeToggleContainerDark]}
           testID="best-efforts-range-toggle"
@@ -263,28 +244,6 @@ const styles = StyleSheet.create({
   },
   containerDark: {
     backgroundColor: darkColors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: layout.screenPadding,
-    paddingVertical: spacing.md,
-  },
-  backButton: {
-    padding: spacing.xs,
-    marginLeft: -spacing.xs,
-  },
-  headerTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  headerTitleDark: {
-    color: darkColors.textPrimary,
-  },
-  headerSpacer: {
-    width: 32,
   },
   rangeToggleContainer: {
     flexDirection: 'row',

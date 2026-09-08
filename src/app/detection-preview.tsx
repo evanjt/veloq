@@ -15,15 +15,8 @@
  * tap target each.
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -87,7 +80,6 @@ export default function DetectionPreviewScreen() {
   const [showRemoved, setShowRemoved] = useState(true);
 
   const bg = isDark ? darkColors.background : colors.background;
-  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
@@ -155,26 +147,23 @@ export default function DetectionPreviewScreen() {
     router.back();
   }, [running, cancel]);
 
+  // Leaving by any route cancels a run in flight. The Discard button did this
+  // and the header back button did not, and neither did the swipe-back, so a
+  // preview kept running against a screen nobody was looking at.
+  const abandon = useRef<() => void>(() => {});
+  useEffect(() => {
+    abandon.current = () => {
+      if (running) cancel();
+    };
+  }, [running, cancel]);
+  useEffect(() => () => abandon.current(), []);
+
   return (
     <ScreenSafeAreaView
+      hasNativeHeader
       testID="detection-preview-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
-      <View style={styles.header}>
-        <TouchableOpacity
-          testID="detection-preview-back"
-          onPress={handleDiscard}
-          style={styles.backButton}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.back')}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: textPrimary }]}>
-          {t('settings.previewSections')}
-        </Text>
-      </View>
-
       <View style={styles.map} testID="preview-map">
         <PreviewMapView
           result={result}
@@ -326,23 +315,6 @@ export default function DetectionPreviewScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
-  },
-  headerTitle: {
-    ...typography.sectionTitle,
-    fontWeight: '600',
-  },
   map: {
     height: '30%',
   },

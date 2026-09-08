@@ -168,7 +168,7 @@ export default function HealthScreen() {
       <ScreenSafeAreaView style={shared.container} testID="training-screen">
         <View style={styles.header}>
           <View style={{ width: 48 }} />
-          <Text style={shared.headerTitle}>{t('healthScreen.title')}</Text>
+          <Text style={shared.screenTitle}>{t('healthScreen.title')}</Text>
           {/* Subtle loading indicator in header when fetching in background */}
           <View style={{ width: 48, alignItems: 'center' }}>
             {isFetching && !isRefreshing && (

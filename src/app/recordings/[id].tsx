@@ -19,7 +19,6 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
 import { formatDistance, formatDuration, formatElevation } from '@/shared/format/format';
 import { recordingActions } from '@/features/recording/lib/recordingActions';
-import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
 import { getRecording } from '@/features/recording/lib/storage/recordingLibrary';
 import { readRecordingTrack } from '@/features/recording';
@@ -102,7 +101,10 @@ export default function RecordingDetailScreen() {
 
   if (loading) {
     return (
-      <ScreenSafeAreaView style={[styles.container, styles.center, { backgroundColor: bg }]}>
+      <ScreenSafeAreaView
+        hasNativeHeader
+        style={[styles.container, styles.center, { backgroundColor: bg }]}
+      >
         <ActivityIndicator />
       </ScreenSafeAreaView>
     );
@@ -148,27 +150,6 @@ export default function RecordingDetailScreen() {
 
   return (
     <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          testID="recording-detail-back"
-          onPress={() => router.back()}
-          style={styles.backButton}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.back', 'Back')}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
-        </TouchableOpacity>
-        <MaterialCommunityIcons
-          name={getActivityIcon(entry.activityType)}
-          size={22}
-          color={getActivityColor(entry.activityType)}
-          style={styles.headerIcon}
-        />
-        <Text style={[styles.headerTitle, { color: textPrimary }]} numberOfLines={1}>
-          {entry.name}
-        </Text>
-      </View>
-
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }}>
         {coordinates.length >= 2 && (
           <View style={[styles.mapContainer, { borderColor: border }]}>
@@ -262,26 +243,6 @@ const styles = StyleSheet.create({
   center: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerIcon: {
-    marginLeft: spacing.xs,
-    marginRight: spacing.xs,
-  },
-  headerTitle: {
-    ...typography.sectionTitle,
-    flex: 1,
   },
   mapContainer: {
     height: 220,
