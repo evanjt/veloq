@@ -1662,6 +1662,7 @@
     "progressCount": "{{completed}} de {{total}}",
     "progressPercent": "{{percent}}%",
     "remaining": "Faltan {{count}} por descargar",
+    "cutoverWaiting": "Esperando para reconstruir tus secciones",
     "statePaused": "En pausa hasta que vuelvas a abrir la app"
   },
   "period": {

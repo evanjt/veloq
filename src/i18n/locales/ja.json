@@ -1662,6 +1662,7 @@
     "progressCount": "{{total}} 件中 {{completed}} 件",
     "progressPercent": "{{percent}}%",
     "remaining": "残り {{count}} 件を取得します",
+    "cutoverWaiting": "セクションの再構築を待機中",
     "statePaused": "次回アプリを開くまで一時停止"
   },
   "period": {
