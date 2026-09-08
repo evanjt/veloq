@@ -103,6 +103,17 @@ describe('the Quick Settings tile is the same intent behind the shade', () => {
     expect(TILE_KT).not.toContain('veloq://');
   });
 
+  it('imports the app package it resolves R against, which only a build catches', () => {
+    // A generated widget source names its package as __PKG__, so a bare `R` does
+    // not resolve there and Jest cannot see it. This assertion is the cheap half
+    // of the check that cost a full assembleDebug to find.
+    for (const source of ['RecordTileService.kt', 'VeloqRecordWidgetProvider.kt']) {
+      const text = fs.readFileSync(path.join(projectRoot, 'widget/android/java', source), 'utf8');
+      if (!/\bR\.(string|drawable|layout|bool|color|id)\./.test(text)) continue;
+      expect(text).toContain('import __PKG__.R');
+    }
+  });
+
   it('takes its label from the snapshot, so the tile holds no i18n', () => {
     expect(TILE_KT).toContain('qsTile');
     expect(TILE_KT).toContain('recordShortcuts');

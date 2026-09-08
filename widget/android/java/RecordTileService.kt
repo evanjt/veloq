@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import __PKG__.R
 
 /**
  * Record in the Quick Settings shade, reachable with the phone locked. The tile
