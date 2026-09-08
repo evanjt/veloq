@@ -94,14 +94,14 @@ describe('iOS points its record surfaces at a started recording', () => {
 
   it('builds the URL in one place, with the picker as the only fallback', () => {
     expect(SWIFT_MODEL).toContain('enum RecordDeepLink');
-    expect(SWIFT_MODEL).toContain('static func url(for lastRecordingType: String?) -> URL?');
+    expect(SWIFT_MODEL).toContain('static func url(for lastRecordingType: String?) -> URL');
     expect(SWIFT_MODEL).toContain('veloq://recording/');
     expect(SWIFT_MODEL).toContain('addingPercentEncoding');
   });
 
   it('leaves no record surface on the picker literal', () => {
-    expect(SWIFT_WIDGET).not.toContain('"veloq://record"');
-    expect(SWIFT_VIEWS).not.toContain('"veloq://record"');
+    expect(SWIFT_WIDGET).not.toContain('veloq://');
+    expect(SWIFT_VIEWS).not.toContain('veloq://');
     expect(SWIFT_WIDGET).toContain('RecordDeepLink.url(for:');
     expect(SWIFT_VIEWS).toContain('RecordDeepLink.url(for:');
   });
