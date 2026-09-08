@@ -88,7 +88,7 @@ describe('Android points its record surfaces at a started recording', () => {
 
 describe('iOS points its record surfaces at a started recording', () => {
   it('decodes the list as optional, so an older snapshot still decodes', () => {
-    expect(SWIFT_MODEL).toContain('let recordShortcuts: [WidgetRecordShortcut]?');
+    expect(SWIFT_MODEL).toContain('let launcherShortcuts: [WidgetRecordShortcut]?');
     expect(SWIFT_MODEL).toContain('struct WidgetRecordShortcut: Codable');
   });
 
@@ -99,7 +99,7 @@ describe('iOS points its record surfaces at a started recording', () => {
     expect(SWIFT_LINK.match(/veloq:\/\//g)).toHaveLength(1);
     expect(SWIFT_MODEL).toContain('extension RecordDeepLink');
     expect(SWIFT_MODEL).toContain('static func url(for snapshot: WidgetSnapshot?) -> URL');
-    expect(SWIFT_MODEL).toContain('snapshot?.recordShortcuts?.first?.url');
+    expect(SWIFT_MODEL).toContain('snapshot?.launcherShortcuts?.first?.url');
     expect(SWIFT_MODEL).not.toContain('veloq://');
   });
 

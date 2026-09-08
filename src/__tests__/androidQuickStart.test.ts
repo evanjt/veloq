@@ -5,6 +5,7 @@
  *
  * Expected behaviour: the snapshot carries the recent sports as one pre-localised
  * list, `recordShortcuts`, which is the single source for every record surface.
+ * `launcherShortcuts` is its head, capped at what a long press shows.
  * The single-sport surfaces (the widgets, the iOS control) take its head, the
  * launcher publishes it as dynamic shortcuts, and the Quick Settings tile draws
  * its head's label. Natives hold no i18n and no sport-to-label map, exactly as
@@ -65,21 +66,23 @@ describe('the snapshot carries the recent sports as one pre-localised list', () 
     ]);
   });
 
-  it('caps the list at what a launcher will show', () => {
+  it('caps the launcher list at what a long press will show', () => {
     const snap = composeSnapshot(
       raw({ recentRecordingTypes: ['Ride', 'Run', 'Swim', 'Hike', 'Row'] })
     );
-    expect(snap.recordShortcuts).toHaveLength(3);
-    expect(snap.recordShortcuts.map((s) => s.type)).toEqual(['Ride', 'Run', 'Swim']);
+    expect(snap.launcherShortcuts).toHaveLength(3);
+    expect(snap.launcherShortcuts.map((s) => s.type)).toEqual(['Ride', 'Run', 'Swim']);
   });
 
   it('drops blanks and duplicates, so no surface gets an empty path or a repeat', () => {
     const snap = composeSnapshot(raw({ recentRecordingTypes: ['Ride', '  ', 'Ride', ' Run '] }));
     expect(snap.recordShortcuts.map((s) => s.type)).toEqual(['Ride', 'Run']);
+    expect(snap.launcherShortcuts.map((s) => s.type)).toEqual(['Ride', 'Run']);
   });
 
   it('is empty before anything has been recorded, which is the fallback signal', () => {
     expect(composeSnapshot(raw()).recordShortcuts).toEqual([]);
+    expect(composeSnapshot(raw()).launcherShortcuts).toEqual([]);
   });
 });
 
@@ -122,6 +125,8 @@ describe('the Quick Settings tile is the same intent behind the shade', () => {
     expect(TILE_KT).toContain('qsTile');
     expect(TILE_KT).toContain('recordShortcuts');
     expect(SNAPSHOT_KT).toContain('val recordShortcuts: List<RecordShortcut>');
+    // Parsed from the launcher list: the uncapped one is the App Shortcut's.
+    expect(SNAPSHOT_KT).toContain('optJSONArray("launcherShortcuts")');
     expect(SNAPSHOT_KT).toContain('val lastRecordingType: String?');
   });
 

@@ -37,7 +37,7 @@ export function writeWidgetSnapshot(snapshot: WidgetSnapshot): void {
     VeloqWidget.reloadWidgets();
     // The launcher holds its own copy of the shortcut list, so it is pushed
     // rather than read from the file the widgets poll.
-    VeloqWidget.publishRecordShortcuts?.(snapshot.recordShortcuts);
+    VeloqWidget.publishRecordShortcuts?.(snapshot.launcherShortcuts);
   } catch (e) {
     log.warn('writeWidgetSnapshot failed:', e);
   }
