@@ -35,6 +35,7 @@ use rusqlite::{Connection, Result as SqlResult};
 use std::sync::LazyLock;
 
 mod activities;
+pub mod attempts;
 pub use activities::{
     DerivedClear, ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE, ELEVATION_STATE_UNKNOWN,
     ElevationStateCounts, mint_local_activity_id,
@@ -2071,6 +2072,24 @@ pub mod persistent_engine_ffi {
                     e
                 );
             }
+        }
+
+        // Exactly one mint per process, and it is what frees every lease the
+        // last one left behind. A generation costs no clock, so a process that
+        // was killed mid-fetch strands nothing: `attempts::claim_job` reads
+        // any row from an earlier generation as free.
+        match engine.mint_lease_generation() {
+            Ok(generation) => info!(
+                "veloqrs: [PersistentEngine] Lease generation {}",
+                generation
+            ),
+            // A store that cannot mint holds no leases anybody claimed, so the
+            // run goes on with the generation it has rather than refusing to
+            // open over bookkeeping.
+            Err(e) => log::warn!(
+                "veloqrs: [PersistentEngine] Could not mint a lease generation: {:?}",
+                e
+            ),
         }
 
         let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
