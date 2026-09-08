@@ -95,6 +95,33 @@ describe('BackgroundJobsPanel', () => {
     expect(detail(tree, 'elevationBackfill')).toBe('37 still to fetch');
   });
 
+  /**
+   * The resting count is one string shared by every job, and it was written for
+   * the download. A rebuild fetches nothing, so a cutover resting on it read
+   * "1 still to fetch".
+   */
+  it('says a resting cutover is waiting to rebuild, not waiting to fetch', () => {
+    const tree = panel([
+      job('sync'),
+      job('detection'),
+      job('elevationBackfill'),
+      job('cutover', { remaining: 1 }),
+    ]);
+
+    expect(detail(tree, 'cutover')).toBe('Waiting to rebuild your sections');
+  });
+
+  it('reads as not running when the cutover token is clear', () => {
+    const tree = panel([
+      job('sync'),
+      job('detection'),
+      job('elevationBackfill'),
+      job('cutover', { remaining: 0 }),
+    ]);
+
+    expect(detail(tree, 'cutover')).toBe('Not running');
+  });
+
   it('reads as not running when the queue length is unknown', () => {
     const tree = panel([
       job('sync'),
