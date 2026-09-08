@@ -96,7 +96,7 @@ describe('useElevationBackfill', () => {
     const { result } = renderHook(() => useElevationBackfill());
     completed = 7;
     act(() => {
-      jest.advanceTimersByTime(500);
+      jest.advanceTimersByTime(1500);
     });
 
     expect(result.current.completed).toBe(7);
@@ -225,6 +225,74 @@ describe('useElevationBackfill', () => {
     announce('backfillPhase');
 
     expect(read).toHaveBeenCalledTimes(callsAtUnmount);
+  });
+
+  /**
+   * Scenario: the poll is armed while a pass runs, and the only thing that
+   * disarms it is the announce path. A pass that ends without an announcement,
+   * or an engine that stops answering, leaves the interval running against a
+   * state that already reads idle.
+   *
+   * Expected behaviour: the tick that finds the run over is the tick that
+   * stops the polling. The state settling and the poll stopping are the same
+   * event, not two.
+   */
+  it('stops polling once a tick finds the run over', () => {
+    let reads = 0;
+    let running = true;
+    mockGetEngine.mockReturnValue(
+      engineReporting(() => {
+        reads += 1;
+        return running
+          ? { phase: 'fetching', completed: 1, total: 10, failed: 0, percent: 10 }
+          : { phase: 'complete', completed: 10, total: 10, failed: 0, percent: 100 };
+      })
+    );
+
+    const { result } = renderHook(() => useElevationBackfill());
+    expect(result.current.isRunning).toBe(true);
+
+    running = false;
+    act(() => {
+      jest.advanceTimersByTime(1500);
+    });
+    expect(result.current.isRunning).toBe(false);
+
+    const settled = reads;
+    act(() => {
+      jest.advanceTimersByTime(10_000);
+    });
+
+    expect(reads).toBe(settled);
+  });
+
+  /** An engine that cannot answer reads as idle, and that stops the poll too. */
+  it('stops polling when the reads stop answering', () => {
+    let reads = 0;
+    let throwing = false;
+    mockGetEngine.mockReturnValue(
+      engineReporting(() => {
+        reads += 1;
+        if (throwing) throw new Error('engine gone');
+        return { phase: 'fetching', completed: 1, total: 10, failed: 0, percent: 10 };
+      })
+    );
+
+    const { result } = renderHook(() => useElevationBackfill());
+    expect(result.current.isRunning).toBe(true);
+
+    throwing = true;
+    act(() => {
+      jest.advanceTimersByTime(1500);
+    });
+    expect(result.current.isRunning).toBe(false);
+
+    const settled = reads;
+    act(() => {
+      jest.advanceTimersByTime(10_000);
+    });
+
+    expect(reads).toBe(settled);
   });
 });
 
