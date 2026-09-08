@@ -1662,6 +1662,7 @@
     "progressCount": "{{completed}} van {{total}}",
     "progressPercent": "{{percent}}%",
     "remaining": "Nog {{count}} op te halen",
+    "detectionWaiting": "{{count}} activiteiten te controleren",
     "cutoverWaiting": "Wacht op het opnieuw opbouwen van je secties",
     "statePaused": "Gepauzeerd tot de app opnieuw wordt geopend"
   },

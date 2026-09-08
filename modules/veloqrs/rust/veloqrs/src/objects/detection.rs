@@ -464,6 +464,21 @@ impl DetectionManager {
         })
     }
 
+    /// How many stored activities have never been through a detect.
+    ///
+    /// `get_progress` answers only for a run holding the slot now, and the
+    /// phase behind it is process-global and starts at idle, so a relaunch with
+    /// work outstanding reads as nothing to report. This is the durable half,
+    /// counted against the persisted processed set, and it is what a resting
+    /// row on the jobs screen rests on.
+    pub fn awaiting_count(&self) -> Result<u32, VeloqError> {
+        let owed = crate::objects::error::with_engine(|e| e.activities_awaiting_detection())?
+            .map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })?;
+        Ok(owed.try_into().unwrap_or(u32::MAX))
+    }
+
     pub fn get_progress(&self) -> Result<Option<crate::FfiDetectionProgress>, VeloqError> {
         let handle_guard = SECTION_DETECTION_HANDLE
             .lock()

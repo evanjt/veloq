@@ -1662,6 +1662,7 @@
     "progressCount": "{{completed}} vo {{total}}",
     "progressPercent": "{{percent}} %",
     "remaining": "No {{count}} z lade",
+    "detectionWaiting": "{{count}} Aktivitäten zu prüfen",
     "cutoverWaiting": "Wartet auf den Neuaufbau deiner Abschnitte",
     "statePaused": "Pausiert, bis die App wieder geöffnet wird"
   },

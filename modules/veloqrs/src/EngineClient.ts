@@ -583,6 +583,9 @@ class EngineClient implements DelegateHost {
   }
 
   startSectionDetection = (): FfiStartOutcome => detectionDelegates.startSectionDetection(this);
+
+  sectionDetectionAwaiting = (): number | null =>
+    detectionDelegates.sectionDetectionAwaiting(this);
   cancelSectionDetection = (): boolean => detectionDelegates.cancelSectionDetection(this);
 
   pollSectionDetection = (): string => detectionDelegates.pollSectionDetection(this);

@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 22 standalone `#[uniffi::export]` functions plus
- * 267 methods inside `#[uniffi::export] impl` blocks across
+ * 268 methods inside `#[uniffi::export] impl` blocks across
  * 15 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 289 exports (22 standalone + 267 methods)
+ * Total: 290 exports (22 standalone + 268 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -579,10 +579,20 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'DetectionManager',
   },
   {
+    name: 'awaiting_count',
+    camelName: 'awaitingCount',
+    file: 'objects/detection.rs',
+    line: 474,
+    paramCount: 0,
+    returnType: 'Result<u32, VeloqError>',
+    docs: 'How many stored activities have never been through a detect. `get_progress` answers only for a run holding the slot now, and the phase behind it is process-global and starts at idle, so a relaunch with work outstanding reads as nothing to report. This is the durable half, counted against the persisted processed set, and it is what a resting row on the jobs screen rests on.',
+    object: 'DetectionManager',
+  },
+  {
     name: 'get_progress',
     camelName: 'getProgress',
     file: 'objects/detection.rs',
-    line: 467,
+    line: 482,
     paramCount: 0,
     returnType: 'Result<Option<crate::FfiDetectionProgress>, VeloqError>',
     docs: '',
@@ -592,7 +602,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'cancel',
     camelName: 'cancel',
     file: 'objects/detection.rs',
-    line: 491,
+    line: 506,
     paramCount: 0,
     returnType: 'bool',
     docs: "Ask a running detection to stop. Returns whether there was one. Cooperative: the worker checks between stages, so the call returns at once and the run ends on its own clock. A cancel that lands inside the detector's own call discards that work rather than shortening it, which is the same caveat the preview carries and for the same reason: a half-detected catalogue is worse than none.",
@@ -602,7 +612,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'force_redetect',
     camelName: 'forceRedetect',
     file: 'objects/detection.rs',
-    line: 508,
+    line: 523,
     paramCount: 0,
     returnType: 'Result<FfiStartOutcome, VeloqError>',
     docs: 'Force full re-detection by clearing processed activity IDs first. This ensures all activities are re-evaluated against sections. Refuses, and says why, if detection is suspended or already running.',
@@ -612,7 +622,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_config',
     camelName: 'setConfig',
     file: 'objects/detection.rs',
-    line: 559,
+    line: 574,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -622,7 +632,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_config',
     camelName: 'getConfig',
     file: 'objects/detection.rs',
-    line: 565,
+    line: 580,
     paramCount: 0,
     returnType: 'Result<crate::FfiSectionConfig, VeloqError>',
     docs: '',
@@ -632,7 +642,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_match_strictness',
     camelName: 'setMatchStrictness',
     file: 'objects/detection.rs',
-    line: 569,
+    line: 584,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -642,7 +652,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_match_strictness',
     camelName: 'getMatchStrictness',
     file: 'objects/detection.rs',
-    line: 578,
+    line: 593,
     paramCount: 0,
     returnType: 'Result<crate::FfiMatchStrictness, VeloqError>',
     docs: '',
@@ -2968,6 +2978,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'start',
   'lastOutcome',
   'poll',
+  'awaitingCount',
   'getProgress',
   'cancel',
   'forceRedetect',
@@ -3265,6 +3276,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   start: 'start',
   last_outcome: 'lastOutcome',
   poll: 'poll',
+  awaiting_count: 'awaitingCount',
   get_progress: 'getProgress',
   cancel: 'cancel',
   force_redetect: 'forceRedetect',

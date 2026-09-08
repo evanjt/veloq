@@ -64,6 +64,24 @@ export function lastSectionDetectionOutcome(host: DelegateHost): string {
   }
 }
 
+/**
+ * How many stored activities have never been through a detect.
+ *
+ * The progress read answers only for a run holding the slot now, and the phase
+ * behind it is process-global and starts at idle, so a relaunch with work
+ * outstanding reads as nothing to report. This is the durable half. Null means
+ * the engine could not answer, which must not read as nothing left to do.
+ */
+export function sectionDetectionAwaiting(host: DelegateHost): number | null {
+  if (!host.ready) return null;
+  try {
+    return host.timed('sectionDetectionAwaiting', () => host.engine.detection().awaitingCount());
+  } catch (e) {
+    console.error('[Engine] sectionDetectionAwaiting threw:', e);
+    return null;
+  }
+}
+
 export function getSectionDetectionProgress(host: DelegateHost): SectionDetectionProgress | null {
   if (!host.ready) return null;
   return (

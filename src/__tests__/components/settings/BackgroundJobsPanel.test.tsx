@@ -111,6 +111,28 @@ describe('BackgroundJobsPanel', () => {
     expect(detail(tree, 'cutover')).toBe('Waiting to rebuild your sections');
   });
 
+  it('counts what a resting detection has never seen, in its own words', () => {
+    const tree = panel([
+      job('sync'),
+      job('detection', { remaining: 12 }),
+      job('elevationBackfill'),
+      job('cutover'),
+    ]);
+
+    expect(detail(tree, 'detection')).toBe('12 activities to check');
+  });
+
+  it('reads as not running when detection owes nothing', () => {
+    const tree = panel([
+      job('sync'),
+      job('detection', { remaining: 0 }),
+      job('elevationBackfill'),
+      job('cutover'),
+    ]);
+
+    expect(detail(tree, 'detection')).toBe('Not running');
+  });
+
   it('reads as not running when the cutover token is clear', () => {
     const tree = panel([
       job('sync'),

@@ -35,6 +35,7 @@ interface EngineState {
   remaining: number | null;
   cutover: { phase: string; running: boolean } | null;
   cutoverPending: boolean;
+  detectionAwaiting: number | null;
 }
 
 function defaultState(): EngineState {
@@ -47,6 +48,7 @@ function defaultState(): EngineState {
     remaining: null,
     cutover: { phase: 'idle', running: false },
     cutoverPending: false,
+    detectionAwaiting: 0,
   };
 }
 
@@ -68,6 +70,7 @@ function engine() {
     getElevationBackfillRemaining: () => state.remaining,
     getCutoverProgress: () => state.cutover,
     isCutoverPending: () => state.cutoverPending,
+    sectionDetectionAwaiting: () => state.detectionAwaiting,
     getCutoverDiff: () => null,
     subscribe: (event: string, callback: () => void) => {
       const forEvent = listeners.get(event) ?? new Set<() => void>();
@@ -363,5 +366,53 @@ describe('useBackgroundJobs', () => {
 
     expect(result.current).toHaveLength(4);
     expect(result.current.find((job) => job.id === 'cutover')?.remaining).toBeNull();
+  });
+
+  /**
+   * Detection's phase is process-global and starts at idle, so a relaunch with
+   * activities never detected showed the row reporting nothing. The processed
+   * set behind it is persisted, and what is not in it is what a run owes.
+   */
+  it('rests with the activities detection has never seen', () => {
+    state.detectionAwaiting = 12;
+
+    const { result } = jobs();
+    const detection = result.current.find((job) => job.id === 'detection');
+
+    expect(detection?.state).toBe('idle');
+    expect(detection?.remaining).toBe(12);
+  });
+
+  it('rests with nothing owed once every activity has been through a detect', () => {
+    const { result } = jobs();
+
+    expect(result.current.find((job) => job.id === 'detection')?.remaining).toBe(0);
+  });
+
+  it('does not claim a running detect is also waiting', () => {
+    state.detectionAwaiting = 12;
+    state.detectionProgress = { phase: 'analyzing', completed: 3, total: 12, percent: 25 };
+
+    const { result } = jobs();
+    const detection = result.current.find((job) => job.id === 'detection');
+
+    expect(detection?.state).toBe('running');
+    expect(detection?.remaining).toBeNull();
+  });
+
+  it('reports no detection count rather than zero when the read throws', () => {
+    mockGetEngine.mockImplementation(
+      () =>
+        ({
+          ...engine(),
+          sectionDetectionAwaiting: () => {
+            throw new Error('engine gone');
+          },
+        }) as unknown as ReturnType<typeof getEngine>
+    );
+
+    const { result } = jobs();
+
+    expect(result.current.find((job) => job.id === 'detection')?.remaining).toBeNull();
   });
 });

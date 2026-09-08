@@ -11981,6 +11981,16 @@ const FfiConverterTypeBasemapManager = new FfiConverterObject(
 
 export interface DetectionManagerLike {
   /**
+   * How many stored activities have never been through a detect.
+   *
+   * `get_progress` answers only for a run holding the slot now, and the
+   * phase behind it is process-global and starts at idle, so a relaunch with
+   * work outstanding reads as nothing to report. This is the durable half,
+   * counted against the persisted processed set, and it is what a resting
+   * row on the jobs screen rests on.
+   */
+  awaitingCount() /*throws*/ : /*u32*/ number;
+  /**
    * Ask a running detection to stop. Returns whether there was one.
    *
    * Cooperative: the worker checks between stages, so the call returns at
@@ -12042,6 +12052,32 @@ export class DetectionManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeDetectionManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * How many stored activities have never been through a detect.
+   *
+   * `get_progress` answers only for a run holding the slot now, and the
+   * phase behind it is process-global and starts at idle, so a relaunch with
+   * work outstanding reads as nothing to report. This is the durable half,
+   * counted against the persisted processed set, and it is what a resting
+   * row on the jobs screen rests on.
+   */
+  awaitingCount(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_awaiting_count(
+            uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
   }
 
   /**
@@ -20906,6 +20942,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_basemapmanager_set_source_template",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count() !==
+    44567
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count",
     );
   }
   if (

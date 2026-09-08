@@ -37,6 +37,22 @@ const TITLE_KEYS = {
   cutover: 'backgroundJobs.cutover',
 } as const satisfies Record<BackgroundJobId, string>;
 
+/**
+ * What a resting row rests on, per job.
+ *
+ * The count is not the same thing for each of them. The download counts tracks
+ * it has yet to fetch, detection counts activities it has never looked at, and
+ * the rebuild is one unit of work that fetches nothing at all. One shared line
+ * said "still to fetch" for all three, so a resting rebuild read "1 still to
+ * fetch". Sync counts nothing yet and never reaches here.
+ */
+const WAITING_KEYS = {
+  sync: 'backgroundJobs.remaining',
+  detection: 'backgroundJobs.detectionWaiting',
+  elevationBackfill: 'backgroundJobs.remaining',
+  cutover: 'backgroundJobs.cutoverWaiting',
+} as const satisfies Record<BackgroundJobId, string>;
+
 /** The detail line under a job's title: what it is doing, or what waits. */
 function useDetail(job: BackgroundJob): string {
   const { t } = useTranslation();
@@ -57,12 +73,7 @@ function useDetail(job: BackgroundJob): string {
   }
 
   if (job.state === 'idle' && job.remaining !== null && job.remaining > 0) {
-    // The count is what a resting row rests on, and the rebuild is the one job
-    // that counts something other than a download: it is one unit of work and
-    // it fetches nothing, so the shared "still to fetch" line is wrong for it.
-    return job.id === 'cutover'
-      ? t('backgroundJobs.cutoverWaiting')
-      : t('backgroundJobs.remaining', { count: job.remaining });
+    return t(WAITING_KEYS[job.id], { count: job.remaining });
   }
 
   switch (job.state) {
