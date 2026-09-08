@@ -12,6 +12,8 @@
  * answers for one activity in one row.
  */
 
+import type { StartOutcome } from 'veloqrs';
+
 /** Max time to wait for the engine to store the body. */
 const DEFAULT_TIMEOUT_MS = 15_000;
 
