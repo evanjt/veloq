@@ -21,6 +21,16 @@ const CHANNEL = 'cutoverSettled';
  */
 const PHASE_POLL_MS = 500;
 
+/**
+ * Failed reads in a row before the run is settled.
+ *
+ * A read that cannot answer is not a run that has not moved, and treating it
+ * as one left the spinner turning for ever against a destroyed engine or a
+ * library out of step with its bindings. Three, so a transient failure costs
+ * the display nothing and a permanent one ends it inside two seconds.
+ */
+const MAX_FAILED_READS = 3;
+
 const PHASES: CutoverPhase[] = [
   'idle',
   'draining',
@@ -91,25 +101,39 @@ function read(sawRun: boolean): CutoverSummary {
  * The phase alone, carrying the counts through untouched. Returns the same
  * object when nothing moved, so a run that sits in one phase re-renders
  * nothing.
+ *
+ * `failures` counts the reads that could not answer, and is reset by any read
+ * that does. Once it reaches the cap the run is settled: the interval disarms
+ * on `isRunning` and the surfaces that report a live run stop reporting one.
  */
-function phaseOnly(previous: CutoverSummary): CutoverSummary {
+function phaseOnly(previous: CutoverSummary, failures: { count: number }): CutoverSummary {
+  const unreadable = (): CutoverSummary => {
+    failures.count += 1;
+    if (failures.count < MAX_FAILED_READS) return previous;
+    if (!previous.isRunning) return previous;
+    return { ...previous, phase: 'idle', isRunning: false };
+  };
+
   const engine = getEngine();
-  if (!engine) return previous;
+  if (!engine) return unreadable();
+  let progress;
   try {
-    const progress = engine.getCutoverProgress?.();
-    if (!progress) return previous;
-    const phase = narrowPhase(progress.phase);
-    if (phase === previous.phase && progress.running === previous.isRunning) return previous;
-    return {
-      phase,
-      isRunning: progress.running,
-      counts: progress.running ? null : previous.counts,
-      settingsReset: progress.running ? null : previous.settingsReset,
-      sawRun: previous.sawRun,
-    };
+    progress = engine.getCutoverProgress?.();
   } catch {
-    return previous;
+    return unreadable();
   }
+  if (!progress) return unreadable();
+
+  failures.count = 0;
+  const phase = narrowPhase(progress.phase);
+  if (phase === previous.phase && progress.running === previous.isRunning) return previous;
+  return {
+    phase,
+    isRunning: progress.running,
+    counts: progress.running ? null : previous.counts,
+    settingsReset: progress.running ? null : previous.settingsReset,
+    sawRun: previous.sawRun,
+  };
 }
 
 export function useCutoverSummary(): CutoverSummary {
@@ -124,7 +148,13 @@ export function useCutoverSummary(): CutoverSummary {
 
   const running = state.isRunning;
   useEffect(() => {
-    const timer = running ? setInterval(() => setState(phaseOnly), PHASE_POLL_MS) : undefined;
+    if (!running) return undefined;
+    // Per run, so the next one starts on a clean count.
+    const failures = { count: 0 };
+    const timer = setInterval(
+      () => setState((previous) => phaseOnly(previous, failures)),
+      PHASE_POLL_MS
+    );
     return () => clearInterval(timer);
   }, [running]);
 

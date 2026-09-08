@@ -127,7 +127,11 @@ export function useElevationBackfill(): ElevationBackfillState {
     let timer: ReturnType<typeof setInterval> | undefined;
     const follow = (running: boolean) => {
       if (running && timer === undefined) {
-        timer = setInterval(tick, POLL_INTERVAL_MS);
+        // The tick disarms itself, so a pass that ends without an
+        // announcement, and an engine that stops answering and so reads as
+        // idle, both stop the poll rather than leaving it running against a
+        // state that has already settled.
+        timer = setInterval(() => follow(tick().isRunning), POLL_INTERVAL_MS);
       } else if (!running && timer !== undefined) {
         clearInterval(timer);
         timer = undefined;
