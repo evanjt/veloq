@@ -97,3 +97,42 @@ describe('fitContentState', () => {
     expect(fitContentState(small, CONTENT_STATE_MAX_BYTES)).toEqual(small);
   });
 });
+
+/**
+ * Scenario: the payload is sized in the app, not in Node.
+ * Expected behaviour: the byte count uses nothing the React Native runtime is
+ * missing. Jest runs on Node, where `Buffer` is a global and a dependency on it
+ * passes here and throws on a device, so the global is removed for these.
+ */
+describe('sizing the payload without Node', () => {
+  const NodeBuffer = globalThis.Buffer;
+
+  beforeEach(() => {
+    // @ts-expect-error the runtime under test has no Buffer, so neither does this
+    delete globalThis.Buffer;
+  });
+
+  afterEach(() => {
+    globalThis.Buffer = NodeBuffer;
+  });
+
+  it('sizes a payload that carries a trace, which is the path a ride takes', () => {
+    const state = buildContentState({ ...base, status: 'recording', gps: track(4000) });
+
+    expect(state.trace).not.toBeNull();
+    expect(contentStateBytes(state)).toBeLessThanOrEqual(CONTENT_STATE_MAX_BYTES);
+  });
+
+  it('counts UTF-8 bytes, not characters, or a non-ASCII label under-reads the cap', () => {
+    const ascii = { ...base, status: 'recording' as const, gps: [], distanceLabel: 'aaaa' };
+    const twoByte = { ...ascii, distanceLabel: 'éééé' };
+    const threeByte = { ...ascii, distanceLabel: '中中中中' };
+    const fourByte = { ...ascii, distanceLabel: '🚀🚀' };
+
+    const size = (i: typeof ascii) => contentStateBytes(buildContentState(i));
+
+    expect(size(twoByte) - size(ascii)).toBe(4);
+    expect(size(threeByte) - size(ascii)).toBe(8);
+    expect(size(fourByte) - size(ascii)).toBe(4);
+  });
+});
