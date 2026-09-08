@@ -7,7 +7,7 @@
 // Iteration inside a function is covered by clippy::iter_over_hash_type. This
 // covers the return type, which that lint does not see.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOTS = [
@@ -22,8 +22,19 @@ function rustFiles(path) {
   return readdirSync(path).flatMap((entry) => rustFiles(join(path, entry)));
 }
 
+// Both roots live inside the tracematch submodule, and a fresh worktree cannot
+// populate it (the pointer is unpushed), so most sessions run with the
+// directory absent. Statting it threw an uncaught ENOENT that read as a broken
+// repository and took the seven `npm run audit` checks after this one down
+// with it. An absent submodule is not a clean check, so say which it is.
+const present = ROOTS.filter((root) => existsSync(root));
+if (present.length === 0) {
+  console.log('tracematch not checked out, detector ordering not checked.');
+  process.exit(0);
+}
+
 const failures = [];
-for (const root of ROOTS) {
+for (const root of present) {
   for (const file of rustFiles(root)) {
     const lines = readFileSync(file, 'utf8').split('\n');
     lines.forEach((line, i) => {
