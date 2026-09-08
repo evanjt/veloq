@@ -31,3 +31,18 @@ strip = false
 [profile.dev]
 debug = "line-tables-only"
 split-debuginfo = "unpacked"
+
+# The synthetic tests are detector compute, and at opt-level 0 that compute is
+# the whole CI job: 79 binaries took 33 minutes on a four-core runner and the
+# recut test in `named_corridors` was still running 18 minutes later, so the
+# suite never finished inside its cap. Measured on 32 threads, the four slowest
+# binaries fall from 364 s to 55 s and 63 CPU-minutes to 7.6 when the
+# dependencies are optimised, and the whole suite is 20 CPU-minutes. veloqrs
+# itself stays at opt-level 0, so its own code still compiles fast and keeps
+# every debug assertion. `package."*"` skips workspace members, which is why
+# tracematch is named on its own.
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev.package.tracematch]
+opt-level = 3

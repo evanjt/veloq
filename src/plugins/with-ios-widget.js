@@ -38,6 +38,15 @@ const LIVE_ACTIVITY_SHARED_FILES = [
 
 const LIVE_ACTIVITY_MODULE_DIR = path.join("modules", "veloq-live-activity", "ios");
 
+/**
+ * Swift compiled by BOTH the app and the widget extension, from
+ * `widget/ios/shared/`. `AppShortcutsProvider` has to be in the app target for
+ * Siri and Shortcuts to surface the phrase, and the deep-link rule it uses is
+ * the extension's too, so one file goes to both rather than two files drifting.
+ */
+const SHARED_DIR = path.join("widget", "ios", "shared");
+const SHARED_APP_FILES = ["RecordDeepLink.swift", "VeloqAppShortcuts.swift"];
+
 function copySharedLiveActivitySources(srcDir, destDir) {
   fs.mkdirSync(destDir, { recursive: true });
   for (const name of LIVE_ACTIVITY_SHARED_FILES) {
@@ -65,13 +74,23 @@ function widgetSwiftFiles(projectRoot) {
   const tracked = fs
     .readdirSync(path.join(projectRoot, "widget", "ios", TARGET))
     .filter((f) => f.endsWith(".swift"));
-  return tracked.includes(BUNDLES_FILE) ? tracked : [...tracked, BUNDLES_FILE];
+  const withBundles = tracked.includes(BUNDLES_FILE) ? tracked : [...tracked, BUNDLES_FILE];
+  // The extension needs the shared link rule; it does not need the App Shortcut,
+  // whose provider only counts in the app target.
+  return [...withBundles, "RecordDeepLink.swift"];
 }
 
 function writeWidgetBundles(destDir, includeRecord = INCLUDE_RECORD_WIDGET) {
-  const record = includeRecord ? "\n    VeloqRecordWidget()" : "";
-  // The Live Activity is 16.2, the bundle body is not, so it is gated inside the
-  // result builder rather than on the bundle itself.
+  // The Control rides the same gate as the widget: one record surface off means
+  // every record surface off. It is iOS 18 and the bundle body is not, so it is
+  // gated inside the result builder, the way the Live Activity is gated at 16.2.
+  const record = includeRecord
+    ? `
+    VeloqRecordWidget()
+    if #available(iOS 18.0, *) {
+      VeloqRecordControl()
+    }`
+    : "";
   const liveActivity = `
     if #available(iOS 16.2, *) {
       VeloqRecordingLiveActivity()
@@ -143,6 +162,19 @@ function withWidgetFiles(config) {
       copyDir(src, dest);
       pruneRemoved(src, dest);
       writeWidgetBundles(dest);
+
+      // The shared files land in both target directories: the extension reads
+      // its copy beside the widget sources, the app reads its own.
+      const shared = path.join(cfg.modRequest.projectRoot, SHARED_DIR);
+      const appDir = path.join(cfg.modRequest.platformProjectRoot, cfg.modRequest.projectName);
+      fs.mkdirSync(appDir, { recursive: true });
+      for (const name of SHARED_APP_FILES) {
+        fs.copyFileSync(path.join(shared, name), path.join(appDir, name));
+      }
+      fs.copyFileSync(
+        path.join(shared, "RecordDeepLink.swift"),
+        path.join(dest, "RecordDeepLink.swift")
+      );
       copySharedLiveActivitySources(
         src,
         path.join(cfg.modRequest.projectRoot, LIVE_ACTIVITY_MODULE_DIR)
@@ -188,14 +220,14 @@ function compiledSourceNames(proj, targetUuid) {
  * The target survives every prebuild after the first, so without this a file
  * added to widget/ios is copied into ios/ and then never compiled.
  */
-function addMissingSourceFiles(proj, targetUuid, swiftFiles) {
+function addMissingSourceFiles(proj, targetUuid, swiftFiles, groupName = TARGET) {
   const compiled = compiledSourceNames(proj, targetUuid);
   const missing = swiftFiles.filter((f) => !compiled.has(f));
   if (missing.length === 0) return;
 
-  let groupUuid = proj.findPBXGroupKey({ name: TARGET });
+  let groupUuid = proj.findPBXGroupKey({ name: groupName });
   if (!groupUuid) {
-    const group = proj.addPbxGroup([], TARGET, TARGET);
+    const group = proj.addPbxGroup([], groupName, groupName);
     proj.addToPbxGroup(group.uuid, proj.getFirstProject().firstProject.mainGroup);
     groupUuid = group.uuid;
   }
@@ -211,6 +243,13 @@ function withWidgetTarget(config) {
     // The phase helpers key off the target uuid, and pbxTargetByName returns
     // the target object instead. Passing that through resolves to the FIRST
     // sources phase in the project, which belongs to the app.
+    // The App Shortcut and the link rule it uses belong to the app target, and
+    // the app target already exists on every prebuild, so this runs either way.
+    const appTargetUuid = targetUuidByName(proj, cfg.modRequest.projectName);
+    if (appTargetUuid) {
+      addMissingSourceFiles(proj, appTargetUuid, SHARED_APP_FILES, cfg.modRequest.projectName);
+    }
+
     const existingTargetUuid = targetUuidByName(proj, TARGET);
     if (existingTargetUuid) {
       addMissingSourceFiles(proj, existingTargetUuid, swiftFiles);
@@ -279,3 +318,5 @@ module.exports.copySharedLiveActivitySources = copySharedLiveActivitySources;
 module.exports.LIVE_ACTIVITY_SHARED_FILES = LIVE_ACTIVITY_SHARED_FILES;
 module.exports.widgetSwiftFiles = widgetSwiftFiles;
 module.exports.BUNDLES_FILE = BUNDLES_FILE;
+module.exports.SHARED_APP_FILES = SHARED_APP_FILES;
+module.exports.SHARED_DIR = SHARED_DIR;

@@ -997,7 +997,10 @@
     "returnToRecording": "Tilbage til optagelsen",
     "batteryOptNudge": "Lange optagelser fungerer bedst med batterioptimering slået fra for Veloq.",
     "batteryOptOpenSettings": "Åbn batteriindstillinger",
-    "writeScopeNotGranted": "Skrivetilladelse blev ikke givet"
+    "writeScopeNotGranted": "Skrivetilladelse blev ikke givet",
+    "signInRequired": "Log ind for at optage",
+    "signInDescription": "Optagelse kræver din intervals.icu-konto, så turen har et sted at ligge.",
+    "signInAction": "Log ind"
   },
   "routeDetail": {
     "routeNotFound": "Rute ikke fundet"

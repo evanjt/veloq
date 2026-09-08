@@ -12,7 +12,7 @@ import java.io.File
  * Version skew happens in both directions, so every field added after schema 2 is
  * nullable with a hide/neutral default.
  *
- * Shape mirrors `src/features/home/lib/widgetSnapshot.ts` (schema version 4).
+ * Shape mirrors `src/features/home/lib/widgetSnapshot.ts` (schema version 6).
  */
 private const val SNAPSHOT_FILE = "widget-snapshot.json"
 
@@ -71,6 +71,9 @@ data class SummaryCard(
   val sparkline: String,
 )
 
+/** One recent sport: the id a deep link needs and the name a surface shows. */
+data class RecordShortcut(val type: String, val label: String, val url: String)
+
 data class WidgetSnapshot(
   val form: Metric,
   val fitness: Metric,
@@ -98,7 +101,17 @@ data class WidgetSnapshot(
    * than as 1970.
    */
   val generatedAt: Long,
+  /**
+   * Recent sports, most recent first, pre-localised. Empty on a snapshot written
+   * before schema 6, or before anything was recorded, which sends every record
+   * surface to the picker instead.
+   */
+  val recordShortcuts: List<RecordShortcut>,
 ) {
+  /** The one a single-sport surface starts. */
+  val lastRecordingType: String?
+    get() = recordShortcuts.firstOrNull()?.type
+
   companion object {
     fun read(context: Context): WidgetSnapshot? {
       return try {
@@ -153,7 +166,23 @@ data class WidgetSnapshot(
         fatigueSparkline = floatArray(sparklines?.optJSONArray("fatigue")),
         hrvSparkline = floatArray(sparklines?.optJSONArray("hrv")),
         formZones = stringArray(sparklines?.optJSONArray("formZones")),
+        recordShortcuts = parseRecordShortcuts(root),
       )
+    }
+
+    private fun parseRecordShortcuts(root: JSONObject): List<RecordShortcut> {
+      // The launcher list, not the full one: a long press shows three and the
+      // widgets take the head of the same order.
+      val arr = root.optJSONArray("launcherShortcuts") ?: return emptyList()
+      val out = ArrayList<RecordShortcut>(arr.length())
+      for (i in 0 until arr.length()) {
+        val o = arr.optJSONObject(i) ?: continue
+        val type = o.optString("type", "")
+        val url = o.optString("url", "")
+        if (type.isEmpty() || url.isEmpty()) continue
+        out.add(RecordShortcut(type, o.optString("label", "").ifEmpty { type }, url))
+      }
+      return out
     }
 
     private fun metric(parent: JSONObject, key: String): Metric {

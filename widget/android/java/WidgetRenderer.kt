@@ -309,9 +309,10 @@ object WidgetRenderer {
 
     // One gate with the standalone Quick-Record widget: INCLUDE_RECORD_WIDGET in
     // with-android-widget.js writes this bool and drops that receiver together.
+    // On since 2026-09-08, so the branch is the off switch rather than the state.
     if (context.resources.getBoolean(R.bool.widget_record_enabled)) {
       v.setViewVisibility(R.id.large_record, View.VISIBLE)
-      v.setOnClickPendingIntent(R.id.large_record, recordIntent(context))
+      v.setOnClickPendingIntent(R.id.large_record, recordIntent(context, snap))
     } else {
       v.setViewVisibility(R.id.large_record, View.GONE)
     }
@@ -371,14 +372,29 @@ object WidgetRenderer {
 
   // ---- intents ------------------------------------------------------------------
 
-  fun recordIntent(context: Context): PendingIntent = deepLink(context, "veloq://record", 0)
+  /**
+   * A tap on record starts the ride, so it takes the deep link the snapshot
+   * carries for the most recent sport. The picker is the fallback and nothing
+   * else: with no sport known there is no recording screen to open.
+   */
+  const val RECORD_PICKER_URL = "veloq://record"
+
+  fun recordUrl(snap: WidgetSnapshot?): String =
+    snap?.recordShortcuts?.firstOrNull()?.url ?: RECORD_PICKER_URL
+
+  fun recordIntent(context: Context, snap: WidgetSnapshot?): PendingIntent =
+    deepLink(context, recordUrl(snap), 0)
 
   private fun deepLink(context: Context, url: String, requestCode: Int): PendingIntent {
     val intent =
       Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
         `package` = context.packageName
       }
-    return PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_IMMUTABLE)
+    // The record URL follows the last sport, so a cached intent for one request
+    // code has to be rewritten rather than handed back with its old data.
+    return PendingIntent.getActivity(
+      context, requestCode, intent,
+      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
   }
 
   private fun bindCycleTap(context: Context, v: RemoteViews, id: Int, widgetId: Int) {

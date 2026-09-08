@@ -69,31 +69,39 @@ struct VeloqWidget: Widget {
   }
 }
 
-// MARK: - Quick-Record widget (flagged off)
+// MARK: - Quick-Record widget
 
-// Kept compiled but NOT in either bundle body below: the record surface isn't
-// ready for the gallery yet. Restore by adding VeloqRecordWidget() back to the
-// bundles. Static content, renders purely from the generated WidgetTheme.Record
-// chrome; the whole widget deep-links into the record screen.
+// In both generated bundle bodies since INCLUDE_RECORD_WIDGET went true; the
+// plugin drops it from them again if the flag goes back off. The chrome renders
+// purely from the generated WidgetTheme.Record
+// values; the snapshot is read for one field, the last recorded sport, which
+// decides whether the tap starts a ride or opens the picker.
 struct RecordEntry: TimelineEntry {
   let date: Date
+  let url: URL
 }
 
 struct RecordProvider: TimelineProvider {
   func placeholder(in context: Context) -> RecordEntry {
-    RecordEntry(date: Date())
+    RecordEntry(date: Date(), url: RecordDeepLink.picker)
   }
 
   func getSnapshot(in context: Context, completion: @escaping (RecordEntry) -> Void) {
-    completion(RecordEntry(date: Date()))
+    completion(entry())
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<RecordEntry>) -> Void) {
-    completion(Timeline(entries: [RecordEntry(date: Date())], policy: .never))
+    completion(Timeline(entries: [entry()], policy: .never))
+  }
+
+  private func entry() -> RecordEntry {
+    RecordEntry(date: Date(), url: RecordDeepLink.url(for: WidgetSnapshotStore.load()))
   }
 }
 
 struct RecordWidgetView: View {
+  let url: URL
+
   var body: some View {
     VStack(spacing: WidgetTheme.Layout.gap) {
       ZStack {
@@ -109,7 +117,7 @@ struct RecordWidgetView: View {
         .foregroundColor(WidgetTheme.Record.foreground)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .widgetURL(URL(string: "veloq://record"))
+    .widgetURL(url)
     .widgetBackground(
       LinearGradient(
         colors: [WidgetTheme.Record.gradientStart, WidgetTheme.Record.gradientEnd],
@@ -121,8 +129,8 @@ struct VeloqRecordWidget: Widget {
   let kind = "VeloqRecordWidget"
 
   var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: RecordProvider()) { _ in
-      RecordWidgetView()
+    StaticConfiguration(kind: kind, provider: RecordProvider()) { entry in
+      RecordWidgetView(url: entry.url)
     }
     .configurationDisplayName("Record")
     .description("Start recording an activity.")

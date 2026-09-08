@@ -6,6 +6,7 @@ export {
 export { ControlBar } from './ControlBar';
 export { DataFieldGrid } from './DataFieldGrid';
 export { GpsSignalIndicator } from './GpsSignalIndicator';
+export { RecordingGate } from './RecordingGate';
 export { IndoorDisplay } from './IndoorDisplay';
 export { ManualEntry } from './ManualEntry';
 export { RecordingTitle } from './RecordingTitle';

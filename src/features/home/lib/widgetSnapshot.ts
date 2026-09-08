@@ -26,6 +26,8 @@ import {
   formatSwimPace,
 } from '@/shared/format';
 import { getEngine } from '@/shared/native/engine';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { getRecentRecordingTypes } from '@/shared/recording';
 import type { WidgetSnapshotData } from 'veloqrs';
 import { widgetActivityTint, widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
@@ -33,7 +35,7 @@ import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import { useDashboardPreferences, type SummaryCardPreferences } from '../store';
 import { TREND_DEADBAND, trendDirection } from '@/shared/format/trend';
 
-export const WIDGET_SNAPSHOT_SCHEMA_VERSION = 4;
+export const WIDGET_SNAPSHOT_SCHEMA_VERSION = 6;
 
 /** Trailing wellness window the widget sparklines cover. */
 const SPARKLINE_DAYS = 30;
@@ -142,6 +144,31 @@ export interface WidgetDisplay {
   impactLine: string | null;
 }
 
+/**
+ * One recent sport: the id, the name a surface shows, and the deep link that
+ * starts it. The URL is composed here and nowhere else, so no native holds a
+ * second copy of the rule and no surface can drift from the others.
+ */
+export interface WidgetRecordShortcut {
+  type: string;
+  label: string;
+  url: string;
+}
+
+/** Where a record surface goes when no sport is known: the picker, as before. */
+export const RECORD_PICKER_URL = 'veloq://record';
+
+/**
+ * Marks a link that came from outside the app. The recording screen reads it to
+ * decide whether the Always location dialog has earned itself: an athlete who
+ * starts from a home screen has just shown they want to start without the app in
+ * front, and an in-app start has shown nothing of the kind.
+ */
+export const QUICK_START_MARK = 'from=quickstart';
+
+/** What a launcher will show on a long press, and what that list is capped at. */
+export const RECORD_SHORTCUT_LIMIT = 3;
+
 export interface WidgetSnapshot {
   schemaVersion: number;
   /** Unix seconds. */
@@ -182,6 +209,20 @@ export interface WidgetSnapshot {
   summaryCard: WidgetSummaryCard | null;
   display: WidgetDisplay;
   theme: { light: WidgetPalette; dark: WidgetPalette };
+  /**
+   * The recent sports, most recent first, pre-localised. One source for every
+   * record surface: the widgets and the iOS control take the head, the Android
+   * launcher publishes the list as dynamic shortcuts and the Quick Settings tile
+   * draws the head's label. Empty until something has been recorded, which is
+   * the signal to fall back to the picker.
+   */
+  recordShortcuts: WidgetRecordShortcut[];
+  /**
+   * The head of `recordShortcuts`, capped at what a launcher will show on a long
+   * press. Carried rather than derived natively so the cap is decided once, and
+   * so a Siri phrase can offer every sport while the icon offers three.
+   */
+  launcherShortcuts: WidgetRecordShortcut[];
 }
 
 // Minimal structural shapes of the engine returns we consume, kept local so this
@@ -236,6 +277,8 @@ export interface RawWidgetData {
   nowSeconds: number;
   /** i18n lookup; falls back to the raw key when absent (pure-test safe). */
   translate?: (key: string) => string;
+  /** Recent sports, most recent first. Blanks and repeats are dropped here. */
+  recentRecordingTypes?: string[] | null;
 }
 
 // The default for the integer point metrics: fitness, fatigue and resting HR.
@@ -306,6 +349,7 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
   const latest = composeLatest(raw);
   const impact = composeImpact(raw, fitness, fatigue, form, latest);
   const t = raw.translate ?? ((k: string) => k);
+  const shortcuts = composeRecordShortcuts(raw.recentRecordingTypes, t);
 
   return {
     schemaVersion: WIDGET_SNAPSHOT_SCHEMA_VERSION,
@@ -341,7 +385,37 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
     summaryCard: composeSummaryCard(raw, t),
     display: buildDisplay(t, impact, getFormZone(num(form[form.length - 1]))),
     theme: { light: widgetPalette.light, dark: widgetPalette.dark },
+    recordShortcuts: shortcuts,
+    launcherShortcuts: shortcuts.slice(0, RECORD_SHORTCUT_LIMIT),
   };
+}
+
+/**
+ * A blank sport is no sport and a repeat is one entry, so no surface gets an
+ * empty path or the same sport twice. Labels come from the translations the app
+ * already carries, which is why no native holds a sport-to-name map.
+ *
+ * Uncapped on purpose: a Siri phrase offers every sport the athlete records, and
+ * `launcherShortcuts` is where the launcher's three come from.
+ */
+function composeRecordShortcuts(
+  types: string[] | null | undefined,
+  t: (key: string) => string
+): WidgetRecordShortcut[] {
+  const seen = new Set<string>();
+  const out: WidgetRecordShortcut[] = [];
+  for (const raw of types ?? []) {
+    const type = typeof raw === 'string' ? raw.trim() : '';
+    if (type.length === 0 || seen.has(type)) continue;
+    seen.add(type);
+    const label = t(`activityTypes.${type}`);
+    out.push({
+      type,
+      label: label === `activityTypes.${type}` ? type : label,
+      url: `veloq://recording/${encodeURIComponent(type)}?${QUICK_START_MARK}`,
+    });
+  }
+  return out;
 }
 
 /** Form metric with its zone, so natives colour by enum and never do TSB maths. */
@@ -634,7 +708,20 @@ export function gatherWidgetSnapshot(opts: {
     isMetric: opts.isMetric,
     nowSeconds,
     translate: opts.translate,
+    // No account, no shortcuts. Every one-tap surface starts a ride directly, so
+    // leaving a stale one on a launcher would walk straight past the sign-in
+    // gate, and clearing them is also what takes them off the icon on sign-out.
+    recentRecordingTypes: signedIn() ? getRecentRecordingTypes() : [],
   });
+}
+
+/** Whether anyone is signed in; a failed read counts as nobody. */
+function signedIn(): boolean {
+  try {
+    return useAuthStore.getState().authMethod != null;
+  } catch {
+    return false;
+  }
 }
 
 /** Current and previous ISO-week (Monday to today) bounds, mirroring useStartupData. */

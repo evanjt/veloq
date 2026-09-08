@@ -37,12 +37,25 @@ unset GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX GIT_CEILING_DIRECTORIES GIT_CO
 # ceiling that way and failed the next session's merge rather than the commit
 # that made them. `lint` cannot be skipped, because it is what carries the
 # ceiling.
+#
+# Two of the gates are scoped to the commit rather than the tree, because the
+# whole-tree form of each was the hook's entire wall clock. Measured on a quiet
+# machine: the full suite 44.3 s against 0.8 s for the tests the change reaches,
+# and `format:check` 7.2 s globbing `src/` against the staged paths read out of
+# the index. The gates run together, so the suite was the hook and the other
+# four finished inside it.
+#
+# Neither is the only copy. The full suite runs in CI on every pull request, a
+# merge runs the suites it touched through check-merge-tests.sh, and the same
+# staged-path format check is what the merge hook uses. What is lost is a test
+# that breaks for a reason `--onlyChanged` cannot trace through the import
+# graph, and that is CI's to catch.
 gates_rc=0
 ./scripts/run-gates.sh \
-  "audit:npm run audit" \
+  "audit:./scripts/check-merge-format.sh && npm run audit:guards" \
   "tsc:npx tsc --noEmit" \
   "lint:npm run lint:cached" \
-  "test:npm test" \
+  "test:npm run test:changed" \
   "rustfmt:npm run lint:rust-fmt" || gates_rc=$?
 
 ./scripts/check-staged-tree.sh verify "$staged_tree"

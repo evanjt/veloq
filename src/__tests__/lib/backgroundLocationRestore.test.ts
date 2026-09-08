@@ -21,6 +21,7 @@ jest.mock('expo-location', () => ({
   Accuracy: { BestForNavigation: 6 },
   ActivityType: { Fitness: 3 },
   startLocationUpdatesAsync: jest.fn(),
+  hasStartedLocationUpdatesAsync: jest.fn(async () => true),
   stopLocationUpdatesAsync: jest.fn(),
 }));
 

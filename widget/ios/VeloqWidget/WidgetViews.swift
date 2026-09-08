@@ -902,12 +902,10 @@ struct LargeWidgetView: View {
         footerMetric(snapshot?.display.metricLabels.rhr ?? "RHR", rhr)
       }
       Spacer()
-      if let url = URL(string: "veloq://record") {
-        Link(destination: url) {
-          Image(systemName: "record.circle")
-            .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
-            .foregroundColor(palette.primary)
-        }
+      Link(destination: RecordDeepLink.url(for: snapshot)) {
+        Image(systemName: "record.circle")
+          .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
+          .foregroundColor(palette.primary)
       }
     }
   }
