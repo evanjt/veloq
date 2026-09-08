@@ -1,40 +1,20 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, ScrollView } from 'react-native';
 import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { router } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing } from '@/theme';
 import { NotificationSection } from '@/features/settings/components';
 
 export default function NotificationSettingsScreen() {
-  const { t } = useTranslation();
   const { isDark } = useTheme();
 
   return (
     <ScreenErrorBoundary screenName="NotificationSettings">
-      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView
+        hasNativeHeader
+        style={[styles.container, isDark && styles.containerDark]}
+      >
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backButton}
-              accessibilityLabel={t('common.back')}
-              accessibilityRole="button"
-            >
-              <MaterialCommunityIcons
-                name="arrow-left"
-                size={24}
-                color={isDark ? colors.textOnDark : colors.textPrimary}
-              />
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-              {t('notifications.settings.title')}
-            </Text>
-            <View style={styles.headerSpacer} />
-          </View>
-
           <NotificationSection />
         </ScrollView>
       </ScreenSafeAreaView>
@@ -52,25 +32,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: layout.screenPadding,
-    paddingVertical: spacing.md,
-  },
-  backButton: {
-    padding: spacing.xs,
-    marginLeft: -spacing.xs,
-  },
-  headerTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  headerSpacer: {
-    width: 32,
   },
   textLight: {
     color: colors.textOnDark,

@@ -10,9 +10,7 @@
  * const shared = createSharedStyles(isDark);
  *
  * <View style={shared.container}>
- *   <View style={shared.header}>
- *     <Text style={shared.headerTitle}>Title</Text>
- *   </View>
+ *   <Text style={shared.screenTitle}>Title</Text>
  * </View>
  * ```
  */
@@ -64,29 +62,18 @@ const buildSharedStyles = (isDark: boolean) => {
     },
 
     // =========================================================================
-    // HEADER
+    // SCREEN TITLE
     // =========================================================================
 
-    /** Standard screen header row */
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: layout.screenPadding,
-      paddingVertical: spacing.md,
-    },
-
-    /** Header title text */
-    headerTitle: {
+    /**
+     * In-page title for a tab screen, which has no native stack header of its
+     * own. Every pushed screen takes the platform's header instead, so there
+     * is no shared header row or back button here any more.
+     */
+    screenTitle: {
       ...typography.cardTitle,
       color: isDark ? darkColors.textPrimary : colors.textPrimary,
     } as TextStyle,
-
-    /** Back button touchable area */
-    backButton: {
-      padding: spacing.xs,
-      marginLeft: -spacing.xs,
-    },
 
     // =========================================================================
     // TEXT STYLES

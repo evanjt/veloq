@@ -1,13 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  Pressable,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
 import { router, type Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -69,24 +61,10 @@ export default function DetectionSettingsScreen() {
 
   return (
     <ScreenSafeAreaView
+      hasNativeHeader
       testID="detection-settings-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
-      <View style={styles.header}>
-        <TouchableOpacity
-          testID="detection-settings-back"
-          onPress={() => router.back()}
-          style={styles.backButton}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.back')}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: textPrimary }]}>
-          {t('settings.sectionDetection')}
-        </Text>
-      </View>
-
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -217,23 +195,6 @@ const styles = StyleSheet.create({
   toggleLabel: {
     ...typography.body,
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
-  },
-  headerTitle: {
-    ...typography.sectionTitle,
-    fontWeight: '600',
   },
   content: {
     paddingHorizontal: spacing.md,

@@ -2,7 +2,7 @@
   "~app -> recording": 61,
   "~app -> routes": 59,
   "~app -> settings": 37,
-  "~app -> activity": 22,
+  "~app -> activity": 21,
   "routes -> maps": 22,
   "~app -> maps": 20,
   "activity -> maps": 20,
