@@ -997,7 +997,10 @@
     "returnToRecording": "Zurück zur Aufzeichnung",
     "batteryOptNudge": "Lange Aufzeichnungen funktionieren am besten, wenn die Akku-Optimierung für Veloq deaktiviert ist.",
     "batteryOptOpenSettings": "Akku-Einstellungen öffnen",
-    "writeScopeNotGranted": "Schreibberechtigung wurde nicht erteilt"
+    "writeScopeNotGranted": "Schreibberechtigung wurde nicht erteilt",
+    "signInRequired": "Zum Aufzeichnen anmelden",
+    "signInDescription": "Für die Aufzeichnung wird dein intervals.icu-Konto benötigt, damit die Fahrt einen Platz hat.",
+    "signInAction": "Anmelden"
   },
   "routeDetail": {
     "routeNotFound": "Route nicht gefunden"

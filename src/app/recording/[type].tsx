@@ -33,7 +33,12 @@ import { useKmSplitBannerEffect } from '@/features/recording/hooks/useKmSplitBan
 import { useHrZoneColorEffect } from '@/features/recording/hooks/useHrZoneColorEffect';
 import { useGpsSessionEffect } from '@/features/recording/hooks/useGpsSessionEffect';
 import { useInitRecordingEffect } from '@/features/recording/hooks/useInitRecordingEffect';
-import { useAlwaysLocationPrompt } from '@/features/recording';
+import {
+  RecordingGate,
+  useAlwaysLocationPrompt,
+  useCanRecord,
+  usePermissionUpgrade,
+} from '@/features/recording';
 import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKeepAwake';
 import { useSensorSession, useSensorIssue } from '@/features/sensors';
 import { useConsensusRoute } from '@/features/routes/hooks/useEngine';
@@ -52,6 +57,11 @@ export default function RecordingScreen() {
     pairedEventId?: string;
     from?: string;
   }>();
+
+  // Every one-tap surface deep-links here rather than to the picker, so the gate
+  // the picker applies has to be applied here too or it is not a gate at all.
+  const { canRecord, reason } = useCanRecord();
+  const { upgradePermissions, isUpgrading, error: upgradeError } = usePermissionUpgrade();
 
   const activityType = type as ActivityType;
   const mode = getRecordingMode(activityType);
@@ -122,8 +132,9 @@ export default function RecordingScreen() {
     setGpsWarning,
     onDiscard: handleDiscard,
   });
-  useInitRecordingEffect(status, activityType, mode, pairedEventId);
-  useAlwaysLocationPrompt(from === 'quickstart', status);
+  useInitRecordingEffect(status, activityType, mode, pairedEventId, canRecord);
+  // Nothing to ask for on a ride that never started.
+  useAlwaysLocationPrompt(canRecord && from === 'quickstart', status);
   useSensorSession();
   const sensorIssue = useSensorIssue();
 
@@ -160,6 +171,21 @@ export default function RecordingScreen() {
 
   // Read current activity type from store (may change during recording)
   const currentActivityType = useRecordingStore((s) => s.activityType) ?? activityType;
+
+  // Before anything else, including the manual entry form: a ride that cannot be
+  // uploaded should not be started or typed in either.
+  if (!canRecord && reason !== 'ok') {
+    return (
+      <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top }]}>
+        <RecordingGate
+          reason={reason}
+          onGrantAccess={upgradePermissions}
+          isUpgrading={isUpgrading}
+          error={upgradeError}
+        />
+      </View>
+    );
+  }
 
   if (mode === 'manual') {
     return (

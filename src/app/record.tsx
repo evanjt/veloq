@@ -32,7 +32,7 @@ import {
   clearRecordingBackup,
 } from '@/features/recording/lib/storage/recordingBackup';
 import { BatteryOptimisationNudge } from '@/features/recording/components/BatteryOptimisationNudge';
-import { GrantAccessButton } from '@/features/recording/components/GrantAccessButton';
+import { RecordingGate } from '@/features/recording';
 import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
 import { getEngine } from '@/shared/native/engine';
 import { readCalendarEvents } from '@/features/home/lib/calendarEvents';
@@ -255,32 +255,17 @@ export default function RecordScreen() {
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
 
-  // Permission gate: show upgrade screen instead of activity picker
-  if (!canRecord && reason === 'no_permission') {
+  // Permission gate: the reason decides which one, and both live in the feature
+  // because the recording screen has to render the same answer.
+  if (!canRecord && reason !== 'ok') {
     return (
       <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
-        <View style={styles.permissionGate}>
-          <MaterialCommunityIcons name="shield-lock-outline" size={48} color={colors.warning} />
-          <Text style={[styles.permissionTitle, { color: textPrimary }]}>
-            {t('recording.writePermissionRequired', 'Write permission required')}
-          </Text>
-          <Text style={[styles.permissionDescription, { color: textSecondary }]}>
-            {t(
-              'recording.writePermissionDescription',
-              'Recording requires write permission. Tap below to grant access.'
-            )}
-          </Text>
-          <GrantAccessButton
-            testID="record-grant-access"
-            onPress={upgradePermissions}
-            loading={isUpgrading}
-          />
-          {upgradeError ? (
-            <Text style={styles.permissionError} numberOfLines={2}>
-              {upgradeError}
-            </Text>
-          ) : null}
-        </View>
+        <RecordingGate
+          reason={reason}
+          onGrantAccess={upgradePermissions}
+          isUpgrading={isUpgrading}
+          error={upgradeError}
+        />
       </ScreenSafeAreaView>
     );
   }
@@ -623,28 +608,5 @@ const styles = StyleSheet.create({
   },
   typeLabel: {
     ...typography.body,
-  },
-  permissionGate: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
-    gap: spacing.md,
-  },
-  permissionTitle: {
-    fontSize: typography.statsValue.fontSize,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-  permissionDescription: {
-    fontSize: typography.bodyMedium.fontSize,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  permissionError: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.errorDark,
-    textAlign: 'center',
   },
 });

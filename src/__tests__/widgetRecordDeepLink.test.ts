@@ -122,6 +122,8 @@ describe('the gather path reads the sports the recording preferences published',
   });
 
   function gatherWith(types: string[]) {
+    // Signed out the gather hands back nothing at all, so sign in first.
+    require('@/shared/app/AuthStore').useAuthStore.setState({ authMethod: 'apiKey' });
     const { setRecentRecordingTypes } = require('@/shared/recording');
     setRecentRecordingTypes(types);
     const { gatherWidgetSnapshot } = require('@/features/home/lib/widgetSnapshot');

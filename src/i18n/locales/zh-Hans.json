@@ -997,7 +997,10 @@
     "returnToRecording": "返回记录",
     "batteryOptNudge": "关闭 Veloq 的电池优化后，长时间记录效果最佳。",
     "batteryOptOpenSettings": "打开电池设置",
-    "writeScopeNotGranted": "未授予写入权限"
+    "writeScopeNotGranted": "未授予写入权限",
+    "signInRequired": "登录后即可记录",
+    "signInDescription": "记录需要你的 intervals.icu 帐户，活动才有地方保存。",
+    "signInAction": "登录"
   },
   "routeDetail": {
     "routeNotFound": "未找到路线"

@@ -5,15 +5,20 @@ import { useRecordingPreferences } from '@/features/recording/stores/RecordingPr
 import type { ActivityType } from '@/features/activity/types';
 import type { RecordingMode, RecordingStatus } from '../types';
 
-// Initialize recording on mount
+/**
+ * Start the recording on mount. `canRecord` is not a courtesy: every one-tap
+ * surface deep-links straight to this screen, so this effect is the only thing
+ * between a signed-out tap and a full ride recorded against no account.
+ */
 export function useInitRecordingEffect(
   status: RecordingStatus,
   activityType: ActivityType,
   mode: RecordingMode,
-  pairedEventId?: string
+  pairedEventId?: string,
+  canRecord: boolean = true
 ) {
   useEffect(() => {
-    if (status === 'idle') {
+    if (canRecord && status === 'idle') {
       useRecordingStore
         .getState()
         .startRecording(activityType, mode, pairedEventId ? Number(pairedEventId) : undefined);

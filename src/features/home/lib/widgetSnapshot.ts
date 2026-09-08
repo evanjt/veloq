@@ -26,6 +26,7 @@ import {
   formatSwimPace,
 } from '@/shared/format';
 import { getEngine } from '@/shared/native/engine';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { getRecentRecordingTypes } from '@/shared/recording';
 import type { WidgetSnapshotData } from 'veloqrs';
 import { widgetActivityTint, widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
@@ -697,8 +698,20 @@ export function gatherWidgetSnapshot(opts: {
     isMetric: opts.isMetric,
     nowSeconds,
     translate: opts.translate,
-    recentRecordingTypes: getRecentRecordingTypes(),
+    // No account, no shortcuts. Every one-tap surface starts a ride directly, so
+    // leaving a stale one on a launcher would walk straight past the sign-in
+    // gate, and clearing them is also what takes them off the icon on sign-out.
+    recentRecordingTypes: signedIn() ? getRecentRecordingTypes() : [],
   });
+}
+
+/** Whether anyone is signed in; a failed read counts as nobody. */
+function signedIn(): boolean {
+  try {
+    return useAuthStore.getState().authMethod != null;
+  } catch {
+    return false;
+  }
 }
 
 /** Current and previous ISO-week (Monday to today) bounds, mirroring useStartupData. */

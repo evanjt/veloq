@@ -1403,6 +1403,9 @@ export interface TranslationResource {
     slideToUnlock: string;
     trimActivity: string;
     rpeDescription: string;
+    signInRequired: string;
+    signInDescription: string;
+    signInAction: string;
     savedQueued: string;
     gpsPermissionDenied: string;
     gpsWaiting: string;
