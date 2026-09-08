@@ -151,10 +151,12 @@ struct WidgetSnapshot: Codable {
   let summaryCard: WidgetSummaryCard?
   let display: WidgetDisplay
   let theme: WidgetThemeData
-  /// Recent sports, most recent first, pre-localised, each carrying the deep link
-  /// that starts it. Nil on a snapshot written before schema 6, and empty before
-  /// anything was recorded, both of which send a tap to the picker instead.
-  let recordShortcuts: [WidgetRecordShortcut]?
+  /// Recent sports capped at what a launcher shows, most recent first,
+  /// pre-localised, each carrying the deep link that starts it. Nil on a
+  /// snapshot written before schema 6, and empty before anything was recorded,
+  /// both of which send a tap to the picker instead. The uncapped list is
+  /// `recordShortcuts`, which only the App Shortcut's sport parameter needs.
+  let launcherShortcuts: [WidgetRecordShortcut]?
 }
 
 /// One recent sport: the id, the name a surface shows, and the link that starts it.
@@ -168,7 +170,7 @@ struct WidgetRecordShortcut: Codable {
 /// missing one lives in `RecordDeepLink`, which the app target compiles too.
 extension RecordDeepLink {
   static func url(for snapshot: WidgetSnapshot?) -> URL {
-    url(for: snapshot?.recordShortcuts?.first?.url)
+    url(for: snapshot?.launcherShortcuts?.first?.url)
   }
 }
 

@@ -171,7 +171,9 @@ data class WidgetSnapshot(
     }
 
     private fun parseRecordShortcuts(root: JSONObject): List<RecordShortcut> {
-      val arr = root.optJSONArray("recordShortcuts") ?: return emptyList()
+      // The launcher list, not the full one: a long press shows three and the
+      // widgets take the head of the same order.
+      val arr = root.optJSONArray("launcherShortcuts") ?: return emptyList()
       val out = ArrayList<RecordShortcut>(arr.length())
       for (i in 0 until arr.length()) {
         val o = arr.optJSONObject(i) ?: continue

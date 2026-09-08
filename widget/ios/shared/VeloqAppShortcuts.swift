@@ -8,17 +8,23 @@ import Foundation
 /// intent itself does nothing clever, it opens the same deep link a widget tap
 /// opens, so one rule decides the sport and one screen starts the ride.
 ///
-/// No sport parameter yet, deliberately. A parameterised version needs an
-/// `AppEnum` over the recordable types with a display name per case, and those
-/// names would be English in all seventeen locales unless the app target ships a
-/// strings catalogue for them. The unparameterised phrase already gives an
-/// athlete the automation they asked for, and picking a specific sport is still
-/// possible today through a Shortcuts "Open URL" action.
+/// The sport is a parameter whose options come from the snapshot at runtime, not
+/// an `AppEnum` compiled into the binary. An enum case carries a display name,
+/// and those names would be English in all seventeen locales unless the app
+/// target shipped a strings catalogue for them. The snapshot already carries
+/// each sport's name in the athlete's own language, translated by the same
+/// `activityTypes.*` keys the app uses, so reading them is both simpler and
+/// correct where an enum would be neither.
 @available(iOS 16.0, *)
 struct StartRideIntent: AppIntent {
   static var title: LocalizedStringResource = "Start recording"
   static var description = IntentDescription("Opens Veloq with the ride already running.")
   static var openAppWhenRun: Bool = true
+
+  /// Optional: a phrase that names no sport starts the last one recorded, which
+  /// is what the widgets and the Control do.
+  @Parameter(title: "Sport", optionsProvider: RecordSportOptions())
+  var sport: String?
 
   /// `openAppWhenRun` brings Veloq to the front but says nothing about where to
   /// land, and `OpenURLIntent` is iOS 18 while the deployment target is 16.4.
@@ -26,9 +32,20 @@ struct StartRideIntent: AppIntent {
   /// opens the app, which is still the automation working.
   func perform() async throws -> some IntentResult {
     if #available(iOS 18.0, *) {
-      return .result(opensIntent: OpenURLIntent(AppShortcutSnapshot.recordURL()))
+      return .result(opensIntent: OpenURLIntent(AppShortcutSnapshot.recordURL(named: sport)))
     }
     return .result()
+  }
+}
+
+/// The sports the athlete actually records, named as the app names them. An
+/// empty list is the honest answer before anything has been recorded: Shortcuts
+/// then offers nothing to pick and the phrase falls back to the last sport,
+/// which is also nothing, so it opens the picker.
+@available(iOS 16.0, *)
+struct RecordSportOptions: DynamicOptionsProvider {
+  func results() async throws -> [String] {
+    AppShortcutSnapshot.shortcuts().map(\.label)
   }
 }
 
@@ -56,17 +73,36 @@ enum AppShortcutSnapshot {
   static let appGroup = "group.com.veloq.app"
   static let fileName = "widget-snapshot.json"
 
+  struct Shortcut: Decodable {
+    let type: String
+    let label: String
+    let url: String
+  }
+
   private struct Envelope: Decodable {
-    struct Shortcut: Decodable { let url: String }
     let recordShortcuts: [Shortcut]?
   }
 
-  static func recordURL() -> URL {
+  static func shortcuts() -> [Shortcut] {
     guard
       let dir = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup),
       let data = try? Data(contentsOf: dir.appendingPathComponent(fileName)),
       let envelope = try? JSONDecoder().decode(Envelope.self, from: data)
-    else { return RecordDeepLink.picker }
-    return RecordDeepLink.url(for: envelope.recordShortcuts?.first?.url)
+    else { return [] }
+    return envelope.recordShortcuts ?? []
+  }
+
+  /// The link for a named sport, or for the last one recorded when the phrase
+  /// named none. A name that matches nothing is treated as no name rather than
+  /// as an error: opening the last ride beats refusing the phrase.
+  static func recordURL(named sport: String? = nil) -> URL {
+    let all = shortcuts()
+    let chosen =
+      sport == nil
+      ? all.first
+      : all.first { $0.label.caseInsensitiveCompare(sport!) == .orderedSame }
+        ?? all.first { $0.type.caseInsensitiveCompare(sport!) == .orderedSame }
+        ?? all.first
+    return RecordDeepLink.url(for: chosen?.url)
   }
 }

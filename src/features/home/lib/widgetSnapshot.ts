@@ -166,7 +166,7 @@ export const RECORD_PICKER_URL = 'veloq://record';
  */
 export const QUICK_START_MARK = 'from=quickstart';
 
-/** What a launcher will show on a long press, and what the list is capped at. */
+/** What a launcher will show on a long press, and what that list is capped at. */
 export const RECORD_SHORTCUT_LIMIT = 3;
 
 export interface WidgetSnapshot {
@@ -217,6 +217,12 @@ export interface WidgetSnapshot {
    * the signal to fall back to the picker.
    */
   recordShortcuts: WidgetRecordShortcut[];
+  /**
+   * The head of `recordShortcuts`, capped at what a launcher will show on a long
+   * press. Carried rather than derived natively so the cap is decided once, and
+   * so a Siri phrase can offer every sport while the icon offers three.
+   */
+  launcherShortcuts: WidgetRecordShortcut[];
 }
 
 // Minimal structural shapes of the engine returns we consume, kept local so this
@@ -343,6 +349,7 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
   const latest = composeLatest(raw);
   const impact = composeImpact(raw, fitness, fatigue, form, latest);
   const t = raw.translate ?? ((k: string) => k);
+  const shortcuts = composeRecordShortcuts(raw.recentRecordingTypes, t);
 
   return {
     schemaVersion: WIDGET_SNAPSHOT_SCHEMA_VERSION,
@@ -378,7 +385,8 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
     summaryCard: composeSummaryCard(raw, t),
     display: buildDisplay(t, impact, getFormZone(num(form[form.length - 1]))),
     theme: { light: widgetPalette.light, dark: widgetPalette.dark },
-    recordShortcuts: composeRecordShortcuts(raw.recentRecordingTypes, t),
+    recordShortcuts: shortcuts,
+    launcherShortcuts: shortcuts.slice(0, RECORD_SHORTCUT_LIMIT),
   };
 }
 
@@ -386,6 +394,9 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
  * A blank sport is no sport and a repeat is one entry, so no surface gets an
  * empty path or the same sport twice. Labels come from the translations the app
  * already carries, which is why no native holds a sport-to-name map.
+ *
+ * Uncapped on purpose: a Siri phrase offers every sport the athlete records, and
+ * `launcherShortcuts` is where the launcher's three come from.
  */
 function composeRecordShortcuts(
   types: string[] | null | undefined,
@@ -403,7 +414,6 @@ function composeRecordShortcuts(
       label: label === `activityTypes.${type}` ? type : label,
       url: `veloq://recording/${encodeURIComponent(type)}?${QUICK_START_MARK}`,
     });
-    if (out.length === RECORD_SHORTCUT_LIMIT) break;
   }
   return out;
 }
