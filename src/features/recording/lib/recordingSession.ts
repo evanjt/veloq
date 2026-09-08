@@ -11,7 +11,14 @@ import { getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
 import { createAutoPauseDetector, type AutoPauseConfig } from './autoPause';
 import { getSportCategory } from './sportCategoryDetector';
 import { buildRecordingBackup, saveRecordingBackup } from './storage/recordingBackup';
-import { BACKUP_INTERVAL_MS } from './constants';
+import { BACKUP_INTERVAL_MS, LIVE_ACTIVITY_REFRESH_MS } from './constants';
+import {
+  beginLiveActivity,
+  finishLiveActivity,
+  installLiveActivityControls,
+  reapOrphanedLiveActivities,
+  refreshLiveActivity,
+} from './liveActivity/controller';
 import type { RecordingStatus } from '../types';
 
 const log = debug.create('RecordingSession');
@@ -24,6 +31,7 @@ let appStateSub: { remove: () => void } | null = null;
 let appState: AppStateStatus = 'active';
 let indoorTimer: Timer | null = null;
 let backupTimer: Timer | null = null;
+let liveActivityTimer: Timer | null = null;
 let backupArmedFor: string | null = null;
 let detector: AutoPauseDetector | null = null;
 let sessionUnsubscribes: (() => void)[] = [];
@@ -198,10 +206,15 @@ function startSession(): void {
       if (state.status !== previous.status || state.laps.length !== previous.laps.length) {
         armBackups(state.status, state.laps.length);
       }
+      // A pause has to reach the card now. Waiting out the tick leaves a lock
+      // screen counting up through a stop the rider has already made.
+      if (state.status !== previous.status) refreshLiveActivity();
     })
   );
 
   armBackups(status, laps.length);
+  beginLiveActivity();
+  liveActivityTimer = setInterval(refreshLiveActivity, LIVE_ACTIVITY_REFRESH_MS);
 
   if (mode === 'indoor') {
     indoorTimer = setInterval(() => useRecordingStore.getState().addIndoorSample(), 1000);
@@ -234,6 +247,11 @@ function stopSession(): void {
     clearInterval(backupTimer);
     backupTimer = null;
   }
+  if (liveActivityTimer) {
+    clearInterval(liveActivityTimer);
+    liveActivityTimer = null;
+  }
+  finishLiveActivity();
   backupArmedFor = null;
   appStateSub?.remove();
   appStateSub = null;
@@ -260,13 +278,19 @@ export function installRecordingSession(): () => void {
   const unsubscribe = useRecordingStore.subscribe((state, previous) => {
     if (state.status !== previous.status) react(state.status);
   });
+  const stopListening = installLiveActivityControls();
 
   installUnsubscribe = () => {
     unsubscribe();
+    stopListening();
     installUnsubscribe = null;
     stopSession();
   };
 
+  // A card outlives the process that made it, so a terminated app leaves one
+  // counting on the lock screen. Reap before the restored status can start a
+  // session, or the orphan and the new card sit side by side.
+  reapOrphanedLiveActivities();
   react(useRecordingStore.getState().status);
   return installUnsubscribe;
 }

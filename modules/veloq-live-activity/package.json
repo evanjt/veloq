@@ -1,0 +1,17 @@
+{
+  "name": "veloq-live-activity",
+  "version": "0.1.0",
+  "description": "Starts, updates and ends the iOS Live Activity for a recording in flight",
+  "main": "index.ts",
+  "author": "Evan Thomas <evan@evanjt.com>",
+  "homepage": "https://github.com/evanjt/veloq",
+  "license": "MIT",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "expo-modules-core": "*"
+  }
+}
