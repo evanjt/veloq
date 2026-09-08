@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 import { debug } from '@/shared/debug/debug';
 import { brand } from '@/theme';
 import { getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
+import { updateRecordingNotification } from './recordingNotification';
 import {
   buildRecordingBackup,
   loadRecordingBackup,
@@ -94,6 +95,10 @@ export async function handleBackgroundLocations(
     const backup = buildRecordingBackup(store.getState());
     if (backup) await saveRecordingBackup(backup);
   }
+
+  // The notification is the ride's only surface while the app is backgrounded,
+  // and a batch is the only thing that happens out here.
+  updateRecordingNotification();
 
   log.log(`Background: processed ${locations.length} location(s)`);
 }
