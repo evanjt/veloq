@@ -833,8 +833,8 @@ fn re_ask(
 /// Split from [`re_ask`] the way [`drain_queue_with`] is split from
 /// [`drain_queue`], and for the same reason `resume_ladder` takes its sleep:
 /// the schedule is an array, and a test that has to spend it to read it costs
-/// the suite the whole ladder and asserts on wall clock, which is what
-/// `B285` and `B317` already failed on.
+/// the suite the whole ladder and asserts on wall clock, which two earlier
+/// passes over this file already failed on.
 ///
 /// `wait` returning false ends the re-asking at that round, which is both how
 /// a test skips the ladder and the only cancel this pass has.
