@@ -646,6 +646,36 @@ impl SectionDetectionHandle {
     }
 }
 
+/// A stop the athlete asked for, checked by a background pass at its own safe
+/// points.
+///
+/// The house shape for cancelling detached work. A pass owns one, its handle
+/// holds a clone, and cancelling is one atomic store: no channel to drain, no
+/// lock for the worker to contend on, and no way for a cancel to arrive
+/// half-applied. It latches, so a second cancel is not an un-cancel, and a
+/// pass that has already finished simply ignores it.
+///
+/// Where the safe points are is the pass's own decision, and the only rule is
+/// that state a later pass depends on must be left as if this one never ran.
+#[derive(Clone, Default)]
+pub struct CancelToken(Arc<std::sync::atomic::AtomicBool>);
+
+impl CancelToken {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Ask the pass to stop. Latching, and safe from any thread.
+    pub fn cancel(&self) {
+        self.0.store(true, Ordering::SeqCst);
+    }
+
+    /// Whether a stop has been asked for.
+    pub fn is_cancelled(&self) -> bool {
+        self.0.load(Ordering::SeqCst)
+    }
+}
+
 /// Handle for background heatmap tile generation with progress tracking.
 pub struct TileGenerationHandle {
     receiver: mpsc::Receiver<u32>,
@@ -653,6 +683,9 @@ pub struct TileGenerationHandle {
     pub generated: Arc<AtomicU32>,
     /// Total tiles to process
     pub total: Arc<AtomicU32>,
+    /// The stop this pass checks. Cancelling costs a stale heatmap the next
+    /// pass redraws, which is why the dirty marker survives a cancelled run.
+    cancel: CancelToken,
 }
 
 impl TileGenerationHandle {
@@ -669,6 +702,17 @@ impl TileGenerationHandle {
     /// Test and bench path; production uses `poll_state()` via the HeatmapManager poll loop.
     pub fn recv_blocking(&self) -> Option<u32> {
         self.receiver.recv().ok()
+    }
+
+    /// Ask the pass to stop at its next tile.
+    pub fn cancel(&self) {
+        self.cancel.cancel();
+    }
+
+    /// Whether this pass was asked to stop. True from the moment `cancel` is
+    /// called, whether or not the worker has noticed yet.
+    pub fn was_cancelled(&self) -> bool {
+        self.cancel.is_cancelled()
     }
 
     /// Get current progress: (generated, total)
@@ -2114,6 +2158,14 @@ pub mod persistent_engine_ffi {
         LazyLock::new(|| Mutex::new(None));
 
     /// Handle for tracking background tile generation.
+    /// The stop the running tile invalidation sweep checks, if one is running.
+    ///
+    /// The sweep is detached and returns no handle, so unlike the tile pass it
+    /// has nowhere of its own to keep this. Set when it spawns, cleared when
+    /// it ends.
+    pub static TILE_SWEEP_CANCEL: LazyLock<Mutex<Option<CancelToken>>> =
+        LazyLock::new(|| Mutex::new(None));
+
     pub static TILE_GENERATION_HANDLE: LazyLock<Mutex<Option<TileGenerationHandle>>> =
         LazyLock::new(|| Mutex::new(None));
 

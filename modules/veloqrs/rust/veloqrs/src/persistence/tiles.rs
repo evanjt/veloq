@@ -76,6 +76,9 @@ struct LoadedTracks {
 struct TileGeneration {
     generated: u32,
     corrupt: usize,
+    /// The athlete stopped it. The counts are what it managed, not what it
+    /// owed, so nothing downstream may read a cancelled run as a finished one.
+    cancelled: bool,
 }
 
 impl PersistentEngine {
@@ -187,6 +190,8 @@ impl PersistentEngine {
         let total_counter = Arc::new(AtomicU32::new(0));
         let gen_clone = generated_counter.clone();
         let total_clone = total_counter.clone();
+        let cancel = super::CancelToken::new();
+        let worker_cancel = cancel.clone();
 
         // Captured before the pass so a sweep that marks the set dirty while
         // it runs is not cleared by it.
@@ -203,13 +208,25 @@ impl PersistentEngine {
                     &activities,
                     &gen_clone,
                     &total_clone,
+                    &worker_cancel,
                 );
                 // The pass ran, so the marker clears. Holding it for an
                 // unreadable activity would re-run the whole pass at every
                 // launch for as long as the row stays bad. The redraw the
                 // incomplete tiles need is carried by the corrupt record
                 // instead, which is scoped to the tiles those activities reach.
-                clear_dirty_marker(&tiles_path, started_on);
+                //
+                // A cancelled pass is the exception, and it must be: it left
+                // ground undrawn on purpose, so clearing the marker would make
+                // the heatmap permanently half-drawn.
+                if run.cancelled {
+                    info!(
+                        "[heatmap] Pass cancelled after {} tiles, the set stays dirty",
+                        run.generated
+                    );
+                } else {
+                    clear_dirty_marker(&tiles_path, started_on);
+                }
                 if run.corrupt > 0 {
                     log::error!(
                         "[heatmap] Tile set is incomplete: {} activities were unreadable. The tiles they reach are redrawn on the next run.",
@@ -232,6 +249,7 @@ impl PersistentEngine {
             receiver: rx,
             generated: generated_counter,
             total: total_counter,
+            cancel,
         })
     }
 
@@ -370,6 +388,7 @@ fn background_generate_tiles(
     activities: &[(String, Bounds)],
     generated_counter: &AtomicU32,
     total_counter: &AtomicU32,
+    cancel: &super::CancelToken,
 ) -> TileGeneration {
     let start = std::time::Instant::now();
     let base = Path::new(tiles_path);
@@ -432,6 +451,16 @@ fn background_generate_tiles(
             corrupt.len(),
             activities.len()
         );
+    }
+
+    // The first safe point: the load is the longest stretch that cannot be
+    // interrupted, and nothing has been written yet, so stopping here leaves
+    // the tile set exactly as the pass found it.
+    if cancel.is_cancelled() {
+        return TileGeneration {
+            cancelled: true,
+            ..TileGeneration::default()
+        };
     }
 
     // --- Phase 2: build (z,x,y) → [Arc<track>] via polyline sweep ------------
@@ -500,6 +529,7 @@ fn background_generate_tiles(
         return TileGeneration {
             generated: 0,
             corrupt: corrupt.len(),
+            cancelled: false,
         };
     }
 
@@ -520,6 +550,13 @@ fn background_generate_tiles(
     let processed = AtomicU32::new(0);
 
     pending.par_iter().for_each(|(coord, arcs)| {
+        // Per tile, not per batch: a tile is tens of milliseconds and a whole
+        // pass is minutes, so this is where a cancel actually lands. A tile
+        // already written stays written, which is correct: the marker below
+        // is what tells the next pass the rest is still owed.
+        if cancel.is_cancelled() {
+            return;
+        }
         // Build a slice-of-slices view without deep-cloning the track data;
         // each `&[GpsPoint]` impls `AsRef<[GpsPoint]>`, matching the
         // generic bound on `generate_heatmap_tile`.
@@ -534,6 +571,23 @@ fn background_generate_tiles(
     });
 
     let generated = generated.load(Ordering::SeqCst);
+
+    // A cancelled pass records nothing and leaves the previous record standing,
+    // for the reason the comment below gives: the record claims the tiles it
+    // guards are drawn, and a stopped pass did not draw them.
+    if cancel.is_cancelled() {
+        info!(
+            "[heatmap] Background: cancelled after {} tiles / {} scheduled, {}ms",
+            generated,
+            total,
+            start.elapsed().as_millis()
+        );
+        return TileGeneration {
+            generated,
+            corrupt: corrupt.len(),
+            cancelled: true,
+        };
+    }
 
     // Recorded only once the tiles it guards are on disk. A run killed before
     // this point leaves the previous record standing, so the next run still
@@ -552,6 +606,7 @@ fn background_generate_tiles(
     TileGeneration {
         generated,
         corrupt: corrupt.len(),
+        cancelled: false,
     }
 }
 

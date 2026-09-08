@@ -33,6 +33,24 @@ export function disableHeatmapTiles(host: DelegateHost): void {
   });
 }
 
+/**
+ * Stop the tile pass and the invalidation sweep, if either is running.
+ *
+ * Called before anything that makes their output worthless: turning the
+ * heatmap off, or clearing the tiles. Both keep writing to disk otherwise, and
+ * a pass that finishes after a clear puts back the tiles the clear took.
+ * Returns whether there was anything to stop.
+ */
+export function cancelHeatmapWork(host: DelegateHost): boolean {
+  if (!host.ready) return false;
+  try {
+    return host.engine.heatmap().cancel();
+  } catch (e) {
+    console.warn('[EngineClient] Failed to cancel heatmap work:', e);
+    return false;
+  }
+}
+
 /** Get total size of heatmap tile cache in bytes (fast native scan). */
 export function getHeatmapCacheSize(host: DelegateHost, basePath: string): number {
   if (!host.ready) return 0;
