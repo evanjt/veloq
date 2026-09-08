@@ -218,6 +218,20 @@ pub fn try_start_conditioning() -> bool {
 /// Drive the in-flight run to completion. Shares `poll_detection_once`
 /// with the FFI poll: if the TS side polls first (sync end reached), it
 /// applies and this thread sees Idle and exits.
+/// Put a batch back that its driver stopped following.
+///
+/// A run whose driver timed out may still be going, and may still apply. The
+/// count is what decides whether the next store fires a run, so restoring it
+/// costs at worst one redundant conditioning pass, which is order-free and
+/// safely redoable. Losing it costs the catalogue the batch until enough
+/// further activities arrive to reach the threshold again.
+fn requeue_abandoned_batch() {
+    CONDITIONER
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .note_stored(CONDITIONING_BATCH_ADDS);
+}
+
 fn spawn_conditioning_driver() {
     const DRIVER_POLL: Duration = Duration::from_millis(250);
 
@@ -241,7 +255,15 @@ fn spawn_conditioning_driver() {
                 }
             }
             SlotWait::Idle | SlotWait::Died => {}
-            other => log::warn!("veloqrs: [conditioning] driver gave up: {:?}", other),
+            // The two elevation paths have the resume ladder above them, so a
+            // give-up there is asked again on its own. This one has nothing
+            // above it: the batch that timed out is simply not conditioned,
+            // and the only thing that would notice is the next batch. So the
+            // adds are put back, and the next store fires a run for them.
+            other => {
+                log::warn!("veloqrs: [conditioning] driver gave up: {:?}", other);
+                requeue_abandoned_batch();
+            }
         }
     });
 }
@@ -399,5 +421,58 @@ mod tests {
         assert!(!c.take_batch());
         c.note_stored(0);
         assert!(!c.take_batch());
+    }
+
+    /// Scenario: the conditioning driver is the one caller of `wait_on_slot`
+    /// with no retry above it. The two elevation paths have the resume ladder,
+    /// which asks again on its own; a batch this driver stops following is
+    /// simply not conditioned, and the only thing that would notice is the
+    /// next batch reaching the threshold on its own.
+    ///
+    /// Expected behaviour: the adds go back, so the next store fires a run for
+    /// them. A redundant conditioning pass costs a pool load and is order-free
+    /// and safely redoable; a lost batch costs the catalogue those activities
+    /// until enough further ones arrive.
+    mod a_batch_whose_driver_gave_up {
+        use super::*;
+
+        #[test]
+        fn is_put_back_rather_than_lost() {
+            let _serial = serial();
+            CONDITIONER
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .take_batch();
+
+            requeue_abandoned_batch();
+
+            assert!(
+                CONDITIONER
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .take_batch(),
+                "the batch the driver abandoned is not due again"
+            );
+        }
+
+        /// It puts back a batch, and `take_batch` zeroes rather than
+        /// subtracts, so putting one back twice still owes one run. That is
+        /// the Conditioner's existing rule and this does not change it: the
+        /// point is that the batch is due at all, not how many are owed.
+        #[test]
+        fn owes_a_run_however_many_times_it_is_put_back() {
+            let _serial = serial();
+            CONDITIONER
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .take_batch();
+
+            requeue_abandoned_batch();
+            requeue_abandoned_batch();
+
+            let mut guard = CONDITIONER.lock().unwrap_or_else(|e| e.into_inner());
+            assert!(guard.take_batch(), "the batch is due");
+            assert!(!guard.take_batch(), "and firing it consumes the count");
+        }
     }
 }

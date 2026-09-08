@@ -32,6 +32,17 @@ export interface BulkExportResult {
 /** How often the running export is asked how far it has got. */
 const POLL_INTERVAL_MS = 250;
 
+/**
+ * An export that has not finished by here is stuck, not slow.
+ *
+ * A whole-library GPX export is minutes of work where the database copy next
+ * door is a file copy, so this is longer than the backup's five minutes rather
+ * than the same number by analogy: fifteen covers a library several times the
+ * size of the one measured at roughly a second per hundred activities, and
+ * still ends a spinner nobody can otherwise stop.
+ */
+const EXPORT_TIMEOUT_MS = 15 * 60 * 1000;
+
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -42,7 +53,8 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export async function runExport(
   format: BulkExportFormat,
   plainPath: string,
-  onProgress?: (progress: BulkExportProgress) => void
+  onProgress?: (progress: BulkExportProgress) => void,
+  timeoutMs: number = EXPORT_TIMEOUT_MS
 ): Promise<{ exported: number; skipped: number; totalBytes: number }> {
   const engine = getEngine();
   if (!engine) throw new Error('Route engine not available');
@@ -50,13 +62,15 @@ export async function runExport(
   engine.startBulkExport(format, plainPath);
   onProgress?.({ phase: 'generating', current: 0, total: 0, sizeBytes: 0 });
 
+  const deadline = Date.now() + timeoutMs;
   for (;;) {
     const poll = engine.pollBulkExport();
     if (poll.state === 'complete') {
       return { exported: poll.exported, skipped: poll.skipped, totalBytes: poll.totalBytes };
     }
     // An export that never started, or one another caller collected, leaves
-    // the slot idle. Waiting on it would spin forever.
+    // the slot idle. That is a different failure from one that is taking too
+    // long, and the athlete's next move differs, so the two say so.
     if (poll.state === 'idle') throw new Error('Export did not start');
     onProgress?.({
       phase: 'generating',
@@ -64,6 +78,10 @@ export async function runExport(
       total: poll.total,
       sizeBytes: 0,
     });
+    // A worker that neither finishes nor frees its slot would otherwise be
+    // polled at 4 Hz for the life of the screen, behind a spinner that never
+    // stops.
+    if (Date.now() > deadline) throw new Error('Export did not finish in time');
     await delay(POLL_INTERVAL_MS);
   }
 }

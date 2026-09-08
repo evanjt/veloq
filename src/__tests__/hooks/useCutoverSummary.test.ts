@@ -347,3 +347,106 @@ describe('useCutoverSummary', () => {
     expect(fake.getCutoverProgress.mock.calls.length).toBe(whileMounted);
   });
 });
+
+/**
+ * Scenario: the poll follows a run by asking the engine every 500 ms, and an
+ * engine that cannot answer is not the same as a run that has not moved. A
+ * destroyed engine, or a build whose library is out of step with its
+ * bindings, throws on every read.
+ *
+ * Expected behaviour: a read that fails is an answer of its own. One or two
+ * are shrugged off, because a transient failure must not end the display of a
+ * run that is still going; a read that never comes back settles the run so the
+ * spinner stops and the interval disarms.
+ */
+describe('when the engine stops answering', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function throwingAfterStart() {
+    let calls = 0;
+    return engine(
+      () => {
+        calls += 1;
+        if (calls === 1) return { phase: 'detecting', running: true };
+        throw new Error('engine gone');
+      },
+      () => null
+    );
+  }
+
+  it('carries the run through a read or two that failed', () => {
+    const { result } = mount(throwingAfterStart());
+    expect(result.current.isRunning).toBe(true);
+
+    advance(1);
+
+    expect(result.current.isRunning).toBe(true);
+    expect(result.current.phase).toBe('detecting');
+  });
+
+  it('settles the run once the reads stop coming back', () => {
+    const { result } = mount(throwingAfterStart());
+    expect(result.current.isRunning).toBe(true);
+
+    advance();
+
+    expect(result.current.isRunning).toBe(false);
+    expect(result.current.phase).toBe('idle');
+  });
+
+  it('stops asking once it has settled', () => {
+    const fake = throwingAfterStart();
+    mount(fake);
+
+    advance();
+    const asked = fake.getCutoverProgress.mock.calls.length;
+    advance();
+
+    expect(fake.getCutoverProgress.mock.calls.length).toBe(asked);
+  });
+
+  /** An engine that answers `null` is the same as one that throws. */
+  it('settles on a read that answers nothing at all', () => {
+    let calls = 0;
+    const { result } = mount(
+      engine(
+        () => {
+          calls += 1;
+          return calls === 1 ? { phase: 'archiving', running: true } : null;
+        },
+        () => null
+      )
+    );
+    expect(result.current.isRunning).toBe(true);
+
+    advance();
+
+    expect(result.current.isRunning).toBe(false);
+  });
+
+  /** A failure that comes good is not a failure. */
+  it('forgets the failures once a read answers again', () => {
+    let calls = 0;
+    const { result } = mount(
+      engine(
+        () => {
+          calls += 1;
+          if (calls === 2) throw new Error('one bad read');
+          return { phase: 'detecting', running: true };
+        },
+        () => null
+      )
+    );
+
+    advance();
+
+    expect(result.current.isRunning).toBe(true);
+  });
+});

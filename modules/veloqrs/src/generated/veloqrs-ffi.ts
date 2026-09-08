@@ -236,6 +236,14 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_constructor_detectionmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_detectionmanager_awaiting_count(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_detectionmanager_cancel(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1551,6 +1559,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_constructor_heatmapmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_heatmapmanager_cancel(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
     ptr: bigint,
     basePath: Uint8Array,
@@ -1836,6 +1848,8 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_put_tile(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_source_template(): number;
+  ubrn_uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count(): number;
+  ubrn_uniffi_veloqrs_checksum_method_detectionmanager_cancel(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_force_redetect(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_config(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_match_strictness(): number;
@@ -2062,6 +2076,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_upload_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_validate_credentials(): number;
+  ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_cancel(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(): number;

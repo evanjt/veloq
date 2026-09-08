@@ -42,8 +42,10 @@ export default function DetectionSettingsScreen() {
   const {
     forceRescan,
     isScanning,
+    cancelScan,
     result: rescanResult,
     failed: rescanFailed,
+    lapsed: rescanLapsed,
     refusal: rescanRefusal,
     clearResult,
   } = useSectionRescan();
@@ -133,12 +135,16 @@ export default function DetectionSettingsScreen() {
                   }
                 : { backgroundColor: brand.tealLight },
             ]}
-            onPress={handleRescan}
-            disabled={isScanning}
+            onPress={isScanning ? cancelScan : handleRescan}
             testID="detection-rescan-button"
           >
             {isScanning ? (
-              <ActivityIndicator size="small" color={textSecondary} />
+              <>
+                <ActivityIndicator size="small" color={textSecondary} />
+                <Text style={[styles.rescanText, { color: textSecondary }]}>
+                  {t('common.cancel')}
+                </Text>
+              </>
             ) : (
               <>
                 <MaterialCommunityIcons name="refresh" size={18} color={colors.textOnDark} />
@@ -161,6 +167,15 @@ export default function DetectionSettingsScreen() {
               style={[styles.rescanResult, { color: textSecondary }]}
             >
               {t(refusalKey)}
+            </Text>
+          )}
+
+          {isScanning && rescanLapsed && (
+            <Text
+              testID="detection-rescan-slow"
+              style={[styles.rescanResult, { color: textSecondary }]}
+            >
+              {t('settings.runSlow')}
             </Text>
           )}
 

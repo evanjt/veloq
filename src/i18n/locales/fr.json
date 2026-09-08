@@ -1303,7 +1303,7 @@
     "previewRun": "Aperçu",
     "previewRunning": "Analyse de {{count}} activités dans cette zone",
     "previewFailed": "L'aperçu n'a pas pu aboutir.",
-    "previewSlow": "Cela prend plus de temps que d'habitude. L'analyse continue.",
+    "runSlow": "Cela prend plus de temps que d'habitude. L'analyse continue.",
     "previewPoolUnusable": "Certaines de tes traces d'activite sont illisibles, l'apercu s'est donc arrete.",
     "previewCurrentFailed": "Impossible de lire les sections actuelles de cette zone.",
     "previewSuspended": "Mise à jour de l'altitude en cours. Réessayez dans un instant.",
@@ -1662,6 +1662,8 @@
     "progressCount": "{{completed}} sur {{total}}",
     "progressPercent": "{{percent}} %",
     "remaining": "{{count}} restantes à télécharger",
+    "detectionWaiting": "{{count}} activités à examiner",
+    "cutoverWaiting": "En attente de la reconstruction de tes sections",
     "statePaused": "En pause jusqu'à la prochaine ouverture de l'app"
   },
   "period": {

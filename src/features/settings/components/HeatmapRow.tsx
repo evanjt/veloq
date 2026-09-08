@@ -43,6 +43,10 @@ export function HeatmapRow() {
       if (next) {
         engine?.enableHeatmapTiles();
       } else {
+        // Before the clear, not after: a pass still drawing writes its tiles
+        // back over the ground the clear took, and keeps a core busy doing it
+        // for a heatmap that is now switched off.
+        engine?.cancelHeatmapWork();
         engine?.clearHeatmapTiles(HEATMAP_TILES_DIR);
         const legacyDir = `${FileSystem.documentDirectory}heatmap-tiles/`;
         engine?.clearHeatmapTiles(legacyDir);

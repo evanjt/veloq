@@ -396,3 +396,25 @@ export function getStoredCredentials(): {
     authMethod: state.authMethod,
   };
 }
+
+// A headless start runs no React tree, so the layout effect that calls
+// `initialize()` never fires and every synchronous credential read returns
+// null. The background task reaches the engine before anything has hydrated,
+// so it asks for the credential here instead of assuming somebody else has.
+// The promise is shared because two rungs of the task can arrive at once, and
+// `isLoading` settling to false is what stops a signed-out or failed read from
+// going back to SecureStore on every call.
+let hydrating: Promise<void> | null = null;
+
+export function ensureCredentialsHydrated(): Promise<void> {
+  if (!useAuthStore.getState().isLoading) return Promise.resolve();
+  if (!hydrating) {
+    hydrating = useAuthStore
+      .getState()
+      .initialize()
+      .finally(() => {
+        hydrating = null;
+      });
+  }
+  return hydrating;
+}

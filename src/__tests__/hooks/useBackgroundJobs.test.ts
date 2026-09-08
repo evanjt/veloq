@@ -34,6 +34,8 @@ interface EngineState {
   backfill: { phase: string; completed: number; total: number; failed: number } | null;
   remaining: number | null;
   cutover: { phase: string; running: boolean } | null;
+  cutoverPending: boolean;
+  detectionAwaiting: number | null;
 }
 
 function defaultState(): EngineState {
@@ -45,6 +47,8 @@ function defaultState(): EngineState {
     backfill: { phase: 'idle', completed: 0, total: 0, failed: 0 },
     remaining: null,
     cutover: { phase: 'idle', running: false },
+    cutoverPending: false,
+    detectionAwaiting: 0,
   };
 }
 
@@ -65,6 +69,8 @@ function engine() {
     getElevationBackfillProgress: () => state.backfill,
     getElevationBackfillRemaining: () => state.remaining,
     getCutoverProgress: () => state.cutover,
+    isCutoverPending: () => state.cutoverPending,
+    sectionDetectionAwaiting: () => state.detectionAwaiting,
     getCutoverDiff: () => null,
     subscribe: (event: string, callback: () => void) => {
       const forEvent = listeners.get(event) ?? new Set<() => void>();
@@ -300,5 +306,113 @@ describe('useBackgroundJobs', () => {
 
     expect(result.current).toHaveLength(4);
     expect(result.current.find((job) => job.id === 'detection')?.state).toBe('idle');
+  });
+
+  /**
+   * Scenario: the phases the engine keeps are process-global and start at idle
+   * on every launch, so a relaunch with a cutover still owed showed the row as
+   * having nothing to report. The token behind it is durable and was already
+   * exported; the screen simply did not ask.
+   *
+   * Expected behaviour: a resting cutover row says the work is waiting.
+   */
+  it('rests with the cutover it still owes, on a launch where nothing has run', () => {
+    state.cutoverPending = true;
+
+    const { result } = jobs();
+    const cutover = result.current.find((job) => job.id === 'cutover');
+
+    expect(cutover?.state).toBe('idle');
+    expect(cutover?.remaining).toBe(1);
+  });
+
+  it('rests with nothing owed when the token is clear', () => {
+    const { result } = jobs();
+
+    expect(result.current.find((job) => job.id === 'cutover')?.remaining).toBe(0);
+  });
+
+  it('reports no count rather than zero when the engine cannot answer', () => {
+    mockGetEngine.mockReturnValue(null);
+
+    const { result } = jobs();
+
+    expect(result.current.find((job) => job.id === 'cutover')?.remaining).toBeNull();
+  });
+
+  it('does not claim a running cutover is also waiting', () => {
+    state.cutoverPending = true;
+    state.cutover = { phase: 'archiving', running: true };
+
+    const { result } = jobs();
+    const cutover = result.current.find((job) => job.id === 'cutover');
+
+    expect(cutover?.state).toBe('running');
+    expect(cutover?.remaining).toBeNull();
+  });
+
+  it('survives a throwing pending read rather than losing the row', () => {
+    mockGetEngine.mockImplementation(
+      () =>
+        ({
+          ...engine(),
+          isCutoverPending: () => {
+            throw new Error('engine gone');
+          },
+        }) as unknown as ReturnType<typeof getEngine>
+    );
+
+    const { result } = jobs();
+
+    expect(result.current).toHaveLength(4);
+    expect(result.current.find((job) => job.id === 'cutover')?.remaining).toBeNull();
+  });
+
+  /**
+   * Detection's phase is process-global and starts at idle, so a relaunch with
+   * activities never detected showed the row reporting nothing. The processed
+   * set behind it is persisted, and what is not in it is what a run owes.
+   */
+  it('rests with the activities detection has never seen', () => {
+    state.detectionAwaiting = 12;
+
+    const { result } = jobs();
+    const detection = result.current.find((job) => job.id === 'detection');
+
+    expect(detection?.state).toBe('idle');
+    expect(detection?.remaining).toBe(12);
+  });
+
+  it('rests with nothing owed once every activity has been through a detect', () => {
+    const { result } = jobs();
+
+    expect(result.current.find((job) => job.id === 'detection')?.remaining).toBe(0);
+  });
+
+  it('does not claim a running detect is also waiting', () => {
+    state.detectionAwaiting = 12;
+    state.detectionProgress = { phase: 'analyzing', completed: 3, total: 12, percent: 25 };
+
+    const { result } = jobs();
+    const detection = result.current.find((job) => job.id === 'detection');
+
+    expect(detection?.state).toBe('running');
+    expect(detection?.remaining).toBeNull();
+  });
+
+  it('reports no detection count rather than zero when the read throws', () => {
+    mockGetEngine.mockImplementation(
+      () =>
+        ({
+          ...engine(),
+          sectionDetectionAwaiting: () => {
+            throw new Error('engine gone');
+          },
+        }) as unknown as ReturnType<typeof getEngine>
+    );
+
+    const { result } = jobs();
+
+    expect(result.current.find((job) => job.id === 'detection')?.remaining).toBeNull();
   });
 });

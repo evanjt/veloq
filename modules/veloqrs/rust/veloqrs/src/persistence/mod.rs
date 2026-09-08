@@ -35,6 +35,7 @@ use rusqlite::{Connection, Result as SqlResult};
 use std::sync::LazyLock;
 
 mod activities;
+pub mod attempts;
 pub use activities::{
     DerivedClear, ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE, ELEVATION_STATE_UNKNOWN,
     ElevationStateCounts, mint_local_activity_id,
@@ -342,6 +343,8 @@ pub struct SectionDetectionHandle {
     /// only for the runs that apply on the worker, so the poll knows whether
     /// the message on `receiver` is a result to save or a run already saved.
     worker_applied: Option<Arc<AtomicBool>>,
+    /// Raised by `request_cancel`, read by the worker between stages.
+    cancel: Arc<AtomicBool>,
 }
 
 /// What a poll that observes completion still has to do.
@@ -370,6 +373,22 @@ pub enum WorkerPoll<T> {
 }
 
 impl SectionDetectionHandle {
+    /// Ask the run to stop. Cooperative: the worker checks between stages, so
+    /// a cancel arriving inside the detector's own call does not shorten it.
+    ///
+    /// The grouping and detection calls are atomic, so a cancel that lands
+    /// inside one discards that work rather than saving a partial catalogue.
+    /// The same caveat the preview carries, and for the same reason: a
+    /// half-detected catalogue is worse than none.
+    pub fn request_cancel(&self) {
+        self.cancel.store(true, Ordering::SeqCst);
+    }
+
+    /// Whether this run has been asked to stop.
+    pub fn cancel_requested(&self) -> bool {
+        self.cancel.load(Ordering::SeqCst)
+    }
+
     /// Whether this run applied its own result. Only meaningful once the
     /// main channel has answered `Ready`: the worker sets the flag before it
     /// sends.
@@ -642,7 +661,38 @@ impl SectionDetectionHandle {
             cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
             worker_applied: Some(Arc::new(AtomicBool::new(false))),
+            cancel: Arc::new(AtomicBool::new(false)),
         }
+    }
+}
+
+/// A stop the athlete asked for, checked by a background pass at its own safe
+/// points.
+///
+/// The house shape for cancelling detached work. A pass owns one, its handle
+/// holds a clone, and cancelling is one atomic store: no channel to drain, no
+/// lock for the worker to contend on, and no way for a cancel to arrive
+/// half-applied. It latches, so a second cancel is not an un-cancel, and a
+/// pass that has already finished simply ignores it.
+///
+/// Where the safe points are is the pass's own decision, and the only rule is
+/// that state a later pass depends on must be left as if this one never ran.
+#[derive(Clone, Default)]
+pub struct CancelToken(Arc<std::sync::atomic::AtomicBool>);
+
+impl CancelToken {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Ask the pass to stop. Latching, and safe from any thread.
+    pub fn cancel(&self) {
+        self.0.store(true, Ordering::SeqCst);
+    }
+
+    /// Whether a stop has been asked for.
+    pub fn is_cancelled(&self) -> bool {
+        self.0.load(Ordering::SeqCst)
     }
 }
 
@@ -653,6 +703,9 @@ pub struct TileGenerationHandle {
     pub generated: Arc<AtomicU32>,
     /// Total tiles to process
     pub total: Arc<AtomicU32>,
+    /// The stop this pass checks. Cancelling costs a stale heatmap the next
+    /// pass redraws, which is why the dirty marker survives a cancelled run.
+    cancel: CancelToken,
 }
 
 impl TileGenerationHandle {
@@ -669,6 +722,17 @@ impl TileGenerationHandle {
     /// Test and bench path; production uses `poll_state()` via the HeatmapManager poll loop.
     pub fn recv_blocking(&self) -> Option<u32> {
         self.receiver.recv().ok()
+    }
+
+    /// Ask the pass to stop at its next tile.
+    pub fn cancel(&self) {
+        self.cancel.cancel();
+    }
+
+    /// Whether this pass was asked to stop. True from the moment `cancel` is
+    /// called, whether or not the worker has noticed yet.
+    pub fn was_cancelled(&self) -> bool {
+        self.cancel.is_cancelled()
     }
 
     /// Get current progress: (generated, total)
@@ -698,6 +762,7 @@ mod worker_poll_tests {
             cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
             worker_applied: None,
+            cancel: Arc::new(AtomicBool::new(false)),
         };
 
         assert!(matches!(handle.poll_state(), WorkerPoll::Running));
@@ -715,6 +780,7 @@ mod worker_poll_tests {
             cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
             worker_applied: None,
+            cancel: Arc::new(AtomicBool::new(false)),
         };
 
         tx.send((Vec::new(), vec!["a1".to_string()])).unwrap();
@@ -2008,6 +2074,24 @@ pub mod persistent_engine_ffi {
             }
         }
 
+        // Exactly one mint per process, and it is what frees every lease the
+        // last one left behind. A generation costs no clock, so a process that
+        // was killed mid-fetch strands nothing: `attempts::claim_job` reads
+        // any row from an earlier generation as free.
+        match engine.mint_lease_generation() {
+            Ok(generation) => info!(
+                "veloqrs: [PersistentEngine] Lease generation {}",
+                generation
+            ),
+            // A store that cannot mint holds no leases anybody claimed, so the
+            // run goes on with the generation it has rather than refusing to
+            // open over bookkeeping.
+            Err(e) => log::warn!(
+                "veloqrs: [PersistentEngine] Could not mint a lease generation: {:?}",
+                e
+            ),
+        }
+
         let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
         *guard = Some(engine);
         info!("veloqrs: [PersistentEngine] Initialised successfully");
@@ -2118,6 +2202,14 @@ pub mod persistent_engine_ffi {
         LazyLock::new(|| Mutex::new(None));
 
     /// Handle for tracking background tile generation.
+    /// The stop the running tile invalidation sweep checks, if one is running.
+    ///
+    /// The sweep is detached and returns no handle, so unlike the tile pass it
+    /// has nowhere of its own to keep this. Set when it spawns, cleared when
+    /// it ends.
+    pub static TILE_SWEEP_CANCEL: LazyLock<Mutex<Option<CancelToken>>> =
+        LazyLock::new(|| Mutex::new(None));
+
     pub static TILE_GENERATION_HANDLE: LazyLock<Mutex<Option<TileGenerationHandle>>> =
         LazyLock::new(|| Mutex::new(None));
 

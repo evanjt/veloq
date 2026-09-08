@@ -15,6 +15,17 @@ export function startSectionDetection(host: DelegateHost): FfiStartOutcome {
   return host.timed('startSectionDetection', () => host.engine.detection().start());
 }
 
+/**
+ * Ask a running detection to stop. False when there was none.
+ *
+ * Cooperative: it returns at once and the worker ends at its next stage
+ * boundary, so a caller watches the progress rather than this answer.
+ */
+export function cancelSectionDetection(host: DelegateHost): boolean {
+  if (!host.ready) return false;
+  return host.timed('cancelSectionDetection', () => host.engine.detection().cancel());
+}
+
 export function pollSectionDetection(host: DelegateHost): string {
   if (!host.ready) return 'idle';
   try {
@@ -50,6 +61,24 @@ export function lastSectionDetectionOutcome(host: DelegateHost): string {
   } catch (e) {
     console.error('[Engine] lastSectionDetectionOutcome threw:', e);
     return 'idle';
+  }
+}
+
+/**
+ * How many stored activities have never been through a detect.
+ *
+ * The progress read answers only for a run holding the slot now, and the phase
+ * behind it is process-global and starts at idle, so a relaunch with work
+ * outstanding reads as nothing to report. This is the durable half. Null means
+ * the engine could not answer, which must not read as nothing left to do.
+ */
+export function sectionDetectionAwaiting(host: DelegateHost): number | null {
+  if (!host.ready) return null;
+  try {
+    return host.timed('sectionDetectionAwaiting', () => host.engine.detection().awaitingCount());
+  } catch (e) {
+    console.error('[Engine] sectionDetectionAwaiting threw:', e);
+    return null;
   }
 }
 

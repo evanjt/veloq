@@ -11981,6 +11981,26 @@ const FfiConverterTypeBasemapManager = new FfiConverterObject(
 
 export interface DetectionManagerLike {
   /**
+   * How many stored activities have never been through a detect.
+   *
+   * `get_progress` answers only for a run holding the slot now, and the
+   * phase behind it is process-global and starts at idle, so a relaunch with
+   * work outstanding reads as nothing to report. This is the durable half,
+   * counted against the persisted processed set, and it is what a resting
+   * row on the jobs screen rests on.
+   */
+  awaitingCount() /*throws*/ : /*u32*/ number;
+  /**
+   * Ask a running detection to stop. Returns whether there was one.
+   *
+   * Cooperative: the worker checks between stages, so the call returns at
+   * once and the run ends on its own clock. A cancel that lands inside the
+   * detector's own call discards that work rather than shortening it, which
+   * is the same caveat the preview carries and for the same reason: a
+   * half-detected catalogue is worse than none.
+   */
+  cancel(): boolean;
+  /**
    * Force full re-detection by clearing processed activity IDs first.
    * This ensures all activities are re-evaluated against sections.
    * Refuses, and says why, if detection is suspended or already running.
@@ -12032,6 +12052,55 @@ export class DetectionManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeDetectionManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * How many stored activities have never been through a detect.
+   *
+   * `get_progress` answers only for a run holding the slot now, and the
+   * phase behind it is process-global and starts at idle, so a relaunch with
+   * work outstanding reads as nothing to report. This is the durable half,
+   * counted against the persisted processed set, and it is what a resting
+   * row on the jobs screen rests on.
+   */
+  awaitingCount(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_awaiting_count(
+            uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Ask a running detection to stop. Returns whether there was one.
+   *
+   * Cooperative: the worker checks between stages, so the call returns at
+   * once and the run ends on its own clock. A cancel that lands inside the
+   * detector's own call discards that work rather than shortening it, which
+   * is the same caveat the preview carries and for the same reason: a
+   * half-detected catalogue is worse than none.
+   */
+  cancel(): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_cancel(
+            uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
   }
 
   /**
@@ -13669,6 +13738,16 @@ const FfiConverterTypeFitnessManager = new FfiConverterObject(
 
 export interface HeatmapManagerLike {
   /**
+   * Stop the heatmap work the athlete has lost interest in.
+   *
+   * Both the tile pass and the invalidation sweep, because both are
+   * heatmap work and neither is worth finishing once the screen that wanted
+   * it is gone. Cancelling costs a stale heatmap that the next pass redraws,
+   * which is the whole reason this is the cheapest thing in the engine to
+   * make cancellable. Returns whether anything was running to stop.
+   */
+  cancel() /*throws*/ : boolean;
+  /**
    * Clear all heatmap tiles from disk.
    */
   clearTiles(basePath: string) /*throws*/ : /*u32*/ number;
@@ -13720,6 +13799,32 @@ export class HeatmapManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeHeatmapManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Stop the heatmap work the athlete has lost interest in.
+   *
+   * Both the tile pass and the invalidation sweep, because both are
+   * heatmap work and neither is worth finishing once the screen that wanted
+   * it is gone. Cancelling costs a stale heatmap that the next pass redraws,
+   * which is the whole reason this is the cheapest thing in the engine to
+   * make cancellable. Returns whether anything was running to stop.
+   */
+  cancel(): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_cancel(
+            uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
   }
 
   /**
@@ -20840,6 +20945,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count() !==
+    44567
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_cancel() !==
+    33637
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_cancel",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_force_redetect() !==
     30611
   ) {
@@ -22645,6 +22766,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_validate_credentials",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_cancel() !==
+    41462
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_heatmapmanager_cancel",
     );
   }
   if (

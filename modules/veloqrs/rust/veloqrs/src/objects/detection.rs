@@ -4,7 +4,7 @@ use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::sections::DetectionRefusal;
 use log::info;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU32, AtomicUsize, Ordering};
 use std::time::Duration;
 
 /// How the last run this process finished ended, for surfaces that may look
@@ -107,6 +107,7 @@ pub(crate) fn wait_on_slot_with(
 ) -> SlotWait {
     loop {
         if elapsed() >= limit {
+            SLOT_TIMEOUTS.fetch_add(1, Ordering::Relaxed);
             return SlotWait::TimedOut;
         }
         match poll() {
@@ -128,6 +129,27 @@ pub(crate) fn wait_on_slot_with(
 /// `poll_detection_once`, which is the call that publishes an outcome. So a
 /// driver left over from earlier work can settle a run somebody else started.
 static SLOT_DRIVERS: AtomicUsize = AtomicUsize::new(0);
+
+/// Waits on the slot that ran out of time rather than reaching an end.
+///
+/// `wait_on_slot` answers `SlotWait::TimedOut` properly and three of its four
+/// callers fold it into a `warn!` and carry on, so a seven-minute wait that
+/// expired and one that succeeded were the same thing to everything
+/// downstream, on a build where the log line is stripped or unread. Counting
+/// it here covers every caller at once and changes none of their behaviour:
+/// the give-up becomes a fact somebody can read rather than only a line
+/// somebody has to be watching for.
+static SLOT_TIMEOUTS: AtomicU32 = AtomicU32::new(0);
+
+/// How many waits on the detection slot have run out of time, this process.
+///
+/// Not exported. A counter no screen reads is the defect this exists to fix
+/// wearing a different hat, so it stays a fact the tests can assert until
+/// there is a surface that reports what the background work gave up on.
+#[cfg(test)]
+pub(crate) fn slot_timeouts() -> u32 {
+    SLOT_TIMEOUTS.load(Ordering::Relaxed)
+}
 
 /// How many detached drivers are on the slot right now. Read by the test
 /// globals alone: production never waits on this, it only counts.
@@ -197,12 +219,24 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
 
     match result {
         crate::persistence::WorkerPoll::Died => {
+            // A run that was asked to stop leaves the channel gone too, and it
+            // is not a failure: the worker did what it was told. Read the phase
+            // before clearing the handle, since that is what tells the two
+            // apart.
+            let cancelled = handle_guard.as_ref().is_some_and(|h| {
+                h.get_progress().0 == crate::persistence::sections::detection::PHASE_CANCELLED
+            });
             // The worker thread died without sending (panic or early
             // abort). Clear the handle so the next start() can run,
             // otherwise detection is blocked for the rest of the session.
             *handle_guard = None;
-            log::error!("veloqrs: [DetectionManager] Detection thread died without a result");
-            record_outcome(OUTCOME_ERROR);
+            if cancelled {
+                info!("veloqrs: [DetectionManager] Detection cancelled, the slot is free");
+                record_outcome(OUTCOME_IDLE);
+            } else {
+                log::error!("veloqrs: [DetectionManager] Detection thread died without a result");
+                record_outcome(OUTCOME_ERROR);
+            }
             Ok(DetectionPoll::Died)
         }
         crate::persistence::WorkerPoll::Ready((sections, detection_activity_ids)) => {
@@ -452,6 +486,21 @@ impl DetectionManager {
         })
     }
 
+    /// How many stored activities have never been through a detect.
+    ///
+    /// `get_progress` answers only for a run holding the slot now, and the
+    /// phase behind it is process-global and starts at idle, so a relaunch with
+    /// work outstanding reads as nothing to report. This is the durable half,
+    /// counted against the persisted processed set, and it is what a resting
+    /// row on the jobs screen rests on.
+    pub fn awaiting_count(&self) -> Result<u32, VeloqError> {
+        let owed = crate::objects::error::with_engine(|e| e.activities_awaiting_detection())?
+            .map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })?;
+        Ok(owed.try_into().unwrap_or(u32::MAX))
+    }
+
     pub fn get_progress(&self) -> Result<Option<crate::FfiDetectionProgress>, VeloqError> {
         let handle_guard = SECTION_DETECTION_HANDLE
             .lock()
@@ -467,6 +516,27 @@ impl DetectionManager {
                 percent,
             }
         }))
+    }
+
+    /// Ask a running detection to stop. Returns whether there was one.
+    ///
+    /// Cooperative: the worker checks between stages, so the call returns at
+    /// once and the run ends on its own clock. A cancel that lands inside the
+    /// detector's own call discards that work rather than shortening it, which
+    /// is the same caveat the preview carries and for the same reason: a
+    /// half-detected catalogue is worse than none.
+    pub fn cancel(&self) -> bool {
+        let guard = SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        match guard.as_ref() {
+            Some(handle) => {
+                handle.request_cancel();
+                info!("veloqrs: [DetectionManager] Cancel requested");
+                true
+            }
+            None => false,
+        }
     }
 
     /// Force full re-detection by clearing processed activity IDs first.
@@ -640,6 +710,39 @@ mod tests {
             assert_eq!(fake.run(false), SlotWait::TimedOut);
             assert!(fake.now.get() >= LIMIT, "gave up before the limit");
             assert_eq!(fake.slept.get(), RUNGS, "one sleep a rung, no spinning");
+        }
+
+        /// Scenario: three of the four callers fold a timeout into a `warn!`
+        /// and carry on, and a release build strips or never reads that line.
+        ///
+        /// Expected behaviour: the give-up is a fact, counted where every
+        /// caller passes rather than at each of them, so a wait that expired
+        /// and one that succeeded are not the same thing to everything
+        /// downstream.
+        #[test]
+        fn a_wait_that_ran_out_of_time_is_counted() {
+            // The count is process-wide and other waits reach it, so the
+            // delta is only this test's while this test holds the globals.
+            let _serial = crate::test_globals::serial_global_state();
+            let before = slot_timeouts();
+
+            let hung = Fake::new(vec![], Ok(DetectionPoll::Running));
+            assert_eq!(hung.run(false), SlotWait::TimedOut);
+
+            assert_eq!(slot_timeouts() - before, 1);
+        }
+
+        #[test]
+        fn a_wait_that_ended_is_not_counted() {
+            let _serial = crate::test_globals::serial_global_state();
+            let before = slot_timeouts();
+
+            let empty = Fake::new(vec![], Ok(DetectionPoll::Idle));
+            assert_eq!(empty.run(false), SlotWait::Idle);
+            let applied = Fake::new(vec![], Ok(DetectionPoll::Applied));
+            assert_eq!(applied.run(true), SlotWait::Applied);
+
+            assert_eq!(slot_timeouts(), before, "an ended wait is not a give-up");
         }
 
         #[test]
@@ -1105,6 +1208,55 @@ mod tests {
         assert!(died.join().is_err(), "the driver panicked");
 
         assert_eq!(slot_drivers(), before, "an unwind drops the guard");
+    }
+
+    /// Scenario: a detection run started from a screen cannot be stopped. The
+    /// worker loads every track and detects over all of them whatever the
+    /// athlete does next, and `DetectionManager` exposed no cancel at all, so
+    /// no screen could ask.
+    ///
+    /// Expected behaviour: a run can be asked to stop, the ask reaches the
+    /// worker, and the slot it held is free afterwards so the next detection
+    /// can start. A cancel is not an error: the run did what it was told.
+    #[test]
+    fn a_running_detection_can_be_cancelled_and_frees_its_slot() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        wait_for_slot_drivers();
+
+        let manager = DetectionManager::new();
+        assert!(manager.start().expect("start").started(), "the run starts");
+        assert!(manager.cancel(), "a running detection is there to cancel");
+
+        // The worker checks between stages, so the run ends on its own clock.
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while detection_running() && Instant::now() < deadline {
+            let _ = poll_detection_once();
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(!detection_running(), "the slot is free again");
+
+        assert!(
+            manager.start().expect("second start").started(),
+            "and the next detection can start"
+        );
+        wait_for_the_run_to_apply(&manager);
+        timed_poll_to_completion();
+    }
+
+    /// Cancelling when nothing is running says so, rather than arming a flag
+    /// the next run would read.
+    #[test]
+    fn cancelling_an_idle_detection_says_there_was_nothing_to_stop() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+
+        assert!(
+            !DetectionManager::new().cancel(),
+            "there is no run to cancel"
+        );
     }
 
     /// The poll that observes completion, timed. A `Running` poll or two can

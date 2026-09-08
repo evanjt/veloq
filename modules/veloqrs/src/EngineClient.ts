@@ -584,6 +584,10 @@ class EngineClient implements DelegateHost {
 
   startSectionDetection = (): FfiStartOutcome => detectionDelegates.startSectionDetection(this);
 
+  sectionDetectionAwaiting = (): number | null =>
+    detectionDelegates.sectionDetectionAwaiting(this);
+  cancelSectionDetection = (): boolean => detectionDelegates.cancelSectionDetection(this);
+
   pollSectionDetection = (): string => detectionDelegates.pollSectionDetection(this);
 
   /** How the last finished run ended. Reads nothing the follower needs. */
@@ -1002,6 +1006,9 @@ class EngineClient implements DelegateHost {
 
   /** Disable heatmap tile generation by clearing the tiles path in the engine. */
   disableHeatmapTiles = (): void => heatmapDelegates.disableHeatmapTiles(this);
+
+  /** Stop the tile pass and the invalidation sweep, if either is running. */
+  cancelHeatmapWork = (): boolean => heatmapDelegates.cancelHeatmapWork(this);
 
   /** Get total size of heatmap tile cache in bytes (fast native scan). */
   getHeatmapCacheSize = (basePath: string): number =>

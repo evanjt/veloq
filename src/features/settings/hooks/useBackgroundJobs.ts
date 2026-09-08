@@ -52,11 +52,16 @@ const DETECTION_POLL_MS = 1000;
 /** The channel `EngineObserver.backfill_phase` lands on. */
 const BACKFILL_PHASE_CHANNEL = 'backfillPhase';
 
+/** The channel a finished cutover lands on, which is when the token clears. */
+const CUTOVER_SETTLED_CHANNEL = 'cutoverSettled';
+
 interface DetectionStatus {
   state: BackgroundJobState;
   completed: number;
   total: number;
   percent: number | null;
+  /** What a run still owes while none is holding the slot. */
+  awaiting: number | null;
   phase: string | null;
 }
 
@@ -65,6 +70,7 @@ const DETECTION_IDLE: DetectionStatus = {
   completed: 0,
   total: 0,
   percent: null,
+  awaiting: null,
   phase: null,
 };
 
@@ -91,25 +97,29 @@ function readDetection(previous: DetectionStatus): DetectionStatus {
     return DETECTION_IDLE;
   }
   if (!progress) {
+    const awaiting = readDetectionAwaiting();
     let outcome = 'idle';
     try {
       outcome = engine.lastSectionDetectionOutcome?.() ?? 'idle';
     } catch {
       outcome = 'idle';
     }
-    if (outcome === 'error') return { ...DETECTION_IDLE, state: 'failed' };
+    if (outcome === 'error') return { ...DETECTION_IDLE, state: 'failed', awaiting };
     // A finished run keeps whatever the last read saw, so the row does not
     // snap back to zero the instant it settles.
     const settled: BackgroundJobState = outcome === 'complete' ? 'complete' : 'idle';
-    return previous.state === settled && previous.phase === null
+    return previous.state === settled && previous.phase === null && previous.awaiting === awaiting
       ? previous
-      : { ...previous, state: settled, phase: null };
+      : { ...previous, state: settled, phase: null, awaiting };
   }
   return {
     state: 'running',
     completed: progress.completed,
     total: progress.total,
     percent: progress.percent,
+    // A run in flight is not also waiting, and the row already says it is
+    // running, so the count is what a resting row rests on and nothing else.
+    awaiting: null,
     phase: progress.phase,
   };
 }
@@ -120,6 +130,7 @@ function sameDetection(a: DetectionStatus, b: DetectionStatus): boolean {
     a.completed === b.completed &&
     a.total === b.total &&
     a.percent === b.percent &&
+    a.awaiting === b.awaiting &&
     a.phase === b.phase
   );
 }
@@ -140,6 +151,21 @@ function useDetectionStatus(): DetectionStatus {
   }, []);
 
   return state;
+}
+
+/**
+ * The activities detection has never seen. Read on the same timer the progress
+ * is, since nothing announces a run starting and nothing announces the pool
+ * moving under one either.
+ */
+function readDetectionAwaiting(): number | null {
+  const engine = getEngine();
+  if (!engine) return null;
+  try {
+    return engine.sectionDetectionAwaiting?.() ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function readRemaining(): number | null {
@@ -169,6 +195,39 @@ function useBackfillRemaining(): number | null {
   }, []);
 
   return remaining;
+}
+
+/**
+ * Whether a cutover is still owed, as a count the row can rest on.
+ *
+ * The cutover's phase is a process-global static starting at idle, so a
+ * relaunch with a re-cut still owed showed this row reporting nothing. The
+ * in-flight token behind it is durable and already exported; the screen was
+ * simply not asking. One cutover is one unit of work, so the count is one or
+ * zero, and null when the engine cannot answer, which must not read as done.
+ */
+function readCutoverPending(): number | null {
+  const engine = getEngine();
+  if (!engine) return null;
+  try {
+    return engine.isCutoverPending?.() ? 1 : 0;
+  } catch {
+    return null;
+  }
+}
+
+function useCutoverPending(): number | null {
+  const [pending, setPending] = useState(readCutoverPending);
+
+  useEffect(() => {
+    const engine = getEngine();
+    const unsubscribe = engine?.subscribe(CUTOVER_SETTLED_CHANNEL, () =>
+      setPending(readCutoverPending())
+    );
+    return () => unsubscribe?.();
+  }, []);
+
+  return pending;
 }
 
 function syncState(
@@ -211,6 +270,7 @@ export function useBackgroundJobs(): BackgroundJob[] {
   const backfill = useElevationBackfill();
   const cutover = useCutoverSummary();
   const backfillRemaining = useBackfillRemaining();
+  const cutoverPending = useCutoverPending();
 
   return [
     {
@@ -228,7 +288,7 @@ export function useBackgroundJobs(): BackgroundJob[] {
       completed: detection.completed,
       total: detection.total,
       percent: detection.percent,
-      remaining: null,
+      remaining: detection.awaiting,
       phase: detection.phase,
     },
     {
@@ -246,7 +306,9 @@ export function useBackgroundJobs(): BackgroundJob[] {
       completed: 0,
       total: 0,
       percent: null,
-      remaining: null,
+      // A run in flight is not also waiting, and the row already says it is
+      // running, so the count is what a resting row rests on and nothing else.
+      remaining: cutover.isRunning ? null : cutoverPending,
       phase: cutover.isRunning ? cutover.phase : null,
     },
   ];

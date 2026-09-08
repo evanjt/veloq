@@ -87,6 +87,40 @@ impl HeatmapManager {
         }
     }
 
+    /// Stop the heatmap work the athlete has lost interest in.
+    ///
+    /// Both the tile pass and the invalidation sweep, because both are
+    /// heatmap work and neither is worth finishing once the screen that wanted
+    /// it is gone. Cancelling costs a stale heatmap that the next pass redraws,
+    /// which is the whole reason this is the cheapest thing in the engine to
+    /// make cancellable. Returns whether anything was running to stop.
+    fn cancel(&self) -> Result<bool, VeloqError> {
+        let mut stopped = false;
+
+        if let Some(handle) = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
+            .lock()
+            .map_err(|_| VeloqError::LockFailed)?
+            .as_ref()
+        {
+            handle.cancel();
+            stopped = true;
+        }
+
+        // The handle stays in its slot: the worker is still winding down and
+        // `poll` is what clears it, so taking it here would lose the outcome
+        // the caller is waiting to read.
+        if let Some(token) = crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL
+            .lock()
+            .map_err(|_| VeloqError::LockFailed)?
+            .as_ref()
+        {
+            token.cancel();
+            stopped = true;
+        }
+
+        Ok(stopped)
+    }
+
     /// Get tile generation progress: (processed, total). Returns (0, 0) if idle.
     fn get_progress(&self) -> Result<Vec<u32>, VeloqError> {
         let handle_guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE

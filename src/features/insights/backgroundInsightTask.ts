@@ -154,7 +154,17 @@ async function indexActivity(
  */
 async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo | null> {
   try {
-    const { getStoredCredentials, pushCredentialsToEngine } = require('@/shared/app/AuthStore');
+    const {
+      ensureCredentialsHydrated,
+      getStoredCredentials,
+      pushCredentialsToEngine,
+    } = require('@/shared/app/AuthStore');
+
+    // A headless start mounts no React tree, so nothing has called
+    // `initialize()` and the credential is null however signed in the athlete
+    // is. Read it from SecureStore before the guard, or every cold push bails
+    // here and no rung below it ever runs.
+    await ensureCredentialsHydrated();
     if (!getStoredCredentials().athleteId) return null;
 
     // A headless start may reach the engine before the layout init effect has,
@@ -460,11 +470,12 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
 
     // 10. A delivered push proves the pipeline is alive, so use it to keep
     // the server-side token registration (30-day TTL) fresh for users who
-    // rarely open the app. Runs last: by now the auth store has rehydrated
-    // (a cold headless start reads athleteId as null until then). Throttled
-    // to once a day inside the helper.
+    // rarely open the app. Throttled to once a day inside the helper. A wake
+    // carrying no activity reaches here without the ingest above, so it asks
+    // for the credential itself rather than assuming that ran.
     try {
-      const { getStoredCredentials } = require('@/shared/app/AuthStore');
+      const { ensureCredentialsHydrated, getStoredCredentials } = require('@/shared/app/AuthStore');
+      await ensureCredentialsHydrated();
       const athleteId: string | null = getStoredCredentials().athleteId;
       if (athleteId) {
         const {
