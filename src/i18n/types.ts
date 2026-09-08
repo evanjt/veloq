@@ -303,7 +303,7 @@ export interface TranslationResource {
     previewRun: string;
     previewRunning: string;
     previewFailed: string;
-    previewSlow: string;
+    runSlow: string;
     previewPoolUnusable: string;
     previewSuspended: string;
     previewCurrentFailed: string;

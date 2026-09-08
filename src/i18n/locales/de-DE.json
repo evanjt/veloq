@@ -1303,7 +1303,7 @@
     "previewRun": "Vorschau",
     "previewRunning": "Analysiere {{count}} Aktivitäten in diesem Gebiet",
     "previewFailed": "Die Vorschau konnte nicht abgeschlossen werden.",
-    "previewSlow": "Das dauert länger als üblich. Der Lauf läuft noch.",
+    "runSlow": "Das dauert länger als üblich. Der Lauf läuft noch.",
     "previewPoolUnusable": "Einige deiner Aktivitatsspuren sind nicht lesbar, daher wurde die Vorschau abgebrochen.",
     "previewCurrentFailed": "Die aktuellen Abschnitte für dieses Gebiet konnten nicht gelesen werden.",
     "previewSuspended": "Höhenaktualisierung läuft. Bitte gleich erneut versuchen.",

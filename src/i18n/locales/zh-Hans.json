@@ -1303,7 +1303,7 @@
     "previewRun": "预览",
     "previewRunning": "正在分析该区域的 {{count}} 项活动",
     "previewFailed": "预览未能完成。",
-    "previewSlow": "耗时比平常更久，仍在运行中。",
+    "runSlow": "耗时比平常更久，仍在运行中。",
     "previewPoolUnusable": "部分活动轨迹无法读取，因此预览已停止。",
     "previewCurrentFailed": "无法读取该区域的当前路段。",
     "previewSuspended": "海拔更新进行中，请稍后重试。",

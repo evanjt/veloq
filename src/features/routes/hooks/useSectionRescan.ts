@@ -2,7 +2,12 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { hasStarted, StartOutcome } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { getPhaseDisplayName } from '@/features/routes/lib/detectionProgress';
-import { followDetection, type DetectionEngine } from '@/features/routes/lib/detectionRun';
+import {
+  DETECTION_FOLLOW_MS,
+  DETECTION_FOREGROUND_MS,
+  followDetection,
+  type DetectionEngine,
+} from '@/features/routes/lib/detectionRun';
 
 interface RescanResult {
   before: number;
@@ -38,6 +43,8 @@ interface SectionRescanState {
    */
   cancelScan: () => boolean;
   isScanning: boolean;
+  /** True once a run still going has outlived its foreground budget. */
+  lapsed: boolean;
   progress: RescanProgress | null;
   result: RescanResult | null;
   failed: boolean;
@@ -60,6 +67,8 @@ export function useSectionRescan(): SectionRescanState {
   const [progress, setProgress] = useState<SectionRescanState['progress']>(null);
   const [result, setResult] = useState<RescanResult | null>(null);
   const [failed, setFailed] = useState(false);
+  const [lapsed, setLapsed] = useState(false);
+  const isMountedRef = useRef(true);
   const [refusal, setRefusal] = useState<StartOutcome | null>(null);
   const followRef = useRef<(() => void) | null>(null);
   const beforeCountRef = useRef(0);
@@ -77,7 +86,16 @@ export function useSectionRescan(): SectionRescanState {
     setResult(null);
     setFailed(false);
 
+    setLapsed(false);
     const follow = followDetection(engine as unknown as DetectionEngine, {
+      // The run's end comes from an announcement, and an announcement can be
+      // withheld: the observer is not registered when the binding checksum
+      // check throws, which is what a library out of step with its bindings
+      // does. Without a budget that build scans for ever.
+      timeoutMs: DETECTION_FOLLOW_MS,
+      lapseAfterMs: DETECTION_FOREGROUND_MS,
+      onLapse: () => setLapsed(true),
+      isActive: () => isMountedRef.current,
       onProgress: (p) =>
         setProgress({
           phase: p.phase,
@@ -97,7 +115,10 @@ export function useSectionRescan(): SectionRescanState {
       // A detection that aborts must not read as a rescan that changed
       // nothing: a later poll returns 'idle', which is indistinguishable
       // from a clean finish.
-      if (outcome === 'error') {
+      // A run this hook stopped following did not finish for it, whatever it
+      // went on to do. Reporting a before and after it never measured would be
+      // worse than saying so.
+      if (outcome === 'error' || outcome === 'timeout') {
         setFailed(true);
         return;
       }
@@ -167,7 +188,9 @@ export function useSectionRescan(): SectionRescanState {
   }, [startPolling]);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       followRef.current?.();
       followRef.current = null;
     };
@@ -179,6 +202,7 @@ export function useSectionRescan(): SectionRescanState {
     cancelScan,
     refusal,
     isScanning,
+    lapsed,
     progress,
     result,
     failed,

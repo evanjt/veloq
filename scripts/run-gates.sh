@@ -15,13 +15,60 @@
 # a gate killed before it could record anything is a failure, not an absence.
 set -u
 
+# `VELOQ_SKIP_GATES` names gates to leave out, space or comma separated.
+#
+# It exists because `tsc` in a worktree resolves `veloqrs` to the main checkout
+# and reports errors that are not in the tree being committed. The answer to
+# that was `--no-verify`, which skips the lint ratchet too, and warnings then
+# landed over the ceiling and failed the next session's merge rather than the
+# commit that made them. So one gate can be dropped by name and the rest still
+# run.
+#
+# `lint` is not in the allowlist on purpose: it carries the ceiling, and an
+# escape hatch that could skip it would be the hole this closes, renamed. A
+# name that is not skippable, or not a gate in this run at all, is refused
+# rather than ignored, because a skip nobody notices is how the ratchet drifts.
+SKIPPABLE="tsc test rustfmt audit"
+
 logs=$(mktemp -d)
 trap 'rm -rf "$logs"' EXIT
+
+requested_skips=$(printf '%s' "${VELOQ_SKIP_GATES:-}" | tr ',' ' ')
+
+offered=""
+for spec in "$@"; do
+  offered="$offered ${spec%%:*}"
+done
+
+for skip in $requested_skips; do
+  case " $SKIPPABLE " in
+    *" $skip "*) ;;
+    *)
+      echo "--- VELOQ_SKIP_GATES names $skip, which may not be skipped ---" >&2
+      echo "Skippable: $SKIPPABLE" >&2
+      exit 1
+      ;;
+  esac
+  case " $offered " in
+    *" $skip "*) ;;
+    *)
+      echo "--- VELOQ_SKIP_GATES names $skip, which is not a gate in this run ---" >&2
+      echo "Gates:$offered" >&2
+      exit 1
+      ;;
+  esac
+done
 
 names=""
 for spec in "$@"; do
   name=${spec%%:*}
   command=${spec#*:}
+  case " $requested_skips " in
+    *" $name "*)
+      echo "--- $name skipped, VELOQ_SKIP_GATES asked for it ---"
+      continue
+      ;;
+  esac
   names="$names $name"
   (
     set +e

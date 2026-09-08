@@ -4,7 +4,7 @@ use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::sections::DetectionRefusal;
 use log::info;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU32, AtomicUsize, Ordering};
 use std::time::Duration;
 
 /// How the last run this process finished ended, for surfaces that may look
@@ -107,6 +107,7 @@ pub(crate) fn wait_on_slot_with(
 ) -> SlotWait {
     loop {
         if elapsed() >= limit {
+            SLOT_TIMEOUTS.fetch_add(1, Ordering::Relaxed);
             return SlotWait::TimedOut;
         }
         match poll() {
@@ -128,6 +129,27 @@ pub(crate) fn wait_on_slot_with(
 /// `poll_detection_once`, which is the call that publishes an outcome. So a
 /// driver left over from earlier work can settle a run somebody else started.
 static SLOT_DRIVERS: AtomicUsize = AtomicUsize::new(0);
+
+/// Waits on the slot that ran out of time rather than reaching an end.
+///
+/// `wait_on_slot` answers `SlotWait::TimedOut` properly and three of its four
+/// callers fold it into a `warn!` and carry on, so a seven-minute wait that
+/// expired and one that succeeded were the same thing to everything
+/// downstream, on a build where the log line is stripped or unread. Counting
+/// it here covers every caller at once and changes none of their behaviour:
+/// the give-up becomes a fact somebody can read rather than only a line
+/// somebody has to be watching for.
+static SLOT_TIMEOUTS: AtomicU32 = AtomicU32::new(0);
+
+/// How many waits on the detection slot have run out of time, this process.
+///
+/// Not exported. A counter no screen reads is the defect this exists to fix
+/// wearing a different hat, so it stays a fact the tests can assert until
+/// there is a surface that reports what the background work gave up on.
+#[cfg(test)]
+pub(crate) fn slot_timeouts() -> u32 {
+    SLOT_TIMEOUTS.load(Ordering::Relaxed)
+}
 
 /// How many detached drivers are on the slot right now. Read by the test
 /// globals alone: production never waits on this, it only counts.
@@ -688,6 +710,39 @@ mod tests {
             assert_eq!(fake.run(false), SlotWait::TimedOut);
             assert!(fake.now.get() >= LIMIT, "gave up before the limit");
             assert_eq!(fake.slept.get(), RUNGS, "one sleep a rung, no spinning");
+        }
+
+        /// Scenario: three of the four callers fold a timeout into a `warn!`
+        /// and carry on, and a release build strips or never reads that line.
+        ///
+        /// Expected behaviour: the give-up is a fact, counted where every
+        /// caller passes rather than at each of them, so a wait that expired
+        /// and one that succeeded are not the same thing to everything
+        /// downstream.
+        #[test]
+        fn a_wait_that_ran_out_of_time_is_counted() {
+            // The count is process-wide and other waits reach it, so the
+            // delta is only this test's while this test holds the globals.
+            let _serial = crate::test_globals::serial_global_state();
+            let before = slot_timeouts();
+
+            let hung = Fake::new(vec![], Ok(DetectionPoll::Running));
+            assert_eq!(hung.run(false), SlotWait::TimedOut);
+
+            assert_eq!(slot_timeouts() - before, 1);
+        }
+
+        #[test]
+        fn a_wait_that_ended_is_not_counted() {
+            let _serial = crate::test_globals::serial_global_state();
+            let before = slot_timeouts();
+
+            let empty = Fake::new(vec![], Ok(DetectionPoll::Idle));
+            assert_eq!(empty.run(false), SlotWait::Idle);
+            let applied = Fake::new(vec![], Ok(DetectionPoll::Applied));
+            assert_eq!(applied.run(true), SlotWait::Applied);
+
+            assert_eq!(slot_timeouts(), before, "an ended wait is not a give-up");
         }
 
         #[test]

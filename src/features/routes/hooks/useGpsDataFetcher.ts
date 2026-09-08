@@ -28,7 +28,12 @@ import type { SyncProgress } from './useRouteSyncProgress';
 import { backfillTimeStreams } from '@/features/routes/lib/timeStreamBackfill';
 import { awaitTilePass } from '@/features/routes/lib/tilePass';
 import { debug } from '@/shared/debug/debug';
-import { followDetection, type DetectionEngine } from '@/features/routes/lib/detectionRun';
+import {
+  DETECTION_FOLLOW_MS,
+  DETECTION_FOREGROUND_MS,
+  followDetection,
+  type DetectionEngine,
+} from '@/features/routes/lib/detectionRun';
 import { fetchWithRetry, type FetchPass } from '@/features/routes/lib/gpsFetchRetry';
 import { abandonDownload, pollDownloadProgress } from '@/features/routes/lib/gpsDownloadPoll';
 
@@ -56,15 +61,6 @@ interface FetchDeps {
  * Scale a Rust-reported 0–100 percent into an arbitrary sub-range of the
  * overall sync progress bar.
  */
-/**
- * How long a run is followed before the bar goes indeterminate, and how long
- * it is followed at all. The old shape polled for 120 s in the foreground and
- * then spawned a second 300 s poll of its own; one subscription now spans
- * both, so the lapse only changes what the banner says.
- */
-const DETECTION_FOREGROUND_MS = 120000;
-const DETECTION_FOLLOW_MS = 420000;
-
 function scalePercent(rustPercent: number, rangeStart: number, rangeEnd: number): number {
   return Math.min(
     Math.round(rangeEnd),
