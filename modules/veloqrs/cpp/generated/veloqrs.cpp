@@ -912,6 +912,8 @@ void uniffi_veloqrs_fn_free_heatmapmanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_constructor_heatmapmanager_new(
     RustCallStatus *uniffi_out_err);
+int8_t uniffi_veloqrs_fn_method_heatmapmanager_cancel(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
     /*handle*/ uint64_t ptr, RustBuffer base_path,
     RustCallStatus *uniffi_out_err);
@@ -1393,6 +1395,7 @@ uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_upload_activity();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_validate_credentials();
+uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_cancel();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size();
@@ -8285,6 +8288,17 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_constructor_heatmapmanager_new(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_cancel"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_cancel"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_heatmapmanager_cancel(
+                rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -12433,6 +12447,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_syncmanager_validate_credentials(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_cancel"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_cancel"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_cancel(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -18024,6 +18050,20 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_heatmapmanager_new(
   return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
                                                          value);
 }
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_cancel(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_heatmapmanager_cancel(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -21177,6 +21217,14 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_syncmanager_validate_credentials();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_cancel(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_cancel();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

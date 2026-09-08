@@ -431,12 +431,26 @@ impl PersistentEngine {
             // needs only the path and bounds, never `self`.
             let bounds_to_clear = all_bounds;
             let activity_count = activities.len();
+            let cancel = crate::persistence::CancelToken::new();
+            if let Ok(mut guard) =
+                crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL.lock()
+            {
+                *guard = Some(cancel.clone());
+            }
             std::thread::spawn(move || {
                 let config = crate::tiles::HeatmapConfig::default();
                 let path = std::path::Path::new(&tiles_path);
                 let margin = 0.001;
                 let mut total_deleted = 0;
+                let mut stopped = false;
                 for bounds in &bounds_to_clear {
+                    // Per bound, which is the sweep's only boundary: one bound
+                    // is a bounded walk of one activity's tiles, and there are
+                    // as many of them as the sync stored activities.
+                    if cancel.is_cancelled() {
+                        stopped = true;
+                        break;
+                    }
                     total_deleted += crate::tiles::invalidate_tiles_in_bounds(
                         path,
                         bounds.min_lat - margin,
@@ -450,8 +464,23 @@ impl PersistentEngine {
                 // Marked after the sweep, never before. A mark set first can be
                 // cleared by a generation run that finishes between the mark and
                 // the delete, and nothing then redraws the ground the sweep took.
+                //
+                // A cancelled sweep marks too, and must: it deleted tiles for
+                // the bounds it reached, and the bounds it never reached still
+                // hold ground the new activities changed. Either way the set is
+                // owed a redraw.
                 crate::persistence::tiles::mark_tiles_dirty(&tiles_path);
-                if total_deleted > 0 {
+                if let Ok(mut guard) =
+                    crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL.lock()
+                {
+                    *guard = None;
+                }
+                if stopped {
+                    log::info!(
+                        "[heatmap] Sweep cancelled after {} tiles, the set stays dirty",
+                        total_deleted
+                    );
+                } else if total_deleted > 0 {
                     log::info!(
                         "[heatmap] Invalidated {} tiles for {} new activities",
                         total_deleted,

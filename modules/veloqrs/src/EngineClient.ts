@@ -979,6 +979,9 @@ class EngineClient implements DelegateHost {
   /** Disable heatmap tile generation by clearing the tiles path in the engine. */
   disableHeatmapTiles = (): void => heatmapDelegates.disableHeatmapTiles(this);
 
+  /** Stop the tile pass and the invalidation sweep, if either is running. */
+  cancelHeatmapWork = (): boolean => heatmapDelegates.cancelHeatmapWork(this);
+
   /** Get total size of heatmap tile cache in bytes (fast native scan). */
   getHeatmapCacheSize = (basePath: string): number =>
     heatmapDelegates.getHeatmapCacheSize(this, basePath);
