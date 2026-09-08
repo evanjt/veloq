@@ -45,6 +45,7 @@ jest.mock('react-native-iap', () => ({
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
+    sectionDetectionAwaiting: () => 0,
     getSectionConfig: () => ({
       proximityThreshold: 200,
       minSectionLength: 150,

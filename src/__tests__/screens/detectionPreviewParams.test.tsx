@@ -29,6 +29,7 @@ const mockGetSectionConfig = jest.fn(() => ({
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
+    sectionDetectionAwaiting: () => 0,
     getSectionConfig: mockGetSectionConfig,
     setSectionConfig: mockSetSectionConfig,
     forceRedetectSections: mockForceRedetect,

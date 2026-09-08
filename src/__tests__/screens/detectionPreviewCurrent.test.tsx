@@ -68,6 +68,7 @@ let mockResult: PreviewResult | null = null;
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
+    sectionDetectionAwaiting: () => 0,
     getSectionConfig: () => ({
       proximityThreshold: 50,
       minSectionLength: 500,

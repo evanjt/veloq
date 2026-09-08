@@ -80,6 +80,7 @@ jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
+    sectionDetectionAwaiting: () => 0,
     getSectionConfig: () => null,
     subscribe: () => () => {},
   }),

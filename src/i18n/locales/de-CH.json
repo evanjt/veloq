@@ -1308,6 +1308,7 @@
     "previewCurrentFailed": "Di jetzige Abschnitt für die Gäged händ nöd chöne gläse werde.",
     "previewSuspended": "D Höheaktualisierig lauft grad. Probier s gliich nomal.",
     "previewMigrating": "Deine Bibliothek wird noch migriert, diese Ergebnisse können sich danach leicht ändern",
+    "previewStaleCatalogue": "Der aktive Katalog kennt {{count}} deiner Aktivitäten noch nicht. Als entfernt oder neu angezeigte Abschnitte können nur die nachlaufende Erkennung sein",
     "previewUnchanged": "{{count}} unverändert",
     "previewChanged": "{{count}} gänderet",
     "previewNew": "{{count}} neu",

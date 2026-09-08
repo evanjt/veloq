@@ -1308,6 +1308,7 @@
     "previewCurrentFailed": "Kon de huidige secties voor dit gebied niet lezen.",
     "previewSuspended": "Hoogte-update bezig. Probeer het zo opnieuw.",
     "previewMigrating": "Je bibliotheek wordt nog gemigreerd, deze resultaten kunnen daarna iets veranderen",
+    "previewStaleCatalogue": "De actieve catalogus heeft {{count}} van je activiteiten nog niet gezien, dus secties die als verdwenen of nieuw worden getoond kunnen simpelweg de detectie zijn die bijwerkt",
     "previewUnchanged": "{{count}} ongewijzigd",
     "previewChanged": "{{count}} gewijzigd",
     "previewNew": "{{count}} nieuw",

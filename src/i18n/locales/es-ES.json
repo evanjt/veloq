@@ -1308,6 +1308,7 @@
     "previewCurrentFailed": "No se han podido leer los tramos actuales de esta zona.",
     "previewSuspended": "Actualización de altitud en curso. Inténtalo de nuevo en breve.",
     "previewMigrating": "Tu biblioteca aún se está migrando, así que estos resultados pueden variar un poco al terminar",
+    "previewStaleCatalogue": "El catálogo activo aún no ha visto {{count}} de tus actividades, así que los tramos que aparecen como eliminados o nuevos pueden ser solo la detección poniéndose al día",
     "previewUnchanged": "{{count}} sin cambios",
     "previewChanged": "{{count}} modificadas",
     "previewNew": "{{count}} nuevas",
