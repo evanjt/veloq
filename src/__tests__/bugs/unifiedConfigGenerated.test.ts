@@ -14,11 +14,14 @@ import { resolve } from 'node:path';
 
 import { UNIFIED_CONFIG } from '@/shared/native/engine';
 import { readRustSectionDefaults, renderUnifiedConfig } from '../../../scripts/lib/unifiedConfig';
+import { describeWithTracematch } from '../support/tracematch';
 
 const GENERATED = resolve('src/shared/native/unifiedConfig.generated.ts');
 const RUST = resolve('modules/veloqrs/rust/tracematch/src/sections/mod.rs');
 
-describe('the validated detector configuration', () => {
+// The two below read the Rust source, so they need the submodule. The rest of
+// the suite parses fixtures held here and runs anywhere.
+describeWithTracematch('the validated detector configuration, against the Rust source', () => {
   it('is what the Rust default says it is', () => {
     expect(UNIFIED_CONFIG).toEqual(readRustSectionDefaults(readFileSync(RUST, 'utf-8')));
   });
@@ -28,7 +31,9 @@ describe('the validated detector configuration', () => {
       renderUnifiedConfig(readRustSectionDefaults(readFileSync(RUST, 'utf-8')))
     );
   });
+});
 
+describe('the validated detector configuration', () => {
   it('resolves a field whose default is a helper function, not a literal', () => {
     const source = `
 fn default_divergence_threshold() -> f64 {
