@@ -28,6 +28,13 @@
 //! 2.5x ceiling. A blanket ceiling loose enough for the catalogue read would
 //! have missed the second, which is why the ceilings are per read.
 //!
+//! **The ratio is only honest if both sides pay the same load.** The suite
+//! failed here on 2026-09-08 with the fleet running and the dependencies newly
+//! optimised. Neither was the cause: the binary passes alone under that profile
+//! and passes inside the full 32-process nextest run on a quiet box. What tips
+//! it is a burst of load that covers one side's samples and not the other's, so
+//! the sides are now interleaved and the minimum is taken per round.
+//!
 //! Run: `cargo test --test screen_read_budget -p veloqrs`
 
 use std::time::{Duration, Instant};
@@ -150,18 +157,32 @@ fn insights_params() -> FfiInsightsParams {
     }
 }
 
-/// The best of a few runs. A descheduled sample inflates one side of the ratio
-/// and would fail the suite for the box rather than for the code; a read that
-/// is genuinely dearer is dearer every time.
-fn best_of<T>(mut read: impl FnMut() -> T) -> Duration {
-    (0..5)
-        .map(|_| {
-            let t = Instant::now();
-            std::hint::black_box(read());
-            t.elapsed()
-        })
-        .min()
-        .expect("at least one run")
+/// Which library a sample was taken against.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Side {
+    Small,
+    Large,
+}
+
+const ROUNDS: usize = 5;
+
+/// The best of a few rounds, taking both sides in every round.
+///
+/// A descheduled sample inflates one side of the ratio and would fail the suite
+/// for the box rather than for the code, and the minimum is what keeps that
+/// out. The minimum alone is not enough: measuring one side to exhaustion and
+/// then the other lets a burst of load cover the whole of the second phase and
+/// none of the first, and every sample on that side then carries it. So the
+/// sides are interleaved and a burst has to outlast every round of both to
+/// reach the ratio.
+fn best_pair(mut sample: impl FnMut(Side) -> Duration) -> (Duration, Duration) {
+    let mut small = Duration::MAX;
+    let mut large = Duration::MAX;
+    for _ in 0..ROUNDS {
+        small = small.min(sample(Side::Small));
+        large = large.min(sample(Side::Large));
+    }
+    (small, large)
 }
 
 fn ms(d: Duration) -> f64 {
@@ -176,8 +197,15 @@ fn holds<T>(
     large: &mut PersistentEngine,
     mut read: impl FnMut(&mut PersistentEngine) -> T,
 ) {
-    let a = best_of(|| read(small));
-    let b = best_of(|| read(large));
+    let (a, b) = best_pair(|side| {
+        let engine: &mut PersistentEngine = match side {
+            Side::Small => small,
+            Side::Large => large,
+        };
+        let t = Instant::now();
+        std::hint::black_box(read(engine));
+        t.elapsed()
+    });
     if a < NOISE_FLOOR && b < NOISE_FLOOR {
         println!(
             "{name}: {:.3} ms to {:.3} ms, both under the floor",
@@ -239,4 +267,50 @@ fn no_screen_read_grows_faster_than_the_library() {
     holds("insights_data", FLAT, &mut small, &mut large, |e| {
         e.insights_data(&params)
     });
+}
+
+/// Scenario: the box is quiet for the first half of the measurement and busy
+/// for the second. Expected behaviour: the ratio is the code's, not the load's.
+///
+/// This is the shape that failed the suite on 2026-09-08 with the fleet
+/// running, and it is not a ceiling that was too tight. Measuring the small
+/// library to exhaustion and then the large one puts every large sample inside
+/// the burst, so the minimum carries it and a flat read reads as a growing one.
+#[test]
+fn a_burst_over_the_second_half_does_not_read_as_growth() {
+    let quiet = Duration::from_micros(1_000);
+    let loaded = Duration::from_micros(3_000);
+    // Ten samples are taken either way, so the burst covers the same calls in
+    // both shapes and only their order differs.
+    let calls = std::cell::Cell::new(0usize);
+    let script = |_side| {
+        calls.set(calls.get() + 1);
+        if calls.get() > ROUNDS { loaded } else { quiet }
+    };
+
+    let mut small = Duration::MAX;
+    let mut large = Duration::MAX;
+    for _ in 0..ROUNDS {
+        small = small.min(script(Side::Small));
+    }
+    for _ in 0..ROUNDS {
+        large = large.min(script(Side::Large));
+    }
+    let sequential = large.as_secs_f64() / small.as_secs_f64();
+    assert!(
+        sequential > FLAT,
+        "the phase-separated shape is meant to be the one that fails here, \
+         it read {sequential:.1}x against a ceiling of {FLAT:.1}x"
+    );
+
+    calls.set(0);
+    let (small, large) = best_pair(script);
+    let interleaved = large.as_secs_f64() / small.as_secs_f64();
+    assert!(
+        (interleaved - 1.0).abs() < 0.01,
+        "a burst both sides pay for equally is not growth, got {interleaved:.2}x \
+         from {:.3} ms and {:.3} ms",
+        ms(small),
+        ms(large)
+    );
 }
