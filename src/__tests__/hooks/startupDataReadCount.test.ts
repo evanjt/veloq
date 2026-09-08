@@ -65,7 +65,7 @@ function announce(event: string) {
 }
 
 describe('useStartupData read count', () => {
-  let rendered: ReturnType<typeof renderHook> | null = null;
+  let unmountRendered: (() => void) | null = null;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -83,14 +83,15 @@ describe('useStartupData read count', () => {
     // React waits forever: three of these five tests spent the full 30 s hook
     // budget in that cleanup on the CI runner, twice, and never here.
     act(() => {
-      rendered?.unmount();
+      unmountRendered?.();
     });
-    rendered = null;
+    unmountRendered = null;
     jest.useRealTimers();
   });
 
   function mount() {
-    rendered = renderHook(() => useStartupData(['a1']));
+    const rendered = renderHook(() => useStartupData(['a1']));
+    unmountRendered = rendered.unmount;
     act(() => {
       jest.runOnlyPendingTimers();
     });
