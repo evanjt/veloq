@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
@@ -96,6 +97,8 @@ export default function RecordingScreen() {
   const currentLocation = useRecordingLiveStore((s) => s.currentLocation);
   const accuracy = useRecordingLiveStore((s) => s.accuracy);
   const autoPaused = useRecordingLiveStore((s) => s.autoPaused);
+  const backgroundTrackingFailed = useRecordingLiveStore((s) => s.backgroundTrackingFailed);
+  const { t } = useTranslation();
   const { hasPermission, requestPermission } = useLocationPermission();
 
   useGpsWarningClearEffect(currentLocation, gpsWarning, setGpsWarning);
@@ -180,6 +183,9 @@ export default function RecordingScreen() {
       />
 
       <StatusSlot
+        backgroundTrackingWarning={
+          backgroundTrackingFailed ? t('recording.gpsTrackingError') : null
+        }
         gpsWarning={gpsWarning}
         sensorIssue={sensorIssue}
         splitBanner={splitBanner}
