@@ -57,7 +57,12 @@ function useDetail(job: BackgroundJob): string {
   }
 
   if (job.state === 'idle' && job.remaining !== null && job.remaining > 0) {
-    return t('backgroundJobs.remaining', { count: job.remaining });
+    // The count is what a resting row rests on, and the rebuild is the one job
+    // that counts something other than a download: it is one unit of work and
+    // it fetches nothing, so the shared "still to fetch" line is wrong for it.
+    return job.id === 'cutover'
+      ? t('backgroundJobs.cutoverWaiting')
+      : t('backgroundJobs.remaining', { count: job.remaining });
   }
 
   switch (job.state) {

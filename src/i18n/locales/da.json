@@ -1662,6 +1662,7 @@
     "progressCount": "{{completed}} af {{total}}",
     "progressPercent": "{{percent}} %",
     "remaining": "{{count}} mangler at blive hentet",
+    "cutoverWaiting": "Venter på at genopbygge dine sektioner",
     "statePaused": "På pause, indtil appen åbnes igen"
   },
   "period": {

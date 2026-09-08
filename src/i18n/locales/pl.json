@@ -1664,6 +1664,7 @@
     "progressCount": "{{completed}} z {{total}}",
     "progressPercent": "{{percent}}%",
     "remaining": "Pozostało {{count}} do pobrania",
+    "cutoverWaiting": "Czeka na przebudowanie twoich odcinków",
     "statePaused": "Wstrzymane do następnego otwarcia aplikacji"
   },
   "period": {
