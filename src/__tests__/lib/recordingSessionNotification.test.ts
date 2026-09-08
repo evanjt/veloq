@@ -63,9 +63,11 @@ describe('the recording session and its notification', () => {
   let uninstall: () => void;
 
   beforeEach(() => {
-    jest.clearAllMocks();
     useRecordingStore.getState().reset();
     uninstall = installRecordingSession();
+    // Installing reaps an orphaned notification, so the counts below are taken
+    // from the ride and not from the launch.
+    jest.clearAllMocks();
   });
 
   afterEach(() => {

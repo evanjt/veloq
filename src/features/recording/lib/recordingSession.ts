@@ -381,6 +381,14 @@ export function installRecordingSession(): () => void {
   // counting on the lock screen. Reap before the restored status can start a
   // session, or the orphan and the new card sit side by side.
   reapOrphanedLiveActivities();
-  react(useRecordingStore.getState().status);
+
+  // The Android notification outlives it the same way, and for a worse reason:
+  // re-posting it took ownership from the foreground service, so a force-stop
+  // leaves it on screen with live-looking buttons and no ride, indefinitely.
+  // `stopSession` cannot reach it, that path is what an abnormal end skips. A
+  // ride restored still live keeps it and re-adopts it below.
+  const restored = useRecordingStore.getState().status;
+  if (!isLive(restored)) clearRecordingNotification();
+  react(restored);
   return installUnsubscribe;
 }
