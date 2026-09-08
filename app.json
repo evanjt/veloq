@@ -127,7 +127,7 @@
           "android": {},
           "ios": {
             "deploymentTarget": "16.4",
-            "buildReactNativeFromSource": true
+            "ccacheEnabled": true
           }
         }
       ],

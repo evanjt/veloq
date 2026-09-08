@@ -1,0 +1,13 @@
+# `cargo test` has no per-test timeout, so a test that never returns reads as a
+# slow suite until the job cap kills it (B344). nextest names the test instead:
+# after four periods over the slow line it is terminated and reported.
+[profile.default]
+slow-timeout = { period = "60s", terminate-after = 4 }
+fail-fast = false
+
+[profile.ci]
+slow-timeout = { period = "60s", terminate-after = 4 }
+fail-fast = false
+
+[profile.ci.junit]
+path = "junit.xml"
