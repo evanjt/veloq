@@ -33,32 +33,29 @@ tags:
 - takeScreenshot: "screenshots/feed-indicators-baseline"
 
 # ====================================================================
-# Coverage check: at least ONE pill of ANY kind across the first 5 cards.
-# If none of the testIDs match, the indicator system isn't rendering.
+# Coverage check: at least one section chip anywhere near the top of the
+# feed. If nothing matches, the indicator system isn't rendering.
+#
+# The chip is matched on any card rather than on a named one. The demo
+# library's date-generated activities interleave with the stable demo-test-N
+# ones, so the card below demo-test-0 is a filler and a fixed swipe lands on
+# no particular id. The pr and improving pills are drawn inside the chip, so
+# the chip is the superset of all three.
 # ====================================================================
-- runFlow:
-    when:
-      notVisible:
-        id: "activity-card-demo-test-0-pr-pill"
+- repeat:
+    times: 4
     commands:
       - runFlow:
           when:
             notVisible:
-              id: "activity-card-demo-test-0-improving-pill"
+              id: "activity-card-.*-section-chip"
           commands:
-            - runFlow:
-                when:
-                  notVisible:
-                    id: "activity-card-demo-test-0-section-chip"
-                commands:
-                  # demo-test-0 has no section indicators. Scroll down and
-                  # check demo-test-1 through -4; at least one must show a chip.
-                  - swipe:
-                      start: 50%, 75%
-                      end: 50%, 25%
-                      duration: 400
-                  - assertVisible:
-                      id: "activity-card-demo-test-1-section-chip"
+            - swipe:
+                start: 50%, 75%
+                end: 50%, 25%
+                duration: 400
+- assertVisible:
+    id: "activity-card-.*-section-chip"
 
 # ====================================================================
 # US-F2: PR count parity, if demo-test-0 has a section chip, count PR

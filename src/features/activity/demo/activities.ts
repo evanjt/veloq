@@ -730,7 +730,9 @@ function generateWellness(): ApiWellness[] {
 const generatedActivities = generateActivities();
 const stableActivities = generateStableTestActivities();
 
-// Stable test activities come first so e2e flows see them as the most recent.
+// `getActivities` sorts by date, so the order here does not survive the read:
+// the generated activities cover the same recent days and interleave with the
+// stable ones. An e2e flow can target a demo-test-N id, never its position.
 export const fixtures = {
   athlete: DEMO_ATHLETE,
   activities: [...stableActivities, ...generatedActivities],
