@@ -6,7 +6,11 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { debug } from '@/shared/debug/debug';
-import { startBackgroundLocation, stopBackgroundLocation } from './backgroundLocation';
+import {
+  backgroundLocationRunning,
+  startBackgroundLocation,
+  stopBackgroundLocation,
+} from './backgroundLocation';
 import {
   clearRecordingNotification,
   installRecordingNotificationActions,
@@ -123,19 +127,27 @@ function stopForegroundWatch(): void {
  * already in the background, and the `AppState` change to `background` arrives
  * when the app is exactly that, so this runs for the whole session from the
  * moment recording starts rather than on the transition out.
+ *
+ * A refusal is not an exception. expo-location logs
+ * `Foreground location task cannot be started while the app is in the
+ * background!` and resolves, so the promise says nothing and taking it on trust
+ * is how a ride runs its clock with no fixes at all. The task registry is asked
+ * instead, and a refused start leaves `serviceStarted` false so the next
+ * transition into `active` retries it.
  */
 async function startForegroundService(): Promise<void> {
   if (serviceStarted) return;
   try {
     await startBackgroundLocation(backgroundNotification());
-    serviceStarted = true;
-    useRecordingLiveStore.getState().setBackgroundTrackingFailed(false);
+    serviceStarted = await backgroundLocationRunning();
+    if (!serviceStarted) log.warn('Background location was refused, not started');
   } catch (e) {
-    // Refused anyway: the ride records only while the screen is up, and that is
-    // not something the rider should have to discover from the result.
     log.error('Failed to start background location:', e);
-    useRecordingLiveStore.getState().setBackgroundTrackingFailed(true);
+    serviceStarted = false;
   }
+  // Told to the rider rather than logged and dropped: on screen this outranks
+  // the GPS-signal warning, which a refused service is otherwise mistaken for.
+  useRecordingLiveStore.getState().setBackgroundTrackingFailed(!serviceStarted);
 }
 
 export async function ensureLocationWatch(): Promise<boolean> {
@@ -242,9 +254,17 @@ function startSession(): void {
     return;
   }
 
-  // A session only ever starts from the recording screen, so it starts in the
-  // foreground and the change events carry it from there.
-  appState = 'active';
+  // A cold start from a widget, a tile, a shortcut or Siri runs this before
+  // Android has resumed the activity, and on a release build that is fast
+  // enough to matter. Assuming `active` here left the transition into it
+  // looking like no transition at all, so nothing retried the service Android
+  // had just refused and nothing started the watch.
+  // Only `inactive` and `background` mean not-foreground, the same test
+  // `handleAppStateChange` applies. `unknown` is a state React Native reports
+  // before it has decided, and treating it as backgrounded would hold the watch
+  // off a session that is perfectly in front.
+  const current = AppState.currentState;
+  appState = current && /inactive|background/.test(current) ? current : 'active';
   appStateSub = AppState.addEventListener('change', (next) => {
     void handleAppStateChange(next);
   });

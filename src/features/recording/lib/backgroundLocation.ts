@@ -134,6 +134,20 @@ export async function startBackgroundLocation(options?: {
   });
 }
 
+/**
+ * Whether the location task is actually running. `startLocationUpdatesAsync`
+ * resolves even when Android refuses the foreground service, so this is the only
+ * thing that separates a service that started from one that did not.
+ */
+export async function backgroundLocationRunning(): Promise<boolean> {
+  try {
+    return await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+  } catch (e) {
+    log.warn('Could not read the location task state:', e);
+    return false;
+  }
+}
+
 export async function stopBackgroundLocation(): Promise<void> {
   const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
   if (isRegistered) {

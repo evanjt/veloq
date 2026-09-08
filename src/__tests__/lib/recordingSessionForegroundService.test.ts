@@ -33,6 +33,7 @@ jest.mock('expo-location', () => ({
   getForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
   watchPositionAsync: jest.fn(async () => ({ remove: jest.fn() })),
   startLocationUpdatesAsync: jest.fn(async () => undefined),
+  hasStartedLocationUpdatesAsync: jest.fn(async () => true),
   stopLocationUpdatesAsync: jest.fn(async () => undefined),
 }));
 
