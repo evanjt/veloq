@@ -1303,7 +1303,7 @@
     "previewRun": "Voorbeeld",
     "previewRunning": "{{count}} activiteiten in dit gebied analyseren",
     "previewFailed": "Het voorbeeld kon niet worden voltooid.",
-    "previewSlow": "Dit duurt langer dan gebruikelijk. De run loopt nog.",
+    "runSlow": "Dit duurt langer dan gebruikelijk. De run loopt nog.",
     "previewPoolUnusable": "Sommige van je activiteitensporen zijn onleesbaar, dus de voorbeeldweergave is gestopt.",
     "previewCurrentFailed": "Kon de huidige secties voor dit gebied niet lezen.",
     "previewSuspended": "Hoogte-update bezig. Probeer het zo opnieuw.",
