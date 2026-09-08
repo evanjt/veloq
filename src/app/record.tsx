@@ -257,11 +257,17 @@ export default function RecordScreen() {
 
   // Permission gate: the reason decides which one, and both live in the feature
   // because the recording screen has to render the same answer.
+  //
+  // `checking` is shown as the scope gate here on purpose. The recording screen
+  // waits for it, because a one-tap start arrives before the store and the
+  // athlete has already committed. The picker is reached by an athlete still
+  // choosing a sport, so the safe default costs nothing and flips to the picker
+  // the moment the answer lands.
   if (!canRecord && reason !== 'ok') {
     return (
       <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
         <RecordingGate
-          reason={reason}
+          reason={reason === 'checking' ? 'no_permission' : reason}
           onGrantAccess={upgradePermissions}
           isUpgrading={isUpgrading}
           error={upgradeError}
