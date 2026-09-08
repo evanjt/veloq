@@ -17,7 +17,12 @@ import {
 
 const mockTrimListeners: ((event: { level: number }) => void)[] = [];
 const mockTrimRemove = jest.fn();
+// Only the one lookup is replaced. A whole-module factory drops
+// `requireNativeModule`, which expo's lazy `fetch` global reaches for the
+// first time something in the suite touches it, and the suite then fails to
+// run for a reason nothing here names.
 jest.mock('expo-modules-core', () => ({
+  ...jest.requireActual('expo-modules-core'),
   requireOptionalNativeModule: () => ({
     addListener: (_event: string, listener: (event: { level: number }) => void) => {
       mockTrimListeners.push(listener);

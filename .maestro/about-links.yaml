@@ -28,8 +28,14 @@ tags:
 - assertVisible:
     id: "about-app-info"
 
-# Scroll down to intervals.icu links
-- scroll
+# Scroll down to intervals.icu links. The native header takes the top of the
+# screen since the chrome moved to the platform, so a fixed scroll count no
+# longer lands on a known row.
+- scrollUntilVisible:
+    element:
+      id: "about-link-api-terms"
+    direction: DOWN
+    centerElement: true
 
 # Verify intervals.icu link elements are visible
 - assertVisible:

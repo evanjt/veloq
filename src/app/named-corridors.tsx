@@ -73,22 +73,10 @@ export default function NamedCorridorsScreen() {
 
   return (
     <ScreenErrorBoundary screenName="Named Corridors">
-      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            testID="named-corridors-back"
-            onPress={() => router.back()}
-            style={styles.backButton}
-            accessibilityLabel={t('common.back')}
-          >
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={24}
-              color={isDark ? darkColors.textPrimary : colors.textPrimary}
-            />
-          </TouchableOpacity>
-          <Text style={[styles.title, isDark && styles.textDark]}>{t('namedCorridors.title')}</Text>
-        </View>
+      <ScreenSafeAreaView
+        hasNativeHeader
+        style={[styles.container, isDark && styles.containerDark]}
+      >
         <ScrollView contentContainerStyle={styles.content} testID="named-corridors-list">
           {corridors.length === 0 ? (
             <Text
@@ -172,14 +160,6 @@ export default function NamedCorridorsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   containerDark: { backgroundColor: darkColors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: layout.screenPadding,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  backButton: { width: layout.minTapTarget, height: layout.minTapTarget, justifyContent: 'center' },
   title: { ...typography.screenTitle, color: colors.textPrimary },
   content: { padding: layout.screenPadding, paddingBottom: TAB_BAR_SAFE_PADDING, gap: spacing.sm },
   card: {

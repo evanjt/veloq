@@ -12,7 +12,7 @@ import {
 import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { CollapsibleSection, SignalStatus, signalColor, type SignalLevel } from '@/shared/ui';
-import { router } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -258,22 +258,7 @@ export default function RecordScreen() {
   // Permission gate: show upgrade screen instead of activity picker
   if (!canRecord && reason === 'no_permission') {
     return (
-      <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            testID="record-back"
-            onPress={() => router.back()}
-            style={styles.backButton}
-            accessibilityRole="button"
-            accessibilityLabel={t('common.back', 'Back')}
-          >
-            <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: textPrimary }]}>
-            {t('recording.startActivity', 'Start Activity')}
-          </Text>
-          <View style={{ flex: 1 }} />
-        </View>
+      <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
         <View style={styles.permissionGate}>
           <MaterialCommunityIcons name="shield-lock-outline" size={48} color={colors.warning} />
           <Text style={[styles.permissionTitle, { color: textPrimary }]}>
@@ -301,43 +286,39 @@ export default function RecordScreen() {
   }
 
   return (
-    <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          testID="record-back"
-          onPress={() => router.back()}
-          style={styles.backButton}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.back', 'Back')}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: textPrimary }]}>
-          {t('recording.startActivity', 'Start Activity')}
-        </Text>
-        <View style={{ flex: 1 }} />
-        <TouchableOpacity
-          testID="record-library"
-          onPress={() => navigateTo('/recordings')}
-          style={styles.settingsButton}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={t('recording.library.title', 'My Recordings')}
-        >
-          <MaterialCommunityIcons name="folder-play-outline" size={22} color={textSecondary} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          testID="record-settings"
-          onPress={() => navigateTo('/recording-settings')}
-          style={styles.settingsButton}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={t('settings.title', 'Settings')}
-        >
-          <MaterialCommunityIcons name="cog-outline" size={22} color={textSecondary} />
-        </TouchableOpacity>
-      </View>
-
+    <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                testID="record-library"
+                onPress={() => navigateTo('/recordings')}
+                style={styles.settingsButton}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={t('recording.library.title', 'My Recordings')}
+              >
+                <MaterialCommunityIcons
+                  name="folder-play-outline"
+                  size={22}
+                  color={textSecondary}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                testID="record-settings"
+                onPress={() => navigateTo('/recording-settings')}
+                style={styles.settingsButton}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={t('settings.title', 'Settings')}
+              >
+                <MaterialCommunityIcons name="cog-outline" size={22} color={textSecondary} />
+              </TouchableOpacity>
+            </View>
+          ),
+        }}
+      />
       {/* GPS readiness line */}
       <View style={styles.gpsReadinessWrap}>
         <GpsReadinessBar state={gpsState} testID="record-gps-status" />
@@ -546,21 +527,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...typography.sectionTitle,
-    marginLeft: spacing.xs,
   },
   settingsButton: {
     width: layout.minTapTarget,

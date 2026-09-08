@@ -103,7 +103,14 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/config/jest.setup.js'],
   // A wait that gives up at four seconds needs a test budget above it, or Jest
   // reports its own timeout instead of the library's, which names nothing.
-  testTimeout: 15000,
+  //
+  // The budget covers hooks too, and the runner is the slowest machine the
+  // suite meets: two workers on four cores with every file instrumented for
+  // coverage. Three tests in one suite spent the old 15 s in the library's
+  // own cleanup on 2026-09-08 and none of them reproduced here, on a run
+  // taking the same flags. Thirty seconds is still short enough that a wait
+  // which will never settle fails inside it.
+  testTimeout: 30000,
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',

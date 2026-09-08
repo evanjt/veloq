@@ -1308,6 +1308,7 @@
     "previewCurrentFailed": "Die aktuellen Abschnitte für dieses Gebiet konnten nicht gelesen werden.",
     "previewSuspended": "Höhenaktualisierung läuft. Bitte gleich erneut versuchen.",
     "previewMigrating": "Deine Bibliothek wird noch migriert, diese Ergebnisse können sich danach leicht ändern",
+    "previewStaleCatalogue": "Der aktive Katalog kennt {{count}} deiner Aktivitäten noch nicht. Als entfernt oder neu angezeigte Abschnitte können nur die nachlaufende Erkennung sein",
     "previewUnchanged": "{{count}} unverändert",
     "previewChanged": "{{count}} geändert",
     "previewNew": "{{count}} neu",

@@ -8,7 +8,6 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
@@ -34,23 +33,10 @@ export default function SectionRetiredScreen() {
 
   return (
     <ScreenErrorBoundary screenName="Retired Sections">
-      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            testID="section-retired-back"
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={24}
-              color={isDark ? darkColors.textPrimary : colors.textPrimary}
-            />
-          </TouchableOpacity>
-          <Text style={[styles.title, isDark && styles.textDark]}>
-            {t('sectionHistory.retiredTitle')}
-          </Text>
-        </View>
+      <ScreenSafeAreaView
+        hasNativeHeader
+        style={[styles.container, isDark && styles.containerDark]}
+      >
         <ScrollView contentContainerStyle={styles.content} testID="section-retired-list">
           {retired.length === 0 ? (
             <Text style={[styles.empty, isDark && styles.textMutedDark]}>
@@ -97,14 +83,6 @@ export default function SectionRetiredScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   containerDark: { backgroundColor: darkColors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: layout.screenPadding,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  backButton: { width: layout.minTapTarget, height: layout.minTapTarget, justifyContent: 'center' },
   title: { ...typography.screenTitle, color: colors.textPrimary },
   content: { padding: layout.screenPadding, paddingBottom: TAB_BAR_SAFE_PADDING, gap: spacing.sm },
   card: {

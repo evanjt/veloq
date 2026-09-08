@@ -1308,6 +1308,7 @@
     "previewCurrentFailed": "このエリアの現在のセクションを読み込めませんでした。",
     "previewSuspended": "標高の更新中です。しばらくしてからもう一度お試しください。",
     "previewMigrating": "ライブラリの移行中です。完了すると結果が少し変わることがあります",
+    "previewStaleCatalogue": "現在のカタログはまだアクティビティ {{count}} 件を読み込んでいません。消えた、または新規と表示された区間は、検出が追いついていないだけの場合があります",
     "previewUnchanged": "変更なし {{count}}",
     "previewChanged": "変更 {{count}}",
     "previewNew": "新規 {{count}}",

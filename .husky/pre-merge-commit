@@ -31,6 +31,12 @@ set -e
 # submodule and gates itself.
 ./scripts/check-commit-index.sh "$0"
 npm run lint
-npm run audit
+# The format half of `npm run audit`, scoped to the merge. `format:check` globs
+# the working tree, and every worktree merges into this one checkout, so one
+# session's unformatted file failed every merge anyone attempted, on a file the
+# merge had never touched. The guards after it stay whole-tree: that is B332's
+# point and they fail on content, not on a half-typed line.
+./scripts/check-merge-format.sh
+npm run audit:guards
 (cd modules/veloqrs/rust && cargo fmt -p veloqrs -- --check)
 ./scripts/check-merge-tests.sh

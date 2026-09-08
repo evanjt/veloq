@@ -1308,6 +1308,7 @@
     "previewCurrentFailed": "Não foi possível ler os trechos atuais desta área.",
     "previewSuspended": "Atualização de elevação em andamento. Tente novamente em instantes.",
     "previewMigrating": "Sua biblioteca ainda está migrando, então estes resultados podem mudar um pouco ao terminar",
+    "previewStaleCatalogue": "O catálogo ativo ainda não viu {{count}} das suas atividades, então os trechos mostrados como removidos ou novos podem ser apenas a detecção se atualizando",
     "previewUnchanged": "{{count}} sem mudanças",
     "previewChanged": "{{count}} alterados",
     "previewNew": "{{count}} novos",

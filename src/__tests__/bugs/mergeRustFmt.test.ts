@@ -13,6 +13,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { describeWithTracematch } from '../support/tracematch';
+
 const ROOT = join(__dirname, '../../..');
 const hook = (name: string) => readFileSync(join(ROOT, '.husky', name), 'utf8');
 
@@ -31,7 +33,7 @@ describe('a merge cannot carry unformatted Rust', () => {
   });
 });
 
-describe('the tree the gate is being added over', () => {
+describeWithTracematch('the tree the gate is being added over', () => {
   /**
    * The gate is worth nothing if it lands over a tree that already fails it,
    * which is the state this was found in.

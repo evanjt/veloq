@@ -10,7 +10,6 @@ import {
   Share,
 } from 'react-native';
 import Constants from 'expo-constants';
-import { Stack } from 'expo-router';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
@@ -324,14 +323,6 @@ export default function DebugScreen() {
       testID="debug-screen"
       style={{ flex: 1, backgroundColor: isDark ? darkColors.background : colors.background }}
     >
-      <Stack.Screen
-        options={{
-          title: 'Developer Dashboard',
-          headerShown: true,
-          headerStyle: { backgroundColor: isDark ? darkColors.surface : colors.surface },
-          headerTintColor: isDark ? darkColors.textPrimary : colors.textPrimary,
-        }}
-      />
       <ScrollView
         style={[styles.container, isDark && styles.containerDark]}
         contentContainerStyle={styles.content}

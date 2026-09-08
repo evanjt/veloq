@@ -10,6 +10,7 @@ use crate::fit;
 use crate::http::ActivityFetcher;
 use crate::net::transport::NetError;
 use crate::persistence::FitOutcome;
+use crate::persistence::attempts::JobKey;
 use crate::{
     FfiExerciseActivities, FfiExerciseActivity, FfiExerciseContribution, FfiExerciseSet,
     FfiExerciseSummary, FfiMuscleExerciseSummary, FfiMuscleGroup, FfiMuscleGroupDetail,
@@ -148,7 +149,7 @@ impl StrengthManager {
     ) -> crate::objects::start::FfiStartOutcome {
         info!("[Strength] Fetching FIT file for {}", activity_id);
         sync::spawn_once(
-            format!("fit:{}", activity_id),
+            JobKey::new("fit", &[&activity_id]),
             move |transport, _athlete_id| async move {
                 let fetcher = ActivityFetcher::with_transport(transport);
                 let upstream = sync::upstream_id(&activity_id).await;
@@ -196,7 +197,7 @@ impl StrengthManager {
         );
 
         sync::spawn_once(
-            "fit:batch".to_string(),
+            JobKey::new("fit", &["batch"]),
             move |transport, _athlete_id| async move {
                 let fetcher = ActivityFetcher::with_transport(transport);
                 let total = activity_ids.len();

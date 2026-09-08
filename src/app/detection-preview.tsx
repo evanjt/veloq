@@ -15,15 +15,8 @@
  * tap target each.
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -69,6 +62,16 @@ export default function DetectionPreviewScreen() {
   const migrating = useDetectionHold() === 'cutover';
   const { forceRescan } = useSectionRescan();
 
+  // A config change clears the processed set and the re-detect that follows is
+  // asynchronous, so the sliders can show the new config while the live
+  // catalogue is still the old one's cut. The diff then reports every section
+  // that moved between the two configs once as gone and once as new, which
+  // reads exactly like a detector regression. This is the count of activities
+  // the live catalogue has never seen, which is that gap and also the milder
+  // one of a few rides synced since the last detect. `null` is an engine that
+  // cannot answer, and it says nothing rather than inventing either state.
+  const awaitingDetection = useMemo(() => client?.sectionDetectionAwaiting() ?? null, [client]);
+
   const [centre, setCentre] = useState<PreviewCentre | null>(null);
   const [params, setParams] = useState<PreviewParams>(() => {
     const config = client?.getSectionConfig();
@@ -87,7 +90,6 @@ export default function DetectionPreviewScreen() {
   const [showRemoved, setShowRemoved] = useState(true);
 
   const bg = isDark ? darkColors.background : colors.background;
-  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
@@ -155,26 +157,23 @@ export default function DetectionPreviewScreen() {
     router.back();
   }, [running, cancel]);
 
+  // Leaving by any route cancels a run in flight. The Discard button did this
+  // and the header back button did not, and neither did the swipe-back, so a
+  // preview kept running against a screen nobody was looking at.
+  const abandon = useRef<() => void>(() => {});
+  useEffect(() => {
+    abandon.current = () => {
+      if (running) cancel();
+    };
+  }, [running, cancel]);
+  useEffect(() => () => abandon.current(), []);
+
   return (
     <ScreenSafeAreaView
+      hasNativeHeader
       testID="detection-preview-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
-      <View style={styles.header}>
-        <TouchableOpacity
-          testID="detection-preview-back"
-          onPress={handleDiscard}
-          style={styles.backButton}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.back')}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: textPrimary }]}>
-          {t('settings.previewSections')}
-        </Text>
-      </View>
-
       <View style={styles.map} testID="preview-map">
         <PreviewMapView
           result={result}
@@ -319,6 +318,11 @@ export default function DetectionPreviewScreen() {
             {t('settings.previewMigrating')}
           </Text>
         )}
+        {awaitingDetection !== null && awaitingDetection > 0 && (
+          <Text style={[styles.notice, { color: textSecondary }]} testID="preview-stale-catalogue">
+            {t('settings.previewStaleCatalogue', { count: awaitingDetection })}
+          </Text>
+        )}
       </View>
     </ScreenSafeAreaView>
   );
@@ -326,23 +330,6 @@ export default function DetectionPreviewScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
-  },
-  headerTitle: {
-    ...typography.sectionTitle,
-    fontWeight: '600',
-  },
   map: {
     height: '30%',
   },
