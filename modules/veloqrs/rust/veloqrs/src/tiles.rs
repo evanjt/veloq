@@ -224,15 +224,24 @@ pub struct TileBounds {
 /// adding every neighbour.
 pub const DRAW_MARGIN: f32 = 100.0;
 
+/// A point's pixel coordinates in this tile's frame, however far outside it
+/// the point lies. A segment is drawn from where its ends actually are, so
+/// both have to be placed before either can be judged.
+#[inline]
+fn gps_to_pixel_unbounded(point: &GpsPoint, z: u8, tile_x: u32, tile_y: u32) -> (f32, f32) {
+    let global_x = lon_to_tile_x(point.longitude, z);
+    let global_y = lat_to_tile_y(point.latitude, z);
+    (
+        ((global_x - tile_x as f64) * TILE_SIZE as f64) as f32,
+        ((global_y - tile_y as f64) * TILE_SIZE as f64) as f32,
+    )
+}
+
 /// Convert GPS point to pixel coordinates within a tile.
 /// Returns None if the point is too far outside the tile.
 #[inline]
 pub fn gps_to_pixel(point: &GpsPoint, z: u8, tile_x: u32, tile_y: u32) -> Option<(f32, f32)> {
-    let global_x = lon_to_tile_x(point.longitude, z);
-    let global_y = lat_to_tile_y(point.latitude, z);
-
-    let px = ((global_x - tile_x as f64) * TILE_SIZE as f64) as f32;
-    let py = ((global_y - tile_y as f64) * TILE_SIZE as f64) as f32;
+    let (px, py) = gps_to_pixel_unbounded(point, z, tile_x, tile_y);
 
     if px >= -DRAW_MARGIN
         && px < (TILE_SIZE as f32 + DRAW_MARGIN)
@@ -299,7 +308,14 @@ pub fn tiles_along_track(points: &[GpsPoint], zoom: u8) -> std::collections::Has
         }
 
         if let Some((px, py)) = prev_valid {
-            sweep_line_tiles(&mut tiles, &mut add, px, py, gx, gy);
+            // The plan and the rasteriser have to agree on which segments are
+            // ground. A segment past the cap draws nothing, so scheduling the
+            // tiles under it would only write empty markers along a line
+            // nobody rode.
+            let span = MAX_DRAWN_SEGMENT_TILES as f64;
+            if (gx - px).abs() <= span && (gy - py).abs() <= span {
+                sweep_line_tiles(&mut tiles, &mut add, px, py, gx, gy);
+            }
         }
 
         prev_valid = Some((gx, gy));
@@ -481,6 +497,42 @@ fn draw_disc_intensity(buf: &mut IntensityBuffer, cx: f32, cy: f32, radius: f32,
 }
 
 /// Draw a line as a filled, antialiased stroke with round caps.
+/// How far the stroke's ink can land either side of the line's centre.
+/// `draw_line_intensity` derives the same figure; this is the version the
+/// caller needs before deciding whether to call it at all.
+fn stroke_reach(width: f32) -> f32 {
+    (width * 0.5).max(0.75) + 1.0
+}
+
+/// Longest segment, in tiles, that is drawn as covered ground.
+///
+/// Two reasons and they point the same way. A straight line across a gap this
+/// wide is invented rather than recorded: at the highest zoom a tile is around
+/// 200 m, so this is a fix six kilometres from the one before it, which is a
+/// glitch and not a dropout. And a segment is rasterised per tile it crosses,
+/// so a fix that jumps across the world would otherwise put a full-tile
+/// distance pass into every one of the hundred thousand tiles the sweep walks.
+const MAX_DRAWN_SEGMENT_TILES: f32 = 32.0;
+
+/// Whether a segment's ink can land inside this tile at all.
+///
+/// The bounding box is the cheap half of what `draw_line_intensity` would
+/// work out anyway, and it is what lets a segment be drawn from where its ends
+/// really are instead of only when both of them sit near this tile. A tile the
+/// track crosses in the middle of a long segment is heat the athlete earned,
+/// and dropping it leaves a hole that reads as ground never covered.
+fn segment_reaches_tile(x0: f32, y0: f32, x1: f32, y1: f32, reach: f32) -> bool {
+    let span = MAX_DRAWN_SEGMENT_TILES * TILE_SIZE as f32;
+    if (x1 - x0).abs() > span || (y1 - y0).abs() > span {
+        return false;
+    }
+    let edge = TILE_SIZE as f32;
+    x0.max(x1) + reach >= 0.0
+        && x0.min(x1) - reach < edge
+        && y0.max(y1) + reach >= 0.0
+        && y0.min(y1) - reach < edge
+}
+
 fn draw_line_intensity(
     buf: &mut IntensityBuffer,
     x0: f32,
@@ -569,6 +621,8 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
 
     let mut buf = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
 
+    let reach = stroke_reach(line_width);
+
     // Draw each track onto the intensity buffer
     for track in tracks {
         let track = track.as_ref();
@@ -580,14 +634,13 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
                 continue;
             }
 
-            if let Some((px, py)) = gps_to_pixel(point, z, x, y) {
-                if let Some((prev_x, prev_y)) = prev_pixel {
-                    draw_line_intensity(&mut buf, prev_x, prev_y, px, py, line_width, intensity);
-                }
-                prev_pixel = Some((px, py));
-            } else {
-                prev_pixel = None;
+            let (px, py) = gps_to_pixel_unbounded(point, z, x, y);
+            if let Some((prev_x, prev_y)) = prev_pixel
+                && segment_reaches_tile(prev_x, prev_y, px, py, reach)
+            {
+                draw_line_intensity(&mut buf, prev_x, prev_y, px, py, line_width, intensity);
             }
+            prev_pixel = Some((px, py));
         }
     }
 
@@ -881,6 +934,69 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Scenario: consecutive fixes more than a tile apart, which is any GPS
+    /// dropout at the heatmap's higher zooms. Expected behaviour: the ground
+    /// between them is drawn, and so is the ground each fix sits on.
+    #[test]
+    fn a_segment_longer_than_a_tile_draws_in_every_tile_it_crosses() {
+        let zoom = 14;
+        let track = vec![
+            point_at(zoom, 8_000, 5_500, 0.5, 0.5),
+            point_at(zoom, 8_002, 5_500, 0.5, 0.5),
+        ];
+        for x in 8_000..=8_002 {
+            assert!(
+                generate_heatmap_tile(zoom, x, 5_500, &[track.as_slice()]).is_some(),
+                "tile ({x},5500) is on a segment the sweep scheduled and drew nothing"
+            );
+        }
+    }
+
+    #[test]
+    fn a_fix_that_jumps_across_the_world_is_not_drawn_as_ground() {
+        let zoom = 14;
+        let track = vec![
+            point_at(zoom, 8_000, 5_500, 0.5, 0.5),
+            point_at(zoom, 100, 5_500, 0.5, 0.5),
+        ];
+        assert!(
+            generate_heatmap_tile(zoom, 4_000, 5_500, &[track.as_slice()]).is_none(),
+            "a straight line across a glitch is invented ground, not recorded ground"
+        );
+        let scheduled = tiles_along_track(&track, zoom);
+        assert!(
+            !scheduled.contains(&(4_000, 5_500)),
+            "the plan schedules a tile the rasteriser will not draw"
+        );
+        assert!(
+            scheduled.contains(&(8_000, 5_500)) && scheduled.contains(&(100, 5_500)),
+            "both fixes are still real ground"
+        );
+    }
+
+    #[test]
+    fn a_segment_that_misses_the_tile_entirely_still_draws_nothing() {
+        let zoom = 14;
+        let track = vec![
+            point_at(zoom, 8_000, 5_500, 0.5, 0.5),
+            point_at(zoom, 8_002, 5_500, 0.5, 0.5),
+        ];
+        assert!(
+            generate_heatmap_tile(zoom, 8_001, 5_510, &[track.as_slice()]).is_none(),
+            "ten tiles south of the segment is not ground it covers"
+        );
+    }
+
+    #[test]
+    fn a_track_of_one_point_draws_nothing_on_its_own() {
+        let zoom = 14;
+        let track = vec![point_at(zoom, 8_000, 5_500, 0.5, 0.5)];
+        assert!(
+            generate_heatmap_tile(zoom, 8_000, 5_500, &[track.as_slice()]).is_none(),
+            "a single fix is not a stretch of ground and has never been drawn as one"
+        );
     }
 
     #[test]
