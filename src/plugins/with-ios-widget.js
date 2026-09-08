@@ -1,4 +1,4 @@
-const { withDangerousMod, withXcodeProject } = require("expo/config-plugins");
+const { withDangerousMod, withInfoPlist, withXcodeProject } = require("expo/config-plugins");
 const fs = require("fs");
 const path = require("path");
 
@@ -25,6 +25,28 @@ const { INCLUDE_RECORD_WIDGET } = require("./widgetFlags");
 const TARGET = "VeloqWidget";
 
 /**
+ * The Live Activity contract. ActivityKit matches a card to its attributes by type
+ * name, so the app process and the extension have to compile the same declaration.
+ * These two files are tracked once under widget/ios and copied into the bridge
+ * module at prebuild; the views alongside them stay extension-only, they import
+ * WidgetKit and would not build in the app.
+ */
+const LIVE_ACTIVITY_SHARED_FILES = [
+  "RecordingActivityAttributes.swift",
+  "RecordingActivityIntents.swift",
+];
+
+const LIVE_ACTIVITY_MODULE_DIR = path.join("modules", "veloq-live-activity", "ios");
+
+function copySharedLiveActivitySources(srcDir, destDir) {
+  fs.mkdirSync(destDir, { recursive: true });
+  for (const name of LIVE_ACTIVITY_SHARED_FILES) {
+    const from = path.join(srcDir, name);
+    if (fs.existsSync(from)) fs.copyFileSync(from, path.join(destDir, name));
+  }
+}
+
+/**
  * Write the widget bundles, whose membership is what puts a widget in the
  * gallery. Generated rather than tracked because Quick-Record's gate is a
  * JavaScript constant the Swift cannot read, and a `WidgetBundle` body is a
@@ -48,6 +70,12 @@ function widgetSwiftFiles(projectRoot) {
 
 function writeWidgetBundles(destDir, includeRecord = INCLUDE_RECORD_WIDGET) {
   const record = includeRecord ? "\n    VeloqRecordWidget()" : "";
+  // The Live Activity is 16.2, the bundle body is not, so it is gated inside the
+  // result builder rather than on the bundle itself.
+  const liveActivity = `
+    if #available(iOS 16.2, *) {
+      VeloqRecordingLiveActivity()
+    }`;
   fs.mkdirSync(destDir, { recursive: true });
   fs.writeFileSync(
     path.join(destDir, BUNDLES_FILE),
@@ -58,7 +86,7 @@ import WidgetKit
 struct VeloqWidgets: WidgetBundle {
   var body: some Widget {
     VeloqWidget()
-    VeloqLatestActivityWidget()${record}
+    VeloqLatestActivityWidget()${record}${liveActivity}
   }
 }
 
@@ -66,7 +94,7 @@ struct VeloqWidgets: WidgetBundle {
 struct VeloqWidgetsConfigurable: WidgetBundle {
   var body: some Widget {
     VeloqConfigurableWidget()
-    VeloqLatestActivityWidget()${record}
+    VeloqLatestActivityWidget()${record}${liveActivity}
   }
 }
 `
@@ -115,6 +143,10 @@ function withWidgetFiles(config) {
       copyDir(src, dest);
       pruneRemoved(src, dest);
       writeWidgetBundles(dest);
+      copySharedLiveActivitySources(
+        src,
+        path.join(cfg.modRequest.projectRoot, LIVE_ACTIVITY_MODULE_DIR)
+      );
       return cfg;
     },
   ]);
@@ -211,7 +243,9 @@ function withWidgetTarget(config) {
       settings.INFOPLIST_FILE = `"${TARGET}/Info.plist"`;
       settings.CODE_SIGN_ENTITLEMENTS = `"${TARGET}/${TARGET}.entitlements"`;
       settings.CODE_SIGN_STYLE = "Automatic";
-      settings.IPHONEOS_DEPLOYMENT_TARGET = '"15.1"';
+      // ActivityKit is 16.1 and the app's own deployment target is already 16.4
+      // (expo-build-properties), so nothing could install against 15.1 anyway.
+      settings.IPHONEOS_DEPLOYMENT_TARGET = '"16.4"';
       settings.SWIFT_VERSION = '"5.9"';
       settings.TARGETED_DEVICE_FAMILY = '"1,2"';
       settings.GENERATE_INFOPLIST_FILE = "NO";
@@ -224,13 +258,24 @@ function withWidgetTarget(config) {
   });
 }
 
+/** Without this key iOS never presents a Live Activity, and nothing says why. */
+function withLiveActivitySupport(config) {
+  return withInfoPlist(config, (cfg) => {
+    cfg.modResults.NSSupportsLiveActivities = true;
+    return cfg;
+  });
+}
+
 module.exports = function withIosWidget(config) {
   config = withWidgetFiles(config);
   config = withWidgetTarget(config);
+  config = withLiveActivitySupport(config);
   return config;
 };
 
 module.exports.INCLUDE_RECORD_WIDGET = INCLUDE_RECORD_WIDGET;
 module.exports.writeWidgetBundles = writeWidgetBundles;
+module.exports.copySharedLiveActivitySources = copySharedLiveActivitySources;
+module.exports.LIVE_ACTIVITY_SHARED_FILES = LIVE_ACTIVITY_SHARED_FILES;
 module.exports.widgetSwiftFiles = widgetSwiftFiles;
 module.exports.BUNDLES_FILE = BUNDLES_FILE;
