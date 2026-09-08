@@ -74,7 +74,11 @@ exit 0
 function run(cases: Case[], failAgain: Record<string, string> = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-suite-'));
   const bin = fakeMaestro(dir, junit(cases), failAgain);
-  const cwd = path.resolve(__dirname, '../../..');
+  // The script writes `retry-reports/` beside the working directory, so it runs
+  // in the temp directory with the real flow files linked in rather than
+  // littering the checkout.
+  const cwd = dir;
+  fs.symlinkSync(path.resolve(__dirname, '../../../.maestro'), path.join(dir, '.maestro'));
   let status = 0;
   let stdout = '';
   try {
