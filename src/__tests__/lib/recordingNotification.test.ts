@@ -12,6 +12,7 @@ import {
   decimateTrace,
   buildRecordingNotificationPayload,
   applyRecordingNotificationAction,
+  parsePendingAction,
 } from '@/features/recording/lib/recordingNotification';
 
 jest.mock('@/features/recording/lib/storage/recordingBackup', () => ({
@@ -179,5 +180,76 @@ describe('applyRecordingNotificationAction', () => {
     applyRecordingNotificationAction('lap');
     expect(useRecordingStore.getState().status).toBe('stopped');
     expect(useRecordingStore.getState().laps).toHaveLength(0);
+  });
+});
+
+/**
+ * Scenario: the notification outlives the process that drew it, measured on a
+ * Galaxy S22: a force-stop leaves it posted with its three buttons live. A
+ * press then reaches `RecordingActionReceiver`, which queues it to a file
+ * because no runtime is listening, and the next launch drains that queue.
+ *
+ * Expected behaviour: an action carries the session it was posted for, and one
+ * from a session that is over is discarded rather than replayed against
+ * whichever ride happens to be live.
+ */
+describe('an action from a session that is over', () => {
+  beforeEach(() => {
+    useRecordingStore.getState().reset();
+  });
+
+  it('is discarded rather than applied to the ride running now', () => {
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    const stale = useRecordingStore.getState().startTime! - 1;
+
+    applyRecordingNotificationAction('stop', stale);
+
+    expect(useRecordingStore.getState().status).toBe('recording');
+  });
+
+  it('applies when it names the session that is live', () => {
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    const live = useRecordingStore.getState().startTime!;
+
+    applyRecordingNotificationAction('pause', live);
+
+    expect(useRecordingStore.getState().status).toBe('paused');
+  });
+
+  /// The queue predates the stamp, so an unstamped action from an older build
+  /// still has to work rather than being silently dropped on the upgrade.
+  it('applies when no session is named at all', () => {
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+
+    applyRecordingNotificationAction('lap');
+
+    expect(useRecordingStore.getState().laps.length).toBe(1);
+  });
+
+  /// A press queued while a ride was live, drained when none is, has nothing
+  /// to apply to and must not start one.
+  it('is discarded when no ride is live at all', () => {
+    applyRecordingNotificationAction('lap', 1_700_000_000_000);
+
+    expect(useRecordingStore.getState().status).toBe('idle');
+  });
+});
+
+describe('parsePendingAction', () => {
+  it('splits the session from the action', () => {
+    expect(parsePendingAction('1700000000000\tlap')).toEqual({
+      action: 'lap',
+      session: 1_700_000_000_000,
+    });
+  });
+
+  /// Written by a build before the stamp existed. Dropping these on the
+  /// upgrade would swallow a press already sitting in the queue.
+  it('reads an unstamped line as a session-less action', () => {
+    expect(parsePendingAction('stop')).toEqual({ action: 'stop' });
+  });
+
+  it('reads a non-numeric stamp as no session rather than as NaN', () => {
+    expect(parsePendingAction('nonsense\tstop')).toEqual({ action: 'stop', session: undefined });
   });
 });
