@@ -117,7 +117,7 @@ class VeloqRecordingNotificationModule : Module() {
     for (i in 0 until (actions?.length() ?: 0)) {
       val action = actions!!.getJSONObject(i)
       val id = action.optString("id")
-      builder.addAction(0, action.optString("label"), broadcast(id, i))
+      builder.addAction(0, action.optString("label"), broadcast(id, i, payload.optLong("session")))
     }
 
     trace(payload)?.let { bitmap ->
@@ -139,10 +139,20 @@ class VeloqRecordingNotificationModule : Module() {
     return RecordingTrace.render(flat, parseColor(payload.optString("traceColor")))
   }
 
-  private fun broadcast(action: String, requestCode: Int): PendingIntent {
+  /**
+   * `session` is the ride the button belongs to. The notification outlives the
+   * process that drew it, so without it a press on a stale notification is
+   * replayed against whichever ride is live when the queue is next drained.
+   *
+   * `FLAG_UPDATE_CURRENT` is what keeps the session current: the same request
+   * code is reused across posts, so the extras of the live intent are rewritten
+   * each time the notification is updated rather than a new one being made.
+   */
+  private fun broadcast(action: String, requestCode: Int, session: Long): PendingIntent {
     val intent = Intent(context, RecordingActionReceiver::class.java)
       .setAction(BROADCAST_ACTION)
       .putExtra(ACTION_EXTRA, action)
+      .putExtra(SESSION_EXTRA, session)
     return PendingIntent.getBroadcast(
       context,
       requestCode,
@@ -169,10 +179,10 @@ class VeloqRecordingNotificationModule : Module() {
     private var live: VeloqRecordingNotificationModule? = null
 
     /** True when a JavaScript runtime was listening and took the press. */
-    fun dispatch(action: String): Boolean {
+    fun dispatch(action: String, session: Long): Boolean {
       val module = live ?: return false
       return try {
-        module.sendEvent("onAction", mapOf("action" to action))
+        module.sendEvent("onAction", mapOf("action" to action, "session" to session))
         true
       } catch (e: Exception) {
         false
