@@ -21,6 +21,24 @@ const CHANNEL = 'detectionApplied';
 
 const DEFAULT_PROGRESS_INTERVAL_MS = 500;
 
+/**
+ * How long a run is followed before the surface says it is taking a while.
+ *
+ * Two budgets rather than one, because a long detect is normal and a detect
+ * that will never end is not, and the athlete needs telling apart. Shared by
+ * every follower so the same run is judged the same way whichever screen
+ * started it.
+ */
+export const DETECTION_FOREGROUND_MS = 120000;
+
+/**
+ * How long a run is followed at all. The engine caps its own wait on the
+ * detection slot at the same 420 seconds (`SLOT_WAIT_LIMIT`), so a follower
+ * that gave up sooner would call a run dead that the engine is still waiting
+ * on, and one that waited longer would be waiting on nothing.
+ */
+export const DETECTION_FOLLOW_MS = 420000;
+
 export type DetectionOutcome = 'complete' | 'idle' | 'error' | 'timeout' | 'abandoned';
 
 export interface DetectionProgress {
