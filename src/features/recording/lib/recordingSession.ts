@@ -7,6 +7,11 @@ import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLive
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { debug } from '@/shared/debug/debug';
 import { startBackgroundLocation, stopBackgroundLocation } from './backgroundLocation';
+import {
+  clearRecordingNotification,
+  installRecordingNotificationActions,
+  updateRecordingNotification,
+} from './recordingNotification';
 import { getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
 import { createAutoPauseDetector, type AutoPauseConfig } from './autoPause';
 import { getSportCategory } from './sportCategoryDetector';
@@ -136,6 +141,7 @@ async function handleAppStateChange(next: AppStateStatus): Promise<void> {
     stopForegroundWatch();
     try {
       await startBackgroundLocation(backgroundNotification());
+      updateRecordingNotification();
     } catch (e) {
       log.error('Failed to start background location:', e);
     }
@@ -197,8 +203,12 @@ function startSession(): void {
       if (state.rawSpeed !== previous.rawSpeed) evaluateAutoPause();
       if (state.status !== previous.status || state.laps.length !== previous.laps.length) {
         armBackups(state.status, state.laps.length);
+        // Pausing swaps the button and stops the clock, so the notification is
+        // wrong the moment either changes rather than at the next fix.
+        updateRecordingNotification();
       }
-    })
+    }),
+    installRecordingNotificationActions()
   );
 
   armBackups(status, laps.length);
@@ -239,6 +249,7 @@ function stopSession(): void {
   appStateSub = null;
 
   stopForegroundWatch();
+  clearRecordingNotification();
   stopBackgroundLocation().catch((e) => log.error('Failed to stop background location:', e));
   useRecordingLiveStore.getState().reset();
 }

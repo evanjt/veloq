@@ -1,0 +1,17 @@
+{
+  "name": "veloq-recording-notification",
+  "version": "0.1.0",
+  "description": "Draws the recording onto the Android foreground-service notification and reports its buttons",
+  "main": "index.ts",
+  "author": "Evan Thomas <evan@evanjt.com>",
+  "homepage": "https://github.com/evanjt/veloq",
+  "license": "MIT",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "expo-modules-core": "*"
+  }
+}
