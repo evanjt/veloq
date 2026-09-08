@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -43,6 +43,7 @@ import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKe
 import { useSensorSession, useSensorIssue } from '@/features/sensors';
 import { useConsensusRoute } from '@/features/routes/hooks/useEngine';
 import { useRecordingHandlers } from '@/features/recording/hooks/useRecordingHandlers';
+import { colors } from '@/theme';
 import { styles } from '@/features/recording/RecordingScreen.styles';
 import type { ActivityType, DataFieldType } from '@/types';
 
@@ -171,6 +172,20 @@ export default function RecordingScreen() {
 
   // Read current activity type from store (may change during recording)
   const currentActivityType = useRecordingStore((s) => s.activityType) ?? activityType;
+
+  // An answer that has not arrived is not a refusal. A cold start from a widget,
+  // tile, shortcut or Siri can beat the permission store, and gating there shows
+  // the athlete a wall for a permission they may well have.
+  if (reason === 'checking') {
+    return (
+      <View
+        style={[styles.container, styles.centred, { backgroundColor: bg, paddingTop: insets.top }]}
+        testID="recording-checking"
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   // Before anything else, including the manual entry form: a ride that cannot be
   // uploaded should not be started or typed in either.

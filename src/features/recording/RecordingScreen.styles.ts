@@ -6,6 +6,11 @@ export const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  /** Waiting for an answer the screen cannot act without. */
+  centred: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   timerHeader: {
     flexDirection: 'row',
     alignItems: 'center',

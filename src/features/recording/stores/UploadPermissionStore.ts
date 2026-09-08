@@ -16,6 +16,13 @@ interface UploadPermissionState {
   needsUpgrade: boolean;
   /** null = unchecked, true = granted, false = denied */
   hasWritePermission: boolean | null;
+  /**
+   * Whether the persisted answer has been read yet. A cold start into a one-tap
+   * record surface can reach the recording screen before it has, and a null
+   * `hasWritePermission` then means "not asked yet" rather than "denied": two
+   * answers that must not be gated the same way.
+   */
+  isLoaded: boolean;
   /** User dismissed the permission banner - don't show again until reset */
   bannerDismissed: boolean;
   /** Raw OAuth scope string, e.g. "ACTIVITY:WRITE,WELLNESS:READ" */
@@ -43,6 +50,7 @@ function scopeIncludesWrite(scope: string): boolean {
 export const useUploadPermissionStore = create<UploadPermissionState>((set, get) => ({
   needsUpgrade: false,
   hasWritePermission: null,
+  isLoaded: false,
   bannerDismissed: false,
   grantedScopes: null,
 
@@ -62,6 +70,10 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
       }
     } catch {
       // Ignore parse errors
+    } finally {
+      // On every path, including the throw: a screen that waits for this would
+      // otherwise wait forever on a storage read that failed.
+      set({ isLoaded: true });
     }
   },
 
@@ -69,7 +81,12 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
     const hasWrite = scopeIncludesWrite(scope);
     log.log(`OAuth scope check: ${hasWrite ? 'has' : 'missing'} ACTIVITY:WRITE (scope: ${scope})`);
     const { bannerDismissed } = get();
-    set({ hasWritePermission: hasWrite, needsUpgrade: !hasWrite, grantedScopes: scope });
+    set({
+      hasWritePermission: hasWrite,
+      needsUpgrade: !hasWrite,
+      grantedScopes: scope,
+      isLoaded: true,
+    });
     setSetting(
       STORAGE_KEY,
       JSON.stringify({ hasWritePermission: hasWrite, bannerDismissed, grantedScopes: scope })
@@ -80,7 +97,7 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
 
   setHasWritePermission: (v) => {
     const { bannerDismissed } = get();
-    set({ hasWritePermission: v, needsUpgrade: !v });
+    set({ hasWritePermission: v, needsUpgrade: !v, isLoaded: true });
     setSetting(STORAGE_KEY, JSON.stringify({ hasWritePermission: v, bannerDismissed })).catch(
       () => {}
     );
@@ -95,7 +112,9 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
   },
 
   reset: () => {
-    set({ needsUpgrade: false, hasWritePermission: null, bannerDismissed: false });
+    // Unloaded again, not loaded-with-no-answer: a sign-out leaves the next
+    // account's scope unknown until it says so.
+    set({ needsUpgrade: false, hasWritePermission: null, isLoaded: false, bannerDismissed: false });
     removeSetting(STORAGE_KEY).catch(() => {});
   },
 }));
