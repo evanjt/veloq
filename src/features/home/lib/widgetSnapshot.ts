@@ -157,6 +157,14 @@ export interface WidgetRecordShortcut {
 /** Where a record surface goes when no sport is known: the picker, as before. */
 export const RECORD_PICKER_URL = 'veloq://record';
 
+/**
+ * Marks a link that came from outside the app. The recording screen reads it to
+ * decide whether the Always location dialog has earned itself: an athlete who
+ * starts from a home screen has just shown they want to start without the app in
+ * front, and an in-app start has shown nothing of the kind.
+ */
+export const QUICK_START_MARK = 'from=quickstart';
+
 /** What a launcher will show on a long press, and what the list is capped at. */
 export const RECORD_SHORTCUT_LIMIT = 3;
 
@@ -392,7 +400,7 @@ function composeRecordShortcuts(
     out.push({
       type,
       label: label === `activityTypes.${type}` ? type : label,
-      url: `veloq://recording/${encodeURIComponent(type)}`,
+      url: `veloq://recording/${encodeURIComponent(type)}?${QUICK_START_MARK}`,
     });
     if (out.length === RECORD_SHORTCUT_LIMIT) break;
   }
