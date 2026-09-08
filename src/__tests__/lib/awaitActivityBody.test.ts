@@ -13,10 +13,13 @@
  * task is the least affordable place to do a page of JSON work.
  */
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-
 import { StartOutcome } from 'veloqrs';
 import { awaitActivityBody, readStoredActivity } from '@/features/insights/lib/awaitActivityBody';
+
+// Hoisted above the imports by babel-jest whatever it is written after, so it
+// sits here rather than ahead of them, where `import/first` reads it as an
+// import out of order.
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 type Listener = (payload?: { kind?: string; activityId?: string }) => void;
 

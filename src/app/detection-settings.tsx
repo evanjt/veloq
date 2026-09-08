@@ -45,6 +45,7 @@ export default function DetectionSettingsScreen() {
     cancelScan,
     result: rescanResult,
     failed: rescanFailed,
+    lapsed: rescanLapsed,
     refusal: rescanRefusal,
     clearResult,
   } = useSectionRescan();
@@ -166,6 +167,15 @@ export default function DetectionSettingsScreen() {
               style={[styles.rescanResult, { color: textSecondary }]}
             >
               {t(refusalKey)}
+            </Text>
+          )}
+
+          {isScanning && rescanLapsed && (
+            <Text
+              testID="detection-rescan-slow"
+              style={[styles.rescanResult, { color: textSecondary }]}
+            >
+              {t('settings.runSlow')}
             </Text>
           )}
 

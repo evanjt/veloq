@@ -236,7 +236,7 @@ export default function DetectionPreviewScreen() {
             </View>
             {lapsed && (
               <Text style={[styles.notice, { color: textSecondary }]} testID="preview-slow">
-                {t('settings.previewSlow')}
+                {t('settings.runSlow')}
               </Text>
             )}
           </View>

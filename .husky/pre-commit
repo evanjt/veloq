@@ -29,6 +29,14 @@ unset GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX GIT_CEILING_DIRECTORIES GIT_CO
 # rustfmt only pays for itself when Rust is staged, and it is the only local
 # check on Rust formatting: cargo fmt runs in CI and nowhere else, so the Rust
 # Lint job was going red on whitespace and staying red.
+#
+# `VELOQ_SKIP_GATES=tsc git commit ...` drops one gate and keeps the rest. In a
+# worktree `tsc` resolves `veloqrs` to the main checkout and reports errors that
+# are not in the tree being committed, and the answer to that used to be
+# `--no-verify`, which also skips the lint ratchet: two warnings landed over the
+# ceiling that way and failed the next session's merge rather than the commit
+# that made them. `lint` cannot be skipped, because it is what carries the
+# ceiling.
 gates_rc=0
 ./scripts/run-gates.sh \
   "audit:npm run audit" \
