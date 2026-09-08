@@ -13,10 +13,29 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { cpus } from 'node:os';
 import { resolve } from 'node:path';
 
 import jestConfig from '../../../config/jest.config.js';
+
+/** The number the config commits to, with any operator override set aside. */
+function committedMaxWorkers(): unknown {
+  const override = process.env.JEST_WORKERS;
+  delete process.env.JEST_WORKERS;
+  jest.resetModules();
+  try {
+    return require('../../../config/jest.config.js').maxWorkers;
+  } finally {
+    if (override !== undefined) process.env.JEST_WORKERS = override;
+  }
+}
+
+/**
+ * The ceiling is a number and not a fraction of the cores. It protects the
+ * shared development box, so a CI runner's four cores say nothing about it:
+ * against `cpus().length / 4` the committed 4 read as three times the budget
+ * and failed a run that was taking two workers.
+ */
+const CEILING = 4;
 
 describe('how many workers a run takes', () => {
   it('caps the count rather than taking the cores-1 default', () => {
@@ -24,10 +43,8 @@ describe('how many workers a run takes', () => {
     expect(jestConfig.maxWorkers).toBeGreaterThan(0);
   });
 
-  it('stays well under the core count, which is what the default tracks', () => {
-    // The cap exists because several sessions share one machine, so it has to
-    // be a fraction of the box and not merely below it.
-    expect(jestConfig.maxWorkers).toBeLessThanOrEqual(Math.max(2, cpus().length / 4));
+  it('commits to a bounded number, whatever machine reads the config', () => {
+    expect(committedMaxWorkers()).toBeLessThanOrEqual(CEILING);
   });
 
   it('recycles a leaked worker rather than holding it to the end of the run', () => {

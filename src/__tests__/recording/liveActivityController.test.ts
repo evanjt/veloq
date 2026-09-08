@@ -34,7 +34,10 @@ const mockNative = {
   endAll: jest.fn(),
 };
 
+// Only the one lookup is replaced, so `requireNativeModule` survives for
+// expo's lazy `fetch` global. See memoryPressure.test.ts.
 jest.mock('expo-modules-core', () => ({
+  ...jest.requireActual('expo-modules-core'),
   requireOptionalNativeModule: jest.fn(() => mockNative),
 }));
 

@@ -22,9 +22,21 @@ const INHERITED = [
   'GIT_CEILING_DIRECTORIES',
 ];
 
+/**
+ * An identity for the fixture's own commits. A machine with no global
+ * `user.name` refuses to commit at all, which is every CI runner, and the
+ * failure names the identity rather than the fixture.
+ */
+const IDENTITY = {
+  GIT_AUTHOR_NAME: 'veloq fixture',
+  GIT_AUTHOR_EMAIL: 'fixture@veloq.invalid',
+  GIT_COMMITTER_NAME: 'veloq fixture',
+  GIT_COMMITTER_EMAIL: 'fixture@veloq.invalid',
+};
+
 /** `process.env` with every inherited git pointer removed. */
 export function gitFreeEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...base };
+  const env: NodeJS.ProcessEnv = { ...base, ...IDENTITY };
   for (const key of INHERITED) delete env[key];
   return env;
 }
