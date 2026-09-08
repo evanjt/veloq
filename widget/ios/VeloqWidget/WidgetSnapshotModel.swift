@@ -164,20 +164,11 @@ struct WidgetRecordShortcut: Codable {
   let url: String
 }
 
-/// A tap on record starts the ride, so it deep-links to the recording screen for
-/// a known sport. The picker is the fallback and nothing else: an unknown sport
-/// would otherwise open an empty path.
-enum RecordDeepLink {
-  /// Force-unwrapped once, on a literal that cannot fail to parse, so no caller
-  /// has to unwrap and none can invent a second fallback.
-  static let picker = URL(string: "veloq://record")!
-
-  /// The link the snapshot carries for the most recent sport. It is composed in
-  /// `widgetSnapshot.ts` and read here, so the rule lives in one place.
+/// The link the snapshot carries for the most recent sport. The rule for a
+/// missing one lives in `RecordDeepLink`, which the app target compiles too.
+extension RecordDeepLink {
   static func url(for snapshot: WidgetSnapshot?) -> URL {
-    guard let raw = snapshot?.recordShortcuts?.first?.url, let url = URL(string: raw)
-    else { return picker }
-    return url
+    url(for: snapshot?.recordShortcuts?.first?.url)
   }
 }
 

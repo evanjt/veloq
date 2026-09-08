@@ -26,6 +26,7 @@ const KOTLIN_RENDERER = read('android/java/WidgetRenderer.kt');
 const KOTLIN_SNAPSHOT = read('android/java/WidgetSnapshot.kt');
 const KOTLIN_RECORD_PROVIDER = read('android/java/VeloqRecordWidgetProvider.kt');
 const SWIFT_MODEL = read('ios/VeloqWidget/WidgetSnapshotModel.swift');
+const SWIFT_LINK = read('ios/shared/RecordDeepLink.swift');
 const SWIFT_WIDGET = read('ios/VeloqWidget/VeloqWidget.swift');
 const SWIFT_VIEWS = read('ios/VeloqWidget/WidgetViews.swift');
 
@@ -92,10 +93,14 @@ describe('iOS points its record surfaces at a started recording', () => {
   });
 
   it('reads the URL rather than composing one, with the picker as the only fallback', () => {
-    expect(SWIFT_MODEL).toContain('enum RecordDeepLink');
+    // The rule is shared with the app target, so it lives in its own file and
+    // the model only adds the snapshot-shaped overload.
+    expect(SWIFT_LINK).toContain('enum RecordDeepLink');
+    expect(SWIFT_LINK.match(/veloq:\/\//g)).toHaveLength(1);
+    expect(SWIFT_MODEL).toContain('extension RecordDeepLink');
     expect(SWIFT_MODEL).toContain('static func url(for snapshot: WidgetSnapshot?) -> URL');
     expect(SWIFT_MODEL).toContain('snapshot?.recordShortcuts?.first?.url');
-    expect(SWIFT_MODEL.match(/veloq:\/\//g)).toHaveLength(1);
+    expect(SWIFT_MODEL).not.toContain('veloq://');
   });
 
   it('leaves no record surface on a literal of its own', () => {
