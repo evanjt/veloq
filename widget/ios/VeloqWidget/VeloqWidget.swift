@@ -69,11 +69,11 @@ struct VeloqWidget: Widget {
   }
 }
 
-// MARK: - Quick-Record widget (flagged off)
+// MARK: - Quick-Record widget
 
-// Kept compiled but NOT in either bundle body below: the record surface isn't
-// ready for the gallery yet. Restore by adding VeloqRecordWidget() back to the
-// bundles. The chrome renders purely from the generated WidgetTheme.Record
+// In both generated bundle bodies since INCLUDE_RECORD_WIDGET went true; the
+// plugin drops it from them again if the flag goes back off. The chrome renders
+// purely from the generated WidgetTheme.Record
 // values; the snapshot is read for one field, the last recorded sport, which
 // decides whether the tap starts a ride or opens the picker.
 struct RecordEntry: TimelineEntry {
