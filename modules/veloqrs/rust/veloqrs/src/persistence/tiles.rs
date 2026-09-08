@@ -561,9 +561,18 @@ fn background_generate_tiles(
         // each `&[GpsPoint]` impls `AsRef<[GpsPoint]>`, matching the
         // generic bound on `generate_heatmap_tile`.
         let slices: Vec<&[GpsPoint]> = arcs.iter().map(|a| a.as_slice()).collect();
-        if let Some(png_data) = tiles::generate_heatmap_tile(coord.0, coord.1, coord.2, &slices) {
-            if tiles::save_tile(base, coord.0, coord.1, coord.2, &png_data).is_ok() {
-                generated.fetch_add(1, Ordering::Relaxed);
+        match tiles::generate_heatmap_tile(coord.0, coord.1, coord.2, &slices) {
+            Some(png_data) => {
+                if tiles::save_tile(base, coord.0, coord.1, coord.2, &png_data).is_ok() {
+                    generated.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+            // Nothing reached this tile. Say so on disk, or the existence
+            // check cannot tell it from ground that has never been drawn and
+            // schedules it again on every pass for as long as the library
+            // exists. It is not counted as generated: nothing was drawn.
+            None => {
+                let _ = tiles::mark_tile_empty(base, coord.0, coord.1, coord.2);
             }
         }
         let done = processed.fetch_add(1, Ordering::Relaxed) + 1;
