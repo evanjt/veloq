@@ -45,6 +45,18 @@ pub fn attempt_backoff_ms(attempts: u32) -> i64 {
         .min(BACKOFF_CAP_MS)
 }
 
+/// Epoch milliseconds, which is the unit every column here is in.
+///
+/// A clock before the epoch is not a time this store can reason about, so it
+/// reads as zero rather than wrapping negative and putting a key into a
+/// backoff that ends in 1970.
+pub fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
 /// A job's identity, as the store holds it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct JobKey(String);
