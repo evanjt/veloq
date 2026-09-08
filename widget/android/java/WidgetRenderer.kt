@@ -311,7 +311,7 @@ object WidgetRenderer {
     // with-android-widget.js writes this bool and drops that receiver together.
     if (context.resources.getBoolean(R.bool.widget_record_enabled)) {
       v.setViewVisibility(R.id.large_record, View.VISIBLE)
-      v.setOnClickPendingIntent(R.id.large_record, recordIntent(context))
+      v.setOnClickPendingIntent(R.id.large_record, recordIntent(context, snap))
     } else {
       v.setViewVisibility(R.id.large_record, View.GONE)
     }
@@ -371,14 +371,29 @@ object WidgetRenderer {
 
   // ---- intents ------------------------------------------------------------------
 
-  fun recordIntent(context: Context): PendingIntent = deepLink(context, "veloq://record", 0)
+  /**
+   * A tap on record starts the ride, so it deep-links to the recording screen for
+   * a known sport. The picker is the fallback and nothing else: an unknown sport
+   * would otherwise open an empty path.
+   */
+  fun recordUrl(lastRecordingType: String?): String {
+    val type = lastRecordingType?.trim().orEmpty()
+    return if (type.isEmpty()) "veloq://record" else "veloq://recording/" + Uri.encode(type)
+  }
+
+  fun recordIntent(context: Context, snap: WidgetSnapshot?): PendingIntent =
+    deepLink(context, recordUrl(snap?.lastRecordingType), 0)
 
   private fun deepLink(context: Context, url: String, requestCode: Int): PendingIntent {
     val intent =
       Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
         `package` = context.packageName
       }
-    return PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_IMMUTABLE)
+    // The record URL follows the last sport, so a cached intent for one request
+    // code has to be rewritten rather than handed back with its old data.
+    return PendingIntent.getActivity(
+      context, requestCode, intent,
+      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
   }
 
   private fun bindCycleTap(context: Context, v: RemoteViews, id: Int, widgetId: Int) {

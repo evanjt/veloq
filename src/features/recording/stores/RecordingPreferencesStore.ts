@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { setLastRecordingType } from '@/shared/recording';
 import { getSetting, setSetting } from '@/shared/storage';
 import type { ActivityType, DataFieldType } from '@/types';
 
@@ -71,10 +72,12 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
       const stored = await getSetting(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as Partial<RecordingPreferencesState>;
+        const recentActivityTypes = Array.isArray(parsed.recentActivityTypes)
+          ? parsed.recentActivityTypes
+          : [];
+        setLastRecordingType(recentActivityTypes[0]);
         set({
-          recentActivityTypes: Array.isArray(parsed.recentActivityTypes)
-            ? parsed.recentActivityTypes
-            : [],
+          recentActivityTypes,
           autoPauseEnabled:
             typeof parsed.autoPauseEnabled === 'boolean' ? parsed.autoPauseEnabled : true,
           autoPauseThresholds:
@@ -127,6 +130,7 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
       const filtered = state.recentActivityTypes.filter((t) => t !== type);
       const updated = [type, ...filtered].slice(0, 4);
       persistPreferences({ ...state, recentActivityTypes: updated });
+      setLastRecordingType(updated[0]);
       return { recentActivityTypes: updated };
     });
   },
