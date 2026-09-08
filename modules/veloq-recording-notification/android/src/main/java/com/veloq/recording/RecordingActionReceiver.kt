@@ -6,6 +6,7 @@ import android.content.Intent
 import java.io.File
 
 internal const val ACTION_EXTRA = "veloq.recording.action"
+internal const val SESSION_EXTRA = "veloq.recording.session"
 internal const val BROADCAST_ACTION = "com.veloq.recording.NOTIFICATION_ACTION"
 private const val PENDING_FILE = "recording-notification-actions.txt"
 
@@ -18,15 +19,17 @@ private const val PENDING_FILE = "recording-notification-actions.txt"
 class RecordingActionReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     val action = intent.getStringExtra(ACTION_EXTRA) ?: return
-    if (VeloqRecordingNotificationModule.dispatch(action)) return
-    appendPending(context, action)
+    val session = intent.getLongExtra(SESSION_EXTRA, 0L)
+    if (VeloqRecordingNotificationModule.dispatch(action, session)) return
+    appendPending(context, action, session)
   }
 
   companion object {
     private fun file(context: Context) = File(context.filesDir, PENDING_FILE)
 
-    fun appendPending(context: Context, action: String) {
-      file(context).appendText("$action\n")
+    /** One line per press, `<session>\t<action>`, so a drain can tell whose it is. */
+    fun appendPending(context: Context, action: String, session: Long) {
+      file(context).appendText("$session\t$action\n")
     }
 
     /** Oldest first, and the queue is emptied by the read. */

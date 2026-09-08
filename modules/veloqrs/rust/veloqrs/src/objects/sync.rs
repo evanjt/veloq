@@ -29,7 +29,7 @@ use rusqlite::Result as SqlResult;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 const INTERVALS_BASE_URL: &str = "https://intervals.icu/api/v1";
 
@@ -1628,6 +1628,7 @@ mod tests {
         use crate::persistence::attempts::{JobKey, attempt_backoff_ms};
         use crate::persistence::with_persistent_engine;
         use crate::test_globals::{init_global_engine, serial_global_state};
+        use std::sync::atomic::AtomicI64;
 
         fn key() -> JobKey {
             JobKey::new("detail", &["a1"])

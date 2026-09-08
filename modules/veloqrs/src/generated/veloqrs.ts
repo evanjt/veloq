@@ -18579,8 +18579,9 @@ export interface SyncManagerLike {
     gap: boolean,
   ): FfiStartOutcome;
   /**
-   * Fetch and store a power curve for a sport and window. Returns false if
-   * the same curve is already being fetched or no credentials are set.
+   * Fetch and store a power curve for a sport and window. The outcome says
+   * why it did not start: `Busy` while the same curve is being fetched,
+   * `Held` while a failed one backs off, `NotConfigured` with no credential.
    */
   syncPowerCurve(sport: string, days: /*i64*/ bigint): FfiStartOutcome;
   /**
@@ -18978,8 +18979,9 @@ export class SyncManager
   }
 
   /**
-   * Fetch and store a power curve for a sport and window. Returns false if
-   * the same curve is already being fetched or no credentials are set.
+   * Fetch and store a power curve for a sport and window. The outcome says
+   * why it did not start: `Busy` while the same curve is being fetched,
+   * `Held` while a failed one backs off, `NotConfigured` with no credential.
    */
   syncPowerCurve(sport: string, days: /*i64*/ bigint): FfiStartOutcome {
     return FfiConverterTypeFfiStartOutcome.lift(
@@ -22738,7 +22740,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve() !==
-    17156
+    957
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve",

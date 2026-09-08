@@ -36,6 +36,12 @@ export interface RecordingNotificationPayload {
   title: string;
   body: string;
   /**
+   * The ride this notification belongs to, which is the store's `startTime`.
+   * It rides on every button's intent so a press queued against a session that
+   * has ended is not replayed into the next one.
+   */
+  session: number;
+  /**
    * Epoch ms the chronometer counts up from. Android ticks it itself, so a
    * suspended process still shows a moving clock. Paused time is taken off the
    * base or it would count time the ride did not spend moving.
@@ -54,7 +60,10 @@ export interface RecordingNotificationPayload {
 interface VeloqRecordingNotificationModule {
   update(json: string): void;
   clear(): void;
-  addListener(event: string, listener: (payload: { action: string }) => void): { remove(): void };
+  addListener(
+    event: string,
+    listener: (payload: { action: string; session?: number }) => void
+  ): { remove(): void };
   /**
    * Actions that arrived while no JS runtime was listening, oldest first. The
    * receiver persists them because a notification button can outlive the
@@ -129,6 +138,7 @@ export function buildRecordingNotificationPayload(
   const elapsedText = formatDuration(movingSeconds);
   return {
     status,
+    session: startTime,
     title: translate('recording.backgroundNotificationTitle', 'Recording activity'),
     body: `${formatDistance(distance, isMetric)} · ${formatSpeed(avgSpeed, isMetric)}`,
     chronometerBase: now - movingMs,
@@ -146,11 +156,20 @@ export function buildRecordingNotificationPayload(
  * Drive the same transitions the recording screen's buttons drive. Stop is the
  * one that is more than a store call: it also writes the backup and goes to
  * review, so it goes through `endRecordingSession` rather than repeating them.
+ *
+ * `session` is the recording the press was posted for, which is the store's
+ * `startTime`. The notification outlives the process that drew it, so a press
+ * can be queued against a ride that is over and drained into whichever ride is
+ * live at the next launch. An action that names a different session is dropped.
+ * An action that names none is from a build before the stamp and is applied, so
+ * an upgrade does not swallow a press already sitting in the queue.
  */
 export async function applyRecordingNotificationAction(
-  action: RecordingNotificationAction
+  action: RecordingNotificationAction,
+  session?: number
 ): Promise<void> {
   const store = useRecordingStore.getState();
+  if (session !== undefined && store.startTime !== session) return;
   switch (action) {
     case 'pause':
       store.pauseRecording();
@@ -165,6 +184,21 @@ export async function applyRecordingNotificationAction(
       await endRecordingSession();
       break;
   }
+}
+
+/**
+ * A queued line is `<session>\t<action>`. A line with no tab is from a build
+ * before the stamp: it carries no session and is applied rather than dropped,
+ * so an upgrade does not swallow a press already in the queue.
+ */
+export function parsePendingAction(line: string): { action: string; session?: number } {
+  const tab = line.indexOf('\t');
+  if (tab === -1) return { action: line };
+  const session = Number(line.slice(0, tab));
+  return {
+    action: line.slice(tab + 1),
+    session: Number.isFinite(session) ? session : undefined,
+  };
 }
 
 function isAction(value: string): value is RecordingNotificationAction {
@@ -209,13 +243,14 @@ export function installRecordingNotificationActions(): () => void {
   const module = VeloqRecordingNotification;
   try {
     for (const pending of module.drainPendingActions()) {
-      if (isAction(pending)) applyRecordingNotificationAction(pending);
+      const { action, session } = parsePendingAction(pending);
+      if (isAction(action)) applyRecordingNotificationAction(action, session);
     }
   } catch (e) {
     log.warn('drainPendingActions failed:', e);
   }
-  const subscription = module.addListener('onAction', ({ action }) => {
-    if (isAction(action)) applyRecordingNotificationAction(action);
+  const subscription = module.addListener('onAction', ({ action, session }) => {
+    if (isAction(action)) applyRecordingNotificationAction(action, session);
     updateRecordingNotification();
   });
   return () => subscription.remove();
