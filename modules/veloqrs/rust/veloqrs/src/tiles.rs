@@ -7,7 +7,7 @@
 use image::{ImageBuffer, Rgba, RgbaImage};
 use std::f64::consts::PI;
 use std::io::Cursor;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracematch::GpsPoint;
 
 /// Tile size in pixels (512 for retina/2x quality on high-DPI mobile screens).
@@ -216,6 +216,14 @@ pub struct TileBounds {
     pub max_lat: f64,
 }
 
+/// How far outside its own tile a point may sit and still be drawn into this
+/// one, so a stroke that crosses the edge is continuous across the seam.
+///
+/// It is also the only reason a tile a point does not sit in gets scheduled at
+/// all, so `tiles_along_track` measures the halo against this rather than
+/// adding every neighbour.
+pub const DRAW_MARGIN: f32 = 100.0;
+
 /// Convert GPS point to pixel coordinates within a tile.
 /// Returns None if the point is too far outside the tile.
 #[inline]
@@ -226,12 +234,10 @@ pub fn gps_to_pixel(point: &GpsPoint, z: u8, tile_x: u32, tile_y: u32) -> Option
     let px = ((global_x - tile_x as f64) * TILE_SIZE as f64) as f32;
     let py = ((global_y - tile_y as f64) * TILE_SIZE as f64) as f32;
 
-    // Allow margin outside tile for line continuity (scaled for 512px tiles)
-    let margin = 100.0;
-    if px >= -margin
-        && px < (TILE_SIZE as f32 + margin)
-        && py >= -margin
-        && py < (TILE_SIZE as f32 + margin)
+    if px >= -DRAW_MARGIN
+        && px < (TILE_SIZE as f32 + DRAW_MARGIN)
+        && py >= -DRAW_MARGIN
+        && py < (TILE_SIZE as f32 + DRAW_MARGIN)
     {
         Some((px, py))
     } else {
@@ -239,10 +245,30 @@ pub fn gps_to_pixel(point: &GpsPoint, z: u8, tile_x: u32, tile_y: u32) -> Option
     }
 }
 
-/// Sweep the polyline through tile space at a given zoom, returning every
-/// tile a line segment crosses plus a one-tile neighbour halo (to match the
-/// 100 px margin used by `gps_to_pixel` so antialiased strokes that bleed
-/// into adjacent tiles are still scheduled for generation).
+/// Which neighbouring tiles a point at fractional position `frac` within its
+/// own tile can still be drawn into, as an offset range along one axis.
+///
+/// A point sitting in the middle of its tile reaches no neighbour: it is
+/// `DRAW_MARGIN` pixels outside their bounds and `gps_to_pixel` refuses it. It
+/// reaches the one before only in the first `DRAW_MARGIN` pixels of its own
+/// tile, and the one after only in the last.
+fn halo_range(frac: f64) -> std::ops::RangeInclusive<i64> {
+    let margin = DRAW_MARGIN as f64 / TILE_SIZE as f64;
+    let lo = if frac < margin { -1 } else { 0 };
+    let hi = if frac > 1.0 - margin { 1 } else { 0 };
+    lo..=hi
+}
+
+/// Sweep the polyline through tile space at a given zoom, returning every tile
+/// a line segment crosses plus, for each point, the neighbours whose
+/// `DRAW_MARGIN` that point falls inside, so an antialiased stroke bleeding
+/// across a seam is still scheduled.
+///
+/// The halo is measured against the margin rather than being a flat one-tile
+/// ring. A ring schedules all eight neighbours of every tile the track
+/// touches, and the rasteriser then draws nothing into the ones no point can
+/// reach, so an empty tile is written nowhere and the next pass schedules it
+/// again for as long as the library exists.
 ///
 /// Much tighter than `tiles_for_bounds`: a long point-to-point activity
 /// enumerates ~O(segments) tiles instead of the full bbox rectangle.
@@ -250,24 +276,15 @@ pub fn tiles_along_track(points: &[GpsPoint], zoom: u8) -> std::collections::Has
     let max_xy: i64 = (1i64 << zoom).max(1);
     let mut tiles: std::collections::HashSet<(u32, u32)> = std::collections::HashSet::new();
 
-    let mut add_with_halo =
-        |tiles: &mut std::collections::HashSet<(u32, u32)>, tx: i64, ty: i64| {
-            for dy in -1..=1 {
-                for dx in -1..=1 {
-                    let nx = tx + dx;
-                    let ny = ty + dy;
-                    if nx >= 0 && ny >= 0 && nx < max_xy && ny < max_xy {
-                        tiles.insert((nx as u32, ny as u32));
-                    }
-                }
-            }
-        };
+    let mut add = |tiles: &mut std::collections::HashSet<(u32, u32)>, tx: i64, ty: i64| {
+        if tx >= 0 && ty >= 0 && tx < max_xy && ty < max_xy {
+            tiles.insert((tx as u32, ty as u32));
+        }
+    };
 
-    let mut prev_tile: Option<(i64, i64)> = None;
     let mut prev_valid: Option<(f64, f64)> = None;
     for point in points {
         if !point.is_valid() {
-            prev_tile = None;
             prev_valid = None;
             continue;
         }
@@ -275,25 +292,27 @@ pub fn tiles_along_track(points: &[GpsPoint], zoom: u8) -> std::collections::Has
         let gy = lat_to_tile_y(point.latitude, zoom);
         let tx = gx.floor() as i64;
         let ty = gy.floor() as i64;
-        add_with_halo(&mut tiles, tx, ty);
-
-        if let Some((px, py)) = prev_valid {
-            sweep_line_tiles(&mut tiles, &mut add_with_halo, px, py, gx, gy);
+        for dy in halo_range(gy - ty as f64) {
+            for dx in halo_range(gx - tx as f64) {
+                add(&mut tiles, tx + dx, ty + dy);
+            }
         }
 
-        prev_tile = Some((tx, ty));
+        if let Some((px, py)) = prev_valid {
+            sweep_line_tiles(&mut tiles, &mut add, px, py, gx, gy);
+        }
+
         prev_valid = Some((gx, gy));
     }
-    let _ = prev_tile;
     tiles
 }
 
 /// Bresenham-style supercover: walk integer tile coords from (x0,y0) to
-/// (x1,y1) in fractional-tile space and call `add_with_halo` at each step.
-/// The halo function handles out-of-bounds and neighbour inclusion.
+/// (x1,y1) in fractional-tile space and call `add` at each step.
+/// `add` handles out-of-bounds; the caller adds each point's margin halo.
 fn sweep_line_tiles<F>(
     tiles: &mut std::collections::HashSet<(u32, u32)>,
-    add_with_halo: &mut F,
+    add: &mut F,
     x0: f64,
     y0: f64,
     x1: f64,
@@ -319,7 +338,7 @@ fn sweep_line_tiles<F>(
     let limit = 400_000i64;
     let mut steps = 0i64;
     loop {
-        add_with_halo(tiles, x, y);
+        add(tiles, x, y);
         if x == ix1 && y == iy1 {
             break;
         }
@@ -609,20 +628,48 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
     Some(png_data)
 }
 
-/// Save a tile PNG to disk at the standard z/x/y.png path
-pub fn save_tile(base_path: &Path, z: u8, x: u32, y: u32, png_data: &[u8]) -> std::io::Result<()> {
-    let tile_dir = base_path.join(z.to_string()).join(x.to_string());
-    std::fs::create_dir_all(&tile_dir)?;
-    std::fs::write(tile_dir.join(format!("{}.png", y)), png_data)
-}
-
-/// Check if a tile file already exists on disk (including transparent empty tiles)
-pub fn tile_exists(base_path: &Path, z: u8, x: u32, y: u32) -> bool {
+fn tile_path(base_path: &Path, z: u8, x: u32, y: u32, extension: &str) -> PathBuf {
     base_path
         .join(z.to_string())
         .join(x.to_string())
-        .join(format!("{}.png", y))
-        .exists()
+        .join(format!("{}.{}", y, extension))
+}
+
+fn write_tile_file(
+    base_path: &Path,
+    z: u8,
+    x: u32,
+    y: u32,
+    extension: &str,
+    bytes: &[u8],
+) -> std::io::Result<()> {
+    std::fs::create_dir_all(base_path.join(z.to_string()).join(x.to_string()))?;
+    std::fs::write(tile_path(base_path, z, x, y, extension), bytes)
+}
+
+/// Save a tile PNG to disk at the standard z/x/y.png path
+pub fn save_tile(base_path: &Path, z: u8, x: u32, y: u32, png_data: &[u8]) -> std::io::Result<()> {
+    write_tile_file(base_path, z, x, y, "png", png_data)
+}
+
+/// Record that a tile was rasterised and came out with nothing in it.
+///
+/// A tile the sweep schedules but no stroke reaches produces no PNG, so
+/// nothing on disk distinguishes it from a tile that has never been drawn and
+/// every later pass schedules it again. The marker is what the existence check
+/// reads; the map never asks for it, so it is not served.
+pub fn mark_tile_empty(base_path: &Path, z: u8, x: u32, y: u32) -> std::io::Result<()> {
+    write_tile_file(base_path, z, x, y, EMPTY_MARKER_EXT, &[])
+}
+
+/// The extension of the marker `mark_tile_empty` writes.
+pub const EMPTY_MARKER_EXT: &str = "empty";
+
+/// Whether this tile has already been drawn, whether it came out with heat in
+/// it or empty.
+pub fn tile_exists(base_path: &Path, z: u8, x: u32, y: u32) -> bool {
+    tile_path(base_path, z, x, y, "png").exists()
+        || tile_path(base_path, z, x, y, EMPTY_MARKER_EXT).exists()
 }
 
 /// Delete tile files within a bounding box across all zoom levels
@@ -639,14 +686,18 @@ pub fn invalidate_tiles_in_bounds(
     for z in min_zoom..=max_zoom {
         let tiles = tiles_for_bounds(min_lat, max_lat, min_lng, max_lng, z);
         for (x, y) in tiles {
-            let path = base_path
-                .join(z.to_string())
-                .join(x.to_string())
-                .join(format!("{}.png", y));
-            if path.exists() {
-                if std::fs::remove_file(&path).is_ok() {
-                    deleted += 1;
+            // The marker has to go with the tile. Left behind it claims the
+            // ground is drawn, and the redraw the invalidation asked for is
+            // then skipped for ever.
+            let mut gone = false;
+            for extension in ["png", EMPTY_MARKER_EXT] {
+                let path = tile_path(base_path, z, x, y, extension);
+                if path.exists() && std::fs::remove_file(&path).is_ok() {
+                    gone = true;
                 }
+            }
+            if gone {
+                deleted += 1;
             }
         }
     }
@@ -765,6 +816,111 @@ mod tests {
                 "sweep missed point's own tile ({tx},{ty})"
             );
         }
+    }
+
+    /// A point at a known fractional position inside tile (x, y) at `zoom`.
+    fn point_at(zoom: u8, x: u32, y: u32, frac_x: f64, frac_y: f64) -> GpsPoint {
+        GpsPoint::new(
+            tile_y_to_lat(y as f64 + frac_y, zoom),
+            tile_x_to_lon(x as f64 + frac_x, zoom),
+        )
+    }
+
+    #[test]
+    fn a_point_in_the_middle_of_its_tile_schedules_no_neighbour() {
+        let zoom = 14;
+        let track = vec![point_at(zoom, 8_000, 5_500, 0.5, 0.5)];
+        assert_eq!(
+            tiles_along_track(&track, zoom),
+            std::collections::HashSet::from([(8_000, 5_500)]),
+            "a neighbour is 512 px away and the draw margin is {DRAW_MARGIN}, \
+             so nothing of this point can reach one"
+        );
+    }
+
+    #[test]
+    fn a_point_inside_the_margin_schedules_across_that_seam_only() {
+        let zoom = 14;
+        // Just inside the last DRAW_MARGIN pixels of its tile on x, and clear
+        // of both seams on y.
+        let inset = DRAW_MARGIN as f64 / TILE_SIZE as f64 / 2.0;
+        let track = vec![point_at(zoom, 8_000, 5_500, 1.0 - inset, 0.5)];
+        assert_eq!(
+            tiles_along_track(&track, zoom),
+            std::collections::HashSet::from([(8_000, 5_500), (8_001, 5_500)]),
+            "the stroke bleeds across the x seam and no other"
+        );
+    }
+
+    #[test]
+    fn a_corner_point_schedules_the_three_tiles_it_can_bleed_into() {
+        let zoom = 14;
+        let inset = DRAW_MARGIN as f64 / TILE_SIZE as f64 / 2.0;
+        let track = vec![point_at(zoom, 8_000, 5_500, inset, inset)];
+        assert_eq!(
+            tiles_along_track(&track, zoom),
+            std::collections::HashSet::from([
+                (8_000, 5_500),
+                (7_999, 5_500),
+                (8_000, 5_499),
+                (7_999, 5_499),
+            ]),
+        );
+    }
+
+    #[test]
+    fn every_scheduled_tile_a_point_reaches_accepts_that_point() {
+        let zoom = 14;
+        let inset = DRAW_MARGIN as f64 / TILE_SIZE as f64 / 2.0;
+        for (fx, fy) in [(0.5, 0.5), (1.0 - inset, 0.5), (inset, inset), (0.5, inset)] {
+            let point = point_at(zoom, 8_000, 5_500, fx, fy);
+            for (x, y) in tiles_along_track(&[point], zoom) {
+                assert!(
+                    gps_to_pixel(&point, zoom, x, y).is_some(),
+                    "scheduled ({x},{y}) for a point at ({fx},{fy}) the rasteriser refuses"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_tile_that_rendered_empty_is_not_scheduled_again() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let base = dir.path();
+        assert!(!tile_exists(base, 14, 8_000, 5_500));
+        mark_tile_empty(base, 14, 8_000, 5_500).expect("marker");
+        assert!(
+            tile_exists(base, 14, 8_000, 5_500),
+            "a tile drawn and found empty has been drawn"
+        );
+        assert!(
+            !base.join("14").join("8000").join("5500.png").exists(),
+            "the marker is not served as a tile"
+        );
+    }
+
+    #[test]
+    fn invalidating_ground_takes_the_empty_markers_with_it() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let base = dir.path();
+        let (lat, lng) = (46.5, 7.5);
+        let x = lon_to_tile_x(lng, 14).floor() as u32;
+        let y = lat_to_tile_y(lat, 14).floor() as u32;
+        mark_tile_empty(base, 14, x, y).expect("marker");
+        let deleted = invalidate_tiles_in_bounds(
+            base,
+            lat - 0.01,
+            lat + 0.01,
+            lng - 0.01,
+            lng + 0.01,
+            14,
+            14,
+        );
+        assert!(deleted >= 1, "the marker is a tile for invalidation");
+        assert!(
+            !tile_exists(base, 14, x, y),
+            "a marker left behind claims ground that was asked to be redrawn is drawn"
+        );
     }
 
     #[test]
