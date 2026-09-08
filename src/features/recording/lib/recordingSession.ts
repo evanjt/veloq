@@ -31,6 +31,7 @@ let indoorTimer: Timer | null = null;
 let backupTimer: Timer | null = null;
 let backupArmedFor: string | null = null;
 let detector: AutoPauseDetector | null = null;
+let serviceStarted = false;
 let sessionUnsubscribes: (() => void)[] = [];
 let installUnsubscribe: (() => void) | null = null;
 let running = false;
@@ -108,16 +109,34 @@ function stopForegroundWatch(): void {
  * never prompts: the recording screen owns the prompt, because a denial needs
  * a banner and an alert, and calls this again once the rider grants it.
  */
+/**
+ * Arm the foreground service that keeps the fixes coming once the screen is
+ * gone. Android 12 refuses a foreground service started by an app that is
+ * already in the background, and the `AppState` change to `background` arrives
+ * when the app is exactly that, so this runs for the whole session from the
+ * moment recording starts rather than on the transition out.
+ */
+async function startForegroundService(): Promise<void> {
+  if (serviceStarted) return;
+  try {
+    await startBackgroundLocation(backgroundNotification());
+    serviceStarted = true;
+    useRecordingLiveStore.getState().setBackgroundTrackingFailed(false);
+  } catch (e) {
+    // Refused anyway: the ride records only while the screen is up, and that is
+    // not something the rider should have to discover from the result.
+    log.error('Failed to start background location:', e);
+    useRecordingLiveStore.getState().setBackgroundTrackingFailed(true);
+  }
+}
+
 export async function ensureLocationWatch(): Promise<boolean> {
   if (!running) return false;
   if (useRecordingStore.getState().mode !== 'gps') return false;
   const { status } = await Location.getForegroundPermissionsAsync();
   if (status !== 'granted') return false;
-  if (appState === 'active') {
-    await startForegroundWatch();
-  } else {
-    await startBackgroundLocation(backgroundNotification());
-  }
+  await startForegroundService();
+  if (appState === 'active') await startForegroundWatch();
   return true;
 }
 
@@ -137,21 +156,13 @@ async function handleAppStateChange(next: AppStateStatus): Promise<void> {
   if (!running || useRecordingStore.getState().mode !== 'gps') return;
 
   if (previous === 'active' && next.match(/inactive|background/)) {
-    log.log('App backgrounded, switching to background location');
+    // The service is already running, so leaving only drops the watch that
+    // needs a screen. Starting it here is what Android refuses.
+    log.log('App backgrounded, the foreground service keeps the fixes coming');
     stopForegroundWatch();
-    try {
-      await startBackgroundLocation(backgroundNotification());
-      updateRecordingNotification();
-    } catch (e) {
-      log.error('Failed to start background location:', e);
-    }
+    updateRecordingNotification();
   } else if (previous.match(/inactive|background/) && next === 'active') {
-    log.log('App foregrounded, switching to foreground location');
-    try {
-      await stopBackgroundLocation();
-    } catch (e) {
-      log.error('Failed to stop background location:', e);
-    }
+    log.log('App foregrounded, resuming the foreground watch');
     await ensureLocationWatch();
   }
 }
@@ -245,6 +256,7 @@ function stopSession(): void {
     backupTimer = null;
   }
   backupArmedFor = null;
+  serviceStarted = false;
   appStateSub?.remove();
   appStateSub = null;
 
