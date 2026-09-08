@@ -23,13 +23,13 @@ use crate::net::endpoints;
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{ActivityRecord, ManualActivityBody};
 use crate::persistence::PersistentEngine;
+use crate::persistence::attempts::{Claim, JobKey, Release, now_ms};
 use crate::persistence::bodies::CurveKind;
 use rusqlite::Result as SqlResult;
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 
 const INTERVALS_BASE_URL: &str = "https://intervals.icu/api/v1";
 
@@ -688,48 +688,90 @@ pub(crate) fn discarded(kind: &str, activity_id: &str) {
     );
 }
 
-/// Keys for on-demand fetches currently in flight.
-///
-/// These do not take the exclusive sync slot: a screen asking for a power
-/// curve must not be refused because the launch sync is still running. What it
-/// must not do is stack one request per render, so each key is admitted once
-/// until its job finishes.
-static IN_FLIGHT: LazyLock<Mutex<HashSet<String>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
-
 /// Run an on-demand fetch unless one with the same key is already running.
 ///
-/// The two refusals are opposite answers and used to be the same `false`: no
-/// credential never becomes one by asking again, and a key already in flight
-/// stops being held the moment that job lands. A caller that cannot tell them
-/// apart either retries for ever or gives up on the one it should have waited
-/// for.
-pub(crate) fn spawn_once<F, Fut>(key: String, job: F) -> FfiStartOutcome
+/// The key is a lease on the attempt store rather than a process-local set.
+/// A set a restart empties cannot tell a fetch that was in flight when the app
+/// died from a key nobody ever asked for, so a job that died holding one used
+/// to be invisibly free and a key that kept failing was re-admitted the
+/// instant it landed. Both are now the store's answer: the lease is a
+/// generation the engine mints at init, and a failure backs the key off.
+///
+/// The refusals are four opposite answers rather than one `false`. No
+/// credential never becomes one by asking again. A key already in flight stops
+/// being held the moment that job lands. A key backing off lands on its own
+/// schedule. And a start before the engine opens is early, not refused.
+pub(crate) fn spawn_once<F, Fut>(key: JobKey, job: F) -> FfiStartOutcome
 where
     F: FnOnce(Transport, String) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<(), NetError>> + Send,
 {
+    spawn_once_at(key, now_ms, job)
+}
+
+/// The start itself, with the clock handed in.
+///
+/// Split out the way `drain_queue_with` and `re_ask_with` are: the backoff is
+/// a pure function of the attempt count, and a test that has to spend the
+/// ladder to read it asserts on wall clock, which is what `B285` and `B317`
+/// already failed on. The clock is read twice, once for the claim and once for
+/// the release, because the release genuinely happens later.
+fn spawn_once_at<F, Fut, C>(key: JobKey, clock: C, job: F) -> FfiStartOutcome
+where
+    F: FnOnce(Transport, String) -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = Result<(), NetError>> + Send,
+    C: Fn() -> i64 + Send + 'static,
+{
+    let now = clock();
     let Ok((transport, athlete_id)) = SYNC_SERVICE.build_transport() else {
         return FfiStartOutcome::NotConfigured;
     };
-    {
-        let mut guard = IN_FLIGHT.lock().unwrap_or_else(|e| e.into_inner());
-        if !guard.insert(key.clone()) {
-            return FfiStartOutcome::Busy;
+    let claim = crate::persistence::with_persistent_engine(|engine| engine.claim_job(&key, now));
+    match claim {
+        // The lease lives in the engine, so a start before it opens is early
+        // rather than refused for a reason that will never lift.
+        None => return FfiStartOutcome::NotReady,
+        Some(Err(e)) => {
+            log::warn!("[Sync] could not claim {}: {}", key.as_str(), e);
+            return FfiStartOutcome::NotReady;
         }
+        Some(Ok(Claim::InFlight)) => return FfiStartOutcome::Busy,
+        // Not `Busy`: nothing else holds the key, the last attempt failed and
+        // this one would too. `Held` is the taxonomy's answer for work a stage
+        // that does finish is keeping back, and it is retryable.
+        Some(Ok(Claim::BackingOff { until })) => {
+            log::info!("[Sync] {} is backing off until {}", key.as_str(), until);
+            return FfiStartOutcome::Held;
+        }
+        Some(Ok(Claim::Taken)) => {}
     }
+
     crate::runtime::spawn(async move {
         // Release the key even if the job panics, or that resource could
-        // never be requested again for the rest of the session.
-        struct ReleaseGuard(String);
-        impl Drop for ReleaseGuard {
+        // never be requested again for the rest of the session. A panic is a
+        // failed attempt and backs off, which is why the guard starts on
+        // `Failed` and the success path has to say otherwise.
+        struct ReleaseGuard<C: Fn() -> i64> {
+            key: JobKey,
+            release: Release,
+            clock: C,
+        }
+        impl<C: Fn() -> i64> Drop for ReleaseGuard<C> {
             fn drop(&mut self) {
-                IN_FLIGHT
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .remove(&self.0);
+                let release = std::mem::replace(&mut self.release, Release::Done);
+                let at = (self.clock)();
+                crate::persistence::with_persistent_engine(|engine| {
+                    if let Err(e) = engine.release_job(&self.key, release, at) {
+                        log::warn!("[Sync] could not release {}: {}", self.key.as_str(), e);
+                    }
+                });
             }
         }
-        let _guard = ReleaseGuard(key);
+        let mut guard = ReleaseGuard {
+            key,
+            release: Release::failed(FfiStartOutcome::Failed, Some("the job did not return")),
+            clock,
+        };
 
         // Kept back for the confirmation: the job consumes both, and the
         // confirmation has to ask on the same credential that was refused.
@@ -738,13 +780,22 @@ where
         // the athlete may have signed out of by the time the job is polled.
         if !SYNC_SERVICE.still_signed_in(&confirm_for) {
             log::info!("[Sync] dropping an on-demand fetch for an athlete who has signed out");
+            // Nothing was asked for, so nothing failed. A backoff here would
+            // hold the key against the athlete who signs in next.
+            guard.release = Release::Done;
             return;
         }
-        match job(transport, athlete_id).await {
-            Ok(()) => {}
-            Err(NetError::Unauthorized) => park_auth_expired(&confirm_on, &confirm_for).await,
-            Err(e) => log::warn!("[Sync] on-demand fetch failed: {}", e),
-        }
+        guard.release = match job(transport, athlete_id).await {
+            Ok(()) => Release::Done,
+            Err(NetError::Unauthorized) => {
+                park_auth_expired(&confirm_on, &confirm_for).await;
+                Release::failed(FfiStartOutcome::NotConfigured, Some("unauthorized"))
+            }
+            Err(e) => {
+                log::warn!("[Sync] on-demand fetch failed: {}", e);
+                Release::failed(FfiStartOutcome::Failed, Some(&e.to_string()))
+            }
+        };
     });
     FfiStartOutcome::Started
 }
@@ -1250,11 +1301,12 @@ impl SyncManager {
         Ok(FfiStartOutcome::Started)
     }
 
-    /// Fetch and store a power curve for a sport and window. Returns false if
-    /// the same curve is already being fetched or no credentials are set.
+    /// Fetch and store a power curve for a sport and window. The outcome says
+    /// why it did not start: `Busy` while the same curve is being fetched,
+    /// `Held` while a failed one backs off, `NotConfigured` with no credential.
     fn sync_power_curve(&self, sport: String, days: i64) -> FfiStartOutcome {
         spawn_once(
-            format!("power:{}:{}", sport, days),
+            JobKey::new("power", &[&sport, &days.to_string()]),
             move |transport, athlete_id| async move {
                 let body = endpoints::fetch_power_curve_body(
                     &transport,
@@ -1277,7 +1329,7 @@ impl SyncManager {
     /// is only honoured for running.
     fn sync_pace_curve(&self, sport: String, days: i64, gap: bool) -> FfiStartOutcome {
         spawn_once(
-            format!("pace:{}:{}:{}", sport, days, gap),
+            JobKey::new("pace", &[&sport, &days.to_string(), &gap.to_string()]),
             move |transport, athlete_id| async move {
                 let body = endpoints::fetch_pace_curve_body(
                     &transport,
@@ -1300,7 +1352,7 @@ impl SyncManager {
     /// Fetch and store an activity's work/recovery intervals.
     fn sync_activity_intervals(&self, activity_id: String) -> FfiStartOutcome {
         spawn_once(
-            format!("intervals:{}", activity_id),
+            JobKey::new("intervals", &[&activity_id]),
             move |transport, _athlete_id| async move {
                 let upstream = upstream_id(&activity_id).await;
                 let body =
@@ -1319,7 +1371,7 @@ impl SyncManager {
     /// was there so an event cancelled upstream disappears here too.
     fn sync_calendar_events(&self, oldest: String, newest: String) -> FfiStartOutcome {
         spawn_once(
-            format!("calendar:{}:{}", oldest, newest),
+            JobKey::new("calendar", &[&oldest, &newest]),
             move |transport, athlete_id| async move {
                 let items = endpoints::fetch_calendar_events_bodies(
                     &transport,
@@ -1354,7 +1406,7 @@ impl SyncManager {
     /// types string is the cache key, so callers must pass it consistently.
     fn sync_activity_streams(&self, activity_id: String, types: String) -> FfiStartOutcome {
         spawn_once(
-            format!("streams:{}:{}", activity_id, types),
+            JobKey::new("streams", &[&activity_id, &types]),
             move |transport, _athlete_id| async move {
                 let upstream = upstream_id(&activity_id).await;
                 let body =
@@ -1373,7 +1425,7 @@ impl SyncManager {
     /// row the list sync wrote.
     fn sync_activity_detail(&self, activity_id: String) -> FfiStartOutcome {
         spawn_once(
-            format!("detail:{}", activity_id),
+            JobKey::new("detail", &[&activity_id]),
             move |transport, _athlete_id| async move {
                 let upstream = upstream_id(&activity_id).await;
                 let body = endpoints::fetch_activity_body(&transport, &upstream, Lane::Interactive)
@@ -1406,7 +1458,7 @@ impl SyncManager {
             // stay the right answer.
             return FfiStartOutcome::NotOwed;
         }
-        let key = format!("timestreams:{}", activity_ids.join(","));
+        let key = JobKey::over("timestreams", &activity_ids);
         spawn_once(key, move |transport, _athlete_id| async move {
             let missing = crate::persistence::with_persistent_engine_blocking(move |engine| {
                 engine.get_activities_missing_time_streams(&activity_ids)
@@ -1564,53 +1616,255 @@ mod tests {
         assert!(s.last_error.is_none());
     }
 
-    /// Scenario: a screen asks for a power curve. Either there is no
-    /// credential, so no amount of asking will ever produce one, or the same
-    /// curve is already being fetched, so the next ask succeeds the moment it
-    /// lands. Both used to answer `false`.
+    /// Scenario: the process-local key set `spawn_once` used to hold is gone,
+    /// and every question it answered is answered by the attempt store.
     ///
-    /// Expected behaviour: the two answers are different, and only one of them
-    /// is worth asking again for.
-    #[test]
-    fn spawn_once_tells_a_missing_credential_from_a_job_already_running() {
-        let _serial = crate::test_globals::serial_global_state();
-        IN_FLIGHT
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove("test:key");
-        SYNC_SERVICE.clear_credentials();
+    /// Expected behaviour: a key this generation holds is `Busy`, exactly as
+    /// before. A key a dead process left claimed is free, which the `HashSet`
+    /// could never say because a restart emptied it. And a key that keeps
+    /// failing backs off instead of being re-admitted the instant it lands.
+    mod leases {
+        use super::*;
+        use crate::persistence::attempts::{JobKey, attempt_backoff_ms};
+        use crate::persistence::with_persistent_engine;
+        use crate::test_globals::{init_global_engine, serial_global_state};
 
-        let refused = spawn_once("test:key".to_string(), |_transport, _athlete| async {
-            Ok::<(), NetError>(())
-        });
-        assert_eq!(
-            refused,
-            FfiStartOutcome::NotConfigured,
-            "no credential is not a busy key"
-        );
-        assert!(!refused.is_retryable());
+        fn key() -> JobKey {
+            JobKey::new("detail", &["a1"])
+        }
 
-        let _creds = test_credentials();
-        // Hold the key the way a running job does, without spawning one.
-        IN_FLIGHT
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .insert("test:key".to_string());
+        /// Wait for the spawned job to give its lease back. The release runs
+        /// on the runtime rather than on this thread, so the only honest
+        /// signal is the row itself.
+        fn drain_spawned() {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+            loop {
+                let settled = with_persistent_engine(|engine| {
+                    engine
+                        .job_attempt(&key())
+                        .expect("read")
+                        .is_none_or(|row| row.lease_gen == 0)
+                })
+                .expect("engine");
+                if settled {
+                    return;
+                }
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "the spawned job never released its lease"
+                );
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        }
 
-        let busy = spawn_once("test:key".to_string(), |_transport, _athlete| async {
-            Ok::<(), NetError>(())
-        });
-        assert_eq!(
-            busy,
-            FfiStartOutcome::Busy,
-            "a key already in flight is not a missing credential"
-        );
-        assert!(busy.is_retryable());
+        /// A claim taken without spawning anything, the way a job in flight
+        /// holds one.
+        fn hold(key: &JobKey, now: i64) {
+            with_persistent_engine(|engine| engine.claim_job(key, now).expect("claim"))
+                .expect("engine");
+        }
 
-        IN_FLIGHT
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove("test:key");
+        #[test]
+        fn a_key_this_generation_holds_is_busy_and_a_missing_credential_is_not() {
+            let _serial = serial_global_state();
+            let _tmp = init_global_engine("leases.db");
+            SYNC_SERVICE.clear_credentials();
+
+            let refused = spawn_once_at(
+                key(),
+                || 1_000,
+                |_transport, _athlete| async { Ok::<(), NetError>(()) },
+            );
+            assert_eq!(
+                refused,
+                FfiStartOutcome::NotConfigured,
+                "no credential is not a busy key"
+            );
+            assert!(!refused.is_retryable());
+
+            let _creds = test_credentials();
+            hold(&key(), 1_000);
+
+            let busy = spawn_once_at(
+                key(),
+                || 1_001,
+                |_transport, _athlete| async { Ok::<(), NetError>(()) },
+            );
+            assert_eq!(
+                busy,
+                FfiStartOutcome::Busy,
+                "a key already in flight is not a missing credential"
+            );
+            assert!(busy.is_retryable());
+        }
+
+        /// The whole reason the set moved onto the store. A fetch that was in
+        /// flight when the app died left a claimed row behind, and the next
+        /// launch has to see it as free. A `HashSet` a restart empties cannot
+        /// tell that from a key nobody ever asked for.
+        #[test]
+        fn a_key_a_dead_process_left_claimed_is_free_after_a_restart() {
+            let _serial = serial_global_state();
+            let _tmp = init_global_engine("leases.db");
+            let _creds = test_credentials();
+
+            hold(&key(), 1_000);
+            assert_eq!(
+                spawn_once_at(key(), || 1_001, |_t, _a| async { Ok::<(), NetError>(()) }),
+                FfiStartOutcome::Busy
+            );
+
+            with_persistent_engine(|engine| engine.mint_lease_generation().expect("mint"))
+                .expect("engine");
+
+            assert_eq!(
+                spawn_once_at(key(), || 1_002, |_t, _a| async { Ok::<(), NetError>(()) }),
+                FfiStartOutcome::Started,
+                "a lease from a process that is gone stranded the key"
+            );
+        }
+
+        /// The backoff is the store's, a pure function of the attempt count,
+        /// so the ladder is read rather than spent. No `Instant` here.
+        #[test]
+        fn a_key_that_keeps_failing_waits_longer_each_time() {
+            let _serial = serial_global_state();
+            let _tmp = init_global_engine("leases.db");
+            let _creds = test_credentials();
+
+            let clock = Arc::new(AtomicI64::new(1_000));
+            let mut waits = Vec::new();
+            for _ in 0..3 {
+                let tick = Arc::clone(&clock);
+                assert_eq!(
+                    spawn_once_at(
+                        key(),
+                        move || tick.load(Ordering::SeqCst),
+                        |_t, _a| async {
+                            Err::<(), NetError>(NetError::Http {
+                                status: 500,
+                                body: "upstream".to_string(),
+                            })
+                        }
+                    ),
+                    FfiStartOutcome::Started
+                );
+                drain_spawned();
+
+                let tick = Arc::clone(&clock);
+                let held = spawn_once_at(
+                    key(),
+                    move || tick.load(Ordering::SeqCst),
+                    |_t, _a| async { Ok::<(), NetError>(()) },
+                );
+                assert_eq!(
+                    held,
+                    FfiStartOutcome::Held,
+                    "a key that just failed was re-admitted"
+                );
+                assert!(held.is_retryable());
+
+                let row = with_persistent_engine(|engine| {
+                    engine.job_attempt(&key()).expect("read").expect("a row")
+                })
+                .expect("engine");
+                waits.push(attempt_backoff_ms(row.attempts - 1));
+                clock.fetch_add(attempt_backoff_ms(row.attempts - 1), Ordering::SeqCst);
+            }
+
+            assert_eq!(waits, vec![1_000, 2_000, 4_000]);
+        }
+
+        /// `ReleaseGuard` held the key against a panicking job before the move
+        /// and has to keep holding it, or the resource could never be asked
+        /// for again.
+        #[test]
+        fn a_job_that_panics_gives_the_lease_back() {
+            let _serial = serial_global_state();
+            let _tmp = init_global_engine("leases.db");
+            let _creds = test_credentials();
+
+            assert_eq!(
+                spawn_once_at(
+                    key(),
+                    || 1_000,
+                    |_t, _a| async {
+                        panic!("the job blew up");
+                    }
+                ),
+                FfiStartOutcome::Started
+            );
+            drain_spawned();
+
+            let row = with_persistent_engine(|engine| engine.job_attempt(&key()).expect("read"))
+                .expect("engine");
+            let row = row.expect("a panicking job still records its attempt");
+            assert_eq!(
+                row.lease_gen, 0,
+                "a panic left the key leased, so nothing can ask for it again"
+            );
+            assert_eq!(
+                row.attempts, 1,
+                "a panic is a failed attempt, and backs off"
+            );
+        }
+
+        /// Work that lands is forgotten, so the next ask is admitted rather
+        /// than waiting behind a row nobody needs.
+        #[test]
+        fn work_that_lands_leaves_the_key_free() {
+            let _serial = serial_global_state();
+            let _tmp = init_global_engine("leases.db");
+            let _creds = test_credentials();
+
+            assert_eq!(
+                spawn_once_at(key(), || 1_000, |_t, _a| async { Ok::<(), NetError>(()) }),
+                FfiStartOutcome::Started
+            );
+            drain_spawned();
+
+            assert!(
+                with_persistent_engine(|engine| engine.job_attempt(&key()).expect("read"))
+                    .expect("engine")
+                    .is_none()
+            );
+            assert_eq!(
+                spawn_once_at(key(), || 1_001, |_t, _a| async { Ok::<(), NetError>(()) }),
+                FfiStartOutcome::Started
+            );
+        }
+
+        /// The engine is where the lease lives, so a start before it opens is
+        /// early rather than refused for a reason that will not lift.
+        #[test]
+        fn a_start_before_the_engine_opens_is_not_ready() {
+            let _serial = serial_global_state();
+            crate::persistence::clear_persistent_engine();
+            let _creds = test_credentials();
+
+            let outcome = spawn_once_at(key(), || 1_000, |_t, _a| async { Ok::<(), NetError>(()) });
+            assert_eq!(outcome, FfiStartOutcome::NotReady);
+            assert!(outcome.is_retryable());
+        }
+
+        /// `timestreams` was the one unbounded key: `activity_ids.join(",")`
+        /// wrote every id into a `TEXT PRIMARY KEY`. Two lists that differ
+        /// still have to differ as keys.
+        #[test]
+        fn two_time_stream_lists_take_two_keys() {
+            let one: Vec<String> = (0..500).map(|i| format!("a{i}")).collect();
+            let mut other = one.clone();
+            other.push("a500".to_string());
+
+            let first = JobKey::over("timestreams", &one);
+            let second = JobKey::over("timestreams", &other);
+
+            assert_ne!(first.as_str(), second.as_str());
+            assert!(
+                first.as_str().len() < 80 && second.as_str().len() < 80,
+                "the key is the count and a hash, not the list"
+            );
+        }
     }
 
     #[test]
