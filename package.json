@@ -25,6 +25,7 @@
     "build:info": "cat modules/veloqrs/android/src/main/jniLibs/BUILD_INFO 2>/dev/null || echo 'No build info found'",
     "web": "npx expo start --web",
     "test": "jest --config config/jest.config.js",
+    "test:changed": "jest --config config/jest.config.js --onlyChanged",
     "test:watch": "jest --config config/jest.config.js --watch",
     "test:coverage": "jest --config config/jest.config.js --coverage",
     "test:perf": "VELOQ_PERF=1 jest --config config/jest.config.js --testPathPattern=perf.test --verbose",
