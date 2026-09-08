@@ -65,6 +65,8 @@ function announce(event: string) {
 }
 
 describe('useStartupData read count', () => {
+  let unmountRendered: (() => void) | null = null;
+
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
@@ -75,11 +77,21 @@ describe('useStartupData read count', () => {
   });
 
   afterEach(() => {
+    // Unmount on the fake clock the test rendered on. Left to the testing
+    // library's own cleanup, the unmount runs after `useRealTimers` has swapped
+    // the clock out from under React, and an unmount that then has to wait on
+    // React waits forever: three of these five tests spent the full 30 s hook
+    // budget in that cleanup on the CI runner, twice, and never here.
+    act(() => {
+      unmountRendered?.();
+    });
+    unmountRendered = null;
     jest.useRealTimers();
   });
 
   function mount() {
     const rendered = renderHook(() => useStartupData(['a1']));
+    unmountRendered = rendered.unmount;
     act(() => {
       jest.runOnlyPendingTimers();
     });

@@ -58,7 +58,13 @@ class VeloqRecordingNotificationModule : Module() {
 
     Function("update") { json: String -> post(JSONObject(json), 0) }
 
-    Function("clear") { cancelRetry() }
+    // `manager.notify` took ownership of the id from the service, so nothing in
+    // the service's lifecycle takes the notification down. Cancelling is the
+    // only thing that does.
+    Function("clear") {
+      cancelRetry()
+      cancelNotification()
+    }
 
     Function("drainPendingActions") { RecordingActionReceiver.drainPending(context) }
 
@@ -90,6 +96,12 @@ class VeloqRecordingNotificationModule : Module() {
     return manager.activeNotifications.firstOrNull {
       it.notification.channelId?.endsWith(":$LOCATION_TASK_NAME") == true
     }
+  }
+
+  private fun cancelNotification() {
+    val manager = context.getSystemService(NotificationManager::class.java) ?: return
+    val target = serviceNotification() ?: return
+    manager.cancel(target.id)
   }
 
   private fun cancelRetry() {

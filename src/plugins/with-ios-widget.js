@@ -279,17 +279,7 @@ function withWidgetTarget(config) {
     for (const key in configurations) {
       const settings = configurations[key].buildSettings;
       if (!settings || settings.PRODUCT_NAME !== `"${TARGET}"`) continue;
-      settings.INFOPLIST_FILE = `"${TARGET}/Info.plist"`;
-      settings.CODE_SIGN_ENTITLEMENTS = `"${TARGET}/${TARGET}.entitlements"`;
-      settings.CODE_SIGN_STYLE = "Automatic";
-      // ActivityKit is 16.1 and the app's own deployment target is already 16.4
-      // (expo-build-properties), so nothing could install against 15.1 anyway.
-      settings.IPHONEOS_DEPLOYMENT_TARGET = '"16.4"';
-      settings.SWIFT_VERSION = '"5.9"';
-      settings.TARGETED_DEVICE_FAMILY = '"1,2"';
-      settings.GENERATE_INFOPLIST_FILE = "NO";
-      settings.CURRENT_PROJECT_VERSION = `"${buildNumber}"`;
-      settings.MARKETING_VERSION = `"${version}"`;
+      applyWidgetBuildSettings(settings, version, buildNumber);
     }
 
     proj.addTargetDependency(proj.getFirstTarget().uuid, [target.uuid]);
@@ -305,6 +295,32 @@ function withLiveActivitySupport(config) {
   });
 }
 
+/**
+ * The extension's own build settings. Everything else it inherits from the
+ * project, which is where the pod install writes settings meant for the app.
+ */
+function applyWidgetBuildSettings(settings, version, buildNumber) {
+  settings.INFOPLIST_FILE = `"${TARGET}/Info.plist"`;
+  settings.CODE_SIGN_ENTITLEMENTS = `"${TARGET}/${TARGET}.entitlements"`;
+  settings.CODE_SIGN_STYLE = "Automatic";
+  // ActivityKit is 16.1 and the app's own deployment target is already 16.4
+  // (expo-build-properties), so nothing could install against 15.1 anyway.
+  settings.IPHONEOS_DEPLOYMENT_TARGET = '"16.4"';
+  settings.SWIFT_VERSION = '"5.9"';
+  settings.TARGETED_DEVICE_FAMILY = '"1,2"';
+  settings.GENERATE_INFOPLIST_FILE = "NO";
+  settings.CURRENT_PROJECT_VERSION = `"${buildNumber}"`;
+  settings.MARKETING_VERSION = `"${version}"`;
+  // `apple.ccacheEnabled` has the pod install write CC, LD, CXX and LDPLUSPLUS
+  // across the whole project as `$(REACT_NATIVE_PATH)/scripts/xcode/...`, and
+  // REACT_NATIVE_PATH is `$(PODS_ROOT)/../../node_modules/react-native`. Only a
+  // pod target carries PODS_ROOT, so for the extension the wrapper resolves to
+  // `/../../node_modules/...` and the build fails with "unable to spawn
+  // process". Give it the same path from its own SRCROOT, which is where
+  // react-native is either way.
+  settings.REACT_NATIVE_PATH = '"$(SRCROOT)/../node_modules/react-native"';
+}
+
 module.exports = function withIosWidget(config) {
   config = withWidgetFiles(config);
   config = withWidgetTarget(config);
@@ -313,6 +329,7 @@ module.exports = function withIosWidget(config) {
 };
 
 module.exports.INCLUDE_RECORD_WIDGET = INCLUDE_RECORD_WIDGET;
+module.exports.applyWidgetBuildSettings = applyWidgetBuildSettings;
 module.exports.writeWidgetBundles = writeWidgetBundles;
 module.exports.copySharedLiveActivitySources = copySharedLiveActivitySources;
 module.exports.LIVE_ACTIVITY_SHARED_FILES = LIVE_ACTIVITY_SHARED_FILES;

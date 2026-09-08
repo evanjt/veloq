@@ -10,6 +10,7 @@ import path from 'path';
 
 import {
   LIVE_ACTIVITY_SHARED_FILES,
+  applyWidgetBuildSettings,
   copySharedLiveActivitySources,
   writeWidgetBundles,
 } from '@/../src/plugins/with-ios-widget';
@@ -47,5 +48,33 @@ describe('widget bundles', () => {
 
     expect(swift.match(/VeloqRecordingLiveActivity\(\)/g)).toHaveLength(2);
     expect(swift).toContain('if #available(iOS 16.2, *)');
+  });
+});
+
+/**
+ * Scenario: `apple.ccacheEnabled` makes the pod install route every clang call
+ * through a wrapper it addresses as `$(REACT_NATIVE_PATH)/scripts/xcode/...`,
+ * and it writes that over the whole project. REACT_NATIVE_PATH is reached
+ * through PODS_ROOT, which only a pod target carries, so the extension gets
+ * `/../../node_modules/...` and the build stops at "unable to spawn process".
+ * Expected behaviour: the extension names react-native from its own SRCROOT.
+ */
+describe('widget build settings', () => {
+  it('resolves react-native without PODS_ROOT, which the extension never has', () => {
+    const settings: Record<string, string> = {};
+
+    applyWidgetBuildSettings(settings, '0.4.0', '29');
+
+    expect(settings.REACT_NATIVE_PATH).toBe('"$(SRCROOT)/../node_modules/react-native"');
+    expect(settings.REACT_NATIVE_PATH).not.toContain('PODS_ROOT');
+  });
+
+  it('carries the version and build number the extension is stamped with', () => {
+    const settings: Record<string, string> = {};
+
+    applyWidgetBuildSettings(settings, '0.4.0', '29');
+
+    expect(settings.MARKETING_VERSION).toBe('"0.4.0"');
+    expect(settings.CURRENT_PROJECT_VERSION).toBe('"29"');
   });
 });
