@@ -11,11 +11,25 @@
 set -uo pipefail
 
 MAESTRO="${MAESTRO_BIN:-$HOME/.maestro/bin/maestro}"
+
+# Which device every invocation runs on. Maestro picks one itself when it is
+# not told, and shards the suite across everything attached: an unpinned local
+# run on 2026-09-09 put two flows on a phone that was not the target, logged as
+# `[shard 1] Selected device 10.0.0.3:5555`. CI attaches one device, so the
+# gate never sees this and the cost lands on whoever runs the suite by hand.
+# `--device` is a global flag, so it goes ahead of `test`.
+device=()
+adb_device=()
+if [ -n "${MAESTRO_DEVICE:-}" ]; then
+  device=(--device "$MAESTRO_DEVICE")
+  adb_device=(-s "$MAESTRO_DEVICE")
+fi
+
 report="$1"
 debug="$2"
 shift 2
 
-if "$MAESTRO" test .maestro/ "$@" --debug-output "$debug" --format junit --output "$report" --no-ansi; then
+if "$MAESTRO" "${device[@]}" test .maestro/ "$@" --debug-output "$debug" --format junit --output "$report" --no-ansi; then
   exit 0
 fi
 
@@ -59,10 +73,15 @@ restart_device() {
     eval "$MAESTRO_RESTART_CMD"
     return
   fi
-  adb kill-server || true
-  adb start-server || true
-  adb wait-for-device || true
-  adb shell am force-stop dev.mobile.maestro || true
+  # `kill-server` is server-wide: it drops every attached device's connection,
+  # not just this one's. That is fine on the gate's single-device runner and
+  # not fine on a workstation, so a named device gets the scoped restart.
+  if [ ${#adb_device[@]} -eq 0 ]; then
+    adb kill-server || true
+    adb start-server || true
+  fi
+  adb "${adb_device[@]}" wait-for-device || true
+  adb "${adb_device[@]}" shell am force-stop dev.mobile.maestro || true
 }
 
 # The restart above revives the device the suite pass lost. It says nothing about
@@ -76,7 +95,7 @@ device_alive() {
     eval "$MAESTRO_HEALTH_CMD" > /dev/null 2>&1
     return
   fi
-  [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]
+  [ "$(adb "${adb_device[@]}" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]
 }
 
 if printf '%s\n' "$failed" | grep -q ' device$'; then
@@ -99,7 +118,7 @@ while read -r flow verdict; do
     restart_device
   fi
   echo "Retrying $file ($verdict)"
-  "$MAESTRO" test "$file" --debug-output "$debug" \
+  "$MAESTRO" "${device[@]}" test "$file" --debug-output "$debug" \
     --format junit --output "retry-reports/$flow.xml" --no-ansi || status=1
 done <<EOF_FAILED
 $failed
