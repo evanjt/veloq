@@ -232,8 +232,43 @@ function addMissingSourceFiles(proj, targetUuid, swiftFiles, groupName = TARGET)
     groupUuid = group.uuid;
   }
   for (const file of missing) {
-    proj.addSourceFile(file, { target: targetUuid }, groupUuid);
+    if (proj.addSourceFile(file, { target: targetUuid }, groupUuid)) continue;
+    // `addFile` refuses a path the project already references, and `hasFile`
+    // looks project-wide rather than at this target (`xcode/lib/pbxProject.js`,
+    // `addFile` and `hasFile`). So the second target to ask for a shared source
+    // silently gets nothing, and the build fails on a type it cannot see rather
+    // than on a missing file. `RecordDeepLink.swift` is compiled by the app for
+    // its App Shortcut and by the extension for its Control, so it hits this
+    // every prebuild.
+    //
+    // One file reference and one build file per target is what Xcode itself
+    // writes for a source in two targets, so add the build file directly.
+    compileExistingSource(proj, file, targetUuid);
   }
+}
+
+/**
+ * Compile a file the project already references in one more target.
+ *
+ * Reuses the existing `PBXFileReference` and adds only the `PBXBuildFile` and
+ * the Sources entry, which is the shape Xcode writes for a shared source.
+ */
+function compileExistingSource(proj, name, targetUuid) {
+  const references = proj.pbxFileReferenceSection();
+  const fileRef = Object.keys(references).find(
+    (key) => !key.endsWith("_comment") && unquote(String(references[key].path)) === name
+  );
+  if (!fileRef) return;
+
+  const build = {
+    uuid: proj.generateUuid(),
+    fileRef,
+    basename: name,
+    group: "Sources",
+    target: targetUuid,
+  };
+  proj.addToPbxBuildFileSection(build);
+  proj.addToPbxSourcesBuildPhase(build);
 }
 
 function withWidgetTarget(config) {
@@ -337,3 +372,5 @@ module.exports.widgetSwiftFiles = widgetSwiftFiles;
 module.exports.BUNDLES_FILE = BUNDLES_FILE;
 module.exports.SHARED_APP_FILES = SHARED_APP_FILES;
 module.exports.SHARED_DIR = SHARED_DIR;
+module.exports.addMissingSourceFiles = addMissingSourceFiles;
+module.exports.compiledSourceNames = compiledSourceNames;
