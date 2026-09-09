@@ -137,3 +137,31 @@ describe('flake evidence', () => {
     expect(retention).toBeLessThanOrEqual(MAX_DEBUG_RETENTION_DAYS);
   });
 });
+
+/**
+ * Scenario: the AVD takes its RAM from the `pixel_6` device profile, 2 GB, and
+ * shares it between system_server, Play services, the launcher, the app and
+ * Maestro's own driver app, all under software GL. Run 34360266980 lost the
+ * device server six times in seven minutes and every failure it reported was
+ * that loss, not an assertion.
+ *
+ * Expected behaviour: each emulator job asks for enough RAM that the driver is
+ * not the thing squeezed out. The runner has 16 GB and boots one emulator.
+ */
+describe('the gate emulators', () => {
+  const emulatorSteps = Object.values(gate.jobs)
+    .flatMap((job) => job.steps ?? [])
+    .filter((step) => String(step.uses).startsWith('reactivecircus/android-emulator-runner'));
+
+  it('runs at least one', () => {
+    expect(emulatorSteps.length).toBeGreaterThan(0);
+  });
+
+  it.each(emulatorSteps.map((step, index) => [step.name ?? `step ${index}`, step] as const))(
+    'gives %s more RAM than the device profile default',
+    (_name, step) => {
+      const ram = Number((step.with as { 'ram-size'?: string | number })?.['ram-size']);
+      expect(ram).toBeGreaterThanOrEqual(4096);
+    }
+  );
+});

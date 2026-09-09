@@ -205,6 +205,11 @@ jobs:
           # Real phone profile (1080x2400). The default AVD skin is 320x640,
           # which pushes below-the-fold controls off-screen and breaks flows.
           profile: pixel_6
+          # The profile's own 2 GB is shared with system_server, Play services,
+          # the launcher and Maestro's driver app, and under software GL the
+          # driver is what gets squeezed out. Losing it reads as a dozen failed
+          # flows rather than one dead device.
+          ram-size: 6144
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics
           disable-animations: true
@@ -317,6 +322,11 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_6
+          # The profile's own 2 GB is shared with system_server, Play services,
+          # the launcher and Maestro's driver app, and under software GL the
+          # driver is what gets squeezed out. Losing it reads as a dozen failed
+          # flows rather than one dead device.
+          ram-size: 6144
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics
           disable-animations: true

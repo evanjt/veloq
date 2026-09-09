@@ -34,7 +34,12 @@ function junit(cases: Case[]): string {
  * Each single-flow rerun writes a passing report unless its name is in
  * `failAgain`, and every invocation appends its arguments to a log.
  */
-function fakeMaestro(dir: string, report: string, failAgain: Record<string, string>): string {
+function fakeMaestro(
+  dir: string,
+  report: string,
+  failAgain: Record<string, string>,
+  killsDevice: string[]
+): string {
   const bin = path.join(dir, 'maestro');
   fs.writeFileSync(
     bin,
@@ -51,6 +56,12 @@ if [ "$2" = ".maestro/" ]; then
   exit 1
 fi
 flow=$(basename "$2" .yaml)
+if [ ! -f "${dir}/alive" ]; then
+  printf '<testsuite><testcase name="%s" time="0.03"><failure>Unknown error</failure></testcase></testsuite>' "$flow" > "$out"
+  exit 1
+fi
+# The flow runs and passes, and the device goes down behind it.
+if grep -qxF "\${flow}" "${dir}/kills-device"; then rm -f "${dir}/alive"; fi
 again=$(grep -F "\${flow}=" "${dir}/fail-again" | head -1 | cut -d= -f2-)
 if [ -n "$again" ]; then
   printf '<testsuite><testcase name="%s" time="0.04"><failure>%s</failure></testcase></testsuite>' "$flow" "$again" > "$out"
@@ -68,12 +79,14 @@ exit 0
       .map(([k, v]) => `${k}=${v}`)
       .join('\n') + '\n'
   );
+  fs.writeFileSync(path.join(dir, 'kills-device'), killsDevice.join('\n') + '\n');
+  fs.writeFileSync(path.join(dir, 'alive'), '');
   return bin;
 }
 
-function run(cases: Case[], failAgain: Record<string, string> = {}) {
+function run(cases: Case[], failAgain: Record<string, string> = {}, killsDevice: string[] = []) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-suite-'));
-  const bin = fakeMaestro(dir, junit(cases), failAgain);
+  const bin = fakeMaestro(dir, junit(cases), failAgain, killsDevice);
   // The script writes `retry-reports/` beside the working directory, so it runs
   // in the temp directory with the real flow files linked in rather than
   // littering the checkout.
@@ -91,7 +104,9 @@ function run(cases: Case[], failAgain: Record<string, string> = {}) {
         env: {
           ...process.env,
           MAESTRO_BIN: bin,
-          MAESTRO_RESTART_CMD: `echo restarted >> ${dir}/restarts.log`,
+          // A restart revives the device, which is what makes a second one useful.
+          MAESTRO_RESTART_CMD: `echo restarted >> ${dir}/restarts.log; touch ${dir}/alive`,
+          MAESTRO_HEALTH_CMD: `test -f ${dir}/alive`,
         },
       }
     );
@@ -163,5 +178,39 @@ describe('a suite that lost the device', () => {
 
     expect(result.restarts).toBe(0);
     expect(result.status).toBe(1);
+  });
+});
+
+/**
+ * Scenario: the device dies again *inside* the retry pass, which is what run
+ * 34360266980 did. `auth-api-key-validation` was retried and passed, the device
+ * went with it, and the four flows behind it were retried against nothing.
+ *
+ * Expected behaviour: the pass checks the device before each flow rather than
+ * trusting the one restart it did at the start. A flow that never saw a live
+ * device has not been tested, so failing the gate on it reports a bug that was
+ * never observed.
+ */
+describe('a device that dies inside the retry pass', () => {
+  it('restarts before the flow behind it, and that flow passes', () => {
+    const result = run(
+      [
+        { name: 'auth-api-key-validation', time: '3.8', failure: 'Unknown error' },
+        { name: 'settings-support-iap', time: '0.035', failure: 'Unknown error' },
+      ],
+      {},
+      ['auth-api-key-validation']
+    );
+
+    expect(result.calls.filter((c) => c.includes('settings-support-iap.yaml'))).toHaveLength(1);
+    expect(result.restarts).toBe(2);
+    expect(result.status).toBe(0);
+  });
+
+  it('does not probe its way into a restart when the device is healthy', () => {
+    const result = run([{ name: 'smoke', time: '0.03', failure: 'Unknown error' }]);
+
+    expect(result.restarts).toBe(1);
+    expect(result.status).toBe(0);
   });
 });

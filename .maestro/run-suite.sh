@@ -65,6 +65,20 @@ restart_device() {
   adb shell am force-stop dev.mobile.maestro || true
 }
 
+# The restart above revives the device the suite pass lost. It says nothing about
+# the device the *retry* pass is standing on, and on 2026-09-09 that was the whole
+# failure: `auth-api-key-validation` was retried and passed, the device went with
+# it, and the four flows behind it were each retried against nothing and reported
+# `Unknown error` in seconds. A flow that never saw a live device has not been
+# tested, so failing the gate on it names a bug nobody observed.
+device_alive() {
+  if [ -n "${MAESTRO_HEALTH_CMD:-}" ]; then
+    eval "$MAESTRO_HEALTH_CMD" > /dev/null 2>&1
+    return
+  fi
+  [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]
+}
+
 if printf '%s\n' "$failed" | grep -q ' device$'; then
   echo "The device server died. Restarting it once before the retry pass."
   restart_device
@@ -79,6 +93,10 @@ while read -r flow verdict; do
     echo "No flow file for failed testcase '$flow'."
     status=1
     continue
+  fi
+  if ! device_alive; then
+    echo "The device is not answering before $file. Restarting it."
+    restart_device
   fi
   echo "Retrying $file ($verdict)"
   "$MAESTRO" test "$file" --debug-output "$debug" \
