@@ -52,7 +52,19 @@ tags:
 # ones, so the card below demo-test-0 is a filler and a fixed swipe lands on
 # no particular id. The pr and improving pills are drawn inside the chip, so
 # the chip is the superset of all three.
+#
+# The wait comes first because the catalogue is cut from scratch on every cold
+# launch, ~69 s on a workstation emulator and about 2.5x that on the gate
+# runner. Sweeping four times and asserting gave detection no time at all, and
+# failed the gate on every push. A chip lands on the first card once the
+# catalogue exists, so the sweep is only there for the case where it does not.
 # ====================================================================
+- extendedWaitUntil:
+    visible:
+      id: "activity-card-.*-section-chip"
+    timeout: 300000
+    optional: true
+
 - repeat:
     times: 4
     commands:
