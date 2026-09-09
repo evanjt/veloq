@@ -14,7 +14,12 @@ import { useSectionOverlays } from '@/features/activity/hooks/useSectionOverlays
 import { useSectionActivityData } from '@/features/routes/hooks/useSectionActivityData';
 import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
-import type { ActivityMetrics, FfiMapSignature, Section as NativeSection } from 'veloqrs';
+import type {
+  ActivityMetrics,
+  FfiMapSignature,
+  Section as NativeSection,
+  SectionEncounter,
+} from 'veloqrs';
 import type { FrequentSection, Section } from '@/types';
 
 jest.mock('veloqrs', () =>
@@ -169,6 +174,58 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
 
     expect(result.current.sectionOverlays).not.toBe(first);
     expect(result.current.sectionOverlays?.[0].isPR).toBe(false);
+  });
+
+  it('splits one section into direction-specific overlays when encounters contain both directions', () => {
+    const directionalEncounters: SectionEncounter[] = [
+      {
+        sectionId: 's1',
+        sectionName: 'Section 1',
+        direction: 'same',
+        distanceMeters: 1200,
+        lapTime: 600,
+        lapPace: 3.5,
+        isPr: false,
+        visitCount: 10,
+        historyTimes: [],
+        historyActivityIds: [],
+      },
+      {
+        sectionId: 's1',
+        sectionName: 'Section 1',
+        direction: 'reverse',
+        distanceMeters: 900,
+        lapTime: 700,
+        lapPace: 3.8,
+        isPr: false,
+        visitCount: 2,
+        historyTimes: [],
+        historyActivityIds: [],
+      },
+    ] as SectionEncounter[];
+
+    const { result } = renderHook(() =>
+      useSectionOverlays(
+        'sections',
+        'act-1',
+        matches,
+        noCustom,
+        coordinates,
+        {
+          sectionTraces,
+          prSectionIds,
+        },
+        directionalEncounters
+      )
+    );
+
+    expect(result.current.sectionOverlays).toHaveLength(2);
+    expect(result.current.sectionOverlays?.map((overlay) => overlay.overlayKey)).toEqual([
+      's1|same',
+      's1|reverse',
+    ]);
+    expect(result.current.sectionOverlays?.[0].sortOrder).toBe(0);
+    expect(result.current.sectionOverlays?.[1].sortOrder).toBe(1);
   });
 });
 

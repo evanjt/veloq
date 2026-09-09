@@ -11,7 +11,17 @@
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
 
+import type { Section } from '@/types';
+import type { SectionOverlay } from '@/features/maps/components/ActivityMapView';
+import type { UseSectionEncountersResult } from '@/features/routes/hooks/useSectionEncounters';
+import type {
+  PreComputedSectionMatches,
+  SectionMatch,
+  UseSectionMatchesResult,
+} from '@/features/routes/hooks/useSectionMatches';
 import ActivityDetailScreen from '@/app/activity/[id]';
+import type { PreComputedOverlays } from '@/features/activity/hooks/useSectionOverlays';
+import type { SectionEncounter } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -63,7 +73,15 @@ const mockActivity = {
 
 jest.mock('@/features/activity/hooks', () => ({
   useActivity: () => ({ data: mockActivity, isLoading: false, error: null, refetch: jest.fn() }),
-  useActivityStreams: () => ({ data: undefined, isLoading: false }),
+  useActivityStreams: () => ({
+    data: {
+      latlng: [
+        [1, 2],
+        [3, 4],
+      ],
+    },
+    isLoading: false,
+  }),
   useActivityIntervals: () => ({ data: undefined }),
 }));
 
@@ -82,13 +100,55 @@ jest.mock('@/features/activity/hooks/useActivityDetailData', () => ({
   useActivityDetailData: () => ({ data: mockDetail }),
 }));
 
-const mockUseSectionMatches = jest.fn((..._args: unknown[]) => ({ sections: [], count: 0 }));
-jest.mock('@/features/routes/hooks/useSectionMatches', () => ({
-  useSectionMatches: (...args: unknown[]) => mockUseSectionMatches(...args),
+const mockUseSectionMatches = jest.fn<
+  UseSectionMatchesResult,
+  [string | undefined, PreComputedSectionMatches]
+>(() => ({
+  sections: [],
+  count: 0,
+  isReady: false,
+  isLoading: false,
+  timedOut: false,
 }));
-const mockUseSectionOverlays = jest.fn((..._args: unknown[]) => ({ sectionOverlays: [] }));
+jest.mock('@/features/routes/hooks/useSectionMatches', () => ({
+  useSectionMatches: (activityId: string | undefined, bundle: PreComputedSectionMatches) =>
+    mockUseSectionMatches(activityId, bundle),
+}));
+const mockUseSectionOverlays = jest.fn<
+  { sectionOverlays: SectionOverlay[] | null },
+  [
+    activeTab: string,
+    activityId: string | undefined,
+    engineSectionMatches: SectionMatch[],
+    customMatchedSections: Section[],
+    coordinates: { latitude: number; longitude: number }[],
+    bundle: PreComputedOverlays,
+    sectionEncounters?: SectionEncounter[],
+  ]
+>(() => ({ sectionOverlays: [] }));
 jest.mock('@/features/activity/hooks/useSectionOverlays', () => ({
-  useSectionOverlays: (...args: unknown[]) => mockUseSectionOverlays(...args),
+  useSectionOverlays: (
+    activeTab: string,
+    activityId: string | undefined,
+    engineSectionMatches: SectionMatch[],
+    customMatchedSections: Section[],
+    coordinates: { latitude: number; longitude: number }[],
+    bundle: PreComputedOverlays,
+    sectionEncounters?: SectionEncounter[]
+  ) =>
+    mockUseSectionOverlays(
+      activeTab,
+      activityId,
+      engineSectionMatches,
+      customMatchedSections,
+      coordinates,
+      bundle,
+      sectionEncounters
+    ),
+}));
+const mockUseSectionEncounters = jest.fn<UseSectionEncountersResult, [SectionEncounter[]]>(() => ({
+  encounters: [],
+  isLoading: false,
 }));
 
 jest.mock('@/features/routes/hooks/useActivityRematch', () => ({
@@ -110,7 +170,7 @@ jest.mock('@/features/routes/hooks/useRouteMatch', () => ({
   useRouteMatch: () => ({ routeGroup: null, representativeActivityId: null }),
 }));
 jest.mock('@/features/routes/hooks/useSectionEncounters', () => ({
-  useSectionEncounters: () => ({ encounters: [], isLoading: false }),
+  useSectionEncounters: (encounters: SectionEncounter[]) => mockUseSectionEncounters(encounters),
 }));
 jest.mock('@/features/activity/hooks/useActivitySectionHighlights', () => ({
   useActivitySectionHighlights: () => ({ routes: new Map() }),
@@ -137,6 +197,7 @@ jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
 }));
 
 let capturedOnPointSelect: ((index: number | null) => void) | null = null;
+let capturedSectionEncounters: { sectionId: string; direction: string }[] = [];
 jest.mock('@/features/activity/components/ActivityChartsSection', () => ({
   ActivityChartsSection: (props: { onPointSelect: (index: number | null) => void }) => {
     capturedOnPointSelect = props.onPointSelect;
@@ -148,10 +209,23 @@ jest.mock('@/features/activity/components/ActivityRoutesSection', () => ({
   ActivityRoutesSection: () => null,
 }));
 jest.mock('@/features/activity/components/ActivitySectionsSection', () => ({
-  ActivitySectionsSection: () => null,
+  ActivitySectionsSection: (props: { encounters: { sectionId: string; direction: string }[] }) => {
+    capturedSectionEncounters = props.encounters;
+    return null;
+  },
 }));
 
 describe('activity detail screen', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    capturedSectionEncounters = [];
+    capturedOnPointSelect = null;
+    mockUseSectionOverlays.mockReset();
+    mockUseSectionOverlays.mockImplementation(() => ({ sectionOverlays: [] }));
+    mockUseSectionEncounters.mockReset();
+    mockUseSectionEncounters.mockReturnValue({ encounters: [], isLoading: false });
+  });
+
   it('keeps the pre-computed bundles it hands its hooks stable across a scrub', async () => {
     render(<ActivityDetailScreen />);
     await act(async () => {});
@@ -166,5 +240,64 @@ describe('activity detail screen', () => {
     expect(mockUseSectionMatches.mock.calls.length).toBeGreaterThan(1);
     expect(mockUseSectionMatches.mock.calls.at(-1)?.[1]).toBe(matchesBefore);
     expect(mockUseSectionOverlays.mock.calls.at(-1)?.[5]).toBe(overlaysBefore);
+  });
+
+  it('orders section encounters by section + direction for forward and reverse duplicates', async () => {
+    mockUseSectionEncounters.mockReturnValue({
+      encounters: [
+        {
+          sectionId: 'sec-65',
+          sectionName: 'Section 65',
+          direction: 'reverse',
+          distanceMeters: 900,
+          lapTime: 120,
+          lapPace: 2.1,
+          isPr: false,
+          visitCount: 5,
+          historyTimes: [],
+          historyActivityIds: [],
+        },
+        {
+          sectionId: 'sec-65',
+          sectionName: 'Section 65',
+          direction: 'same',
+          distanceMeters: 1200,
+          lapTime: 140,
+          lapPace: 2.3,
+          isPr: false,
+          visitCount: 8,
+          historyTimes: [],
+          historyActivityIds: [],
+        },
+      ],
+      isLoading: false,
+    });
+
+    mockUseSectionOverlays.mockReturnValue({
+      sectionOverlays: [
+        {
+          id: 'sec-65',
+          sectionPolyline: [{ latitude: 1, longitude: 2 }],
+          activityPortion: [{ latitude: 1, longitude: 2 }],
+          overlayKey: 'sec-65|same',
+          sortOrder: 0,
+        },
+        {
+          id: 'sec-65',
+          sectionPolyline: [{ latitude: 1, longitude: 2 }],
+          activityPortion: [{ latitude: 1, longitude: 2 }],
+          overlayKey: 'sec-65|reverse',
+          sortOrder: 1,
+        },
+      ],
+    });
+
+    render(<ActivityDetailScreen />);
+    await act(async () => {});
+
+    const captureKeys = capturedSectionEncounters.map(
+      (encounter) => `${encounter.sectionId}|${encounter.direction}`
+    );
+    expect(captureKeys).toEqual(['sec-65|same', 'sec-65|reverse']);
   });
 });
