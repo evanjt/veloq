@@ -22,9 +22,29 @@ tags:
       id: "home-activity-list"
     timeout: 15000
 
+# A preceding support-card flow can leave this fixed card open above the list.
+# Dismiss it through the UI so scrolling reaches the activity viewport.
+- runFlow:
+    when:
+      visible:
+        id: "support-card"
+    commands:
+      - tapOn: "Remind me later"
+      - assertNotVisible:
+          id: "support-card"
+
 - takeScreenshot: "screenshots/critical-home"
 
 # ── Activity Detail ─────────────────────────────────────
+# Date-generated activities and feed headers can push this fixture below the
+# viewport. Centre the card before tapping so the tab bar cannot intercept it.
+- scrollUntilVisible:
+    element:
+      id: "activity-card-demo-test-0"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+
 # Tap the card overlay specifically (a regex like activity-card-demo-.* also
 # matches child chips/pills that deep-link to a sub-tab). The tap occasionally
 # fails to register under the CI software GPU, so retry the tap + screen wait.

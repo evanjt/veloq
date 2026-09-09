@@ -55,7 +55,7 @@ export const ACTIVITY_MAP_2D_LAYER_TEST_ID = 'activity-map-2d-layer';
 
 /** Section overlay for map visualization */
 export interface SectionOverlay {
-  /** Unique section ID */
+  /** Stable section identity for detail and highlight wiring */
   id: string;
   /** Section's consensus polyline */
   sectionPolyline: LatLng[];
@@ -63,6 +63,12 @@ export interface SectionOverlay {
   activityPortion?: LatLng[];
   /** Whether the current activity holds the PR for this section */
   isPR?: boolean;
+  /** Stable map identity for direction-aware overlays */
+  overlayKey?: string;
+  /** Tie-breaker for equal track order */
+  sortOrder?: number;
+  /** Optional encounter direction label for dual-direction sections */
+  encounterDirection?: string;
 }
 
 // Re-export SectionCreationError for consumers

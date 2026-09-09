@@ -2,11 +2,14 @@ import { useMemo, useCallback } from 'react';
 import type { SectionOverlay } from '@/features/maps/components/ActivityMapView';
 import type { SectionMatch } from '@/features/routes/hooks/useSectionMatches';
 import type { Section } from '@/types';
+import type { SectionEncounter } from 'veloqrs';
 
 interface LatLng {
   latitude: number;
   longitude: number;
 }
+
+const EMPTY_SECTION_ENCOUNTERS: SectionEncounter[] = [];
 
 /** Traces and record holders a caller already read from the engine. */
 export interface PreComputedOverlays {
@@ -14,6 +17,23 @@ export interface PreComputedOverlays {
   sectionTraces: Record<string, LatLng[]>;
   /** Sections where this activity holds the record */
   prSectionIds: Set<string>;
+}
+
+interface DirectionAwareSectionOverlay extends SectionOverlay {
+  /** Stable overlay key including encounter direction when available */
+  overlayKey: string;
+  /** Sort tie-breaker when nearest track index is the same */
+  sortOrder: number;
+  /** Direction used to keep forward and reverse rows distinct */
+  encounterDirection?: string;
+}
+
+function makeSectionOverlayKey(sectionId: string, direction?: string): string {
+  return direction == null ? sectionId : `${sectionId}|${direction}`;
+}
+
+function makeDirectionKey(encounter: { sectionId: string; direction: string }): string {
+  return `${encounter.sectionId}|${encounter.direction}`;
 }
 
 /**
@@ -29,7 +49,8 @@ export function useSectionOverlays(
   engineSectionMatches: SectionMatch[],
   customMatchedSections: Section[],
   coordinates: LatLng[],
-  bundle: PreComputedOverlays
+  bundle: PreComputedOverlays,
+  sectionEncounters?: SectionEncounter[]
 ) {
   const activityTraces = bundle.sectionTraces;
 
@@ -39,11 +60,55 @@ export function useSectionOverlays(
 
   // Build section overlays for map display (always computed, shown on all tabs)
   const sectionOverlays = useMemo((): SectionOverlay[] | null => {
+    const activeSectionEncounters = sectionEncounters ?? EMPTY_SECTION_ENCOUNTERS;
     if (!engineSectionMatches.length && !customMatchedSections.length) return null;
     if (coordinates.length === 0) return null;
 
-    const overlays: SectionOverlay[] = [];
+    const directionToSortOrder = new Map<string, number>();
+    const directionsBySection = new Map<string, string[]>();
+
+    for (let index = 0; index < activeSectionEncounters.length; index += 1) {
+      const encounter = activeSectionEncounters[index];
+      const directionKey = makeDirectionKey(encounter);
+
+      if (!directionToSortOrder.has(directionKey)) {
+        directionToSortOrder.set(directionKey, index);
+      }
+
+      const directions = directionsBySection.get(encounter.sectionId);
+      if (!directions) {
+        directionsBySection.set(encounter.sectionId, [encounter.direction]);
+      } else if (!directions.includes(encounter.direction)) {
+        directions.push(encounter.direction);
+      }
+    }
+
+    const overlays: DirectionAwareSectionOverlay[] = [];
     const processedIds = new Set<string>();
+    let fallbackSortOrder = activeSectionEncounters.length;
+
+    const addSectionOverlay = (
+      sectionId: string,
+      sectionPolyline: LatLng[],
+      activityPortion?: LatLng[]
+    ) => {
+      const directions = directionsBySection.get(sectionId);
+      const shouldSplitByDirection = directions != null && directions.length > 0;
+      const sectionDirections = shouldSplitByDirection ? directions : [undefined];
+
+      for (const direction of sectionDirections) {
+        const overlayKey = makeSectionOverlayKey(sectionId, direction);
+        overlays.push({
+          id: sectionId,
+          sectionPolyline,
+          activityPortion,
+          isPR: prSectionIds.has(sectionId),
+          overlayKey,
+          sortOrder: directionToSortOrder.get(overlayKey) ?? fallbackSortOrder++,
+          encounterDirection: direction,
+        });
+      }
+    };
 
     // Process engine-detected sections
     for (const match of engineSectionMatches) {
@@ -86,12 +151,7 @@ export function useSectionOverlays(
         }
       }
 
-      overlays.push({
-        id: match.section.id,
-        sectionPolyline,
-        activityPortion,
-        isPR: prSectionIds.has(match.section.id),
-      });
+      addSectionOverlay(match.section.id, sectionPolyline, activityPortion);
     }
 
     // Process custom sections
@@ -139,12 +199,7 @@ export function useSectionOverlays(
         }
       }
 
-      overlays.push({
-        id: section.id,
-        sectionPolyline,
-        activityPortion,
-        isPR: prSectionIds.has(section.id),
-      });
+      addSectionOverlay(section.id, sectionPolyline, activityPortion);
     }
 
     // Sort overlays by where each section starts along this activity's track.
@@ -166,15 +221,25 @@ export function useSectionOverlays(
         }
         return best;
       };
-      const startIndexById = new Map<string, number>();
-      for (const o of overlays) {
-        const first = o.activityPortion?.[0] ?? o.sectionPolyline?.[0];
-        if (first) startIndexById.set(o.id, findNearestIndex(first.latitude, first.longitude));
+
+      const startIndexByKey = new Map<string, number>();
+      for (const overlay of overlays) {
+        const first = overlay.activityPortion?.[0] ?? overlay.sectionPolyline?.[0];
+        if (first) {
+          startIndexByKey.set(
+            overlay.overlayKey,
+            findNearestIndex(first.latitude, first.longitude)
+          );
+        }
       }
+
       const INF = Number.MAX_SAFE_INTEGER;
-      overlays.sort(
-        (a, b) => (startIndexById.get(a.id) ?? INF) - (startIndexById.get(b.id) ?? INF)
-      );
+      overlays.sort((a, b) => {
+        const aIndex = startIndexByKey.get(a.overlayKey) ?? INF;
+        const bIndex = startIndexByKey.get(b.overlayKey) ?? INF;
+        if (aIndex !== bIndex) return aIndex - bIndex;
+        return a.sortOrder - b.sortOrder;
+      });
     }
 
     return overlays;
@@ -185,6 +250,7 @@ export function useSectionOverlays(
     activityId,
     activityTraces,
     prSectionIds,
+    sectionEncounters,
   ]);
 
   // Helper to get activity portion as RoutePoint[] for MiniTraceView

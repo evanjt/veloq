@@ -14,6 +14,7 @@
     "android:debug": "npm run bundle:android && cd android && ./gradlew assembleDebug",
     "ios": "npx expo run:ios",
     "ios:prod": "APP_VARIANT=production npx expo run:ios --configuration Release",
+    "sync:live-activity": "node scripts/sync-live-activity-sources.js",
     "test:rust": "cd modules/veloqrs/rust && cargo test -p veloqrs",
     "test:rust:synthetic": "cd modules/veloqrs/rust && cargo test -p veloqrs --features synthetic",
     "clean:rust": "npm run clean --prefix modules/veloqrs",
@@ -67,6 +68,7 @@
     "ffi:orphans": "node scripts/engine-orphan-report.mjs",
     "gen:widget-theme": "npx tsx scripts/gen-widget-theme.ts",
     "check:expo": "node scripts/check-expo-sdk.mjs",
+    "check:android-prebuild": "node scripts/check-android-prebuild.mjs",
     "lint:detector-ordering": "node scripts/lint-detector-ordering.mjs",
     "lint:em-dashes": "node scripts/lint-em-dashes.mjs",
     "lint:comment-line-refs": "node scripts/lint-comment-line-refs.mjs",
@@ -86,7 +88,7 @@
     "ffi:gate": "node scripts/ffi-timing-gate.mjs",
     "perf:coldstart": "node scripts/cold-start-scaling-harness.mjs",
     "audit": "npm run format:check && npm run audit:guards",
-    "audit:guards": "npm run check:expo && npm run ffi:check && npm run config:sports:check && npm run ffi:reach && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:render-engine-reads && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs && npm run lint:au-spelling && npm run lint:audit-ids && npm run lint:feature-imports && npm run lint:window-dimensions && npm run lint:module-link",
+    "audit:guards": "npm run check:expo && npm run check:android-prebuild && npm run ffi:check && npm run config:sports:check && npm run ffi:reach && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:render-engine-reads && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs && npm run lint:au-spelling && npm run lint:audit-ids && npm run lint:feature-imports && npm run lint:window-dimensions && npm run lint:module-link",
     "lint:cached": "npm run lint -- --cache"
   },
   "dependencies": {
@@ -116,6 +118,7 @@
     "expo-screen-orientation": "~56.0.5",
     "expo-secure-store": "~56.0.4",
     "expo-sharing": "~56.0.15",
+    "expo-splash-screen": "^57.0.8",
     "expo-status-bar": "~56.0.4",
     "expo-task-manager": "~56.0.16",
     "expo-web-browser": "~56.0.5",

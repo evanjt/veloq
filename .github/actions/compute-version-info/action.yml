@@ -7,7 +7,7 @@ inputs:
     required: false
     default: ''
   source-profile:
-    description: 'Which source-hash file set to use: "android" (JS + Rust + Kotlin/Java/Gradle) or "ios" (JS + Rust + Swift/ObjC/podspec)'
+    description: 'Build cache platform: "android" or "ios"; hashes tracked build inputs and platform widget sources'
     required: false
     default: 'android'
 
@@ -75,13 +75,9 @@ runs:
           echo "filename=veloq-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
         fi
 
-        # Source hash for build caching. The file-type sets below mirror the
-        # inline hashes previously duplicated in build-android / build-ios jobs.
-        if [[ "$SOURCE_PROFILE" == "ios" ]]; then
-          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
-        else
-          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.kt" -o -name "*.java" -o -name "*.gradle" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
-        fi
+        # Shared by the finished APK and simulator caches. Hash tracked build
+        # inputs so widget/config/lockfile changes cannot reuse an old app.
+        SOURCE_HASH=$(node scripts/compute-source-hash.js "$SOURCE_PROFILE")
         echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
 
         echo "Build type: $BUILD_TYPE | Version: $VERSION ($VERSION_CODE) | Hash: $SOURCE_HASH"
