@@ -231,7 +231,8 @@ export default function ActivityDetailScreen() {
     engineSectionMatches,
     customMatchedSections,
     coordinates,
-    preComputedOverlays
+    preComputedOverlays,
+    encountersRaw
   );
 
   // Sort encounters by where each section starts within this activity so the
@@ -242,6 +243,11 @@ export default function ActivityDetailScreen() {
     if (!id || encountersRaw.length === 0) return encountersRaw;
     if (!sectionOverlays || sectionOverlays.length === 0) return encountersRaw;
     if (coordinates.length === 0) return encountersRaw;
+
+    const makeEncounterKey = (encounter: { sectionId: string; direction: string }) =>
+      `${encounter.sectionId}|${encounter.direction}`;
+    const makeOverlayKey = (overlay: { id: string; overlayKey?: string; sortOrder?: number }) =>
+      overlay.overlayKey ?? `${overlay.id}|`;
 
     const findNearestIndex = (targetLat: number, targetLng: number): number => {
       let best = 0;
@@ -259,21 +265,32 @@ export default function ActivityDetailScreen() {
       return best;
     };
 
-    const startIndexById = new Map<string, number>();
+    const startIndexByKey = new Map<string, number>();
+    const sortOrderByKey = new Map<string, number>();
     for (const overlay of sectionOverlays) {
       // Prefer the activity's own portion when extractSectionTrace has run; fall
       // back to the section's consensus polyline first coord otherwise so the
       // sort still works on first render.
       const first = overlay.activityPortion?.[0] ?? overlay.sectionPolyline?.[0];
       if (!first) continue;
-      startIndexById.set(overlay.id, findNearestIndex(first.latitude, first.longitude));
+      const key = makeOverlayKey(overlay);
+      startIndexByKey.set(key, findNearestIndex(first.latitude, first.longitude));
+      if (overlay.sortOrder != null) {
+        sortOrderByKey.set(key, overlay.sortOrder);
+      }
     }
 
     const INF = Number.MAX_SAFE_INTEGER;
     return [...encountersRaw].sort((a, b) => {
-      const ai = startIndexById.get(a.sectionId) ?? INF;
-      const bi = startIndexById.get(b.sectionId) ?? INF;
-      return ai - bi;
+      const aKey = makeEncounterKey(a);
+      const bKey = makeEncounterKey(b);
+      const ai = startIndexByKey.get(aKey) ?? INF;
+      const bi = startIndexByKey.get(bKey) ?? INF;
+      if (ai !== bi) return ai - bi;
+      const aSort = sortOrderByKey.get(aKey) ?? INF;
+      const bSort = sortOrderByKey.get(bKey) ?? INF;
+      if (aSort !== bSort) return aSort - bSort;
+      return 0;
     });
   }, [encountersRaw, sectionOverlays, coordinates, id]);
 

@@ -19,6 +19,7 @@ import { EMPTY_FEATURE_COLLECTION } from '../lib/coordinates';
 /** Data about a single section overlay used by the rendering layer */
 export interface SectionOverlayGeoJSON {
   id: string;
+  overlayId?: string;
   sectionGeo: GeoJSON.Feature | null;
   portionGeo: GeoJSON.Feature | null;
   isPR?: boolean;
@@ -169,6 +170,8 @@ export function useMapLayers({
       const overlayData: SectionOverlayGeoJSON[] = [];
 
       sectionOverlays.forEach((overlay) => {
+        const overlayKey = overlay.overlayKey ?? overlay.id;
+
         const validSectionPoints = overlay.sectionPolyline.filter(
           (c) =>
             Number.isFinite(c.latitude) &&
@@ -183,6 +186,7 @@ export function useMapLayers({
             type: 'Feature',
             properties: {
               id: overlay.id,
+              overlayId: overlayKey,
               type: 'section',
               isPR: !!overlay.isPR,
               colorIndex: sectionPaletteIndex(overlay.id),
@@ -216,6 +220,7 @@ export function useMapLayers({
             type: 'Feature',
             properties: {
               id: overlay.id,
+              overlayId: overlayKey,
               type: 'portion',
               isPR: !!overlay.isPR,
               colorIndex: sectionPaletteIndex(overlay.id),
@@ -237,6 +242,7 @@ export function useMapLayers({
 
         overlayData.push({
           id: overlay.id,
+          overlayId: overlayKey,
           sectionGeo,
           portionGeo,
           isPR: overlay.isPR,
