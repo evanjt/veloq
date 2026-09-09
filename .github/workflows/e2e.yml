@@ -209,6 +209,12 @@ jobs:
             -library target/sim-fat/libveloqrs_ffi.a \
             -output ../ios/Frameworks/VeloqrsFFI.xcframework
 
+      # The bridge pod compiles the Live Activity contract, which the plugin copies
+      # out of widget/ios during prebuild. A restored native project skips prebuild,
+      # and the copy lands outside ios/, so nothing else puts those files on disk.
+      - name: Sync Live Activity sources
+        run: npm run sync:live-activity
+
       - name: Generate native project (dev variant)
         if: steps.app-cache.outputs.cache-hit != 'true'
         env:

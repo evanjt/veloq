@@ -14,6 +14,7 @@
     "android:debug": "npm run bundle:android && cd android && ./gradlew assembleDebug",
     "ios": "npx expo run:ios",
     "ios:prod": "APP_VARIANT=production npx expo run:ios --configuration Release",
+    "sync:live-activity": "node scripts/sync-live-activity-sources.js",
     "test:rust": "cd modules/veloqrs/rust && cargo test -p veloqrs",
     "test:rust:synthetic": "cd modules/veloqrs/rust && cargo test -p veloqrs --features synthetic",
     "clean:rust": "npm run clean --prefix modules/veloqrs",
