@@ -231,8 +231,12 @@ function addMissingSourceFiles(proj, targetUuid, swiftFiles, groupName = TARGET)
     proj.addToPbxGroup(group.uuid, proj.getFirstProject().firstProject.mainGroup);
     groupUuid = group.uuid;
   }
+  const group = proj.getPBXGroupByKey(groupUuid);
   for (const file of missing) {
-    if (proj.addSourceFile(file, { target: targetUuid }, groupUuid)) continue;
+    // Expo's app group is virtual (no path); its references include the app
+    // directory. The widget group already resolves relative to its directory.
+    const sourcePath = unquote(group.path) === groupName ? file : `${groupName}/${file}`;
+    if (proj.addSourceFile(sourcePath, { target: targetUuid }, groupUuid)) continue;
     // `addFile` refuses a path the project already references, and `hasFile`
     // looks project-wide rather than at this target (`xcode/lib/pbxProject.js`,
     // `addFile` and `hasFile`). So the second target to ask for a shared source
@@ -256,7 +260,7 @@ function addMissingSourceFiles(proj, targetUuid, swiftFiles, groupName = TARGET)
 function compileExistingSource(proj, name, targetUuid) {
   const references = proj.pbxFileReferenceSection();
   const fileRef = Object.keys(references).find(
-    (key) => !key.endsWith("_comment") && unquote(String(references[key].path)) === name
+    (key) => !key.endsWith("_comment") && path.basename(unquote(String(references[key].path))) === name
   );
   if (!fileRef) return;
 
@@ -271,53 +275,62 @@ function compileExistingSource(proj, name, targetUuid) {
   proj.addToPbxSourcesBuildPhase(build);
 }
 
+/** Create the extension target, its phases, its group and its build settings. */
+function createWidgetTarget(proj, { bundleId, version, buildNumber }) {
+  const target = proj.addTarget(TARGET, "app_extension", TARGET, `${bundleId}.${TARGET}`);
+
+  proj.addBuildPhase([], "PBXSourcesBuildPhase", "Sources", target.uuid);
+  proj.addBuildPhase([], "PBXResourcesBuildPhase", "Resources", target.uuid);
+  proj.addBuildPhase([], "PBXFrameworksBuildPhase", "Frameworks", target.uuid);
+
+  const group = proj.addPbxGroup([], TARGET, TARGET);
+  proj.addToPbxGroup(group.uuid, proj.getFirstProject().firstProject.mainGroup);
+
+  const configurations = proj.pbxXCBuildConfigurationSection();
+  for (const key in configurations) {
+    const settings = configurations[key].buildSettings;
+    if (!settings || settings.PRODUCT_NAME !== `"${TARGET}"`) continue;
+    applyWidgetBuildSettings(settings, version, buildNumber);
+  }
+
+  proj.addTargetDependency(proj.getFirstTarget().uuid, [target.uuid]);
+  return target.uuid;
+}
+
+/**
+ * Wire the app and extension targets to the sources each has to compile,
+ * creating the extension target when the project has none.
+ */
+function configureWidgetProject(proj, { projectName, swiftFiles, bundleId, version, buildNumber }) {
+  // The phase helpers key off the target uuid, and pbxTargetByName returns
+  // the target object instead. Passing that through resolves to the FIRST
+  // sources phase in the project, which belongs to the app.
+  // The App Shortcut and the link rule it uses belong to the app target, and
+  // the app target already exists on every prebuild, so this runs either way.
+  const appTargetUuid = targetUuidByName(proj, projectName);
+  if (appTargetUuid) {
+    addMissingSourceFiles(proj, appTargetUuid, SHARED_APP_FILES, projectName);
+  }
+
+  const targetUuid =
+    targetUuidByName(proj, TARGET) ?? createWidgetTarget(proj, { bundleId, version, buildNumber });
+
+  // One call site for the extension's sources, whether the target was just
+  // created or survived from an earlier prebuild. A second one would need its
+  // own shared-source fallback, and a source the app claimed first is dropped
+  // without it.
+  addMissingSourceFiles(proj, targetUuid, swiftFiles);
+}
+
 function withWidgetTarget(config) {
   return withXcodeProject(config, (cfg) => {
-    const proj = cfg.modResults;
-    const swiftFiles = widgetSwiftFiles(cfg.modRequest.projectRoot);
-    // The phase helpers key off the target uuid, and pbxTargetByName returns
-    // the target object instead. Passing that through resolves to the FIRST
-    // sources phase in the project, which belongs to the app.
-    // The App Shortcut and the link rule it uses belong to the app target, and
-    // the app target already exists on every prebuild, so this runs either way.
-    const appTargetUuid = targetUuidByName(proj, cfg.modRequest.projectName);
-    if (appTargetUuid) {
-      addMissingSourceFiles(proj, appTargetUuid, SHARED_APP_FILES, cfg.modRequest.projectName);
-    }
-
-    const existingTargetUuid = targetUuidByName(proj, TARGET);
-    if (existingTargetUuid) {
-      addMissingSourceFiles(proj, existingTargetUuid, swiftFiles);
-      return cfg;
-    }
-
-    const appBundleId = cfg.ios?.bundleIdentifier || "com.veloq.app";
-    const widgetBundleId = `${appBundleId}.${TARGET}`;
-    const version = cfg.version || "1.0.0";
-    const buildNumber = cfg.ios?.buildNumber || "1";
-
-    const target = proj.addTarget(TARGET, "app_extension", TARGET, widgetBundleId);
-
-    proj.addBuildPhase([], "PBXSourcesBuildPhase", "Sources", target.uuid);
-    proj.addBuildPhase([], "PBXResourcesBuildPhase", "Resources", target.uuid);
-    proj.addBuildPhase([], "PBXFrameworksBuildPhase", "Frameworks", target.uuid);
-
-    const group = proj.addPbxGroup([], TARGET, TARGET);
-    const mainGroup = proj.getFirstProject().firstProject.mainGroup;
-    proj.addToPbxGroup(group.uuid, mainGroup);
-
-    for (const file of swiftFiles) {
-      proj.addSourceFile(file, { target: target.uuid }, group.uuid);
-    }
-
-    const configurations = proj.pbxXCBuildConfigurationSection();
-    for (const key in configurations) {
-      const settings = configurations[key].buildSettings;
-      if (!settings || settings.PRODUCT_NAME !== `"${TARGET}"`) continue;
-      applyWidgetBuildSettings(settings, version, buildNumber);
-    }
-
-    proj.addTargetDependency(proj.getFirstTarget().uuid, [target.uuid]);
+    configureWidgetProject(cfg.modResults, {
+      projectName: cfg.modRequest.projectName,
+      swiftFiles: widgetSwiftFiles(cfg.modRequest.projectRoot),
+      bundleId: cfg.ios?.bundleIdentifier || "com.veloq.app",
+      version: cfg.version || "1.0.0",
+      buildNumber: cfg.ios?.buildNumber || "1",
+    });
     return cfg;
   });
 }
@@ -374,3 +387,4 @@ module.exports.SHARED_APP_FILES = SHARED_APP_FILES;
 module.exports.SHARED_DIR = SHARED_DIR;
 module.exports.addMissingSourceFiles = addMissingSourceFiles;
 module.exports.compiledSourceNames = compiledSourceNames;
+module.exports.configureWidgetProject = configureWidgetProject;

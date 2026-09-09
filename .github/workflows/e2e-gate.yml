@@ -128,8 +128,11 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit != 'true'
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: android-ndk-${{ runner.os }}
-          max-size: 2G
+          # Reuse one bounded snapshot until native inputs change.
+          key: android-ndk-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'app.json', 'app.config.js', 'src/plugins/**', 'widget/android/**', 'modules/**/android/**', 'modules/**/cpp/**') }}
+          restore-keys: android-ndk-v2-${{ runner.os }}-
+          append-timestamp: false
+          max-size: 1G
 
       - name: Write google-services.json stub
         if: steps.apk-cache.outputs.cache-hit != 'true'

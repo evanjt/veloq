@@ -53,7 +53,8 @@ jobs:
               - 'package-lock.json'
               - 'app.json'
               - 'app.config.js'
-              - 'plugins/**'
+              - 'src/plugins/**'
+              - 'widget/**'
               - 'expo-modules/**'
               - 'modules/**'
               - 'ios/**'
@@ -194,22 +195,10 @@ jobs:
           secret-contents: ${{ secrets.GOOGLE_SERVICES_JSON }}
           package-name: com.veloq.app
 
-      - name: Cache Android prebuild
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        id: android-prebuild-cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            android
-            !android/build
-            !android/.gradle
-            !android/.cxx
-            !android/app/build
-            !android/app/.cxx
-          key: android-prebuild-v7-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'modules/**/package.json', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
-
+      # Prebuild takes seconds; caching android/ retained hundreds of MB after
+      # Gradle ran. Keep dependencies and compiled libraries cached instead.
       - name: Generate Android native project
-        if: steps.apk-cache.outputs.cache-hit != 'true' && steps.android-prebuild-cache.outputs.cache-hit != 'true'
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         run: APP_VARIANT=production npx expo prebuild --platform android
 
       - name: Install Gradle init script
@@ -434,18 +423,20 @@ jobs:
 
       # `apple.ccacheEnabled` in app.json routes every clang call through
       # ccache, so a second build of the same pods is a cache read. The store
-      # is keyed per commit and restored from the newest, so it grows across
-      # runs rather than starting cold on every pull request.
+      # is capped and keyed by native inputs, avoiding a snapshot per JS commit.
+      # A native change can still warm-start from the previous store.
       - name: Setup ccache
-        run: brew install ccache
+        run: |
+          brew install ccache
+          ccache --max-size=1G
 
       - name: Cache ccache store
         uses: actions/cache@v4
         with:
           path: ~/Library/Caches/ccache
-          key: ccache-ios-${{ github.sha }}
+          key: ccache-ios-v2-${{ runner.arch }}-${{ hashFiles('package-lock.json', 'app.json', 'app.config.js', 'src/plugins/**', 'widget/ios/**', 'modules/**/ios/**', 'modules/**/cpp/**', '.github/workflows/build.yml') }}
           restore-keys: |
-            ccache-ios-
+            ccache-ios-v2-${{ runner.arch }}-
 
       - name: Get version info
         id: version
@@ -551,12 +542,17 @@ jobs:
         id: ios-prebuild-cache
         uses: actions/cache@v4
         with:
-          path: ios
+          path: |
+            ios
+            !ios/Pods
+            !ios/build
+            !ios/**/build
+            !ios/Frameworks
           # No restore-keys: a prefix fallback would restore a stale ios/ from before an
           # app.json change, and incremental `expo prebuild` reuses it without rewriting
           # Podfile.properties.json, so a config change (e.g. buildReactNativeFromSource)
           # silently never reaches the build. Exact-key only forces a fresh prebuild.
-          key: ios-prebuild-v8-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
+          key: ios-prebuild-v10-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'src/plugins/**', 'widget/ios/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
 
       - name: Install dependencies
         run: npm ci
@@ -617,6 +613,7 @@ jobs:
       - name: Build simulator app
         if: steps.app-cache.outputs.cache-hit != 'true'
         run: |
+          set -o pipefail
           xcodebuild -workspace ios/Veloq.xcworkspace \
             -scheme Veloq \
             -configuration Release \

@@ -1,0 +1,151 @@
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 54;
+	objects = {
+
+/* Begin PBXFileReference section */
+		AAAAAAAAAAAAAAAAAAAAAAA1 /* VeloqDev.app */ = {isa = PBXFileReference; path = VeloqDev.app; explicitFileType = wrapper.application; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		AAAAAAAAAAAAAAAAAAAAAAA2 /* VeloqDev */ = {
+			isa = PBXGroup;
+			name = VeloqDev;
+			children = (
+			);
+			sourceTree = "<group>";
+		};
+		AAAAAAAAAAAAAAAAAAAAAAA3 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			children = (
+				AAAAAAAAAAAAAAAAAAAAAAA1 /* VeloqDev.app */,
+			);
+			sourceTree = "<group>";
+		};
+		AAAAAAAAAAAAAAAAAAAAAAA4 /* Main */ = {
+			isa = PBXGroup;
+			children = (
+				AAAAAAAAAAAAAAAAAAAAAAA2 /* VeloqDev */,
+				AAAAAAAAAAAAAAAAAAAAAAA3 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AAAAAAAAAAAAAAAAAAAAAAA5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		AAAAAAAAAAAAAAAAAAAAAAA6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			name = Debug;
+			buildSettings = {
+				PRODUCT_NAME = "VeloqDev";
+			};
+		};
+		AAAAAAAAAAAAAAAAAAAAAAA7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			name = Release;
+			buildSettings = {
+				PRODUCT_NAME = "VeloqDev";
+			};
+		};
+		AAAAAAAAAAAAAAAAAAAAAAAA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			name = Debug;
+			buildSettings = {
+				PRODUCT_NAME = "VeloqDev";
+			};
+		};
+		AAAAAAAAAAAAAAAAAAAAAAAB /* Release */ = {
+			isa = XCBuildConfiguration;
+			name = Release;
+			buildSettings = {
+				PRODUCT_NAME = "VeloqDev";
+			};
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AAAAAAAAAAAAAAAAAAAAAAA8 /* App configuration */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAAAAAAAAAAAAAAAAAAAAAA6 /* Debug */,
+				AAAAAAAAAAAAAAAAAAAAAAA7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AAAAAAAAAAAAAAAAAAAAAAAC /* Project configuration */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAAAAAAAAAAAAAAAAAAAAAAA /* Debug */,
+				AAAAAAAAAAAAAAAAAAAAAAAB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin PBXNativeTarget section */
+		AAAAAAAAAAAAAAAAAAAAAAA9 /* VeloqDev */ = {
+			isa = PBXNativeTarget;
+			name = VeloqDev;
+			productName = VeloqDev;
+			productReference = AAAAAAAAAAAAAAAAAAAAAAA1;
+			productType = "com.apple.product-type.application";
+			buildConfigurationList = AAAAAAAAAAAAAAAAAAAAAAA8;
+			buildPhases = (
+				AAAAAAAAAAAAAAAAAAAAAAA5 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AAAAAAAAAAAAAAAAAAAAAAAD /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = AAAAAAAAAAAAAAAAAAAAAAAC;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = AAAAAAAAAAAAAAAAAAAAAAA4;
+			productRefGroup = AAAAAAAAAAAAAAAAAAAAAAA3;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AAAAAAAAAAAAAAAAAAAAAAA9 /* VeloqDev */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXBuildFile section */
+/* End PBXBuildFile section */
+
+/* Begin PBXTargetDependency section */
+/* End PBXTargetDependency section */
+
+/* Begin PBXContainerItemProxy section */
+/* End PBXContainerItemProxy section */
+	};
+	rootObject = AAAAAAAAAAAAAAAAAAAAAAAD /* Project object */;
+}
