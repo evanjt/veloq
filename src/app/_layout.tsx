@@ -15,6 +15,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import { isRetryableInit } from 'veloqrs';
+import * as SplashScreen from 'expo-splash-screen';
 
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
@@ -87,6 +88,9 @@ if (!__DEV__) {
   // Keep production logs quieter without hiding warnings while developing.
   LogBox.ignoreLogs(['Require cycle:', 'Sending `onAnimatedValueUpdate`']);
 }
+
+void SplashScreen.preventAutoHideAsync().catch(() => {});
+
 installGlobalCrashHandler();
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
@@ -405,13 +409,28 @@ export default function RootLayout() {
   const { t } = useTranslation();
 
   useEffect(() => {
-    initializeApp()
-      .catch((error: unknown) => (error instanceof Error ? error.message : 'Unknown startup error'))
-      .then((message) => {
+    let mounted = true;
+    const initialize = async () => {
+      try {
+        const message = await initializeApp().catch((error: unknown) =>
+          error instanceof Error ? error.message : 'Unknown startup error'
+        );
+        if (!mounted) return;
         if (message) setStartupError(message);
-        setAppReady(true);
-      });
+      } finally {
+        if (mounted) setAppReady(true);
+      }
+    };
+    void initialize();
+    return () => {
+      mounted = false;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!appReady) return;
+    void SplashScreen.hideAsync().catch(() => {});
+  }, [appReady]);
 
   // Set up notification handlers once on mount
   useEffect(() => {
@@ -458,21 +477,7 @@ export default function RootLayout() {
   }, [appReady]);
 
   // Show minimal loading while initializing
-  if (!appReady) {
-    return (
-      <View
-        testID="app-loading"
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: darkColors.background,
-        }}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (!appReady) return null;
 
   return (
     <GlobalErrorBoundary>

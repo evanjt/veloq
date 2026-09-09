@@ -106,12 +106,13 @@
       ],
       "expo-localization",
       [
-        "expo-location",
+      "expo-location",
         {
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
       ],
+      "expo-splash-screen",
       "expo-web-browser",
       "expo-secure-store",
       "react-native-iap",
