@@ -103,6 +103,7 @@ describe('a freshly created extension target', () => {
       let proj = openFixture('app-only.pbxproj');
       if (hasPath) {
         const group = proj.findPBXGroupKey({ name: APP_TARGET });
+        if (!group) throw new Error(`no group named ${APP_TARGET}`);
         proj.getPBXGroupByKey(group).path = APP_TARGET;
       }
       const options = {
@@ -147,8 +148,10 @@ describe('a freshly created extension target', () => {
           const paths = phase.files.map((entry: { value: string }) => {
             const build = objects.PBXBuildFile[entry.value];
             expect(build).toBeDefined();
+            if (typeof build === 'string') throw new Error('Source points to a build-file comment');
             const reference = objects.PBXFileReference[build.fileRef];
             expect(reference).toBeDefined();
+            if (typeof reference === 'string') throw new Error('Build file points to a comment');
             const group = groups.find((g) =>
               g.children?.some((child: { value: string }) => child.value === build.fileRef)
             ) as { path?: string };
