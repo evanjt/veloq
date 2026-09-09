@@ -21,11 +21,15 @@ tags:
 - tapOn:
     text: "Sections"
 
-# The engine cuts the demo catalogue after the seed lands.
+# The engine cuts the demo catalogue after the seed lands, and the catalogue
+# is cut from scratch on every cold launch. That is ~69 s on a workstation
+# emulator against the 306-activity demo library, and the gate runner is about
+# 2.5x slower on this suite, so 90 s missed it by roughly a minute on every
+# push. The budget is the runner's, not the workstation's.
 - extendedWaitUntil:
     visible:
       id: "section-row-.*"
-    timeout: 90000
+    timeout: 300000
 
 - tapOn:
     id: "section-row-.*"
