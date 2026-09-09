@@ -15,13 +15,9 @@ import Animated, {
   useSharedValue,
   cancelAnimation,
 } from 'react-native-reanimated';
-import { useActivityBoundsCache } from '@/features/activity/hooks';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import {
-  formatGpsSyncProgress,
-  formatBoundsSyncProgress,
-} from '@/features/routes/lib/syncProgressFormat';
-import { colors } from '@/theme';
+import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
+import { colors, ink, typography } from '@/theme';
 
 interface SyncProgressBannerProps {
   /** Whether the banner is visible */
@@ -30,27 +26,20 @@ interface SyncProgressBannerProps {
 
 export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) {
   const { t } = useTranslation();
-  const { progress: boundsProgress } = useActivityBoundsCache();
-
   // GPS sync progress from shared store
   const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
   const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
 
-  // Check if we're syncing bounds or processing routes
-  const isSyncingBounds = boundsProgress.status === 'syncing';
   const isProcessingRoutes =
     isGpsSyncing &&
     (gpsSyncProgress.status === 'fetching' || gpsSyncProgress.status === 'computing');
 
   // Show immediate feedback when fetching extended date range (before GPS sync starts)
-  const isLoadingExtended = isFetchingExtended && !isSyncingBounds && !isProcessingRoutes;
+  const isLoadingExtended = isFetchingExtended && !isProcessingRoutes;
 
-  // Use shared formatter - bounds syncing takes priority, then GPS sync, then extended fetch
+  // Use shared formatter - GPS sync first, then extended fetch
   const displayInfo = useMemo(() => {
-    if (isSyncingBounds) {
-      return formatBoundsSyncProgress(boundsProgress, t);
-    }
     if (isProcessingRoutes) {
       return formatGpsSyncProgress(gpsSyncProgress, false, t);
     }
@@ -64,7 +53,7 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
       };
     }
     return null;
-  }, [isSyncingBounds, isProcessingRoutes, isLoadingExtended, boundsProgress, gpsSyncProgress, t]);
+  }, [isProcessingRoutes, isLoadingExtended, gpsSyncProgress, t]);
 
   // Should show when visible AND there's something to display
   const shouldShow = visible && displayInfo !== null;
@@ -113,14 +102,14 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   }
 
   return (
-    <Animated.View style={[styles.container, containerStyle]}>
+    <Animated.View style={[styles.container, containerStyle]} testID="sync-progress-banner">
       <View style={styles.content}>
         <MaterialCommunityIcons
           name={displayInfo.icon as keyof typeof MaterialCommunityIcons.glyphMap}
           size={16}
-          color="#FFFFFF"
+          color={ink.white}
         />
-        <Text style={styles.text}>
+        <Text style={styles.text} testID="sync-progress-message">
           {displayInfo.text}
           {displayInfo.percent > 0 ? `... ${displayInfo.percent}%` : '...'}
         </Text>
@@ -154,12 +143,12 @@ const styles = StyleSheet.create({
   },
   text: {
     color: colors.textOnDark,
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
   },
   countText: {
     color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
   },
   progressTrack: {
     height: 3,

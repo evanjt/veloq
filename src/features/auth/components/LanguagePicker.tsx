@@ -10,7 +10,7 @@ import {
   isEnglishVariant,
   getEnglishVariantValue,
 } from '@/shared/app/LanguageStore';
-import { colors, darkColors, spacing, brand } from '@/theme';
+import { colors, darkColors, spacing, brand, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 
 export const LanguagePicker = React.memo(function LanguagePicker() {
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -217,12 +217,12 @@ const styles = StyleSheet.create({
     borderColor: brand.goldLight,
   },
   languageButtonText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
   languageDropdown: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     marginBottom: spacing.md,
     overflow: 'hidden',
     borderWidth: 1,
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   languageLabel: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: colors.textPrimary,
   },
   variantChips: {
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   variantChip: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   variantChipText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     fontWeight: '500',
   },

@@ -45,7 +45,7 @@ function detectFromLocale(): boolean {
   }
 }
 
-export const useUnitPreference = create<UnitPreferenceState>((set, get) => ({
+export const useUnitPreference = create<UnitPreferenceState>((set) => ({
   unitPreference: 'auto',
   intervalsPreferences: null,
   isLoaded: false,

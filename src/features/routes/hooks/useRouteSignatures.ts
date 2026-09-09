@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { InteractionManager } from 'react-native';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineReady } from '@/shared/native/useEngineReady';
 import { decodeCoords } from 'veloqrs';
 
 export interface RouteSignature {
-  points: Array<{ lat: number; lng: number }>;
+  points: { lat: number; lng: number }[];
   center: { lat: number; lng: number };
 }
 
@@ -27,7 +28,7 @@ export function useRouteSignatures(enabled = true): Record<string, RouteSignatur
 
   const buildSignatures = useCallback(() => {
     if (!enabled) return;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine || !isMountedRef.current) return;
 
     try {
@@ -57,52 +58,38 @@ export function useRouteSignatures(enabled = true): Record<string, RouteSignatur
     }
   }, [enabled]);
 
-  // Clear signatures when disabled (releases memory on tab switch)
-  useEffect(() => {
-    if (!enabled) {
-      setSignatures({});
-    }
-  }, [enabled]);
+  // Clear signatures when disabled (releases memory on tab switch). Dropping
+  // them while rendering means the disabled tab never commits a frame still
+  // holding them.
+  const [signaturesFor, setSignaturesFor] = useState(enabled);
+  if (enabled !== signaturesFor) {
+    setSignaturesFor(enabled);
+    if (!enabled) setSignatures({});
+  }
 
+  const engine = useEngineReady();
   useEffect(() => {
     isMountedRef.current = true;
-    if (!enabled) return;
+    if (!enabled) return undefined;
 
     let unsubscribe: (() => void) | null = null;
     let task: ReturnType<typeof InteractionManager.runAfterInteractions> | null = null;
 
-    function trySubscribe(): boolean {
-      const engine = getRouteEngine();
-      if (!engine) return false;
+    if (!engine) return undefined;
 
-      // Defer loading until after navigation animations complete
-      task = InteractionManager.runAfterInteractions(() => {
-        buildSignatures();
-      });
+    // Defer loading until after navigation animations complete
+    task = InteractionManager.runAfterInteractions(() => {
+      buildSignatures();
+    });
 
-      // Subscribe to activity changes
-      unsubscribe = engine.subscribe('activities', buildSignatures);
-      return true;
-    }
-
-    if (!trySubscribe()) {
-      const interval = setInterval(() => {
-        if (trySubscribe()) clearInterval(interval);
-      }, 200);
-      return () => {
-        isMountedRef.current = false;
-        clearInterval(interval);
-        task?.cancel();
-        unsubscribe?.();
-      };
-    }
+    unsubscribe = engine.subscribe('activities', buildSignatures);
 
     return () => {
       isMountedRef.current = false;
       task?.cancel();
       unsubscribe?.();
     };
-  }, [buildSignatures, enabled]);
+  }, [buildSignatures, enabled, engine]);
 
   return signatures;
 }

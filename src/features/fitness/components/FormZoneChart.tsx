@@ -2,22 +2,20 @@ import React, { useMemo, useRef, useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
+
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
-import { CartesianChart, Line } from 'victory-native';
 import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { SharedValue, useSharedValue } from 'react-native-reanimated';
+import { colors, darkColors, typography, spacing, chartStyles, layout } from '@/theme';
 import {
-  SharedValue,
-  useSharedValue,
-  useAnimatedReaction,
-  runOnJS,
-  useDerivedValue,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
-import { colors, darkColors, opacity, typography, spacing, layout, chartStyles } from '@/theme';
-import { ChartCrosshair } from '@/shared/charts';
-import { CHART_CONFIG } from '@/constants';
+  ChartCanvas,
+  ChartCrosshair,
+  CurveLine,
+  useChartColors,
+  useChartGestures,
+} from '@/shared/charts';
 import {
   calculateTSB,
   getFormZone,
@@ -51,7 +49,10 @@ interface ChartDataPoint {
   fatigue: number;
 }
 
-const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 4 } as const;
+const CHART_PADDING = { top: 4, bottom: 4 } as const;
+const SERIES = { form: (d: ChartDataPoint) => d.form };
+const xOf = (d: ChartDataPoint) => d.x;
+const ZONES: FormZone[] = ['transition', 'fresh', 'greyZone', 'optimal', 'highRisk'];
 
 export const FormZoneChart = React.memo(function FormZoneChart({
   data,
@@ -63,18 +64,13 @@ export const FormZoneChart = React.memo(function FormZoneChart({
 }: FormZoneChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
   const [selectedData, setSelectedData] = useState<ChartDataPoint | null>(null);
-  const [isActive, setIsActive] = useState(false);
   const onDateSelectRef = useRef(onDateSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
   onDateSelectRef.current = onDateSelect;
   onInteractionChangeRef.current = onInteractionChange;
 
-  // Shared values for UI thread gesture tracking
-  const touchX = useSharedValue(-1);
-  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
-  const pointXCoordsShared = useSharedValue<number[]>([]);
-  const lastNotifiedIdx = useRef<number | null>(null);
   const externalSelectedIdx = useSharedValue(-1);
 
   // Process data for the chart
@@ -101,6 +97,32 @@ export const FormZoneChart = React.memo(function FormZoneChart({
     });
   }, [data]);
 
+  const handleSelect = useCallback((point: ChartDataPoint) => {
+    setSelectedData(point);
+    onDateSelectRef.current?.(point.date, {
+      fitness: point.fitness,
+      fatigue: point.fatigue,
+      form: point.form,
+    });
+  }, []);
+
+  const handleInteractionChange = useCallback((active: boolean) => {
+    onInteractionChangeRef.current?.(active);
+    if (!active) {
+      setSelectedData(null);
+      onDateSelectRef.current?.(null, null);
+    }
+  }, []);
+
+  const { gesture, isActive, crosshairStyle, syncBounds, syncXCoords } =
+    useChartGestures<ChartDataPoint>({
+      data: chartData,
+      onSelect: handleSelect,
+      onInteractionChange: handleInteractionChange,
+      sharedSelectedIdx,
+      externalSelectedIdx,
+    });
+
   // Sync with external selectedDate (from other chart)
   React.useEffect(() => {
     if (selectedDate && chartData.length > 0 && !isActive) {
@@ -115,164 +137,6 @@ export const FormZoneChart = React.memo(function FormZoneChart({
     }
   }, [selectedDate, chartData, isActive, externalSelectedIdx]);
 
-  // Derive selected index on UI thread using chartBounds
-  const selectedIdx = useDerivedValue(() => {
-    'worklet';
-    const len = chartData.length;
-    const bounds = chartBoundsShared.value;
-    const chartWidth = bounds.right - bounds.left;
-
-    if (touchX.value < 0 || chartWidth <= 0 || len === 0) return -1;
-
-    const chartX = touchX.value - bounds.left;
-    const ratio = Math.max(0, Math.min(1, chartX / chartWidth));
-    const idx = Math.round(ratio * (len - 1));
-
-    return Math.min(Math.max(0, idx), len - 1);
-  }, [chartData.length]);
-
-  // Bridge to JS for tooltip updates
-  const updateTooltipOnJS = useCallback(
-    (idx: number) => {
-      if (idx < 0 || chartData.length === 0) {
-        if (lastNotifiedIdx.current !== null) {
-          setSelectedData(null);
-          setIsActive(false);
-          lastNotifiedIdx.current = null;
-          if (onDateSelectRef.current) onDateSelectRef.current(null, null);
-          if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
-        }
-        return;
-      }
-
-      if (idx === lastNotifiedIdx.current) return;
-      lastNotifiedIdx.current = idx;
-
-      if (!isActive) {
-        setIsActive(true);
-        if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
-      }
-
-      const point = chartData[idx];
-      if (point) {
-        setSelectedData(point);
-        if (onDateSelectRef.current) {
-          onDateSelectRef.current(point.date, {
-            fitness: point.fitness,
-            fatigue: point.fatigue,
-            form: point.form,
-          });
-        }
-      }
-    },
-    [chartData, isActive]
-  );
-
-  useAnimatedReaction(
-    () => selectedIdx.value,
-    (idx) => {
-      runOnJS(updateTooltipOnJS)(idx);
-    },
-    [updateTooltipOnJS]
-  );
-
-  // Manual activation so the ScrollView can scroll freely during the long-press wait.
-  // JS setTimeout handles the 200ms timer so haptic + crosshair fire even when still.
-  const gestureStartY = useSharedValue(0);
-  const gestureInitialX = useSharedValue(0);
-  const gestureReady = useSharedValue(false);
-  const gestureActive = useSharedValue(false);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const fireLongPress = useCallback(() => {
-    longPressTimer.current = setTimeout(() => {
-      touchX.value = gestureInitialX.value;
-      gestureReady.value = true;
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }, CHART_CONFIG.LONG_PRESS_DURATION);
-  }, [touchX, gestureInitialX, gestureReady]);
-  const cancelLongPress = useCallback(() => {
-    clearTimeout(longPressTimer.current);
-    gestureReady.value = false;
-  }, [gestureReady]);
-  const gesture = Gesture.Pan()
-    .manualActivation(true)
-    .onTouchesDown((e) => {
-      'worklet';
-      gestureStartY.value = e.allTouches[0].absoluteY;
-      gestureInitialX.value = e.allTouches[0].x;
-      gestureReady.value = false;
-      gestureActive.value = false;
-      runOnJS(fireLongPress)();
-    })
-    .onTouchesMove((e, mgr) => {
-      'worklet';
-      if (gestureActive.value) return;
-      if (Math.abs(e.allTouches[0].absoluteY - gestureStartY.value) > 10) {
-        runOnJS(cancelLongPress)();
-        mgr.fail();
-        return;
-      }
-      if (gestureReady.value) {
-        gestureActive.value = true;
-        mgr.activate();
-      }
-    })
-    .onTouchesUp((_e, mgr) => {
-      'worklet';
-      if (gestureActive.value) return;
-      runOnJS(cancelLongPress)();
-      touchX.value = -1;
-      mgr.fail();
-    })
-    .onStart((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onUpdate((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onEnd(() => {
-      'worklet';
-      touchX.value = -1;
-      gestureActive.value = false;
-    });
-
-  // Update shared selected index when local selection changes (for instant sync)
-  useAnimatedReaction(
-    () => selectedIdx.value,
-    (idx) => {
-      if (sharedSelectedIdx && idx >= 0) {
-        sharedSelectedIdx.value = idx;
-      }
-    },
-    [sharedSelectedIdx]
-  );
-
-  // Animated crosshair style - uses actual point coordinates for accuracy
-  // Shows crosshair for either local touch, shared selection, or external selection
-  const crosshairStyle = useAnimatedStyle(() => {
-    'worklet';
-    const coords = pointXCoordsShared.value;
-    // Priority: local touch > shared value > external selection
-    let idx = selectedIdx.value;
-    if (idx < 0 && sharedSelectedIdx) {
-      idx = sharedSelectedIdx.value;
-    }
-    if (idx < 0) {
-      idx = externalSelectedIdx.value;
-    }
-
-    if (idx < 0 || coords.length === 0 || idx >= coords.length) {
-      return { opacity: 0, transform: [{ translateX: 0 }] };
-    }
-
-    return {
-      opacity: 1,
-      transform: [{ translateX: coords[idx] }],
-    };
-  }, [sharedSelectedIdx]);
-
   if (chartData.length === 0) {
     return null;
   }
@@ -280,6 +144,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   // Calculate domain - show at least -35 to 30
   const minForm = Math.min(-35, ...chartData.map((d) => d.form));
   const maxForm = Math.max(30, ...chartData.map((d) => d.form));
+  const yDomain: [number, number] = [minForm, maxForm];
 
   // Get current (latest) values for display when not selecting
   const currentData = chartData[chartData.length - 1];
@@ -310,113 +175,63 @@ export const FormZoneChart = React.memo(function FormZoneChart({
 
       <GestureDetector gesture={gesture}>
         <View style={[chartStyles.chartWrapper, { height }]}>
-          <CartesianChart
+          <ChartCanvas
             data={chartData}
-            xKey="x"
-            yKeys={['form']}
-            domain={{ y: [minForm, maxForm] }}
+            x={xOf}
+            series={SERIES}
+            yDomain={yDomain}
             padding={CHART_PADDING}
+            grid={5}
           >
-            {({ points, chartBounds }) => {
-              // Sync chartBounds and point coordinates for UI thread crosshair
-              if (
-                chartBounds.left !== chartBoundsShared.value.left ||
-                chartBounds.right !== chartBoundsShared.value.right
-              ) {
-                chartBoundsShared.value = {
-                  left: chartBounds.left,
-                  right: chartBounds.right,
-                };
-              }
-              // Sync actual point x-coordinates for accurate crosshair positioning
-              // Guard before .map() to avoid allocating a temporary array every frame
-              if (
-                points.form.length !== pointXCoordsShared.value.length ||
-                points.form[0]?.x !== pointXCoordsShared.value[0]
-              ) {
-                pointXCoordsShared.value = points.form.map((p) => p.x);
-              }
-
-              const chartHeight = chartBounds.bottom - chartBounds.top;
-              const yRange = maxForm - minForm;
-
-              // Calculate zone rectangles
-              const getZoneY = (value: number) => {
-                const normalized = (maxForm - value) / yRange;
-                return chartBounds.top + normalized * chartHeight;
-              };
-
+            {({ points, bounds, yFor }) => {
+              syncBounds(bounds);
+              syncXCoords(points.form, (p) => p.x);
               return (
                 <>
-                  {/* Zone backgrounds */}
-                  <ZoneBackground
-                    bounds={chartBounds}
-                    minY={getZoneY(FORM_ZONE_BOUNDARIES.transition.max)}
-                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.transition.min)}
-                    color={FORM_ZONE_COLORS.transition + '30'}
-                  />
-                  <ZoneBackground
-                    bounds={chartBounds}
-                    minY={getZoneY(FORM_ZONE_BOUNDARIES.fresh.max)}
-                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.fresh.min)}
-                    color={FORM_ZONE_COLORS.fresh + '30'}
-                  />
-                  <ZoneBackground
-                    bounds={chartBounds}
-                    minY={getZoneY(FORM_ZONE_BOUNDARIES.greyZone.max)}
-                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.greyZone.min)}
-                    color={FORM_ZONE_COLORS.greyZone + '20'}
-                  />
-                  <ZoneBackground
-                    bounds={chartBounds}
-                    minY={getZoneY(FORM_ZONE_BOUNDARIES.optimal.max)}
-                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.optimal.min)}
-                    color={FORM_ZONE_COLORS.optimal + '30'}
-                  />
-                  <ZoneBackground
-                    bounds={chartBounds}
-                    minY={getZoneY(FORM_ZONE_BOUNDARIES.highRisk.max)}
-                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.highRisk.min)}
-                    color={FORM_ZONE_COLORS.highRisk + '30'}
-                  />
-
-                  {/* Zero line */}
+                  {ZONES.map((zone) => (
+                    <ZoneBackground
+                      key={zone}
+                      bounds={bounds}
+                      minY={yFor(FORM_ZONE_BOUNDARIES[zone].max)}
+                      maxY={yFor(FORM_ZONE_BOUNDARIES[zone].min)}
+                      color={FORM_ZONE_COLORS[zone] + (zone === 'greyZone' ? '20' : '30')}
+                    />
+                  ))}
                   <SkiaLine
-                    p1={vec(chartBounds.left, getZoneY(0))}
-                    p2={vec(chartBounds.right, getZoneY(0))}
-                    color={isDark ? '#71717A' : '#CCC'}
+                    p1={vec(bounds.left, yFor(0))}
+                    p2={vec(bounds.right, yFor(0))}
+                    color={chartColors.zeroLineSolid}
                     strokeWidth={1}
                     style="stroke"
                   />
-
-                  {/* Form line with casing */}
-                  <Line
-                    points={points.form}
-                    color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
-                    strokeWidth={2}
-                    curveType="natural"
-                  />
-                  <Line
-                    points={points.form}
-                    color={isDark ? '#FFFFFF' : '#333333'}
-                    strokeWidth={1}
-                    curveType="natural"
-                  />
+                  <CurveLine points={points.form} color={chartColors.casing} strokeWidth={2} />
+                  <CurveLine points={points.form} color={chartColors.formLine} strokeWidth={1} />
                 </>
               );
             }}
-          </CartesianChart>
+          </ChartCanvas>
 
           {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
           <ChartCrosshair style={crosshairStyle} bottomOffset={4} />
 
           {/* Y-axis labels */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+            >
               {Math.round(maxForm)}
             </Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>0</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+            >
+              0
+            </Text>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+            >
               {Math.round(minForm)}
             </Text>
           </View>
@@ -425,7 +240,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
 
       {/* Zone legend */}
       <View style={styles.zoneLegend}>
-        {(['transition', 'fresh', 'greyZone', 'optimal', 'highRisk'] as FormZone[]).map((zone) => (
+        {ZONES.map((zone) => (
           <View key={zone} style={styles.zoneLegendItem}>
             <View style={[styles.zoneDot, { backgroundColor: FORM_ZONE_COLORS[zone] }]} />
             <Text style={[styles.zoneLabel, isDark && chartStyles.textDark]}>
@@ -488,7 +303,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   formValue: {
-    fontSize: 24,
+    fontSize: typography.statsValueLarge.fontSize,
     fontWeight: '700',
   },
   zoneText: {
@@ -503,11 +318,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   axisLabel: {
-    fontSize: 8,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 2,
-    borderRadius: 2,
+    borderRadius: spacing.xxs,
   },
   axisLabelDark: {
     color: darkColors.textPrimary,
@@ -527,7 +342,7 @@ const styles = StyleSheet.create({
   zoneDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
     marginRight: 3,
   },
   zoneLabel: {

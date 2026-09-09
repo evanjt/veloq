@@ -1,4 +1,4 @@
-//! Tier 0.3 — tile-set snapshot across lifecycle checkpoints.
+//! Tier 0.3, tile-set snapshot across lifecycle checkpoints.
 //!
 //! Complements `heatmap_parity` (which checks per-tile pixel output) by
 //! snapshotting the *set* of (z,x,y) tile files written at two lifecycle
@@ -8,15 +8,16 @@
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard};
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
-fn seed_engine(activities: &[&LifecycleActivity]) -> (PersistentRouteEngine, TempDir) {
+fn seed_engine(activities: &[&LifecycleActivity]) -> (PersistentEngine, TempDir) {
     let tmp = TempDir::new().expect("tempdir");
     let db = tmp.path().join("tile_set.db");
-    let mut engine = PersistentRouteEngine::new(db.to_str().unwrap()).expect("open engine");
+    let mut engine = PersistentEngine::new(db.to_str().unwrap()).expect("open engine");
     for a in activities {
         engine
             .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
@@ -25,7 +26,15 @@ fn seed_engine(activities: &[&LifecycleActivity]) -> (PersistentRouteEngine, Tem
     (engine, tmp)
 }
 
-fn generate_and_collect(engine: &mut PersistentRouteEngine, tmp: &TempDir) -> BTreeSet<String> {
+/// The tile-pass slot and the handle slot are both process-global, so a run
+/// still in flight from one test refuses the other's.
+static SERIAL: Mutex<()> = Mutex::new(());
+
+fn serial() -> MutexGuard<'static, ()> {
+    SERIAL.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+fn generate_and_collect(engine: &mut PersistentEngine, tmp: &TempDir) -> BTreeSet<String> {
     let tiles_dir = tmp.path().join("tiles");
     std::fs::create_dir_all(&tiles_dir).expect("create tiles dir");
     engine.set_heatmap_tiles_path(tiles_dir.to_str().unwrap().to_string());
@@ -94,7 +103,7 @@ fn compare_or_write(fixture: &str, set: &BTreeSet<String>) {
         }
         std::fs::write(&path, joined).expect("write fixture");
         panic!(
-            "fixture was missing — wrote it to {}. Review, then commit.",
+            "fixture was missing, wrote it to {}. Review, then commit.",
             path.display()
         );
     }
@@ -102,6 +111,7 @@ fn compare_or_write(fixture: &str, set: &BTreeSet<String>) {
 
 #[test]
 fn scenario_a_tile_set_snapshot() {
+    let _serial = serial();
     let cfg = LifecycleConfig {
         bucket_a_count: 30,
         bucket_b_delta_count: 0,
@@ -124,6 +134,7 @@ fn scenario_a_tile_set_snapshot() {
 
 #[test]
 fn scenario_e_tile_set_snapshot() {
+    let _serial = serial();
     // Keep E small enough for CI: 60+90+350 = 500 full-year state
     // matches the bench, but we trim it here since we only need a
     // stable structural fingerprint, not timing.

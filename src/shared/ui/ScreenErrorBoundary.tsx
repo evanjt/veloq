@@ -1,4 +1,4 @@
-import React, { Component, ReactNode, useState, useCallback } from 'react';
+import React, { Component, ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.body,
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     marginTop: spacing.md,
     textAlign: 'center',

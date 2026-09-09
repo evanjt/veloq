@@ -39,7 +39,7 @@ if [ -d "$MODULE_DIR/android/.cxx" ]; then
   rm -rf "$MODULE_DIR/android/.cxx"
 fi
 
-# Generated bindings (only with --full flag — Expo plugin detects staleness automatically)
+# Generated bindings (only with --full flag. Expo plugin detects staleness automatically)
 if [ "$FULL" = true ]; then
   if [ -d "$MODULE_DIR/src/generated" ]; then
     echo "  Removing src/generated/"

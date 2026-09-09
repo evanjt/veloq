@@ -1,7 +1,7 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
 # dependencies
-node_modules/
+node_modules
 
 # Expo
 .expo/
@@ -79,6 +79,7 @@ modules/veloqrs/ios/cpp/
 modules/veloqrs/android/build/
 modules/veloqrs/android/.gradle/
 modules/veloqrs/android/.cxx/
+modules/veloq-memory/android/build/
 
 # iOS build cache
 modules/veloqrs/ios/build/
@@ -113,3 +114,20 @@ screenshots/
 modules/veloq-widget/android/build/
 modules/veloq-widget/android/.gradle/
 modules/veloq-widget/android/.cxx/
+modules/veloq-recording-notification/android/build/
+modules/veloq-recording-notification/android/.gradle/
+modules/veloq-recording-notification/android/.cxx/
+
+# Private device databases and exports. Real training data never enters the repo.
+modules/veloqrs/rust/veloqrs/tests/fixtures/private/
+*.veloqdb
+*.db
+.eslintcache
+
+# Jest transform caches and haste maps. Not in the system temp directory,
+# which is a tmpfs here, so the caches would be resident memory (B329).
+.jest-cache/
+
+# Copied from widget/ios by src/plugins/with-ios-widget.js so the app process and the
+# widget extension compile one Live Activity contract. Tracked in widget/ios only.
+modules/veloq-live-activity/ios/RecordingActivity*.swift

@@ -13,14 +13,14 @@
 use std::time::Instant;
 use tempfile::TempDir;
 use tracematch::synthetic::SyntheticScenario;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 /// Helper: create engine with temp DB, ingest synthetic activities, return engine + temp dir.
-fn setup_engine_with_activities(scenario: &SyntheticScenario) -> (PersistentRouteEngine, TempDir) {
+fn setup_engine_with_activities(scenario: &SyntheticScenario) -> (PersistentEngine, TempDir) {
     let tmp_dir = TempDir::new().expect("failed to create temp dir");
     let db_path = tmp_dir.path().join("test.db");
     let mut engine =
-        PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("failed to create engine");
+        PersistentEngine::new(db_path.to_str().unwrap()).expect("failed to create engine");
 
     let dataset = scenario.generate();
 
@@ -39,8 +39,8 @@ fn setup_engine_with_activities(scenario: &SyntheticScenario) -> (PersistentRout
 }
 
 /// Helper: run section detection synchronously on an engine.
-fn detect_and_apply(engine: &mut PersistentRouteEngine) -> usize {
-    let handle = engine.detect_sections_background(None);
+fn detect_and_apply(engine: &mut PersistentEngine) -> usize {
+    let handle = engine.detect_sections_background();
     let (sections, _warnings) = handle.recv().unwrap_or_default();
     let count = sections.len();
     engine
@@ -150,7 +150,7 @@ fn test_sqlite_file_size() {
         let scenario = SyntheticScenario::with_activity_count(count, 5_000.0, 0.5);
         let tmp_dir = TempDir::new().unwrap();
         let db_path = tmp_dir.path().join("test.db");
-        let mut engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).unwrap();
+        let mut engine = PersistentEngine::new(db_path.to_str().unwrap()).unwrap();
 
         let dataset = scenario.generate();
         for (id, track) in &dataset.tracks {
@@ -258,7 +258,7 @@ fn test_long_section_70km() {
         "Expected sections from 70km corridor with 60% overlap"
     );
 
-    // Check section lengths — at least one should be substantial
+    // Check section lengths, at least one should be substantial
     let sections = engine.get_sections();
     let max_length = sections
         .iter()

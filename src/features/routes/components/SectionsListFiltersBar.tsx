@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { SectionsSortOption } from './SectionsList';
 
 type HiddenFilters = {
@@ -18,7 +18,11 @@ interface SectionsListFiltersBarProps {
   regularSectionsCount: number;
   sortOption: SectionsSortOption;
   onSortChange: (next: SectionsSortOption) => void;
-  sortChips: { key: SectionsSortOption; label: string; icon: string }[];
+  sortChips: {
+    key: SectionsSortOption;
+    label: string;
+    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  }[];
   customCount: number;
   hiddenFilters: HiddenFilters;
   onFilterPress: (filterType: keyof HiddenFilters) => void;
@@ -59,7 +63,7 @@ export function SectionsListFiltersBar({
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
-                name={chip.icon as any}
+                name={chip.icon}
                 size={13}
                 color={
                   isActive
@@ -173,7 +177,7 @@ export function SectionsListFiltersBar({
               hiddenFilters.unaccepted && styles.sortChipLabelActive,
             ]}
           >
-            {t('sections.pinnedOnly')}
+            {t('sections.acceptedOnly')}
           </Text>
         </TouchableOpacity>
       )}
@@ -197,7 +201,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -209,7 +213,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   sortChipLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   sortChipLabelActive: {

@@ -1,0 +1,336 @@
+/**
+ * Scenario: an on-demand body settles on a Rust thread. The hook awaiting it
+ * read a counter over the bridge twice a second until the count moved, so a
+ * chart open on a slow connection paid an FFI read per tick for nothing.
+ *
+ * Expected behaviour: the hook asks once, then waits for the engine to
+ * announce the landing. No engine call happens between the request and the
+ * event.
+ *
+ * And it does not wait for ever. A request that Rust refused outright, which
+ * it does with a bare `false` nobody can read, is announced by nothing, so a
+ * screen waiting on the announcement alone spins until it is closed. The wait
+ * has a deadline and a state the caller can act on when it passes.
+ */
+
+import { act, renderHook } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React from 'react';
+
+import { BODY_WAIT_MS, useEngineBody } from '@/shared/native/engineBodies';
+import { getEngine } from '@/shared/native/engine';
+
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
+}));
+
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
+
+function fakeEngine() {
+  const listeners = new Map<string, Set<() => void>>();
+  return {
+    listeners,
+    announce: (channel: string) => listeners.get(channel)?.forEach((cb) => cb()),
+    getBodiesStored: jest.fn(() => 0),
+    triggerRefresh: jest.fn(),
+    subscribe: jest.fn((channel: string, cb: () => void) => {
+      const set = listeners.get(channel) ?? new Set<() => void>();
+      listeners.set(channel, set);
+      set.add(cb);
+      return () => set.delete(cb);
+    }),
+  };
+}
+
+const KEY = ['body', 'a1'];
+
+let client: QueryClient;
+let engine: ReturnType<typeof fakeEngine>;
+
+function wrapper({ children }: { children: React.ReactNode }) {
+  return React.createElement(QueryClientProvider, { client }, children);
+}
+
+beforeEach(() => {
+  jest.useFakeTimers();
+  jest.clearAllMocks();
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  engine = fakeEngine();
+  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
+});
+
+afterEach(() => {
+  client.clear();
+  jest.useRealTimers();
+});
+
+it('asks once and then makes no engine call on a timer', () => {
+  const request = jest.fn();
+  renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+
+  expect(request).toHaveBeenCalledTimes(1);
+  const before = engine.subscribe.mock.calls.length;
+  // The two the mount spends reconciling the pre-subscription window. What
+  // must never grow is the count after time passes, which is the timer this
+  // hook is here not to have.
+  const countReads = engine.getBodiesStored.mock.calls.length;
+
+  act(() => {
+    jest.advanceTimersByTime(30_000);
+  });
+
+  expect(engine.getBodiesStored).toHaveBeenCalledTimes(countReads);
+  expect(engine.triggerRefresh).not.toHaveBeenCalled();
+  expect(request).toHaveBeenCalledTimes(1);
+  expect(engine.subscribe.mock.calls.length).toBe(before);
+});
+
+it('invalidates its query when the engine announces a landing', () => {
+  const invalidate = jest.spyOn(client, 'invalidateQueries');
+  renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+
+  act(() => {
+    engine.announce('bodyStored');
+  });
+
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: KEY });
+});
+
+it('still invalidates on the coarse activities channel', () => {
+  const invalidate = jest.spyOn(client, 'invalidateQueries');
+  renderHook(() => useEngineBody(true, jest.fn(), KEY), { wrapper });
+
+  act(() => {
+    engine.announce('activities');
+  });
+
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: KEY });
+});
+
+it('does not ask for a body that is already present', () => {
+  const request = jest.fn();
+  renderHook(() => useEngineBody(true, request, KEY), { wrapper });
+
+  expect(request).not.toHaveBeenCalled();
+});
+
+it('does nothing at all when disabled', () => {
+  const request = jest.fn();
+  const invalidate = jest.spyOn(client, 'invalidateQueries');
+  renderHook(() => useEngineBody(false, request, KEY, false), { wrapper });
+
+  act(() => {
+    engine.announce('bodyStored');
+    engine.announce('activities');
+  });
+
+  expect(request).not.toHaveBeenCalled();
+  expect(invalidate).not.toHaveBeenCalled();
+});
+
+it('drops every subscription on unmount', () => {
+  const { unmount } = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+  unmount();
+
+  const live = [...engine.listeners.values()].reduce((n, set) => n + set.size, 0);
+  expect(live).toBe(0);
+});
+
+it('leaves a second reader subscribed when the first unmounts', () => {
+  const invalidate = jest.spyOn(client, 'invalidateQueries');
+  const first = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+  renderHook(() => useEngineBody(false, jest.fn(), ['body', 'a2']), { wrapper });
+  first.unmount();
+  invalidate.mockClear();
+
+  act(() => {
+    engine.announce('bodyStored');
+  });
+
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: ['body', 'a2'] });
+  expect(invalidate).not.toHaveBeenCalledWith({ queryKey: KEY });
+});
+
+it('still asks when the engine is not up yet, and subscribes to nothing', () => {
+  mockGetEngine.mockReturnValue(undefined as unknown as ReturnType<typeof getEngine>);
+  const request = jest.fn();
+  const { unmount } = renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+
+  expect(request).toHaveBeenCalledTimes(1);
+  expect(engine.subscribe).not.toHaveBeenCalled();
+  expect(() => unmount()).not.toThrow();
+});
+
+/**
+ * Scenario: the body lands between the request going out and the subscription
+ * being registered. `body_stored` is announced to nobody, because nobody is
+ * listening yet, and the query would wait for an event that has already
+ * happened.
+ *
+ * Expected behaviour: the counter Rust keeps for exactly this window is read
+ * once on either side of the request, and a count that moved invalidates the
+ * query the announcement would have.
+ */
+describe('a body that lands before the subscription', () => {
+  it('invalidates on the counter, since the announcement went to nobody', () => {
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    // Moves once, between the request effect and the subscribe effect.
+    let count = 0;
+    engine.getBodiesStored = jest.fn(() => {
+      const now = count;
+      count += 1;
+      return now;
+    });
+
+    renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: KEY });
+  });
+
+  it('invalidates nothing when the count did not move', () => {
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    engine.getBodiesStored = jest.fn(() => 7);
+
+    renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+
+    expect(invalidate).not.toHaveBeenCalled();
+  });
+
+  it('reads the counter twice and never on a timer', () => {
+    engine.getBodiesStored = jest.fn(() => 3);
+
+    renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+    const reads = engine.getBodiesStored.mock.calls.length;
+
+    act(() => {
+      jest.advanceTimersByTime(30_000);
+    });
+
+    expect(reads).toBe(2);
+    expect(engine.getBodiesStored).toHaveBeenCalledTimes(2);
+  });
+
+  it('reads no counter at all when the body is already present', () => {
+    engine.getBodiesStored = jest.fn(() => 0);
+
+    renderHook(() => useEngineBody(true, jest.fn(), KEY), { wrapper });
+
+    expect(engine.getBodiesStored).not.toHaveBeenCalled();
+  });
+
+  it('reads no counter when the hook is disabled', () => {
+    engine.getBodiesStored = jest.fn(() => 0);
+
+    renderHook(() => useEngineBody(false, jest.fn(), KEY, false), { wrapper });
+
+    expect(engine.getBodiesStored).not.toHaveBeenCalled();
+  });
+});
+
+describe('the deadline', () => {
+  it('reports waiting while the request is outstanding', () => {
+    const { result } = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+
+    expect(result.current).toBe('waiting');
+  });
+
+  it('gives up at the deadline and says so', () => {
+    const { result } = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS - 1);
+    });
+    expect(result.current).toBe('waiting');
+
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(result.current).toBe('timedOut');
+  });
+
+  it('reads nothing and asks for nothing when it expires', () => {
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    const request = jest.fn();
+    renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+    invalidate.mockClear();
+    const reads = engine.getBodiesStored.mock.calls.length;
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS);
+    });
+
+    // The deadline ends the wait. It is not a retry and it is not a poll, so
+    // the hook still costs no engine call between the request and the event.
+    expect(invalidate).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(engine.getBodiesStored).toHaveBeenCalledTimes(reads);
+  });
+
+  it('ends the wait when the body is actually present, not when one is announced', () => {
+    const { result, rerender } = renderHook(
+      ({ present }: { present: boolean }) => useEngineBody(present, jest.fn(), KEY),
+      { wrapper, initialProps: { present: false } }
+    );
+
+    // An announcement on the coarse channel may be about some other body, so
+    // it invalidates the query and nothing more. The deadline still stands.
+    act(() => {
+      engine.announce('activities');
+    });
+    expect(result.current).toBe('waiting');
+
+    rerender({ present: true });
+    expect(result.current).toBe('idle');
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS * 2);
+    });
+    expect(result.current).toBe('idle');
+  });
+
+  it('is idle from the start for a body that is already present', () => {
+    const { result } = renderHook(() => useEngineBody(true, jest.fn(), KEY), { wrapper });
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS * 2);
+    });
+
+    expect(result.current).toBe('idle');
+  });
+
+  it('is idle when it is disabled, so a screen that asked for nothing never times out', () => {
+    const { result } = renderHook(() => useEngineBody(false, jest.fn(), KEY, false), { wrapper });
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS * 2);
+    });
+
+    expect(result.current).toBe('idle');
+  });
+
+  it('starts a fresh deadline when the parameters change', () => {
+    const { result, rerender } = renderHook(
+      ({ key }: { key: string[] }) => useEngineBody(false, jest.fn(), key),
+      { wrapper, initialProps: { key: KEY } }
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS);
+    });
+    expect(result.current).toBe('timedOut');
+
+    rerender({ key: ['body', 'a2'] });
+    expect(result.current).toBe('waiting');
+  });
+
+  it('drops its timer on unmount', () => {
+    const { unmount } = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+    unmount();
+
+    expect(() =>
+      act(() => {
+        jest.advanceTimersByTime(BODY_WAIT_MS * 2);
+      })
+    ).not.toThrow();
+  });
+});

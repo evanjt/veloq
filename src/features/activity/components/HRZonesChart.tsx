@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
+import { colors, darkColors, typography, spacing } from '@/theme';
+import { ZoneHistogram, type ZoneBand } from '@/shared/charts';
 import { useHRZones } from '@/features/fitness/stores';
 import {
   useSportSettings,
@@ -38,7 +39,7 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
 
   // Build zone data - prefer activity's zones, then sport settings, then local
   // Activity has icu_hr_zones (BPM thresholds) and icu_hr_zone_times (seconds in each zone)
-  const { zones, zoneData } = useMemo(() => {
+  const { zoneData } = useMemo(() => {
     // Check if activity has pre-computed zone times
     const activityZones = (activity as { icu_hr_zones?: number[] })?.icu_hr_zones;
     const activityZoneTimes = (activity as { icu_hr_zone_times?: number[] })?.icu_hr_zone_times;
@@ -46,27 +47,21 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
     // Determine which zones to use (activity > sport settings > local)
     // Note: hr_zones from API may be Zone[] or number[] depending on endpoint
     const apiZones = activityZones ?? (settings?.hr_zones as number[] | undefined);
-    // hr_zone_names is an optional field on some sport settings responses
-    const zoneNames = (settings as { hr_zone_names?: string[] } | undefined)?.hr_zone_names;
-
-    let builtZones: Array<{
+    let builtZones: {
       id: number;
-      name: string;
       minBpm: number;
       maxBpm: number;
       min: number;
       max: number;
       color: string;
-    }>;
+    }[];
 
     if (apiZones && apiZones.length > 0 && typeof apiZones[0] === 'number') {
       // API format: array of BPM upper bounds
       builtZones = apiZones.map((upperBpm, idx) => {
         const lowerBpm = idx === 0 ? 0 : apiZones[idx - 1];
-        const zoneName = zoneNames?.[idx] || t('activity.zoneDefault', { number: idx + 1 });
         return {
           id: idx + 1,
-          name: zoneName,
           minBpm: lowerBpm,
           maxBpm: upperBpm,
           min: lowerBpm / maxHR,
@@ -138,12 +133,6 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
     return { zones: builtZones, zoneData: computedData };
   }, [streams, maxHR, settings, localZones, activity]);
 
-  // Dynamic sizing based on number of zones
-  // For many zones (6+), we use a slightly tighter layout but keep text readable
-  const isCompact = zones.length > 5;
-  const barHeight = isCompact ? 14 : 16;
-  const rowPadding = isCompact ? 2 : 3;
-
   if (!zoneData) {
     return (
       <View style={styles.placeholder}>
@@ -154,13 +143,14 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
     );
   }
 
-  // Helper to get zone BPM range
-  const getZoneBPM = (zone: { minBpm: number; maxBpm: number }) => {
-    return `${zone.minBpm}-${zone.maxBpm}`;
-  };
-
-  // Data source label
-  const dataSource = settings?.max_hr ? 'intervals.icu' : 'local';
+  const bands: ZoneBand[] = zoneData.map((zone) => ({
+    key: zone.id,
+    label: `Z${zone.id}`,
+    colour: zone.color,
+    percent: zone.percent,
+    primary: zone.formatted,
+    secondary: `${zone.minBpm}-${zone.maxBpm}`,
+  }));
 
   return (
     <ChartErrorBoundary height={200} label="Heart Rate Zones">
@@ -173,75 +163,7 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
             {t('activity.maxHR', { value: maxHR })}
           </Text>
         </View>
-        <View style={styles.zonesContainer}>
-          {zoneData.map((zone) => (
-            <View key={zone.id} style={[styles.zoneRow, { paddingVertical: rowPadding }]}>
-              {/* Zone label */}
-              <Text
-                style={[
-                  styles.zoneNumber,
-                  isCompact && styles.zoneNumberCompact,
-                  { color: zone.color },
-                ]}
-              >
-                Z{zone.id}
-              </Text>
-
-              {/* Percentage - always shown at start, theme-aware color */}
-              <Text
-                style={[
-                  styles.zonePercent,
-                  isCompact && styles.zonePercentCompact,
-                  isDark && styles.zonePercentDark,
-                ]}
-              >
-                {zone.percent > 0.5 ? `${Math.round(zone.percent)}%` : '-'}
-              </Text>
-
-              {/* Bar */}
-              <View
-                style={[
-                  styles.barContainer,
-                  { height: barHeight, borderRadius: barHeight / 2 },
-                  isDark && styles.barContainerDark,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.bar,
-                    {
-                      width: `${Math.min(zone.percent, 100)}%`,
-                      backgroundColor: zone.color,
-                      borderRadius: barHeight / 2,
-                    },
-                  ]}
-                />
-              </View>
-
-              {/* Time and BPM range */}
-              <View style={[styles.zoneStats, isCompact && styles.zoneStatsCompact]}>
-                <Text
-                  style={[
-                    styles.zoneTime,
-                    isCompact && styles.zoneTimeCompact,
-                    isDark && styles.zoneTimeDark,
-                  ]}
-                >
-                  {zone.percent > 0.5 ? zone.formatted : '-'}
-                </Text>
-                <Text
-                  style={[
-                    styles.zoneBPM,
-                    isCompact && styles.zoneBPMCompact,
-                    isDark && styles.zoneBPMDark,
-                  ]}
-                >
-                  {getZoneBPM(zone)}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
+        <ZoneHistogram bands={bands} />
       </View>
     </ChartErrorBoundary>
   );
@@ -270,83 +192,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   maxHRLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  zonesContainer: {
-    // No flex: 1 - let it size based on content
-  },
-  zoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 3,
-  },
-  zoneNumber: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '700',
-    width: 24,
-  },
-  zoneNumberCompact: {
-    fontSize: typography.label.fontSize,
-    width: 22,
-  },
-  zonePercent: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
-    width: 32,
-    textAlign: 'right',
-    color: colors.textPrimary,
-    marginRight: 6,
-  },
-  zonePercentCompact: {
-    fontSize: typography.micro.fontSize,
-    width: 28,
-    marginRight: spacing.xs,
-  },
-  zonePercentDark: {
-    color: colors.textOnDark,
-  },
-  barContainer: {
-    flex: 1,
-    height: 16,
-    backgroundColor: opacity.overlay.medium,
-    borderRadius: layout.borderRadiusSm,
-    overflow: 'hidden',
-  },
-  barContainerDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  bar: {
-    height: '100%',
-    borderRadius: layout.borderRadiusSm,
-  },
-  zoneStats: {
-    width: 75,
-    marginLeft: 6,
-    alignItems: 'flex-end',
-  },
-  zoneStatsCompact: {
-    width: 65,
-    marginLeft: spacing.xs,
-  },
-  zoneTime: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  zoneTimeCompact: {
-    fontSize: typography.micro.fontSize,
-  },
-  zoneTimeDark: {
-    color: colors.textOnDark,
-  },
-  zoneBPM: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-  },
-  zoneBPMCompact: {
-    fontSize: typography.pillLabel.fontSize,
-  },
-  zoneBPMDark: {
     color: darkColors.textSecondary,
   },
   placeholder: {

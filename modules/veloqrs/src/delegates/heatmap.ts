@@ -11,23 +11,43 @@ import type { DelegateHost } from './host';
 
 /** Enable heatmap tile generation by setting the tiles path. */
 export function enableHeatmapTiles(host: DelegateHost): void {
-  if (!host.ready) return;
   const tilesPath = `${FileSystem.cacheDirectory}heatmap-tiles/`;
   const normalizedTilesPath = tilesPath.startsWith('file://') ? tilesPath.slice(7) : tilesPath;
-  try {
-    host.engine.heatmap().setTilesPath(normalizedTilesPath);
-  } catch (e) {
-    console.warn('[RouteEngineClient] Failed to set heatmap tiles path:', e);
-  }
+  host.write('enableHeatmapTiles', () => {
+    try {
+      host.engine.heatmap().setTilesPath(normalizedTilesPath);
+    } catch (e) {
+      console.warn('[EngineClient] Failed to set heatmap tiles path:', e);
+    }
+  });
 }
 
 /** Disable heatmap tile generation by clearing the tiles path in the engine. */
 export function disableHeatmapTiles(host: DelegateHost): void {
-  if (!host.ready) return;
+  host.write('disableHeatmapTiles', () => {
+    try {
+      host.engine.heatmap().clearTilesPath();
+    } catch (e) {
+      console.warn('[EngineClient] Failed to clear heatmap tiles path:', e);
+    }
+  });
+}
+
+/**
+ * Stop the tile pass and the invalidation sweep, if either is running.
+ *
+ * Called before anything that makes their output worthless: turning the
+ * heatmap off, or clearing the tiles. Both keep writing to disk otherwise, and
+ * a pass that finishes after a clear puts back the tiles the clear took.
+ * Returns whether there was anything to stop.
+ */
+export function cancelHeatmapWork(host: DelegateHost): boolean {
+  if (!host.ready) return false;
   try {
-    host.engine.heatmap().clearTilesPath();
+    return host.engine.heatmap().cancel();
   } catch (e) {
-    console.warn('[RouteEngineClient] Failed to clear heatmap tiles path:', e);
+    console.warn('[EngineClient] Failed to cancel heatmap work:', e);
+    return false;
   }
 }
 

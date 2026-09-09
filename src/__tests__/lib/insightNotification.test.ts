@@ -64,7 +64,7 @@ describe('insight notifications', () => {
     const translate = (key: string) => key;
     const content = formatInsightNotification(createInsight('stale', 'stale_pr', 2), translate);
 
-    expect(content.data.route).toBe('/routes?tab=sections');
+    expect(content.data.route).toBe('/insights?tab=sections');
   });
 
   it('suppresses strength insight notifications until preference coverage exists', () => {
@@ -77,5 +77,27 @@ describe('insight notifications', () => {
     expect(
       filterInsightsForNotificationPreferences(insights, preferences).map((i) => i.id)
     ).toEqual(['milestone']);
+  });
+
+  it('keeps the score order it is given when no PR or milestone is present', () => {
+    const scoreOrdered = [
+      createInsight('stale', 'stale_pr', 4),
+      createInsight('period', 'period_comparison', 2),
+    ];
+
+    expect(pickBestInsightForNotification(scoreOrdered)?.id).toBe('stale');
+  });
+
+  it('still prefers a section PR that sits below a higher-scoring insight', () => {
+    const scoreOrdered = [
+      createInsight('period', 'period_comparison', 2),
+      createInsight('pr', 'section_pr', 4),
+    ];
+
+    expect(pickBestInsightForNotification(scoreOrdered)?.id).toBe('pr');
+  });
+
+  it('returns null for an empty list', () => {
+    expect(pickBestInsightForNotification([])).toBeNull();
   });
 });

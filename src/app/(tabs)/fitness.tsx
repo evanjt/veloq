@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Text, ActivityIndicator } from 'react-native-paper';
@@ -7,12 +7,14 @@ import {
   TAB_BAR_SAFE_PADDING,
   ChartSkeleton,
   StatsPillSkeleton,
+  NetworkErrorState,
+  ErrorStatePreset,
+  ScreenErrorBoundary,
 } from '@/shared/ui';
 import { logScreenRender, logMemory } from '@/shared/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { NetworkErrorState, ErrorStatePreset, ScreenErrorBoundary } from '@/shared/ui';
 import {
   FitnessChartCard,
   PerformanceCurveSection,
@@ -20,13 +22,15 @@ import {
   TimeRangeSelector,
   SportToggleSelector,
   FitnessHeaderStats,
+  WeekShapeCard,
 } from '@/features/fitness';
 import {
   useFitnessRefresh,
+  useWeekLoadShape,
   useFitnessComputations,
   useFitnessScreenData,
 } from '@/features/fitness/hooks';
-import { FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
+import { FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
 import { timeRangeToDays, type TimeRange } from '@/features/wellness';
 import { useTheme, useCollapsibleSections } from '@/shared/app';
 import { useChartInteraction } from '@/shared/charts/useChartInteraction';
@@ -35,6 +39,7 @@ import { colors, darkColors, spacing, layout, typography, opacity } from '@/them
 import { createSharedStyles } from '@/styles';
 
 import { isNetworkError } from '@/shared/errors/errorHandler';
+import { DEFAULT_PERIOD } from '@/shared/app/period';
 
 export default function FitnessScreen() {
   // Performance timing
@@ -47,7 +52,7 @@ export default function FitnessScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const shared = createSharedStyles(isDark);
-  const [timeRange, setTimeRange] = useState<TimeRange>('3m');
+  const [timeRange, setTimeRange] = useState<TimeRange>(DEFAULT_PERIOD);
 
   // Chart shaders are pre-warmed at app boot by <ShaderWarmup /> in _layout.tsx,
   // so secondary charts can mount on first paint without a shader-compile stutter.
@@ -83,19 +88,22 @@ export default function FitnessScreen() {
     sharedSelectedIdx.value = -1;
     setSelectedDate(null);
     setSelectedValues(null);
-    // Note: sharedSelectedIdx is a Reanimated SharedValue and should NOT be in deps
-    // (it's intentionally outside the React render cycle)
-  }, [timeRange, setSelectedDate, setSelectedValues]);
+    // sharedSelectedIdx is a Reanimated SharedValue, whose identity never
+    // changes, so listing it re-runs nothing that was not re-running already.
+  }, [timeRange, setSelectedDate, setSelectedValues, sharedSelectedIdx]);
 
   const { primarySport } = useSportPreference();
 
   // Sport mode state - defaults to primary sport, can be toggled
   const [sportMode, setSportMode] = useState<PrimarySport>(() => primarySport);
+  const [sportModeFor, setSportModeFor] = useState(primarySport);
 
-  // Update sport mode when primary sport preference changes
-  useEffect(() => {
+  // Follow the preference when it changes. Taking it while rendering means the
+  // screen never commits a frame still showing the old sport.
+  if (primarySport !== sportModeFor) {
+    setSportModeFor(primarySport);
     setSportMode(primarySport);
-  }, [primarySport]);
+  }
 
   // Gather all screen data via consolidated hook (wellness, activities, zones, curves, bests)
   const {
@@ -122,7 +130,6 @@ export default function FitnessScreen() {
   } = useFitnessScreenData({ timeRange, sportMode });
 
   const runLthr = runSettings?.lthr;
-  const runMaxHr = runSettings?.max_hr;
   const thresholdPace = runPaceCurve?.criticalSpeed;
   const swimThresholdPace = swimPaceCurve?.criticalSpeed;
 
@@ -132,6 +139,20 @@ export default function FitnessScreen() {
   }, [wellness]);
   // Handle pull-to-refresh - invalidate all fitness-related queries
   const { isRefreshing, onRefresh } = useFitnessRefresh(refetch);
+
+  // The last seven days, midnight to midnight, which is the window the engine
+  // reads a shape over. Held in a memo so it does not move every render.
+  const { weekStartTs, weekEndTs } = useMemo(() => {
+    const end = new Date();
+    end.setHours(0, 0, 0, 0);
+    const start = new Date(end);
+    start.setDate(start.getDate() - 6);
+    return {
+      weekStartTs: Math.floor(start.getTime() / 1000),
+      weekEndTs: Math.floor(end.getTime() / 1000),
+    };
+  }, []);
+  const weekShape = useWeekLoadShape(weekStartTs, weekEndTs);
 
   // Memoized derivations (FTP trend, dominant zone, decoupling, form zone, display values)
   const {
@@ -160,7 +181,7 @@ export default function FitnessScreen() {
     return (
       <ScreenSafeAreaView style={shared.container}>
         <View style={styles.header}>
-          <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
+          <Text style={shared.screenTitle}>{t('fitnessScreen.title')}</Text>
         </View>
         <View style={styles.skeletonContainer}>
           <StatsPillSkeleton />
@@ -177,7 +198,7 @@ export default function FitnessScreen() {
     return (
       <ScreenSafeAreaView style={shared.container}>
         <View style={styles.header}>
-          <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
+          <Text style={shared.screenTitle}>{t('fitnessScreen.title')}</Text>
         </View>
         <View style={shared.loadingContainer}>
           {networkError ? (
@@ -195,7 +216,7 @@ export default function FitnessScreen() {
       <ScreenSafeAreaView style={shared.container} testID="fitness-screen">
         {/* Header */}
         <View style={styles.header}>
-          <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
+          <Text style={shared.screenTitle}>{t('fitnessScreen.title')}</Text>
           {/* Subtle loading indicator in header when fetching in background (not during pull-to-refresh) */}
           {isFetching && !isRefreshing && (
             <ActivityIndicator size="small" color={colors.primary} style={styles.headerSpinner} />
@@ -224,6 +245,9 @@ export default function FitnessScreen() {
             isDark={isDark}
             rampRate={rampRate}
           />
+
+          {/* What shape the last seven days had, when the engine can read one */}
+          <WeekShapeCard shape={weekShape} />
 
           {/* Time range selector */}
           <TimeRangeSelector
@@ -285,7 +309,6 @@ export default function FitnessScreen() {
             onTrendsToggle={(v) => sections.setExpanded('trends', v)}
             thresholdPace={thresholdPace}
             runLthr={runLthr}
-            runMaxHr={runMaxHr}
             decouplingStreams={decouplingStreams}
             decouplingValue={decouplingValue}
             loadingStreams={loadingStreams}

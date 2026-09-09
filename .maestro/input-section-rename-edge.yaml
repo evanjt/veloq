@@ -53,7 +53,7 @@ tags:
             id: "section-detail-screen"
           timeout: 5000
 
-      - takeScreenshot: "input-section-rename-edge-long-name"
+      - takeScreenshot: "screenshots/input-section-rename-edge-long-name"
 
       # Test 2: Special characters and unicode
       - tapOn:
@@ -73,6 +73,6 @@ tags:
             id: "section-detail-screen"
           timeout: 5000
 
-      - takeScreenshot: "input-section-rename-edge-special-chars"
+      - takeScreenshot: "screenshots/input-section-rename-edge-special-chars"
 
-- takeScreenshot: "input-section-rename-edge-complete"
+- takeScreenshot: "screenshots/input-section-rename-edge-complete"

@@ -9,16 +9,18 @@ import { InsightListCard } from './InsightListCard';
 import { InsightDetailSheet } from './InsightDetailSheet';
 import { InsightDebugPanel } from './InsightDebugPanel';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { colors, darkColors, spacing, layout } from '@/theme';
-import type { Insight } from '@/types';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import type { ActivityPattern, Insight } from '@/types';
 
 interface InsightsPanelProps {
   insights: Insight[];
+  /** Today's pattern from the same insights bundle the list was built from */
+  todayPattern: ActivityPattern | null;
   /**
-   * If set, opens the matching insight's detail sheet on mount. Used by deep
-   * links from the home screen's rotating insight chip
-   * (`/(tabs)/routes?insightId=...`). Calls `onInsightOpened` once the sheet
-   * has been triggered so the parent can clear the URL param.
+   * If set, opens the matching insight's detail sheet on mount. Set by a tapped
+   * insight notification (`/(tabs)/insights?insightId=...`). Calls
+   * `onInsightOpened` once the sheet has been triggered so the parent can clear
+   * the URL param.
    */
   initialInsightId?: string;
   onInsightOpened?: () => void;
@@ -26,6 +28,7 @@ interface InsightsPanelProps {
 
 export const InsightsPanel = React.memo(function InsightsPanel({
   insights,
+  todayPattern,
   initialInsightId,
   onInsightOpened,
 }: InsightsPanelProps) {
@@ -53,7 +56,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({
     <View style={styles.container} testID="insights-panel">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Pressable onLongPress={handleLongPress} delayLongPress={800}>
-          <TodayBanner />
+          <TodayBanner todayPattern={todayPattern} />
         </Pressable>
         {insights.length > 0 ? (
           <View style={styles.cardList} testID="insights-card-list">
@@ -107,12 +110,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   empty: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
   },
   emptyHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: spacing.lg,

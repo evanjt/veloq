@@ -2,12 +2,14 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
+
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
-import { CartesianChart, Line, Area } from 'victory-native';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
-import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
+import { colors, typography, spacing, layout, chartStyles } from '@/theme';
 import type { eFTPPoint } from '@/types';
 import { formatMonth } from '@/shared/format/format';
+import { ChartCanvas, CurveArea, CurveLine, useChartColors } from '@/shared/charts';
 
 interface FTPTrendChartProps {
   /** eFTP history data points */
@@ -16,15 +18,23 @@ interface FTPTrendChartProps {
   height?: number;
 }
 
-// Chart color - yellow/gold for FTP
-const CHART_COLOR = '#FFB300';
+interface FtpPoint {
+  x: number;
+  y: number;
+  date: string;
+}
+
+const CHART_PADDING = { top: 8 } as const;
+const SERIES = { y: (d: FtpPoint) => d.y };
+const xOf = (d: FtpPoint) => d.x;
 
 export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
 
   // All hooks must be called before any conditional returns
-  const chartData = useMemo(() => {
+  const chartData = useMemo<FtpPoint[]>(() => {
     if (!data || data.length === 0) return [];
     return data.map((d, idx) => ({
       x: idx,
@@ -60,6 +70,7 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
   }, [chartData]);
 
   const isImproving = ftpChange >= 0;
+  const yDomain = useMemo<[number, number]>(() => [minFTP, maxFTP], [minFTP, maxFTP]);
 
   // Show empty state if no data
   if (!data || data.length === 0) {
@@ -86,7 +97,7 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
             {t('stats.estimatedFtp')}
           </Text>
           <View style={styles.ftpRow}>
-            <Text style={[styles.ftpValue, { color: CHART_COLOR }]}>{latestFTP}W</Text>
+            <Text style={[styles.ftpValue, { color: chartColors.ftp }]}>{latestFTP}W</Text>
             <View style={[styles.changeBadge, isImproving ? styles.positive : styles.negative]}>
               <Text style={styles.changeText}>
                 {isImproving ? '▲' : '▼'} {Math.abs(ftpChange)}W
@@ -102,62 +113,50 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
 
       {/* Chart */}
       <View style={chartStyles.chartWrapper}>
-        <CartesianChart
+        <ChartCanvas
           data={chartData}
-          xKey="x"
-          yKeys={['y']}
-          domain={{ y: [minFTP, maxFTP] }}
-          padding={{ left: 0, right: 0, top: 8, bottom: 0 }}
+          x={xOf}
+          series={SERIES}
+          yDomain={yDomain}
+          padding={CHART_PADDING}
+          grid={5}
         >
-          {({ points, chartBounds }) => (
-            <>
-              <Area points={points.y} y0={chartBounds.bottom} curveType="natural">
-                <LinearGradient
-                  start={vec(0, chartBounds.top)}
-                  end={vec(0, chartBounds.bottom)}
-                  colors={[CHART_COLOR + '60', CHART_COLOR + '10']}
-                />
-              </Area>
-              <Line
-                points={points.y}
-                color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
-                strokeWidth={2.5}
-                curveType="natural"
-              />
-              <Line points={points.y} color={CHART_COLOR} strokeWidth={1.5} curveType="natural" />
-              {/* Latest point indicator */}
-              {points.y.length > 0 &&
-                points.y[points.y.length - 1].x != null &&
-                points.y[points.y.length - 1].y != null && (
+          {({ points, bounds }) => {
+            const last = points.y[points.y.length - 1];
+            return (
+              <>
+                <CurveArea points={points.y} y0={bounds.bottom}>
+                  <LinearGradient
+                    start={vec(0, bounds.top)}
+                    end={vec(0, bounds.bottom)}
+                    colors={[chartColors.ftp + '60', chartColors.ftp + '10']}
+                  />
+                </CurveArea>
+                <CurveLine points={points.y} color={chartColors.casing} strokeWidth={2.5} />
+                <CurveLine points={points.y} color={chartColors.ftp} strokeWidth={1.5} />
+                {last && (
                   <>
-                    <Circle
-                      cx={points.y[points.y.length - 1].x!}
-                      cy={points.y[points.y.length - 1].y!}
-                      r={6}
-                      color={CHART_COLOR}
-                    />
-                    <Circle
-                      cx={points.y[points.y.length - 1].x!}
-                      cy={points.y[points.y.length - 1].y!}
-                      r={3}
-                      color={colors.textOnDark}
-                    />
+                    <Circle cx={last.x} cy={last.y} r={6} color={chartColors.ftp} />
+                    <Circle cx={last.x} cy={last.y} r={3} color={colors.textOnDark} />
                   </>
                 )}
-            </>
-          )}
-        </CartesianChart>
+              </>
+            );
+          }}
+        </ChartCanvas>
 
         {/* X-axis labels */}
         <View style={styles.xAxisOverlay} pointerEvents="none">
           {chartData.length > 0 && (
             <>
               <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
               >
                 {formatMonth(chartData[0].date)}
               </Text>
               <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
               >
                 {formatMonth(chartData[chartData.length - 1].date)}
@@ -168,13 +167,22 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
 
         {/* Y-axis labels */}
         <View style={styles.yAxisOverlay} pointerEvents="none">
-          <Text style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+          >
             {Math.round(maxFTP)}w
           </Text>
-          <Text style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+          >
             {Math.round((minFTP + maxFTP) / 2)}w
           </Text>
-          <Text style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+          >
             {Math.round(minFTP)}w
           </Text>
         </View>
@@ -198,7 +206,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   ftpValue: {
-    fontSize: 32,
+    fontSize: typography.headlineNumber.fontSize,
     fontWeight: '700',
   },
   changeBadge: {

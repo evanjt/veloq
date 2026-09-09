@@ -9,6 +9,7 @@ import type { Activity, ActivityType } from '@/types';
 import type { ComponentProps } from 'react';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { activityTypeColors } from '@/theme';
+import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
 
 /** Type for valid MaterialCommunityIcons names */
 export type MaterialIconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -28,6 +29,8 @@ const ACTIVITY_ICONS = {
   EBikeRide: 'bike-fast',
   MountainBikeRide: 'bike',
   GravelRide: 'bike',
+  TrackRide: 'bike',
+  Cyclocross: 'bike',
   Velomobile: 'go-kart',
   Handcycle: 'bicycle-cargo',
   // Running
@@ -126,32 +129,37 @@ export function getActivityColor(type: ActivityType): string {
   return activityTypeColors[type] || activityTypeColors.Other;
 }
 
-/**
- * Check if activity type is a running activity.
- *
- * Includes running, walking, and hiking activities (both virtual and outdoor).
- *
- * @param type - Activity type to check
- * @returns True if activity is running-related
- */
-export function isRunningActivity(type: ActivityType): boolean {
-  return ['Run', 'VirtualRun', 'Walk', 'Hike', 'TrailRun', 'Treadmill'].includes(type);
-}
+// The sport families are the engine's (`veloqrs/src/sport.rs`), generated
+// into `SPORT_FAMILIES` so a predicate here costs no FFI call. Each answers
+// one question of an open sport string, and the questions are not the same.
+const PACE_SPORTS: readonly string[] = [...SPORT_FAMILIES.running, ...SPORT_FAMILIES.walking];
+const CYCLING: readonly string[] = SPORT_FAMILIES.cycling;
+const SWIMMING: readonly string[] = SPORT_FAMILIES.swimming;
+const POWER: readonly string[] = SPORT_FAMILIES.power;
 
 /**
- * Check if activity type is a cycling activity.
+ * Whether this activity is measured in pace rather than speed.
  *
- * Includes both outdoor and virtual cycling activities.
- *
- * @param type - Activity type to check
- * @returns True if activity is cycling-related
+ * Walking and hiking answer true beside the run types, which is correct for
+ * the question every caller is asking and reads as a miscoded sport test under
+ * any name that says running. Swimming has its own pace and its own predicate,
+ * because it is metres per hundred rather than per kilometre.
  */
+export function isPaceSport(type: ActivityType): boolean {
+  return PACE_SPORTS.includes(type);
+}
+
 export function isCyclingActivity(type: ActivityType): boolean {
-  return ['Ride', 'VirtualRide'].includes(type);
+  return CYCLING.includes(type);
 }
 
 export function isSwimmingActivity(type: ActivityType): boolean {
-  return ['Swim', 'OpenWaterSwim'].includes(type);
+  return SWIMMING.includes(type);
+}
+
+/** Whether the sport's effort is a power number: every cycling sport, and rowing. */
+export function measuresPower(type: ActivityType): boolean {
+  return POWER.includes(type);
 }
 
 /**

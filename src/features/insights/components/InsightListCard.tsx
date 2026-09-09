@@ -12,6 +12,8 @@ import {
   colorWithOpacity,
   brand,
   insightCategoryColors,
+  layout,
+  typography,
 } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { Insight } from '@/types';
@@ -237,7 +239,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     marginHorizontal: spacing.md,
     marginBottom: 2,
     overflow: 'hidden',
@@ -256,7 +258,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: layout.borderRadiusFull,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.sm,
@@ -274,7 +276,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   title: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     flexShrink: 1,
@@ -285,11 +287,11 @@ const styles = StyleSheet.create({
   newDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: brand.tealLight,
   },
   subtitle: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -307,7 +309,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   metricValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -315,7 +317,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   metricContext: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
     marginTop: 1,
   },

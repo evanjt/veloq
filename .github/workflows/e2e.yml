@@ -74,20 +74,43 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
         if: steps.apk-cache.outputs.cache-hit != 'true'
 
-      - name: Setup Rust for Android
+      # Same key as build.yml's 2arch cache: a Rust change is rebuilt once and
+      # every other pull request restores the libraries in seconds.
+      - name: Cache Rust Android libraries
+        id: rust-android-cache
         if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: modules/veloqrs/android/src/main/jniLibs
+          key: rust-android-2arch-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
+
+      - name: Setup Rust for Android
+        if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
         uses: ./.github/actions/setup-rust-android
         with:
           targets: aarch64-linux-android,x86_64-linux-android
 
       - name: Build Rust libraries
-        if: steps.apk-cache.outputs.cache-hit != 'true'
+        if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
         run: |
           mkdir -p ../android/src/main/jniLibs
           cargo ndk -t aarch64-linux-android -t x86_64-linux-android \
             --platform 24 -o ../android/src/main/jniLibs \
             build --release -p veloqrs
+
+      # The Gradle time is CMake C++ for every React Native library, twice
+      # over for two architectures. CMake reads the launcher variables from
+      # the environment at configure time, so ccache needs no Gradle change.
+      - name: Setup ccache
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          # Reuse one bounded snapshot until native inputs change.
+          key: android-ndk-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'app.json', 'app.config.js', 'src/plugins/**', 'widget/android/**', 'modules/**/android/**', 'modules/**/cpp/**') }}
+          restore-keys: android-ndk-v2-${{ runner.os }}-
+          append-timestamp: false
+          max-size: 1G
 
       - name: Write google-services.json stub
         if: steps.apk-cache.outputs.cache-hit != 'true'
@@ -105,10 +128,12 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit != 'true'
         env:
           APP_VARIANT: dev
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
         run: |
           cd android && ./gradlew assembleRelease \
             -PreactNativeArchitectures=arm64-v8a,x86_64 \
-            --no-daemon --no-build-cache
+            --no-daemon
 
       - uses: actions/upload-artifact@v4
         with:
@@ -183,6 +208,12 @@ jobs:
           xcodebuild -create-xcframework \
             -library target/sim-fat/libveloqrs_ffi.a \
             -output ../ios/Frameworks/VeloqrsFFI.xcframework
+
+      # The bridge pod compiles the Live Activity contract, which the plugin copies
+      # out of widget/ios during prebuild. A restored native project skips prebuild,
+      # and the copy lands outside ios/, so nothing else puts those files on disk.
+      - name: Sync Live Activity sources
+        run: npm run sync:live-activity
 
       - name: Generate native project (dev variant)
         if: steps.app-cache.outputs.cache-hit != 'true'

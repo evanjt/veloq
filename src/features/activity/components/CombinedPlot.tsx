@@ -1,7 +1,6 @@
 import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import { useTheme } from '@/shared/app';
-import { CartesianChart, Area, Line } from 'victory-native';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import {
   LinearGradient,
   vec,
@@ -16,20 +15,20 @@ import Animated, {
   runOnJS,
   useDerivedValue,
   useAnimatedStyle,
-  withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { colors, typography, layout, chartStyles } from '@/theme';
-import { useMetricSystem } from '@/shared/app';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
 import { ChartErrorBoundary } from '@/shared/ui';
+import { ChartCanvas, CurveArea, CurveLine } from '@/shared/charts';
 import {
   buildChartData,
   computeAllAverages,
   computeIntervalBands,
+  resolveBandColour,
   type ChartMetricValue,
 } from '@/features/stats';
 import { ChartXAxisLabel } from './ChartXAxisLabel';
@@ -69,19 +68,9 @@ interface MetricValue {
   color: string;
 }
 
-/** Victory Native chart bounds structure */
-interface ChartBounds {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-}
-
-/** Series info type used by this component (mirrors the lib type). */
-type SeriesInfo = ReturnType<typeof buildChartData>['seriesInfo'][number];
-
-const CHART_PADDING = { left: 0, right: 0, top: 2, bottom: 20 } as const;
-const NORMALIZED_DOMAIN = { y: [0, 1] as [number, number] };
+const CHART_PADDING = { top: 2, bottom: 20 } as const;
+const NORMALISED_DOMAIN: [number, number] = [0, 1];
+const xOf = (d: Record<string, number>) => d.x;
 
 export const CombinedPlot = React.memo(function CombinedPlot({
   streams,
@@ -110,7 +99,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   const pointXCoordsShared = useSharedValue<number[]>([]);
 
   // React state for metrics panel (bridges to JS only for text updates)
-  const [metricValues, setMetricValues] = useState<MetricValue[]>([]);
+  const [, setMetricValues] = useState<MetricValue[]>([]);
   const [currentX, setCurrentX] = useState<number | null>(null);
   const [isActive, setIsActive] = useState(false);
 
@@ -171,6 +160,13 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   }, []);
 
   // Bridge to JS only when index changes (for metrics panel and parent notification)
+  // Calculate averages for display when not scrubbing
+  // Compute averages for ALL available chart types (not just selected)
+  const allAverages = useMemo(
+    () => computeAllAverages(chartConfigs, streams, isMetric),
+    [chartConfigs, streams, isMetric]
+  );
+
   const updateMetricsOnJS = useCallback(
     (idx: number) => {
       if (idx < 0 || chartData.length === 0 || seriesInfo.length === 0) {
@@ -224,7 +220,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
           label: s.config.label,
           value: formatted,
           unit: isMetric ? s.config.unit || '' : s.config.unitImperial || s.config.unit || '',
-          color: s.color,
+          color: s.config.color,
         };
       });
 
@@ -248,7 +244,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         onPointSelectRef.current(indexMap[idx]);
       }
     },
-    [chartData, seriesInfo, indexMap, isMetric]
+    [chartData, seriesInfo, indexMap, isMetric, allAverages]
   );
 
   // React to index changes and bridge to JS for metrics updates
@@ -297,32 +293,6 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   }, []);
 
   const xUnit = xAxisMode === 'time' ? '' : isMetric ? 'km' : 'mi';
-
-  // Calculate averages for display when not scrubbing
-  const averageValues = useMemo(() => {
-    return seriesInfo.map((s) => {
-      const validValues = s.rawData.filter((v) => !isNaN(v) && isFinite(v));
-      if (validValues.length === 0) return { id: s.id, avg: 0, formatted: '-' };
-
-      let avg = validValues.reduce((sum, v) => sum + v, 0) / validValues.length;
-
-      if (!isMetric && s.config.convertToImperial) {
-        avg = s.config.convertToImperial(avg);
-      }
-
-      const formatted = s.config.formatValue
-        ? s.config.formatValue(avg, isMetric)
-        : Math.round(avg).toString();
-
-      return { id: s.id, avg, formatted };
-    });
-  }, [seriesInfo, isMetric]);
-
-  // Compute averages for ALL available chart types (not just selected)
-  const allAverages = useMemo(
-    () => computeAllAverages(chartConfigs, streams, isMetric),
-    [chartConfigs, streams, isMetric]
-  );
 
   // Emit all averages to parent when not scrubbing
   React.useEffect(() => {
@@ -379,11 +349,10 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         streams,
         xAxisMode,
         isMetric,
-        isDark,
         activityType,
         seriesInfo
       ),
-    [intervals, chartData, streams, xAxisMode, isMetric, isDark, activityType, seriesInfo]
+    [intervals, chartData, streams, xAxisMode, isMetric, activityType, seriesInfo]
   );
 
   if (chartData.length === 0 || seriesInfo.length === 0) {
@@ -396,8 +365,9 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     );
   }
 
-  // Build yKeys array for CartesianChart
-  const yKeys = seriesInfo.map((s) => s.id);
+  const series = Object.fromEntries(
+    seriesInfo.map((s) => [s.id, (d: Record<string, number>) => d[s.id]])
+  ) as Record<string, (d: Record<string, number>) => number>;
 
   return (
     <ChartErrorBoundary height={height} label="Activity Chart">
@@ -405,30 +375,23 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         {/* Chart area - full height, metrics displayed in parent chips */}
         <GestureDetector gesture={gesture}>
           <View style={[chartStyles.chartWrapper, { height }]}>
-            {/* Victory Native requires string literal types for yKeys,
-              but ChartTypeId[] is dynamically computed. Cast is unavoidable. */}
-            <CartesianChart
-              data={chartData}
-              xKey="x"
-              yKeys={yKeys as string[]}
-              domain={NORMALIZED_DOMAIN}
+            <ChartCanvas
+              data={chartData as Record<string, number>[]}
+              x={xOf}
+              series={series}
+              yDomain={NORMALISED_DOMAIN}
               padding={CHART_PADDING}
+              grid={5}
             >
-              {({
-                points,
-                chartBounds,
-              }: {
-                points: Record<string, Array<{ x: number }>>;
-                chartBounds: ChartBounds;
-              }) => {
+              {({ points, bounds, xFor, yFor }) => {
                 // Sync chartBounds and point coordinates for UI thread crosshair
                 if (
-                  chartBounds.left !== chartBoundsShared.value.left ||
-                  chartBounds.right !== chartBoundsShared.value.right
+                  bounds.left !== chartBoundsShared.value.left ||
+                  bounds.right !== chartBoundsShared.value.right
                 ) {
                   chartBoundsShared.value = {
-                    left: chartBounds.left,
-                    right: chartBounds.right,
+                    left: bounds.left,
+                    right: bounds.right,
                   };
                 }
                 // Sync actual point x-coordinates for accurate crosshair positioning
@@ -445,30 +408,22 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                   }
                 }
 
-                const chartWidth = chartBounds.right - chartBounds.left;
-                const chartH = chartBounds.bottom - chartBounds.top;
-                const xMin = chartData[0]?.x ?? 0;
-                const xMax = chartData[chartData.length - 1]?.x ?? 1;
-                const xRange = xMax - xMin || 1;
-
-                const toPixelX = (xVal: number) =>
-                  chartBounds.left + ((xVal - xMin) / xRange) * chartWidth;
-                const toPixelY = (normVal: number) => chartBounds.top + (1 - normVal) * chartH;
+                const chartH = bounds.bottom - bounds.top;
 
                 return (
                   <>
                     {/* Interval zone bands (behind stream data) */}
                     {intervalBands.map((band, i) => {
-                      const x1 = toPixelX(band.startX);
-                      const x2 = toPixelX(band.endX);
+                      const x1 = xFor(band.startX);
+                      const x2 = xFor(band.endX);
                       return (
                         <Rect
                           key={`ib-${i}`}
                           x={x1}
-                          y={chartBounds.top}
+                          y={bounds.top}
                           width={Math.max(1, x2 - x1)}
                           height={chartH}
-                          color={band.bandColor}
+                          color={resolveBandColour(band.bandColour, isDark)}
                           opacity={band.bandOpacity}
                         />
                       );
@@ -477,16 +432,16 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                     {/* Zone color strip at bottom of each WORK interval */}
                     {intervalBands.map((band, i) => {
                       if (!band.isWork) return null;
-                      const x1 = toPixelX(band.startX);
-                      const x2 = toPixelX(band.endX);
+                      const x1 = xFor(band.startX);
+                      const x2 = xFor(band.endX);
                       return (
                         <Rect
                           key={`zs-${i}`}
                           x={x1}
-                          y={chartBounds.bottom - 4}
+                          y={bounds.bottom - 4}
                           width={Math.max(1, x2 - x1)}
                           height={4}
-                          color={band.bandColor}
+                          color={resolveBandColour(band.bandColour, isDark)}
                           opacity={0.85}
                         />
                       );
@@ -498,18 +453,20 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                       const topAlpha = series.isPreview ? '30' : isMulti ? '70' : '90';
                       const bottomAlpha = series.isPreview ? '08' : isMulti ? '10' : '15';
                       return (
-                        <Area
+                        <CurveArea
                           key={`area-${series.id}`}
-                          points={points[series.id] as Parameters<typeof Area>[0]['points']}
-                          y0={chartBounds.bottom}
-                          curveType="natural"
+                          points={points[series.id] ?? []}
+                          y0={bounds.bottom}
                         >
                           <LinearGradient
-                            start={vec(0, chartBounds.top)}
-                            end={vec(0, chartBounds.bottom)}
-                            colors={[series.color + topAlpha, series.color + bottomAlpha]}
+                            start={vec(0, bounds.top)}
+                            end={vec(0, bounds.bottom)}
+                            colors={[
+                              series.config.color + topAlpha,
+                              series.config.color + bottomAlpha,
+                            ]}
                           />
-                        </Area>
+                        </CurveArea>
                       );
                     })}
 
@@ -518,17 +475,15 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                       const width = series.isPreview ? 0.75 : 1;
                       return (
                         <React.Fragment key={`line-${series.id}`}>
-                          <Line
-                            points={points[series.id] as Parameters<typeof Line>[0]['points']}
+                          <CurveLine
+                            points={points[series.id] ?? []}
                             color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
                             strokeWidth={width + 0.75}
-                            curveType="natural"
                           />
-                          <Line
-                            points={points[series.id] as Parameters<typeof Line>[0]['points']}
-                            color={series.color}
+                          <CurveLine
+                            points={points[series.id] ?? []}
+                            color={series.config.color}
                             strokeWidth={width}
-                            curveType="natural"
                           />
                         </React.Fragment>
                       );
@@ -537,15 +492,15 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                     {/* Dashed average lines per WORK interval */}
                     {intervalBands.map((band, i) => {
                       if (!band.isWork || band.avgNormY == null) return null;
-                      const x1 = toPixelX(band.startX);
-                      const x2 = toPixelX(band.endX);
-                      const y = toPixelY(band.avgNormY);
+                      const x1 = xFor(band.startX);
+                      const x2 = xFor(band.endX);
+                      const y = yFor(band.avgNormY);
                       return (
                         <SkiaLine
                           key={`ia-${i}`}
                           p1={vec(x1, y)}
                           p2={vec(x2, y)}
-                          color={band.bandColor}
+                          color={resolveBandColour(band.bandColour, isDark)}
                           strokeWidth={2}
                           opacity={0.8}
                         >
@@ -557,38 +512,25 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                     {/* Y-axis reference lines: min, max, avg */}
                     {yAxisSeries && (
                       <>
-                        {/* Max reference line */}
                         <SkiaLine
-                          p1={vec(chartBounds.left, chartBounds.top)}
-                          p2={vec(chartBounds.right, chartBounds.top)}
-                          color={yAxisSeries.color}
+                          p1={vec(bounds.left, bounds.top)}
+                          p2={vec(bounds.right, bounds.top)}
+                          color={yAxisSeries.config.color}
                           strokeWidth={0.5}
                           opacity={0.2}
                         />
-                        {/* Min reference line */}
                         <SkiaLine
-                          p1={vec(chartBounds.left, chartBounds.bottom)}
-                          p2={vec(chartBounds.right, chartBounds.bottom)}
-                          color={yAxisSeries.color}
+                          p1={vec(bounds.left, bounds.bottom)}
+                          p2={vec(bounds.right, bounds.bottom)}
+                          color={yAxisSeries.config.color}
                           strokeWidth={0.5}
                           opacity={0.2}
                         />
-                        {/* Avg dashed line */}
                         {yAxisAvgInfo != null && (
                           <SkiaLine
-                            p1={vec(
-                              chartBounds.left,
-                              chartBounds.top +
-                                (1 - yAxisAvgInfo.normalized) *
-                                  (chartBounds.bottom - chartBounds.top)
-                            )}
-                            p2={vec(
-                              chartBounds.right,
-                              chartBounds.top +
-                                (1 - yAxisAvgInfo.normalized) *
-                                  (chartBounds.bottom - chartBounds.top)
-                            )}
-                            color={yAxisSeries.color}
+                            p1={vec(bounds.left, yFor(yAxisAvgInfo.normalized))}
+                            p2={vec(bounds.right, yFor(yAxisAvgInfo.normalized))}
+                            color={yAxisSeries.config.color}
                             strokeWidth={1}
                             opacity={0.4}
                           >
@@ -600,7 +542,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                   </>
                 );
               }}
-            </CartesianChart>
+            </ChartCanvas>
 
             {/* Animated crosshair */}
             <Animated.View
@@ -651,7 +593,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     width: 2,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: 1,
+    borderRadius: layout.borderRadiusFull,
   },
   crosshairDark: {
     backgroundColor: 'rgba(255, 255, 255, 0.5)',

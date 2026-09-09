@@ -1,0 +1,1098 @@
+//! What-if section detection over one riding area, without writing a byte.
+//!
+//! A preview runs the pure batch detector over the geographic component
+//! containing a chosen point, on its own read-only SQLite connection, and
+//! diffs the proposal against the live catalogue. The engine, the DB and the
+//! evidence cache are untouched; the result leaves as one JSON payload.
+
+use crate::FrequentSection;
+use base64::Engine as _;
+use rusqlite::{Connection, OpenFlags};
+use std::collections::{HashMap, HashSet};
+use std::sync::LazyLock;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, mpsc};
+use std::thread;
+use std::time::Instant;
+use tracematch::sections::{RECUT_AGREEMENT, Tunables, mutual_overlap, shares_ground};
+
+use super::super::{PersistentEngine, SectionDetectionProgress};
+
+/// Tell the listener which phase a preview run entered.
+///
+/// The screen reads progress on the transition rather than on a timer, so a
+/// phase that is set without being announced leaves the button where it stood.
+/// The call blocks on JavaScript, so every site is on the worker thread and
+/// none is under the engine lock or the preview slot lock.
+fn notify_phase(phase: &str) {
+    crate::objects::observer::notify(|o| o.preview_phase(phase.to_string()));
+}
+
+fn announce_phase(progress: &SectionDetectionProgress, phase: &str, total: u32) {
+    progress.set_phase(phase, total);
+    notify_phase(phase);
+}
+
+/// Bin edge for the ~5 km centre grid, in degrees of latitude.
+const BIN_DEG: f64 = 0.045;
+
+/// A (min_lat, max_lat, min_lng, max_lng) box in degrees.
+type DegreeBox = (f64, f64, f64, f64);
+
+/// The one preview slot. Occupied from start until the result is taken or the
+/// run ends cancelled or dead, so a second preview can never overlap the
+/// first: two resident pools would double the peak memory on a phone.
+pub static SECTION_PREVIEW_HANDLE: LazyLock<Mutex<Option<SectionPreviewHandle>>> =
+    LazyLock::new(|| Mutex::new(None));
+
+/// A ranked riding area: one occupied ~5 km bin.
+#[derive(Debug, Clone)]
+pub struct PreviewCentre {
+    pub bin_key: String,
+    pub lat: f64,
+    pub lng: f64,
+    pub visit_total: u32,
+    pub section_count: u32,
+    pub source: String,
+    /// The place the bin covers, or None when no activity over it names one.
+    pub locality: Option<String>,
+}
+
+/// The (lat, lng) grid indices a bin key names, or None when it will not parse.
+fn bin_indices(bin_key: &str) -> Option<(i64, i64)> {
+    let (lat, lng) = bin_key.split_once(':')?;
+    Some((lat.parse().ok()?, lng.parse().ok()?))
+}
+
+/// Radius around a bin's anchor that an activity must start within to speak
+/// for its name. Half the bin diagonal plus slack for a box just outside the
+/// border.
+const CENTRE_LOCALITY_RADIUS_M: f64 = 5000.0;
+
+/// The five caller-exposed detection knobs, overlaid onto the engine's live
+/// config. Only these cross the boundary: trusting a whole caller-supplied
+/// config would silently flip fields the panel never shows, `pool_sports`
+/// first among them.
+#[derive(Debug, Clone, Copy)]
+pub struct PreviewOverlay {
+    pub proximity_threshold: f64,
+    pub min_section_length: f64,
+    pub max_section_length: f64,
+    pub min_activities: u32,
+    pub divergence_threshold: f64,
+}
+
+/// Announces the end of a preview run to the observer, whatever the run's
+/// outcome. Dropped last on the worker thread, so the sender is already gone
+/// and a dead worker reads as disconnected rather than as still running.
+struct PreviewFinished;
+
+impl Drop for PreviewFinished {
+    fn drop(&mut self) {
+        crate::objects::observer::notify(|o| o.preview_finished());
+    }
+}
+
+/// How a finished preview run ended.
+pub enum PreviewOutcome {
+    /// The one JSON payload.
+    Complete(String),
+    /// Cancelled cooperatively; nothing to take.
+    Cancelled,
+    /// Too much of the pool is unreadable for a real detect to cut over it.
+    PoolUnusable { readable: usize, unreadable: u32 },
+}
+
+/// One poll of a preview handle.
+pub enum PreviewPoll {
+    Running,
+    Complete,
+    Cancelled,
+    /// The run refused the pool the real detect would also refuse.
+    PoolUnusable,
+    /// The worker died without sending (panic, failed open).
+    Died,
+}
+
+/// Handle for one background preview run.
+pub struct SectionPreviewHandle {
+    receiver: mpsc::Receiver<PreviewOutcome>,
+    pub progress: SectionDetectionProgress,
+    cancel: Arc<AtomicBool>,
+    outcome: Option<PreviewOutcome>,
+}
+
+impl SectionPreviewHandle {
+    fn pump(&mut self) {
+        if self.outcome.is_none()
+            && let Ok(o) = self.receiver.try_recv()
+        {
+            self.outcome = Some(o);
+        }
+    }
+
+    /// Non-blocking poll that also reports a dead worker thread.
+    pub fn poll_status(&mut self) -> PreviewPoll {
+        self.pump();
+        match self.outcome {
+            Some(PreviewOutcome::Complete(_)) => PreviewPoll::Complete,
+            Some(PreviewOutcome::Cancelled) => PreviewPoll::Cancelled,
+            Some(PreviewOutcome::PoolUnusable { .. }) => PreviewPoll::PoolUnusable,
+            None => match self.receiver.try_recv() {
+                Ok(o) => {
+                    self.outcome = Some(o);
+                    match self.outcome {
+                        Some(PreviewOutcome::Complete(_)) => PreviewPoll::Complete,
+                        Some(PreviewOutcome::PoolUnusable { .. }) => PreviewPoll::PoolUnusable,
+                        _ => PreviewPoll::Cancelled,
+                    }
+                }
+                Err(mpsc::TryRecvError::Empty) => PreviewPoll::Running,
+                Err(mpsc::TryRecvError::Disconnected) => PreviewPoll::Died,
+            },
+        }
+    }
+
+    /// Take the payload once. None while running, cancelled or already taken.
+    pub fn take_payload(&mut self) -> Option<String> {
+        self.pump();
+        match self.outcome {
+            Some(PreviewOutcome::Complete(_)) => match self.outcome.take() {
+                Some(PreviewOutcome::Complete(json)) => Some(json),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// Request cooperative cancellation; the worker checks between stages.
+    pub fn request_cancel(&self) {
+        self.cancel.store(true, Ordering::SeqCst);
+    }
+
+    /// Block for the outcome (test path; production polls).
+    pub fn recv(self) -> Option<PreviewOutcome> {
+        if self.outcome.is_some() {
+            return self.outcome;
+        }
+        self.receiver.recv().ok()
+    }
+}
+
+/// The geographic component containing (lat, lng): connected components of
+/// activity bounding boxes padded by half `gap_m`, the same construction the
+/// detector's own geo clustering uses, so the preview pool is exactly the
+/// pool the detector would place around that point. Returns the member ids
+/// (sorted) and the union of their padded boxes, or None when no padded box
+/// contains the point. Boxes at the (0, 0, 0, 0) sentinel carry no geometry
+/// and are skipped.
+///
+/// **Chaining is per sport, because the detector's is.** `detect_for_sport`
+/// clusters inside one sport's tracks, so two rides that do not reach each
+/// other are two clusters no matter what else was ridden between them. Joining
+/// every sport into one component instead let a single run whose padded box
+/// touched both drag a second riding area into the pool, to be loaded, decoded
+/// and then separated again by the detector for an identical result.
+///
+/// The pool is still an area rather than one sport: a preview diffs every live
+/// section on that ground, so each sport whose own component holds the point
+/// contributes it, and the union of those components is the pool.
+pub(crate) fn cluster_for(
+    boxes: &[(String, tracematch::Bounds)],
+    lat: f64,
+    lng: f64,
+    sports: &HashMap<String, String>,
+    gap_m: f64,
+) -> Option<(Vec<String>, DegreeBox)> {
+    let pad_lat = gap_m * 0.5 / 111_132.0;
+    let padded: Vec<Option<DegreeBox>> = boxes
+        .iter()
+        .map(|(_, b)| {
+            if b.min_lat == 0.0 && b.max_lat == 0.0 && b.min_lng == 0.0 && b.max_lng == 0.0 {
+                return None;
+            }
+            let mid = ((b.min_lat + b.max_lat) * 0.5).to_radians();
+            let pad_lng = gap_m * 0.5 / (111_320.0 * mid.cos().abs().max(0.01));
+            Some((
+                b.min_lat - pad_lat,
+                b.max_lat + pad_lat,
+                b.min_lng - pad_lng,
+                b.max_lng + pad_lng,
+            ))
+        })
+        .collect();
+
+    let mut uf: tracematch::UnionFind<usize> = tracematch::UnionFind::new();
+    for i in 0..boxes.len() {
+        uf.make_set(i);
+    }
+    let sport_of = |i: usize| sports.get(&boxes[i].0).map(String::as_str).unwrap_or("");
+    for (i, a) in padded.iter().enumerate() {
+        let Some(a) = a else { continue };
+        for (j, b) in padded.iter().enumerate().skip(i + 1) {
+            let Some(b) = b else { continue };
+            if sport_of(i) != sport_of(j) {
+                continue;
+            }
+            if a.0 <= b.1 && b.0 <= a.1 && a.2 <= b.3 && b.2 <= a.3 {
+                uf.union(&i, &j);
+            }
+        }
+    }
+
+    // One component per sport that has ground at the point. Within a sport the
+    // component is unique, since two boxes both holding the point overlap at
+    // it, so this is at most one root per sport.
+    let roots: HashSet<usize> = padded
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.is_some_and(|p| p.0 <= lat && lat <= p.1 && p.2 <= lng && lng <= p.3))
+        .map(|(i, _)| uf.find(&i))
+        .collect();
+    if roots.is_empty() {
+        return None;
+    }
+
+    let mut ids: Vec<String> = Vec::new();
+    let mut bbox = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
+    for (i, p) in padded.iter().enumerate() {
+        let Some(p) = p else { continue };
+        if roots.contains(&uf.find(&i)) {
+            ids.push(boxes[i].0.clone());
+            bbox.0 = bbox.0.min(p.0);
+            bbox.1 = bbox.1.max(p.1);
+            bbox.2 = bbox.2.min(p.2);
+            bbox.3 = bbox.3.max(p.3);
+        }
+    }
+    ids.sort();
+    Some((ids, bbox))
+}
+
+#[derive(serde::Serialize)]
+struct PayloadPool {
+    activities: u32,
+    empty: u32,
+    unreadable: u32,
+}
+
+#[derive(serde::Serialize)]
+struct PayloadConfig {
+    proximity_threshold: f64,
+    min_section_length: f64,
+    max_section_length: f64,
+    min_activities: u32,
+    divergence_threshold: f64,
+}
+
+#[derive(serde::Serialize)]
+pub(crate) struct PayloadCounts {
+    pub(crate) current: u32,
+    pub(crate) proposed: u32,
+    pub(crate) unchanged: u32,
+    pub(crate) changed: u32,
+    pub(crate) new: u32,
+    pub(crate) gone: u32,
+}
+
+#[derive(serde::Serialize)]
+pub(crate) struct PayloadSection {
+    id: String,
+    live_id: Option<String>,
+    status: &'static str,
+    name: Option<String>,
+    sport: String,
+    polyline: String,
+    visits: u32,
+    distance_m: f64,
+    elevation_gain_m: Option<f64>,
+    avg_grade_percent: Option<f64>,
+    pinned: bool,
+}
+
+#[derive(serde::Serialize)]
+struct PreviewPayload {
+    pool: PayloadPool,
+    elapsed_ms: u64,
+    config: PayloadConfig,
+    counts: PayloadCounts,
+    sections: Vec<PayloadSection>,
+}
+
+/// Does an auto section's ground fall inside a component's padded box? The
+/// preview run and the catalogue the screen opens on both scope by this, so
+/// the two can never disagree about what belongs to the area.
+fn within_component(section: &FrequentSection, padded_bbox: DegreeBox) -> bool {
+    let b = tracematch::geo_utils::compute_bounds(&section.polyline);
+    b.min_lat <= padded_bbox.1
+        && padded_bbox.0 <= b.max_lat
+        && b.min_lng <= padded_bbox.3
+        && padded_bbox.2 <= b.max_lng
+}
+
+/// Diff two catalogues. `proposed` is the new state, `live` is the old.
+/// Used by both the preview and the cutover.
+pub(crate) fn diff_catalogues_public(
+    proposed: &[&FrequentSection],
+    live: &[FrequentSection],
+) -> (PayloadCounts, Vec<PayloadSection>) {
+    let proposed_owned: Vec<FrequentSection> = proposed.iter().map(|s| (*s).clone()).collect();
+    let pinned = HashSet::new();
+    diff_catalogues(&proposed_owned, live, &pinned)
+}
+
+fn encoded_polyline(points: &[tracematch::GpsPoint]) -> String {
+    base64::engine::general_purpose::STANDARD.encode(crate::coords::encode(points))
+}
+
+/// Diff the proposed catalogue against the scoped live one: greedy 1:1
+/// pairing by descending mutual overlap among pairs sharing ground, then the
+/// four-status classification. `RECUT_AGREEMENT` splits unchanged from
+/// changed; unpaired rows are new or gone.
+fn diff_catalogues(
+    proposed: &[FrequentSection],
+    live: &[FrequentSection],
+    pinned: &HashSet<String>,
+) -> (PayloadCounts, Vec<PayloadSection>) {
+    let mut pairs: Vec<(usize, usize, f64)> = Vec::new();
+    for (i, p) in proposed.iter().enumerate() {
+        for (j, l) in live.iter().enumerate() {
+            if shares_ground(&p.polyline, &l.polyline) {
+                pairs.push((i, j, mutual_overlap(&p.polyline, &l.polyline)));
+            }
+        }
+    }
+    pairs.sort_by(|a, b| {
+        b.2.total_cmp(&a.2)
+            .then_with(|| (a.0, a.1).cmp(&(b.0, b.1)))
+    });
+
+    let mut proposed_match: Vec<Option<(usize, f64)>> = vec![None; proposed.len()];
+    let mut live_taken: Vec<bool> = vec![false; live.len()];
+    for (i, j, overlap) in pairs {
+        if proposed_match[i].is_none() && !live_taken[j] {
+            proposed_match[i] = Some((j, overlap));
+            live_taken[j] = true;
+        }
+    }
+
+    let mut counts = PayloadCounts {
+        current: live.len() as u32,
+        proposed: proposed.len() as u32,
+        unchanged: 0,
+        changed: 0,
+        new: 0,
+        gone: 0,
+    };
+    let mut rows: Vec<PayloadSection> = Vec::with_capacity(proposed.len() + live.len());
+
+    for (i, p) in proposed.iter().enumerate() {
+        let (status, live_ref) = match proposed_match[i] {
+            Some((j, overlap)) if overlap >= RECUT_AGREEMENT => {
+                counts.unchanged += 1;
+                ("unchanged", Some(&live[j]))
+            }
+            Some((j, _)) => {
+                counts.changed += 1;
+                ("changed", Some(&live[j]))
+            }
+            None => {
+                counts.new += 1;
+                ("new", None)
+            }
+        };
+        rows.push(PayloadSection {
+            id: p.id.clone(),
+            live_id: live_ref.map(|l| l.id.clone()),
+            status,
+            name: live_ref.and_then(|l| l.name.clone()),
+            sport: p.sport_type.clone(),
+            polyline: encoded_polyline(&p.polyline),
+            visits: p.visit_count,
+            distance_m: p.distance_meters,
+            elevation_gain_m: p.elevation_gain_m,
+            avg_grade_percent: p.avg_grade_percent,
+            pinned: live_ref.is_some_and(|l| pinned.contains(&l.id)),
+        });
+    }
+
+    for (j, l) in live.iter().enumerate() {
+        if live_taken[j] {
+            continue;
+        }
+        counts.gone += 1;
+        rows.push(PayloadSection {
+            id: l.id.clone(),
+            live_id: None,
+            status: "gone",
+            name: l.name.clone(),
+            sport: l.sport_type.clone(),
+            polyline: encoded_polyline(&l.polyline),
+            visits: l.visit_count,
+            distance_m: l.distance_meters,
+            elevation_gain_m: l.elevation_gain_m,
+            avg_grade_percent: l.avg_grade_percent,
+            pinned: pinned.contains(&l.id),
+        });
+    }
+
+    (counts, rows)
+}
+
+impl PersistentEngine {
+    /// Ranked riding areas at ~5 km. The sections substrate (bounds cache +
+    /// visit counts) speaks for the catalogue when any auto section carries
+    /// bounds; otherwise activity boxes stand in, with the (0, 0, 0, 0)
+    /// sentinel filtered. Ordered visit_total DESC then bin_key ASC.
+    pub fn preview_centres(&self, limit: u32) -> Vec<PreviewCentre> {
+        let mut members: Vec<(f64, f64, u32)> = Vec::new();
+        let mut source = "sections";
+
+        if let Ok(mut stmt) = self.db.prepare(
+            "SELECT bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng, visit_count
+             FROM sections WHERE section_type = 'auto' AND bounds_min_lat IS NOT NULL
+             ORDER BY id",
+        ) {
+            let rows = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, f64>(0)?,
+                    row.get::<_, f64>(1)?,
+                    row.get::<_, f64>(2)?,
+                    row.get::<_, f64>(3)?,
+                    row.get::<_, u32>(4)?,
+                ))
+            });
+            if let Ok(rows) = rows {
+                for (min_lat, max_lat, min_lng, max_lng, visits) in rows.flatten() {
+                    members.push(((min_lat + max_lat) * 0.5, (min_lng + max_lng) * 0.5, visits));
+                }
+            }
+        }
+
+        if members.is_empty() {
+            source = "activities";
+            if let Ok(mut stmt) = self
+                .db
+                .prepare("SELECT min_lat, max_lat, min_lng, max_lng FROM activities")
+            {
+                let rows = stmt.query_map([], |row| {
+                    Ok((
+                        row.get::<_, f64>(0)?,
+                        row.get::<_, f64>(1)?,
+                        row.get::<_, f64>(2)?,
+                        row.get::<_, f64>(3)?,
+                    ))
+                });
+                if let Ok(rows) = rows {
+                    for (min_lat, max_lat, min_lng, max_lng) in rows.flatten() {
+                        if min_lat == 0.0 && max_lat == 0.0 && min_lng == 0.0 && max_lng == 0.0 {
+                            continue;
+                        }
+                        members.push(((min_lat + max_lat) * 0.5, (min_lng + max_lng) * 0.5, 1));
+                    }
+                }
+            }
+        }
+
+        struct Bin {
+            lat_sum: f64,
+            lng_sum: f64,
+            visit_total: u32,
+            section_count: u32,
+            n: u32,
+        }
+        let mut bins: HashMap<String, Bin> = HashMap::new();
+        for (lat, lng, visits) in members {
+            let key = format!(
+                "{}:{}",
+                (lat / BIN_DEG).floor() as i64,
+                (lng / BIN_DEG).floor() as i64
+            );
+            let bin = bins.entry(key).or_insert(Bin {
+                lat_sum: 0.0,
+                lng_sum: 0.0,
+                visit_total: 0,
+                section_count: 0,
+                n: 0,
+            });
+            bin.lat_sum += lat;
+            bin.lng_sum += lng;
+            bin.visit_total += visits;
+            if source == "sections" {
+                bin.section_count += 1;
+            }
+            bin.n += 1;
+        }
+
+        let mut centres: Vec<PreviewCentre> = bins
+            .into_iter()
+            .map(|(bin_key, b)| PreviewCentre {
+                bin_key,
+                lat: b.lat_sum / f64::from(b.n),
+                lng: b.lng_sum / f64::from(b.n),
+                visit_total: b.visit_total,
+                section_count: b.section_count,
+                source: source.to_string(),
+                locality: None,
+            })
+            .collect();
+        centres.sort_by(|a, b| {
+            b.visit_total
+                .cmp(&a.visit_total)
+                .then_with(|| a.bin_key.cmp(&b.bin_key))
+        });
+        centres.truncate(limit as usize);
+        self.name_centres(&mut centres);
+        centres
+    }
+
+    /// Sport per activity id, as `cluster_for` and the detector both key on.
+    fn sport_map(&self) -> HashMap<String, String> {
+        self.activity_metadata
+            .values()
+            .map(|m| (m.id.clone(), m.sport_type.clone()))
+            .collect()
+    }
+
+    /// Give each ranked area the name of the place it covers.
+    ///
+    /// The name is the most common `locality` among activities whose bounding
+    /// box sits within `CENTRE_LOCALITY_RADIUS_M` of the bin's anchor, ties
+    /// broken by name so the label is stable across runs. The position comes
+    /// from the activity's stored box and not from `start_latlng`: the sync
+    /// never asks intervals.icu for that field, so no stored body carries one
+    /// and a join on it matched nothing (B423).
+    ///
+    /// The anchor is the centre of the bin box, which is the box the preview
+    /// camera frames, rather than the mean of the bin's members: that mean can
+    /// sit near an edge and name the neighbouring place.
+    fn name_centres(&self, centres: &mut [PreviewCentre]) {
+        if centres.is_empty() {
+            return;
+        }
+
+        let mut located: Vec<(f64, f64, String)> = Vec::new();
+        if let Ok(mut stmt) = self.db.prepare(
+            "SELECT a.min_lat, a.max_lat, a.min_lng, a.max_lng,
+                    json_extract(b.raw, '$.locality')
+             FROM activities a JOIN activity_bodies b ON b.activity_id = a.id
+             WHERE json_extract(b.raw, '$.locality') IS NOT NULL",
+        ) {
+            let rows = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, f64>(0)?,
+                    row.get::<_, f64>(1)?,
+                    row.get::<_, f64>(2)?,
+                    row.get::<_, f64>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            });
+            if let Ok(rows) = rows {
+                for (min_lat, max_lat, min_lng, max_lng, locality) in rows.flatten() {
+                    if min_lat == 0.0 && max_lat == 0.0 && min_lng == 0.0 && max_lng == 0.0 {
+                        continue;
+                    }
+                    located.push((
+                        (min_lat + max_lat) * 0.5,
+                        (min_lng + max_lng) * 0.5,
+                        locality,
+                    ));
+                }
+            }
+        }
+        if located.is_empty() {
+            return;
+        }
+
+        for centre in centres.iter_mut() {
+            let Some((lat_bin, lng_bin)) = bin_indices(&centre.bin_key) else {
+                continue;
+            };
+            let anchor_lat = (lat_bin as f64 + 0.5) * BIN_DEG;
+            let anchor_lng = (lng_bin as f64 + 0.5) * BIN_DEG;
+
+            let mut counts: HashMap<&str, u32> = HashMap::new();
+            for (lat, lng, locality) in &located {
+                let metres =
+                    super::super::haversine_distance_meters(*lat, *lng, anchor_lat, anchor_lng);
+                if metres > CENTRE_LOCALITY_RADIUS_M {
+                    continue;
+                }
+                *counts.entry(locality.as_str()).or_insert(0) += 1;
+            }
+
+            centre.locality = counts
+                .into_iter()
+                .max_by(|(a_name, a_count), (b_name, b_count)| {
+                    a_count.cmp(b_count).then_with(|| b_name.cmp(a_name))
+                })
+                .map(|(name, _)| name.to_string());
+        }
+    }
+
+    /// The live auto catalogue for the riding area containing (lat, lng), in
+    /// the preview's own section shape. Scoped by the same component and
+    /// padded box a run uses, so what the screen shows on open is exactly the
+    /// catalogue the next run will diff against.
+    ///
+    /// Reads only what is already persisted, so it costs one bounds sweep and
+    /// a pin lookup rather than a detect. Returns None when no activity's
+    /// padded box contains the point.
+    pub fn preview_current(&self, lat: f64, lng: f64) -> Option<String> {
+        let boxes: Vec<(String, tracematch::Bounds)> = self
+            .activity_metadata
+            .values()
+            .map(|m| (m.id.clone(), m.bounds))
+            .collect();
+        let sports = self.sport_map();
+        let (_component_ids, padded_bbox) =
+            cluster_for(&boxes, lat, lng, &sports, Tunables::DEFAULT.cluster_gap_m)?;
+
+        let pinned: HashSet<String> = self
+            .db
+            .prepare("SELECT section_id FROM section_pins")
+            .ok()
+            .and_then(|mut stmt| {
+                stmt.query_map([], |row| row.get::<_, String>(0))
+                    .map(|rows| rows.flatten().collect())
+                    .ok()
+            })
+            .unwrap_or_default();
+
+        let rows: Vec<PayloadSection> = self
+            .sections
+            .iter()
+            .filter(|s| !s.is_user_defined)
+            .filter(|s| within_component(s, padded_bbox))
+            .map(|s| PayloadSection {
+                id: s.id.clone(),
+                live_id: Some(s.id.clone()),
+                status: "unchanged",
+                name: s.name.clone(),
+                sport: s.sport_type.clone(),
+                polyline: encoded_polyline(&s.polyline),
+                visits: s.visit_count,
+                distance_m: s.distance_meters,
+                elevation_gain_m: s.elevation_gain_m,
+                avg_grade_percent: s.avg_grade_percent,
+                pinned: pinned.contains(&s.id),
+            })
+            .collect();
+
+        serde_json::to_string(&rows).ok()
+    }
+
+    /// Start a preview run over the component containing (lat, lng).
+    ///
+    /// Snapshots everything the worker needs from memory under the read lock,
+    /// then spawns. The worker opens its own read-only connection, loads the
+    /// component's pool, runs the pure batch detector and diffs against the
+    /// live catalogue scoped to the component. A detection-suspension guard
+    /// rides with the worker so no real detect can overlap the run.
+    ///
+    /// Returns None when no activity's padded box contains the point.
+    pub fn preview_detect_background(
+        &self,
+        lat: f64,
+        lng: f64,
+        overlay: PreviewOverlay,
+    ) -> Option<SectionPreviewHandle> {
+        let boxes: Vec<(String, tracematch::Bounds)> = self
+            .activity_metadata
+            .values()
+            .map(|m| (m.id.clone(), m.bounds))
+            .collect();
+        let sport_map = self.sport_map();
+        let (component_ids, padded_bbox) = cluster_for(
+            &boxes,
+            lat,
+            lng,
+            &sport_map,
+            Tunables::DEFAULT.cluster_gap_m,
+        )?;
+
+        let mut effective_config = self.section_config.clone();
+        effective_config.proximity_threshold = overlay.proximity_threshold;
+        effective_config.min_section_length = overlay.min_section_length;
+        effective_config.max_section_length = overlay.max_section_length;
+        effective_config.min_activities = overlay.min_activities;
+        effective_config.divergence_threshold = overlay.divergence_threshold;
+
+        // Live auto sections whose ground can intersect the component. The
+        // diff omits everything outside, so far-away sections never surface
+        // as gone.
+        let live_scoped: Vec<FrequentSection> = self
+            .sections
+            .iter()
+            .filter(|s| !s.is_user_defined)
+            .filter(|s| within_component(s, padded_bbox))
+            .cloned()
+            .collect();
+
+        let db_path = self.db_path.clone();
+        let (tx, rx) = mpsc::channel();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel_worker = Arc::clone(&cancel);
+        let progress = SectionDetectionProgress::new();
+        progress.set_phase("loading", component_ids.len() as u32);
+        let progress_worker = progress.clone();
+
+        // Held for the whole run and dropped by the worker, so a real detect
+        // refuses while a preview is in flight.
+        let suspend = super::conditioning::suspend_detection();
+
+        thread::spawn(move || {
+            let _finish = PreviewFinished;
+            let _suspend = suspend;
+            // The caller set "loading" before the spawn, but under the engine
+            // read lock and the preview slot lock. The notice blocks on
+            // JavaScript, so it is made here, off both.
+            notify_phase("loading");
+            // A capture outlives the body's locals, so the sender moves into one
+            // and drops before the finish notice.
+            let sender = tx;
+            let started = Instant::now();
+
+            let conn = match Connection::open_with_flags(
+                &db_path,
+                OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+            ) {
+                Ok(c) => {
+                    let _ = c.busy_timeout(std::time::Duration::from_secs(5));
+                    c
+                }
+                Err(e) => {
+                    log::error!("veloqrs: [SectionPreview] Failed to open read-only DB: {e:?}");
+                    return;
+                }
+            };
+
+            // Durable pin intent, read here so the snapshot never touches
+            // SQLite under the engine's read lock.
+            let pinned: HashSet<String> = conn
+                .prepare("SELECT section_id FROM section_pins")
+                .ok()
+                .and_then(|mut stmt| {
+                    stmt.query_map([], |row| row.get::<_, String>(0))
+                        .map(|rows| rows.flatten().collect())
+                        .ok()
+                })
+                .unwrap_or_default();
+
+            // Occasion floor input, same query and epoch floor as the real
+            // detect. Dates before 2000 read as unknown.
+            let mut start_epochs: HashMap<String, i64> = HashMap::new();
+            if let Ok(mut stmt) =
+                conn.prepare("SELECT id, start_date FROM activities WHERE start_date >= 946684800")
+            {
+                let rows = stmt.query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+                });
+                if let Ok(rows) = rows {
+                    for (id, e) in rows.flatten() {
+                        start_epochs.insert(id, e);
+                    }
+                }
+            }
+
+            let Some(pool) = super::track_pool::load_tracks_chunked(
+                &conn,
+                &component_ids,
+                &progress_worker,
+                &cancel_worker,
+            ) else {
+                sender.send(PreviewOutcome::Cancelled).ok();
+                return;
+            };
+            if cancel_worker.load(Ordering::SeqCst) {
+                sender.send(PreviewOutcome::Cancelled).ok();
+                return;
+            }
+
+            log::info!(
+                "veloqrs: [SectionPreview] Pool loaded: {} tracks ({} empty, {} unreadable) of {} component ids",
+                pool.tracks.len(),
+                pool.empty,
+                pool.unreadable,
+                component_ids.len()
+            );
+
+            // Same gate as the real detect, so a preview never proposes
+            // sections a Keep would refuse to cut. Read-only, so the refusal
+            // is reported to the caller and nothing is recorded.
+            if !super::detection::pool_is_usable(pool.readable, pool.unreadable as usize) {
+                log::error!(
+                    "veloqrs: [SectionPreview] Refusing the preview: {} of {} stored tracks in the component are unreadable",
+                    pool.unreadable,
+                    pool.readable + pool.unreadable as usize
+                );
+                announce_phase(&progress_worker, "aborted", 0);
+                sender
+                    .send(PreviewOutcome::PoolUnusable {
+                        readable: pool.readable,
+                        unreadable: pool.unreadable,
+                    })
+                    .ok();
+                return;
+            }
+
+            announce_phase(&progress_worker, "analyzing", pool.tracks.len() as u32);
+
+            // The same seconds the real detect reads, loaded the same way.
+            // A preview that judged the lift veto on geometry alone would
+            // propose ground a Keep then refuses, or hide ground it cuts.
+            let seconds = super::track_pool::load_seconds_chunked(&conn, &pool.tracks);
+            let seconds_view = super::track_pool::seconds_view(&seconds);
+
+            let detection = tracematch::detect_sections_dated(
+                &pool.tracks,
+                &seconds_view,
+                &sport_map,
+                &start_epochs,
+                &effective_config,
+                &Tunables::DEFAULT,
+            );
+
+            // Past this point the detect has already run to completion; a
+            // cancel now discards the result rather than aborting work.
+            if cancel_worker.load(Ordering::SeqCst) {
+                sender.send(PreviewOutcome::Cancelled).ok();
+                return;
+            }
+
+            announce_phase(&progress_worker, "diffing", 1);
+            let (counts, sections) = diff_catalogues(&detection.sections, &live_scoped, &pinned);
+
+            let payload = PreviewPayload {
+                pool: PayloadPool {
+                    activities: pool.tracks.len() as u32,
+                    empty: pool.empty,
+                    unreadable: pool.unreadable,
+                },
+                elapsed_ms: started.elapsed().as_millis() as u64,
+                config: PayloadConfig {
+                    proximity_threshold: effective_config.proximity_threshold,
+                    min_section_length: effective_config.min_section_length,
+                    max_section_length: effective_config.max_section_length,
+                    min_activities: effective_config.min_activities,
+                    divergence_threshold: effective_config.divergence_threshold,
+                },
+                counts,
+                sections,
+            };
+
+            announce_phase(&progress_worker, "complete", 1);
+            progress_worker.increment();
+            match serde_json::to_string(&payload) {
+                Ok(json) => {
+                    sender.send(PreviewOutcome::Complete(json)).ok();
+                }
+                Err(e) => {
+                    log::error!("veloqrs: [SectionPreview] Payload serialisation failed: {e}");
+                }
+            }
+        });
+
+        Some(SectionPreviewHandle {
+            receiver: rx,
+            progress,
+            cancel,
+            outcome: None,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn bounds(min_lat: f64, max_lat: f64, min_lng: f64, max_lng: f64) -> tracematch::Bounds {
+        tracematch::Bounds {
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+        }
+    }
+
+    /// Two rides 111 km apart, and one run whose box reaches both.
+    ///
+    /// At the 50 km chaining gap each padded box grows by 25 km a side, so the
+    /// rides do not touch each other and the run touches both. The detector
+    /// clusters inside one sport, so it never joins the rides; the preview
+    /// pool must not either.
+    fn bridged() -> (Vec<(String, tracematch::Bounds)>, HashMap<String, String>) {
+        let boxes = vec![
+            ("ride_near".to_string(), bounds(-0.01, 0.01, -0.01, 0.01)),
+            ("ride_far".to_string(), bounds(-0.01, 0.01, 0.99, 1.01)),
+            ("run_bridge".to_string(), bounds(-0.01, 0.01, 0.4, 0.6)),
+        ];
+        let sports = HashMap::from([
+            ("ride_near".to_string(), "Ride".to_string()),
+            ("ride_far".to_string(), "Ride".to_string()),
+            ("run_bridge".to_string(), "Run".to_string()),
+        ]);
+        (boxes, sports)
+    }
+
+    /// A section stand-in carrying only the fields `diff_catalogues` reads.
+    fn section(id: &str, polyline: Vec<tracematch::GpsPoint>) -> FrequentSection {
+        FrequentSection {
+            id: id.to_string(),
+            name: None,
+            sport_type: "Ride".to_string(),
+            polyline,
+            distance_meters: 1000.0,
+            visit_count: 5,
+            created_at: None,
+            representative_activity_id: String::new(),
+            representative_range: None,
+            activity_ids: Vec::new(),
+            activity_portions: Vec::new(),
+            activity_traces: HashMap::new(),
+            confidence: 0.0,
+            observation_count: 0,
+            average_spread: 0.0,
+            point_density: Vec::new(),
+            scale: None,
+            is_user_defined: false,
+            stability: 0.0,
+            elevation_gain_m: None,
+            avg_grade_percent: None,
+            version: 1,
+            updated_at: None,
+            enrichment: Default::default(),
+            rank: None,
+            consensus_state: None,
+        }
+    }
+
+    /// A ~2.2 km line at (base_lat, base_lng), 200 points ~11 m apart.
+    fn line(base_lat: f64, base_lng: f64) -> Vec<tracematch::GpsPoint> {
+        (0..200)
+            .map(|i| tracematch::GpsPoint {
+                latitude: base_lat + f64::from(i) * 0.0001,
+                longitude: base_lng,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    /// A catalogue dense enough that the greedy pairing has real competition:
+    /// `count` near-parallel lines 20 m apart, so every one shares ground with
+    /// its neighbours and the pairing must still choose its own twin.
+    fn dense_catalogue(count: usize) -> Vec<FrequentSection> {
+        (0..count)
+            .map(|i| section(&format!("s{i}"), line(5.0, 10.0 + i as f64 * 0.0002)))
+            .collect()
+    }
+
+    /// A catalogue diffed against itself is entirely unchanged. Anything else
+    /// is the pairing rather than the detector, so a run reporting most of its
+    /// rows gone would be a defect here rather than a different cut.
+    ///
+    /// `preview_cluster` already asserts this end to end at three sections.
+    /// This is the same property at the scale the device reported, where the
+    /// greedy pairing has hundreds of ground-sharing pairs to choose among.
+    #[test]
+    fn a_catalogue_diffed_against_itself_is_entirely_unchanged() {
+        for count in [3usize, 30, 118] {
+            let catalogue = dense_catalogue(count);
+            let proposed: Vec<&FrequentSection> = catalogue.iter().collect();
+            let (counts, _rows) = diff_catalogues_public(&proposed, &catalogue);
+
+            assert_eq!(counts.gone, 0, "phantom gone rows at {count} sections");
+            assert_eq!(counts.new, 0, "phantom new rows at {count} sections");
+            assert_eq!(
+                counts.changed, 0,
+                "phantom changed rows at {count} sections"
+            );
+            assert_eq!(counts.unchanged, count as u32);
+        }
+    }
+
+    /// A row that really did go is reported once, not as a gone and a new.
+    #[test]
+    fn a_removed_section_is_one_gone_and_nothing_else() {
+        let live = dense_catalogue(30);
+        let kept: Vec<&FrequentSection> = live.iter().skip(1).collect();
+
+        let (counts, _rows) = diff_catalogues_public(&kept, &live);
+
+        assert_eq!(counts.gone, 1);
+        assert_eq!(counts.new, 0);
+        assert_eq!(counts.changed, 0);
+        assert_eq!(counts.unchanged, 29);
+    }
+
+    /// A line far from every live section is new, and takes nothing with it.
+    #[test]
+    fn an_added_section_is_one_new_and_nothing_else() {
+        let live = dense_catalogue(30);
+        let mut proposed = live.clone();
+        proposed.push(section("far", line(40.0, 60.0)));
+        let refs: Vec<&FrequentSection> = proposed.iter().collect();
+
+        let (counts, _rows) = diff_catalogues_public(&refs, &live);
+
+        assert_eq!(counts.new, 1);
+        assert_eq!(counts.gone, 0);
+        assert_eq!(counts.changed, 0);
+        assert_eq!(counts.unchanged, 30);
+    }
+
+    #[test]
+    fn another_sport_does_not_chain_two_components_of_this_one() {
+        let (boxes, sports) = bridged();
+        let (ids, _) = cluster_for(&boxes, 0.0, 0.0, &sports, 50_000.0).expect("seeded");
+        assert_eq!(ids, vec!["ride_near".to_string()]);
+    }
+
+    /// The pool is still an area rather than a sport: a preview diffs every
+    /// live section on that ground, so a run over the point comes with it.
+    #[test]
+    fn a_second_sport_over_the_point_joins_the_pool() {
+        let boxes = vec![
+            ("ride".to_string(), bounds(-0.01, 0.01, -0.01, 0.01)),
+            ("run".to_string(), bounds(-0.02, 0.02, -0.02, 0.02)),
+        ];
+        let sports = HashMap::from([
+            ("ride".to_string(), "Ride".to_string()),
+            ("run".to_string(), "Run".to_string()),
+        ]);
+        let (ids, _) = cluster_for(&boxes, 0.0, 0.0, &sports, 50_000.0).expect("seeded");
+        assert_eq!(ids, vec!["ride".to_string(), "run".to_string()]);
+    }
+
+    /// The far ride's own ground leaves the padded box with it, or the diff
+    /// would report sections out there as gone.
+    #[test]
+    fn the_padded_box_shrinks_to_what_the_pool_covers() {
+        let (boxes, sports) = bridged();
+        let (_, bbox) = cluster_for(&boxes, 0.0, 0.0, &sports, 50_000.0).expect("seeded");
+        assert!(bbox.3 < 0.9, "far ride still inside the box: {bbox:?}");
+    }
+
+    #[test]
+    fn a_point_no_padded_box_holds_has_no_component() {
+        let (boxes, sports) = bridged();
+        assert!(cluster_for(&boxes, 40.0, 40.0, &sports, 50_000.0).is_none());
+    }
+
+    /// An activity with no stored bounds is skipped rather than seeding a
+    /// component at the origin.
+    #[test]
+    fn a_zero_bounds_activity_is_not_a_member() {
+        let boxes = vec![
+            ("ride".to_string(), bounds(-0.01, 0.01, -0.01, 0.01)),
+            ("empty".to_string(), bounds(0.0, 0.0, 0.0, 0.0)),
+        ];
+        let sports = HashMap::from([
+            ("ride".to_string(), "Ride".to_string()),
+            ("empty".to_string(), "Ride".to_string()),
+        ]);
+        let (ids, _) = cluster_for(&boxes, 0.0, 0.0, &sports, 50_000.0).expect("seeded");
+        assert_eq!(ids, vec!["ride".to_string()]);
+    }
+}

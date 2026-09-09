@@ -6,11 +6,44 @@
 
 use chrono::{DateTime, Datelike};
 use rusqlite::params;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use super::super::PersistentRouteEngine;
+use super::super::PersistentEngine;
 
-impl PersistentRouteEngine {
+/// The cycling `sportInfo` entry's model estimate, rounded, or none when the
+/// day carries no cycling entry.
+fn cycling_eftp(raw: &str) -> Option<u16> {
+    let body: serde_json::Value = serde_json::from_str(raw).ok()?;
+    let entries = body.get("sportInfo")?.as_array()?;
+    let entry = entries.iter().find(|e| {
+        e.get("type")
+            .and_then(|t| t.as_str())
+            .is_some_and(crate::sport::is_cycling)
+    })?;
+    let eftp = entry.get("eftp")?.as_f64()?;
+    (eftp.is_finite() && eftp > 0.0).then(|| eftp.round() as u16)
+}
+
+/// A `YYYY-MM-DD` day shifted by whole days, in the same shape.
+fn day_offset(date: &str, days: i64) -> String {
+    match chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d") {
+        Ok(d) => (d + chrono::Duration::days(days))
+            .format("%Y-%m-%d")
+            .to_string(),
+        Err(_) => date.to_string(),
+    }
+}
+
+/// Midnight UTC of a `YYYY-MM-DD` day, which is the unit the record carries.
+fn epoch_seconds(date: &str) -> i64 {
+    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .ok()
+        .and_then(|d| d.and_hms_opt(0, 0, 0))
+        .map(|dt| dt.and_utc().timestamp())
+        .unwrap_or(0)
+}
+
+impl PersistentEngine {
     // ========================================================================
     // Aggregate Queries (SQL-based, for dashboard/stats/charts)
     // ========================================================================
@@ -40,35 +73,104 @@ impl PersistentRouteEngine {
             })
     }
 
+    /// A window's load day by day, with how evenly it was spread, or `None`
+    /// when the week has no shape to report.
+    ///
+    /// Withheld below four training days on purpose. With six rest days the
+    /// mean over the deviation is `1/sqrt(6)` whatever the one day carried, so
+    /// every single-day week reads the same for loads an order of magnitude
+    /// apart, and the spread stays under half a point up to three days. A
+    /// constant dressed as a measurement is worse than no number.
+    pub fn get_week_load_shape(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+    ) -> Option<crate::FfiWeekLoadShape> {
+        const MIN_TRAINING_DAYS: usize = 4;
+        const DAY: i64 = 24 * 60 * 60;
+
+        if end_ts < start_ts {
+            return None;
+        }
+        let days = ((end_ts - start_ts) / DAY + 1) as usize;
+        let mut daily = vec![0.0f64; days];
+
+        let mut stmt = self
+            .db
+            .prepare(
+                "SELECT date, COALESCE(SUM(training_load), 0)
+                 FROM activity_metrics WHERE date BETWEEN ?1 AND ?2
+                 GROUP BY date",
+            )
+            .ok()?;
+        let rows = stmt
+            .query_map(params![start_ts, end_ts], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, f64>(1)?))
+            })
+            .ok()?;
+        for row in rows.flatten() {
+            let index = ((row.0 - start_ts) / DAY) as usize;
+            if index < daily.len() {
+                daily[index] += row.1;
+            }
+        }
+
+        let training_days = daily.iter().filter(|v| **v > 0.0).count();
+        if training_days < MIN_TRAINING_DAYS {
+            return None;
+        }
+        let mean = daily.iter().sum::<f64>() / daily.len() as f64;
+        if mean <= 0.0 {
+            return None;
+        }
+        let variance = daily.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / daily.len() as f64;
+        let sd = variance.sqrt();
+        if sd <= 0.0 {
+            return None;
+        }
+
+        Some(crate::FfiWeekLoadShape {
+            daily,
+            training_days: training_days as u32,
+            evenness: mean / sd,
+        })
+    }
+
     /// Get weekly comparison: current week + previous week + FTP trend.
     /// Bundles 3 FFI calls into 1 for 3x reduction in FFI overhead (30ms → 10ms).
-    /// Get aggregated zone distribution for a sport type and zone type.
+    /// Aggregated zone distribution for a sport and its family, so a gravel
+    /// ride's seconds reach the chart the athlete filtered to cycling.
     /// zone_type: "power" | "hr"
     pub fn get_zone_distribution(&self, sport_type: &str, zone_type: &str) -> Vec<f64> {
+        let family = crate::sport::sql_list(&crate::sport::family_of(sport_type));
         // Use cached zone columns for 40-100x speedup (was 50-200ms, now 2-5ms)
         let query = if zone_type == "power" {
-            "SELECT
-                COALESCE(SUM(power_z1), 0),
-                COALESCE(SUM(power_z2), 0),
-                COALESCE(SUM(power_z3), 0),
-                COALESCE(SUM(power_z4), 0),
-                COALESCE(SUM(power_z5), 0),
-                COALESCE(SUM(power_z6), 0),
-                COALESCE(SUM(power_z7), 0)
-             FROM activity_metrics WHERE sport_type = ?"
+            format!(
+                "SELECT
+                    COALESCE(SUM(power_z1), 0),
+                    COALESCE(SUM(power_z2), 0),
+                    COALESCE(SUM(power_z3), 0),
+                    COALESCE(SUM(power_z4), 0),
+                    COALESCE(SUM(power_z5), 0),
+                    COALESCE(SUM(power_z6), 0),
+                    COALESCE(SUM(power_z7), 0)
+                 FROM activity_metrics WHERE sport_type IN ({family})"
+            )
         } else if zone_type == "hr" {
-            "SELECT
-                COALESCE(SUM(hr_z1), 0),
-                COALESCE(SUM(hr_z2), 0),
-                COALESCE(SUM(hr_z3), 0),
-                COALESCE(SUM(hr_z4), 0),
-                COALESCE(SUM(hr_z5), 0)
-             FROM activity_metrics WHERE sport_type = ?"
+            format!(
+                "SELECT
+                    COALESCE(SUM(hr_z1), 0),
+                    COALESCE(SUM(hr_z2), 0),
+                    COALESCE(SUM(hr_z3), 0),
+                    COALESCE(SUM(hr_z4), 0),
+                    COALESCE(SUM(hr_z5), 0)
+                 FROM activity_metrics WHERE sport_type IN ({family})"
+            )
         } else {
             return Vec::new();
         };
 
-        match self.db.query_row(query, params![sport_type], |row| {
+        match self.db.query_row(&query, [], |row| {
             if zone_type == "power" {
                 Ok(vec![
                     row.get(0)?,
@@ -103,51 +205,80 @@ impl PersistentRouteEngine {
         }
     }
 
-    /// Get FTP trend: latest and previous FTP values with dates.
+    /// The cycling threshold now and a month ago, from the daily model
+    /// estimate intervals.icu computes.
+    ///
+    /// Not `icu_ftp`: that is the athlete's configured setting, and on a real
+    /// five-year account it holds one value throughout, so a trend read from it
+    /// has no previous value and the delta never renders. The estimate is
+    /// already on the device, in the wellness body's `sportInfo` entry for the
+    /// sport, so this costs no request and no column.
     pub fn get_ftp_trend(&self) -> crate::FfiFtpTrend {
+        self.get_ftp_trend_to(&crate::persistence::wellness::today_iso())
+    }
+
+    /// How far back the comparison reaches. A daily series moves by a watt or
+    /// two a week, so yesterday is noise and a month is a change the athlete
+    /// would recognise.
+    const FTP_LOOKBACK_DAYS: i64 = 30;
+
+    pub fn get_ftp_trend_to(&self, today: &str) -> crate::FfiFtpTrend {
         let default = crate::FfiFtpTrend {
             latest_ftp: None,
             latest_date: None,
             previous_ftp: None,
             previous_date: None,
+            sample_count: 0,
         };
 
-        // Filter to cycling sports only - running/other FTP values are distinct metrics
-        let mut stmt = match self.db.prepare(
-            "SELECT ftp, date FROM ftp_history
-             WHERE sport_type IN ('Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'TrackRide', 'Cyclocross', 'Handcycle', 'Velomobile', 'EBikeRide')
-             ORDER BY date DESC
-             LIMIT 20",
-        ) {
-            Ok(s) => s,
-            Err(_) => return default,
+        // A year of days is 365 rows of JSON, parsed once per call, and the
+        // caller is a screen bundle rather than a loop.
+        let rows = match self.daily_cycling_ftp(today) {
+            Ok(rows) if !rows.is_empty() => rows,
+            _ => return default,
         };
 
-        let rows: Vec<(i32, i64)> = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
-            .ok()
-            .map(|iter| iter.flatten().collect())
-            .unwrap_or_default();
+        let (latest_date, latest_ftp) = rows[rows.len() - 1].clone();
+        let cutoff = day_offset(&latest_date, -Self::FTP_LOOKBACK_DAYS);
 
-        if rows.is_empty() {
-            return default;
-        }
+        // The newest day at or before the cutoff. Nothing that old means the
+        // history is shorter than the window, and one value is not a trend.
+        let previous_at = rows
+            .iter()
+            .rposition(|(date, _)| date.as_str() <= cutoff.as_str());
+        let previous = previous_at.map(|at| &rows[at]);
 
-        let latest_ftp = rows[0].0 as u16;
-        let latest_date = rows[0].1;
-
-        // Find the first row with a different FTP value
-        let previous = rows.iter().find(|(ftp, _)| *ftp as u16 != latest_ftp);
+        // Days from the one compared against to the newest, inclusive. With
+        // nothing to compare against the trend stands on the single day it
+        // holds, which is what the ranker should weigh it as.
+        let sample_count = previous_at.map(|at| rows.len() - at).unwrap_or(1) as u32;
 
         crate::FfiFtpTrend {
             latest_ftp: Some(latest_ftp),
-            latest_date: Some(latest_date),
-            previous_ftp: previous.map(|(ftp, _)| *ftp as u16),
-            previous_date: previous.map(|(_, date)| *date),
+            latest_date: Some(epoch_seconds(&latest_date)),
+            previous_ftp: previous.map(|(_, ftp)| *ftp),
+            previous_date: previous.map(|(date, _)| epoch_seconds(date)),
+            sample_count,
         }
     }
 
-    /// Save a pace (critical speed) snapshot for trend tracking.
+    /// Every stored day that carries a cycling estimate, oldest first.
+    fn daily_cycling_ftp(&self, today: &str) -> rusqlite::Result<Vec<(String, u16)>> {
+        let mut stmt = self.db.prepare(
+            "SELECT date, raw FROM wellness
+             WHERE raw IS NOT NULL AND date <= ?
+             ORDER BY date ASC",
+        )?;
+        let rows = stmt
+            .query_map(params![today], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .flatten()
+            .filter_map(|(date, raw)| cycling_eftp(&raw).map(|ftp| (date, ftp)))
+            .collect();
+        Ok(rows)
+    }
+
     pub fn save_pace_snapshot(
         &self,
         sport_type: &str,
@@ -163,29 +294,29 @@ impl PersistentRouteEngine {
         );
     }
 
-    /// Get pace trend: latest and previous distinct critical speed values with dates.
     pub fn get_pace_trend(&self, sport_type: &str) -> crate::FfiPaceTrend {
         let default = crate::FfiPaceTrend {
             latest_pace: None,
             latest_date: None,
             previous_pace: None,
             previous_date: None,
+            sample_count: 0,
         };
 
-        let mut stmt = match self.db.prepare(
+        let query = format!(
             "SELECT critical_speed, date FROM pace_history
-             WHERE sport_type = ?
+             WHERE sport_type IN ({})
              ORDER BY date DESC
              LIMIT 20",
-        ) {
+            crate::sport::sql_list(&crate::sport::family_of(sport_type))
+        );
+        let mut stmt = match self.db.prepare(&query) {
             Ok(s) => s,
             Err(_) => return default,
         };
 
         let rows: Vec<(f64, i64)> = stmt
-            .query_map(rusqlite::params![sport_type], |row| {
-                Ok((row.get(0)?, row.get(1)?))
-            })
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
             .ok()
             .map(|iter| iter.flatten().collect())
             .unwrap_or_default();
@@ -207,6 +338,7 @@ impl PersistentRouteEngine {
             latest_date: Some(latest_date),
             previous_pace: previous.map(|(speed, _)| *speed),
             previous_date: previous.map(|(_, date)| *date),
+            sample_count: rows.len() as u32,
         }
     }
 
@@ -261,16 +393,17 @@ impl PersistentRouteEngine {
     }
 
     /// Get a calendar-aligned Year > Month performance summary for a section.
-    /// Returns full history (no date range filter).
+    /// Returns full history (no date range filter), for one sport when given.
     pub fn get_section_calendar_summary(
         &mut self,
         section_id: &str,
+        sport_filter: Option<&str>,
     ) -> Option<crate::CalendarSummary> {
         let start = std::time::Instant::now();
         // Reuse get_section_performances - single source of truth for section times.
         // This ensures calendar values match chart PRs exactly (no proportional estimates
-        // for activities without time streams, matching the strict behavior).
-        let perf_result = self.get_section_performances(section_id);
+        // for activities without time streams, matching the strict behaviour).
+        let perf_result = self.get_section_performances_filtered(section_id, sport_filter);
 
         if perf_result.records.is_empty() {
             return None;
@@ -284,7 +417,7 @@ impl PersistentRouteEngine {
             .unwrap_or(0.0);
 
         fn is_reverse_dir(dir: &str) -> bool {
-            matches!(dir, "reverse" | "backward")
+            dir == "reverse"
         }
 
         // Each record has laps with per-direction data. Build per-activity, per-direction entries.
@@ -675,97 +808,6 @@ impl PersistentRouteEngine {
     // Activity Section Highlights (batch PR detection)
     // ========================================================================
 
-    /// Batch-query section highlights (PRs) for a list of activity IDs.
-    /// Now reads from the materialized `activity_indicators` table.
-    /// Kept for backwards compatibility - new code should use `get_activity_indicators()`.
-    pub fn get_activity_section_highlights(
-        &self,
-        activity_ids: &[String],
-    ) -> Vec<crate::FfiActivitySectionHighlight> {
-        if activity_ids.is_empty() {
-            return vec![];
-        }
-
-        // Read from materialized table
-        let indicators = self.get_activity_indicators(activity_ids);
-
-        // Also need start_index/end_index from section_activities for map highlighting
-        let placeholders: String = activity_ids
-            .iter()
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(",");
-        let idx_sql = format!(
-            "SELECT activity_id, section_id, start_index, end_index
-             FROM section_activities
-             WHERE activity_id IN ({}) AND excluded = 0",
-            placeholders
-        );
-
-        let mut idx_map: HashMap<(String, String), (u32, u32)> = HashMap::new();
-        if let Ok(mut stmt) = self.db.prepare(&idx_sql) {
-            let params: Vec<&dyn rusqlite::types::ToSql> = activity_ids
-                .iter()
-                .map(|id| id as &dyn rusqlite::types::ToSql)
-                .collect();
-            if let Ok(rows) = stmt.query_map(params.as_slice(), |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, u32>(2)?,
-                    row.get::<_, u32>(3)?,
-                ))
-            }) {
-                for r in rows.flatten() {
-                    idx_map.insert((r.0, r.1), (r.2, r.3));
-                }
-            }
-        }
-
-        // Convert indicators to the old FfiActivitySectionHighlight format
-        // Merge by (activity_id, section_id) - pick PR over trend, best trend wins
-        let mut highlight_map: HashMap<(String, String), crate::FfiActivitySectionHighlight> =
-            HashMap::new();
-
-        for ind in indicators {
-            // Only section indicators
-            if ind.indicator_type != "section_pr" && ind.indicator_type != "section_trend" {
-                continue;
-            }
-
-            let is_pr = ind.indicator_type == "section_pr";
-            let (start_index, end_index) = idx_map
-                .get(&(ind.activity_id.clone(), ind.target_id.clone()))
-                .copied()
-                .unwrap_or((0, 0));
-
-            let key = (ind.activity_id.clone(), ind.target_id.clone());
-            let entry = highlight_map
-                .entry(key)
-                .or_insert(crate::FfiActivitySectionHighlight {
-                    activity_id: ind.activity_id.clone(),
-                    section_id: ind.target_id.clone(),
-                    section_name: ind.target_name.clone(),
-                    lap_time: ind.lap_time,
-                    is_pr,
-                    trend: ind.trend,
-                    start_index,
-                    end_index,
-                });
-
-            // PR always wins over trend
-            if is_pr && !entry.is_pr {
-                entry.is_pr = true;
-                entry.trend = 1;
-                entry.lap_time = ind.lap_time;
-            } else if !entry.is_pr && ind.trend > entry.trend {
-                entry.trend = ind.trend;
-            }
-        }
-
-        highlight_map.into_values().collect()
-    }
-
     /// Batch-query route highlights for a list of activity IDs.
     /// Computes inline from in-memory groups + activity_metrics - no table read.
     pub fn get_activity_route_highlights(
@@ -895,7 +937,10 @@ impl PersistentRouteEngine {
                     if best_moving_time == u32::MAX {
                         best_moving_time = 0;
                     }
-                    group_cache.insert(cache_key, (best_moving_time, second_best_moving_time, trends));
+                    group_cache.insert(
+                        cache_key,
+                        (best_moving_time, second_best_moving_time, trends),
+                    );
                 }
             }
 
@@ -903,19 +948,30 @@ impl PersistentRouteEngine {
                 group_cache.get(&cache_key)
             {
                 let (trend, _speed, moving_time) = trends.get(aid).copied().unwrap_or((0, 0.0, 0));
+                // The record is beaten, not matched, so this effort is judged
+                // against the best of the others: the second best when it holds
+                // the best itself, and nothing at all when it is alone.
+                let rival = crate::persistence::records::rival_of(
+                    moving_time as f64,
+                    (*best_moving_time > 0).then_some(*best_moving_time as f64),
+                    (*second_best_moving_time != u32::MAX)
+                        .then_some(*second_best_moving_time as f64),
+                );
                 let is_pr =
-                    moving_time > 0 && *best_moving_time > 0 && moving_time == *best_moving_time;
+                    crate::persistence::records::is_personal_record(moving_time as f64, rival);
                 let time_delta_seconds = if moving_time > 0 && *best_moving_time > 0 {
                     Some(moving_time as i32 - *best_moving_time as i32)
                 } else {
                     None
                 };
-                let pr_improvement_seconds =
-                    if is_pr && *second_best_moving_time != u32::MAX && *second_best_moving_time > moving_time {
-                        Some(*second_best_moving_time - moving_time)
-                    } else {
-                        None
-                    };
+                let pr_improvement_seconds = if is_pr
+                    && *second_best_moving_time != u32::MAX
+                    && *second_best_moving_time > moving_time
+                {
+                    Some(*second_best_moving_time - moving_time)
+                } else {
+                    None
+                };
                 results.push(crate::FfiActivityRouteHighlight {
                     activity_id: aid.to_string(),
                     route_id: gid.to_string(),
@@ -931,8 +987,10 @@ impl PersistentRouteEngine {
         results
     }
 
-    /// Get section encounters for an activity: one entry per (section, direction).
-    /// Includes this activity's time, PR status, visit count, and sparkline history.
+    /// Get section encounters for an activity: one entry per
+    /// `(section, direction)`, represented by the activity's fastest pass.
+    /// Includes this activity's time, PR status, visit count, and sparkline
+    /// history. Individual laps are the `FfiSectionLap` surface.
     pub fn get_activity_section_encounters(
         &self,
         activity_id: &str,
@@ -948,7 +1006,9 @@ impl PersistentRouteEngine {
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              WHERE sa.activity_id = ?1 AND sa.excluded = 0 AND {}
-             ORDER BY sa.section_id, sa.direction",
+             ORDER BY sa.section_id, sa.direction,
+                      CASE WHEN sa.lap_time IS NULL OR sa.lap_time <= 0 THEN 1 ELSE 0 END,
+                      sa.lap_time ASC",
             visible_filter
         );
 
@@ -966,7 +1026,7 @@ impl PersistentRouteEngine {
             lap_pace: f64,
         }
 
-        let traversals: Vec<Traversal> = stmt
+        let passes: Vec<Traversal> = stmt
             .query_map(rusqlite::params![activity_id], |row| {
                 Ok(Traversal {
                     section_id: row.get(0)?,
@@ -981,15 +1041,24 @@ impl PersistentRouteEngine {
             .map(|rows| rows.filter_map(|r| r.ok()).collect())
             .unwrap_or_default();
 
+        // Best-timed first, so the first pass of a pair represents it.
+        let mut seen_pairs: HashSet<(String, String)> = HashSet::new();
+        let traversals: Vec<Traversal> = passes
+            .into_iter()
+            .filter(|t| seen_pairs.insert((t.section_id.clone(), t.direction.clone())))
+            .collect();
+
         let mut encounters = Vec::new();
 
         for trav in &traversals {
-            // Get history for this (section, direction): all traversals sorted by activity date
+            // History for this (section, direction), in this activity's sport: a
+            // run's progress over shared ground is its own, not the rides'.
             let history_query =
                 "SELECT sa.lap_time, sa.activity_id, COALESCE(a.start_date, 0) as act_date
                  FROM section_activities sa
-                 LEFT JOIN activities a ON a.id = sa.activity_id
+                 JOIN activities a ON a.id = sa.activity_id
                  WHERE sa.section_id = ?1 AND sa.direction = ?2
+                   AND a.sport_type = (SELECT sport_type FROM activities WHERE id = ?3)
                    AND sa.excluded = 0 AND sa.lap_time IS NOT NULL AND sa.lap_time > 0
                  ORDER BY act_date ASC";
 
@@ -1000,16 +1069,18 @@ impl PersistentRouteEngine {
 
             let mut history_times: Vec<f64> = Vec::new();
             let mut history_ids: Vec<String> = Vec::new();
-            let mut best_time: f64 = f64::MAX;
+            // The best of the outings other than this one. This activity's own
+            // rows are excluded rather than merely out-competed, so a lapped
+            // session cannot manufacture a record against its own laps.
+            let mut rival: Option<f64> = None;
 
-            if let Ok(rows) = hist_stmt
-                .query_map(rusqlite::params![trav.section_id, trav.direction], |row| {
-                    Ok((row.get::<_, f64>(0)?, row.get::<_, String>(1)?))
-                })
-            {
+            if let Ok(rows) = hist_stmt.query_map(
+                rusqlite::params![trav.section_id, trav.direction, activity_id],
+                |row| Ok((row.get::<_, f64>(0)?, row.get::<_, String>(1)?)),
+            ) {
                 for row in rows.flatten() {
-                    if row.0 < best_time {
-                        best_time = row.0;
+                    if row.1 != activity_id && rival.is_none_or(|r| row.0 < r) {
+                        rival = Some(row.0);
                     }
                     history_times.push(row.0);
                     history_ids.push(row.1);
@@ -1017,11 +1088,7 @@ impl PersistentRouteEngine {
             }
             debug_assert_eq!(history_times.len(), history_ids.len());
 
-            // PR tolerance: 0.5% relative - matches route PR detection behavior
-            // and adapts to section length (5s sprint vs 30min climb).
-            let is_pr = trav.lap_time > 0.0
-                && best_time < f64::MAX
-                && ((trav.lap_time - best_time) / best_time).abs() < 0.005;
+            let is_pr = crate::persistence::records::is_personal_record(trav.lap_time, rival);
 
             encounters.push(FfiSectionEncounter {
                 section_id: trav.section_id.clone(),
@@ -1059,4 +1126,320 @@ fn linear_regression(points: &[(f64, f64)]) -> (f64, f64) {
     let slope = (n * sum_xy - sum_x * sum_y) / denom;
     let intercept = (sum_y - slope * sum_x) / n;
     (slope, intercept)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::super::PersistentEngine;
+    use crate::ActivityMetrics;
+
+    fn metric(id: &str, sport: &str, ftp: Option<u16>) -> ActivityMetrics {
+        ActivityMetrics {
+            activity_id: id.to_string(),
+            name: sport.to_string(),
+            date: 1_700_000_000,
+            distance: 40_000.0,
+            moving_time: 3_600,
+            elapsed_time: 3_700,
+            elevation_gain: 400.0,
+            avg_hr: Some(140),
+            avg_power: Some(200),
+            sport_type: sport.to_string(),
+            training_load: None,
+            ftp,
+            power_zone_times: Some(vec![10, 20, 30, 40, 50, 60, 70]),
+            hr_zone_times: Some(vec![11, 22, 33, 44, 55]),
+        }
+    }
+
+    fn engine_with(metrics: Vec<ActivityMetrics>) -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine.set_activity_metrics(metrics).unwrap();
+        engine
+    }
+
+    // Scenario: the zone chart asked for `Ride` and the aggregate matched the
+    // string exactly, so a gravel or e-bike ride's zone seconds never reached
+    // the chart the athlete filtered to cycling.
+    #[test]
+    fn zone_distribution_sums_every_sport_in_the_family() {
+        let engine = engine_with(vec![
+            metric("a1", "Ride", None),
+            metric("a2", "GravelRide", None),
+            metric("a3", "EBikeRide", None),
+            metric("a4", "Run", None),
+        ]);
+
+        assert_eq!(
+            engine.get_zone_distribution("Ride", "power"),
+            vec![30.0, 60.0, 90.0, 120.0, 150.0, 180.0, 210.0]
+        );
+        assert_eq!(
+            engine.get_zone_distribution("Run", "hr"),
+            vec![11.0, 22.0, 33.0, 44.0, 55.0]
+        );
+    }
+
+    #[test]
+    fn zone_distribution_of_an_unknown_sport_is_its_own_rows() {
+        let engine = engine_with(vec![
+            metric("a1", "Ride", None),
+            metric("a2", "Unicycle", None),
+        ]);
+
+        assert_eq!(
+            engine.get_zone_distribution("Unicycle", "hr"),
+            vec![11.0, 22.0, 33.0, 44.0, 55.0]
+        );
+        assert_eq!(
+            engine
+                .get_zone_distribution("Pogo", "hr")
+                .iter()
+                .sum::<f64>(),
+            0.0
+        );
+        assert!(engine.get_zone_distribution("Ride", "cadence").is_empty());
+    }
+
+    /// Every sport in the cycling family carries the same threshold, and a
+    /// running entry on the same day is a different number.
+    #[test]
+    fn ftp_trend_reads_every_cycling_sport_and_no_other() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let day = |date: &str, sport: &str, eftp: f64| {
+            let mut row = wellness_day(date, None);
+            row.raw = Some(
+                serde_json::json!({
+                    "id": date,
+                    "sportInfo": [
+                        {"type": "Run", "eftp": 300.0},
+                        {"type": sport, "eftp": eftp},
+                    ],
+                })
+                .to_string(),
+            );
+            row
+        };
+        engine
+            .upsert_wellness(&[
+                day("2026-08-01", "TrackRide", 240.0),
+                day("2026-09-05", "EBikeRide", 260.0),
+            ])
+            .unwrap();
+
+        let trend = engine.get_ftp_trend_to("2026-09-05");
+        assert_eq!(trend.latest_ftp, Some(260));
+        assert_eq!(trend.previous_ftp, Some(240));
+    }
+
+    /// The configured setting is not the trend. `ftp_history` still holds it
+    /// for the surfaces that mean a setting, and moving it must not move this.
+    #[test]
+    fn the_configured_setting_does_not_reach_the_trend() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let mut older = metric("a1", "Ride", Some(240));
+        older.date = 1_700_000_000;
+        let mut newer = metric("a2", "Ride", Some(300));
+        newer.date = 1_700_100_000;
+        engine.set_activity_metrics(vec![older, newer]).unwrap();
+        engine
+            .upsert_wellness(&[
+                wellness_day("2026-08-01", Some(150.0)),
+                wellness_day("2026-09-05", Some(141.0)),
+            ])
+            .unwrap();
+
+        let trend = engine.get_ftp_trend_to("2026-09-05");
+
+        assert_eq!(
+            trend.latest_ftp,
+            Some(141),
+            "the estimate, not the 300 W setting"
+        );
+        assert_eq!(trend.previous_ftp, Some(150));
+    }
+
+    /// A wellness day carrying the daily model estimate for cycling, which is
+    /// what intervals.icu puts in `sportInfo[].eftp`.
+    fn wellness_day(
+        date: &str,
+        cycling_eftp: Option<f64>,
+    ) -> crate::persistence::wellness::WellnessRow {
+        let raw = cycling_eftp.map(|eftp| {
+            serde_json::json!({
+                "id": date,
+                "sportInfo": [
+                    {"type": "Ride", "eftp": eftp},
+                    {"type": "Run", "eftp": 999.0},
+                ],
+            })
+            .to_string()
+        });
+        crate::persistence::wellness::WellnessRow {
+            date: date.to_string(),
+            ctl: None,
+            atl: None,
+            ramp_rate: None,
+            hrv: None,
+            resting_hr: None,
+            weight: None,
+            sleep_secs: None,
+            sleep_score: None,
+            soreness: None,
+            fatigue: None,
+            stress: None,
+            mood: None,
+            motivation: None,
+            raw,
+        }
+    }
+
+    /// Scenario: `icu_ftp` is the athlete's configured setting, and on a real
+    /// five-year account it holds one value throughout, so a trend read from it
+    /// never has a previous value and the delta never renders. The daily model
+    /// estimate is already on the device in the wellness body and does move.
+    ///
+    /// Expected behaviour: the trend is the daily estimate, newest against the
+    /// same series a month back, and the cycling entry alone.
+    #[test]
+    fn the_ftp_trend_is_the_daily_estimate_and_not_the_setting() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        // A setting that never moves, which is what the old trend read.
+        let mut older = metric("a1", "Ride", Some(155));
+        older.date = 1_700_000_000;
+        let mut newer = metric("a2", "Ride", Some(155));
+        newer.date = 1_700_100_000;
+        engine.set_activity_metrics(vec![older, newer]).unwrap();
+
+        engine
+            .upsert_wellness(&[
+                wellness_day("2026-08-06", Some(148.0)),
+                wellness_day("2026-09-04", Some(143.0)),
+                wellness_day("2026-09-05", Some(141.0)),
+            ])
+            .unwrap();
+
+        let trend = engine.get_ftp_trend_to("2026-09-05");
+
+        assert_eq!(trend.latest_ftp, Some(141), "the newest daily estimate");
+        assert_eq!(
+            trend.previous_ftp,
+            Some(148),
+            "the estimate a month back, not the row before it"
+        );
+    }
+
+    /// A day with no cycling entry is not a cycling estimate, and a running one
+    /// is a different number entirely.
+    #[test]
+    fn the_ftp_trend_ignores_a_day_with_no_cycling_estimate() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .upsert_wellness(&[
+                wellness_day("2026-08-06", Some(150.0)),
+                wellness_day("2026-09-05", None),
+            ])
+            .unwrap();
+
+        let trend = engine.get_ftp_trend_to("2026-09-05");
+
+        assert_eq!(trend.latest_ftp, Some(150));
+        assert_eq!(trend.previous_ftp, None, "one value is not a trend");
+    }
+
+    /// An account with no wellness body has nothing to report, rather than
+    /// falling back to a setting that would read as a fitness change.
+    #[test]
+    fn the_ftp_trend_is_empty_without_a_daily_estimate() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let mut only = metric("a1", "Ride", Some(240));
+        only.date = 1_700_000_000;
+        engine.set_activity_metrics(vec![only]).unwrap();
+
+        let trend = engine.get_ftp_trend_to("2026-09-05");
+
+        assert_eq!(trend.latest_ftp, None);
+        assert_eq!(trend.previous_ftp, None);
+    }
+
+    /// Scenario: the insight ranker weighs how much data a claim stands on, and
+    /// an FTP step measured off three days reads the same as one off thirty.
+    ///
+    /// Expected behaviour: the trend says how many days carried an estimate
+    /// between the two it compared, so the ranker has a population to weigh.
+    #[test]
+    fn the_ftp_trend_reports_the_days_it_compared_across() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .upsert_wellness(&[
+                // Outside the window the comparison reaches back to.
+                wellness_day("2026-07-01", Some(160.0)),
+                wellness_day("2026-08-06", Some(148.0)),
+                wellness_day("2026-08-20", Some(145.0)),
+                wellness_day("2026-09-04", Some(143.0)),
+                wellness_day("2026-09-05", Some(141.0)),
+            ])
+            .unwrap();
+
+        let trend = engine.get_ftp_trend_to("2026-09-05");
+
+        assert_eq!(trend.previous_ftp, Some(148), "the estimate a month back");
+        assert_eq!(
+            trend.sample_count, 4,
+            "the days from the one it compared against to the newest, inclusive"
+        );
+    }
+
+    /// A trend with nothing to compare against stands on the one day it has.
+    #[test]
+    fn a_trend_with_no_earlier_estimate_counts_only_what_it_holds() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .upsert_wellness(&[wellness_day("2026-09-05", Some(150.0))])
+            .unwrap();
+
+        let trend = engine.get_ftp_trend_to("2026-09-05");
+
+        assert_eq!(trend.previous_ftp, None, "one value is not a trend");
+        assert_eq!(trend.sample_count, 1, "and it is one value");
+    }
+
+    /// An account with nothing stored counts nothing, rather than one.
+    #[test]
+    fn an_empty_ftp_trend_counts_nothing() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        assert_eq!(engine.get_ftp_trend_to("2026-09-05").sample_count, 0);
+    }
+
+    /// The pace trend stands on its snapshots the same way.
+    #[test]
+    fn the_pace_trend_reports_the_snapshots_behind_it() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine.save_pace_snapshot("Run", 3.0, None, None, 1_700_000_000);
+        engine.save_pace_snapshot("Run", 3.2, None, None, 1_700_100_000);
+        engine.save_pace_snapshot("Run", 3.5, None, None, 1_700_200_000);
+
+        assert_eq!(engine.get_pace_trend("Run").sample_count, 3);
+        assert_eq!(
+            engine.get_pace_trend("Pogo").sample_count,
+            0,
+            "a sport with no history stands on nothing"
+        );
+    }
+
+    // The pace trend was keyed on `Run` alone, so a snapshot saved for a trail
+    // run was invisible to the running trend.
+    #[test]
+    fn pace_trend_reads_every_sport_in_the_family() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine.save_pace_snapshot("TrailRun", 3.0, None, None, 1_700_000_000);
+        engine.save_pace_snapshot("Run", 3.5, None, None, 1_700_100_000);
+        engine.save_pace_snapshot("Swim", 1.2, None, None, 1_700_200_000);
+
+        let trend = engine.get_pace_trend("Run");
+        assert_eq!(trend.latest_pace, Some(3.5));
+        assert_eq!(trend.previous_pace, Some(3.0));
+        assert_eq!(engine.get_pace_trend("Swim").latest_pace, Some(1.2));
+        assert!(engine.get_pace_trend("Pogo").latest_pace.is_none());
+    }
 }

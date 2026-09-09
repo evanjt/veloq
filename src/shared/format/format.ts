@@ -5,6 +5,8 @@
  * across the application. Handles localization and unit conversion.
  */
 
+import { I18nManager } from 'react-native';
+
 import { i18n, getCurrentLanguage } from '@/i18n';
 
 // Unit conversion constants
@@ -143,6 +145,28 @@ export function formatDurationHuman(seconds: number): string {
   const hrs = Math.floor(mins / 60);
   const remainingMins = mins % 60;
   return remainingMins > 0 ? `${hrs}h ${remainingMins}m` : `${hrs}h`;
+}
+
+/**
+ * Format duration where the space is tight: "1h30", "1h", "45m". Distinct
+ * from `formatDurationHuman`, which spaces its parts out.
+ */
+export function formatDurationCompact(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '0m';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) return minutes > 0 ? `${hours}h${String(minutes).padStart(2, '0')}` : `${hours}h`;
+  return `${minutes}m`;
+}
+
+/**
+ * Duration for a row that renders nothing when there is no time. A missing or
+ * unusable value answers null rather than `formatDuration`'s "0:00", so the
+ * caller can leave the slot empty instead of showing a zero it does not mean.
+ */
+export function formatDurationOrNull(seconds: number | null): string | null {
+  if (seconds === null || !Number.isFinite(seconds)) return null;
+  return formatDuration(seconds);
 }
 
 /**
@@ -427,6 +451,25 @@ export function formatShortDateWithWeekday(date: Date | string): string {
 }
 
 /**
+ * Short date carrying a two-digit year (e.g., "Jan 15 '24"). Charts and
+ * tooltips need it because their data spans years.
+ */
+export function formatShortDateWithYear(date: Date): string {
+  return `${formatShortDate(date)} '${date.getFullYear().toString().slice(-2)}`;
+}
+
+/**
+ * An axis tick: "Jan '24", or "Jan 15 '24" when the ticks are close enough
+ * together to need the day. Month before day whatever the locale, because the
+ * ticks have to read in one order across the axis.
+ */
+export function formatAxisDate(date: Date, includeDay: boolean): string {
+  const month = date.toLocaleDateString(getIntlLocale(), { month: 'short' });
+  const year = date.getFullYear().toString().slice(-2);
+  return includeDay ? `${month} ${date.getDate()} '${year}` : `${month} '${year}`;
+}
+
+/**
  * Format month only (e.g., "Jan")
  */
 export function formatMonth(date: Date | string): string {
@@ -435,16 +478,6 @@ export function formatMonth(date: Date | string): string {
   return d.toLocaleDateString(locale, { month: 'short' });
 }
 
-/**
- * Format date range (e.g., "Jan 2 - Jan 9")
- */
-export function formatDateRange(start: Date | string, end: Date | string): string {
-  return `${formatShortDate(start)} - ${formatShortDate(end)}`;
-}
-
-/**
- * Format full date with year (e.g., "Jan 2, 2024")
- */
 export function formatFullDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const locale = getIntlLocale();
@@ -496,14 +529,6 @@ export function formatLocalDate(date: Date): string {
 }
 
 /**
- * Number of days between a Unix epoch timestamp (in seconds) and now.
- * Handles both number and bigint (from Rust FFI).
- */
-export function daysSinceEpoch(epochSeconds: number | bigint): number {
-  return Math.floor((Date.now() - Number(epochSeconds) * 1000) / 86400000);
-}
-
-/**
  * Clamp a value between min and max bounds
  */
 export function clamp(value: number, min: number, max: number): number {
@@ -516,6 +541,27 @@ export interface PerformanceDelta {
 }
 
 /**
+ * Isolate a numeric run so its sign stays with its digits.
+ *
+ * A signed number is weak and neutral characters only, so under a right-to-left
+ * paragraph the bidirectional algorithm resolves the sign from the paragraph and
+ * renders it after the digits: -0.2 % reads as % 0.2-. An isolate gives the run
+ * its own direction, which first-strong resolves to left-to-right for digits,
+ * and the surrounding text still mirrors.
+ *
+ * Left-to-right output is returned untouched, so nothing that ships today moves.
+ *
+ * @example
+ * ```ts
+ * isolateNumeric('-0.2'); // "-0.2" left to right, "\u2068-0.2\u2069" right to left
+ * ```
+ */
+export function isolateNumeric(text: string): string {
+  if (!text || !I18nManager.isRTL) return text;
+  return `\u2068${text}\u2069`;
+}
+
+/**
  * Format a time delta as a signed duration string (e.g., "+1:30", "-45s").
  * Returns null if the delta is less than 1 second.
  */
@@ -525,9 +571,9 @@ export function formatTimeDelta(deltaSeconds: number): string | null {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   const sign = deltaSeconds > 0 ? '+' : '-';
-  return minutes > 0
-    ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
-    : `${sign}${seconds}s`;
+  return isolateNumeric(
+    minutes > 0 ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}` : `${sign}${seconds}s`
+  );
 }
 
 /**

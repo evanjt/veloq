@@ -1,11 +1,16 @@
-import { INSIGHTS_CONFIG } from '@/features/insights/lib/config';
 import type { Insight } from '@/types';
 
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
 import { buildStrengthBalancePairs, buildStrengthProgression } from '../lib/analysis';
 import { formatSetCount } from '../lib/formatting';
-import type { StrengthBalancePair, StrengthProgressPoint, StrengthSummary } from '../types';
+import type {
+  StrengthBalancePair,
+  StrengthProgression,
+  StrengthProgressPoint,
+  StrengthSummary,
+} from '../types';
 import { colors } from '@/theme';
+import { INSIGHTS_CONFIG, confidenceFrom } from '@/features/insights/lib/config';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
@@ -33,18 +38,20 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
     id: `strength_balance-${pair.id}`,
     category: 'strength_balance',
     priority: pair.status === 'watch' ? 3 : 2,
+    // The sets on both sides are the whole population: a ratio from two sets
+    // says far less about a habit than the same ratio from twenty.
+    confidence: confidenceFrom('strength_balance', pair.leftWeightedSets + pair.rightWeightedSets),
     title,
     subtitle: `${pair.leftLabel} ${formatSetCount(pair.leftWeightedSets)} · ${pair.rightLabel} ${formatSetCount(pair.rightWeightedSets)}`,
     body,
     icon: 'scale-balance',
     iconColor: pair.status === 'watch' ? colors.warning : colors.error,
-    navigationTarget: '/routes?tab=strength',
+    navigationTarget: '/insights?tab=strength',
     timestamp: now,
     isNew: false,
     meta: {
       sourceTimestamp: now,
       comparisonKind: 'self',
-      specificity: { hasNumber: true, hasPlace: false, hasDate: false },
     },
     supportingData: {
       dataPoints: [
@@ -76,6 +83,21 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
       formula: t('insights.strengthBalance.ratioFormula'),
     },
   };
+}
+
+/**
+ * Signal-to-noise delta for R6: how far the recent average sits from the
+ * baseline, measured in weekly standard deviations. Ranking progressions on
+ * this is what lets the shared pipeline choose between muscles.
+ */
+function progressionSignalDelta(progression: StrengthProgression): number | undefined {
+  const sets = progression.points.map((point) => point.weightedSets);
+  if (sets.length < 2) return undefined;
+  const mean = sets.reduce((sum, value) => sum + value, 0) / sets.length;
+  const variance = sets.reduce((sum, value) => sum + (value - mean) ** 2, 0) / sets.length;
+  const stddev = Math.sqrt(variance);
+  if (stddev === 0) return undefined;
+  return Math.abs(progression.recentAverage - progression.baselineAverage) / stddev;
 }
 
 function buildStrengthProgressionInsight(
@@ -116,6 +138,13 @@ function buildStrengthProgressionInsight(
     id: `strength_progression-${muscleSlug}`,
     category: 'strength_progression',
     priority: 3,
+    // The weeks with any volume in them, not every week in the window: a
+    // fortnight of training does not become six weeks of evidence by sitting
+    // inside a six-week window.
+    confidence: confidenceFrom(
+      'strength_progression',
+      progression.points.filter((point) => point.weightedSets > 0).length
+    ),
     title,
     subtitle:
       progression.changePct == null
@@ -126,17 +155,13 @@ function buildStrengthProgressionInsight(
     body,
     icon: progression.trend === 'up' ? 'arm-flex-outline' : 'dumbbell',
     iconColor: progression.trend === 'up' ? colors.success : colors.warning,
-    navigationTarget: '/routes?tab=strength',
+    navigationTarget: '/insights?tab=strength',
     timestamp: now,
     isNew: false,
     meta: {
       sourceTimestamp: now,
       comparisonKind: 'self',
-      specificity: {
-        hasNumber: true,
-        hasPlace: false,
-        hasDate: true,
-      },
+      signalDelta: progressionSignalDelta(progression),
     },
     supportingData: {
       dataPoints: [
@@ -213,6 +238,7 @@ function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number, t: 
     id: 'strength_snapshot',
     category: 'strength_progression',
     priority: 4,
+    confidence: confidenceFrom('strength_progression', summary.activityCount),
     title: t('insights.strengthSnapshot.title', { count: summary.activityCount }),
     subtitle,
     body: t('insights.strengthSnapshot.body', {
@@ -221,13 +247,12 @@ function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number, t: 
     }),
     icon: 'dumbbell',
     iconColor: colors.gray500,
-    navigationTarget: '/routes?tab=strength',
+    navigationTarget: '/insights?tab=strength',
     timestamp: now,
     isNew: false,
     meta: {
       sourceTimestamp: now,
       comparisonKind: 'self',
-      specificity: { hasNumber: true, hasPlace: false, hasDate: false },
     },
     supportingData: {
       dataPoints: [
@@ -273,41 +298,31 @@ export function generateStrengthInsights(
     insights.push(buildStrengthBalanceInsight(balancePair, now, t));
   }
 
-  const progressionCandidates = monthlySummary.muscleVolumes
-    .map((muscle) => {
-      const points = weeklySummaries.map((summary, index) => {
-        const point = summary.muscleVolumes.find((entry) => entry.slug === muscle.slug);
-        return {
-          label:
-            index === weeklySummaries.length - 1
-              ? t('insights.strengthProgression.thisWeek')
-              : t('insights.strengthProgression.weeksAgo', {
-                  n: weeklySummaries.length - 1 - index,
-                }),
-          startTs: 0,
-          endTs: 0,
-          weightedSets: point?.weightedSets ?? 0,
-          activityCount: summary.activityCount,
-        };
-      });
-      const insight = buildStrengthProgressionInsight(
-        muscle.slug,
-        muscle.weightedSets,
-        points,
-        now,
-        t
-      );
-      const progression = buildStrengthProgression(muscle.slug, points);
-      const score =
-        progression.changePct == null ? progression.recentAverage : Math.abs(progression.changePct);
-      return insight ? { insight, score } : null;
-    })
-    .filter((candidate): candidate is { insight: Insight; score: number } => candidate != null)
-    .sort((a, b) => b.score - a.score);
-
-  if (progressionCandidates.length > 0) {
-    insights.push(progressionCandidates[0].insight);
+  for (const muscle of monthlySummary.muscleVolumes) {
+    const points = weeklySummaries.map((summary, index) => {
+      const point = summary.muscleVolumes.find((entry) => entry.slug === muscle.slug);
+      return {
+        label:
+          index === weeklySummaries.length - 1
+            ? t('insights.strengthProgression.thisWeek')
+            : t('insights.strengthProgression.weeksAgo', {
+                n: weeklySummaries.length - 1 - index,
+              }),
+        startTs: 0,
+        endTs: 0,
+        weightedSets: point?.weightedSets ?? 0,
+        activityCount: summary.activityCount,
+      };
+    });
+    const insight = buildStrengthProgressionInsight(
+      muscle.slug,
+      muscle.weightedSets,
+      points,
+      now,
+      t
+    );
+    if (insight) insights.push(insight);
   }
 
-  return insights.sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
+  return insights;
 }

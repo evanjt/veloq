@@ -1,4 +1,5 @@
 import React from 'react';
+import { curveHeaderValue } from '@/features/fitness/lib/curveHeaderValue';
 import { View, StyleSheet } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +9,7 @@ import { ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/feature
 import { useTheme } from '@/shared/app';
 import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
 import { formatPaceCompact } from '@/shared/format/format';
-import { TIME_RANGES } from '@/shared/app/constants';
+import { PERIOD_LABEL_KEYS } from '@/shared/app/period';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { type TimeRange } from '@/features/wellness';
 import type { ZoneDistribution, eFTPPoint, ActivityStreams } from '@/types';
@@ -32,7 +33,6 @@ interface FitnessTrendSectionsProps {
   // Running thresholds
   thresholdPace: number | undefined;
   runLthr: number | undefined;
-  runMaxHr: number | undefined;
   // Decoupling (cycling)
   decouplingStreams: ActivityStreams | undefined;
   decouplingValue: { value: number; isGood: boolean } | null;
@@ -67,6 +67,15 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
+  // The chart below plots `eftpHistory`, so the header states a number only
+  // when that series has one. A row that offers a figure its own chart calls
+  // "no data" is worse than an empty row.
+  const headerFtp = curveHeaderValue({
+    value: currentFTP,
+    hasSeries: (eftpHistory?.length ?? 0) > 0,
+    isLoading: loadingActivities && !hasActivities,
+  });
+
   return (
     <>
       {/* Training Zones Section */}
@@ -98,7 +107,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                     <ZoneDistributionChart
                       data={powerZones}
                       type="power"
-                      periodLabel={TIME_RANGES.find((r) => r.id === timeRange)?.label || '3M'}
+                      periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
                     />
                   </View>
                 )}
@@ -106,7 +115,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                   <ZoneDistributionChart
                     data={hrZones}
                     type="hr"
-                    periodLabel={TIME_RANGES.find((r) => r.id === timeRange)?.label || '3M'}
+                    periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
                   />
                 </View>
               </>
@@ -126,10 +135,10 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             onToggle={onTrendsToggle}
             estimatedHeight={220}
             headerRight={
-              currentFTP ? (
+              headerFtp ? (
                 <View style={styles.headerValueRow}>
                   <Text style={[styles.headerValue, { color: SPORT_COLORS.Cycling }]}>
-                    {currentFTP}w
+                    {headerFtp}w
                   </Text>
                   {ftpTrend && ftpTrend !== 'stable' && (
                     <MaterialCommunityIcons

@@ -1,31 +1,26 @@
 /**
- * Hook for managing activity bounds cache and sync state.
- * The Rust engine handles activity storage and spatial indexing.
- * This hook provides sync progress tracking and cache control functions.
+ * Hook for managing the activity bounds cache.
+ *
+ * The Rust engine handles activity storage and spatial indexing, so there is
+ * no bounds pass here to report progress on. What is left is the count, the
+ * engine's own date range, and the cache controls.
  */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { clearAllGpsTracks, clearBoundsCache } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
-import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
+import { getEngine, getRouteDbPath } from '@/shared/native/engine';
+import { useEngineReady } from '@/shared/native/useEngineReady';
+import { withDatabaseSnapshot } from '@/features/settings/lib/clearSnapshot';
 import { formatLocalDate } from '@/shared/format/format';
-
-export interface SyncProgress {
-  completed: number;
-  total: number;
-  status: 'idle' | 'loading' | 'syncing' | 'complete' | 'error';
-  message?: string;
-}
+import { runDerivedClear } from '@/shared/native/engineClears';
 
 interface CacheStats {
   /** Total number of cached activities in the Rust engine */
   totalActivities: number;
   /** Last sync timestamp */
   lastSync: string | null;
-  /** Whether background sync is running */
-  isSyncing: boolean;
   /** Oldest activity date in cache (ISO string) */
   oldestDate: string | null;
   /** Newest activity date in cache (ISO string) */
@@ -33,8 +28,6 @@ interface CacheStats {
 }
 
 interface UseActivityBoundsCacheReturn {
-  /** Current sync progress */
-  progress: SyncProgress;
   /** Whether engine data is available */
   isReady: boolean;
   /** Expand sync date range (triggers GlobalDataSync to fetch more data) */
@@ -52,38 +45,27 @@ interface UseActivityBoundsCacheReturn {
  * Activity data is now provided by useEngineMapActivities hook.
  */
 export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
-  const [progress, setProgress] = useState<SyncProgress>({
-    completed: 0,
-    total: 0,
-    status: 'idle',
-  });
-
-  // Initialize activity count and date range synchronously from engine
-  const [activityCount, setActivityCount] = useState(() => {
+  // One stats read covers both the count and the persisted date range.
+  const initialStats = useMemo(() => {
     try {
-      const engine = getRouteEngine();
-      return engine ? engine.getActivityCount() : 0;
+      return getEngine()?.getStats() ?? null;
     } catch {
-      return 0;
+      return null;
     }
-  });
+  }, []);
+
+  const [activityCount, setActivityCount] = useState(() => initialStats?.activityCount ?? 0);
 
   // Track engine's actual date range (from persisted data)
   const [engineDateRange, setEngineDateRange] = useState<{
     oldest: string | null;
     newest: string | null;
   }>(() => {
-    try {
-      const engine = getRouteEngine();
-      const stats = engine?.getStats();
-      if (stats?.oldestDate && stats?.newestDate) {
-        return {
-          oldest: formatLocalDate(new Date(Number(stats.oldestDate) * 1000)),
-          newest: formatLocalDate(new Date(Number(stats.newestDate) * 1000)),
-        };
-      }
-    } catch {
-      // Ignore
+    if (initialStats?.oldestDate && initialStats?.newestDate) {
+      return {
+        oldest: formatLocalDate(new Date(Number(initialStats.oldestDate) * 1000)),
+        newest: formatLocalDate(new Date(Number(initialStats.newestDate) * 1000)),
+      };
     }
     return { oldest: null, newest: null };
   });
@@ -99,9 +81,10 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   // empty. Using activityCount as the readiness gate strands new/cleared
   // installs on a perpetual "Loading activities..." screen because the
   // count never climbs above zero until a sync completes.
-  const [isSubscribed, setIsSubscribed] = useState(() => getRouteEngine() !== null);
+  const [isSubscribed, setIsSubscribed] = useState(() => getEngine() !== null);
 
   // Track mount state to prevent setState after unmount
+  const engine = useEngineReady();
   const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
@@ -110,15 +93,18 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     };
   }, []);
 
-  // Subscribe to Rust engine activity changes - retry if engine not ready on mount
+  // Subscribe to Rust engine activity changes. `useEngineReady` re-renders on
+  // the ready nonce, so an engine that opens after this mounts arrives here as
+  // a dependency change rather than through a poll of its own.
   useEffect(() => {
+    if (!engine) return undefined;
     let cancelled = false;
     let unsubscribe: (() => void) | null = null;
 
     // Helper to update both count and date range from engine stats
     const updateFromEngine = () => {
       if (cancelled || !isMountedRef.current) return;
-      const eng = getRouteEngine();
+      const eng = getEngine();
       if (!eng) {
         setActivityCount(0);
         setEngineDateRange({ oldest: null, newest: null });
@@ -136,50 +122,30 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       }
     };
 
-    function trySubscribe(): boolean {
-      const engine = getRouteEngine();
-      if (!engine) return false;
+    updateFromEngine();
+    if (isMountedRef.current) setIsSubscribed(true);
 
+    unsubscribe = engine.subscribe('activities', () => {
+      if (!isMountedRef.current) return;
       updateFromEngine();
-      if (isMountedRef.current) setIsSubscribed(true);
-
-      unsubscribe = engine.subscribe('activities', () => {
-        if (!isMountedRef.current) return;
-        updateFromEngine();
-      });
-      return true;
-    }
-
-    if (!trySubscribe()) {
-      const interval = setInterval(() => {
-        if (trySubscribe()) {
-          clearInterval(interval);
-        }
-      }, 200);
-      return () => {
-        cancelled = true;
-        clearInterval(interval);
-        unsubscribe?.();
-      };
-    }
+    });
 
     return () => {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [engineGeneration]); // Re-subscribe when engine is destroyed and re-created
+  }, [engine, engineGeneration]); // Re-subscribe when engine is destroyed and re-created
 
   // Cache statistics from engine (date range from engine's actual data)
   const cacheStats: CacheStats = useMemo(() => {
     return {
       totalActivities: activityCount,
       lastSync: lastSyncTimestamp,
-      isSyncing: progress.status === 'syncing',
       // Use engine's actual date range - represents what's actually cached
       oldestDate: engineDateRange.oldest,
       newestDate: engineDateRange.newest,
     };
-  }, [activityCount, progress.status, lastSyncTimestamp, engineDateRange]);
+  }, [activityCount, lastSyncTimestamp, engineDateRange]);
 
   // Expand the global sync date range
   const expandRange = useSyncDateRange((s) => s.expandRange);
@@ -192,32 +158,30 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   );
 
   const clearCache = useCallback(async () => {
-    // Destroy and re-init engine to get a clean state.
-    // DO NOT use engine.clear() - it corrupts sub-objects (strength() returns null).
-    const engine = getRouteEngine();
-    if (engine) {
-      const dbPath = getRouteDbPath();
-      engine.destroyEngine();
-      if (dbPath) {
-        const ok = engine.initWithPath(dbPath);
-        if (!ok) {
-          // Surface the failure banner and its retry, same as the root
-          // layout's init path, otherwise the app silently runs with a
-          // dead engine until restart.
-          const { useEngineStatus } = require('@/features/routes/stores/EngineStatusStore');
-          useEngineStatus.getState().setInitFailed(true);
-        } else if (isHeatmapEnabled()) {
-          // Re-enable heatmap tiles if setting is on (init doesn't do this automatically)
-          engine.enableHeatmapTiles();
-        }
-      }
+    // The engine's own clear: a positive predicate spares every section the
+    // athlete made, so nothing here needs a list of tables to keep. A rollback
+    // copy stands beside the database until it lands, and the re-cut that
+    // follows rebuilds the catalogue the clear removed.
+    const engine = getEngine();
+    const dbPath = getRouteDbPath();
+    if (engine && dbPath) {
+      await withDatabaseSnapshot(engine, dbPath, async () => {
+        // 734 ms on a full library, the worst of the three wipes. It runs on a
+        // Rust thread and this waits for it, so the re-detect below still
+        // follows the wipe and the spinner this button already shows covers
+        // the wait instead of the frame being dropped.
+        await runDerivedClear(engine);
+        engine.forceRedetectSections();
+      });
     }
 
     // Clear FileSystem caches (GPS tracks and bounds)
     await Promise.all([clearAllGpsTracks(), clearBoundsCache()]);
 
-    setActivityCount(0);
-    setEngineDateRange({ oldest: null, newest: null });
+    // Do not write the count and range down by hand. What survived a clear is
+    // the engine's answer, not this hook's assumption, and a clear that half
+    // failed must show what is really still there. The re-subscription below
+    // re-reads both, so the display follows the database rather than leading it.
     // Force engine re-subscription since destroy+reinit breaks the old subscription
     setEngineGeneration((g) => g + 1);
   }, []);
@@ -234,7 +198,6 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   );
 
   return {
-    progress,
     isReady: isSubscribed,
     syncDateRange,
     clearCache,

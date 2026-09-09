@@ -31,7 +31,7 @@ export interface ApiActivity {
   weighted_average_watts: number | null;
   icu_hr_zones: number[];
   icu_power_zones: number[];
-  icu_zone_times: Array<{ id: string; secs: number }> | null;
+  icu_zone_times: { id: string; secs: number }[] | null;
   stream_types: string[];
   locality: string | null;
   country: string | null;
@@ -45,12 +45,12 @@ export interface ApiWellness {
   rampRate: number;
   ctlLoad: number;
   atlLoad: number;
-  sportInfo: Array<{
+  sportInfo: {
     type: string;
     eftp: number;
     wPrime: number;
     pMax: number;
-  }>;
+  }[];
   weight: number | null;
   restingHR: number | null;
   hrv: number | null;

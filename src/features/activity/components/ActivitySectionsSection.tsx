@@ -18,17 +18,22 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { SectionInlinePlot } from './SectionInlinePlot';
 import { findRowIndexAtPageY } from './scrubHitTest';
-import { DataRangeFooter, getSectionStyle } from '@/features/routes';
+import { DataRangeFooter } from '@/features/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { CHART_CONFIG } from '@/constants';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { getAllSectionDisplayNames } from '@/features/routes/hooks/useUnifiedSections';
+import { getEngine } from '@/shared/native/engine';
+import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
-import { colors, darkColors, spacing, shadows } from '@/theme';
+import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('ActivitySectionsSection');
 
 interface ActivitySectionsSectionProps {
   activityId: string;
+  /** The activity's sport. Lap units follow it, not the section's label. */
+  sportType?: string;
   encounters: SectionEncounter[];
   coordinates: { latitude: number; longitude: number }[];
   isDark: boolean;
@@ -53,6 +58,7 @@ interface ActivitySectionsSectionProps {
 
 export const ActivitySectionsSection = React.memo(function ActivitySectionsSection({
   activityId,
+  sportType,
   encounters,
   coordinates,
   isDark,
@@ -62,6 +68,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   highlightedSectionId,
   onHighlightedSectionIdChange,
   onSectionCreationModeChange,
+  // Swipe-to-delete is styled (deleteSwipeAction) but not yet rendered.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   removeSection,
   scanMatches,
   isScanning,
@@ -121,9 +129,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       swipeable?.close();
 
       if (isCurrentlyDisabled) {
-        getRouteEngine()?.enableSection(sectionId);
+        getEngine()?.enableSection(sectionId);
       } else {
-        getRouteEngine()?.disableSection(sectionId);
+        getEngine()?.disableSection(sectionId);
       }
     },
     []
@@ -214,7 +222,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       if (idx === null) {
         if (!nullMatchLoggedRef.current) {
           nullMatchLoggedRef.current = true;
-          console.log('[scrub] no-match pageY=', Math.round(pageY));
+          log.log('[scrub] no-match pageY=', Math.round(pageY));
         }
         return null;
       }
@@ -269,7 +277,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       const row = findRowAtPageY(pageY);
       const rowKey = row?.rowKey ?? null;
       if (rowKey !== lastLoggedRowRef.current) {
-        console.log('[scrub] move → row', rowKey, 'pageY=', Math.round(pageY));
+        log.log('[scrub] move → row', rowKey, 'pageY=', Math.round(pageY));
         lastLoggedRowRef.current = rowKey;
       }
       if (row) applyRow(row);
@@ -283,7 +291,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   );
 
   const handleScrubEnd = useCallback(() => {
-    console.log('[scrub] end');
+    log.log('[scrub] end');
     lastLoggedRowRef.current = null;
     nullMatchLoggedRef.current = false;
     stopAutoScroll();
@@ -307,7 +315,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       // scrolled since mount. Single measureInWindow round-trip, not one per row.
       remeasureFirstRow().then(() => {
         const row = findRowAtPageY(pageY);
-        console.log(
+        log.log(
           '[scrub] onStart pageY=',
           Math.round(pageY),
           'firstRowTopY=',
@@ -408,7 +416,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // FlatList render item
   const renderEncounterItem = useCallback(
     ({ item, index }: { item: SectionEncounter; index: number }) => {
-      const style = getSectionStyle(index);
       const rowKey = `${item.sectionId}-${item.direction}`;
       // When scrubbing we know the exact row under the finger (rowKey); fall
       // back to sectionId comparison when the highlight comes from elsewhere
@@ -420,8 +427,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         <SectionInlinePlot
           encounter={item}
           activityId={activityId}
+          sportType={sportType}
           index={index}
-          style={style}
           isHighlighted={isHighlighted}
           isDark={isDark}
           isMetric={isMetric}
@@ -436,6 +443,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     },
     [
       activityId,
+      sportType,
       highlightedRowKey,
       highlightedSectionId,
       isDark,
@@ -540,7 +548,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         </View>
       );
     },
-    [isDark, isMetric, isScanning, handleRematch, sectionDisplayNames, coordinates]
+    [isDark, isMetric, isScanning, handleRematch, sectionDisplayNames, coordinates, activityId, t]
   );
 
   // Render footer for section list
@@ -678,14 +686,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   emptyStateTitle: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginTop: spacing.md,
     textAlign: 'center',
   },
   emptyStateDescription: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.sm,
     textAlign: 'center',
@@ -702,7 +710,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 24,
+    borderRadius: layout.borderRadiusLg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     marginHorizontal: spacing.md,
@@ -716,7 +724,7 @@ const styles = StyleSheet.create({
   },
   createSectionButtonText: {
     color: colors.textOnPrimary,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
   swipeAction: {
@@ -732,7 +740,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   swipeActionText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textOnDark,
   },
@@ -753,7 +761,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusXl,
     borderWidth: 1,
     borderColor: colors.primary,
   },
@@ -761,7 +769,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   scanButtonText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.primary,
   },
@@ -778,7 +786,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
   },
   scanLinkText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.primary,
     fontWeight: '500',
   },
@@ -791,7 +799,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   scanningText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
   // Scan results
@@ -800,7 +808,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   scanResultsTitle: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -811,7 +819,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     marginBottom: spacing.sm,
@@ -824,23 +832,23 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   scanMatchName: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
   scanMatchMeta: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
   addMatchButton: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     backgroundColor: colors.primary,
   },
   addMatchButtonText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textOnPrimary,
   },
@@ -850,7 +858,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   scanNoResultsText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
 });

@@ -1,21 +1,31 @@
 import { useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
 import { decodeCoords } from 'veloqrs';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { calculateSpeed } from '@/shared/math';
+import type { ActivityMetrics, FfiMapSignature } from 'veloqrs';
 import type { Activity, ActivityType, FrequentSection, RoutePoint } from '@/types';
+
+/** Metrics and signatures the screen bundle already read. */
+export interface PreComputedSectionActivityData {
+  activityMetrics: ActivityMetrics[];
+  mapSignatures: FfiMapSignature[];
+}
 
 export function useSectionActivityData(
   section: FrequentSection | null,
-  selectedSportType: string | undefined
+  selectedSportType: string | undefined,
+  bundle: PreComputedSectionActivityData
 ) {
+  // Held as locals so each memo keys on the bundle's own array, not the
+  // wrapper literal the screen rebuilds every render.
+  const bundledMetrics = bundle.activityMetrics;
+  const bundledSignatures = bundle.mapSignatures;
+
   // Get section activities from engine metrics (no API call needed).
   // Activities are already cached in the Rust engine's in-memory HashMap.
   const sectionActivitiesUnsorted = useMemo(() => {
     if (!section?.activityIds?.length) return [];
-    const engine = getRouteEngine();
-    if (!engine) return [];
-    return engine.getActivityMetricsForIds(section.activityIds).map(
+    return bundledMetrics.map(
       (m): Activity => ({
         id: m.activityId,
         name: m.name,
@@ -30,17 +40,14 @@ export function useSectionActivityData(
         average_heartrate: m.avgHr ?? undefined,
       })
     );
-  }, [section?.activityIds]);
+  }, [section?.activityIds, bundledMetrics]);
 
   // Load simplified GPS signatures for activity trace display during chart scrubbing
   const allActivityTraces = useMemo((): Record<string, RoutePoint[]> | undefined => {
     if (!section?.activityIds?.length) return undefined;
     try {
-      const engine = getRouteEngine();
-      if (!engine) return undefined;
-      const sigs = engine.getMapSignaturesForIds(section.activityIds);
       const result: Record<string, RoutePoint[]> = {};
-      for (const sig of sigs) {
+      for (const sig of bundledSignatures) {
         const decoded = decodeCoords(sig.encodedCoords);
         if (decoded.length < 2) continue;
         const points: RoutePoint[] = decoded.map((p) => ({ lat: p.latitude, lng: p.longitude }));
@@ -50,7 +57,7 @@ export function useSectionActivityData(
     } catch {
       return undefined;
     }
-  }, [section?.activityIds]);
+  }, [section?.activityIds, bundledSignatures]);
 
   // Compute available sport types with activity counts for cross-sport sections.
   // Derived from the metrics already fetched for sectionActivitiesUnsorted to
@@ -67,7 +74,7 @@ export function useSectionActivityData(
     return Array.from(counts.entries())
       .map(([type, count]) => ({ type, count }))
       .sort((a, b) => b.count - a.count);
-  }, [section?.sportType, section?.activityIds, sectionActivitiesUnsorted]);
+  }, [section, sectionActivitiesUnsorted]);
 
   const availableSportTypes = useMemo(() => sportTypeCounts.map((s) => s.type), [sportTypeCounts]);
 
@@ -78,7 +85,7 @@ export function useSectionActivityData(
     if (selectedSportType) return selectedSportType;
     if (availableSportTypes.length > 1 && section?.sportType) return section.sportType;
     return undefined;
-  }, [selectedSportType, availableSportTypes.length, section?.sportType]);
+  }, [selectedSportType, availableSportTypes, section]);
 
   // Filter activities by selected sport type for chart data
   const filteredActivities = useMemo(() => {

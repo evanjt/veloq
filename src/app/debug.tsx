@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,29 +10,29 @@ import {
   Share,
 } from 'react-native';
 import Constants from 'expo-constants';
-import { Stack } from 'expo-router';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { getFFIMetricsSummary, clearFFIMetrics } from '@/shared/debug/renderTimer';
+import { hermesStats } from '@/shared/debug/hermesStats';
 import { useSupportStore, daysSince } from '@/shared/app/SupportStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { readTaskRuns, clearTaskRuns } from '@/features/insights/lib/taskRunLog';
 import type { TaskRunEntry } from '@/features/insights/lib/taskRunLog';
 import type { PersistentEngineStats } from 'veloqrs';
 
-function getRouteEngine() {
+function getEngine() {
   try {
     const mod = require('veloqrs');
-    return mod.RouteEngineClient?.getInstance() ?? null;
+    return mod.EngineClient?.getInstance() ?? null;
   } catch {
     return null;
   }
 }
 
 function getMemoryStats(): { heapMB: string; allocMB: string; gcCount: number } | null {
-  const stats = (global as any).HermesInternal?.getInstrumentedStats?.();
+  const stats = hermesStats();
   if (!stats) return null;
   return {
     heapMB: (stats['js_heapSize'] / 1024 / 1024).toFixed(1),
@@ -48,7 +48,7 @@ function formatDate(ts: number | bigint | null | undefined): string {
 
 interface CollapsibleSectionProps {
   title: string;
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   isDark: boolean;
   defaultOpen?: boolean;
   testID?: string;
@@ -76,7 +76,7 @@ function CollapsibleSection({
         activeOpacity={0.7}
       >
         <View style={styles.sectionHeaderLeft}>
-          <MaterialCommunityIcons name={icon as any} size={20} color={colors.primary} />
+          <MaterialCommunityIcons name={icon} size={20} color={colors.primary} />
           <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
         </View>
         <MaterialCommunityIcons
@@ -149,7 +149,10 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
       <StatRow label="Legacy purchaser" value={isLegacyPurchaser ? 'Yes' : 'No'} isDark={isDark} />
 
       <Text
-        style={[{ fontSize: 12, marginTop: spacing.sm, marginBottom: 4 }, { color: mutedColor }]}
+        style={[
+          { fontSize: typography.caption.fontSize, marginTop: spacing.sm, marginBottom: 4 },
+          { color: mutedColor },
+        ]}
       >
         Set last shown:
       </Text>
@@ -187,6 +190,7 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
           <Text style={[styles.actionButtonText, { color: colors.primary }]}>Clear dismissed</Text>
         </TouchableOpacity>
         <TouchableOpacity
+          testID="debug-support-legacy-toggle"
           onPress={() => debugOverride({ isLegacyPurchaser: !isLegacyPurchaser })}
           style={styles.actionButton}
           activeOpacity={0.7}
@@ -275,9 +279,12 @@ export default function DebugScreen() {
     setTimeout(() => setRefreshing(false), 200);
   }, []);
 
-  // Engine stats
-  const engine = getRouteEngine();
-  const stats: PersistentEngineStats | undefined = engine?.getStats();
+  // Engine stats, re-read on pull to refresh and on nothing else.
+  const stats: PersistentEngineStats | undefined = useMemo(
+    () => getEngine()?.getStats(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshKey]
+  );
 
   // FFI metrics
   const ffiSummary = getFFIMetricsSummary();
@@ -285,9 +292,6 @@ export default function DebugScreen() {
 
   // Memory
   const mem = getMemoryStats();
-
-  // Force re-read on refreshKey
-  void refreshKey;
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -297,7 +301,9 @@ export default function DebugScreen() {
     setRefreshKey((k) => k + 1);
   }, []);
 
-  const handleShareSnapshot = useCallback(async () => {
+  // Not memoised: ffiSummary and mem are read fresh every render, so any
+  // dependency list here is new on every render anyway.
+  const handleShareSnapshot = async () => {
     const snapshot = {
       timestamp: new Date().toISOString(),
       app: {
@@ -310,21 +316,13 @@ export default function DebugScreen() {
       memory: mem,
     };
     await Share.share({ message: JSON.stringify(snapshot, null, 2) });
-  }, [stats, ffiSummary, mem]);
+  };
 
   return (
     <View
       testID="debug-screen"
       style={{ flex: 1, backgroundColor: isDark ? darkColors.background : colors.background }}
     >
-      <Stack.Screen
-        options={{
-          title: 'Developer Dashboard',
-          headerShown: true,
-          headerStyle: { backgroundColor: isDark ? darkColors.surface : colors.surface },
-          headerTintColor: isDark ? darkColors.textPrimary : colors.textPrimary,
-        }}
-      />
       <ScrollView
         style={[styles.container, isDark && styles.containerDark]}
         contentContainerStyle={styles.content}
@@ -487,7 +485,7 @@ const styles = StyleSheet.create({
   },
   section: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     marginBottom: spacing.md,
     overflow: 'hidden',
   },
@@ -506,7 +504,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
   },
   sectionContent: {
@@ -519,12 +517,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontFamily: 'monospace',
     color: colors.textSecondary,
   },
   statValue: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontFamily: 'monospace',
     color: colors.textPrimary,
     fontWeight: '500',
@@ -536,7 +534,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontStyle: 'italic',
   },
   tableHeader: {
@@ -547,7 +545,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   tableHeaderText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontFamily: 'monospace',
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -560,7 +558,7 @@ const styles = StyleSheet.create({
     marginLeft: -2,
   },
   tableCell: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontFamily: 'monospace',
   },
   methodCol: {
@@ -580,7 +578,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   taskRunDetail: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontFamily: 'monospace',
   },
   actionButton: {
@@ -591,7 +589,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   actionButtonText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   shareButton: {
@@ -601,7 +599,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     padding: spacing.md,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     borderWidth: 1,
     borderColor: colors.divider,
   },
@@ -610,7 +608,7 @@ const styles = StyleSheet.create({
     borderColor: darkColors.border,
   },
   shareButtonText: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
 });

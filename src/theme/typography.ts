@@ -66,6 +66,12 @@ export const typography = {
     fontWeight: '400' as const,
     lineHeight: 20,
   },
+  bodyMedium: {
+    fontFamily,
+    fontSize: 15,
+    fontWeight: '400' as const,
+    lineHeight: 21,
+  },
   bodyCompact: {
     fontFamily,
     fontSize: 13,
@@ -96,6 +102,20 @@ export const typography = {
     fontWeight: '700' as const,
     lineHeight: 42,
     letterSpacing: -0.8,
+  },
+  headlineNumber: {
+    fontFamily: displayFamily,
+    fontSize: 32,
+    fontWeight: '700' as const,
+    lineHeight: 38,
+    letterSpacing: -0.6,
+  },
+  statsValueLarge: {
+    fontFamily,
+    fontSize: 24,
+    fontWeight: '700' as const,
+    lineHeight: 30,
+    letterSpacing: -0.4,
   },
   statsValue: {
     fontFamily,
@@ -170,5 +190,3 @@ export const typography = {
     lineHeight: 14,
   },
 } as const;
-
-export type TypographyKey = keyof typeof typography;

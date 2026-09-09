@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, darkColors, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -16,10 +16,6 @@ export const styles = StyleSheet.create({
   },
   map3DLayer: {
     zIndex: 1,
-  },
-  hiddenLayer: {
-    opacity: 0,
-    pointerEvents: 'none',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFill,
@@ -44,7 +40,7 @@ export const styles = StyleSheet.create({
   marker: {
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: layout.borderRadiusFull,
     borderWidth: 1.5,
     borderColor: colors.textOnDark,
   },
@@ -57,7 +53,7 @@ export const styles = StyleSheet.create({
   nearbyMarker: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusFull,
     borderWidth: 1.5,
     borderColor: colors.textOnDark,
     opacity: 0.5,
@@ -92,13 +88,13 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   nearbyPopupName: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: 2,
   },
   nearbyPopupMeta: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   nearbyPopupViewBtn: {
@@ -108,7 +104,7 @@ export const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   nearbyPopupViewText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.primary,
   },
@@ -120,7 +116,7 @@ export const styles = StyleSheet.create({
     bottom: spacing.sm,
     right: spacing.sm,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 6,
+    borderRadius: spacing.xsPlus,
     padding: spacing.xs,
   },
   controlsContainer: {

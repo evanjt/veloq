@@ -13,13 +13,13 @@ Suivi d'itineraires
 Detectez automatiquement les itineraires et sections repetes dans votre historique d'activites. Comparez vos efforts au fil du temps pour suivre vos progres sur vos montees et parcours favoris.
 
 Graphiques et analyse
-Frequence cardiaque, puissance, allure, altitude et cadence — le tout synchronise avec la carte. Consultez les distributions de zones, TSS, facteur d'intensite et details par tour.
+Frequence cardiaque, puissance, allure, altitude et cadence, le tout synchronise avec la carte. Consultez les distributions de zones, TSS, facteur d'intensite et details par tour.
 
 Condition physique
 Suivez votre forme avec le suivi CTL/ATL/TSB et les zones visuelles. Surveillez la HRV, la frequence cardiaque au repos, le sommeil et le bien-etre. Consultez les courbes de puissance et d'allure par sport.
 
 Confidentialite
-Toutes les donnees restent sur votre appareil. Pas d'analyse, pas de suivi. Les notifications push optionnelles stockent un jeton d'appareil sur notre serveur avec une expiration automatique de 30 jours — aucune donnee personnelle n'est conservee. Code source ouvert sous Apache 2.0.
+Toutes les donnees restent sur votre appareil. Pas d'analyse, pas de suivi. Les notifications push optionnelles stockent un jeton d'appareil sur notre serveur avec une expiration automatique de 30 jours, aucune donnee personnelle n'est conservee. Code source ouvert sous Apache 2.0.
 
 Compatible avec le cyclisme, la course, la natation et plus de 20 types d'activites. Essayez le mode demo integre pour explorer sans compte.
 

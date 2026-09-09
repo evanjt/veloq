@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { SectionMatch } from 'veloqrs';
 
 interface UseActivityRematchResult {
@@ -23,7 +23,7 @@ export function useActivityRematch(): UseActivityRematchResult {
   const [isRematching, setIsRematching] = useState(false);
 
   const scan = useCallback((activityId: string) => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return;
     setIsRematching(true);
     try {
@@ -35,7 +35,7 @@ export function useActivityRematch(): UseActivityRematchResult {
   }, []);
 
   const rematch = useCallback((activityId: string, sectionId: string): boolean => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return false;
     setIsRematching(true);
     try {

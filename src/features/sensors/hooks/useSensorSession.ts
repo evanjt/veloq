@@ -22,7 +22,7 @@ export function useSensorSession(): void {
   const startedRef = useRef(false);
 
   useEffect(() => {
-    if (startedRef.current) return;
+    if (startedRef.current) return undefined;
     startedRef.current = true;
 
     const isDemo = useAuthStore.getState().isDemoMode;

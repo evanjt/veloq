@@ -1,21 +1,10 @@
-import React, { useMemo, useCallback, useState, useRef } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { CartesianChart, Line } from 'victory-native';
-import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { ChartCrosshair } from '@/shared/charts';
-import {
-  useSharedValue,
-  useAnimatedReaction,
-  runOnJS,
-  useDerivedValue,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
-import { colors, typography, spacing, chartStyles } from '@/theme';
-import { CHART_CONFIG } from '@/constants';
+import { CurveChart, useChartColors } from '@/shared/charts';
+import { colors, typography, spacing, chartStyles, layout } from '@/theme';
 import { usePaceCurve, paceToMinPer100m } from '../hooks/usePaceCurve';
 import { formatDistance } from '@/shared/format/format';
 
@@ -25,8 +14,15 @@ interface SwimPaceCurveChartProps {
   height?: number;
 }
 
-const CHART_COLOR = '#2196F3';
 const CSS_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
+const X_LABELS = ['100m', '200m', '400m', '800m', '1.5K'];
+
+// Format seconds per 100m as m:ss
+function formatSecsPer100m(secs: number): string {
+  return `${Math.floor(secs / 60)}:${Math.round(secs % 60)
+    .toString()
+    .padStart(2, '0')}`;
+}
 
 // Format pace as min:sec per 100m
 function formatPace100m(metersPerSecond: number): string {
@@ -60,24 +56,15 @@ interface ChartPoint {
   time: number;
   paceSecsPer100m: number;
   paceMs: number; // Original m/s for display
-  [key: string]: unknown;
 }
 
 export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
   const isMetric = useMetricSystem();
 
   const { data: curve, isLoading, error } = usePaceCurve({ sport: 'Swim', days });
-
-  const [tooltipData, setTooltipData] = useState<ChartPoint | null>(null);
-  const [isActive, setIsActive] = useState(false);
-
-  // Shared values for gesture tracking
-  const touchX = useSharedValue(-1);
-  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
-  const pointXCoordsShared = useSharedValue<number[]>([]);
-  const lastNotifiedIdx = useRef<number | null>(null);
 
   // Process curve data - use distances directly from API
   const { chartData, cssPace, yDomain } = useMemo(() => {
@@ -155,81 +142,14 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
     };
   }, [curve]);
 
-  // Derive selected index
-  const selectedIdx = useDerivedValue(() => {
-    'worklet';
-    const len = chartData.length;
-    const bounds = chartBoundsShared.value;
-    const chartWidth = bounds.right - bounds.left;
-
-    if (touchX.value < 0 || chartWidth <= 0 || len === 0) return -1;
-
-    const chartX = touchX.value - bounds.left;
-    const ratio = Math.max(0, Math.min(1, chartX / chartWidth));
-    const idx = Math.round(ratio * (len - 1));
-
-    return Math.min(Math.max(0, idx), len - 1);
-  }, [chartData.length]);
-
-  const updateTooltipOnJS = useCallback(
-    (idx: number) => {
-      if (idx < 0 || chartData.length === 0) {
-        if (lastNotifiedIdx.current !== null) {
-          setTooltipData(null);
-          setIsActive(false);
-          lastNotifiedIdx.current = null;
-        }
-        return;
-      }
-
-      if (idx === lastNotifiedIdx.current) return;
-      lastNotifiedIdx.current = idx;
-
-      if (!isActive) setIsActive(true);
-
-      const point = chartData[idx];
-      if (point) setTooltipData(point);
-    },
-    [chartData, isActive]
-  );
-
-  useAnimatedReaction(
-    () => selectedIdx.value,
-    (idx) => {
-      runOnJS(updateTooltipOnJS)(idx);
-    },
-    [updateTooltipOnJS]
-  );
-
-  const gesture = Gesture.Pan()
-    .onStart((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onUpdate((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onEnd(() => {
-      'worklet';
-      touchX.value = -1;
-    })
-    .minDistance(0)
-    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
-
-  const crosshairStyle = useAnimatedStyle(() => {
-    'worklet';
-    // Use touchX directly so crosshair always follows the finger exactly
-    if (touchX.value < 0) {
-      return { opacity: 0, transform: [{ translateX: 0 }] };
-    }
-
-    // Clamp to chart bounds
-    const bounds = chartBoundsShared.value;
-    const xPos = Math.max(bounds.left, Math.min(bounds.right, touchX.value));
-
-    return { opacity: 1, transform: [{ translateX: xPos }] };
+  const [tooltipData, setTooltipData] = useState<ChartPoint | null>(null);
+  const handleInteractionChange = useCallback((active: boolean) => {
+    if (!active) setTooltipData(null);
   }, []);
+  const referenceLine = useMemo(
+    () => (cssPace ? { value: cssPace, color: CSS_LINE_COLOR } : null),
+    [cssPace]
+  );
 
   if (isLoading) {
     return (
@@ -270,7 +190,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
             <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
               {t('activity.distance')}
             </Text>
-            <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
+            <Text style={[styles.valueNumber, { color: chartColors.swimCurve }]}>
               {formatDistance(displayData.distance, isMetric)}
             </Text>
           </View>
@@ -286,155 +206,31 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
             <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
               {t('metrics.pace')}
             </Text>
-            <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
+            <Text style={[styles.valueNumber, { color: chartColors.swimCurve }]}>
               {formatPace100m(displayData.paceMs)}/100m
             </Text>
           </View>
         </View>
       </View>
 
-      {/* Chart */}
-      <GestureDetector gesture={gesture}>
-        <View style={chartStyles.chartWrapper}>
-          <CartesianChart
-            data={chartData}
-            xKey="x"
-            yKeys={['y']}
-            domain={{ y: yDomain }}
-            padding={{ left: 0, right: 0, top: 4, bottom: 0 }}
-          >
-            {({ points, chartBounds }) => {
-              // Sync bounds for gesture
-              if (
-                chartBounds.left !== chartBoundsShared.value.left ||
-                chartBounds.right !== chartBoundsShared.value.right
-              ) {
-                chartBoundsShared.value = {
-                  left: chartBounds.left,
-                  right: chartBounds.right,
-                };
-              }
-              const newCoords = points.y.filter((p) => p.x != null).map((p) => p.x as number);
-              if (newCoords.length !== pointXCoordsShared.value.length) {
-                pointXCoordsShared.value = newCoords;
-              }
-
-              return (
-                <>
-                  {/* CSS line */}
-                  {cssPace && cssPace >= yDomain[0] && cssPace <= yDomain[1] && (
-                    <SkiaLine
-                      p1={{
-                        x: chartBounds.left,
-                        y:
-                          chartBounds.top +
-                          ((cssPace - yDomain[0]) / (yDomain[1] - yDomain[0])) *
-                            (chartBounds.bottom - chartBounds.top),
-                      }}
-                      p2={{
-                        x: chartBounds.right,
-                        y:
-                          chartBounds.top +
-                          ((cssPace - yDomain[0]) / (yDomain[1] - yDomain[0])) *
-                            (chartBounds.bottom - chartBounds.top),
-                      }}
-                      color={CSS_LINE_COLOR}
-                      strokeWidth={1}
-                    >
-                      <DashPathEffect intervals={[6, 4]} />
-                    </SkiaLine>
-                  )}
-
-                  {/* Pace curve with casing */}
-                  <Line
-                    points={points.y}
-                    color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
-                    strokeWidth={2.5}
-                    curveType="natural"
-                  />
-                  <Line
-                    points={points.y}
-                    color={CHART_COLOR}
-                    strokeWidth={1.5}
-                    curveType="natural"
-                  />
-                </>
-              );
-            }}
-          </CartesianChart>
-
-          {/* Crosshair */}
-          <ChartCrosshair style={crosshairStyle} />
-
-          {/* X-axis labels */}
-          <View style={styles.xAxisOverlay} pointerEvents="none">
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              100m
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              200m
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              400m
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              800m
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              1.5K
-            </Text>
-          </View>
-
-          {/* Y-axis labels - note: axis is inverted so top is fastest (yDomain[1]), bottom is slowest (yDomain[0]) */}
-          <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {Math.floor(yDomain[1] / 60)}:
-              {Math.round(yDomain[1] % 60)
-                .toString()
-                .padStart(2, '0')}
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {Math.floor((yDomain[0] + yDomain[1]) / 2 / 60)}:
-              {Math.round(((yDomain[0] + yDomain[1]) / 2) % 60)
-                .toString()
-                .padStart(2, '0')}
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {Math.floor(yDomain[0] / 60)}:
-              {Math.round(yDomain[0] % 60)
-                .toString()
-                .padStart(2, '0')}
-            </Text>
-          </View>
-        </View>
-      </GestureDetector>
+      <CurveChart
+        data={chartData}
+        yDomain={yDomain}
+        color={chartColors.swimCurve}
+        referenceLine={referenceLine}
+        xLabels={X_LABELS}
+        formatY={formatSecsPer100m}
+        crosshairMode="finger"
+        onSelect={setTooltipData}
+        onInteractionChange={handleInteractionChange}
+      />
 
       {/* CSS Legend */}
       {cssPace && (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: CSS_LINE_COLOR }]} />
           <Text style={[styles.legendText, isDark && chartStyles.textDark]}>
-            CSS {Math.floor(cssPace / 60)}:
-            {Math.round(cssPace % 60)
-              .toString()
-              .padStart(2, '0')}
-            /100m
+            CSS {formatSecsPer100m(cssPace)}/100m
           </Text>
         </View>
       )}
@@ -490,22 +286,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
-  xAxisOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.xs,
-  },
-  yAxisOverlay: {
-    position: 'absolute',
-    top: spacing.xs,
-    bottom: 20,
-    left: spacing.xs,
-    justifyContent: 'space-between',
-  },
   legend: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -516,7 +296,7 @@ const styles = StyleSheet.create({
   legendDash: {
     width: spacing.md,
     height: 2,
-    borderRadius: 1,
+    borderRadius: layout.borderRadiusFull,
   },
   legendText: {
     fontSize: typography.label.fontSize,

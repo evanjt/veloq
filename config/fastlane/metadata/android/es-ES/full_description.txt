@@ -13,13 +13,13 @@ Visualiza tus actividades en mapas interactivos con terreno 3D, mapas de calor d
 Detecta automáticamente rutas y secciones repetidas en tu historial de actividades. Compara esfuerzos a lo largo del tiempo para ver tu progreso en subidas y tramos favoritos.
 
 <b>Gráficos y análisis</b>
-Frecuencia cardíaca, potencia, ritmo, altitud y cadencia — todo sincronizado con el mapa. Consulta distribuciones de zonas, TSS, factor de intensidad y desgloses por vuelta.
+Frecuencia cardíaca, potencia, ritmo, altitud y cadencia, todo sincronizado con el mapa. Consulta distribuciones de zonas, TSS, factor de intensidad y desgloses por vuelta.
 
 <b>Fitness</b>
 Sigue tu forma con seguimiento CTL/ATL/TSB y zonas visuales. Monitoriza HRV, frecuencia cardíaca en reposo, sueño y bienestar. Consulta curvas de potencia y ritmo por deporte.
 
 <b>Privacidad</b>
-Todos los datos permanecen en tu dispositivo. Sin analíticas, sin rastreo. Las notificaciones push opcionales almacenan un token de dispositivo en nuestro servidor con caducidad automática de 30 días — no se conservan datos personales. Código abierto bajo Apache 2.0.
+Todos los datos permanecen en tu dispositivo. Sin analíticas, sin rastreo. Las notificaciones push opcionales almacenan un token de dispositivo en nuestro servidor con caducidad automática de 30 días, no se conservan datos personales. Código abierto bajo Apache 2.0.
 
 Compatible con ciclismo, carrera, natación y más de 20 tipos de actividad. Prueba el modo demo integrado para explorar sin cuenta.
 

@@ -27,7 +27,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     paddingVertical: 8,
     paddingHorizontal: 14,
   },
@@ -39,7 +39,7 @@ export const styles = StyleSheet.create({
   actionCircle: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: layout.borderRadiusFull,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -53,12 +53,12 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     borderWidth: 1,
     gap: 4,
   },
   acceptText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   pinnedChip: {
@@ -67,7 +67,7 @@ export const styles = StyleSheet.create({
     gap: 4,
   },
   pinnedText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   scrollView: {
@@ -79,30 +79,11 @@ export const styles = StyleSheet.create({
   listFooterContainer: {
     marginTop: spacing.md,
   },
+  // What is left after the shared `Button` took the ground, the shape, the
+  // type and the press: where this one sits on the screen, and nothing else.
   exportGpxButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 24,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
-    gap: spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  exportGpxButtonDark: {
-    backgroundColor: colors.primary,
-  },
-  exportGpxButtonText: {
-    color: colors.textOnPrimary,
-    fontSize: 15,
-    fontWeight: '600' as const,
   },
   floatingHeader: {
     position: 'absolute',
@@ -117,7 +98,7 @@ export const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',

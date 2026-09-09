@@ -1,9 +1,8 @@
 /**
- * US-GEO1 static regression: no production code may import the Nominatim
- * geocoding helpers. They were disabled for Nominatim ToS compliance
- * (v0.3.0, see `src/lib/geo/geocoding.ts` header). The module is still
- * present for tests and future use (when a caching proxy is in place) but
- * must not be called from a shipping code path.
+ * Static regression: no production code may reverse geocode. The Nominatim
+ * helpers were disabled for ToS compliance in 0.3.0 and the module itself is
+ * gone, so this guards against a reintroduction rather than a stray call.
+ * Reviving it needs a caching proxy first.
  */
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
@@ -31,7 +30,6 @@ describe('US-GEO1: no Nominatim geocoding calls in production code', () => {
     const violations: string[] = [];
 
     for (const file of files) {
-      if (file.endsWith('src/lib/geo/geocoding.ts')) continue;
       const src = readFileSync(file, 'utf8');
       for (const name of EXPORT_NAMES) {
         const importRegex = new RegExp(

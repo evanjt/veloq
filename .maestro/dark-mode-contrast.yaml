@@ -1,5 +1,5 @@
 # Dark Mode Contrast Sweep
-# US-DK1: all v0.3.0 surfaces must render with correct contrast in dark mode —
+# US-DK1: all v0.3.0 surfaces must render with correct contrast in dark mode,
 # sparklines, trophy pills, section number badges, chevrons, summary cards.
 #
 # Fix from previous attempt: don't re-launch the app after toggling the theme
@@ -35,7 +35,7 @@ tags:
 - waitForAnimationToEnd:
     timeout: 3000
 
-- takeScreenshot: "dark-mode-settings"
+- takeScreenshot: "screenshots/dark-mode-settings"
 
 # ====================================================================
 # Feed in dark mode
@@ -53,10 +53,10 @@ tags:
     timeout: 15000
 - waitForAnimationToEnd:
     timeout: 1500
-- takeScreenshot: "dark-mode-feed"
+- takeScreenshot: "screenshots/dark-mode-feed"
 
 # ====================================================================
-# Activity detail Sections tab — where most v0.3.0 dark-mode fixes apply
+# Activity detail Sections tab, where most v0.3.0 dark-mode fixes apply
 # ====================================================================
 - openLink: "veloq://activity/demo-test-0?tab=sections"
 - runFlow:
@@ -78,10 +78,10 @@ tags:
     visible:
       id: "activity-sections-list"
     timeout: 10000
-- takeScreenshot: "dark-mode-sections-tab"
+- takeScreenshot: "screenshots/dark-mode-sections-tab"
 
 # ====================================================================
-# Section detail in dark mode — sparklines + trophy + summary card
+# Section detail in dark mode, sparklines + trophy + summary card
 # ====================================================================
 - back
 - runFlow:
@@ -89,13 +89,17 @@ tags:
 - tapOn:
     text: "Sections"
     optional: true
-- tapOn:
-    text: "Section 7"
 - extendedWaitUntil:
     visible:
-      text: "Performance Over Time"
+      id: "section-row-.*"
+    timeout: 30000
+- tapOn:
+    id: "section-row-.*"
+- extendedWaitUntil:
+    visible:
+      id: "section-detail-screen"
     timeout: 15000
-- takeScreenshot: "dark-mode-section-detail"
+- takeScreenshot: "screenshots/dark-mode-section-detail"
 
 # ====================================================================
 # Regional map heatmap contrast
@@ -110,7 +114,7 @@ tags:
     id: "map-toggle-heatmap"
 - waitForAnimationToEnd:
     timeout: 2000
-- takeScreenshot: "dark-mode-map-heatmap"
+- takeScreenshot: "screenshots/dark-mode-map-heatmap"
 
 # ====================================================================
 # Restore to light so the next run starts clean.

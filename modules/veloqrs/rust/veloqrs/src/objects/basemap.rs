@@ -1,0 +1,147 @@
+use super::error::VeloqError;
+use crate::basemap;
+use std::sync::Arc;
+
+/// The basemap tile store's FFI surface.
+///
+/// Everything here answers from the filesystem, so none of it needs a live
+/// WebView, a network or the engine lock. The directory itself is the caller's
+/// to choose: a basemap tile cannot be redrawn from local data, so it must not
+/// be handed a path the OS purges.
+#[derive(uniffi::Object)]
+pub struct BasemapManager {
+    pub(crate) _private: (),
+}
+
+#[uniffi::export]
+impl BasemapManager {
+    #[uniffi::constructor]
+    fn new() -> Arc<Self> {
+        Arc::new(Self { _private: () })
+    }
+
+    /// Set the filesystem path for the basemap tile tree. Called once at
+    /// engine init from JS, the way `setTilesPath` hands over the heatmap path.
+    fn set_path(&self, path: String) {
+        basemap::set_path(path);
+    }
+
+    /// One tile's bytes, or none. A hit moves the tile to the back of the
+    /// eviction queue.
+    fn get_tile(&self, source: String, z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
+        basemap::store()?.get(&source, z, x, y)
+    }
+
+    /// Where one source's tiles come from, as a `{z}/{x}/{y}` template.
+    /// Handed over at style load: the vector snapshot path and the per-country
+    /// satellite choice are both decided in the page, not compiled in.
+    fn set_source_template(&self, source: String, url_template: String) {
+        basemap::set_template(source, url_template);
+    }
+
+    /// One tile's bytes, from the store if it is there and from the tile host
+    /// if it is not. Blocks until the tile is in hand.
+    fn get_or_fetch_tile(&self, source: String, z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
+        basemap::get_or_fetch(&source, z, x, y)
+    }
+
+    /// Store one tile. `pinned` marks the pre-seeded offline base, which
+    /// eviction takes last.
+    fn put_tile(
+        &self,
+        source: String,
+        z: u8,
+        x: u32,
+        y: u32,
+        ext: String,
+        bytes: Vec<u8>,
+        pinned: bool,
+    ) -> Result<(), VeloqError> {
+        store()?
+            .put(&source, z, x, y, &ext, &bytes, pinned)
+            .map_err(tile_store_error)
+    }
+
+    /// Total bytes across every source, answered without a WebView.
+    fn get_cache_size(&self) -> u64 {
+        basemap::store().map(|s| s.size()).unwrap_or(0)
+    }
+
+    /// Bytes held for one source.
+    fn get_source_size(&self, source: String) -> u64 {
+        basemap::store().map(|s| s.size_of(&source)).unwrap_or(0)
+    }
+
+    /// Drop every basemap tile, pinned pre-seed included.
+    fn clear_tiles(&self) -> Result<u32, VeloqError> {
+        store()?.clear().map_err(tile_store_error)
+    }
+
+    /// Drop every tile of one source.
+    fn clear_source_tiles(&self, source: String) -> Result<u32, VeloqError> {
+        store()?.clear_source(&source).map_err(tile_store_error)
+    }
+
+    /// Bring one source under a byte budget, least recently read first and the
+    /// pinned pre-seed last.
+    fn evict_to(&self, source: String, budget_bytes: u64) -> Result<u32, VeloqError> {
+        store()?
+            .evict_to(&source, budget_bytes)
+            .map_err(tile_store_error)
+    }
+}
+
+fn store() -> Result<Arc<basemap::TileStore>, VeloqError> {
+    basemap::store().ok_or(VeloqError::TileStore {
+        msg: "no basemap tile path has been set".to_string(),
+    })
+}
+
+fn tile_store_error(e: std::io::Error) -> VeloqError {
+    VeloqError::TileStore { msg: e.to_string() }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_globals::serial_global_state;
+
+    #[test]
+    fn a_tile_round_trips_and_the_store_answers_sizes_and_clears() {
+        let _guard = serial_global_state();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let manager = BasemapManager::new();
+        manager.set_path(tmp.path().to_string_lossy().into_owned());
+
+        assert_eq!(manager.get_tile("osm".into(), 3, 4, 2), None);
+        manager
+            .put_tile("osm".into(), 3, 4, 2, "pbf".into(), vec![1, 2, 3, 4], false)
+            .unwrap();
+        manager
+            .put_tile("osm".into(), 3, 4, 3, "pbf".into(), vec![5, 6], true)
+            .unwrap();
+        manager
+            .put_tile("sat".into(), 3, 4, 2, "jpg".into(), vec![7, 8, 9], false)
+            .unwrap();
+        assert_eq!(
+            manager.get_tile("osm".into(), 3, 4, 2),
+            Some(vec![1, 2, 3, 4])
+        );
+        assert_eq!(manager.get_source_size("osm".into()), 6);
+        assert_eq!(manager.get_source_size("sat".into()), 3);
+        assert_eq!(manager.get_cache_size(), 9);
+
+        assert_eq!(manager.evict_to("osm".into(), 2).unwrap(), 1);
+        assert_eq!(
+            manager.get_tile("osm".into(), 3, 4, 2),
+            None,
+            "the unpinned tile goes first"
+        );
+        assert_eq!(manager.get_tile("osm".into(), 3, 4, 3), Some(vec![5, 6]));
+
+        assert_eq!(manager.clear_source_tiles("sat".into()).unwrap(), 1);
+        assert_eq!(manager.get_source_size("sat".into()), 0);
+        assert_eq!(manager.clear_tiles().unwrap(), 1);
+        assert_eq!(manager.get_cache_size(), 0);
+    }
+}

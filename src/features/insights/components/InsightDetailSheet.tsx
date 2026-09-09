@@ -1,16 +1,25 @@
 import React, { useCallback } from 'react';
-import { Modal, View, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
+import { Modal, View, StyleSheet, Pressable, ScrollView, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, typography, opacity, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  typography,
+  opacity,
+  colorWithOpacity,
+  layout,
+} from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
 import type { Insight } from '@/types';
 
-const SHEET_HEIGHT = Dimensions.get('window').height * 0.85;
+/** Share of the window the sheet rises to. */
+const SHEET_FRACTION = 0.85;
 
 interface InsightDetailSheetProps {
   insight: Insight | null;
@@ -25,6 +34,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 }: InsightDetailSheetProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
+  const { height: windowHeight } = useWindowDimensions();
 
   const handleNavigate = useCallback(() => {
     if (insight?.navigationTarget) {
@@ -47,7 +57,11 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
         <View style={styles.backdropFill} />
       </Pressable>
       <View
-        style={[styles.sheet, isDark && styles.sheetDark, { height: SHEET_HEIGHT }]}
+        style={[
+          styles.sheet,
+          isDark && styles.sheetDark,
+          { height: windowHeight * SHEET_FRACTION },
+        ]}
         testID="insight-detail-sheet"
       >
         {/* Drag handle */}
@@ -168,7 +182,7 @@ const styles = StyleSheet.create({
   handle: {
     width: 40,
     height: 4,
-    borderRadius: 2,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.gray300,
   },
   handleDark: {
@@ -192,7 +206,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: layout.borderRadiusFull,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -209,7 +223,7 @@ const styles = StyleSheet.create({
   },
   // Text
   subtitle: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.xs,
@@ -218,7 +232,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   body: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     lineHeight: 20,
     paddingHorizontal: spacing.lg,
@@ -245,14 +259,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     backgroundColor: opacity.overlay.subtle,
   },
   navLinkDark: {
     backgroundColor: opacity.overlayDark.light,
   },
   navLinkText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },

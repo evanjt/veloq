@@ -1,17 +1,17 @@
-//! Tier 0.4 — idempotence guard for heatmap tile generation.
+//! Tier 0.4, idempotence guard for heatmap tile generation.
 //!
 //! Run a full cycle, re-run without adding activities, and assert that the
 //! second pass is a near-no-op: every tile already on disk gets skipped and
 //! the channel closes quickly. Protects the Tier 1.1 loop-inversion rewrite
 //! from quietly dropping the "skip if exists" short-circuit.
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
-fn seed_engine() -> (PersistentRouteEngine, TempDir) {
+fn seed_engine() -> (PersistentEngine, TempDir) {
     let cfg = LifecycleConfig {
         bucket_a_count: 25,
         bucket_b_delta_count: 0,
@@ -24,7 +24,7 @@ fn seed_engine() -> (PersistentRouteEngine, TempDir) {
 
     let tmp = TempDir::new().expect("tempdir");
     let db = tmp.path().join("heatmap.db");
-    let mut engine = PersistentRouteEngine::new(db.to_str().unwrap()).expect("open engine");
+    let mut engine = PersistentEngine::new(db.to_str().unwrap()).expect("open engine");
     for a in corpus.bucket_a {
         engine
             .add_activity(a.id, a.gps_points, a.sport_type)
@@ -40,6 +40,7 @@ fn second_pass_generates_nothing_new() {
     std::fs::create_dir_all(&tiles_dir).expect("create tiles dir");
 
     // Cold pass: populate tiles from scratch.
+    let cold_start = Instant::now();
     engine.set_heatmap_tiles_path(tiles_dir.to_str().unwrap().to_string());
     // set_heatmap_tiles_path parked the handle in the global; drain it.
     let cold_generated = {
@@ -55,26 +56,34 @@ fn second_pass_generates_nothing_new() {
             panic!("failed to lock TILE_GENERATION_HANDLE");
         }
     };
+    let cold_elapsed = cold_start.elapsed();
     assert!(
         cold_generated > 0,
         "cold run should produce at least one tile; got {cold_generated}"
     );
 
     // Warm pass: every tile on disk already, skip path must short-circuit.
-    let start = Instant::now();
     let handle = engine
         .generate_tiles_background()
-        .expect("background should still spawn — the function is unconditional");
+        .expect("the cold pass was drained, so the slot is free");
     let warm_generated = handle.recv_blocking().expect("warm run should complete");
-    let warm_elapsed = start.elapsed();
 
     assert_eq!(
         warm_generated, 0,
         "warm pass should not write any new tiles (every coord already on disk)"
     );
-    assert!(
-        warm_elapsed < Duration::from_millis(1500),
-        "warm pass took {}ms — skip-if-exists path may have regressed",
-        warm_elapsed.as_millis()
+    // The zero count above cannot see a regression that renders first and
+    // skips the write after. The scheduled total can: it is stored once the
+    // existence filter has run and before any tile is rasterised, so a pass
+    // that reaches the renderer with anything left reports it here. This used
+    // to be an elapsed-time bound against the cold pass, which measured the
+    // build profile rather than the skip: with the dependencies optimised the
+    // load and sweep that both passes share are three quarters of a cold pass.
+    let (_, warm_scheduled) = handle.get_progress();
+    assert_eq!(
+        warm_scheduled,
+        0,
+        "warm pass scheduled {warm_scheduled} tiles for rendering against a cold pass of {}ms, skip-if-exists is running after the plan",
+        cold_elapsed.as_millis()
     );
 }

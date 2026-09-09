@@ -2,14 +2,14 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity } from '@/theme';
+import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
 import type { DataPoint } from '@/types';
 
 const CONTEXT_COLORS: Record<string, string> = {
-  good: '#22C55E',
-  warning: '#F59E0B',
-  concern: '#EF4444',
-  neutral: '#A1A1AA',
+  good: colors.success,
+  warning: colors.warning,
+  concern: colors.error,
+  neutral: colors.textDisabled,
 };
 
 interface DataPointRowProps {
@@ -36,26 +36,6 @@ export const DataPointRow = React.memo(function DataPointRow({ dataPoint }: Data
           </Text>
         </View>
       </View>
-      {dataPoint.range ? (
-        <View style={styles.rangeContainer}>
-          <View style={[styles.rangeBar, isDark && styles.rangeBarDark]}>
-            <View
-              style={[
-                styles.rangeFill,
-                {
-                  backgroundColor: contextColor ?? colors.primary,
-                  left: `${Math.max(0, Math.min(100, ((Number(dataPoint.value) - dataPoint.range.min) / (dataPoint.range.max - dataPoint.range.min)) * 100))}%`,
-                },
-              ]}
-            />
-          </View>
-          {dataPoint.range.label ? (
-            <Text style={[styles.rangeLabel, isDark && styles.rangeLabelDark]}>
-              {dataPoint.range.label}
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
     </View>
   );
 });
@@ -73,12 +53,12 @@ const styles = StyleSheet.create({
   contextDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
     marginRight: spacing.sm,
   },
   label: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
   labelDark: {
@@ -89,7 +69,7 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   value: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -97,39 +77,11 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   unit: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '400',
     color: colors.textSecondary,
   },
   unitDark: {
-    color: darkColors.textSecondary,
-  },
-  rangeContainer: {
-    marginTop: spacing.xs,
-    paddingLeft: spacing.md,
-  },
-  rangeBar: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: opacity.overlay.light,
-    position: 'relative',
-  },
-  rangeBarDark: {
-    backgroundColor: opacity.overlayDark.light,
-  },
-  rangeFill: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    top: -2,
-  },
-  rangeLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  rangeLabelDark: {
     color: darkColors.textSecondary,
   },
 });

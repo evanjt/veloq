@@ -1,7 +1,7 @@
 import React from 'react';
 import { Animated, View, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { colors } from '@/theme';
+import { colors, ink } from '@/theme';
 
 interface CompassArrowProps {
   /** Size of the compass arrow */
@@ -23,7 +23,7 @@ export function CompassArrow({
   size = 22,
   rotation,
   northColor = colors.compassNorth,
-  southColor = '#FFFFFF',
+  southColor = ink.white,
 }: CompassArrowProps) {
   const rotateInterpolation = rotation.interpolate({
     inputRange: [-360, 360],
@@ -61,7 +61,7 @@ export function StaticCompassArrow({
   size = 16,
   bearing,
   northColor = colors.compassNorth,
-  southColor = '#FFFFFF',
+  southColor = ink.white,
 }: StaticCompassArrowProps) {
   return (
     <View style={[styles.staticContainer, { transform: [{ rotate: `${-bearing}deg` }] }]}>

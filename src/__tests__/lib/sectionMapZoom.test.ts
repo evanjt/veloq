@@ -1,31 +1,41 @@
 /**
- * Regression guard for US-D3: the section detail map must clamp zoom so short
- * sections don't over-zoom past street level. The clamp is enforced by the
- * Camera's maxZoomLevel prop; if that prop is removed or loosened, a short
- * 200m section can zoom in past level 18 where MapLibre tiles become grainy.
+ * Scenario: the section detail map fits sections whose bounding box can be only
+ * a couple of hundred metres across.
  *
- * Static source assertion rather than a runtime check - we don't need to
- * render MapLibre to verify a prop literal, and the cost of a missed
- * regression (broken detail view for short sections) is worth the guard.
+ * Expected behaviour: the camera fits the supplied bounds and keeps room around
+ * them for the controls, and the bounds padding scales with the section rather
+ * than being a fixed number of degrees.
  */
-import fs from 'fs';
-import path from 'path';
+import {
+  SECTION_MAP_BOUNDS_PADDING,
+  sectionCameraSpec,
+} from '@/features/routes/lib/sectionMapCamera';
+import { boundsOfLngLat } from '@/features/maps/lib/coordinates';
 
-describe('US-D3: section map zoom clamp', () => {
-  const source = fs.readFileSync(
-    path.resolve(__dirname, '../../features/routes/components/SectionMapView.tsx'),
-    'utf8'
-  );
+const SHORT_SECTION: [number, number][] = [
+  [7.447, 46.948],
+  [7.4485, 46.9492],
+];
 
-  it('Camera enforces maxZoomLevel of 16', () => {
-    const match = source.match(/maxZoomLevel=\{(\d+)\}/);
-    expect(match).not.toBeNull();
-    const max = Number(match![1]);
-    expect(max).toBeLessThanOrEqual(16);
+describe('section map camera', () => {
+  it('fits bounds rather than pinning a centre and zoom', () => {
+    const bounds = boundsOfLngLat(SHORT_SECTION, SECTION_MAP_BOUNDS_PADDING)!;
+
+    const camera = sectionCameraSpec(bounds);
+
+    // Pixels of room for the controls, not the fractional bounds padding.
+    expect(camera.padding).toBe(80);
+    expect(camera.center).toBeUndefined();
+    expect(camera.zoom).toBeUndefined();
   });
 
-  it('Camera has a defaultSettings bounds prop so short sections auto-fit', () => {
-    expect(source).toContain('defaultSettings={');
-    expect(source).toContain('bounds: { ne: bounds.ne, sw: bounds.sw }');
+  it('pads a short section by a fraction of its own extent', () => {
+    const padded = boundsOfLngLat(SHORT_SECTION, SECTION_MAP_BOUNDS_PADDING)!;
+
+    // 0.0015° x 0.0012° raw, so 15% padding is 0.000225° x 0.00018°.
+    expect(padded.sw[0]).toBeCloseTo(7.446775, 9);
+    expect(padded.sw[1]).toBeCloseTo(46.94782, 9);
+    expect(padded.ne[0]).toBeCloseTo(7.448725, 9);
+    expect(padded.ne[1]).toBeCloseTo(46.94938, 9);
   });
 });

@@ -3,10 +3,9 @@
 //! Consolidates AsyncStorage preferences into SQLite so a single database
 //! backup captures the complete app state.
 
-use rusqlite::{Result as SqlResult, params};
-use std::collections::HashMap;
+use rusqlite::{OptionalExtension, Result as SqlResult, params};
 
-use super::PersistentRouteEngine;
+use super::PersistentEngine;
 
 /// Reserved setting keys owned by Rust internals. The double-underscore
 /// prefix distinguishes them from user-facing preferences set via
@@ -23,11 +22,30 @@ pub mod settings_keys {
     pub const SECTION_MIN_LENGTH: &str = "__section_min_length";
     /// SectionConfig.min_activities (u32 stored as decimal string).
     pub const SECTION_MIN_ACTIVITIES: &str = "__section_min_activities";
-    /// SectionConfig.detection_method (string: "corridor", "density_grid", "flow_graph").
-    pub const SECTION_DETECTION_METHOD: &str = "__section_detection_method";
+    /// The WHOLE SectionConfig as a JSON blob. The individual keys above persist
+    /// the strictness-slider fields; this captures every field so a restart
+    /// restores the EXACT config that was last set. Without it the load path
+    /// rebuilds `default()` + the four slider fields, and the TS launch re-apply
+    /// (which spreads the current config and re-sets whatever it holds) then
+    /// reads as a genuine change every boot, clearing the processed set and
+    /// renumbering every section. Preferred by the loader; the individual keys remain as a
+    /// pre-blob-install fallback.
+    pub const SECTION_CONFIG_JSON: &str = "__section_config_json";
+
+    /// Whether the athlete wants section detection at all. Absent means yes:
+    /// the feature is on by default and an install that never touched the
+    /// switch must not read as opted out.
+    pub const DETECTION_ENABLED: &str = "__detection_enabled";
+
+    /// Where the athlete lives, and how much of a track around it an export
+    /// leaves behind. Absent or a zero radius means an export is exactly what
+    /// it was before this existed.
+    pub const EXPORT_HOME_LAT: &str = "__export_home_lat";
+    pub const EXPORT_HOME_LNG: &str = "__export_home_lng";
+    pub const EXPORT_PRIVACY_RADIUS_M: &str = "__export_privacy_radius_m";
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Get a single setting by key.
     pub fn get_setting(&self, key: &str) -> SqlResult<Option<String>> {
         self.db
@@ -44,7 +62,16 @@ impl PersistentRouteEngine {
     }
 
     /// Set a single setting (upsert).
+    ///
+    /// An unchanged value is not written. The journal is kept in rollback mode
+    /// and `synchronous` is SQLite's default, so a commit is two fsyncs and
+    /// costs about 20 ms on a mid-range phone, paid on the thread that asked.
+    /// Most writes come from a store persisting on launch what it just read,
+    /// and the read that proves it is under a millisecond.
     pub fn set_setting(&self, key: &str, value: &str) -> SqlResult<()> {
+        if self.get_setting(key)?.as_deref() == Some(value) {
+            return Ok(());
+        }
         self.db.execute(
             "INSERT INTO settings (key, value, updated_at)
              VALUES (?, ?, strftime('%s', 'now'))
@@ -54,32 +81,63 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Get all settings as a HashMap.
-    pub fn get_all_settings(&self) -> SqlResult<HashMap<String, String>> {
-        let mut stmt = self.db.prepare("SELECT key, value FROM settings")?;
-        let rows = stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })?;
-
-        let mut settings = HashMap::new();
-        for row in rows {
-            let (key, value) = row?;
-            settings.insert(key, value);
+    /// Upsert several settings in one transaction, skipping each pair whose
+    /// value is already stored. Returns how many were written.
+    ///
+    /// One commit is two fsyncs, about 20 ms on a mid-range phone, and a
+    /// launch that changes six keys paid that six times over
+    /// (`set_setting`). Nothing is written when every pair is unchanged, so
+    /// the common launch still takes no commit at all.
+    pub fn set_settings(&self, pairs: &[(String, String)]) -> SqlResult<usize> {
+        if pairs.is_empty() {
+            return Ok(0);
         }
-        Ok(settings)
+        let tx = self.db.unchecked_transaction()?;
+        let mut written = 0usize;
+        {
+            let mut read = tx.prepare("SELECT value FROM settings WHERE key = ?")?;
+            let mut write = tx.prepare(
+                "INSERT INTO settings (key, value, updated_at)
+                 VALUES (?, ?, strftime('%s', 'now'))
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value,
+                                                updated_at = excluded.updated_at",
+            )?;
+            for (key, value) in pairs {
+                let stored: Option<String> =
+                    read.query_row(params![key], |row| row.get(0)).optional()?;
+                if stored.as_deref() == Some(value.as_str()) {
+                    continue;
+                }
+                write.execute(params![key, value])?;
+                written += 1;
+            }
+        }
+        tx.commit()?;
+        Ok(written)
     }
 
-    /// Bulk upsert settings from a HashMap.
-    pub fn set_all_settings(&self, settings: &HashMap<String, String>) -> SqlResult<()> {
-        let mut stmt = self.db.prepare(
-            "INSERT INTO settings (key, value, updated_at)
-             VALUES (?, ?, strftime('%s', 'now'))
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-        )?;
-        for (key, value) in settings {
-            stmt.execute(params![key, value])?;
-        }
-        Ok(())
+    /// Whether section detection is switched on.
+    ///
+    /// The switch used to live in TypeScript alone, so the engine kept cutting
+    /// the catalogue on every sync while the screens looked away.
+    /// Absent, unreadable or anything but "0" reads as on: the failure mode of
+    /// a lost setting has to be the feature working, not silently off.
+    pub fn detection_enabled(&self) -> bool {
+        !matches!(
+            self.get_setting(settings_keys::DETECTION_ENABLED)
+                .ok()
+                .flatten()
+                .as_deref(),
+            Some("0")
+        )
+    }
+
+    /// Turn section detection on or off for this library.
+    pub fn set_detection_enabled(&self, enabled: bool) -> SqlResult<()> {
+        self.set_setting(
+            settings_keys::DETECTION_ENABLED,
+            if enabled { "1" } else { "0" },
+        )
     }
 
     /// Delete a single setting.
@@ -109,8 +167,25 @@ impl PersistentRouteEngine {
 
     /// Mirror of `load_match_strictness_from_settings` for `section_config`.
     /// Missing or unparseable values fall back to the default SectionConfig
-    /// fields already in place (set during `PersistentRouteEngine::new`).
+    /// fields already in place (set during `PersistentEngine::new`).
     pub(super) fn load_section_config_from_settings(&mut self) -> SqlResult<()> {
+        // Prefer the whole-config blob: it restores EVERY field, so the TS launch
+        // re-apply of the same preset compares equal and no-ops (no re-detect, no
+        // section renumber). Fall back to the individual slider keys below for
+        // installs written before the blob key existed.
+        if let Some(json) = self.get_setting(settings_keys::SECTION_CONFIG_JSON)? {
+            match serde_json::from_str::<tracematch::SectionConfig>(&json) {
+                Ok(cfg) => {
+                    self.section_config = cfg;
+                    return Ok(());
+                }
+                Err(e) => log::warn!(
+                    "veloqrs: [load_section_config] config blob unparseable, falling back to slider keys: {}",
+                    e
+                ),
+            }
+        }
+
         if let Some(raw) = self.get_setting(settings_keys::SECTION_PROXIMITY_THRESHOLD)? {
             if let Ok(v) = raw.parse::<f64>() {
                 self.section_config.proximity_threshold = v;
@@ -124,11 +199,6 @@ impl PersistentRouteEngine {
         if let Some(raw) = self.get_setting(settings_keys::SECTION_MIN_ACTIVITIES)? {
             if let Ok(v) = raw.parse::<u32>() {
                 self.section_config.min_activities = v;
-            }
-        }
-        if let Some(raw) = self.get_setting(settings_keys::SECTION_DETECTION_METHOD)? {
-            if let Ok(v) = raw.parse::<tracematch::DetectionMethod>() {
-                self.section_config.detection_method = v;
             }
         }
         Ok(())

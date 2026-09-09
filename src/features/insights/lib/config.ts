@@ -30,6 +30,8 @@ export interface InsightsConfig {
   /** G3 - minimum lifetime repetitions for trend-type insights. */
   repetition: {
     section_trend_min: number;
+    /** The declining branch alone, which has to earn more than an improvement. */
+    section_trend_declining_min: number;
     efficiency_trend_min: number;
     stale_pr_min_lifetime: number;
     strength_min_sets: number;
@@ -44,8 +46,6 @@ export interface InsightsConfig {
     /** R6 - lower/upper bounds of the flow corridor on |delta|/stddev. */
     signalFloorDelta: number;
     signalCeilingDelta: number;
-    /** HRV - minimum days of data in the rolling window. */
-    minHrvDataPoints: number;
   };
 
   /** G2 - proximity gate. */
@@ -59,6 +59,23 @@ export interface InsightsConfig {
 
   /** R5/R7 + category base bonuses. Tunable without code changes. */
   scoring: {
+    /** R4 - points a confidence of 1 is worth. */
+    confidenceWeight: number;
+    /** R9 - points a section the engine rates at its ceiling is worth. */
+    rankingWeight: number;
+    /** R9 - how the engine's four component scores blend for an insight. */
+    rankingWeights: {
+      recency: number;
+      improvement: number;
+      anomaly: number;
+      engagement: number;
+    };
+    /**
+     * R4 - observations at which a category's claim is as well founded as it
+     * gets. Categories absent from this table have no population to count and
+     * declare that instead of computing one.
+     */
+    confidenceSaturation: Partial<Record<InsightCategory, number>>;
     specificityBonus: { all3: number; any2: number };
     temporalSelfBonus: number;
     categoryBase: Record<InsightCategory, number>;
@@ -89,7 +106,6 @@ export interface InsightsConfig {
   };
 }
 
-// eslint-disable-next-line no-underscore-dangle
 const __dev__ = typeof __DEV__ !== 'undefined' && __DEV__;
 
 export const INSIGHTS_CONFIG: InsightsConfig = {
@@ -99,16 +115,29 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
     // A fresh PR is the strongest signal - tighter window than the default.
     section_pr: { max: 14 },
     // Inverted: we *want* staleness here. The PR has to be old enough to
-    // represent a real opportunity, but not so old the section has changed.
-    // 30 days is the long-standing default - tune via config if needed.
-    stale_pr: { min: 30, max: 180 },
+    // represent a real opportunity. There is deliberately no upper bound: a
+    // fixed ceiling competes with the seasons, so a climb ridden each summer
+    // is excluded every spring, which is when it is worth suggesting. Bounding
+    // it wants an interval measured against the section's own visit rhythm.
+    stale_pr: { min: 30, max: Number.POSITIVE_INFINITY },
     // "This week" loses meaning outside the week.
     period_comparison: { max: 7 },
+    // A re-cut is news for a fortnight, then it is just the section.
+    section_changed: { max: 14 },
     // Everything else defaults to activeWindowDays.
   },
 
   repetition: {
     section_trend_min: 3, // Lally 2010 - trend needs ≥3 repetitions
+    // A decline is the one card that tells the athlete they got worse, and it
+    // arrives during the bad patch that produced it. Three traversals inside
+    // the 28-day window is as likely to be weather, traffic or one tired day,
+    // so the declining branch waits for five: the smallest floor a single bad
+    // week on a section ridden every other day cannot reach on its own.
+    // The asymmetry is the decision that the panel is a mirror: a negative
+    // fact is shown when the evidence supports it, and this is what supporting
+    // it means for a trend. Ten is still what saturates the confidence.
+    section_trend_declining_min: 5,
     efficiency_trend_min: 3,
     stale_pr_min_lifetime: 2, // had to have been meaningful at least once
     strength_min_sets: 4,
@@ -121,7 +150,6 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
     minProgressChangePct: 15,
     signalFloorDelta: 0.5,
     signalCeilingDelta: 2.0,
-    minHrvDataPoints: 5,
   },
 
   proximity: {
@@ -131,6 +159,37 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
   },
 
   scoring: {
+    confidenceWeight: 30,
+    // R9 sits between confidence (30) and the category base (up to 15): the
+    // engine's read on a section should be able to reorder within a priority
+    // and never across one.
+    rankingWeight: 20,
+    // The engine's own weights, from `persistence/sections/ranking.rs`, which
+    // is the blend the sections tab's Relevance sort already ranks by. The
+    // default reproduces a formula that ships rather than inventing one.
+    //
+    // Read the components and never `relevanceScore`: that field IS this blend
+    // of these four, so a term taking it beside them would weigh every
+    // component twice.
+    rankingWeights: { recency: 0.35, improvement: 0.3, anomaly: 0.2, engagement: 0.15 },
+    // Each saturation is a multiple of the category's repetition floor, which
+    // is the point the generator may speak at all. Reaching it means the claim
+    // has as much behind it as this generator can put there; below it the
+    // score is proportionally thinner, so a trend over two efforts ranks under
+    // the same trend over ten.
+    confidenceSaturation: {
+      efficiency_trend: 10,
+      // A daily FTP series and a pace history are both read in snapshots, and
+      // the pace query caps at twenty, so twenty is as much as either shows.
+      fitness_milestone: 20,
+      section_pr: 10,
+      hrv_trend: 7,
+      period_comparison: 10,
+      section_trend: 10,
+      stale_pr: 10,
+      strength_balance: 8,
+      strength_progression: 6,
+    },
     specificityBonus: { all3: 10, any2: 5 },
     temporalSelfBonus: 5,
     categoryBase: {
@@ -143,6 +202,7 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
       strength_balance: 6,
       period_comparison: 5,
       strength_progression: 4,
+      section_changed: 6,
     },
   },
 
@@ -196,4 +256,33 @@ export function maxPerCategoryFor(
   cfg: InsightsConfig = INSIGHTS_CONFIG
 ): number {
   return cfg.surface.maxPerCategoryOverride[category] ?? cfg.surface.maxPerCategory;
+}
+
+// R4 - how much population an insight's claim stands on. A generator either
+// counts what it measured or says it counted nothing, and the ranker treats
+// the two differently. An uncomputed confidence used to take a flat 0.5, which
+// is why a generator that measured nothing outscored one that honestly
+// measured two days of seven.
+
+/**
+ * A generator with no population to count says so with this rather than
+ * leaving the field out. A section that was recut is a ledger fact, and a
+ * personal record is one measured effort, not a sample of them.
+ */
+export const NO_POPULATION = null;
+
+/**
+ * Confidence from `observations`, against the category's saturation count.
+ * A category with no saturation entry has nothing to count against, so it
+ * declares an absence rather than inventing one.
+ */
+export function confidenceFrom(
+  category: InsightCategory,
+  observations: number,
+  cfg: InsightsConfig = INSIGHTS_CONFIG
+): number | null {
+  const saturation = cfg.scoring.confidenceSaturation[category];
+  if (saturation == null || saturation <= 0) return NO_POPULATION;
+  if (!Number.isFinite(observations) || observations <= 0) return 0;
+  return Math.min(1, observations / saturation);
 }

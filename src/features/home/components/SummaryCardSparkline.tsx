@@ -1,13 +1,13 @@
-import React, { memo, useMemo, useRef } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, Text as RNText } from 'react-native';
 import { Canvas, Rect, Line as SkiaLine, Path, Skia, vec } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Animated from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
-import { darkColors, colors, colorWithOpacity } from '@/theme';
+import { darkColors, colors, colorWithOpacity, typography } from '@/theme';
 import { getFormZone, FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
 import { getIntlLocale } from '@/shared/format/format';
-import { buildMonotoneSvg } from '@/shared/charts/sparklinePath';
+import { buildMonotoneSvg, useChartGestures } from '@/shared/charts';
 
 const PLOT_TOP = 2;
 const PLOT_BOTTOM = 2;
@@ -68,11 +68,12 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   const onTapRef = useRef(onTap);
   onTapRef.current = onTap;
 
-  const hasFatigue = fatigueData && fatigueData.length === fitnessData.length;
+  const fatigueSeries =
+    fatigueData && fatigueData.length === fitnessData.length ? fatigueData : null;
 
   const domain = useMemo(() => {
     if (fitnessData.length === 0) return { y: [0, 100] as [number, number] };
-    const allValues = hasFatigue ? [...fitnessData, ...fatigueData] : fitnessData;
+    const allValues = fatigueSeries ? [...fitnessData, ...fatigueSeries] : fitnessData;
     const min = Math.min(...allValues);
     const max = Math.max(...allValues);
     // Ensure at least 1 unit range to avoid division by zero
@@ -82,13 +83,15 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     // so we need enough domain headroom that the plotted extremes stay inside the clip.
     const range = max - min;
     return { y: [min - range * 0.06, max + range * 0.04] as [number, number] };
-  }, [fitnessData, fatigueData, hasFatigue]);
+  }, [fitnessData, fatigueSeries]);
 
-  // Crosshair position shared value
-  const crosshairX = useSharedValue(-1);
+  const labelWidth = showLabels ? 42 : 0;
+  const chartWidth = width - labelWidth;
+  const totalHeight = CHART_HEIGHT + FORM_BAR_HEIGHT;
 
-  // JS-side scrub notification (called via runOnJS from worklet)
-  const notifyScrub = (index: number) => {
+  // Index maps over the full chart width so the crosshair lines up with the
+  // form bar rects, which are laid out on the same N-1 interval spacing.
+  const notifyScrub = useCallback((_point: number, index: number) => {
     const fitness = fitnessRef.current;
     const fatigue = fatigueRef.current;
     const form = formRef.current;
@@ -107,82 +110,29 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
       form: form[index],
       dateLabel,
     });
-  };
+  }, []);
 
-  const clearScrub = () => {
-    onScrubRef.current?.(null);
-  };
+  const handleInteractionChange = useCallback((active: boolean) => {
+    if (!active) onScrubRef.current?.(null);
+  }, []);
 
-  // Compute index from touch position (worklet)
-  // Uses full chart width (0 → chartWidth) to match form bar rect positions
-  const dataLength = useSharedValue(fitnessData.length);
-  dataLength.value = fitnessData.length;
-  const cWidth = useSharedValue(width);
-  cWidth.value = width - (showLabels ? 42 : 0);
-
-  const computeIndex = (x: number): number => {
-    'worklet';
-    const w = cWidth.value;
-    if (w <= 0) return 0;
-    const ratio = Math.max(0, Math.min(1, x / w));
-    return Math.round(ratio * (dataLength.value - 1));
-  };
-
-  // Quick tap navigates; press-and-drag scrubs. Pan auto-activates on movement
-  // so a stationary tap stays a tap.
-  const scrubEnabled = !!onScrub;
-  const fireTap = () => {
+  const fireTap = useCallback(() => {
     onTapRef.current?.();
-  };
+  }, []);
 
-  const tap = Gesture.Tap()
-    .enabled(!!onTap)
-    .maxDuration(500)
-    .onEnd(() => {
-      'worklet';
-      runOnJS(fireTap)();
-    });
-
-  const pan = Gesture.Pan()
-    .enabled(scrubEnabled)
-    .activeOffsetX([-4, 4])
-    .activeOffsetY([-4, 4])
-    .onStart((e) => {
-      'worklet';
-      crosshairX.value = e.x;
-      const idx = computeIndex(e.x);
-      runOnJS(notifyScrub)(idx);
-    })
-    .onUpdate((e) => {
-      'worklet';
-      crosshairX.value = e.x;
-      const idx = computeIndex(e.x);
-      runOnJS(notifyScrub)(idx);
-    })
-    .onEnd(() => {
-      'worklet';
-      crosshairX.value = -1;
-      runOnJS(clearScrub)();
-    })
-    .onFinalize(() => {
-      'worklet';
-      crosshairX.value = -1;
-      runOnJS(clearScrub)();
-    });
-
-  const composed = Gesture.Exclusive(pan, tap);
-
-  const crosshairStyle = useAnimatedStyle(() => {
-    if (crosshairX.value < 0) {
-      return { opacity: 0, transform: [{ translateX: 0 }] };
-    }
-    const xPos = Math.max(0, Math.min(cWidth.value, crosshairX.value));
-    return { opacity: 1, transform: [{ translateX: xPos }] };
+  const { gesture, crosshairStyle, syncBounds } = useChartGestures<number>({
+    data: fitnessData,
+    scrubEnabled: !!onScrub,
+    scrubActivation: 'drag',
+    tapMaxDuration: 500,
+    onSelect: notifyScrub,
+    onInteractionChange: handleInteractionChange,
+    onTap: onTap ? fireTap : undefined,
   });
 
-  const labelWidth = showLabels ? 42 : 0;
-  const chartWidth = width - labelWidth;
-  const totalHeight = CHART_HEIGHT + FORM_BAR_HEIGHT;
+  useEffect(() => {
+    syncBounds({ left: 0, right: chartWidth, top: 0, bottom: totalHeight });
+  }, [syncBounds, chartWidth, totalHeight]);
 
   const { formBarRects, transitions } = useMemo(() => {
     const N = formData.length;
@@ -214,14 +164,14 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     const [min, max] = domain.y;
     const plotHeight = CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM;
     const fitnessSvg = buildMonotoneSvg(fitnessData, min, max, chartWidth, PLOT_TOP, plotHeight);
-    const fatigueSvg = hasFatigue
-      ? buildMonotoneSvg(fatigueData!, min, max, chartWidth, PLOT_TOP, plotHeight)
+    const fatigueSvg = fatigueSeries
+      ? buildMonotoneSvg(fatigueSeries, min, max, chartWidth, PLOT_TOP, plotHeight)
       : null;
     return {
       fitness: fitnessSvg ? Skia.Path.MakeFromSVGString(fitnessSvg) : null,
       fatigue: fatigueSvg ? Skia.Path.MakeFromSVGString(fatigueSvg) : null,
     };
-  }, [fitnessData, fatigueData, hasFatigue, domain, chartWidth]);
+  }, [fitnessData, fatigueSeries, domain, chartWidth]);
 
   if (fitnessData.length === 0 || formData.length === 0 || width <= 0) {
     return <View style={{ width, height: totalHeight }} />;
@@ -235,7 +185,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   const dividerColor = isDark ? darkColors.surface : colors.surface;
 
   return (
-    <GestureDetector gesture={composed}>
+    <GestureDetector gesture={gesture}>
       <View style={[styles.container, { width, height: totalHeight }]}>
         <View style={styles.chartRow}>
           {/* Optional inline labels (settings preview only) */}
@@ -356,14 +306,14 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
   },
   inlineLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     fontWeight: '500',
   },
   rangeLabel: {
     position: 'absolute',
     top: -12,
     right: 2,
-    fontSize: 8,
+    fontSize: typography.pillLabel.fontSize,
     fontWeight: '500',
   },
   crosshair: {

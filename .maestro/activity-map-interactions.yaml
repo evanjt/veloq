@@ -29,14 +29,14 @@ tags:
     timeout: 15000
     optional: true
 
-- takeScreenshot: "activity-map-loaded"
+- takeScreenshot: "screenshots/activity-map-loaded"
 
-# 3D toggle (optional — crashes on emulator with WebGL)
+# 3D toggle (optional, crashes on emulator with WebGL)
 - tapOn:
     id: "map-toggle-3d"
     optional: true
 
-- takeScreenshot: "activity-map-3d-attempt"
+- takeScreenshot: "screenshots/activity-map-3d-attempt"
 
 # Scroll to charts area
 - scroll
@@ -48,10 +48,10 @@ tags:
     end: 70%, 50%
     duration: 1000
 
-- takeScreenshot: "activity-chart-scrubbed"
+- takeScreenshot: "screenshots/activity-chart-scrubbed"
 
 # Verify no crash after interactions
 - assertVisible:
     id: "activity-detail-content"
 
-- takeScreenshot: "activity-map-interactions-complete"
+- takeScreenshot: "screenshots/activity-map-interactions-complete"

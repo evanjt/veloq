@@ -21,7 +21,21 @@ export function setSectionName(host: DelegateHost, sectionId: string, name: stri
     host.notify('groups');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] setSectionName failed:', sectionId, e);
+    console.error('[Engine] setSectionName failed:', sectionId, e);
+    return false;
+  }
+}
+
+/** Delete a named corridor intent outright; its section falls back to the generated name. */
+export function removeNamedCorridor(host: DelegateHost, intentId: string): boolean {
+  if (!host.ready) return false;
+  validateId(intentId, 'named corridor ID');
+  try {
+    host.timed('removeNamedCorridor', () => host.engine.sections().removeNamedCorridor(intentId));
+    host.notify('sections');
+    return true;
+  } catch (e) {
+    console.error('[Engine] removeNamedCorridor failed:', intentId, e);
     return false;
   }
 }
@@ -76,7 +90,7 @@ export function deleteSection(host: DelegateHost, sectionId: string): boolean {
     host.notify('groups');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] deleteSection failed:', sectionId, e);
+    console.error('[Engine] deleteSection failed:', sectionId, e);
     return false;
   }
 }
@@ -96,7 +110,7 @@ export function setSectionReference(
     host.notify('sections');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] setSectionReference failed:', sectionId, activityId, e);
+    console.error('[Engine] setSectionReference failed:', sectionId, activityId, e);
     return false;
   }
 }
@@ -109,7 +123,7 @@ export function resetSectionReference(host: DelegateHost, sectionId: string): bo
     host.notify('sections');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] resetSectionReference failed:', sectionId, e);
+    console.error('[Engine] resetSectionReference failed:', sectionId, e);
     return false;
   }
 }
@@ -131,7 +145,7 @@ export function rematchActivityToSection(
     }
     return result;
   } catch (e) {
-    console.error('[RouteEngine] rematchActivityToSection failed:', e);
+    console.error('[Engine] rematchActivityToSection failed:', e);
     return false;
   }
 }
@@ -152,7 +166,7 @@ export function indexNewActivity(
     }
     return summary;
   } catch (e) {
-    console.error('[RouteEngine] indexNewActivity failed:', activityId, e);
+    console.error('[Engine] indexNewActivity failed:', activityId, e);
     return null;
   }
 }
@@ -173,7 +187,7 @@ export function mergeSections(
     host.notify('groups');
     return result;
   } catch (e) {
-    console.error('[RouteEngine] mergeSections failed:', e);
+    console.error('[Engine] mergeSections failed:', e);
     return null;
   }
 }
@@ -190,7 +204,7 @@ export function acceptSection(host: DelegateHost, sectionId: string): boolean {
     host.notify('sections');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] acceptSection failed:', sectionId, e);
+    console.error('[Engine] acceptSection failed:', sectionId, e);
     return false;
   }
 }
@@ -202,28 +216,8 @@ export function acceptAllSections(host: DelegateHost): number {
     host.notify('sections');
     return count;
   } catch (e) {
-    console.error('[RouteEngine] acceptAllSections failed:', e);
+    console.error('[Engine] acceptAllSections failed:', e);
     return 0;
   }
 }
 
-export function pruneOverlappingSections(host: DelegateHost): number {
-  if (!host.ready) return 0;
-  try {
-    const count = host.timed('pruneOverlappingSections', () =>
-      host.engine.sections().pruneOverlapping()
-    );
-    host.notify('sections');
-    host.notify('groups');
-    return count;
-  } catch (e) {
-    console.error('[RouteEngine] pruneOverlappingSections failed:', e);
-    return 0;
-  }
-}
-
-/** Recompute all activity indicators (PRs and trends). */
-export function recomputeIndicators(host: DelegateHost): void {
-  if (!host.ready) return;
-  host.timed('recomputeIndicators', () => host.engine.sections().recomputeIndicators());
-}

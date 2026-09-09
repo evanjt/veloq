@@ -12,7 +12,6 @@ export {
   startOAuthFlow,
   handleOAuthCallback,
   isOAuthConfigured,
-  getOAuthClientId,
   buildAuthorizationUrl,
   parseCallbackUrl,
   validateState,
@@ -20,15 +19,31 @@ export {
   getProxyRedirectUri,
   INTERVALS_URLS,
   type OAuthTokenResponse,
-  type OAuthError,
 } from './lib/oauth';
 
 export {
+  accountChangeAction,
   confirmAccountChange,
+  promptAccountMismatch,
+  UNNAMED_LIBRARY,
   getCachedAthleteId,
   type AccountChangeKind,
 } from './lib/accountChange';
 
-export { useApiKeyLogin, useOAuthLogin, useBackupRestore, type DetectedBackup } from './hooks';
+export {
+  useApiKeyLogin,
+  useOAuthLogin,
+  useBackupRestore,
+  useApiKeyPrefill,
+  useSessionExpiryNotice,
+  type DetectedBackup,
+  type SessionExpiryNotice,
+} from './hooks';
 
-export { LanguagePicker, OAuthLoginForm, ApiKeyLoginForm, BackupRestoreBanner } from './components';
+export {
+  LanguagePicker,
+  OAuthLoginForm,
+  ApiKeyLoginForm,
+  BackupRestoreBanner,
+  SessionExpiredNotice,
+} from './components';

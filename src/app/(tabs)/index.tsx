@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useIsFocused } from 'expo-router';
 import {
   View,
   FlatList,
@@ -12,23 +13,8 @@ import {
   Platform,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { ScreenSafeAreaView } from '@/shared/ui';
-import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
-import { isNetworkError } from '@/shared/errors/errorHandler';
-import { navigateTo } from '@/shared/app/navigation';
-import { queryKeys } from '@/shared/query/queryKeys';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
-import { useInfiniteActivities, useActivitySectionHighlights } from '@/features/activity/hooks';
-import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
-import { useSummaryCardData } from '@/features/home/hooks';
-import { useInsights } from '@/features/insights';
-import { useTheme } from '@/shared/app';
-import type { Activity } from '@/types';
-import { useDashboardPreferences } from '@/features/home/store';
-import { ActivityCard } from '@/features/activity/components';
 import {
+  ScreenSafeAreaView,
   NetworkErrorState,
   ErrorStatePreset,
   ScreenErrorBoundary,
@@ -36,6 +22,21 @@ import {
   ActivityCardSkeleton,
   TAB_BAR_SAFE_PADDING,
 } from '@/shared/ui';
+import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
+import { isNetworkError } from '@/shared/errors/errorHandler';
+import { navigateTo } from '@/shared/app/navigation';
+import { queryKeys } from '@/shared/query/queryKeys';
+import { requestSyncRefresh } from '@/shared/native/syncRefresh';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
+import { useInfiniteActivities, useActivitySectionHighlights } from '@/features/activity/hooks';
+import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
+import { useSummaryCardData } from '@/features/home/hooks';
+import { useTheme } from '@/shared/app';
+import type { Activity } from '@/types';
+import { useDashboardPreferences } from '@/features/home/store';
+import { ActivityCard } from '@/features/activity/components';
 import { SummaryCard, NotificationOptInCard, SupportCard } from '@/features/home/components';
 import { RecordFAB, PendingUploadsCard } from '@/features/recording';
 import { useStartupData } from '@/features/home/hooks/useStartupData';
@@ -52,26 +53,14 @@ import {
 import { initCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
+import {
+  FEED_GROUPS,
+  matchesFeedGroup,
+  type FeedGroup,
+} from '@/features/activity/lib/feedActivityGroups';
+import { debug } from '@/shared/debug/debug';
 
-// Activity type categories for filtering
-const ACTIVITY_TYPE_GROUPS = {
-  Cycling: ['Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'EBikeRide'],
-  Running: ['Run', 'VirtualRun', 'TrailRun'],
-  Swimming: ['Swim'],
-  Other: [
-    'Walk',
-    'Hike',
-    'Workout',
-    'WeightTraining',
-    'Yoga',
-    'Rowing',
-    'Elliptical',
-    'Ski',
-    'Snowboard',
-  ],
-};
-
-const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
+const log = debug.create('Feed');
 
 // Height of the search section (search bar + chips + padding) for scroll-to-reveal
 const SEARCH_SECTION_HEIGHT = 78;
@@ -97,6 +86,9 @@ export default function FeedScreen() {
   // so the pool always mounts; deferred so initial renders settle first
   // (cards check the cache before requesting anyway).
   const snapshotRef = useRef<TerrainSnapshotWebViewRef | null>(null);
+  // The feed stays mounted behind every other tab, and so did its two snapshot
+  // WebViews. They come down while it is offscreen and the queue waits.
+  const isFeedFocused = useIsFocused();
   const [snapshotWebViewReady, setSnapshotWebViewReady] = useState(false);
   useEffect(() => {
     const timeout = setTimeout(() => setSnapshotWebViewReady(true), 500);
@@ -137,14 +129,14 @@ export default function FeedScreen() {
     refetch,
   } = useInfiniteActivities();
   if (PERF_DEBUG && performance.now() - t1 > 5)
-    console.log(`  ⏱ useInfiniteActivities: ${(performance.now() - t1).toFixed(1)}ms`);
+    log.log(`  ⏱ useInfiniteActivities: ${(performance.now() - t1).toFixed(1)}ms`);
 
   // Flatten all pages into a single array - stabilize reference to prevent
   // FlatList re-renders when TanStack Query refetches with identical data
   const allActivitiesRaw = useMemo(() => {
     if (!data?.pages) return [];
     return data.pages.flat();
-  }, [data?.pages]);
+  }, [data]);
   const prevActivitiesRef = useRef(allActivitiesRaw);
   const allActivities = useMemo(() => {
     const prevIds = prevActivitiesRef.current.map((a) => a.id).join(',');
@@ -156,7 +148,7 @@ export default function FeedScreen() {
     return allActivitiesRaw;
   }, [allActivitiesRaw]);
 
-  // Single FFI call for all startup data (insights + summary card + GPS tracks)
+  // One deferred FFI call for what the feed paints: summary card and GPS tracks
   const t2 = PERF_DEBUG ? performance.now() : 0;
   const previewIds = useMemo(
     () =>
@@ -168,7 +160,7 @@ export default function FeedScreen() {
   );
   const { data: startupData } = useStartupData(previewIds);
   if (PERF_DEBUG && performance.now() - t2 > 5)
-    console.log(`  ⏱ useStartupData: ${(performance.now() - t2).toFixed(1)}ms`);
+    log.log(`  ⏱ useStartupData: ${(performance.now() - t2).toFixed(1)}ms`);
 
   // Summary card data - uses precomputed data from getStartupData to skip redundant FFI
   const t0 = PERF_DEBUG ? performance.now() : 0;
@@ -189,24 +181,14 @@ export default function FeedScreen() {
     showSparkline,
     supportingMetrics,
     refetch: refetchSummary,
-  } = useSummaryCardData(startupData?.summaryCardData);
+  } = useSummaryCardData(startupData?.summaryCardData, { awaitPrecomputed: true });
   if (PERF_DEBUG && performance.now() - t0 > 5)
-    console.log(`  ⏱ useSummaryCardData: ${(performance.now() - t0).toFixed(1)}ms`);
-
-  // useInsights uses pre-computed data from startup - never makes its own FFI call on feed
-  const t3 = PERF_DEBUG ? performance.now() : 0;
-  const { insights } = useInsights(startupData?.insightsData, true, startupData?.summaryCardData);
-  if (PERF_DEBUG && performance.now() - t3 > 5)
-    console.log(`  ⏱ useInsights: ${(performance.now() - t3).toFixed(1)}ms`);
+    log.log(`  ⏱ useSummaryCardData: ${(performance.now() - t0).toFixed(1)}ms`);
 
   if (PERF_DEBUG) {
     const hookTime = performance.now() - renderStart;
-    if (hookTime > 50) console.log(`  ⏱ Total hooks: ${hookTime.toFixed(1)}ms`);
+    if (hookTime > 50) log.log(`  ⏱ Total hooks: ${hookTime.toFixed(1)}ms`);
   }
-
-  // InsightLine intentionally disabled per product direction (noisy in top-right slot of
-  // SummaryCard). Leave `undefined` so the SummaryCard slot does not render.
-  const insightLine = undefined;
 
   // Filter activities by search query and type
   const filteredActivities = useMemo(() => {
@@ -226,24 +208,23 @@ export default function FeedScreen() {
 
     // Filter by activity type group
     if (selectedTypeGroup) {
-      const types =
-        ACTIVITY_TYPE_GROUPS[selectedTypeGroup as keyof typeof ACTIVITY_TYPE_GROUPS] || [];
-      filtered = filtered.filter((activity: Activity) => types.includes(activity.type));
+      const group = selectedTypeGroup as FeedGroup;
+      filtered = filtered.filter((activity: Activity) => matchesFeedGroup(group, activity.type));
     }
 
     return filtered;
   }, [allActivities, searchQuery, selectedTypeGroup]);
 
-  // Batch-fetch section highlights (PRs) for visible activities
-  const highlightIds = useMemo(
-    () => filteredActivities.map((a: Activity) => a.id),
-    [filteredActivities]
-  );
+  // Batch-fetch section highlights (PRs) for the whole loaded feed. Keying this
+  // on the filtered list would re-read the bundle on every search keystroke,
+  // and each card looks its own id up in the returned map anyway.
+  const highlightIds = useMemo(() => allActivities.map((a: Activity) => a.id), [allActivities]);
   const { sections: sectionHighlightsMap, routes: routeHighlightsMap } =
     useActivitySectionHighlights(highlightIds);
 
   // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
   const handleRefresh = useCallback(async () => {
+    requestSyncRefresh();
     // Reset the infinite query if page params are stale (don't cover today),
     // otherwise invalidate for smooth stale-while-revalidate.
     const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
@@ -407,7 +388,7 @@ export default function FeedScreen() {
 
           {/* Filter chips - always visible below search */}
           <View style={styles.filterChips}>
-            {Object.keys(ACTIVITY_TYPE_GROUPS).map((group) => (
+            {FEED_GROUPS.map((group) => (
               <TouchableOpacity
                 key={group}
                 testID={`home-filter-${group.toLowerCase()}`}
@@ -512,7 +493,6 @@ export default function FeedScreen() {
   const prevRenderState = useRef({
     isLoading: false,
     actLen: 0,
-    insLen: 0,
     refetching: false,
     dataRef: null as unknown,
     filteredRef: null as unknown,
@@ -523,24 +503,22 @@ export default function FeedScreen() {
     if (prev.isLoading !== isLoading) changes.push(`isLoading:${prev.isLoading}→${isLoading}`);
     if (prev.actLen !== allActivities.length)
       changes.push(`activities:${prev.actLen}→${allActivities.length}`);
-    if (prev.insLen !== insights.length) changes.push(`insights:${prev.insLen}→${insights.length}`);
     if (prev.refetching !== isRefetching)
       changes.push(`refetching:${prev.refetching}→${isRefetching}`);
     if (prev.dataRef !== data) changes.push('data:newRef');
     if (prev.filteredRef !== filteredActivities) changes.push('filtered:newRef');
     prev.isLoading = isLoading;
     prev.actLen = allActivities.length;
-    prev.insLen = insights.length;
     prev.refetching = isRefetching;
     prev.dataRef = data;
     prev.filteredRef = filteredActivities;
 
     const jsxStart = performance.now() - renderStart;
     if (jsxStart > 30)
-      console.log(
-        `  ⏱ Hooks→JSX: ${jsxStart.toFixed(0)}ms | activities: ${allActivities.length} | startup: ${startupData ? 'ready' : 'pending'} | insights: ${insights.length}`
+      log.log(
+        `  ⏱ Hooks→JSX: ${jsxStart.toFixed(0)}ms | activities: ${allActivities.length} | startup: ${startupData ? 'ready' : 'pending'}`
       );
-    if (changes.length > 0) console.log(`  🔄 State changes: ${changes.join(', ')}`);
+    if (changes.length > 0) log.log(`  🔄 State changes: ${changes.join(', ')}`);
   }
 
   // Single layout path - no separate loading tree to avoid component tree swap and layout bounce
@@ -572,7 +550,6 @@ export default function FeedScreen() {
             rhrData={rhrData}
             showSparkline={showSparkline}
             supportingMetrics={supportingMetrics}
-            insightLine={insightLine}
           />
         )}
 
@@ -594,7 +571,7 @@ export default function FeedScreen() {
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.5}
           showsVerticalScrollIndicator={false}
-          removeClippedSubviews={Platform.OS === 'ios'}
+          removeClippedSubviews
           maxToRenderPerBatch={Platform.OS === 'ios' ? 4 : 3}
           windowSize={Platform.OS === 'ios' ? 7 : 5}
           initialNumToRender={2}
@@ -609,7 +586,7 @@ export default function FeedScreen() {
             showRetry={false}
             onError={() => setSnapshotWebViewReady(false)}
           >
-            <TerrainSnapshotWebView ref={snapshotRef} />
+            <TerrainSnapshotWebView ref={snapshotRef} suspended={!isFeedFocused} />
           </ComponentErrorBoundary>
         )}
       </ScreenSafeAreaView>
@@ -640,7 +617,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: opacity.overlay.light,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     paddingHorizontal: layout.cardMargin,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
@@ -650,7 +627,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     color: colors.textPrimary,
     paddingVertical: 0,
   },
@@ -660,7 +637,7 @@ const styles = StyleSheet.create({
   headerProfile: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: layout.borderRadiusFull,
     marginLeft: spacing.sm,
     backgroundColor: opacity.overlay.light,
     overflow: 'hidden',

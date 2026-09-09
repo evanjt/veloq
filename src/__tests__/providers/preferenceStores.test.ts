@@ -31,19 +31,15 @@ import {
 import {
   useRouteSettings,
   isRouteMatchingEnabled,
-  getRetentionDays,
   initializeRouteSettings,
 } from '@/features/routes/stores/RouteSettingsStore';
 
 // SportPreferenceStore
 import {
   useSportPreference,
-  SPORT_API_TYPES,
-  SPORT_COLORS,
   getPrimarySport,
   initializeSportPreference,
 } from '@/features/fitness/stores/SportPreferenceStore';
-import type { PrimarySport } from '@/features/fitness/stores/SportPreferenceStore';
 
 // DashboardPreferencesStore
 import {
@@ -81,12 +77,7 @@ const MAP_PREFS_KEY = 'veloq-map-preferences';
 
 const DEFAULT_ROUTE_SETTINGS = {
   enabled: true,
-  retentionDays: 0,
   autoCleanupEnabled: false,
-  geocodingEnabled: false,
-  heatmapEnabled: true,
-  detectionStrictness: 60,
-  detectionMethod: 'corridor' as const,
 };
 
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
@@ -117,7 +108,7 @@ describe('ThemeProvider', () => {
     jest.doMock('react-native', () => ({
       Appearance: { setColorScheme: jest.fn() },
     }));
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const tp = require('@/shared/app/ThemeProvider');
     getThemePreference = tp.getThemePreference;
   });
@@ -199,7 +190,10 @@ describe('UnitPreferenceStore', () => {
     });
 
     it('falls back to locale when auto + no profile', () => {
-      useUnitPreference.setState({ unitPreference: 'auto', intervalsPreferences: null });
+      useUnitPreference.setState({
+        unitPreference: 'auto',
+        intervalsPreferences: null,
+      });
       expect(typeof resolveIsMetric()).toBe('boolean');
     });
   });
@@ -239,50 +233,18 @@ describe('RouteSettingsStore', () => {
     jest.clearAllMocks();
   });
 
-  describe('setRetentionDays() - Clamping Logic', () => {
-    it('preserves 0 as special "keep all" value', async () => {
-      await useRouteSettings.getState().setRetentionDays(0);
-      expect(useRouteSettings.getState().settings.retentionDays).toBe(0);
-    });
-
-    it('clamps values below 30 to minimum of 30', async () => {
-      for (const val of [1, 15, 29, -1, -100]) {
-        await useRouteSettings.getState().setRetentionDays(val);
-        expect(useRouteSettings.getState().settings.retentionDays).toBe(30);
-      }
-    });
-
-    it('clamps values above 365 to maximum of 365', async () => {
-      for (const val of [366, 500, 1000]) {
-        await useRouteSettings.getState().setRetentionDays(val);
-        expect(useRouteSettings.getState().settings.retentionDays).toBe(365);
-      }
-    });
-
-    it('passes through valid range values unchanged', async () => {
-      for (const val of [30, 60, 90, 180, 270, 365]) {
-        await useRouteSettings.getState().setRetentionDays(val);
-        expect(useRouteSettings.getState().settings.retentionDays).toBe(val);
-      }
-    });
-
-    it('persists validated (clamped) value', async () => {
-      await useRouteSettings.getState().setRetentionDays(15);
-      const stored = JSON.parse((await AsyncStorage.getItem(ROUTE_SETTINGS_KEY))!);
-      expect(stored.retentionDays).toBe(30);
-    });
-  });
-
   describe('initialize() - Corruption Recovery', () => {
     it('loads valid settings', async () => {
       await AsyncStorage.setItem(
         ROUTE_SETTINGS_KEY,
-        JSON.stringify({ enabled: false, retentionDays: 90, autoCleanupEnabled: true })
+        JSON.stringify({
+          enabled: false,
+          autoCleanupEnabled: true,
+        })
       );
       await initializeRouteSettings();
       const state = useRouteSettings.getState();
       expect(state.settings.enabled).toBe(false);
-      expect(state.settings.retentionDays).toBe(90);
       expect(state.isLoaded).toBe(true);
     });
 
@@ -305,7 +267,24 @@ describe('RouteSettingsStore', () => {
       await AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify({ enabled: false }));
       await initializeRouteSettings();
       expect(useRouteSettings.getState().settings.enabled).toBe(false);
-      expect(useRouteSettings.getState().settings.retentionDays).toBe(0);
+    });
+
+    it('drops the retired detectionStrictness key from a stored payload', async () => {
+      await AsyncStorage.setItem(
+        ROUTE_SETTINGS_KEY,
+        JSON.stringify({
+          enabled: true,
+          autoCleanupEnabled: false,
+          heatmapEnabled: true,
+          detectionStrictness: 90,
+        })
+      );
+      await initializeRouteSettings();
+      expect(useRouteSettings.getState().settings).toEqual(DEFAULT_ROUTE_SETTINGS);
+
+      await useRouteSettings.getState().setAutoCleanupEnabled(true);
+      const stored = JSON.parse((await AsyncStorage.getItem(ROUTE_SETTINGS_KEY))!);
+      expect(stored).not.toHaveProperty('detectionStrictness');
     });
 
     it('sets isLoaded even when AsyncStorage throws', async () => {
@@ -320,21 +299,15 @@ describe('RouteSettingsStore', () => {
       useRouteSettings.setState({
         settings: {
           enabled: true,
-          retentionDays: 90,
           autoCleanupEnabled: true,
-          geocodingEnabled: true,
-          heatmapEnabled: true,
-          detectionStrictness: 60,
-          detectionMethod: 'corridor',
         },
         isLoaded: true,
       });
 
       await useRouteSettings.getState().setEnabled(false);
-      expect(useRouteSettings.getState().settings.retentionDays).toBe(90);
       expect(useRouteSettings.getState().settings.autoCleanupEnabled).toBe(true);
 
-      await useRouteSettings.getState().setRetentionDays(180);
+      await useRouteSettings.getState().setAutoCleanupEnabled(true);
       expect(useRouteSettings.getState().settings.enabled).toBe(false);
       expect(useRouteSettings.getState().settings.autoCleanupEnabled).toBe(true);
     });
@@ -356,34 +329,23 @@ describe('RouteSettingsStore', () => {
   describe('Concurrent Operations', () => {
     it('parallel updates preserve all changes', async () => {
       const store = useRouteSettings.getState();
-      await Promise.all([
-        store.setEnabled(false),
-        store.setRetentionDays(90),
-        store.setAutoCleanupEnabled(true),
-      ]);
+      await Promise.all([store.setEnabled(false), store.setAutoCleanupEnabled(true)]);
       const state = useRouteSettings.getState();
       expect(state.settings.enabled).toBe(false);
-      expect(state.settings.retentionDays).toBe(90);
       expect(state.settings.autoCleanupEnabled).toBe(true);
     });
   });
 
   describe('Synchronous Helpers', () => {
-    it('isRouteMatchingEnabled and getRetentionDays reflect state', () => {
+    it('isRouteMatchingEnabled reflects state', () => {
       useRouteSettings.setState({
         settings: {
           enabled: false,
-          retentionDays: 180,
           autoCleanupEnabled: false,
-          geocodingEnabled: true,
-          heatmapEnabled: true,
-          detectionStrictness: 60,
-          detectionMethod: 'corridor',
         },
         isLoaded: true,
       });
       expect(isRouteMatchingEnabled()).toBe(false);
-      expect(getRetentionDays()).toBe(180);
     });
 
     it('helpers work before initialization', () => {
@@ -392,7 +354,6 @@ describe('RouteSettingsStore', () => {
         isLoaded: false,
       });
       expect(isRouteMatchingEnabled()).toBe(true);
-      expect(getRetentionDays()).toBe(0);
     });
   });
 });
@@ -406,15 +367,6 @@ describe('SportPreferenceStore', () => {
     useSportPreference.setState({ primarySport: 'Cycling', isLoaded: false });
     await AsyncStorage.clear();
     jest.clearAllMocks();
-  });
-
-  describe('constants', () => {
-    it('SPORT_API_TYPES covers all sports with variants', () => {
-      expect(SPORT_API_TYPES.Cycling).toContain('Ride');
-      expect(SPORT_API_TYPES.Cycling).toContain('VirtualRide');
-      expect(SPORT_API_TYPES.Running).toContain('Run');
-      expect(SPORT_API_TYPES.Running).toContain('TrailRun');
-    });
   });
 
   describe('initialize()', () => {
@@ -509,9 +461,6 @@ describe('DashboardPreferencesStore', () => {
       ).toContain('ftp');
     });
 
-    /**
-     * BUG: disable → reorder → re-enable produces duplicate order values
-     */
     it('disable → reorder → re-enable produces sequential order values', () => {
       useDashboardPreferences.getState().setMetricEnabled('ftp', false);
       useDashboardPreferences.getState().reorderMetrics(0, 2);
@@ -574,18 +523,16 @@ describe('DashboardPreferencesStore', () => {
     });
   });
 
-  describe('setSummaryCardPreferences() - Validation', () => {
-    /**
-     * BUG: No validation on heroMetric - invalid IDs accepted and stored.
-     */
-    it('accepts invalid heroMetric without validation (BUG)', () => {
-      useDashboardPreferences
-        .getState()
-        .setSummaryCardPreferences({ heroMetric: 'invalid' as MetricId });
-      expect(useDashboardPreferences.getState().summaryCard.heroMetric).toBe('invalid');
-      expect(getMetricDefinition('invalid' as MetricId)).toBeUndefined();
+  describe('getMetricDefinition()', () => {
+    it('resolves every id in AVAILABLE_METRICS and rejects unknown ids', () => {
+      for (const metric of AVAILABLE_METRICS) {
+        expect(getMetricDefinition(metric.id)?.id).toBe(metric.id);
+      }
+      expect(getMetricDefinition('notAMetric' as MetricId)).toBeUndefined();
     });
+  });
 
+  describe('setSummaryCardPreferences()', () => {
     it('partial update preserves other fields', () => {
       const original = { ...useDashboardPreferences.getState().summaryCard };
       useDashboardPreferences.getState().setSummaryCardPreferences({ showSparkline: false });
@@ -609,6 +556,73 @@ describe('DashboardPreferencesStore', () => {
           .getEnabledMetrics()
           .map((m) => m.id)
       ).toContain('thresholdPace');
+    });
+
+    it('restores a stored value that matches the current shape', async () => {
+      const stored: MetricPreference[] = [
+        { id: 'hrv', enabled: true, order: 0 },
+        { id: 'weight', enabled: false, order: 100 },
+      ];
+      await AsyncStorage.setItem(DASHBOARD_STORAGE_KEY, JSON.stringify(stored));
+      await initializeDashboardPreferences('Cycling');
+      expect(useDashboardPreferences.getState().metrics).toEqual(stored);
+    });
+
+    it('falls back to sport defaults for stored shapes and garbage', async () => {
+      // A 0.3.x value is a bare id list, and anything unparseable is garbage.
+      const payloads = [
+        JSON.stringify(['fitness', 'ftp', 'weekHours']),
+        JSON.stringify([{ id: 'ftp', visible: true }]),
+        JSON.stringify([{ id: 'notAMetric', enabled: true, order: 0 }]),
+        JSON.stringify({ metrics: [] }),
+        JSON.stringify([]),
+        'not valid json',
+      ];
+      for (const payload of payloads) {
+        await AsyncStorage.clear();
+        await AsyncStorage.setItem(DASHBOARD_STORAGE_KEY, payload);
+        useDashboardPreferences.setState({ isInitialized: false });
+        await initializeDashboardPreferences('Running');
+
+        const { metrics } = useDashboardPreferences.getState();
+        expect(metrics).toHaveLength(AVAILABLE_METRICS.length);
+        expect(metrics.every((m) => typeof m.enabled === 'boolean')).toBe(true);
+        expect(
+          useDashboardPreferences
+            .getState()
+            .getEnabledMetrics()
+            .map((m) => m.id)
+        ).toContain('thresholdPace');
+      }
+    });
+
+    it('falls back to summary card defaults on a mismatched stored value', async () => {
+      const payloads = [
+        JSON.stringify({ heroMetric: 'notAMetric' }),
+        JSON.stringify({ supportingMetrics: 'ftp' }),
+        JSON.stringify({ enabled: 'yes' }),
+        JSON.stringify(['fitness']),
+        'not valid json',
+      ];
+      for (const payload of payloads) {
+        await AsyncStorage.clear();
+        await AsyncStorage.setItem(SUMMARY_CARD_STORAGE_KEY, payload);
+        useDashboardPreferences.setState({ isInitialized: false });
+        await initializeDashboardPreferences('Cycling');
+        expect(useDashboardPreferences.getState().summaryCard).toEqual(DEFAULT_SUMMARY_CARD);
+      }
+    });
+
+    it('keeps a stored summary card that matches the current shape', async () => {
+      const stored: SummaryCardPreferences = {
+        enabled: false,
+        heroMetric: 'hrv',
+        showSparkline: false,
+        supportingMetrics: ['hrv', 'rhr'],
+      };
+      await AsyncStorage.setItem(SUMMARY_CARD_STORAGE_KEY, JSON.stringify(stored));
+      await initializeDashboardPreferences('Cycling');
+      expect(useDashboardPreferences.getState().summaryCard).toEqual(stored);
     });
   });
 
@@ -635,7 +649,11 @@ describe('DashboardPreferencesStore', () => {
 
 describe('HRZonesStore', () => {
   beforeEach(async () => {
-    useHRZones.setState({ maxHR: 190, zones: DEFAULT_HR_ZONES, isLoaded: false });
+    useHRZones.setState({
+      maxHR: 190,
+      zones: DEFAULT_HR_ZONES,
+      isLoaded: false,
+    });
     await AsyncStorage.clear();
     jest.clearAllMocks();
   });
@@ -693,10 +711,15 @@ describe('HRZonesStore', () => {
     });
   });
 
-  it('[BUG] rejects HR zone data where a non-first zone is corrupted', async () => {
-    // The current validation only checks the first zone - other corrupted zones slip through
-    // This test documents the bug - if the validation is already fixed, this will pass
-    const validZone = { id: 1, name: 'Recovery', min: 0.5, max: 0.6, color: '#94A3B8' };
+  // Validation that only inspects the first zone would let the corrupt third one through.
+  it('rejects stored HR zones where a non-first zone is malformed', async () => {
+    const validZone = {
+      id: 1,
+      name: 'Recovery',
+      min: 0.5,
+      max: 0.6,
+      color: '#94A3B8',
+    };
     const badZones = [validZone, validZone, { id: 3 }]; // missing min/max on third zone
     await AsyncStorage.setItem(HR_ZONES_KEY, JSON.stringify({ maxHR: 190, zones: badZones }));
     await initializeHRZones();
@@ -727,7 +750,9 @@ describe('MapPreferencesContext', () => {
 
   describe('Style Resolution', () => {
     it('returns default when no override, override when set', async () => {
-      const { result } = renderHook(() => useMapPreferences(), { wrapper: mapWrapper });
+      const { result } = renderHook(() => useMapPreferences(), {
+        wrapper: mapWrapper,
+      });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
       expect(result.current.getStyleForActivity('Ride')).toBe('light');
@@ -742,9 +767,14 @@ describe('MapPreferencesContext', () => {
     it('removes override when style is null', async () => {
       await AsyncStorage.setItem(
         MAP_PREFS_KEY,
-        JSON.stringify({ defaultStyle: 'light', activityTypeStyles: { Ride: 'dark' } })
+        JSON.stringify({
+          defaultStyle: 'light',
+          activityTypeStyles: { Ride: 'dark' },
+        })
       );
-      const { result } = renderHook(() => useMapPreferences(), { wrapper: mapWrapper });
+      const { result } = renderHook(() => useMapPreferences(), {
+        wrapper: mapWrapper,
+      });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
       await act(async () => {
@@ -756,7 +786,9 @@ describe('MapPreferencesContext', () => {
 
   describe('setDefaultStyle()', () => {
     it('updates default without affecting overrides', async () => {
-      const { result } = renderHook(() => useMapPreferences(), { wrapper: mapWrapper });
+      const { result } = renderHook(() => useMapPreferences(), {
+        wrapper: mapWrapper,
+      });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
       await act(async () => {
@@ -773,7 +805,9 @@ describe('MapPreferencesContext', () => {
 
   describe('setActivityGroupStyle() - Batch Updates', () => {
     it('updates multiple activity types at once', async () => {
-      const { result } = renderHook(() => useMapPreferences(), { wrapper: mapWrapper });
+      const { result } = renderHook(() => useMapPreferences(), {
+        wrapper: mapWrapper,
+      });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
       await act(async () => {
@@ -785,7 +819,9 @@ describe('MapPreferencesContext', () => {
     });
 
     it('removes multiple overrides when null', async () => {
-      const { result } = renderHook(() => useMapPreferences(), { wrapper: mapWrapper });
+      const { result } = renderHook(() => useMapPreferences(), {
+        wrapper: mapWrapper,
+      });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
       await act(async () => {
@@ -804,14 +840,18 @@ describe('MapPreferencesContext', () => {
   describe('Persistence Validation', () => {
     it('rejects invalid JSON and uses defaults', async () => {
       await AsyncStorage.setItem(MAP_PREFS_KEY, 'not valid json');
-      const { result } = renderHook(() => useMapPreferences(), { wrapper: mapWrapper });
+      const { result } = renderHook(() => useMapPreferences(), {
+        wrapper: mapWrapper,
+      });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
       expect(result.current.preferences.defaultStyle).toBe('light');
     });
 
     it('handles AsyncStorage read failure', async () => {
       (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('fail'));
-      const { result } = renderHook(() => useMapPreferences(), { wrapper: mapWrapper });
+      const { result } = renderHook(() => useMapPreferences(), {
+        wrapper: mapWrapper,
+      });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
       expect(result.current.preferences.defaultStyle).toBe('light');
     });

@@ -1,6 +1,8 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import {
   Canvas,
   Path,
@@ -11,7 +13,7 @@ import {
 } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity } from '@/theme';
+import { colors, darkColors, spacing, opacity, ink, layout, typography } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import type { LayoutChangeEvent } from 'react-native';
@@ -190,20 +192,20 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
                     cx={pointPositions[bestPointIdx].x}
                     cy={pointPositions[bestPointIdx].y}
                     r={7}
-                    color="#FFB300"
+                    color={colors.chartFtp}
                     opacity={0.3}
                   />
                   <Circle
                     cx={pointPositions[bestPointIdx].x}
                     cy={pointPositions[bestPointIdx].y}
                     r={5}
-                    color="#FFB300"
+                    color={colors.chartFtp}
                   />
                   <Circle
                     cx={pointPositions[bestPointIdx].x}
                     cy={pointPositions[bestPointIdx].y}
                     r={2.5}
-                    color="#FFFFFF"
+                    color={ink.white}
                   />
                 </>
               )}
@@ -215,6 +217,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
             const y = CHART_PADDING.top + ((tick - yMin) / yRange) * drawH;
             return (
               <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 key={`y-${i}`}
                 style={[
                   styles.axisLabel,
@@ -236,7 +239,11 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
           {/* X-axis date labels */}
           <View style={[styles.xAxisRow, { left: CHART_PADDING.left, right: CHART_PADDING.right }]}>
             {xLabels.map((label, i) => (
-              <Text key={`x-${i}`} style={[styles.axisLabel, { color: textMuted }]}>
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                key={`x-${i}`}
+                style={[styles.axisLabel, { color: textMuted }]}
+              >
                 {label.label}
               </Text>
             ))}
@@ -250,14 +257,14 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
 const styles = StyleSheet.create({
   chartCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
   },
   chartCardDark: {
     backgroundColor: opacity.overlayDark.light,
   },
   chartLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
@@ -269,7 +276,7 @@ const styles = StyleSheet.create({
     height: CHART_HEIGHT,
   },
   axisLabel: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '500',
   },
   xAxisRow: {

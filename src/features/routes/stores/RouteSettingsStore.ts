@@ -7,36 +7,31 @@ import { create } from 'zustand';
 import { getSetting, setSetting } from '@/shared/storage';
 import { debug } from '@/shared/debug/debug';
 import { safeJsonParseWithSchema } from '@/shared/validation/validation';
+import { runCatalogueClear } from '@/shared/native/engineClears';
 
 const log = debug.create('RouteSettings');
 
 const ROUTE_SETTINGS_KEY = 'veloq-route-settings';
 
+/**
+ * The engine's own copy of the switch. Rust owns what the engine does, so the
+ * refusal lives there and this store writes through to it; the key is Rust's
+ * (`settings_keys::DETECTION_ENABLED`) and absent means on.
+ */
+const DETECTION_ENABLED_KEY = '__detection_enabled';
+
 interface RouteSettings {
   /** Whether route matching feature is enabled */
   enabled: boolean;
   /** Number of days to retain activities before cleanup (default: 0 = keep all) */
-  retentionDays: number;
   /** Whether automatic cleanup is enabled (default: false) */
   autoCleanupEnabled: boolean;
-  /** Whether reverse geocoding of route/section names is enabled (default: true) */
-  geocodingEnabled: boolean;
   /** Whether heatmap tile generation is enabled (default: true) */
-  heatmapEnabled: boolean;
-  /** Detection sensitivity slider value (0=relaxed, 100=strict, default: 60) */
-  detectionStrictness: number;
-  /** Detection algorithm (corridor, density, flow). Default: corridor */
-  detectionMethod: 'corridor' | 'density' | 'flow';
 }
 
 const DEFAULT_SETTINGS: RouteSettings = {
   enabled: true, // Enabled by default - efficient Rust implementation
-  retentionDays: 0, // 0 = keep all activities forever
   autoCleanupEnabled: false, // Don't auto-delete by default
-  geocodingEnabled: false, // Off by default - user must acknowledge OSM Nominatim terms
-  heatmapEnabled: true, // Generate heatmap tiles by default
-  detectionStrictness: 60,
-  detectionMethod: 'corridor',
 };
 
 /**
@@ -47,17 +42,18 @@ function isRouteSettings(value: unknown): value is RouteSettings {
   const obj = value as Record<string, unknown>;
   // enabled is optional in partial, so just check it's boolean if present
   if ('enabled' in obj && typeof obj.enabled !== 'boolean') return false;
-  // retentionDays must be a number if present (0 means keep all)
-  if ('retentionDays' in obj && typeof obj.retentionDays !== 'number') return false;
   // autoCleanupEnabled must be boolean if present
   if ('autoCleanupEnabled' in obj && typeof obj.autoCleanupEnabled !== 'boolean') return false;
-  // geocodingEnabled must be boolean if present
-  if ('geocodingEnabled' in obj && typeof obj.geocodingEnabled !== 'boolean') return false;
-  // heatmapEnabled must be boolean if present
-  if ('heatmapEnabled' in obj && typeof obj.heatmapEnabled !== 'boolean') return false;
-  if ('detectionStrictness' in obj && typeof obj.detectionStrictness !== 'number') return false;
-  if ('detectionMethod' in obj && typeof obj.detectionMethod !== 'string') return false;
   return true;
+}
+
+// A retired field left behind in storage must not ride back into state, or
+// every later write persists it again.
+function pickSettings(parsed: Partial<RouteSettings>): RouteSettings {
+  return {
+    enabled: parsed.enabled ?? DEFAULT_SETTINGS.enabled,
+    autoCleanupEnabled: parsed.autoCleanupEnabled ?? DEFAULT_SETTINGS.autoCleanupEnabled,
+  };
 }
 
 interface RouteSettingsState {
@@ -67,15 +63,10 @@ interface RouteSettingsState {
   // Actions
   initialize: () => Promise<void>;
   setEnabled: (enabled: boolean) => Promise<void>;
-  setRetentionDays: (days: number) => Promise<void>;
   setAutoCleanupEnabled: (enabled: boolean) => Promise<void>;
-  setGeocodingEnabled: (enabled: boolean) => Promise<void>;
-  setHeatmapEnabled: (enabled: boolean) => Promise<void>;
-  setDetectionStrictness: (value: number) => Promise<void>;
-  setDetectionMethod: (method: 'corridor' | 'density' | 'flow') => Promise<void>;
 }
 
-export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
+export const useRouteSettings = create<RouteSettingsState>((set) => ({
   settings: DEFAULT_SETTINGS,
   isLoaded: false,
 
@@ -85,7 +76,7 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
       if (stored) {
         const parsed = safeJsonParseWithSchema(stored, isRouteSettings, DEFAULT_SETTINGS);
         set({
-          settings: { ...DEFAULT_SETTINGS, ...parsed },
+          settings: pickSettings(parsed),
           isLoaded: true,
         });
       } else {
@@ -106,12 +97,25 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
     });
 
     try {
-      const { getRouteEngine } = require('@/shared/native/routeEngine');
-      const engine = getRouteEngine();
+      const { getEngine } = require('@/shared/native/engine');
+      const engine = getEngine();
       if (engine) {
+        // The engine starts a conditioning detect at the end of every stored
+        // batch and used to know nothing about this switch, so with it off it
+        // kept cutting the catalogue while the screens looked away.
+        // Written before the refresh below, so nothing can start a detect in
+        // the window between the two.
+        engine.setSetting?.(DETECTION_ENABLED_KEY, enabled ? '1' : '0');
         if (!enabled) {
-          // Clear route/section data from SQLite (GPS tracks preserved for heatmap)
-          engine.clearRoutesAndSections();
+          // Clear route/section data from SQLite (GPS tracks preserved for
+          // heatmap). The wipe runs on a Rust thread because on a full library
+          // it takes long enough to drop frames, and the refresh below waits
+          // for it so the screens never read a catalogue still draining. A
+          // wipe that fails is logged and the refresh still runs: a stuck
+          // switch is worse than a stale list.
+          await runCatalogueClear(engine).catch((error) => {
+            log.error('Failed to clear routes and sections:', error);
+          });
         }
         // Notify UI to update sections/routes visibility
         engine.triggerRefresh('sections');
@@ -124,25 +128,6 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
     } catch {
       // Engine might not be available yet
     }
-  },
-
-  setRetentionDays: async (days: number) => {
-    // Validate retention days (0 = keep all, 30-365 for cleanup)
-    const validatedDays = days === 0 ? 0 : Math.max(30, Math.min(365, days));
-
-    // Use functional update to ensure we read the latest state (fixes race condition)
-    set((state) => {
-      const newSettings = { ...state.settings, retentionDays: validatedDays };
-      // Persist asynchronously - errors logged but don't block state update
-      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
-        log.error('Failed to save retention days:', error);
-      });
-      return { settings: newSettings };
-    });
-
-    log.log(
-      `Retention period set to ${validatedDays === 0 ? 'keep all' : `${validatedDays} days`}`
-    );
   },
 
   setAutoCleanupEnabled: async (enabled: boolean) => {
@@ -158,79 +143,11 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
 
     log.log(`Auto cleanup ${enabled ? 'enabled' : 'disabled'}`);
   },
-
-  setGeocodingEnabled: async (enabled: boolean) => {
-    set((state) => {
-      const newSettings = { ...state.settings, geocodingEnabled: enabled };
-      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
-        log.error('Failed to save geocoding setting:', error);
-      });
-      return { settings: newSettings };
-    });
-
-    log.log(`Geocoding ${enabled ? 'enabled' : 'disabled'}`);
-  },
-
-  setHeatmapEnabled: async (enabled: boolean) => {
-    set((state) => {
-      const newSettings = { ...state.settings, heatmapEnabled: enabled };
-      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
-        log.error('Failed to save heatmap setting:', error);
-      });
-      return { settings: newSettings };
-    });
-
-    log.log(`Heatmap generation ${enabled ? 'enabled' : 'disabled'}`);
-  },
-
-  setDetectionStrictness: async (value: number) => {
-    const clamped = Math.max(0, Math.min(100, Math.round(value)));
-    set((state) => {
-      const newSettings = { ...state.settings, detectionStrictness: clamped };
-      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
-        log.error('Failed to save detection strictness:', error);
-      });
-      return { settings: newSettings };
-    });
-  },
-
-  setDetectionMethod: async (method: 'corridor' | 'density' | 'flow') => {
-    set((state) => {
-      const newSettings = { ...state.settings, detectionMethod: method };
-      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
-        log.error('Failed to save detection method:', error);
-      });
-      return { settings: newSettings };
-    });
-  },
 }));
 
 // Helper for synchronous access
 export function isRouteMatchingEnabled(): boolean {
   return useRouteSettings.getState().settings.enabled;
-}
-
-// Helper for getting retention days synchronously
-export function getRetentionDays(): number {
-  return useRouteSettings.getState().settings.retentionDays;
-}
-
-// Helper for checking geocoding enabled synchronously
-export function isGeocodingEnabled(): boolean {
-  return useRouteSettings.getState().settings.geocodingEnabled;
-}
-
-// Helper for checking heatmap enabled synchronously
-export function isHeatmapEnabled(): boolean {
-  return useRouteSettings.getState().settings.heatmapEnabled;
-}
-
-export function getDetectionStrictness(): number {
-  return useRouteSettings.getState().settings.detectionStrictness;
-}
-
-export function getDetectionMethod(): 'corridor' | 'density' | 'flow' {
-  return useRouteSettings.getState().settings.detectionMethod;
 }
 
 // Initialize route settings (call during app startup)

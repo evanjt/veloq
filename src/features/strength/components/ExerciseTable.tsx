@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, ActivityIndicator, Pressable, Linking } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { ExerciseSet } from 'veloqrs';
@@ -224,16 +224,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   exerciseName: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     paddingVertical: spacing.xs,
@@ -262,14 +262,14 @@ const styles = StyleSheet.create({
     borderTopColor: darkColors.border,
   },
   colHeader: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   colValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textPrimary,
   },
   colSet: {
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     borderTopColor: darkColors.border,
   },
   totalsLabel: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   totalsValue: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },

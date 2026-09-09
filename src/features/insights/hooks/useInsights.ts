@@ -3,17 +3,21 @@ import { InteractionManager } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from 'expo-router';
 
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import { useWellness } from '@/features/wellness';
 
 import { useInsightsStore, computeInsightFingerprint, diffInsights } from '../store';
-import {
-  computeInsightsFromData,
-  fetchInsightsDataFromEngine,
-  invalidateInsightsCache,
-} from '../lib/computeInsightsData';
-import type { FfiInsightsDataShape, FfiSummaryCardDataShape } from '../lib/computeInsightsData';
+import { computeInsightsFromData, fetchInsightsDataFromEngine } from '../lib/computeInsightsData';
+import type { InsightsData, SummaryCardData } from 'veloqrs';
+import type { ActivityPattern } from '@/types';
 import type { Insight } from '../types';
+
+/**
+ * How long a recompute waits for further engine announcements before it runs.
+ * Long enough to swallow a launch's burst, short enough that a real change
+ * reaches the screen while the athlete is still looking at it.
+ */
+const RECOMPUTE_SETTLE_MS = 400;
 
 /**
  * Compute ranked insights from FFI data.
@@ -26,13 +30,14 @@ import type { Insight } from '../types';
  * in background tasks without React.
  */
 export function useInsights(
-  preComputedInsightsData?: FfiInsightsDataShape | null,
+  preComputedInsightsData?: InsightsData | null,
   /** When true, never make own getInsightsData FFI call - wait for preComputedInsightsData */
   skipOwnFfiCall = false,
-  preComputedSummaryCardData?: FfiSummaryCardDataShape | null
+  preComputedSummaryCardData?: SummaryCardData | null
 ): {
   insights: Insight[];
-  topInsight: Insight | null;
+  /** Today's pattern out of the same bundle, so no caller recomputes it */
+  todayPattern: ActivityPattern | null;
   hasNewInsights: boolean;
   markAsSeen: () => void;
 } {
@@ -50,8 +55,6 @@ export function useInsights(
     if (trigger !== lastSeenTriggerRef.current) {
       dirtyRef.current = true;
       lastSeenTriggerRef.current = trigger;
-      // Invalidate cached FFI results so next computation fetches fresh data
-      invalidateInsightsCache();
     }
   }, [trigger]);
   useFocusEffect(
@@ -98,6 +101,7 @@ export function useInsights(
 
   // Deferred insights computation - starts empty, populates after interactions
   const [insights, setInsights] = useState<Insight[]>([]);
+  const [todayPattern, setTodayPattern] = useState<ActivityPattern | null>(null);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -107,37 +111,55 @@ export function useInsights(
     };
   }, []);
 
+  // The first read is the visit's own and runs as soon as interactions allow.
+  // Later ones wait for the announcements to stop: the engine raises
+  // `activities` and `sections` several times while a launch settles, and each
+  // read is about 70 ms under the engine lock on the thread drawing the tab.
+  const hasComputedRef = useRef(false);
+
   useEffect(() => {
-    const handle = InteractionManager.runAfterInteractions(() => {
-      if (!isMountedRef.current) return;
+    let handle: ReturnType<typeof InteractionManager.runAfterInteractions> | null = null;
+    const compute = () => {
+      handle = InteractionManager.runAfterInteractions(() => {
+        if (!isMountedRef.current) return;
 
-      // Use pre-computed data from getStartupData when available
-      let data = preComputedInsightsData;
-      let summaryData = preComputedSummaryCardData;
-      if (!data) {
-        if (skipOwnFfiCall) return;
-        // fetchInsightsDataFromEngine uses a 30s cache to avoid redundant FFI calls
-        const fetched = fetchInsightsDataFromEngine();
-        data = fetched?.insightsData ?? null;
-        summaryData = fetched?.summaryCardData ?? null;
-      }
+        // Use pre-computed data from getStartupData when available
+        let data = preComputedInsightsData;
+        let summaryData = preComputedSummaryCardData;
+        if (!data) {
+          if (skipOwnFfiCall) return;
+          const fetched = fetchInsightsDataFromEngine();
+          data = fetched?.insightsData ?? null;
+          summaryData = fetched?.summaryCardData ?? null;
+        }
 
-      if (!data || !isMountedRef.current) return;
+        if (!data || !isMountedRef.current) return;
 
-      // Delegate to the shared pure function
-      const result = computeInsightsFromData(
-        data,
-        stableWellness ?? null,
-        t as (key: string, params?: Record<string, string | number>) => string,
-        summaryData
-      );
+        // Delegate to the shared pure function
+        const result = computeInsightsFromData(
+          data,
+          stableWellness ?? null,
+          t as (key: string, params?: Record<string, string | number>) => string,
+          summaryData
+        );
 
-      if (isMountedRef.current) {
-        setInsights(result);
-      }
-    });
+        if (isMountedRef.current) {
+          hasComputedRef.current = true;
+          setInsights(result);
+          setTodayPattern(data.todayPattern ?? null);
+        }
+      });
+    };
 
-    return () => handle.cancel();
+    if (!hasComputedRef.current) {
+      compute();
+      return () => handle?.cancel();
+    }
+    const settle = setTimeout(compute, RECOMPUTE_SETTLE_MS);
+    return () => {
+      clearTimeout(settle);
+      handle?.cancel();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     trigger,
@@ -198,7 +220,7 @@ export function useInsights(
 
   return {
     insights: annotatedInsights,
-    topInsight: annotatedInsights[0] ?? null,
+    todayPattern,
     hasNewInsights,
     markAsSeen,
   };

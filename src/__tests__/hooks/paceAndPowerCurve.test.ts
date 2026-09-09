@@ -4,7 +4,6 @@
  */
 
 import {
-  paceToMinPerKm,
   paceToMinPer100m,
   getPaceAtDistance,
   getIndexAtDistance,
@@ -21,50 +20,6 @@ import {
 } from '@/features/stats/hooks/usePowerCurve';
 
 import type { PaceCurve, PowerCurve } from '@/types';
-
-// ---------------------------------------------------------------------------
-// paceToMinPerKm
-// ---------------------------------------------------------------------------
-
-describe('paceToMinPerKm', () => {
-  it('converts m/s to min/km across the running pace range', () => {
-    // pace = 1000 / speed seconds per km, split into minutes/seconds.
-    const cases: { secondsPerKm: number; minutes: number; seconds: number }[] = [
-      { secondsPerKm: 240, minutes: 4, seconds: 0 }, // 4:00
-      { secondsPerKm: 390, minutes: 6, seconds: 30 }, // 6:30
-      { secondsPerKm: 120, minutes: 2, seconds: 0 }, // very fast
-      { secondsPerKm: 900, minutes: 15, seconds: 0 }, // very slow
-    ];
-
-    for (const { secondsPerKm, minutes, seconds } of cases) {
-      const result = paceToMinPerKm(1000 / secondsPerKm);
-      expect(result.minutes).toBe(minutes);
-      expect(result.seconds).toBe(seconds);
-    }
-  });
-
-  it('returns {0, 0} for zero and negative speed', () => {
-    expect(paceToMinPerKm(0)).toEqual({ minutes: 0, seconds: 0 });
-    expect(paceToMinPerKm(-5)).toEqual({ minutes: 0, seconds: 0 });
-  });
-
-  it('rolls over seconds=60 to next minute', () => {
-    // We need a speed where Math.round(secondsPerKm % 60) === 60
-    // secondsPerKm % 60 >= 59.5 means secondsPerKm = N*60 + 59.5
-    // e.g. secondsPerKm = 359.5 → minutes should be 6, seconds 0 (not 5:60)
-    const secondsPerKm = 359.5;
-    const metersPerSecond = 1000 / secondsPerKm;
-    const result = paceToMinPerKm(metersPerSecond);
-    expect(result.seconds).toBeLessThan(60);
-    // 359.5s → floor(359.5/60) = 5, round(359.5 % 60) = round(59.5) = 60 → rollover → 6:00
-    expect(result.minutes).toBe(6);
-    expect(result.seconds).toBe(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// paceToMinPer100m
-// ---------------------------------------------------------------------------
 
 describe('paceToMinPer100m', () => {
   it('converts a typical swim pace (1:40/100m = 1.0 m/s)', () => {
@@ -285,15 +240,9 @@ describe('formatPowerCurveForChart', () => {
 // Constant arrays
 // ---------------------------------------------------------------------------
 
-describe('PACE_CURVE_DISTANCES', () => {
-  it('has entries for standard running distances', () => {
-    const labels = PACE_CURVE_DISTANCES.map((d) => d.label);
-    expect(labels).toContain('400m');
-    expect(labels).toContain('5K');
-    expect(labels).toContain('10K');
-    expect(labels).toContain('Half');
-  });
+// Charts plot these in array order, so a duplicate or out-of-order entry folds the curve back.
 
+describe('PACE_CURVE_DISTANCES', () => {
   it('distances are in ascending order', () => {
     for (let i = 1; i < PACE_CURVE_DISTANCES.length; i++) {
       expect(PACE_CURVE_DISTANCES[i].meters).toBeGreaterThan(PACE_CURVE_DISTANCES[i - 1].meters);
@@ -302,21 +251,19 @@ describe('PACE_CURVE_DISTANCES', () => {
 });
 
 describe('SWIM_PACE_CURVE_DISTANCES', () => {
-  it('has entries for standard swimming distances', () => {
-    const labels = SWIM_PACE_CURVE_DISTANCES.map((d) => d.label);
-    expect(labels).toContain('100m');
-    expect(labels).toContain('400m');
-    expect(labels).toContain('1500m');
+  it('distances are in ascending order', () => {
+    for (let i = 1; i < SWIM_PACE_CURVE_DISTANCES.length; i++) {
+      expect(SWIM_PACE_CURVE_DISTANCES[i].meters).toBeGreaterThan(
+        SWIM_PACE_CURVE_DISTANCES[i - 1].meters
+      );
+    }
   });
 });
 
 describe('POWER_CURVE_DURATIONS', () => {
-  it('has entries for standard durations', () => {
-    const labels = POWER_CURVE_DURATIONS.map((d) => d.label);
-    expect(labels).toContain('5s');
-    expect(labels).toContain('1m');
-    expect(labels).toContain('5m');
-    expect(labels).toContain('20m');
-    expect(labels).toContain('1h');
+  it('durations are in ascending order', () => {
+    for (let i = 1; i < POWER_CURVE_DURATIONS.length; i++) {
+      expect(POWER_CURVE_DURATIONS[i].secs).toBeGreaterThan(POWER_CURVE_DURATIONS[i - 1].secs);
+    }
   });
 });

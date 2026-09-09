@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Keyboard, TextInput } from 'react-native';
 import type { TFunction } from 'i18next';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { getAllRouteDisplayNames } from './useRouteGroups';
+import { getEngine } from '@/shared/native/engine';
 
+/**
+ * `preComputedNames` lets a caller that already read the name map as part of a
+ * screen bundle skip this hook's own FFI call.
+ */
 export function useRouteRenaming(
   id: string | undefined,
   routeGroupBaseName: string | undefined,
-  t: TFunction
+  t: TFunction,
+  preComputedNames?: Record<string, string>
 ) {
   // State for route renaming
   const [isEditing, setIsEditing] = useState(false);
@@ -15,19 +19,23 @@ export function useRouteRenaming(
   const [customName, setCustomName] = useState<string | null>(null);
   const nameInputRef = useRef<TextInput>(null);
 
+  const readNames = useCallback(
+    () => preComputedNames ?? getEngine()?.getAllRouteNames() ?? {},
+    [preComputedNames]
+  );
+
   useEffect(() => {
     if (id) {
-      const engine = getRouteEngine();
-      const names = engine?.getAllRouteNames() ?? {};
+      const names = readNames();
       if (names[id]) {
         setCustomName(names[id]);
       }
     }
-  }, [id]);
+  }, [id, readNames]);
 
   // Rename function - calls engine directly (no need to load all groups)
   const renameRoute = useCallback((routeId: string, name: string) => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) {
       throw new Error('Route engine not initialized');
     }
@@ -58,9 +66,10 @@ export function useRouteRenaming(
       return;
     }
 
-    // Check uniqueness against ALL route names (custom + auto-generated)
-    const allDisplayNames = getAllRouteDisplayNames();
-    const isDuplicate = Object.entries(allDisplayNames).some(
+    // Uniqueness runs over the engine's name map, the same source the current
+    // name was seeded from. Every group gets a row on creation, so it is the
+    // whole set, custom and auto-generated alike.
+    const isDuplicate = Object.entries(readNames()).some(
       ([existingId, name]) => existingId !== id && name === trimmedName
     );
 
@@ -78,7 +87,7 @@ export function useRouteRenaming(
     } catch (error) {
       if (__DEV__) console.error('Failed to save route name:', error);
     }
-  }, [editName, id, renameRoute, t]);
+  }, [editName, id, readNames, renameRoute, t]);
 
   // Handle canceling the edit
   const handleCancelEdit = useCallback(() => {

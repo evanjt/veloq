@@ -2,16 +2,17 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useSportPreference } from '@/features/fitness/stores';
 import { useDashboardPreferences } from '@/features/home/store';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { useRecordingPreferences } from '@/features/recording';
+import { useSensorStore } from '@/features/sensors';
+import { useBackgroundJobs } from '@/features/settings';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useLanguageStore, getAvailableLanguages } from '@/shared/app/LanguageStore';
@@ -23,8 +24,9 @@ import { getAppStorageSize } from '@/shared/storage/gpsStorage';
 import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { SettingsNavRow } from '@/features/settings/components/SettingsNavRow';
+import { RecordingPermissionSection } from '@/features/settings/components/RecordingPermissionSection';
 import { FooterSection, SupportSection } from '@/features/settings/components';
-import { settingsStyles, DIVIDER_INSET } from '@/features/settings/components/settingsStyles';
+import { settingsStyles } from '@/features/settings/components/settingsStyles';
 
 interface AccountRowProps {
   athlete?: { name?: string; profile?: string; profile_medium?: string };
@@ -111,7 +113,8 @@ export default function SettingsScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
-  const { data: athlete } = useAthlete();
+  const { data: athleteRow } = useAthlete();
+  const athlete = athleteRow ?? undefined;
   const authMethod = useAuthStore((state) => state.authMethod);
   const [profileImageError, setProfileImageError] = useState(false);
 
@@ -165,27 +168,49 @@ export default function SettingsScreen() {
     const d = new Date(oldest);
     return t('settings.sinceDateSubtitle', {
       defaultValue: `Since ${d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`,
-      date: d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }),
+      date: d.toLocaleDateString(undefined, {
+        month: 'short',
+        year: 'numeric',
+      }),
     });
   }, [oldest, t]);
 
   // Subtitle: Routes & Sections
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
-  const detectionMethod = useRouteSettings((s) => s.settings.detectionMethod);
-  const detectionSubtitle = useMemo(() => {
-    if (!routeMatchingEnabled) return t('common.off');
-    return t(`settings.detectionMethod_${detectionMethod}` as never) as string;
-  }, [routeMatchingEnabled, detectionMethod, t]);
+  const detectionSubtitle = useMemo(
+    () => (routeMatchingEnabled ? t('common.on') : t('common.off')),
+    [routeMatchingEnabled, t]
+  );
+
+  // Subtitle: Recording. GPS accuracy is the preference that decides what the
+  // recorder captures, so it is the one worth previewing on the row.
+  const gpsAccuracyMode = useRecordingPreferences((s) => s.gpsAccuracyMode);
+  const recordingSubtitle = t(`recording.gpsModes.${gpsAccuracyMode}` as never);
+
+  // Subtitle: Sensors
+  const pairedSensorCount = useSensorStore((s) => s.knownSensors.length);
+  const sensorsSubtitle =
+    pairedSensorCount > 0
+      ? t('sensors.pairedCount', { count: pairedSensorCount })
+      : t('sensors.nonePairedShort');
+
+  // Subtitle: Background jobs. This spoke has no preference to preview, so the
+  // state of the thing itself is what the row is for: how many are running.
+  const backgroundJobs = useBackgroundJobs();
+  const runningJobCount = backgroundJobs.filter((job) => job.state === 'running').length;
+  const backgroundJobsSubtitle =
+    runningJobCount > 0
+      ? t('settings.jobsRunning', { count: runningJobCount })
+      : t('backgroundJobs.stateIdle');
 
   // Subtitle: Notifications
   const notificationsEnabled = useNotificationPreferences((s) => s.enabled);
 
   // Subtitle: Backup
-  const lastBackupText = useMemo(() => {
-    const ts = getLastBackupTimestamp();
-    if (!ts) return t('backup.lastBackupNever');
-    return new Date(ts).toLocaleDateString();
-  }, [t]);
+  const lastBackupTimestamp = getLastBackupTimestamp();
+  const lastBackupText = lastBackupTimestamp
+    ? new Date(lastBackupTimestamp).toLocaleDateString()
+    : t('backup.lastBackupNever');
 
   // Subtitle: Cache
   const [totalCacheSize, setTotalCacheSize] = useState(0);
@@ -198,31 +223,11 @@ export default function SettingsScreen() {
   return (
     <ScreenErrorBoundary screenName="Settings">
       <ScreenSafeAreaView
+        hasNativeHeader
         testID="settings-screen"
         style={[styles.container, isDark && styles.containerDark]}
       >
         <ScrollView testID="settings-scrollview" contentContainerStyle={styles.content}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              testID="nav-back-button"
-              onPress={() => router.back()}
-              style={styles.backButton}
-              accessibilityLabel={t('common.back')}
-              accessibilityRole="button"
-            >
-              <MaterialCommunityIcons
-                name="arrow-left"
-                size={24}
-                color={isDark ? colors.textOnDark : colors.textPrimary}
-              />
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-              {t('settings.title')}
-            </Text>
-            <View style={styles.headerSpacer} />
-          </View>
-
           {/* Account */}
           <AccountRow
             athlete={athlete}
@@ -232,9 +237,13 @@ export default function SettingsScreen() {
             isDark={isDark}
           />
 
-          {/* General */}
-          <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
-            {t('settings.general', 'GENERAL').toUpperCase()}
+          {/* Grouped by what the athlete is doing, not by which subsystem owns
+              the screen: that is how the heatmap toggle came to sit under sync. */}
+          <Text
+            style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+            testID="settings-group-shows"
+          >
+            {t('settings.groupShows', 'What it shows me').toUpperCase()}
           </Text>
           <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
             <SettingsNavRow
@@ -262,9 +271,11 @@ export default function SettingsScreen() {
             />
           </View>
 
-          {/* Data */}
-          <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
-            {t('settings.data', 'DATA').toUpperCase()}
+          <Text
+            style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+            testID="settings-group-collects"
+          >
+            {t('settings.groupCollects', 'What it collects').toUpperCase()}
           </Text>
           <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
             <SettingsNavRow
@@ -276,25 +287,37 @@ export default function SettingsScreen() {
             />
             <RowDivider isDark={isDark} />
             <SettingsNavRow
+              icon="record-circle-outline"
+              title={t('recording.settings')}
+              subtitle={recordingSubtitle}
+              onPress={nav('/recording-settings')}
+              testID="settings-nav-recording"
+            />
+            <RowDivider isDark={isDark} />
+            <SettingsNavRow
+              icon="bluetooth"
+              title={t('sensors.title')}
+              subtitle={sensorsSubtitle}
+              onPress={nav('/sensor-settings')}
+              testID="settings-nav-sensors"
+            />
+          </View>
+
+          {/* Detection is a computation, but what the athlete manages on that
+              screen is the catalogue it keeps, so it sits here. */}
+          <Text
+            style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+            testID="settings-group-keeps"
+          >
+            {t('settings.groupKeeps', 'What it keeps').toUpperCase()}
+          </Text>
+          <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+            <SettingsNavRow
               icon="map-marker-path"
               title={t('settings.routesAndSections', 'Routes & Sections')}
               subtitle={detectionSubtitle}
               onPress={nav('/detection-settings')}
               testID="settings-nav-detection"
-            />
-          </View>
-
-          {/* Notifications & Storage */}
-          <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
-            {t('settings.notificationsAndStorage', 'NOTIFICATIONS & STORAGE').toUpperCase()}
-          </Text>
-          <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-            <SettingsNavRow
-              icon="bell-outline"
-              title={t('notifications.settings.title')}
-              subtitle={notificationsEnabled ? t('common.on') : t('common.off')}
-              onPress={nav('/notification-settings')}
-              testID="settings-nav-notifications"
             />
             <RowDivider isDark={isDark} />
             <SettingsNavRow
@@ -313,6 +336,34 @@ export default function SettingsScreen() {
               testID="settings-nav-cache"
             />
           </View>
+
+          {/* Background jobs is a status screen rather than a preference, and
+              it is here because it is where the app reports on itself. */}
+          <Text
+            style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+            testID="settings-group-tells"
+          >
+            {t('settings.groupTells', 'What it tells me').toUpperCase()}
+          </Text>
+          <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+            <SettingsNavRow
+              icon="bell-outline"
+              title={t('notifications.settings.title')}
+              subtitle={notificationsEnabled ? t('common.on') : t('common.off')}
+              onPress={nav('/notification-settings')}
+              testID="settings-nav-notifications"
+            />
+            <RowDivider isDark={isDark} />
+            <SettingsNavRow
+              icon="progress-clock"
+              title={t('backgroundJobs.title')}
+              subtitle={backgroundJobsSubtitle}
+              onPress={nav('/background-jobs')}
+              testID="settings-nav-background-jobs"
+            />
+          </View>
+
+          <RecordingPermissionSection />
 
           {/* Support inline */}
           <SupportSection />
@@ -345,25 +396,6 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: layout.screenPadding,
-    paddingVertical: spacing.md,
-  },
-  backButton: {
-    padding: spacing.xs,
-    marginLeft: -spacing.xs,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  headerSpacer: {
-    width: 32,
-  },
   textLight: {
     color: colors.textOnDark,
   },
@@ -381,7 +413,7 @@ const styles = StyleSheet.create({
   accountPhoto: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',

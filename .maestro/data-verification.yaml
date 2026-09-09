@@ -15,7 +15,7 @@ tags:
       id: "home-activity-list"
     timeout: 10000
 
-- takeScreenshot: "data-verification-home"
+- takeScreenshot: "screenshots/data-verification-home"
 
 # Check for bad values on home screen
 - assertNotVisible:
@@ -31,7 +31,7 @@ tags:
       id: "weekly-summary"
     timeout: 10000
 
-- takeScreenshot: "data-verification-training"
+- takeScreenshot: "screenshots/data-verification-training"
 
 # Check for bad values on training screen
 - assertNotVisible:
@@ -51,7 +51,7 @@ tags:
       id: "fitness-atl-value"
     timeout: 5000
 
-- takeScreenshot: "data-verification-fitness"
+- takeScreenshot: "screenshots/data-verification-fitness"
 
 # Check for bad values on fitness screen
 - assertNotVisible:
@@ -60,7 +60,7 @@ tags:
     text: "undefined"
 
 # Navigate to Routes tab (deep link with tab=routes to skip insights default)
-- openLink: "veloq://routes?tab=routes"
+- openLink: "veloq://insights?tab=routes"
 - runFlow:
     when:
       visible: "Open"
@@ -75,7 +75,7 @@ tags:
       id: "routes-list"
     timeout: 15000
 
-- takeScreenshot: "data-verification-routes"
+- takeScreenshot: "screenshots/data-verification-routes"
 
 # Check for bad values on routes screen
 - assertNotVisible:
@@ -100,7 +100,7 @@ tags:
       id: "chart-type-selector"
     timeout: 10000
 
-- takeScreenshot: "data-verification-activity-detail"
+- takeScreenshot: "screenshots/data-verification-activity-detail"
 
 # Check for bad values on activity detail screen
 - assertNotVisible:
@@ -108,4 +108,4 @@ tags:
 - assertNotVisible:
     text: "undefined"
 
-- takeScreenshot: "data-verification-complete"
+- takeScreenshot: "screenshots/data-verification-complete"

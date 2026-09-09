@@ -1,41 +1,29 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, ScrollView } from 'react-native';
 import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { router } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout } from '@/theme';
-import { SyncRangePanel } from '@/features/settings/components';
+import { colors, darkColors, spacing } from '@/theme';
+import {
+  ActivitySyncRow,
+  BackgroundJobsLink,
+  SyncRangePanel,
+} from '@/features/settings/components';
 
 export default function SyncSettingsScreen() {
-  const { t } = useTranslation();
   const { isDark } = useTheme();
 
   return (
     <ScreenErrorBoundary screenName="SyncSettings">
-      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <ScreenSafeAreaView
+        hasNativeHeader
+        style={[styles.container, isDark && styles.containerDark]}
+      >
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backButton}
-              accessibilityLabel={t('common.back')}
-              accessibilityRole="button"
-            >
-              <MaterialCommunityIcons
-                name="arrow-left"
-                size={24}
-                color={isDark ? colors.textOnDark : colors.textPrimary}
-              />
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-              {t('settings.localDataRange', 'Local Data Range')}
-            </Text>
-            <View style={styles.headerSpacer} />
-          </View>
+          <ActivitySyncRow />
 
           <SyncRangePanel />
+
+          <BackgroundJobsLink />
         </ScrollView>
       </ScreenSafeAreaView>
     </ScreenErrorBoundary>
@@ -52,25 +40,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: layout.screenPadding,
-    paddingVertical: spacing.md,
-  },
-  backButton: {
-    padding: spacing.xs,
-    marginLeft: -spacing.xs,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  headerSpacer: {
-    width: 32,
   },
   textLight: {
     color: colors.textOnDark,

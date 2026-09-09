@@ -5,17 +5,22 @@
 
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { computePolylineOverlap } from '@/shared/math/geometry';
+import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
+import type { Section as NativeSection } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
-import type { Section, RoutePoint } from '@/types';
+import type { Section } from '@/types';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('CustomSections');
 
 export interface UseCustomSectionsOptions {
   /** Filter by sport type */
   sportType?: string;
   /** Whether to run the hook (default: true). When false, returns empty defaults without FFI calls. */
   enabled?: boolean;
+  /** Custom sections a caller already read, seeded so the query skips its own FFI call. */
+  preComputedSections?: NativeSection[];
 }
 
 export interface UseCustomSectionsResult {
@@ -52,27 +57,22 @@ export interface CreateSectionParams {
 
 /**
  * Overlap threshold for considering sections as superseded.
- * If a custom section overlaps >80% with an auto section, the auto section is hidden.
+ * If a custom section covers more than 80% of an auto section, that auto
+ * section is hidden.
  */
 const OVERLAP_THRESHOLD = 0.8;
 
-/**
- * Find auto-detected sections that significantly overlap with a custom section.
- */
-function findSupersededSections(
-  customPolyline: RoutePoint[],
-  autoSections: Array<{ id: string; polyline: RoutePoint[] }>
-): string[] {
-  const superseded: string[] = [];
-
-  for (const autoSection of autoSections) {
-    const overlap = computePolylineOverlap(autoSection.polyline, customPolyline);
-    if (overlap > OVERLAP_THRESHOLD) {
-      superseded.push(autoSection.id);
-    }
-  }
-
-  return superseded;
+/** Engine sections in the app's shape: decoded polyline, custom type, created stamp. */
+function toAppSections(sections: NativeSection[]): Section[] {
+  return sections.map((s) => ({
+    ...s,
+    polyline: decodeCoords(s.encodedPolyline).map((pt) => ({
+      lat: pt.latitude,
+      lng: pt.longitude,
+    })),
+    sectionType: 'custom' as const,
+    createdAt: s.createdAt || new Date().toISOString(),
+  })) as Section[];
 }
 
 /**
@@ -80,8 +80,13 @@ function findSupersededSections(
  * Uses Rust engine unified sections table.
  */
 export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCustomSectionsResult {
-  const { sportType, enabled = true } = options;
+  const { sportType, enabled = true, preComputedSections } = options;
   const queryClient = useQueryClient();
+
+  // A caller that already read the sections owns the answer. Seeding the query
+  // was not enough: a cache another screen primed wins over `initialData`, so
+  // the bundle's list was dropped and the engine read anyway.
+  const skipOwnFfiCall = preComputedSections !== undefined;
 
   // Load custom sections from unified sections table
   const {
@@ -91,36 +96,27 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     refetch,
   } = useQuery<Section[]>({
     queryKey: queryKeys.sections.custom,
-    enabled,
+    enabled: enabled && !skipOwnFfiCall,
     queryFn: async () => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         return [];
       }
 
       // Get custom sections from unified table
-      const sections = engine.getSectionsByType('custom');
-
-      // Convert polylines to RoutePoint format
-      // Note: FfiSection doesn't have activityPortions - it's optional in the app type
-      return sections.map((s) => ({
-        ...s,
-        polyline: decodeCoords(s.encodedPolyline).map((pt) => ({
-          lat: pt.latitude,
-          lng: pt.longitude,
-        })),
-        sectionType: 'custom' as const,
-        createdAt: s.createdAt || new Date().toISOString(),
-        // FfiSection doesn't have activityPortions
-        activityPortions: undefined,
-      })) as Section[];
+      return toAppSections(engine.getSectionsByType('custom'));
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
+  const preComputed = useMemo(
+    () => (preComputedSections ? toAppSections(preComputedSections) : undefined),
+    [preComputedSections]
+  );
+
   // Filter and sort sections
   const sections = useMemo(() => {
-    let filtered = rawSections || [];
+    let filtered = preComputed ?? rawSections ?? [];
 
     // Filter by sport type if specified
     if (sportType) {
@@ -133,7 +129,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     );
 
     return filtered;
-  }, [rawSections, sportType]);
+  }, [preComputed, rawSections, sportType]);
 
   // Invalidate queries after mutations
   const invalidate = useCallback(async () => {
@@ -143,7 +139,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   // Create a new section
   const createSection = useCallback(
     async (params: CreateSectionParams): Promise<Section> => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         throw new Error('Route engine not initialized');
       }
@@ -187,28 +183,22 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       } as Section;
 
       if (__DEV__) {
-        console.log(
+        log.log(
           `[useCustomSections] Created section ${result.id} (${result.polyline.length} points, ${result.distanceMeters.toFixed(0)}m)`
         );
       }
 
-      // Compute which auto-detected sections this custom section supersedes
+      // Which auto sections this one supersedes is the engine's answer, in one
+      // read. Asking per section decoded every auto polyline here and rebuilt
+      // the same R-tree for each, on the JS thread.
       try {
-        const autoSections = engine.getSectionsByType('auto');
-        const autoSectionsForOverlap = autoSections.map((s) => ({
-          id: s.id,
-          polyline: decodeCoords(s.encodedPolyline).map((pt) => ({
-            lat: pt.latitude,
-            lng: pt.longitude,
-          })),
-        }));
-        const supersededIds = findSupersededSections(result.polyline, autoSectionsForOverlap);
+        const supersededIds = engine.findSupersededSections(result.id, OVERLAP_THRESHOLD);
         if (supersededIds.length > 0) {
           for (const autoId of supersededIds) {
             engine.setSuperseded(autoId, result.id);
           }
           if (__DEV__) {
-            console.log(
+            log.log(
               `[useCustomSections] Custom section ${result.id} supersedes ${supersededIds.length} auto sections`
             );
           }
@@ -228,7 +218,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   // Delete a section
   const removeSection = useCallback(
     async (sectionId: string): Promise<void> => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         throw new Error('Route engine not initialized');
       }
@@ -255,7 +245,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   // Rename a section
   const renameSection = useCallback(
     async (sectionId: string, name: string): Promise<void> => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         throw new Error('Route engine not initialized');
       }
@@ -281,21 +271,4 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     renameSection,
     refresh,
   };
-}
-
-/**
- * Hook to get a single custom section by ID
- */
-export function useCustomSection(sectionId: string | undefined): {
-  section: Section | null;
-  isLoading: boolean;
-} {
-  const { sections, isLoading } = useCustomSections();
-
-  const section = useMemo(() => {
-    if (!sectionId) return null;
-    return sections.find((s) => s.id === sectionId) || null;
-  }, [sections, sectionId]);
-
-  return { section, isLoading };
 }

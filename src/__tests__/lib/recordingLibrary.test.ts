@@ -8,6 +8,31 @@
  * counts, and legacy pending_uploads migration.
  */
 
+import {
+  saveRecording,
+  listRecordings,
+  getRecording,
+  readRecordingFit,
+  readRecordingStreams,
+  discardRecordingStreams,
+  markRecordingUploaded,
+  markRecordingUploadFailed,
+  markRecordingRejected,
+  markRecordingPermissionBlocked,
+  requeueRecording,
+  clearPermissionBlocked,
+  demotePendingToLocalOnly,
+  nextPendingUpload,
+  deleteRecording,
+  getUnuploadedCount,
+  getPermissionBlockedCount,
+  isRetryEligible,
+  migrateLegacyUploadQueue,
+  adoptAsyncStorageIndex,
+  bufferToBase64,
+} from '@/features/recording/lib/storage/recordingLibrary';
+import type { RecordingStreams } from '@/features/recording/types';
+
 jest.mock('@/shared/debug/debug', () => ({
   debug: {
     log: () => {},
@@ -63,28 +88,144 @@ jest.mock('expo-file-system/legacy', () => ({
   }),
 }));
 
-import {
-  saveRecording,
-  listRecordings,
-  getRecording,
-  readRecordingFit,
-  readRecordingStreams,
-  markRecordingUploaded,
-  markRecordingUploadFailed,
-  markRecordingRejected,
-  markRecordingPermissionBlocked,
-  requeueRecording,
-  clearPermissionBlocked,
-  demotePendingToLocalOnly,
-  nextPendingUpload,
-  deleteRecording,
-  getUnuploadedCount,
-  getPermissionBlockedCount,
-  isRetryEligible,
-  migrateLegacyUploadQueue,
-  bufferToBase64,
-} from '@/features/recording/lib/storage/recordingLibrary';
-import type { RecordingStreams } from '@/features/recording/types';
+/**
+ * The recording table, in memory.
+ *
+ * The engine owns the index now, so the storage module is tested against a
+ * stand-in with the same semantics rather than against AsyncStorage. What the
+ * real table does is pinned on the Rust side, in
+ * `persistence::recordings::tests`; what is under test here is the file
+ * handling and the adoption around it.
+ */
+const MAX_AUTO_RETRIES = 5;
+const BACKOFF_BASE_MS = 30_000;
+const BACKOFF_CAP_MS = 60 * 60 * 1000;
+
+type Row = Record<string, unknown> & {
+  id: string;
+  createdAt: number;
+  uploadStatus: string;
+  retryCount: number;
+  lastAttemptAt?: number;
+  lastError?: string;
+  fitPath: string;
+  streamsPath?: string;
+  intervalsActivityId?: string;
+  engineActivityId?: string;
+};
+
+const rows = new Map<string, Row>();
+
+function due(row: Row, now: number): boolean {
+  if (row.uploadStatus !== 'pending') return false;
+  if (!row.lastAttemptAt) return true;
+  return now - row.lastAttemptAt >= Math.min(BACKOFF_BASE_MS * 2 ** row.retryCount, BACKOFF_CAP_MS);
+}
+
+const mockEngine = {
+  addRecording: (entry: Row) => {
+    if (rows.has(entry.id)) return false;
+    rows.set(entry.id, { ...entry });
+    return true;
+  },
+  listRecordings: () => [...rows.values()].sort((a, b) => b.createdAt - a.createdAt),
+  getRecording: (id: string) => rows.get(id) ?? null,
+  attachRecordingEngineActivity: (id: string, engineActivityId: string) => {
+    const row = rows.get(id);
+    if (row) row.engineActivityId = engineActivityId;
+  },
+  markRecordingReconciled: (id: string) => {
+    const row = rows.get(id);
+    if (row) row.engineReconciled = true;
+  },
+  clearRecordingStreamsPath: (id: string) => {
+    const row = rows.get(id);
+    if (row) row.streamsPath = undefined;
+  },
+  markRecordingUploading: (id: string) => {
+    const row = rows.get(id);
+    if (row) row.uploadStatus = 'uploading';
+  },
+  markRecordingUploaded: (id: string, intervalsActivityId?: string) => {
+    const row = rows.get(id);
+    if (!row) return;
+    row.uploadStatus = 'uploaded';
+    row.intervalsActivityId = intervalsActivityId;
+    row.lastError = undefined;
+  },
+  markRecordingUploadFailed: (id: string, error: string, nowMs: number) => {
+    const row = rows.get(id);
+    if (!row) return 0;
+    row.retryCount += 1;
+    row.lastAttemptAt = nowMs;
+    row.lastError = error;
+    row.uploadStatus = row.retryCount >= MAX_AUTO_RETRIES ? 'failed' : 'pending';
+    return row.retryCount;
+  },
+  markRecordingRejected: (id: string, error: string, nowMs: number) => {
+    const row = rows.get(id);
+    if (!row) return;
+    row.uploadStatus = 'failed';
+    row.lastError = error;
+    row.lastAttemptAt = nowMs;
+  },
+  markRecordingPermissionBlocked: (id: string, nowMs: number) => {
+    const row = rows.get(id);
+    if (!row) return;
+    row.uploadStatus = 'permissionBlocked';
+    row.lastAttemptAt = nowMs;
+  },
+  requeueRecording: (id: string) => {
+    const row = rows.get(id);
+    if (!row) return;
+    row.uploadStatus = 'pending';
+    row.retryCount = 0;
+    row.lastAttemptAt = undefined;
+    row.lastError = undefined;
+  },
+  clearRecordingPermissionBlocked: () => {
+    for (const row of rows.values()) {
+      if (row.uploadStatus !== 'permissionBlocked') continue;
+      row.uploadStatus = 'pending';
+      row.retryCount = 0;
+      row.lastAttemptAt = undefined;
+    }
+  },
+  demoteRecordingsToLocalOnly: () => {
+    for (const row of rows.values()) {
+      if (['pending', 'uploading', 'permissionBlocked'].includes(row.uploadStatus)) {
+        row.uploadStatus = 'localOnly';
+      }
+    }
+  },
+  nextPendingRecording: (nowMs: number) =>
+    [...rows.values()].sort((a, b) => a.createdAt - b.createdAt).find((r) => due(r, nowMs)) ?? null,
+  deleteRecording: (id: string) => {
+    const row = rows.get(id) ?? null;
+    rows.delete(id);
+    return row;
+  },
+  unuploadedRecordingCount: () =>
+    [...rows.values()].filter((r) => r.uploadStatus !== 'uploaded').length,
+  permissionBlockedRecordingCount: () =>
+    [...rows.values()].filter((r) => r.uploadStatus === 'permissionBlocked').length,
+  clearRecordings: () => rows.clear(),
+};
+
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => mockEngine,
+}));
+
+let mockSignedInAthlete: string | null = 'i296629';
+
+jest.mock('@/shared/app/AuthStore', () => ({
+  getStoredCredentials: () => ({
+    apiKey: null,
+    accessToken: 'token',
+    athleteId: mockSignedInAthlete,
+    authMethod: 'oauth',
+  }),
+}));
 
 function makeBuffer(): ArrayBuffer {
   return new Uint8Array([0x0e, 0x10, 0x56, 0x45, 0x4c, 0x4f, 0x51]).buffer;
@@ -128,6 +269,8 @@ beforeEach(() => {
   mockStorage.clear();
   mockFileStore.clear();
   mockDirStore.clear();
+  rows.clear();
+  mockSignedInAthlete = 'i296629';
 });
 
 describe('saveRecording', () => {
@@ -150,6 +293,50 @@ describe('saveRecording', () => {
 
     const streams = await readRecordingStreams(entry);
     expect(streams?.latlng).toHaveLength(2);
+  });
+
+  it('drops the streams sidecar and the path that named it', async () => {
+    const entry = await saveOne();
+    await discardRecordingStreams(entry.id);
+
+    const after = await getRecording(entry.id);
+    expect(after).not.toBeNull();
+    expect(after?.streamsPath).toBeUndefined();
+    expect(await readRecordingStreams({ ...entry, streamsPath: undefined })).toBeNull();
+  });
+
+  it('leaves the FIT and the entry standing when the sidecar goes', async () => {
+    const entry = await saveOne();
+    await discardRecordingStreams(entry.id);
+
+    const after = await getRecording(entry.id);
+    expect(after).not.toBeNull();
+    expect(await readRecordingFit(entry)).not.toBeNull();
+  });
+
+  it('is a no-op for a recording that has no sidecar', async () => {
+    const entry = await saveOne();
+    await discardRecordingStreams(entry.id);
+    await expect(discardRecordingStreams(entry.id)).resolves.toBeUndefined();
+    await expect(discardRecordingStreams('never-saved')).resolves.toBeUndefined();
+  });
+
+  it('stamps the athlete who recorded it', async () => {
+    const entry = await saveOne();
+    expect(entry.athleteId).toBe('i296629');
+    expect(rows.get(entry.id)?.athleteId).toBe('i296629');
+  });
+
+  it('leaves the stamp off when nobody is signed in', async () => {
+    mockSignedInAthlete = null;
+    const entry = await saveOne();
+    expect(entry.athleteId).toBeUndefined();
+    expect(rows.get(entry.id)?.athleteId).toBeUndefined();
+  });
+
+  it('stamps a local-only recording too, so a later requeue can tell whose it is', async () => {
+    const entry = await saveOne({ uploadStatus: 'localOnly' });
+    expect(entry.athleteId).toBe('i296629');
   });
 
   it('respects localOnly status for auto-upload off', async () => {
@@ -332,5 +519,99 @@ describe('legacy migration', () => {
     await migrateLegacyUploadQueue();
     await migrateLegacyUploadQueue();
     expect(await listRecordings()).toHaveLength(1);
+  });
+});
+
+describe('adopting the AsyncStorage index', () => {
+  const stored = (entries: unknown[]) =>
+    mockStorage.set('veloq-recording-library', JSON.stringify(entries));
+
+  const legacyEntry = (id: string, overrides: Record<string, unknown> = {}) => ({
+    id,
+    fitPath: `/mock/docs/recordings/${id}.fit`,
+    streamsPath: `/mock/docs/recordings/${id}.streams.json`,
+    activityType: 'Ride',
+    name: `Ride ${id}`,
+    startTime: 1_700_000_000_000,
+    durationSeconds: 3600,
+    distanceMeters: 25_000,
+    createdAt: 1_700_000_000_000,
+    uploadStatus: 'pending',
+    retryCount: 2,
+    lastAttemptAt: 1_700_000_100_000,
+    lastError: 'network',
+    ...overrides,
+  });
+
+  it('carries every entry over with its retry state intact', async () => {
+    stored([legacyEntry('a'), legacyEntry('b', { uploadStatus: 'uploaded', retryCount: 0 })]);
+
+    expect(await adoptAsyncStorageIndex()).toBe(2);
+
+    const listed = await listRecordings();
+    expect(listed.map((e) => e.id).sort()).toEqual(['a', 'b']);
+    expect(listed.find((e) => e.id === 'a')).toMatchObject({
+      retryCount: 2,
+      lastAttemptAt: 1_700_000_100_000,
+      lastError: 'network',
+      streamsPath: '/mock/docs/recordings/a.streams.json',
+    });
+  });
+
+  it('removes the key so the next launch does not adopt again', async () => {
+    stored([legacyEntry('a')]);
+    await adoptAsyncStorageIndex();
+
+    expect(mockStorage.has('veloq-recording-library')).toBe(false);
+    expect(await adoptAsyncStorageIndex()).toBe(0);
+    expect(await listRecordings()).toHaveLength(1);
+  });
+
+  it('takes the rest when a run is interrupted before the key is removed', async () => {
+    stored([legacyEntry('a'), legacyEntry('b')]);
+    await adoptAsyncStorageIndex();
+    stored([legacyEntry('a'), legacyEntry('b'), legacyEntry('c')]);
+
+    expect(await adoptAsyncStorageIndex()).toBe(1);
+    expect(await listRecordings()).toHaveLength(3);
+  });
+
+  it('skips an entry with no id or no FIT path rather than writing a row nothing can find', async () => {
+    stored([legacyEntry('a'), { name: 'nameless' }, legacyEntry('b', { fitPath: undefined })]);
+
+    expect(await adoptAsyncStorageIndex()).toBe(1);
+    expect((await listRecordings()).map((e) => e.id)).toEqual(['a']);
+  });
+
+  it('is a no-op with no stored index, and clears a key that is not a list', async () => {
+    expect(await adoptAsyncStorageIndex()).toBe(0);
+
+    mockStorage.set('veloq-recording-library', '{"not":"a list"}');
+    expect(await adoptAsyncStorageIndex()).toBe(0);
+    expect(mockStorage.has('veloq-recording-library')).toBe(false);
+  });
+
+  it('takes what the legacy upload queue migrated, when it runs after it', async () => {
+    mockFileStore.set('/mock/docs/pending_uploads/q1.fit', 'RklU');
+    mockStorage.set(
+      'veloq-upload-queue',
+      JSON.stringify([
+        {
+          id: 'q1',
+          filePath: '/mock/docs/pending_uploads/q1.fit',
+          activityType: 'Run',
+          name: 'Queued run',
+          createdAt: 1_699_000_000_000,
+          retryCount: 0,
+        },
+      ])
+    );
+
+    await migrateLegacyUploadQueue();
+    await adoptAsyncStorageIndex();
+
+    const listed = await listRecordings();
+    expect(listed.map((e) => e.id)).toEqual(['q1']);
+    expect(listed[0].uploadStatus).toBe('pending');
   });
 });

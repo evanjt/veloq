@@ -7,15 +7,18 @@ import { colors, darkColors } from '@/theme';
 import { SectionPerformanceSection } from './SectionPerformanceSection';
 import { SectionStatsCards } from './SectionStatsCards';
 import { SectionInfoCard } from './SectionInfoCard';
+import { SectionEfficiencyCard } from './SectionEfficiencyCard';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import type { SectionTimeRange } from '@/features/routes/constants';
 import type { CalendarSummary } from './SectionStatsCards';
-import type { MergeCandidate } from 'veloqrs';
+import type { EfficiencyTrend, MergeCandidate } from 'veloqrs';
 import type { DirectionStats, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
 import { styles } from './SectionDetail.styles';
 
 export interface SectionContentAreaProps {
   isDark: boolean;
+  /** The screen bundle's efficiency trend, passed to the card. */
+  efficiencyTrend?: EfficiencyTrend | null;
   section: FrequentSection;
   isSectionDisabled: boolean;
   mergeCandidates: MergeCandidate[];
@@ -25,6 +28,9 @@ export interface SectionContentAreaProps {
   bestForwardRecord: SectionPerformanceRecord | null;
   bestReverseRecord: SectionPerformanceRecord | null;
   calendarSummary: CalendarSummary | null;
+  /** The sport whose efforts are on screen. Units follow it, not the
+   *  section's own label, which is only the dominant sport of the ground. */
+  effectiveSportType?: string;
   isRunning: boolean;
   activityColor: string;
   navActivityId?: string;
@@ -33,7 +39,6 @@ export interface SectionContentAreaProps {
   excludedActivityIds: Set<string>;
   sectionTimeRange: SectionTimeRange;
   onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
-  onScrubChange: (scrubbing: boolean) => void;
   onExcludeActivity: (activityId: string) => void;
   onIncludeActivity: (activityId: string) => void;
   onSetAsReference: (activityId: string) => void;
@@ -45,6 +50,7 @@ export interface SectionContentAreaProps {
 
 export function SectionContentArea({
   isDark,
+  efficiencyTrend,
   section,
   isSectionDisabled,
   mergeCandidates,
@@ -54,6 +60,7 @@ export function SectionContentArea({
   bestForwardRecord,
   bestReverseRecord,
   calendarSummary,
+  effectiveSportType,
   isRunning,
   activityColor,
   navActivityId,
@@ -62,7 +69,6 @@ export function SectionContentArea({
   excludedActivityIds,
   sectionTimeRange,
   onActivitySelect,
-  onScrubChange,
   onExcludeActivity,
   onIncludeActivity,
   onSetAsReference,
@@ -98,7 +104,9 @@ export function SectionContentArea({
         >
           <MaterialCommunityIcons name="call-merge" size={18} color={colors.info} />
           <Text style={[styles.mergeBannerText, isDark && styles.mergeBannerTextDark]}>
-            {t('sections.similarNearbyCount', { count: mergeCandidates.length })}
+            {t('sections.similarNearbyCount', {
+              count: mergeCandidates.length,
+            })}
           </Text>
           <MaterialCommunityIcons
             name="chevron-right"
@@ -111,14 +119,13 @@ export function SectionContentArea({
       {/* Performance chart with eye toggle */}
       <SectionPerformanceSection
         isDark={isDark}
-        section={section}
+        sportType={effectiveSportType ?? section.sportType}
         chartData={combinedChartData}
         forwardStats={forwardStats}
         reverseStats={reverseStats}
         bestForwardRecord={bestForwardRecord}
         bestReverseRecord={bestReverseRecord}
         onActivitySelect={onActivitySelect}
-        onScrubChange={onScrubChange}
         onExcludeActivity={onExcludeActivity}
         onIncludeActivity={onIncludeActivity}
         onSetAsReference={onSetAsReference}
@@ -138,8 +145,15 @@ export function SectionContentArea({
         bestReverseRecord={bestReverseRecord}
         forwardStats={forwardStats}
         reverseStats={reverseStats}
-        sportType={section.sportType}
+        sportType={effectiveSportType ?? section.sportType}
         isDark={isDark}
+      />
+
+      {/* Aerobic efficiency across matched efforts, when the engine has it */}
+      <SectionEfficiencyCard
+        sectionId={section.id}
+        isDark={isDark}
+        bundledTrend={efficiencyTrend}
       />
 
       {/* Calendar performance history */}

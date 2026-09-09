@@ -57,11 +57,11 @@ License: MIT
 https://github.com/FormidableLabs/victory
 
 -------------------------------------------------------------------------------
-MapLibre GL Native / React Native
+MapLibre GL JS
 -------------------------------------------------------------------------------
 Copyright (c) 2020-present MapLibre contributors
-License: MIT (React Native bindings), BSD-3-Clause (GL JS core)
-https://github.com/maplibre/maplibre-react-native
+License: BSD-3-Clause
+https://github.com/maplibre/maplibre-gl-js
 
 -------------------------------------------------------------------------------
 React Native Paper
@@ -186,6 +186,12 @@ This application uses map data which requires the following attribution:
 
 Map data: OpenStreetMap contributors
 https://www.openstreetmap.org/copyright
+
+The app bundles the OpenFreeMap sprite sheet (ofm_f384) and the Latin glyph
+ranges of Noto Sans, so a map draws its icons and place names without a network.
+
+Sprite: OpenFreeMap, MIT, https://openfreemap.org
+Glyphs: Noto Sans, SIL Open Font License 1.1, https://fonts.google.com/noto
 
 ===============================================================================
 

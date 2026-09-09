@@ -6,10 +6,10 @@
  * for O(1) lookup instead of loading all sections (~250-570ms → ~10-20ms).
  */
 
-import { useMemo, useState, useEffect, useRef } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { useMemo } from 'react';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
+import type { Section as NativeSection } from 'veloqrs';
 import type { FrequentSection } from '@/types';
 
 /**
@@ -49,6 +49,12 @@ export interface UseSectionMatchesResult {
   timedOut: boolean;
 }
 
+/** Section matches a caller already read, so this hook can skip its own reads. */
+export interface PreComputedSectionMatches {
+  sections: NativeSection[];
+  sectionCount: number;
+}
+
 /**
  * Get all sections that contain a given activity.
  *
@@ -56,88 +62,13 @@ export interface UseSectionMatchesResult {
  * Previous: ~250-570ms (load ALL sections, filter in JS)
  * Now: ~10-20ms (query only sections for this activity)
  */
-export function useSectionMatches(activityId: string | undefined): UseSectionMatchesResult {
-  // Lightweight refresh trigger for section changes
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-  // Use a ref for the refresh function to avoid stale closures in the subscription.
-  // The subscription callback always calls the latest refresh via the ref.
-  const refreshRef = useRef(() => setRefreshTrigger((r) => r + 1));
-  refreshRef.current = () => setRefreshTrigger((r) => r + 1);
-
-  // Track whether we've successfully subscribed to the engine
-  const [subscribed, setSubscribed] = useState(false);
-  const [timedOut, setTimedOut] = useState(false);
-
-  // Hold unsubscribe function so cleanup works across retries
-  const unsubscribeRef = useRef<(() => void) | null>(null);
-
-  // Subscribe to section changes.
-  // If the engine isn't available on first mount, polls until it becomes available,
-  // preventing a permanent miss when the engine initializes after the effect runs.
-  // Safety timeout: after 10s, mark as subscribed to prevent infinite loading.
-  useEffect(() => {
-    let cancelled = false;
-
-    function trySubscribe() {
-      const engine = getRouteEngine();
-      if (!engine) return false;
-
-      unsubscribeRef.current = engine.subscribe('sections', () => refreshRef.current());
-      if (!cancelled) {
-        setSubscribed(true);
-        // Trigger an initial refresh in case data was already available before subscription
-        refreshRef.current();
-      }
-      return true;
-    }
-
-    // Safety timeout: if engine never becomes available, stop showing loading
-    const timeout = setTimeout(() => {
-      if (!cancelled) {
-        setSubscribed(true);
-        setTimedOut(true);
-      }
-    }, 10000);
-
-    if (!trySubscribe()) {
-      // Engine not ready yet - poll until it becomes available
-      const interval = setInterval(() => {
-        if (trySubscribe()) {
-          clearInterval(interval);
-          clearTimeout(timeout);
-        }
-      }, 200);
-
-      return () => {
-        cancelled = true;
-        clearInterval(interval);
-        clearTimeout(timeout);
-        unsubscribeRef.current?.();
-      };
-    }
-
-    clearTimeout(timeout);
-    return () => {
-      cancelled = true;
-      unsubscribeRef.current?.();
-    };
-  }, []); // Stable - refreshRef avoids stale closure
-
-  // Check if engine has any sections. Count-only: avoids the heavy
-  // getSectionSummaries() deserialization just to read totalCount.
-  const sectionCount = useMemo(() => {
-    try {
-      const engine = getRouteEngine();
-      return engine?.getSectionCount() ?? 0;
-    } catch {
-      return 0;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshTrigger]);
-
+export function useSectionMatches(
+  activityId: string | undefined,
+  bundle: PreComputedSectionMatches
+): UseSectionMatchesResult {
+  const sectionCount = bundle.sectionCount;
   const isReady = sectionCount > 0;
-  const isLoading = !subscribed;
+  const isLoading = false;
 
   // Rust already filters out disabled/superseded sections in getSectionsForActivity
   const sections = useMemo(() => {
@@ -145,17 +76,7 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
       return [];
     }
 
-    const engine = getRouteEngine();
-    if (!engine) {
-      return [];
-    }
-
-    let nativeSections;
-    try {
-      nativeSections = engine.getSectionsForActivity(activityId);
-    } catch {
-      return [];
-    }
+    const nativeSections: NativeSection[] = bundle.sections;
 
     const matches: SectionMatch[] = [];
 
@@ -186,14 +107,15 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
     // Tier 3.4: Rust now returns sections deduped by section_id and
     // sorted by visit count desc, so the TS-side passes are gone.
     return matches;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityId, refreshTrigger]);
+    // Keyed on the bundle's own array, so a re-render that changes nothing
+    // does not decode every matched polyline again.
+  }, [activityId, bundle.sections]);
 
   return {
     sections,
     count: sections.length,
     isReady,
     isLoading,
-    timedOut,
+    timedOut: false,
   };
 }

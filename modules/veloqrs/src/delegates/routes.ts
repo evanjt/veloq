@@ -7,8 +7,8 @@
  */
 
 import type {
-  FfiGpsPoint,
   FfiRouteGroup,
+  FfiRouteDetailData,
   FfiRoutePerformanceResult,
   FfiRoutesScreenData,
   GroupSummary,
@@ -26,19 +26,13 @@ const EMPTY_ROUTE_PERFORMANCE_RESULT: FfiRoutePerformanceResult = {
   forwardStats: undefined,
   reverseStats: undefined,
   currentRank: undefined,
+  attemptCount: 0,
+  percentileRank: undefined,
 };
 
 export function getGroups(host: DelegateHost): FfiRouteGroup[] {
   if (!host.ready) return [];
   return host.timed('getGroups', () => host.engine.routes().getAll());
-}
-
-export function getGroupSummaries(host: DelegateHost): {
-  totalCount: number;
-  summaries: GroupSummary[];
-} {
-  if (!host.ready) return { totalCount: 0, summaries: [] };
-  return host.timed('getGroupSummaries', () => host.engine.routes().getSummariesWithCount());
 }
 
 export type GroupSortKey = 'count' | 'name';
@@ -55,7 +49,7 @@ export function getFilteredGroupSummaries(
 ): { totalCount: number; summaries: GroupSummary[] } {
   if (!host.ready) return { totalCount: 0, summaries: [] };
   return host.timed('getFilteredGroupSummaries', () =>
-    host.engine.routes().getFilteredSummaries(minActivities, sortKey)
+    host.engine.routes().getSummaries(minActivities, sortKey)
   );
 }
 
@@ -66,11 +60,12 @@ export function getGroupById(host: DelegateHost, groupId: string): FfiRouteGroup
 }
 
 export function setRouteName(host: DelegateHost, routeId: string, name: string): void {
-  if (!host.ready) return;
   validateId(routeId, 'route ID');
   validateName(name, 'route name');
-  host.timed('setRouteName', () => host.engine.routes().setName(routeId, name));
-  host.notify('groups');
+  host.write('setRouteName', () => {
+    host.engine.routes().setName(routeId, name);
+    host.notify('groups');
+  });
 }
 
 export function getAllRouteNames(host: DelegateHost): Record<string, string> {
@@ -79,8 +74,12 @@ export function getAllRouteNames(host: DelegateHost): Record<string, string> {
   return Object.fromEntries(map);
 }
 
-export function getConsensusRoute(host: DelegateHost, groupId: string): FfiGpsPoint[] {
-  if (!host.ready) return [];
+/** Coordinate-encoded, like every track that leaves the engine. */
+/** No track at all, in the encoded form the engine returns. */
+const EMPTY_TRACK = new Uint8Array([]).buffer;
+
+export function getConsensusRoute(host: DelegateHost, groupId: string): ArrayBuffer {
+  if (!host.ready) return EMPTY_TRACK;
   validateId(groupId, 'group ID');
   return host.timed('getConsensusRoute', () => host.engine.routes().getConsensusRoute(groupId));
 }
@@ -108,11 +107,10 @@ export function excludeActivityFromRoute(
   routeId: string,
   activityId: string
 ): void {
-  if (!host.ready) return;
-  host.timed('excludeActivityFromRoute', () =>
-    host.engine.routes().excludeActivity(routeId, activityId)
-  );
-  host.notify('groups');
+  host.write('excludeActivityFromRoute', () => {
+    host.engine.routes().excludeActivity(routeId, activityId);
+    host.notify('groups');
+  });
 }
 
 export function includeActivityInRoute(
@@ -120,11 +118,10 @@ export function includeActivityInRoute(
   routeId: string,
   activityId: string
 ): void {
-  if (!host.ready) return;
-  host.timed('includeActivityInRoute', () =>
-    host.engine.routes().includeActivity(routeId, activityId)
-  );
-  host.notify('groups');
+  host.write('includeActivityInRoute', () => {
+    host.engine.routes().includeActivity(routeId, activityId);
+    host.notify('groups');
+  });
 }
 
 export function getExcludedRouteActivityIds(host: DelegateHost, routeId: string): string[] {
@@ -196,7 +193,7 @@ export function setRouteRepresentative(
     host.notify('groups');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] setRouteRepresentative failed:', routeId, activityId, e);
+    console.error('[Engine] setRouteRepresentative failed:', routeId, activityId, e);
     return false;
   }
 }
@@ -209,4 +206,28 @@ export function getActivityRouteHighlights(
   return host.timed('getActivityRouteHighlights', () =>
     host.engine.routes().getActivityRouteHighlights(activityIds)
   );
+}
+
+/**
+ * Everything the route detail screen paints with in one round-trip: engine
+ * counts, the route and its ranking list, every attempt across sports, the
+ * consensus polyline, names, exclusions and per-activity signatures.
+ */
+export type RouteDetailData = Omit<FfiRouteDetailData, 'routeNames'> & {
+  routeNames: Record<string, string>;
+};
+
+export function getRouteDetailData(
+  host: DelegateHost,
+  groupId: string,
+  currentActivityId: string | undefined,
+  minGroupActivities: number
+): RouteDetailData | undefined {
+  if (!host.ready || !groupId) return undefined;
+  const result = host.timed('getRouteDetailData', () =>
+    host.engine.routes().getDetailData(groupId, currentActivityId, minGroupActivities)
+  );
+  if (!result) return undefined;
+  // The façade hands out plain objects for name maps, matching getAllRouteNames.
+  return { ...result, routeNames: Object.fromEntries(result.routeNames) };
 }

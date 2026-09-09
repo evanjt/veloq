@@ -1,10 +1,17 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, ScrollView, TouchableOpacity, Modal, StatusBar, StyleSheet } from 'react-native';
+import {
+  View,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  StatusBar,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { CombinedPlot, type ChartMetricValue } from './CombinedPlot';
@@ -18,40 +25,30 @@ import { paceMinutesFromSpeed } from '@/shared/math/kinematics';
 import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import { isCyclingActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
+import { measuresPower, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
 import { getAvailableCharts, CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
 import { formatDurationHuman } from '@/shared/format/format';
 import { type ChartTypeId } from '@/features/activity/lib/chartConfig';
-import type { ActivityDetail, ActivityStreams, ActivityInterval, WellnessData } from '@/types';
-import { colors, darkColors, spacing, typography, layout, opacity, shadows } from '@/theme';
-import { CHART_CONFIG } from '@/constants';
+import type {
+  ActivityDetail,
+  ActivityStreams,
+  ActivityInterval,
+  ActivityType,
+  WellnessData,
+} from '@/types';
+import { colors, darkColors, spacing, layout, opacity, shadows, typography } from '@/theme';
 
 interface LatLng {
   latitude: number;
   longitude: number;
 }
 
-// Default chart by activity type
-const DEFAULT_CHART: Record<string, ChartTypeId> = {
-  Ride: 'power',
-  VirtualRide: 'power',
-  MountainBikeRide: 'power',
-  GravelRide: 'power',
-  EBikeRide: 'power',
-  Run: 'heartrate',
-  VirtualRun: 'heartrate',
-  TrailRun: 'heartrate',
-  Swim: 'pace',
-  OpenWaterSwim: 'pace',
-  Walk: 'heartrate',
-  Hike: 'heartrate',
-  Workout: 'heartrate',
-  WeightTraining: 'heartrate',
-  Yoga: 'heartrate',
-  Rowing: 'power',
-  Kayaking: 'heartrate',
-  Canoeing: 'heartrate',
-};
+/** The chart an activity opens on: power where the sport measures it, pace for a swim. */
+function defaultChartFor(type: ActivityType): ChartTypeId {
+  if (measuresPower(type)) return 'power';
+  if (isSwimmingActivity(type)) return 'pace';
+  return 'heartrate';
+}
 
 interface ActivityChartsSectionProps {
   activity: ActivityDetail;
@@ -92,7 +89,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
 }: ActivityChartsSectionProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight } = useWindowDimensions();
   const { getPageMetrics } = useFFITimer();
 
   // Chart state
@@ -136,8 +133,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   // Initialize with single default chart when data loads
   React.useEffect(() => {
     if (!chartsInitialized && availableCharts.length > 0 && activity) {
-      const defaultChart = DEFAULT_CHART[activity.type];
-      const isDefaultAvailable = defaultChart && availableCharts.some((c) => c.id === defaultChart);
+      const defaultChart = defaultChartFor(activity.type);
+      const isDefaultAvailable = availableCharts.some((c) => c.id === defaultChart);
       const initialChart = isDefaultAvailable ? defaultChart : availableCharts[0].id;
       setSelectedCharts([initialChart]);
       setChartsInitialized(true);
@@ -180,8 +177,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   // Zone summary for intervals bar
   const intervalZoneSummary = useMemo(() => {
     if (!intervalsData?.icu_intervals || !activity) return [];
-    const isCycling = isCyclingActivity(activity.type);
-    const zoneColors = isCycling ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
+    const zoneColors = measuresPower(activity.type) ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
 
     type ChipInfo = {
       label: string;
@@ -213,28 +209,31 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
       } else if (isRecovery) {
         key = 'REC';
         label = 'Rec';
-        color = '#4CAF50';
+        color = colors.chartPaceCurve;
       } else if (isWarmup) {
         key = 'WU';
         label = 'WU';
-        color = '#22C55E';
+        color = colors.chartBandWarmup;
       } else if (isCooldown) {
         key = 'CD';
         label = 'CD';
-        color = '#8B5CF6';
+        color = colors.chartBandCooldown;
       } else {
         key = interval.type;
         label = interval.type.slice(0, 3);
-        color = '#808080';
+        color = colors.chartBandNeutral;
       }
 
-      if (chipMap.has(key)) {
-        const idx = chipMap.get(key)!;
+      // An interval with no moving time still counts as one, it just adds
+      // nothing to the total.
+      const movingTime = interval.moving_time ?? 0;
+      const idx = chipMap.get(key);
+      if (idx !== undefined) {
         chips[idx].count++;
-        chips[idx].totalTime += interval.moving_time;
+        chips[idx].totalTime += movingTime;
       } else {
         chipMap.set(key, chips.length);
-        chips.push({ label, color, count: 1, totalTime: interval.moving_time });
+        chips.push({ label, color, count: 1, totalTime: movingTime });
       }
     }
     return chips;
@@ -416,10 +415,10 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                     return acc;
                   }, {})
                 : {};
-            const warnings: Array<{
+            const warnings: {
               level: 'warn' | 'error';
               message: string;
-            }> = [];
+            }[] = [];
             if (streams?.latlng && streams.latlng.length > 2000) {
               warnings.push({
                 level: 'warn',
@@ -611,7 +610,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   intervalsTitle: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     marginRight: 2,
@@ -621,16 +620,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 5,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
     gap: 3,
   },
   zoneDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
   },
   zoneChipText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
   },
   deviceAttributionContainer: {
@@ -661,7 +660,7 @@ const styles = StyleSheet.create({
     left: spacing.md,
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: opacity.overlay.medium,
     justifyContent: 'center',
     alignItems: 'center',
@@ -683,7 +682,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 24,
+    borderRadius: layout.borderRadiusLg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     marginHorizontal: spacing.md,
@@ -697,7 +696,7 @@ const styles = StyleSheet.create({
   },
   exportGpxButtonText: {
     color: colors.textOnPrimary,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
 });

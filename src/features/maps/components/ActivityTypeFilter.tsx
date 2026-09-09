@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, activityTypeColors, typography, spacing, layout } from '@/theme';
 import type { ActivityType } from '@/types';
 import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
+import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
 
 // Activity type label keys for translation
 type ActivityLabelKey =
@@ -34,27 +35,19 @@ export const ACTIVITY_CATEGORIES: Record<
     color: colors.ride,
     icon: 'bike',
     labelKey: 'ride',
-    types: [
-      'Ride',
-      'VirtualRide',
-      'EBikeRide',
-      'MountainBikeRide',
-      'GravelRide',
-      'Velomobile',
-      'Handcycle',
-    ],
+    types: [...SPORT_FAMILIES.cycling],
   },
   Run: {
     color: colors.run,
     icon: 'run',
     labelKey: 'run',
-    types: ['Run', 'TrailRun', 'VirtualRun', 'Treadmill'],
+    types: [...SPORT_FAMILIES.running],
   },
   Swim: {
     color: colors.swim,
     icon: 'swim',
     labelKey: 'swim',
-    types: ['Swim', 'OpenWaterSwim'],
+    types: [...SPORT_FAMILIES.swimming],
   },
   Walk: {
     color: colors.walk,
@@ -75,7 +68,7 @@ export const ACTIVITY_CATEGORIES: Record<
     types: ['AlpineSki', 'NordicSki', 'BackcountrySki', 'Snowboard', 'RollerSki'],
   },
   Water: {
-    color: activityTypeColors.Rowing || '#06B6D4',
+    color: activityTypeColors.Rowing || colors.swim,
     icon: 'rowing',
     labelKey: 'water',
     types: [
@@ -109,7 +102,7 @@ export const ACTIVITY_CATEGORIES: Record<
     ],
   },
   Racket: {
-    color: activityTypeColors.Tennis || '#22C55E',
+    color: activityTypeColors.Tennis || colors.success,
     icon: 'tennis',
     labelKey: 'racket',
     types: ['Tennis', 'Badminton', 'Pickleball', 'Racquetball', 'Squash', 'TableTennis'],
@@ -144,10 +137,12 @@ export function groupTypesByCategory(types: string[]): Map<string, string[]> {
 
   for (const type of types) {
     const category = getActivityCategory(type);
-    if (!groups.has(category)) {
-      groups.set(category, []);
+    let inCategory = groups.get(category);
+    if (!inCategory) {
+      inCategory = [];
+      groups.set(category, inCategory);
     }
-    groups.get(category)!.push(type);
+    inCategory.push(type);
   }
 
   return groups;

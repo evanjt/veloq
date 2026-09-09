@@ -17,7 +17,7 @@ tags:
       id: "fitness-screen"
     timeout: 10000
 
-# Scroll to performance section and verify it exists (don't expand — keeps page short)
+# Scroll to performance section and verify it exists (don't expand, keeps page short)
 - scrollUntilVisible:
     element:
       id: "fitness-section-performance"
@@ -25,7 +25,7 @@ tags:
     timeout: 15000
     speed: 40
 
-- takeScreenshot: "fitness-performance-header"
+- takeScreenshot: "screenshots/fitness-performance-header"
 
 # Scroll to season bests section
 - scrollUntilVisible:
@@ -35,12 +35,12 @@ tags:
     timeout: 15000
     speed: 40
 
-- takeScreenshot: "fitness-bests-header"
+- takeScreenshot: "screenshots/fitness-bests-header"
 
-# Zones section — just verify presence, don't try to expand.
+# Zones section, just verify presence, don't try to expand.
 # CollapsibleSection headers stay in the accessibility tree even when off-screen,
 # which causes `runFlow when visible` + `tapOn` to fire on an untappable element.
-- takeScreenshot: "fitness-after-bests"
+- takeScreenshot: "screenshots/fitness-after-bests"
 
 # Scroll to trends section
 - scrollUntilVisible:
@@ -51,7 +51,7 @@ tags:
     speed: 40
     optional: true
 
-- takeScreenshot: "fitness-trends-header"
+- takeScreenshot: "screenshots/fitness-trends-header"
 
 # Scroll to threshold section (FTP trend)
 - scrollUntilVisible:
@@ -62,7 +62,7 @@ tags:
     speed: 40
     optional: true
 
-- takeScreenshot: "fitness-threshold-header"
+- takeScreenshot: "screenshots/fitness-threshold-header"
 
 # Scroll to efficiency section (decoupling)
 - scrollUntilVisible:
@@ -73,10 +73,10 @@ tags:
     speed: 40
     optional: true
 
-- takeScreenshot: "fitness-efficiency-header"
+- takeScreenshot: "screenshots/fitness-efficiency-header"
 
 # Verify no NaN anywhere
 - assertNotVisible:
     text: "NaN"
 
-- takeScreenshot: "fitness-curves-zones-complete"
+- takeScreenshot: "screenshots/fitness-curves-zones-complete"

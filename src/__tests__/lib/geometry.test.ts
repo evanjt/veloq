@@ -1,8 +1,4 @@
-import {
-  haversineDistance,
-  computePolylineOverlap,
-  simplifyPolyline,
-} from '@/shared/math/geometry';
+import { haversineDistance, simplifyPolyline } from '@/shared/math/geometry';
 
 describe('haversineDistance', () => {
   it('returns 0 for the same point', () => {
@@ -36,28 +32,6 @@ describe('haversineDistance', () => {
     const a = { lat: 40.7128, lng: -74.006 };
     const b = { lat: 51.5074, lng: -0.1278 };
     expect(haversineDistance(a, b)).toBeCloseTo(haversineDistance(b, a), 6);
-  });
-});
-
-describe('computePolylineOverlap', () => {
-  // Note: computePolylineOverlap delegates to the Rust engine (R-tree).
-  // In tests without the native module, it returns 0 for non-empty inputs.
-
-  it('returns 0 for empty polyline A', () => {
-    expect(computePolylineOverlap([], [{ lat: 0, lng: 0 }])).toBe(0);
-  });
-
-  it('returns 0 for empty polyline B', () => {
-    expect(computePolylineOverlap([{ lat: 0, lng: 0 }], [])).toBe(0);
-  });
-
-  it('returns 0 when engine is unavailable', () => {
-    const line = [
-      { lat: 0, lng: 0 },
-      { lat: 0.001, lng: 0.001 },
-    ];
-    // Without native engine, returns 0
-    expect(computePolylineOverlap(line, line)).toBe(0);
   });
 });
 

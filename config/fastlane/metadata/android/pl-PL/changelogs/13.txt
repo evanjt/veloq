@@ -1,7 +1,7 @@
 v0.1.3 (13 lut. 2026)
 
-• Naprawiono obliczanie tempa sekcji — teraz wyświetla dokładne tempo dla każdego wysiłku
-• Ulepszona interakcja z listą sekcji — przytrzymaj, aby podświetlić sekcje
+• Naprawiono obliczanie tempa sekcji, teraz wyświetla dokładne tempo dla każdego wysiłku
+• Ulepszona interakcja z listą sekcji, przytrzymaj, aby podświetlić sekcje
 • Naprawiono zduplikowane wpisy na wykresach historii wyników
 • Naprawiono niezgodność współrzędnych podczas przewijania listy sekcji
 

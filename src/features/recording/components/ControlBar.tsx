@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { View, StyleSheet, Animated, Easing, TouchableOpacity } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, darkColors, spacing, layout, brand } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing, layout, brand, typography } from '@/theme';
 import type { RecordingStatus, RecordingMode } from '@/types';
 
 const BRAND_COLOR = brand.tealLight;
@@ -22,7 +22,6 @@ interface ControlBarProps {
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
-  onDiscard?: () => void;
   style?: ViewStyle;
 }
 
@@ -33,11 +32,10 @@ function ControlBarInner({
   onPause,
   onResume,
   onStop,
-  onDiscard,
   style,
 }: ControlBarProps) {
   const { t } = useTranslation();
-  const { isDark, colors: themeColors } = useTheme();
+  const { isDark } = useTheme();
 
   // Long-press stop state - fully Animated, no React state re-renders
   const stopAnim = useRef(new Animated.Value(0)).current;
@@ -271,7 +269,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: layout.borderRadiusFull,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -283,20 +281,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
   // Stop button with long-press progress
   stopButtonWrap: {
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     borderWidth: 2,
     overflow: 'hidden',
   },
   stopButton: {
     height: 56,
     minWidth: 120,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
@@ -315,7 +313,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   stopLabel: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
   },
 });

@@ -1,0 +1,2364 @@
+//! One-shot fetch of the elevation every stored track is missing.
+//!
+//! The coordinates are already on the device, so the pass asks for
+//! `fixed_altitude,altitude` alone, about a fifth of the bytes the whole track
+//! costs, and splices the series onto the points already stored. Nothing about
+//! a track's geometry moves, so the catalogue derived from it is not
+//! invalidated. The stored `point_count` against the length of the series is
+//! the guard: equal is the same stream, unequal means intervals.icu
+//! re-processed that activity, and only then is the whole track fetched and
+//! replaced, which is what evicts it from the processed set.
+//!
+//! A partly elevated library is worse than a uniformly flat one. A lift
+//! candidate survives when its own track has no elevation, but a track without
+//! elevation cannot rescue one, so a genuine climb is vetoed mid-conversion and
+//! the spurious section takes a durable ledger id. The library therefore has to
+//! cross from flat to elevated with detection held off, and re-cut once at the
+//! end.
+//!
+//! The work queue is derived, never stored: it is every `gps_tracks` row whose
+//! `elevation_state` is still `UNKNOWN`, ie. every track upstream has not been
+//! asked about. A crash, a kill or a logout costs the activities in flight and
+//! nothing else, because the next run re-derives the same queue from the column
+//! the completed work already advanced.
+//!
+//! Three rules make the pass terminate. Upstream that answers with an altitude
+//! series it cannot fill records `UNAVAILABLE`, so it leaves the queue
+//! permanently. A network failure or an empty response leaves the row
+//! untouched, so it can be asked again. A 401 ends the pass outright rather
+//! than spending the whole library on rejected requests. An elevation ask that
+//! comes back with nothing at all cannot tell the first case from the second,
+//! since the request carried no coordinates, so that activity alone is asked
+//! for whole and the coordinates settle it.
+//!
+//! A track the connection refused is re-asked inside the same pass, in
+//! [`BACKFILL_RETRY_ROUNDS`] rounds that wait longer each time, before it is
+//! left to the next run. A blink of a connection costs seconds rather than a
+//! whole launch. The rounds are skipped when the pass stopped because the
+//! connection is gone: the stop threshold has already decided nothing is
+//! coming back. An empty response is upstream replying, so it waits for the
+//! next run as it always did.
+//!
+//! The final re-cut runs only when a pass ends with the queue empty, so
+//! detection is never re-derived over a half-converted library. A pass that
+//! ends partial or failed leaves the flat-era catalogue standing and the next
+//! run finishes the job.
+//!
+//! On an install still owed the detector cutover that cut is the cutover
+//! itself, not a bare re-cut. The launch trigger declines while this queue is
+//! non-empty, so the drained pass is the only thing left holding the
+//! migration. See [`terminal_cut`].
+//!
+//! The athlete can pause the download. The pause lives for the process and
+//! nowhere else: the pass in flight ends at its next batch boundary, no start
+//! in this process is accepted, and the next launch begins unpaused with no
+//! code to clear it, so a forgotten pause can never strand the migration.
+
+use crate::governor::Lane;
+use crate::net::endpoints::{TRACK_STREAM_TYPES, fetch_altitude, fetch_streams};
+use crate::net::transport::{NetError, Transport};
+use crate::net::types::ParsedStreams;
+use crate::objects::FfiStartOutcome;
+use crate::objects::detection::{SlotWait, wait_on_slot};
+use crate::persistence::cutover::CutoverOutcome;
+use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
+use crate::persistence::{
+    ELEVATION_STATE_UNAVAILABLE, PersistentEngine, suspend_detection, with_persistent_engine,
+};
+use rusqlite::{Result as SqlResult, params};
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::time::Duration;
+use tracematch::GpsPoint;
+
+/// Activities fetched per pass through the store step. Small enough that a kill
+/// loses little, large enough that the index rebuild and the metadata restore
+/// amortise over a batch rather than a single track.
+const BATCH: usize = 20;
+
+/// Requests in flight at once. Under the governor's 8 req/s so the shared pace
+/// is the limiter, not this number.
+const FETCH_CONCURRENCY: usize = 6;
+
+/// Consecutive connectivity failures that end the pass.
+///
+/// A failed fetch leaves its row untouched, so without a stop the pass asks
+/// once per queued track and only then reports partial. The backfill lane has
+/// a 30 s per-attempt ceiling, no whole-request budget and three retries, so
+/// a connection that accepts and then goes quiet costs up to four of those
+/// per track. One thousand tracks at six in flight is hours of a detached
+/// thread achieving nothing, and it burns the governor's pace with it.
+///
+/// One batch, because the results inside a batch arrive unordered: reaching
+/// this count means a whole batch came back with nothing to work with, which
+/// no partial outage can produce.
+pub const MAX_CONSECUTIVE_FAILURES: usize = BATCH;
+
+/// How often the final-detect driver polls the worker it started.
+const DRIVER_POLL: Duration = Duration::from_millis(250);
+
+/// Rounds of re-asking a pass gives the tracks the connection refused.
+///
+/// Bounded, and small: one ask already carries the lane's own three retries,
+/// so this is the ladder above that one, for an outage that outlives a single
+/// request rather than one that outlives the pass.
+pub const BACKFILL_RETRY_ROUNDS: usize = 2;
+
+/// What each retry round waits before it asks again, longest last.
+pub fn backfill_retry_delays() -> [Duration; BACKFILL_RETRY_ROUNDS] {
+    [Duration::from_millis(500), Duration::from_secs(2)]
+}
+
+/// How long a resume attempt waits after the one before it, longest last.
+///
+/// The last entry is the resting rate: a library nothing can elevate is asked
+/// about twice an hour, not once a minute. This is the ladder between passes,
+/// where [`backfill_retry_delays`] is the one inside a single pass.
+pub const RESUME_WAITS: [Duration; 5] = [
+    Duration::from_secs(60),
+    Duration::from_secs(120),
+    Duration::from_secs(300),
+    Duration::from_secs(900),
+    Duration::from_secs(1800),
+];
+
+/// What the attempt after `attempts` earlier ones waits, capped at the last rung.
+pub fn resume_wait(attempts: usize) -> Duration {
+    RESUME_WAITS[attempts.min(RESUME_WAITS.len() - 1)]
+}
+
+/// Whether a ladder is climbing in this process. One at a time: a second start
+/// joins the ladder that is already running rather than laying a parallel one.
+static RESUME_ARMED: AtomicBool = AtomicBool::new(false);
+
+/// Holds the single-ladder slot. Release is structural, like `RunGuard`'s, so a
+/// panic anywhere in the climb cannot leave the resume armed for the life of
+/// the process. The crate unwinds and the panic hook logs rather than aborting,
+/// so a release written as the last statement of the thread body is skipped.
+struct ResumeGuard;
+
+impl Drop for ResumeGuard {
+    fn drop(&mut self) {
+        RESUME_ARMED.store(false, Ordering::SeqCst);
+    }
+}
+
+impl ResumeGuard {
+    /// Claim the slot, or `None` when a ladder is already climbing.
+    fn claim() -> Option<Self> {
+        RESUME_ARMED
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .ok()
+            .map(|_| ResumeGuard)
+    }
+}
+
+/// The ladder itself, with everything it waits on handed in.
+///
+/// Split out so the schedule can be exercised without spending an evening on
+/// it, the same way `drain_queue_with` splits the fetch out of the walk. A
+/// sleep that ends early still counts as a rung climbed, so an online edge
+/// shortens the wait it lands in without resetting the ladder, and a flapping
+/// connection cannot hold it at its first rung.
+///
+/// **This is the one background loop in the crate with no external cancel, and
+/// that is deliberate.** Every other one is either bounded, like both slot
+/// drivers through `wait_on_slot`, or cooperatively stopped. This ends on two
+/// conditions and neither is a caller: the queue reading empty, which is the
+/// job finished for good, and a pause, which lays a fresh ladder on resume. A
+/// cancel would need a terminal state distinguishable from those two, and the
+/// climb it would stop costs one sleeping thread waking at most every half
+/// hour, so there is nothing for a caller to gain by stopping it.
+///
+/// `sleep` returning false ends the climb, which is how a test stops it and
+/// nothing else. `elevation_resume_ladder.rs` pins all of this, the absence
+/// included.
+pub fn resume_ladder(
+    mut sleep: impl FnMut(Duration) -> bool,
+    mut remaining: impl FnMut() -> Option<u64>,
+    mut offline: impl FnMut() -> bool,
+    mut paused: impl FnMut() -> bool,
+    mut engine_gone: impl FnMut() -> bool,
+    mut attempt: impl FnMut(),
+) {
+    let mut attempts = 0usize;
+    loop {
+        if !sleep(resume_wait(attempts)) {
+            return;
+        }
+        attempts += 1;
+        // Zero is the one answer that ends the ladder for good. A queue that
+        // cannot be read is not an empty one, so it climbs and asks again.
+        if remaining() == Some(0) {
+            return;
+        }
+        // A destroyed engine reads as an unreadable queue and so climbed for the
+        // life of the process, waking twice an hour against a handle that was
+        // gone. Asked separately because that is the only way to tell it from a
+        // read that failed for a moment, and a moment must end nothing. A
+        // restore re-arms the ladder itself and a clear empties the queue, so
+        // neither path needs this climb to survive the engine it works for.
+        if engine_gone() {
+            return;
+        }
+        // A paused install climbed this ladder for ever, calling a `start_pass`
+        // that declined on the pause every half hour. The climb ends instead
+        // and the resume lays a new one.
+        if paused() {
+            return;
+        }
+        // A rung spent offline costs no request and still moves up the ladder,
+        // so a device that is away for an evening is not asked every minute
+        // when it comes back.
+        if offline() {
+            continue;
+        }
+        attempt();
+    }
+}
+
+/// What a production rung waits on: its own clock, or the connection coming
+/// back, whichever is first. Always climbs, since in production the ladder
+/// ends on the queue or the pause and never on the sleep.
+pub fn resume_sleep(wait: Duration) -> bool {
+    crate::net::connectivity::sleep_or_online_edge(wait);
+    true
+}
+
+/// Put a climb on a thread, unless one is already running. Returns the thread
+/// so a test can wait on it; production drops the handle and lets it run.
+fn spawn_resume_ladder(
+    climb: impl FnOnce() + Send + 'static,
+) -> Option<std::thread::JoinHandle<()>> {
+    let slot = ResumeGuard::claim()?;
+    Some(std::thread::spawn(move || {
+        let _slot = slot;
+        climb();
+    }))
+}
+
+/// Put a ladder behind the pass, unless one is already climbing.
+/// Whether the engine this ladder works for is still installed.
+///
+/// A read of the queue answers `None` for a destroyed engine and for a read
+/// that failed, and the ladder must end on the first and never on the second.
+/// This is the cheap, unambiguous half: no lock is taken for long and there is
+/// no query behind it.
+fn engine_gone() -> bool {
+    crate::persistence::PERSISTENT_ENGINE
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
+        .is_none()
+}
+
+fn arm_resume_ladder() {
+    spawn_resume_ladder(|| {
+        resume_ladder(
+            resume_sleep,
+            || match with_persistent_engine(|engine| engine.elevation_backfill_remaining()) {
+                Some(Ok(n)) => Some(n),
+                _ => None,
+            },
+            crate::net::connectivity::is_offline,
+            elevation_backfill_paused,
+            engine_gone,
+            || {
+                start_pass();
+            },
+        );
+    });
+}
+
+// ============================================================================
+// Phases
+// ============================================================================
+
+/// No backfill has run in this process.
+pub const BACKFILL_PHASE_IDLE: &str = "idle";
+/// Downloading tracks.
+pub const BACKFILL_PHASE_FETCHING: &str = "fetching";
+/// The pass finished and nothing is outstanding.
+pub const BACKFILL_PHASE_COMPLETE: &str = "complete";
+/// The pass finished but some activities still lack elevation, so a later run
+/// has work. Distinct from `complete` because the queue is not empty.
+pub const BACKFILL_PHASE_PARTIAL: &str = "partial";
+/// The pass could not proceed at all: no credential, a rejected credential, or
+/// an unreadable queue.
+pub const BACKFILL_PHASE_FAILED: &str = "failed";
+/// The athlete paused the download. Nothing runs until the app is reopened.
+pub const BACKFILL_PHASE_PAUSED: &str = "paused";
+
+// ============================================================================
+// Pause
+// ============================================================================
+
+/// Whether the athlete has paused the download in this process.
+static PAUSED: AtomicBool = AtomicBool::new(false);
+
+/// Stop the download for the rest of this process.
+///
+/// The pass in flight ends at its next batch boundary and reports
+/// [`BACKFILL_PHASE_PAUSED`] itself; with no pass in flight the phase is set
+/// here so the page reads paused at once. Either way the phase is what says it,
+/// so there is nothing for this to answer.
+pub fn pause_elevation_backfill() {
+    PAUSED.store(true, Ordering::SeqCst);
+    if !BACKFILL.running.load(Ordering::SeqCst) {
+        set_phase(BACKFILL_PHASE_PAUSED);
+    }
+    log::info!("[Elevation] backfill paused until the next launch");
+}
+
+/// Whether the download is paused in this process.
+pub fn elevation_backfill_paused() -> bool {
+    PAUSED.load(Ordering::SeqCst)
+}
+
+/// Lift the pause and put the download back to work.
+///
+/// The pause was process-local with only a new process to clear it, so an
+/// athlete who paused had no way back: detection stayed held, the detector
+/// cutover never ran, and a force-quit resumed into the same place. Returns
+/// whether there was a pause to lift, so a second press answers false rather
+/// than laying a second ladder.
+pub fn resume_elevation_backfill() -> bool {
+    if !PAUSED.swap(false, Ordering::SeqCst) {
+        return false;
+    }
+    // The phase is what the page reads, so a resume that left it on `paused`
+    // would read as a pause that did not lift. A pass in flight reports its own
+    // phase, so only a stopped one is set here.
+    if !BACKFILL.running.load(Ordering::SeqCst) {
+        set_phase(BACKFILL_PHASE_IDLE);
+    }
+    log::info!("[Elevation] backfill resumed");
+    start_elevation_backfill();
+    true
+}
+
+/// Lift the pause, which in production only a new process does.
+#[cfg(test)]
+pub(crate) fn reset_pause() {
+    PAUSED.store(false, Ordering::SeqCst);
+}
+
+/// [`reset_pause`] for the integration tests, which share the process.
+#[doc(hidden)]
+pub fn reset_elevation_backfill_pause() {
+    PAUSED.store(false, Ordering::SeqCst);
+}
+
+// ============================================================================
+// Observable state
+// ============================================================================
+
+struct BackfillState {
+    running: AtomicBool,
+    completed: AtomicU32,
+    total: AtomicU32,
+    failed: AtomicU32,
+    detects: AtomicU32,
+    phase: Mutex<&'static str>,
+}
+
+static BACKFILL: BackfillState = BackfillState {
+    running: AtomicBool::new(false),
+    completed: AtomicU32::new(0),
+    total: AtomicU32::new(0),
+    failed: AtomicU32::new(0),
+    detects: AtomicU32::new(0),
+    phase: Mutex::new(BACKFILL_PHASE_IDLE),
+};
+
+pub(crate) fn set_phase(phase: &'static str) {
+    *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner()) = phase;
+    // The guard above is a temporary of the statement it is in, so the
+    // announcement is made with the phase lock already released.
+    crate::objects::observer::notify(|o| o.backfill_phase(phase.to_string()));
+}
+
+/// What a poller sees while the backfill runs and after it settles.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackfillSnapshot {
+    pub phase: &'static str,
+    /// Activities this run has finished with, successfully or not.
+    pub completed: u32,
+    /// Activities the run started with.
+    pub total: u32,
+    /// Activities whose fetch failed, so their state is unchanged and a later
+    /// run retries them.
+    pub failed: u32,
+}
+
+impl BackfillSnapshot {
+    /// Whole-percent progress. An empty queue is finished, not zero.
+    pub fn percent(&self) -> u32 {
+        if self.total == 0 {
+            return 100;
+        }
+        (self.completed.min(self.total) * 100) / self.total
+    }
+}
+
+/// The current backfill state, safe to read from any thread at any time.
+pub fn backfill_progress() -> BackfillSnapshot {
+    BackfillSnapshot {
+        phase: *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner()),
+        completed: BACKFILL.completed.load(Ordering::Relaxed),
+        total: BACKFILL.total.load(Ordering::Relaxed),
+        failed: BACKFILL.failed.load(Ordering::Relaxed),
+    }
+}
+
+/// Detection runs this process's backfills have started. The one-detect rule is
+/// otherwise invisible from outside, so it is reported rather than inferred.
+pub fn detect_runs_started() -> u32 {
+    BACKFILL.detects.load(Ordering::Relaxed)
+}
+
+/// Whether a pass holds the single-run slot, for the fixture that waits on it.
+#[cfg(test)]
+pub(crate) fn pass_running() -> bool {
+    BACKFILL.running.load(Ordering::SeqCst)
+}
+
+/// Holds the single-run slot. Release is structural, so a panic or an early
+/// return cannot leave the backfill permanently unstartable.
+struct RunGuard;
+
+impl Drop for RunGuard {
+    fn drop(&mut self) {
+        BACKFILL.running.store(false, Ordering::SeqCst);
+    }
+}
+
+impl RunGuard {
+    /// Claim the slot, or `None` when a run already holds it.
+    fn claim() -> Option<Self> {
+        BACKFILL
+            .running
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .ok()
+            .map(|_| RunGuard)
+    }
+}
+
+// ============================================================================
+// Outcome
+// ============================================================================
+
+/// What one pass did.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct BackfillOutcome {
+    /// Tracks the derived queue held when the pass began.
+    pub queued: u32,
+    /// Tracks re-stored with elevation.
+    pub elevated: u32,
+    /// Tracks whose upstream carries no usable altitude, now recorded
+    /// `UNAVAILABLE` and gone from the queue for good.
+    pub unavailable: u32,
+    /// Tracks whose fetch failed. Their state is unchanged, so the next run
+    /// retries them.
+    pub failed: u32,
+    /// Detection runs this pass started. One when it elevated anything, zero
+    /// otherwise.
+    pub detects_started: u32,
+}
+
+/// How a call to [`run_elevation_backfill`] ended.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BackfillRun {
+    /// Another run holds the slot. Nothing was fetched and nothing was changed.
+    Refused,
+    /// The pass ran to the end of its queue.
+    Finished(BackfillOutcome),
+    /// The pass could not proceed.
+    Failed(String),
+}
+
+// ============================================================================
+// The queue
+// ============================================================================
+
+impl PersistentEngine {
+    /// The backfill queue: every stored track upstream has not been asked
+    /// about, with the sport its re-ingest has to preserve.
+    ///
+    /// Derived from `elevation_state` on every call rather than held anywhere,
+    /// so completed work leaves the queue the moment its provenance lands and a
+    /// half-finished run needs no bookkeeping to resume.
+    ///
+    /// `UNAVAILABLE` is out of the queue, not in it. Upstream has already
+    /// answered for those tracks and the answer will not change, so keeping
+    /// them would mean no pass over such a library could ever end. They still
+    /// count against `elevation_backfill_outstanding`, which answers the
+    /// different question of whether the library reads uniformly.
+    ///
+    /// Newest first: a user scrolling their feed after an update sees the
+    /// activities they care about most convert first.
+    pub fn tracks_missing_elevation(&self) -> SqlResult<Vec<(String, String)>> {
+        let mut stmt = self.db.prepare(
+            "SELECT g.activity_id, a.sport_type
+               FROM gps_tracks g
+               JOIN activities a ON a.id = g.activity_id
+              WHERE g.elevation_state = ?1
+              ORDER BY a.start_date IS NULL, a.start_date DESC, g.activity_id",
+        )?;
+        let rows = stmt.query_map(
+            params![i64::from(crate::persistence::ELEVATION_STATE_UNKNOWN)],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+        )?;
+        rows.collect()
+    }
+
+    /// How many tracks the backfill still has to ask about. Zero means a pass
+    /// has nothing left to do, which is not the same as the library reading
+    /// uniformly elevated.
+    ///
+    /// The query error is propagated rather than counted as zero. Both launch
+    /// triggers treat a zero as the definitive "nothing left", one of them by
+    /// stamping the app version, and a locked database at launch is ordinary.
+    pub fn elevation_backfill_remaining(&self) -> SqlResult<u64> {
+        self.tracks_missing_elevation().map(|q| q.len() as u64)
+    }
+
+    /// One track's elevation provenance, or `None` when no track is stored.
+    /// The counts answer "is the library uniform"; this answers "did this
+    /// activity's own re-fetch land", which is what a per-activity assertion
+    /// and a debug screen need.
+    pub fn elevation_state_of_track(&self, id: &str) -> Option<u8> {
+        self.db
+            .query_row(
+                "SELECT elevation_state FROM gps_tracks WHERE activity_id = ?1",
+                params![id],
+                |row| row.get::<_, i64>(0),
+            )
+            .ok()
+            .and_then(|v| u8::try_from(v).ok())
+    }
+}
+
+// ============================================================================
+// The run
+// ============================================================================
+
+/// What the pass asks upstream for.
+///
+/// Elevation alone is the ordinary ask: the coordinates of every row in the
+/// queue are already stored, so re-downloading them costs about five times the
+/// bytes and risks replacing geometry the catalogue was derived from. The
+/// whole track is asked for only when the stored sample count no longer
+/// matches upstream.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Ask {
+    Elevation,
+    Track,
+}
+
+/// One track's fetch, reduced to what the store step needs.
+enum Fetched {
+    /// An altitude series to splice onto the points already stored.
+    Altitudes(Vec<f64>),
+    /// A whole track, re-fetched because the stored one no longer matches.
+    Elevated(Vec<GpsPoint>),
+    /// The response arrived, carried an altitude series, and none of it was
+    /// usable. Upstream has answered and the answer will not change.
+    NoAltitude,
+    /// The response carried no altitude series at all. A stored track exists,
+    /// so upstream once had this activity; nothing now is a transient answer,
+    /// and the row stays as it is for the next run to retry.
+    Empty,
+    /// The request failed. The row stays as it is.
+    Failed(NetError),
+}
+
+/// Reduce an elevation-only response to the store step's cases.
+///
+/// A response with no altitude series at all cannot be read here: with the
+/// coordinates left out of the request there is nothing to tell "upstream has
+/// no altitude for this ride" from "upstream answered with nothing at all",
+/// and those end differently, one permanently and one on the next run. It
+/// comes back as [`Fetched::Empty`], which sends that activity to the whole
+/// track ask, where the coordinates settle it.
+fn reduce_altitudes(altitudes: Option<Vec<f64>>) -> Fetched {
+    let Some(altitudes) = altitudes else {
+        return Fetched::Empty;
+    };
+    if !altitudes.iter().any(|e| e.is_finite()) {
+        return Fetched::NoAltitude;
+    }
+    Fetched::Altitudes(altitudes)
+}
+
+/// Reduce a whole-track response to the store step's cases. Coordinates and
+/// altitude already share one index space, so a sample's elevation is the one
+/// at its own index or none at all.
+fn reduce(parsed: ParsedStreams) -> Fetched {
+    if parsed.latlng.is_empty() {
+        return Fetched::Empty;
+    }
+    let usable = parsed.altitude.iter().any(|e| e.is_finite());
+    if !usable || parsed.latlng.len() < 2 {
+        return Fetched::NoAltitude;
+    }
+    let points = parsed
+        .latlng
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            match parsed
+                .altitude
+                .get(i)
+                .copied()
+                .filter(|e: &f64| e.is_finite())
+            {
+                Some(ele) => GpsPoint::with_elevation(p[0], p[1], ele),
+                None => GpsPoint::new(p[0], p[1]),
+            }
+        })
+        .collect();
+    Fetched::Elevated(points)
+}
+
+/// Fetch one batch, bounded to [`FETCH_CONCURRENCY`] requests in flight.
+async fn fetch_batch(transport: &Transport, ids: &[String], ask: Ask) -> Vec<(String, Fetched)> {
+    use futures::stream::{self, StreamExt};
+
+    stream::iter(ids.to_vec())
+        .map(|id| async move {
+            let outcome = match ask {
+                Ask::Elevation => match fetch_altitude(transport, &id, Lane::Backfill).await {
+                    Ok(altitudes) => reduce_altitudes(altitudes),
+                    Err(e) => Fetched::Failed(e),
+                },
+                Ask::Track => {
+                    match fetch_streams(transport, &id, Some(TRACK_STREAM_TYPES), Lane::Backfill)
+                        .await
+                    {
+                        Ok(parsed) => reduce(parsed),
+                        Err(e) => Fetched::Failed(e),
+                    }
+                }
+            };
+            (id, outcome)
+        })
+        .buffer_unordered(FETCH_CONCURRENCY)
+        .collect()
+        .await
+}
+
+/// Fetch the elevation every flat stored track is missing, splice it onto the
+/// points already held, then re-cut the catalogue once.
+///
+/// Blocking, so a caller can drive it and see the outcome. Detection is
+/// suspended from before the first fetch until after the terminal phase is
+/// set, structurally: the guard's drop is the release, so a failure part way
+/// through resumes detection just as a clean finish does. The final re-cut
+/// starts while the guard is still held (through the unchecked engine path),
+/// so nothing else can claim the detection slot between the last store and
+/// the re-cut, and it runs only when the queue drained to empty, so no
+/// catalogue is ever cut over a half-converted library.
+pub fn run_elevation_backfill(transport: &Transport, athlete_id: &str) -> BackfillRun {
+    let Some(slot) = RunGuard::claim() else {
+        log::info!("[Elevation] backfill refused: a run is already in flight");
+        return BackfillRun::Refused;
+    };
+    run_in_slot(slot, transport, athlete_id)
+}
+
+/// The pass proper, on a slot the caller already holds. The guard lives to
+/// the end of the run so the slot is released after the terminal phase, and
+/// after the suspension, which was taken later and so drops first.
+fn run_in_slot(_slot: RunGuard, transport: &Transport, athlete_id: &str) -> BackfillRun {
+    let queue = match with_persistent_engine(|engine| engine.tracks_missing_elevation()) {
+        Some(Ok(queue)) => queue,
+        Some(Err(e)) => {
+            set_phase(BACKFILL_PHASE_FAILED);
+            return BackfillRun::Failed(format!("queue unreadable: {}", e));
+        }
+        None => {
+            set_phase(BACKFILL_PHASE_FAILED);
+            return BackfillRun::Failed("no engine".to_string());
+        }
+    };
+
+    BACKFILL.total.store(queue.len() as u32, Ordering::Relaxed);
+    BACKFILL.completed.store(0, Ordering::Relaxed);
+    BACKFILL.failed.store(0, Ordering::Relaxed);
+    set_phase(BACKFILL_PHASE_FETCHING);
+    log::info!("[Elevation] backfill starting over {} tracks", queue.len());
+
+    let _suspend = suspend_detection();
+
+    let walk = drain_queue(transport, &queue, true);
+    let (mut outcome, stopped, owed) = re_ask(transport, walk);
+    // Whatever is still owed was asked and refused, so it is this pass's
+    // failure count. Stored rather than added: the gauge counted every refusal
+    // as it happened, and a track that landed on a later round is not one.
+    outcome.failed += owed.len() as u32;
+    BACKFILL.failed.store(outcome.failed, Ordering::Relaxed);
+
+    match stopped {
+        Some(Stopped::Unauthorized) => {
+            set_phase(BACKFILL_PHASE_FAILED);
+            log::warn!("[Elevation] backfill stopped: unauthorized");
+            // The pass is the only thing talking upstream during a
+            // conversion, so a credential rejected here is reported the way
+            // sync reports one. Nothing else would ask until the next sync,
+            // and until then the revoked session stands.
+            crate::runtime::block_on(crate::objects::park_auth_expired(transport, athlete_id));
+            return BackfillRun::Failed("unauthorized".to_string());
+        }
+        // Not a failed pass: the rows are untouched and the queue is
+        // unchanged, so this ends partial and the next launch retries. A
+        // rejected credential is different, nothing will change until the
+        // user signs in again.
+        Some(Stopped::NothingToWorkWith) => log::warn!(
+            "[Elevation] backfill gave up after {} failures in a row, {} of {} tracks still to ask",
+            MAX_CONSECUTIVE_FAILURES,
+            queue.len() as u32 - outcome.elevated - outcome.unavailable,
+            queue.len()
+        ),
+        // Also not a failed pass. The rows are untouched, the queue is
+        // unchanged, and the ladder that owns the retry decides when to ask
+        // again now that the network is worth asking on.
+        Some(Stopped::Offline) => log::info!(
+            "[Elevation] backfill stopped: offline, {} of {} tracks still to ask",
+            queue.len() as u32 - outcome.elevated - outcome.unavailable,
+            queue.len()
+        ),
+        // The rows are untouched here too. Nothing asks again until the next
+        // launch, by design, and the phase says so.
+        Some(Stopped::Paused) => log::info!(
+            "[Elevation] backfill stopped: paused, {} of {} tracks still to ask",
+            queue.len() as u32 - outcome.elevated - outcome.unavailable,
+            queue.len()
+        ),
+        None => {}
+    }
+
+    // An unreadable count is not a drained one: a pass that cannot see its own
+    // queue ends partial, so the next launch asks again rather than the run
+    // claiming a library it never checked.
+    let remaining =
+        with_persistent_engine(|engine| engine.elevation_backfill_remaining().ok()).unwrap_or(None);
+    let drained = remaining == Some(0);
+
+    // The terminal phase lands before the guard releases, so there is no
+    // window in which the phase still reads "fetching" while detection has
+    // already resumed.
+    set_phase(if matches!(stopped, Some(Stopped::Paused)) {
+        BACKFILL_PHASE_PAUSED
+    } else if drained {
+        BACKFILL_PHASE_COMPLETE
+    } else {
+        BACKFILL_PHASE_PARTIAL
+    });
+
+    // The terminal cut fires on the pass that drains the queue, whatever the
+    // queue turned out to hold. It used to also require the library to carry
+    // some elevation, which excluded a library upstream has altitude for
+    // nothing: the queue drains honestly, elevates nothing, and the cut never
+    // fired, leaving the cutover owed and detection refused.
+    // `terminal_cut` re-checks whether a cutover is owed and falls through to a
+    // plain re-cut when it is not, so the drained queue is the whole condition.
+    // The guard is still held here, so nothing else can claim the slot first.
+    if drained && outcome.queued > 0 && terminal_cut() {
+        outcome.detects_started = 1;
+        BACKFILL.detects.fetch_add(1, Ordering::Relaxed);
+    }
+    log::info!(
+        "[Elevation] backfill finished: {} elevated, {} unavailable, {} failed, {} still to ask",
+        outcome.elevated,
+        outcome.unavailable,
+        outcome.failed,
+        remaining.map_or_else(|| "an unreadable number of".to_string(), |n| n.to_string())
+    );
+
+    BackfillRun::Finished(outcome)
+}
+
+/// Why a pass ended before its queue did.
+enum Stopped {
+    /// The credential was rejected, so every remaining request would be too.
+    Unauthorized,
+    /// Nothing to work with: [`MAX_CONSECUTIVE_FAILURES`] in a row.
+    NothingToWorkWith,
+    /// TypeScript says the network is gone, so the rest of the queue would
+    /// only be spent discovering that one request at a time.
+    Offline,
+    /// The athlete paused the download.
+    Paused,
+}
+
+/// Whether this failure says the connection is gone rather than answering for
+/// one activity.
+///
+/// A transport error, an exhausted budget and a 5xx all mean the next request
+/// will fare no better. A 404 or a body that would not parse is upstream
+/// replying about one track, and counting those would wedge the queue: the
+/// order is re-derived the same way every run, so a permanently 404-ing
+/// prefix would stop every future pass at the same place.
+fn is_connectivity(e: &NetError) -> bool {
+    match e {
+        NetError::Transport(_) | NetError::RateLimited => true,
+        NetError::Http { status, .. } => *status >= 500,
+        _ => false,
+    }
+}
+
+/// Ask again for the tracks the connection refused, in bounded rounds that
+/// wait longer each time.
+///
+/// Skipped when the first walk stopped: a rejected credential rejects the
+/// retry too, and the consecutive-failure threshold has already established
+/// that the connection is gone rather than blinking. Returns the accumulated
+/// outcome, why the pass ended if it did, and what is still owed.
+fn re_ask(
+    transport: &Transport,
+    first: Walk,
+) -> (BackfillOutcome, Option<Stopped>, Vec<(String, String)>) {
+    re_ask_with(
+        first,
+        |delay| {
+            std::thread::sleep(delay);
+            true
+        },
+        |queue| drain_queue(transport, queue, false),
+    )
+}
+
+/// The ladder itself, with the waiting and the asking handed in.
+///
+/// Split from [`re_ask`] the way [`drain_queue_with`] is split from
+/// [`drain_queue`], and for the same reason `resume_ladder` takes its sleep:
+/// the schedule is an array, and a test that has to spend it to read it costs
+/// the suite the whole ladder and asserts on wall clock, which two earlier
+/// passes over this file already failed on.
+///
+/// `wait` returning false ends the re-asking at that round, which is both how
+/// a test skips the ladder and the only cancel this pass has.
+fn re_ask_with(
+    first: Walk,
+    mut wait: impl FnMut(Duration) -> bool,
+    mut ask: impl FnMut(&[(String, String)]) -> Walk,
+) -> (BackfillOutcome, Option<Stopped>, Vec<(String, String)>) {
+    let Walk {
+        mut outcome,
+        stopped,
+        mut refused,
+        unasked,
+    } = first;
+
+    if stopped.is_some() {
+        return (outcome, stopped, refused);
+    }
+
+    let mut stopped = None;
+    for delay in backfill_retry_delays() {
+        if refused.is_empty() {
+            break;
+        }
+        log::info!(
+            "[Elevation] re-asking {} refused tracks in {:?}",
+            refused.len(),
+            delay
+        );
+        if !wait(delay) {
+            break;
+        }
+
+        let round = ask(&refused);
+        outcome.elevated += round.outcome.elevated;
+        outcome.unavailable += round.outcome.unavailable;
+        outcome.failed += round.outcome.failed;
+        // A round that stopped part way never asked the rest, and they were
+        // refused once already, so they stay owed rather than disappearing.
+        refused = round.refused;
+        refused.extend(round.unasked);
+        if round.stopped.is_some() {
+            stopped = round.stopped;
+            break;
+        }
+    }
+
+    refused.extend(unasked);
+    (outcome, stopped, refused)
+}
+
+/// One walk of a list of tracks, and what it left owing.
+struct Walk {
+    outcome: BackfillOutcome,
+    /// Why the walk ended before its list did, if it did.
+    stopped: Option<Stopped>,
+    /// Asked, and the connection refused. Worth asking again.
+    refused: Vec<(String, String)>,
+    /// Never asked, because the walk stopped first.
+    unasked: Vec<(String, String)>,
+}
+
+/// Walk a list of tracks in batches, fetching and storing what it can.
+///
+/// `count_progress` is false for a retry round: those tracks are already in
+/// the completed count from the first walk, and counting them again pushes the
+/// progress line past its own total.
+fn drain_queue(transport: &Transport, queue: &[(String, String)], count_progress: bool) -> Walk {
+    drain_queue_with(queue, count_progress, |ids, ask| {
+        crate::runtime::block_on(fetch_batch(transport, ids, ask))
+    })
+}
+
+/// The walk itself, with the fetch handed in.
+///
+/// Split from [`drain_queue`] so the stop conditions can be exercised without
+/// a transport: everything that ends a walk early is decided here.
+fn drain_queue_with(
+    queue: &[(String, String)],
+    count_progress: bool,
+    mut fetch: impl FnMut(&[String], Ask) -> Vec<(String, Fetched)>,
+) -> Walk {
+    let mut outcome = BackfillOutcome {
+        queued: queue.len() as u32,
+        ..BackfillOutcome::default()
+    };
+    let mut refused: Vec<(String, String)> = Vec::new();
+
+    let mut consecutive_failures = 0usize;
+
+    for (chunk, batch) in queue.chunks(BATCH).enumerate() {
+        // Read before every batch, not only before the walk: a pass that
+        // loses the network half way through would otherwise spend the rest
+        // of its queue discovering that one request at a time. Advisory, so
+        // an unset or stale state falls through and the walk carries on.
+        if crate::net::connectivity::is_offline() {
+            return Walk {
+                outcome,
+                stopped: Some(Stopped::Offline),
+                refused,
+                unasked: queue[chunk * BATCH..].to_vec(),
+            };
+        }
+        if elevation_backfill_paused() {
+            return Walk {
+                outcome,
+                stopped: Some(Stopped::Paused),
+                refused,
+                unasked: queue[chunk * BATCH..].to_vec(),
+            };
+        }
+
+        let ids: Vec<String> = batch.iter().map(|(id, _)| id.clone()).collect();
+        let fetched = fetch(&ids, Ask::Elevation);
+
+        // A rejected credential rejects every remaining request too. Spending
+        // the rest of the library on 401s helps nobody, so the pass stops and
+        // the untouched rows wait for the next one.
+        if fetched
+            .iter()
+            .any(|(_, f)| matches!(f, Fetched::Failed(NetError::Unauthorized)))
+        {
+            return Walk {
+                outcome,
+                stopped: Some(Stopped::Unauthorized),
+                refused,
+                unasked: queue[chunk * BATCH..].to_vec(),
+            };
+        }
+
+        let sports: std::collections::HashMap<&str, &str> = batch
+            .iter()
+            .map(|(id, sport)| (id.as_str(), sport.as_str()))
+            .collect();
+
+        let mut plan = Plan::default();
+        for (id, result) in fetched {
+            if plan.sort(id, result, Ask::Elevation, &sports, &mut outcome) {
+                consecutive_failures = 0;
+            } else {
+                consecutive_failures += 1;
+            }
+        }
+
+        // A sample count that no longer matches the stored track means
+        // intervals.icu re-processed the activity, so its coordinates really
+        // did move and the catalogue has to be re-derived from what it holds
+        // now. That, and an unreadable answer, are the only reasons a whole
+        // track is ever downloaded again.
+        let (spliced, mut moved) = splice_batch(&plan.splice);
+        outcome.elevated += spliced;
+        moved.append(&mut plan.whole);
+        if !moved.is_empty() {
+            log::info!(
+                "[Elevation] {} tracks need the whole series, asking again",
+                moved.len()
+            );
+            for (id, result) in fetch(&moved, Ask::Track) {
+                plan.sort(id, result, Ask::Track, &sports, &mut outcome);
+            }
+        }
+        refused.append(&mut plan.refused);
+
+        outcome.elevated += store_batch(&plan.store, &plan.states) as u32;
+        if count_progress {
+            BACKFILL
+                .completed
+                .fetch_add(batch.len() as u32, Ordering::Relaxed);
+        }
+
+        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
+            return Walk {
+                outcome,
+                stopped: Some(Stopped::NothingToWorkWith),
+                refused,
+                unasked: queue[(chunk + 1) * BATCH..].to_vec(),
+            };
+        }
+    }
+
+    Walk {
+        outcome,
+        stopped: None,
+        refused,
+        unasked: Vec::new(),
+    }
+}
+
+/// What one batch decided to do, before the engine is touched.
+#[derive(Default)]
+struct Plan {
+    /// Altitude series to splice onto tracks already stored.
+    splice: Vec<(String, Vec<f64>)>,
+    /// Whole tracks to re-ingest, from the whole-track ask.
+    store: Vec<(String, Vec<GpsPoint>, String)>,
+    /// Activities the elevation ask could not settle, which the whole track
+    /// can.
+    whole: Vec<String>,
+    /// Provenance for activities whose points are not being written.
+    states: Vec<(String, u8)>,
+    /// Asked, and the connection refused. Worth asking again.
+    refused: Vec<(String, String)>,
+}
+
+impl Plan {
+    /// Sort one activity's answer into what the store step will do with it.
+    /// Returns whether the answer proves the connection is working, which is
+    /// what resets the consecutive-failure count.
+    fn sort(
+        &mut self,
+        id: String,
+        result: Fetched,
+        ask: Ask,
+        sports: &std::collections::HashMap<&str, &str>,
+        outcome: &mut BackfillOutcome,
+    ) -> bool {
+        let sport = |id: &str| sports.get(id).copied().unwrap_or("Ride").to_string();
+        match result {
+            Fetched::Altitudes(altitudes) => {
+                self.splice.push((id, altitudes));
+                true
+            }
+            Fetched::Elevated(points) => {
+                let sport = sport(&id);
+                self.store.push((id, points, sport));
+                true
+            }
+            Fetched::NoAltitude => {
+                self.states.push((id, ELEVATION_STATE_UNAVAILABLE));
+                outcome.unavailable += 1;
+                true
+            }
+            Fetched::Empty if ask == Ask::Elevation => {
+                // Nothing came back for an ask that left the coordinates out.
+                // The whole track tells an activity upstream has no altitude
+                // for from one it has nothing for at all.
+                self.whole.push(id);
+                true
+            }
+            Fetched::Empty => {
+                log::info!("[Elevation] {} answered empty, left for the next run", id);
+                outcome.failed += 1;
+                BACKFILL.failed.fetch_add(1, Ordering::Relaxed);
+                // Upstream replied, so the connection is fine.
+                true
+            }
+            Fetched::Failed(e) => {
+                BACKFILL.failed.fetch_add(1, Ordering::Relaxed);
+                if is_connectivity(&e) {
+                    log::info!("[Elevation] {} refused, worth asking again: {}", id, e);
+                    let sport = sport(&id);
+                    self.refused.push((id, sport));
+                    false
+                } else {
+                    log::info!("[Elevation] {} left for the next run: {}", id, e);
+                    outcome.failed += 1;
+                    true
+                }
+            }
+        }
+    }
+}
+
+/// Splice each fetched altitude series onto the track already stored.
+///
+/// Returns how many landed and the ids whose stored sample count no longer
+/// matches upstream, which are the only ones that need the whole track. The
+/// splice sets provenance in the same statement, so nothing here goes through
+/// `record_elevation_state`.
+fn splice_batch(splice: &[(String, Vec<f64>)]) -> (u32, Vec<String>) {
+    if splice.is_empty() {
+        return (0, Vec::new());
+    }
+    with_persistent_engine(|engine| {
+        let mut spliced = 0;
+        let mut moved = Vec::new();
+        for (id, altitudes) in splice {
+            match engine.splice_track_elevation(id, altitudes) {
+                Ok(true) => spliced += 1,
+                Ok(false) => moved.push(id.clone()),
+                Err(e) => log::warn!("[Elevation] splice of {} failed: {}", id, e),
+            }
+        }
+        (spliced, moved)
+    })
+    .unwrap_or((0, Vec::new()))
+}
+
+/// Re-ingest the elevated tracks and stamp provenance for the whole batch.
+/// Returns how many tracks landed with elevation.
+fn store_batch(to_store: &[(String, Vec<GpsPoint>, String)], states: &[(String, u8)]) -> usize {
+    with_persistent_engine(|engine| {
+        // The re-ingest upserts the activity row in place, so its date, name
+        // and distance survive, and the section_activities links keyed on the
+        // id are never cascade-deleted.
+        let mut stored = 0;
+        let mut all_states = states.to_vec();
+        if !to_store.is_empty() {
+            match engine.add_activities_batch(to_store.to_vec()) {
+                Ok(()) => {
+                    stored = to_store.len();
+                    // Provenance follows the points the engine kept, so a track
+                    // left flat by an unusable series reads as unavailable.
+                    all_states.extend(to_store.iter().map(|(id, points, _)| {
+                        (id.clone(), crate::ffi::elevation_state_of(points))
+                    }));
+                }
+                Err(e) => log::warn!("[Elevation] batch store failed: {}", e),
+            }
+        }
+
+        if let Err(e) = engine.record_elevation_state(&all_states) {
+            log::warn!("[Elevation] provenance not recorded: {}", e);
+        }
+        stored
+    })
+    .unwrap_or(0)
+}
+
+/// The one cut a drained pass owes, handed to whoever owns it.
+///
+/// An upgrading install is owed the detector cutover, and the launch trigger
+/// that would normally run it declines while this queue is non-empty
+/// (`src/features/routes/lib/cutoverTrigger.ts`), so the pass that empties the
+/// queue is the only thing left that can hand it over. It has to hand over
+/// rather than re-cut: the cutover archives the flat-era catalogue, switches
+/// the config and then runs the same cold detect, so a bare re-cut here is
+/// both a duplicate pass and the thing that retires the migration before it
+/// has run. It stamps `DETECTOR_METHOD` on the catalogue, and
+/// `cutover_is_owed` reads false from that stamp forever after.
+///
+/// Run inline rather than spawned, so the suspension guard this is called
+/// under covers the migration too. Spawning would release it between the two
+/// and let an ordinary conditioning detect land a catalogue for the archive to
+/// snapshot instead of the flat-era one.
+fn terminal_cut() -> bool {
+    let owed = with_persistent_engine(|engine| engine.cutover_is_owed()).unwrap_or(false);
+    if !owed {
+        return start_final_detect();
+    }
+    match crate::persistence::cutover::run_cutover() {
+        Ok(CutoverOutcome::Completed(_)) => true,
+        // Owed a moment ago and not owed now, or a run already in flight:
+        // either way something else is doing the cold detect this pass would
+        // have started, so starting a second one duplicates it.
+        Ok(CutoverOutcome::NotOwed) => false,
+        // The athlete stopped it. The migration is still owed and the next
+        // launch runs it again, so this pass starts nothing of its own: a
+        // final detect here would rebuild the catalogue the cancel was asking
+        // the app to stop rebuilding.
+        Ok(CutoverOutcome::Cancelled) => false,
+        Err(e) => {
+            log::warn!("[Elevation] cutover handover failed: {}", e);
+            false
+        }
+    }
+}
+
+/// Start the single re-cut and drive it to a durable catalogue. Called with
+/// the suspension guard still held, which is why it uses the unchecked engine
+/// path: the guard blocks every other arm, so a slot this drains stays free.
+///
+/// Clearing the processed set is what makes it cold: it drops the evidence
+/// cache, and with it the per-track lift candidates memoised on activity id
+/// alone while the library was flat.
+fn start_final_detect() -> bool {
+    // A run that predates the backfill may still hold the detection slot.
+    // Drive it to its end through the shared poll, which applies its result
+    // and clears the handle; the cold re-cut below then supersedes whatever
+    // it wrote. The suspension refuses every new start, so once the slot
+    // empties it stays empty.
+    match wait_on_slot(DRIVER_POLL, false) {
+        SlotWait::Idle => {}
+        other => {
+            // Bounded, because a worker that hangs rather than panicking never
+            // reports `Died`. The re-cut is skipped and the ladder asks again.
+            log::warn!(
+                "[Elevation] re-cut skipped: could not drain the slot: {:?}",
+                other
+            );
+            return false;
+        }
+    }
+
+    // Held across check, spawn and install. Releasing it to spawn lets a loser
+    // start a second worker that rewrites `route_groups` on its own connection
+    // beside the winner, with both track pools resident.
+    let mut guard = SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if guard.is_some() {
+        // Something took the slot between the drain and here. The winning run
+        // covers the same pool.
+        return false;
+    }
+
+    let handle = with_persistent_engine(|engine| {
+        engine.clear_processed_activity_ids();
+        engine.detect_sections_background_unchecked_applying(
+            crate::persistence::sections::detection::ApplyOn::Worker,
+        )
+    });
+
+    let Some(handle) = handle else {
+        return false;
+    };
+
+    *guard = Some(handle);
+    drop(guard);
+
+    std::thread::spawn(|| {
+        // Bounded like the drain above: this thread outlives the call, so a
+        // run that hangs would otherwise leave it polling for the life of the
+        // process.
+        match wait_on_slot(DRIVER_POLL, true) {
+            SlotWait::Applied => {
+                log::info!("[Elevation] re-cut applied");
+            }
+            SlotWait::Idle | SlotWait::Died => {}
+            other => log::warn!("[Elevation] re-cut not followed to its end: {:?}", other),
+        }
+    });
+    true
+}
+
+/// Start a backfill on a detached thread using the process credential.
+///
+/// The verdict names the refusal, so a caller can tell an empty queue, which
+/// is the job finished, from a device that is merely offline. It is safe to
+/// fire at every launch.
+pub fn start_elevation_backfill() -> FfiStartOutcome {
+    let outcome = start_pass();
+    // The ladder outlives this call either way. A pass that was refused for
+    // want of a credential, and one that ends partial because the connection
+    // went away, both need asking again, and nothing outside the engine
+    // schedules that any more.
+    arm_resume_ladder();
+    outcome
+}
+
+/// One attempt to put a pass on a thread, and why it was refused when it was.
+fn start_pass() -> FfiStartOutcome {
+    // A queue that cannot be read is not an empty one, but it is also not a
+    // queue a run could work, so this declines and the next launch asks again.
+    // The two are separate answers: an empty queue is the job finished and
+    // stops the caller asking, an unreadable one is worth asking about again.
+    let remaining = with_persistent_engine(|engine| engine.elevation_backfill_remaining());
+    match remaining {
+        Some(Ok(n)) if n > 0 => {}
+        Some(Ok(_)) => return FfiStartOutcome::NotOwed,
+        _ => {
+            log::info!("[Elevation] backfill deferred: queue unreadable");
+            return FfiStartOutcome::NotReady;
+        }
+    }
+    // The slot is claimed here, not on the thread, so a `Started` below means a
+    // pass holds it: a second start in the same instant is refused rather
+    // than spawning alongside, and anything waiting on the slot sees it
+    // taken. A decline further down drops the guard and frees it again.
+    let Some(slot) = RunGuard::claim() else {
+        return FfiStartOutcome::Busy;
+    };
+    if elevation_backfill_paused() {
+        log::info!("[Elevation] backfill deferred: paused");
+        return FfiStartOutcome::Held;
+    }
+    // The state TypeScript pushes is advisory, so this only declines on a
+    // fresh offline. Unset or stale falls through and the pass runs, which is
+    // exactly what happened before there was a state to read.
+    if crate::net::connectivity::is_offline() {
+        log::info!("[Elevation] backfill deferred: offline");
+        return FfiStartOutcome::Offline;
+    }
+    let Some(Ok((transport, athlete_id))) = crate::objects::current_session() else {
+        log::info!("[Elevation] backfill deferred: no credential yet");
+        return FfiStartOutcome::NotConfigured;
+    };
+
+    std::thread::spawn(move || {
+        run_in_slot(slot, &transport, &athlete_id);
+    });
+    FfiStartOutcome::Started
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence::sections::conditioning::detection_suspended;
+    use crate::persistence::sections::detection_workers_started;
+    use crate::test_globals::{
+        clear_detection_handle, drain_backfill, drain_detection, init_global_engine, race,
+        seeded_global_engine, serial_global_state,
+    };
+    use tempfile::TempDir;
+
+    /// Scenario: the backfill's final re-cut is normally the only arm running,
+    /// but nothing in the function itself enforces that. Several starting
+    /// together must spawn exactly as many workers as claimed the slot: each
+    /// worker opens its own connection and rewrites `route_groups` with the
+    /// whole pool resident, so one that nobody holds a handle to is loose in
+    /// the database with no way to stop or apply it.
+    ///
+    /// The re-cut drains the slot before it cuts, so the losers here go on to
+    /// take their turn rather than refuse. That is the design. What must never
+    /// happen is a spawn whose handle is thrown away.
+    #[test]
+    fn a_final_detect_never_spawns_a_worker_it_drops() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let before = detection_workers_started();
+
+        let won = race(start_final_detect);
+
+        assert!(won > 0, "at least one final re-cut has to start");
+        assert_eq!(
+            detection_workers_started() - before,
+            won as u64,
+            "every worker spawned must belong to a run that claimed the slot"
+        );
+
+        drain_detection();
+    }
+
+    /// Expected behaviour: a re-cut that finds the slot still held drains it
+    /// first, so the cold cut it needs is the one that lands.
+    #[test]
+    fn a_final_detect_drains_a_run_it_finds_in_the_slot() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+
+        let earlier = with_persistent_engine(|engine| engine.detect_sections_background())
+            .expect("the earlier run starts");
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(earlier);
+
+        let before = detection_workers_started();
+        assert!(start_final_detect(), "the re-cut starts after the drain");
+        assert_eq!(
+            detection_workers_started() - before,
+            1,
+            "the re-cut spawns its own worker and nothing else"
+        );
+
+        drain_detection();
+    }
+
+    #[test]
+    fn an_empty_queue_reads_as_finished_not_as_zero() {
+        let snapshot = BackfillSnapshot {
+            phase: BACKFILL_PHASE_COMPLETE,
+            completed: 0,
+            total: 0,
+            failed: 0,
+        };
+        assert_eq!(snapshot.percent(), 100);
+    }
+
+    #[test]
+    fn percent_tracks_the_queue() {
+        let at = |completed, total| {
+            BackfillSnapshot {
+                phase: BACKFILL_PHASE_FETCHING,
+                completed,
+                total,
+                failed: 0,
+            }
+            .percent()
+        };
+        assert_eq!(at(0, 200), 0);
+        assert_eq!(at(50, 200), 25);
+        assert_eq!(at(200, 200), 100);
+        assert_eq!(at(300, 200), 100, "a miscount cannot report over 100");
+    }
+
+    #[test]
+    fn a_response_with_no_finite_altitude_is_unavailable() {
+        let parsed = ParsedStreams {
+            latlng: vec![[46.0, 7.0], [46.1, 7.1]],
+            altitude: vec![f64::NAN, f64::NAN],
+            ..ParsedStreams::default()
+        };
+        assert!(matches!(reduce(parsed), Fetched::NoAltitude));
+    }
+
+    #[test]
+    fn a_response_with_no_altitude_series_is_unavailable() {
+        let parsed = ParsedStreams {
+            latlng: vec![[46.0, 7.0], [46.1, 7.1]],
+            ..ParsedStreams::default()
+        };
+        assert!(matches!(reduce(parsed), Fetched::NoAltitude));
+    }
+
+    /// A gap keeps its own index rather than shifting the samples after it.
+    #[test]
+    fn a_gap_in_altitude_costs_only_its_own_sample() {
+        let parsed = ParsedStreams {
+            latlng: vec![[46.0, 7.0], [46.1, 7.1], [46.2, 7.2]],
+            altitude: vec![500.0, f64::NAN, 520.0],
+            ..ParsedStreams::default()
+        };
+        let Fetched::Elevated(points) = reduce(parsed) else {
+            panic!("a finite sample makes the track elevated");
+        };
+        assert_eq!(points.len(), 3);
+        assert_eq!(points[0].elevation, Some(500.0));
+        assert_eq!(points[1].elevation, None);
+        assert_eq!(points[2].elevation, Some(520.0));
+        assert_eq!(points[2].latitude, 46.2);
+    }
+
+    #[test]
+    fn a_track_too_short_to_store_is_unavailable_rather_than_retried() {
+        let parsed = ParsedStreams {
+            latlng: vec![[46.0, 7.0]],
+            altitude: vec![500.0],
+            ..ParsedStreams::default()
+        };
+        assert!(matches!(reduce(parsed), Fetched::NoAltitude));
+    }
+
+    /// Scenario: the launch triggers read the remaining count as the one
+    /// definitive answer. `elevationBackfillTrigger` stamps the app version on
+    /// a zero and never asks again for that release, and `cutoverTrigger`
+    /// reads a zero as permission to cut a library over.
+    ///
+    /// Expected behaviour: an engine that is not there cannot answer, so the
+    /// export raises rather than reporting a finished library.
+    #[test]
+    fn an_engineless_remaining_call_raises_rather_than_reading_zero() {
+        let _serial = serial_global_state();
+        *crate::persistence::PERSISTENT_ENGINE
+            .write()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+
+        assert!(matches!(
+            crate::ffi::get_elevation_backfill_remaining(),
+            Err(crate::VeloqError::NotInitialized)
+        ));
+    }
+
+    /// A busy or locked database is exactly what launch looks like, since a
+    /// sync may hold the write lock, so the query failing has to be
+    /// distinguishable from a drained queue.
+    #[test]
+    fn a_failing_queue_query_is_an_error_rather_than_zero() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("broken.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+        engine
+            .db
+            .execute("DROP TABLE activities", [])
+            .expect("the join's table goes away");
+
+        assert!(engine.elevation_backfill_remaining().is_err());
+    }
+
+    /// The same failure seen through the export, which is what the delegate's
+    /// catch turns into the null both triggers already handle.
+    #[test]
+    fn a_failing_queue_query_raises_through_the_export() {
+        let _serial = serial_global_state();
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("broken.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+        engine
+            .db
+            .execute("DROP TABLE activities", [])
+            .expect("the join's table goes away");
+        *crate::persistence::PERSISTENT_ENGINE
+            .write()
+            .unwrap_or_else(|e| e.into_inner()) = Some(engine);
+
+        let answer = crate::ffi::get_elevation_backfill_remaining();
+
+        *crate::persistence::PERSISTENT_ENGINE
+            .write()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+
+        assert!(matches!(answer, Err(crate::VeloqError::Database { .. })));
+    }
+
+    /// A drained queue still has to read as drained, or the backfill would
+    /// retry for ever and the cutover would never fire.
+    #[test]
+    fn a_drained_queue_still_reads_as_zero() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("empty.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+
+        assert_eq!(engine.elevation_backfill_remaining().ok(), Some(0));
+    }
+
+    /// Scenario: the network lifecycle is Rust's, so a pass has to react to
+    /// the connectivity TypeScript pushes rather than spending its
+    /// whole queue discovering the network is gone one request at a time.
+    ///
+    /// Expected behaviour: the state is advisory. Never pushed means try, a
+    /// pushed offline stops the walk where it stands, and a flip back to
+    /// online lets the next walk run.
+    mod offline {
+        use super::*;
+        use crate::net::connectivity;
+        use std::time::Instant;
+
+        fn queue(n: usize) -> Vec<(String, String)> {
+            (0..n)
+                .map(|i| (format!("a{}", i), "Ride".to_string()))
+                .collect()
+        }
+
+        /// One flat point per id, which stores as unavailable rather than
+        /// elevated. Whether it lands is not what these tests measure; what
+        /// they measure is how many ids the walk asked about.
+        fn answer(ids: &[String]) -> Vec<(String, Fetched)> {
+            ids.iter()
+                .map(|id| (id.clone(), Fetched::NoAltitude))
+                .collect()
+        }
+
+        #[test]
+        fn a_never_pushed_state_walks_the_whole_queue() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(3 * BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                answer(ids)
+            });
+
+            assert_eq!(asked, 3 * BATCH, "an unset state must not refuse work");
+            assert!(walk.stopped.is_none());
+            assert!(walk.unasked.is_empty());
+        }
+
+        #[test]
+        fn a_pass_that_starts_offline_asks_nothing() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            connectivity::set_online(false);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(2 * BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                answer(ids)
+            });
+
+            assert_eq!(asked, 0, "nothing should be dispatched while offline");
+            assert!(matches!(walk.stopped, Some(Stopped::Offline)));
+            assert_eq!(
+                walk.unasked.len(),
+                2 * BATCH,
+                "the whole queue is still owed"
+            );
+
+            connectivity::reset();
+        }
+
+        #[test]
+        fn losing_the_network_stops_the_walk_where_it_stands() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            connectivity::set_online(true);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(4 * BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                connectivity::set_online(false);
+                answer(ids)
+            });
+
+            assert_eq!(
+                asked, BATCH,
+                "the walk must stop after the batch that lost the network, not finish the queue"
+            );
+            assert!(matches!(walk.stopped, Some(Stopped::Offline)));
+            assert_eq!(walk.unasked.len(), 3 * BATCH);
+
+            connectivity::reset();
+        }
+
+        #[test]
+        fn a_flip_back_to_online_leaves_the_walk_running() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            connectivity::set_online(false);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(3 * BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                answer(ids)
+            });
+            assert_eq!(asked, 0);
+
+            connectivity::set_online(true);
+            let mut asked_again = 0usize;
+            let second = drain_queue_with(&walk.unasked, true, |ids, _ask| {
+                asked_again += ids.len();
+                connectivity::set_online(true);
+                answer(ids)
+            });
+
+            assert_eq!(
+                asked_again,
+                3 * BATCH,
+                "a state that came back online must not leave the pass stopped"
+            );
+            assert!(second.stopped.is_none());
+
+            connectivity::reset();
+        }
+
+        /// An offline nobody refreshed is a missed push, not a fact. Rust
+        /// refusing work on a live connection is worse than never knowing, so
+        /// the state expires and the walk goes back to trying.
+        #[test]
+        fn a_stale_offline_reads_as_try_rather_than_do_not() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            connectivity::set_online_at(false, Instant::now() - connectivity::STALE_AFTER);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(2 * BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                answer(ids)
+            });
+
+            assert_eq!(asked, 2 * BATCH, "a state this old must not refuse work");
+            assert!(walk.stopped.is_none());
+
+            connectivity::reset();
+        }
+
+        /// The window is the backgrounded-only fallback, so it has to outlive
+        /// the ladder that runs while backgrounded. A push aged by the resting
+        /// rung is the ordinary case for a device left offline, and it must
+        /// still refuse: an expiry that lands first spends every resting pass
+        /// asking a network the device already said was gone.
+        #[test]
+        fn an_offline_still_refuses_at_the_ladders_resting_rung() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            let resting = *RESUME_WAITS.last().expect("the ladder has rungs");
+            connectivity::set_online_at(false, Instant::now() - resting);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(2 * BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                answer(ids)
+            });
+
+            assert_eq!(asked, 0, "a push younger than the resting rung is a fact");
+            assert!(walk.stopped.is_some());
+
+            connectivity::reset();
+        }
+
+        /// The walk-level read is the one that saves the queue, but a start
+        /// that already knows there is no network should not spawn a thread
+        /// to find out. Credentials are set here because the start declines
+        /// without one anyway, which would hide what is being measured.
+        #[test]
+        fn a_start_declines_while_offline_and_goes_ahead_once_it_is_back() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            let _creds = crate::objects::test_credentials();
+
+            connectivity::set_online(false);
+            assert!(
+                !start_elevation_backfill().started(),
+                "a fresh offline must not spawn a pass"
+            );
+            assert!(
+                !BACKFILL.running.load(Ordering::SeqCst),
+                "and must not leave the run flag claimed"
+            );
+
+            connectivity::reset();
+            assert!(
+                start_elevation_backfill().started(),
+                "a never-pushed state has to behave exactly as it did before"
+            );
+
+            connectivity::reset();
+            drain_backfill();
+            drain_detection();
+            // The pass runs detached and holds detection suspended for its
+            // whole life. Returning while it still runs leaks that suspension
+            // into whichever test takes the crate lock next, and every start
+            // there is refused.
+            assert!(
+                !BACKFILL.running.load(Ordering::SeqCst),
+                "the pass must be finished before the test releases the crate lock"
+            );
+            assert!(
+                !detection_suspended(),
+                "the pass's suspension must not outlive the test"
+            );
+        }
+
+        /// A true from the start has to mean the slot is held, not that a
+        /// thread will claim it shortly. Otherwise a second start in that
+        /// window spawns a second pass, and a test that waits on the slot
+        /// sees it free and returns while the pass is still to come.
+        #[test]
+        fn a_start_that_went_ahead_holds_the_slot_before_it_returns() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            let _creds = crate::objects::test_credentials();
+
+            assert!(start_elevation_backfill().started());
+            assert!(
+                BACKFILL.running.load(Ordering::SeqCst),
+                "the run flag must be claimed by the time the start reports true"
+            );
+            assert!(
+                !start_elevation_backfill().started(),
+                "a second start while the first is in flight must be refused"
+            );
+
+            drain_backfill();
+            drain_detection();
+            assert!(!BACKFILL.running.load(Ordering::SeqCst));
+            assert!(!detection_suspended());
+        }
+
+        /// Scenario: the launch trigger fires the backfill on every start and
+        /// gets the same `false` for five different reasons.
+        /// Expected behaviour: the start names the reason, so a caller can
+        /// tell a connection that comes back from a sign-in that never will.
+        #[test]
+        fn a_refusal_names_its_reason() {
+            use crate::objects::FfiStartOutcome;
+
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            reset_pause();
+
+            let no_credential = start_elevation_backfill();
+            assert_eq!(no_credential, FfiStartOutcome::NotConfigured);
+            assert!(
+                !no_credential.is_retryable(),
+                "waiting does not produce a sign-in"
+            );
+
+            let _creds = crate::objects::test_credentials();
+
+            connectivity::set_online(false);
+            let offline = start_elevation_backfill();
+            assert_eq!(offline, FfiStartOutcome::Offline);
+            assert!(offline.is_retryable(), "a connection comes back");
+            connectivity::reset();
+
+            pause_elevation_backfill();
+            assert_eq!(start_elevation_backfill(), FfiStartOutcome::Held);
+            reset_pause();
+
+            assert_eq!(start_elevation_backfill(), FfiStartOutcome::Started);
+            assert_eq!(
+                start_elevation_backfill(),
+                FfiStartOutcome::Busy,
+                "a pass already holds the slot"
+            );
+
+            drain_backfill();
+            drain_detection();
+            assert!(!detection_suspended());
+        }
+
+        /// The queue running out is the job finishing. It used to arrive as
+        /// the same `false` as being offline, and it is what stamps the app
+        /// version and stops the trigger asking on every later launch.
+        #[test]
+        fn an_empty_queue_is_a_success() {
+            use crate::objects::FfiStartOutcome;
+
+            let _serial = serial_global_state();
+            let _tmp = init_global_engine("no_elevation_owed.db");
+            connectivity::reset();
+            reset_pause();
+            let _creds = crate::objects::test_credentials();
+
+            let outcome = start_elevation_backfill();
+            assert_eq!(outcome, FfiStartOutcome::NotOwed);
+            assert!(
+                !outcome.is_retryable(),
+                "there is nothing later asking could add"
+            );
+            assert!(
+                !BACKFILL.running.load(Ordering::SeqCst),
+                "refusing must not leave the slot claimed"
+            );
+        }
+
+        /// A stale *online* is harmless: the value is only ever a reason to
+        /// refuse, so expiry can only ever open the gate, never close it.
+        #[test]
+        fn a_stale_online_still_reads_as_try() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            connectivity::set_online_at(true, Instant::now() - connectivity::STALE_AFTER);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                answer(ids)
+            });
+
+            assert_eq!(asked, BATCH);
+            assert!(walk.stopped.is_none());
+
+            connectivity::reset();
+        }
+    }
+    /// Scenario: a pass finished its walk with tracks the connection refused,
+    /// and the ladder above the lane's own retries decides how often it asks
+    /// again.
+    ///
+    /// Expected behaviour: the schedule is the ladder, longest last, and a
+    /// wait that ends the re-asking ends it at that round. Neither is worth
+    /// wall-clock time to assert, so the wait is handed in.
+    mod re_asking {
+        use super::*;
+
+        fn owed(n: usize) -> Vec<(String, String)> {
+            (0..n)
+                .map(|i| (format!("a{}", i), "Ride".to_string()))
+                .collect()
+        }
+
+        fn refused_walk(n: usize) -> Walk {
+            Walk {
+                outcome: BackfillOutcome::default(),
+                stopped: None,
+                refused: owed(n),
+                unasked: Vec::new(),
+            }
+        }
+
+        /// A round that refuses everything it was handed, so the ladder runs
+        /// to its last rung.
+        fn refuse_again(queue: &[(String, String)]) -> Walk {
+            Walk {
+                outcome: BackfillOutcome::default(),
+                stopped: None,
+                refused: queue.to_vec(),
+                unasked: Vec::new(),
+            }
+        }
+
+        #[test]
+        fn the_re_asking_is_bounded_and_waits_longer_each_round() {
+            let mut waited: Vec<Duration> = Vec::new();
+            let mut asked = 0usize;
+
+            let (outcome, stopped, still_owed) = re_ask_with(
+                refused_walk(1),
+                |delay| {
+                    waited.push(delay);
+                    true
+                },
+                |queue| {
+                    asked += 1;
+                    refuse_again(queue)
+                },
+            );
+
+            assert_eq!(
+                waited,
+                backfill_retry_delays().to_vec(),
+                "the rounds waited something other than the ladder"
+            );
+            assert!(
+                waited.windows(2).all(|w| w[1] > w[0]),
+                "each round has to wait longer than the one before it"
+            );
+            assert_eq!(
+                asked, BACKFILL_RETRY_ROUNDS,
+                "one ask per rung, and no more"
+            );
+            assert!(stopped.is_none());
+            assert_eq!(outcome.elevated, 0);
+            assert_eq!(
+                still_owed.len(),
+                1,
+                "a track refused on every round is still owed"
+            );
+        }
+
+        #[test]
+        fn a_wait_that_ends_the_re_asking_stops_at_that_round() {
+            let mut waited = 0usize;
+            let mut asked = 0usize;
+
+            let (_outcome, stopped, still_owed) = re_ask_with(
+                refused_walk(2),
+                |_delay| {
+                    waited += 1;
+                    waited < 2
+                },
+                |queue| {
+                    asked += 1;
+                    refuse_again(queue)
+                },
+            );
+
+            assert_eq!(waited, 2, "the second rung is where the wait said stop");
+            assert_eq!(
+                asked, 1,
+                "the round whose wait was cut short must not ask anyway"
+            );
+            assert!(
+                stopped.is_none(),
+                "a cancelled ladder is not a walk that stopped"
+            );
+            assert_eq!(still_owed.len(), 2, "both tracks are still owed");
+        }
+
+        #[test]
+        fn nothing_refused_waits_for_nothing() {
+            let mut waited = 0usize;
+            let mut asked = 0usize;
+
+            let (_outcome, stopped, still_owed) = re_ask_with(
+                refused_walk(0),
+                |_delay| {
+                    waited += 1;
+                    true
+                },
+                |queue| {
+                    asked += 1;
+                    refuse_again(queue)
+                },
+            );
+
+            assert_eq!(waited, 0, "a pass that owes nothing must not back off");
+            assert_eq!(asked, 0);
+            assert!(stopped.is_none());
+            assert!(still_owed.is_empty());
+        }
+
+        #[test]
+        fn a_walk_that_already_stopped_is_not_re_asked() {
+            let mut waited = 0usize;
+            let walk = Walk {
+                outcome: BackfillOutcome::default(),
+                stopped: Some(Stopped::Offline),
+                refused: owed(1),
+                unasked: owed(2),
+            };
+
+            let (_outcome, stopped, still_owed) = re_ask_with(
+                walk,
+                |_delay| {
+                    waited += 1;
+                    true
+                },
+                |queue| refuse_again(queue),
+            );
+
+            assert_eq!(waited, 0, "an offline pass must not spend the ladder");
+            assert!(matches!(stopped, Some(Stopped::Offline)));
+            assert_eq!(
+                still_owed.len(),
+                1,
+                "a stopped walk hands back what it was refused, and its unasked \
+                 tracks stay where the caller left them"
+            );
+        }
+
+        #[test]
+        fn a_round_that_stops_ends_the_ladder_where_it_stands() {
+            let mut waited = 0usize;
+            let mut asked = 0usize;
+
+            let (_outcome, stopped, still_owed) = re_ask_with(
+                refused_walk(3),
+                |_delay| {
+                    waited += 1;
+                    true
+                },
+                |queue| {
+                    asked += 1;
+                    Walk {
+                        outcome: BackfillOutcome::default(),
+                        stopped: Some(Stopped::Offline),
+                        refused: queue[..1].to_vec(),
+                        unasked: queue[1..].to_vec(),
+                    }
+                },
+            );
+
+            assert_eq!(waited, 1);
+            assert_eq!(
+                asked, 1,
+                "the ladder must not climb past a round that stopped"
+            );
+            assert!(matches!(stopped, Some(Stopped::Offline)));
+            assert_eq!(
+                still_owed.len(),
+                3,
+                "what a stopped round never asked about is still owed"
+            );
+        }
+    }
+
+    /// Scenario: a pass ended partial because the connection went away, and
+    /// the ladder is sleeping on a long rung when the device comes back. The
+    /// rung has to end there, not thirty minutes later, and the climb has to
+    /// carry on from where it was so a flapping connection cannot pin the
+    /// ladder to its first rung.
+    mod online_edge {
+        use super::*;
+        use crate::net::connectivity;
+        use std::sync::mpsc;
+        use std::time::Instant;
+
+        /// Drive the production sleep for `rungs` rungs, firing an
+        /// offline-to-online edge into each one from another thread.
+        fn climb_through_edges(
+            rungs: usize,
+            remaining: impl Fn() -> Option<u64>,
+        ) -> (Vec<Duration>, usize, Duration) {
+            let (edge_tx, edge_rx) = mpsc::channel::<()>();
+            let waker = std::thread::spawn(move || {
+                while edge_rx.recv().is_ok() {
+                    std::thread::sleep(Duration::from_millis(20));
+                    connectivity::set_online(false);
+                    connectivity::set_online(true);
+                }
+            });
+            let mut slept = Vec::new();
+            let mut attempts = 0usize;
+            let started = Instant::now();
+            resume_ladder(
+                |d| {
+                    if slept.len() == rungs {
+                        return false;
+                    }
+                    slept.push(d);
+                    edge_tx.send(()).unwrap();
+                    resume_sleep(d)
+                },
+                &remaining,
+                || false,
+                || false,
+                || false,
+                || {
+                    attempts += 1;
+                },
+            );
+            drop(edge_tx);
+            waker.join().unwrap();
+            (slept, attempts, started.elapsed())
+        }
+
+        #[test]
+        fn an_online_edge_ends_the_rung_without_waiting_it_out() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+
+            let (slept, attempts, elapsed) = climb_through_edges(1, || Some(5));
+
+            assert_eq!(slept, vec![RESUME_WAITS[0]]);
+            assert_eq!(attempts, 1, "the pass is attempted on the edge");
+            assert!(elapsed < Duration::from_secs(5), "took {elapsed:?}");
+            connectivity::reset();
+        }
+
+        #[test]
+        fn a_flapping_connection_climbs_the_ladder_rather_than_resetting_it() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+
+            let (slept, attempts, elapsed) = climb_through_edges(3, || Some(5));
+
+            assert_eq!(
+                slept,
+                RESUME_WAITS[..3].to_vec(),
+                "each edge moves up a rung"
+            );
+            assert_eq!(attempts, 3);
+            assert!(elapsed < Duration::from_secs(5), "took {elapsed:?}");
+            connectivity::reset();
+        }
+
+        #[test]
+        fn an_edge_with_nothing_outstanding_attempts_nothing() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+
+            let (slept, attempts, elapsed) = climb_through_edges(3, || Some(0));
+
+            assert_eq!(
+                slept.len(),
+                1,
+                "a zero queue ends the ladder on the woken rung"
+            );
+            assert_eq!(attempts, 0);
+            assert!(elapsed < Duration::from_secs(5), "took {elapsed:?}");
+            connectivity::reset();
+        }
+    }
+    /// Scenario: the athlete pauses the download from Settings. The pass in
+    /// flight ends at its next batch boundary, and nothing starts another in
+    /// this process: not the launch trigger, not the ladder.
+    mod paused {
+        use super::*;
+        use crate::net::connectivity;
+
+        fn queue(n: usize) -> Vec<(String, String)> {
+            (0..n)
+                .map(|i| (format!("p{}", i), "Ride".to_string()))
+                .collect()
+        }
+
+        fn answer(ids: &[String]) -> Vec<(String, Fetched)> {
+            ids.iter()
+                .map(|id| (id.clone(), Fetched::NoAltitude))
+                .collect()
+        }
+
+        #[test]
+        fn a_pause_between_batches_ends_the_walk_with_no_further_fetches() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            reset_pause();
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(3 * BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                pause_elevation_backfill();
+                answer(ids)
+            });
+
+            assert_eq!(
+                asked, BATCH,
+                "the batch in flight finishes, the next never starts"
+            );
+            assert!(matches!(walk.stopped, Some(Stopped::Paused)));
+            assert_eq!(walk.unasked.len(), 2 * BATCH, "the rest is still owed");
+
+            reset_pause();
+        }
+
+        #[test]
+        fn a_pause_with_no_pass_in_flight_reads_as_paused_at_once() {
+            let _serial = serial_global_state();
+            reset_pause();
+            set_phase(BACKFILL_PHASE_PARTIAL);
+
+            assert!(
+                !BACKFILL.running.load(Ordering::SeqCst),
+                "nothing was running to stop"
+            );
+
+            pause_elevation_backfill();
+            assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PAUSED);
+            assert!(elevation_backfill_paused());
+
+            reset_pause();
+        }
+
+        #[test]
+        fn a_resume_lifts_the_pause_without_a_new_process() {
+            let _serial = serial_global_state();
+            reset_pause();
+            set_phase(BACKFILL_PHASE_PARTIAL);
+
+            pause_elevation_backfill();
+            assert!(elevation_backfill_paused());
+            assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PAUSED);
+
+            assert!(
+                resume_elevation_backfill(),
+                "a paused install had a pause to lift"
+            );
+            assert!(
+                !elevation_backfill_paused(),
+                "the flag is the pause, so it has to clear"
+            );
+            assert_ne!(
+                backfill_progress().phase,
+                BACKFILL_PHASE_PAUSED,
+                "a resumed install must not still read paused"
+            );
+
+            reset_pause();
+        }
+
+        #[test]
+        fn a_resume_with_no_pause_to_lift_changes_nothing() {
+            let _serial = serial_global_state();
+            reset_pause();
+            set_phase(BACKFILL_PHASE_PARTIAL);
+
+            assert!(!resume_elevation_backfill(), "there was no pause to lift");
+            assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PARTIAL);
+
+            reset_pause();
+        }
+
+        #[test]
+        fn a_resumed_install_starts_a_pass_again() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            reset_pause();
+
+            pause_elevation_backfill();
+            assert!(!start_pass().started(), "a paused install starts no pass");
+
+            resume_elevation_backfill();
+            assert!(!elevation_backfill_paused());
+
+            reset_pause();
+        }
+
+        #[test]
+        fn a_paused_start_attempts_nothing_even_with_work_outstanding() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            reset_pause();
+            assert!(
+                matches!(
+                    with_persistent_engine(|engine| engine.elevation_backfill_remaining()),
+                    Some(Ok(n)) if n > 0
+                ),
+                "the fixture has to hold work, or the refusal proves nothing"
+            );
+
+            pause_elevation_backfill();
+            assert!(!start_pass().started(), "a paused install starts no pass");
+            assert!(!pass_running(), "and holds no slot");
+
+            reset_pause();
+        }
+    }
+
+    /// Scenario: the crate unwinds on panic and the panic hook logs rather
+    /// than aborting, so a panic anywhere inside the climb runs past the line
+    /// that clears the flag. The ladder would then be armed for the life of
+    /// the process and the elevation resume dead with it.
+    mod resume_slot {
+        use super::*;
+
+        #[test]
+        fn a_panicking_climb_releases_the_slot() {
+            let _serial = serial_global_state();
+            RESUME_ARMED.store(false, Ordering::SeqCst);
+
+            let climb = spawn_resume_ladder(|| panic!("resume_ladder")).expect("the slot was free");
+            assert!(climb.join().is_err(), "the climb panicked");
+
+            assert!(
+                !RESUME_ARMED.load(Ordering::SeqCst),
+                "a panicked climb left the ladder armed for the process"
+            );
+        }
+
+        #[test]
+        fn a_climb_that_returns_releases_the_slot() {
+            let _serial = serial_global_state();
+            RESUME_ARMED.store(false, Ordering::SeqCst);
+
+            spawn_resume_ladder(|| {})
+                .expect("the slot was free")
+                .join()
+                .expect("the climb returned");
+
+            assert!(!RESUME_ARMED.load(Ordering::SeqCst));
+        }
+
+        /// One ladder at a time: the second arm joins the climb that is
+        /// already running rather than laying a parallel one.
+        #[test]
+        fn a_second_arm_is_refused_while_one_climbs() {
+            let _serial = serial_global_state();
+            RESUME_ARMED.store(false, Ordering::SeqCst);
+
+            let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+            let first = spawn_resume_ladder(move || {
+                release_rx.recv().ok();
+            })
+            .expect("the slot was free");
+
+            assert!(
+                spawn_resume_ladder(|| {}).is_none(),
+                "a second ladder was laid beside the first"
+            );
+
+            release_tx.send(()).unwrap();
+            first.join().unwrap();
+
+            assert!(
+                spawn_resume_ladder(|| {})
+                    .expect("the slot was free again")
+                    .join()
+                    .is_ok()
+            );
+        }
+
+        /// The slot is released after a panic, so the next arm gets it. A flag
+        /// cleared but a ladder nobody can lay again is the same outage.
+        #[test]
+        fn the_next_arm_after_a_panic_gets_the_slot() {
+            let _serial = serial_global_state();
+            RESUME_ARMED.store(false, Ordering::SeqCst);
+
+            let _ = spawn_resume_ladder(|| panic!("resume_ladder"))
+                .expect("the slot was free")
+                .join();
+
+            let second = spawn_resume_ladder(|| {}).expect("the slot was free again");
+            second.join().expect("the second climb returned");
+            assert!(!RESUME_ARMED.load(Ordering::SeqCst));
+        }
+    }
+}

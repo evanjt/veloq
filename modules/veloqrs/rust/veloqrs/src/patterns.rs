@@ -3,7 +3,7 @@
 //! Groups activities by sport type and clusters them based on feature vectors:
 //! `[day_of_week_norm, duration_norm, tss_norm, distance_norm]`
 //!
-//! Uses k-means++ initialization and silhouette method for optimal k selection.
+//! Uses k-means++ initialisation and silhouette method for optimal k selection.
 //! Enriches clusters with commonly-traversed sections from the `section_activities` table.
 
 use std::collections::HashMap;
@@ -29,17 +29,8 @@ struct ActivityFeature {
 
 /// K-means cluster result.
 struct ActivityCluster {
-    #[allow(dead_code)]
-    centroid: [f64; 4],
     members: Vec<usize>, // indices into features array
     silhouette: f64,
-}
-
-/// Section info collected from database for enrichment.
-struct SectionInfo {
-    section_id: String,
-    section_name: String,
-    activity_count: u32,
 }
 
 // ============================================================================
@@ -54,7 +45,6 @@ const MAX_K: usize = 6;
 const MIN_K: usize = 2;
 const KMEANS_MAX_ITERATIONS: usize = 100;
 const KMEANS_CONVERGENCE_THRESHOLD: f64 = 1e-6;
-const SECTION_APPEARANCE_THRESHOLD: f64 = 0.5; // 50% of cluster activities
 
 // ============================================================================
 // Public API
@@ -82,26 +72,30 @@ pub fn compute_activity_patterns(
 
     let mut patterns = Vec::new();
 
-    for (sport_type, indices) in &by_sport {
+    let mut sports: Vec<&String> = by_sport.keys().collect();
+    sports.sort();
+
+    for sport_type in sports {
+        let indices = &by_sport[sport_type];
         if indices.len() < MIN_CLUSTER_SIZE {
             continue;
         }
 
-        // Build normalized feature matrix for this sport group
+        // Build normalised feature matrix for this sport group
         let sport_features: Vec<&ActivityFeature> = indices.iter().map(|&i| &features[i]).collect();
-        let normalized = normalize_features(&sport_features);
-        if normalized.is_empty() {
+        let normalised = normalise_features(&sport_features);
+        if normalised.is_empty() {
             continue;
         }
 
         // Find optimal k via silhouette method
-        let (clusters, best_k) = find_optimal_clusters(&normalized);
+        let (clusters, best_k) = find_optimal_clusters(&normalised);
         if clusters.is_empty() {
             continue;
         }
 
-        log::info!(
-            "tracematch: [Patterns] Sport '{}': {} activities -> k={} clusters",
+        log::trace!(
+            "veloqrs: [Patterns] Sport '{}': {} activities -> k={} clusters",
             sport_type,
             indices.len(),
             best_k
@@ -110,9 +104,8 @@ pub fn compute_activity_patterns(
         // Convert each valid cluster to an FfiActivityPattern
         for (cluster_idx, cluster) in clusters.iter().enumerate() {
             if let Some(pattern) = build_pattern(
-                db,
                 &sport_features,
-                &normalized,
+                &normalised,
                 cluster,
                 sport_type,
                 cluster_idx as u8,
@@ -134,11 +127,9 @@ pub fn compute_activity_patterns(
 
 /// Get the best-matching pattern for today's day of week and current season.
 /// Returns the highest-confidence pattern within +/-1 day tolerance.
-pub fn get_pattern_for_today(
-    db: &Connection,
-    activity_metrics: &HashMap<String, ActivityMetrics>,
+pub fn pattern_for_today(
+    all_patterns: &[crate::FfiActivityPattern],
 ) -> Option<crate::FfiActivityPattern> {
-    let all_patterns = compute_activity_patterns(db, activity_metrics);
     if all_patterns.is_empty() {
         return None;
     }
@@ -180,10 +171,11 @@ fn extract_features(
     db: &Connection,
     activity_metrics: &HashMap<String, ActivityMetrics>,
 ) -> Vec<ActivityFeature> {
-    // Load training_load from SQLite (not in in-memory ActivityMetrics struct)
+    // Rows written before the stats reached the metrics row still carry a
+    // training load in SQLite, so the table stays the authority here.
     let training_loads = load_training_loads(db);
 
-    activity_metrics
+    let mut features: Vec<ActivityFeature> = activity_metrics
         .values()
         .filter(|m| m.moving_time > 0 && m.distance > 0.0)
         .map(|m| {
@@ -199,7 +191,17 @@ fn extract_features(
                 distance_meters: m.distance,
             }
         })
-        .collect()
+        .collect();
+
+    // The k-means++ seed and every cluster label are positions in this vector,
+    // so a map order would hand the same library different patterns in each
+    // process.
+    features.sort_unstable_by(|a, b| {
+        a.date
+            .cmp(&b.date)
+            .then_with(|| a.activity_id.cmp(&b.activity_id))
+    });
+    features
 }
 
 /// Load training_load values from activity_metrics SQLite table.
@@ -226,11 +228,11 @@ fn load_training_loads(db: &Connection) -> HashMap<String, f64> {
 }
 
 // ============================================================================
-// Normalization
+// Normalisation
 // ============================================================================
 
-/// Normalize features to [0, 1] range. Returns Vec of [day_norm, duration_norm, tss_norm, distance_norm].
-fn normalize_features(features: &[&ActivityFeature]) -> Vec<[f64; 4]> {
+/// Normalise features to [0, 1] range. Returns Vec of [day_norm, duration_norm, tss_norm, distance_norm].
+fn normalise_features(features: &[&ActivityFeature]) -> Vec<[f64; 4]> {
     if features.is_empty() {
         return Vec::new();
     }
@@ -248,9 +250,9 @@ fn normalize_features(features: &[&ActivityFeature]) -> Vec<[f64; 4]> {
         .map(|f| {
             [
                 f.day_of_week as f64 / 6.0,
-                min_max_normalize(f.duration_secs as f64, dur_min, dur_max),
-                min_max_normalize(f.tss, tss_min, tss_max),
-                min_max_normalize(f.distance_meters, dist_min, dist_max),
+                min_max_normalise(f.duration_secs as f64, dur_min, dur_max),
+                min_max_normalise(f.tss, tss_min, tss_max),
+                min_max_normalise(f.distance_meters, dist_min, dist_max),
             ]
         })
         .collect()
@@ -262,7 +264,7 @@ fn min_max(vals: &[f64]) -> (f64, f64) {
     (min, max)
 }
 
-fn min_max_normalize(val: f64, min: f64, max: f64) -> f64 {
+fn min_max_normalise(val: f64, min: f64, max: f64) -> f64 {
     if (max - min).abs() < 1e-12 {
         0.5
     } else {
@@ -290,7 +292,7 @@ fn find_optimal_clusters(data: &[[f64; 4]]) -> (Vec<ActivityCluster>, usize) {
     let mut best_k = MIN_K;
 
     for k in MIN_K..=max_k {
-        let (centroids, assignments) = kmeans(data, k);
+        let (_centroids, assignments) = kmeans(data, k);
         let silhouette = compute_silhouette(data, &assignments, k);
 
         if silhouette > best_silhouette {
@@ -298,7 +300,7 @@ fn find_optimal_clusters(data: &[[f64; 4]]) -> (Vec<ActivityCluster>, usize) {
             best_k = k;
 
             // Build cluster objects
-            best_clusters = build_clusters(&centroids, &assignments, data, k);
+            best_clusters = build_clusters(&assignments, data, k);
         }
     }
 
@@ -309,7 +311,7 @@ fn find_optimal_clusters(data: &[[f64; 4]]) -> (Vec<ActivityCluster>, usize) {
     (best_clusters, best_k)
 }
 
-/// K-means++ initialization followed by Lloyd's algorithm.
+/// K-means++ initialisation followed by Lloyd's algorithm.
 fn kmeans(data: &[[f64; 4]], k: usize) -> (Vec<[f64; 4]>, Vec<usize>) {
     let mut centroids = kmeans_plus_plus_init(data, k);
     let mut assignments = vec![0usize; data.len()];
@@ -346,6 +348,12 @@ fn kmeans(data: &[[f64; 4]], k: usize) -> (Vec<[f64; 4]>, Vec<usize>) {
                 for d in 0..4 {
                     new_centroids[c][d] /= counts[c] as f64;
                 }
+            } else {
+                // A cluster that lost every point keeps its position. Leaving
+                // it zeroed moves it to the origin, which is a live corner of
+                // the normalised space (Monday, shortest, lowest load), so the
+                // orphan captures real points on the next pass.
+                new_centroids[c] = centroids[c];
             }
         }
 
@@ -366,7 +374,7 @@ fn kmeans(data: &[[f64; 4]], k: usize) -> (Vec<[f64; 4]>, Vec<usize>) {
     (centroids, assignments)
 }
 
-/// K-means++ initialization: pick first centroid randomly, then pick subsequent
+/// K-means++ initialisation: pick first centroid randomly, then pick subsequent
 /// centroids with probability proportional to squared distance from nearest existing centroid.
 fn kmeans_plus_plus_init(data: &[[f64; 4]], k: usize) -> Vec<[f64; 4]> {
     let n = data.len();
@@ -456,7 +464,10 @@ fn compute_silhouette(data: &[[f64; 4]], assignments: &[usize], k: usize) -> f64
         }
 
         if same_count == 0 {
-            // Singleton cluster
+            // A singleton scores 0 by definition. Skipping it instead removes
+            // it from the denominator and biases k upward, which fragments a
+            // real cluster into pieces that then fall under MIN_CLUSTER_SIZE.
+            valid_count += 1;
             continue;
         }
 
@@ -485,14 +496,16 @@ fn compute_silhouette(data: &[[f64; 4]], assignments: &[usize], k: usize) -> f64
         }
 
         if b_i.is_infinite() {
+            valid_count += 1;
             continue;
         }
 
         let max_ab = a_i.max(b_i);
         if max_ab > 0.0 {
             total_silhouette += (b_i - a_i) / max_ab;
-            valid_count += 1;
         }
+        // Coincident points give max_ab == 0, which scores 0, not nothing.
+        valid_count += 1;
     }
 
     if valid_count == 0 {
@@ -503,12 +516,7 @@ fn compute_silhouette(data: &[[f64; 4]], assignments: &[usize], k: usize) -> f64
 }
 
 /// Build ActivityCluster objects from k-means results.
-fn build_clusters(
-    centroids: &[[f64; 4]],
-    assignments: &[usize],
-    data: &[[f64; 4]],
-    k: usize,
-) -> Vec<ActivityCluster> {
+fn build_clusters(assignments: &[usize], data: &[[f64; 4]], k: usize) -> Vec<ActivityCluster> {
     let mut clusters = Vec::with_capacity(k);
 
     for c in 0..k {
@@ -527,7 +535,6 @@ fn build_clusters(
         let cluster_silhouette = compute_cluster_silhouette(data, assignments, &members, c, k);
 
         clusters.push(ActivityCluster {
-            centroid: centroids[c],
             members,
             silhouette: cluster_silhouette,
         });
@@ -610,9 +617,8 @@ fn compute_cluster_silhouette(
 
 /// Build an FfiActivityPattern from a cluster, applying quality gates.
 fn build_pattern(
-    db: &Connection,
     features: &[&ActivityFeature],
-    _normalized: &[[f64; 4]],
+    _normalised: &[[f64; 4]],
     cluster: &ActivityCluster,
     sport_type: &str,
     cluster_id: u8,
@@ -683,13 +689,6 @@ fn build_pattern(
     // Confidence score
     let confidence = compute_confidence(cluster.silhouette, count, span_days, frequency_per_month);
 
-    // Section enrichment
-    let activity_ids: Vec<&str> = member_features
-        .iter()
-        .map(|f| f.activity_id.as_str())
-        .collect();
-    let common_sections = enrich_with_sections(db, &activity_ids, count);
-
     Some(crate::FfiActivityPattern {
         sport_type: sport_type.to_string(),
         cluster_id,
@@ -703,13 +702,12 @@ fn build_pattern(
         confidence,
         silhouette_score: cluster.silhouette as f32,
         days_since_last,
-        common_sections,
     })
 }
 
 /// Compute weighted confidence score.
 fn compute_confidence(silhouette: f64, count: usize, span_days: i64, frequency: f32) -> f32 {
-    // Silhouette weight: 0.3 (normalized, already 0..1 range effectively)
+    // Silhouette weight: 0.3 (normalised, already 0..1 range effectively)
     let sil_score = silhouette.max(0.0).min(1.0);
 
     // Count richness weight: 0.3 (log scale, saturates at ~50 activities)
@@ -752,9 +750,11 @@ fn compute_season_label(features: &[&&ActivityFeature]) -> String {
     }
 
     let total = features.len() as f64;
+    // Ties break on the season name, or the winner is whichever season the map
+    // happens to yield first and `RandomState` makes that different per map.
     let dominant = season_counts
         .iter()
-        .max_by_key(|&(_, &c)| c)
+        .max_by(|a, b| a.1.cmp(b.1).then_with(|| b.0.cmp(a.0)))
         .map(|(s, &c)| (s.clone(), c));
 
     match dominant {
@@ -769,208 +769,6 @@ fn compute_season_label(features: &[&&ActivityFeature]) -> String {
             }
         }
         None => "all".to_string(),
-    }
-}
-
-// ============================================================================
-// Section Enrichment
-// ============================================================================
-
-/// Enrich pattern with commonly-traversed sections.
-fn enrich_with_sections(
-    db: &Connection,
-    activity_ids: &[&str],
-    cluster_size: usize,
-) -> Vec<crate::FfiPatternSection> {
-    if activity_ids.is_empty() {
-        return Vec::new();
-    }
-
-    // Build SQL placeholders
-    let placeholders: Vec<String> = (0..activity_ids.len())
-        .map(|i| format!("?{}", i + 1))
-        .collect();
-    let placeholder_str = placeholders.join(", ");
-
-    // Query section_activities joined with sections for these activity IDs
-    let query = format!(
-        "SELECT sa.section_id, COALESCE(s.name, ''), COUNT(DISTINCT sa.activity_id) as act_count
-         FROM section_activities sa
-         JOIN sections s ON sa.section_id = s.id
-         WHERE sa.activity_id IN ({}) AND sa.excluded = 0
-         GROUP BY sa.section_id
-         ORDER BY act_count DESC",
-        placeholder_str
-    );
-
-    let mut sections: Vec<SectionInfo> = Vec::new();
-
-    let result = db.prepare(&query);
-    if let Ok(mut stmt) = result {
-        let params: Vec<&dyn rusqlite::types::ToSql> = activity_ids
-            .iter()
-            .map(|id| id as &dyn rusqlite::types::ToSql)
-            .collect();
-
-        let rows = stmt.query_map(params.as_slice(), |row| {
-            Ok(SectionInfo {
-                section_id: row.get(0)?,
-                section_name: row.get(1)?,
-                activity_count: row.get(2)?,
-            })
-        });
-
-        if let Ok(row_iter) = rows {
-            for row in row_iter.flatten() {
-                // Only include sections appearing in >= 50% of cluster activities
-                if row.activity_count as f64 / cluster_size as f64 >= SECTION_APPEARANCE_THRESHOLD {
-                    sections.push(row);
-                }
-            }
-        }
-    }
-
-    // For each qualifying section, get performance data
-    sections
-        .iter()
-        .filter_map(|si| build_pattern_section(db, si, activity_ids))
-        .collect()
-}
-
-/// Build an FfiPatternSection from section info with performance data.
-fn build_pattern_section(
-    db: &Connection,
-    section_info: &SectionInfo,
-    activity_ids: &[&str],
-) -> Option<crate::FfiPatternSection> {
-    // Query lap_time from section_activities for this section and these activities
-    let placeholders: Vec<String> = (0..activity_ids.len())
-        .map(|i| format!("?{}", i + 2)) // +2 because ?1 is section_id
-        .collect();
-    let placeholder_str = placeholders.join(", ");
-
-    let query = format!(
-        "SELECT sa.lap_time, am.date
-         FROM section_activities sa
-         JOIN activity_metrics am ON sa.activity_id = am.activity_id
-         WHERE sa.section_id = ?1
-           AND sa.activity_id IN ({})
-           AND sa.lap_time IS NOT NULL
-           AND sa.excluded = 0
-         ORDER BY am.date DESC",
-        placeholder_str
-    );
-
-    let mut best_time: Option<f64> = None;
-    let mut recent_times: Vec<f64> = Vec::new();
-    let mut all_times: Vec<(i64, f64)> = Vec::new(); // (date, time) for trend
-    let mut traversal_count: u32 = 0;
-
-    let result = db.prepare(&query);
-    if let Ok(mut stmt) = result {
-        let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
-        params.push(Box::new(section_info.section_id.clone()));
-        for id in activity_ids {
-            params.push(Box::new(id.to_string()));
-        }
-
-        let param_refs: Vec<&dyn rusqlite::types::ToSql> =
-            params.iter().map(|p| p.as_ref()).collect();
-
-        let rows = stmt.query_map(param_refs.as_slice(), |row| {
-            Ok((row.get::<_, f64>(0)?, row.get::<_, i64>(1)?))
-        });
-
-        if let Ok(row_iter) = rows {
-            for row in row_iter.flatten() {
-                let (time, date) = row;
-                traversal_count += 1;
-
-                match best_time {
-                    None => best_time = Some(time),
-                    Some(bt) if time < bt => best_time = Some(time),
-                    _ => {}
-                }
-
-                // Collect recent 5 for median
-                if recent_times.len() < 5 {
-                    recent_times.push(time);
-                }
-
-                all_times.push((date, time));
-            }
-        }
-    }
-
-    if traversal_count == 0 {
-        // No performance data, still return section with basic info
-        return Some(crate::FfiPatternSection {
-            section_id: section_info.section_id.clone(),
-            section_name: section_info.section_name.clone(),
-            appearance_rate: section_info.activity_count as f32 / activity_ids.len().max(1) as f32,
-            best_time_secs: 0.0,
-            median_recent_secs: 0.0,
-            trend: None,
-            traversal_count: section_info.activity_count,
-        });
-    }
-
-    // Compute median of recent times
-    recent_times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    let median_recent = if recent_times.is_empty() {
-        0.0
-    } else {
-        let mid = recent_times.len() / 2;
-        if recent_times.len() % 2 == 0 && recent_times.len() >= 2 {
-            (recent_times[mid - 1] + recent_times[mid]) / 2.0
-        } else {
-            recent_times[mid]
-        }
-    };
-
-    // Compute trend: compare first half average vs second half average
-    let trend = compute_time_trend(&all_times);
-
-    Some(crate::FfiPatternSection {
-        section_id: section_info.section_id.clone(),
-        section_name: section_info.section_name.clone(),
-        appearance_rate: section_info.activity_count as f32 / activity_ids.len().max(1) as f32,
-        best_time_secs: best_time.unwrap_or(0.0) as f32,
-        median_recent_secs: median_recent as f32,
-        trend,
-        traversal_count,
-    })
-}
-
-/// Compute trend from time series: -1=declining (slower), 0=stable, 1=improving (faster).
-/// Times are sorted newest first. Lower time = better (improving).
-fn compute_time_trend(times: &[(i64, f64)]) -> Option<i8> {
-    if times.len() < 4 {
-        return None; // Insufficient data for trend
-    }
-
-    let mid = times.len() / 2;
-
-    // times are sorted newest first, so first half = recent, second half = older
-    let recent_avg: f64 = times[..mid].iter().map(|(_, t)| t).sum::<f64>() / mid as f64;
-    let older_avg: f64 =
-        times[mid..].iter().map(|(_, t)| t).sum::<f64>() / (times.len() - mid) as f64;
-
-    // A non-positive or non-finite baseline (zero-duration laps, corrupt data)
-    // has no meaningful trend.
-    if !older_avg.is_finite() || older_avg <= 0.0 || !recent_avg.is_finite() {
-        return None;
-    }
-
-    // Compare: if recent is faster (lower), that's improving
-    let change_pct = (recent_avg - older_avg) / older_avg;
-
-    if change_pct < -0.03 {
-        Some(1) // Improving (recent times are lower/faster)
-    } else if change_pct > 0.03 {
-        Some(-1) // Declining (recent times are higher/slower)
-    } else {
-        Some(0) // Stable
     }
 }
 
@@ -1027,6 +825,226 @@ fn month_from_timestamp(ts: i64) -> u8 {
 mod tests {
     use super::*;
 
+    /// A Tuesday, so the two weekly groups sit on different days.
+    const FIXTURE_EPOCH: i64 = 1_704_153_600;
+    const FIXTURE_WEEK: i64 = 7 * 86_400;
+
+    fn metrics(
+        id: &str,
+        sport: &str,
+        date: i64,
+        moving_time: u32,
+        distance: f64,
+    ) -> ActivityMetrics {
+        ActivityMetrics {
+            activity_id: id.to_string(),
+            name: format!("Fixture {}", id),
+            date,
+            distance,
+            moving_time,
+            elapsed_time: moving_time,
+            elevation_gain: 0.0,
+            avg_hr: None,
+            avg_power: None,
+            sport_type: sport.to_string(),
+            training_load: Some(distance / 500.0),
+            ftp: None,
+            power_zone_times: None,
+            hr_zone_times: None,
+        }
+    }
+
+    /// A year of two ride shapes and two run shapes, four clusters in all.
+    fn fixture_rows() -> Vec<ActivityMetrics> {
+        let mut rows = Vec::new();
+        for week in 0..52i64 {
+            let monday = FIXTURE_EPOCH + week * FIXTURE_WEEK;
+            rows.push(metrics(
+                &format!("short{}", week),
+                "Ride",
+                monday,
+                3_600,
+                30_000.0,
+            ));
+            rows.push(metrics(
+                &format!("long{}", week),
+                "Ride",
+                monday + 5 * 86_400,
+                10_800,
+                90_000.0,
+            ));
+            rows.push(metrics(
+                &format!("jog{}", week),
+                "Run",
+                monday + 86_400,
+                1_800,
+                5_000.0,
+            ));
+            rows.push(metrics(
+                &format!("far{}", week),
+                "Run",
+                monday + 3 * 86_400,
+                7_200,
+                21_000.0,
+            ));
+        }
+        rows
+    }
+
+    fn as_map(rows: Vec<ActivityMetrics>) -> HashMap<String, ActivityMetrics> {
+        rows.into_iter()
+            .map(|m| (m.activity_id.clone(), m))
+            .collect()
+    }
+
+    /// Every field a caller can see, in the order the patterns are returned.
+    fn shapes(patterns: &[crate::FfiActivityPattern]) -> Vec<String> {
+        patterns
+            .iter()
+            .map(|p| {
+                format!(
+                    "{}/{}/{}/{}/{}/{}/{}/{}/{}",
+                    p.sport_type,
+                    p.cluster_id,
+                    p.primary_day,
+                    p.season_label,
+                    p.activity_count,
+                    p.avg_duration_secs,
+                    p.avg_tss,
+                    p.avg_distance_meters,
+                    p.confidence
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn patterns_do_not_depend_on_the_metric_map_order() {
+        let db = Connection::open_in_memory().expect("in-memory db");
+        let rows = fixture_rows();
+
+        let baseline = shapes(&compute_activity_patterns(&db, &as_map(rows.clone())));
+        assert!(
+            baseline.len() >= 2,
+            "fixture must cluster into something to compare, got {:?}",
+            baseline
+        );
+
+        for shift in 1..12usize {
+            let mut ordered = rows.clone();
+            ordered.rotate_left(shift * 7);
+            if shift % 2 == 1 {
+                ordered.reverse();
+            }
+            assert_eq!(
+                shapes(&compute_activity_patterns(&db, &as_map(ordered))),
+                baseline,
+                "map order {} changed the patterns",
+                shift
+            );
+        }
+    }
+
+    /// Every activity of a week lands on the one timestamp, so only the
+    /// activity id can order them.
+    fn same_date_rows() -> Vec<ActivityMetrics> {
+        let mut rows = Vec::new();
+        for week in 0..52i64 {
+            let day = FIXTURE_EPOCH + week * FIXTURE_WEEK;
+            rows.push(metrics(
+                &format!("a{:02}", week),
+                "Ride",
+                day,
+                3_600,
+                30_000.0,
+            ));
+            rows.push(metrics(
+                &format!("b{:02}", week),
+                "Ride",
+                day,
+                10_800,
+                90_000.0,
+            ));
+        }
+        rows
+    }
+
+    #[test]
+    fn a_shared_date_is_broken_by_the_activity_id() {
+        let db = Connection::open_in_memory().expect("in-memory db");
+        let rows = same_date_rows();
+
+        let baseline = shapes(&compute_activity_patterns(&db, &as_map(rows.clone())));
+        assert!(!baseline.is_empty(), "fixture must produce a pattern");
+
+        for shift in 1..12usize {
+            let mut ordered = rows.clone();
+            ordered.rotate_left(shift * 5);
+            if shift % 2 == 1 {
+                ordered.reverse();
+            }
+            assert_eq!(
+                shapes(&compute_activity_patterns(&db, &as_map(ordered))),
+                baseline,
+                "map order {} changed the patterns",
+                shift
+            );
+        }
+    }
+
+    #[test]
+    fn features_come_back_in_date_then_activity_id_order() {
+        let db = Connection::open_in_memory().expect("in-memory db");
+        let rows = same_date_rows();
+        let mut ordered: Vec<(i64, String)> = rows
+            .iter()
+            .map(|m| (m.date, m.activity_id.clone()))
+            .collect();
+        ordered.sort();
+        let expected: Vec<String> = ordered.into_iter().map(|(_, id)| id).collect();
+
+        for _ in 0..8 {
+            let extracted = extract_features(&db, &as_map(rows.clone()));
+            let ids: Vec<String> = extracted.iter().map(|f| f.activity_id.clone()).collect();
+            assert_eq!(ids, expected);
+        }
+    }
+
+    #[test]
+    fn patterns_of_a_single_activity_are_empty() {
+        let db = Connection::open_in_memory().expect("in-memory db");
+        let rows = vec![metrics("solo", "Ride", FIXTURE_EPOCH, 3_600, 30_000.0)];
+        assert!(compute_activity_patterns(&db, &as_map(rows)).is_empty());
+    }
+
+    #[test]
+    fn patterns_of_an_empty_library_are_empty() {
+        let db = Connection::open_in_memory().expect("in-memory db");
+        assert!(compute_activity_patterns(&db, &HashMap::new()).is_empty());
+    }
+
+    #[test]
+    fn a_sport_under_the_cluster_floor_contributes_nothing() {
+        let db = Connection::open_in_memory().expect("in-memory db");
+        let mut rows = fixture_rows();
+        let with_rides_only = shapes(&compute_activity_patterns(&db, &as_map(rows.clone())));
+
+        for i in 0..MIN_CLUSTER_SIZE - 1 {
+            rows.push(metrics(
+                &format!("swim{}", i),
+                "Swim",
+                FIXTURE_EPOCH + (i as i64) * FIXTURE_WEEK,
+                2_400,
+                2_000.0,
+            ));
+        }
+
+        assert_eq!(
+            shapes(&compute_activity_patterns(&db, &as_map(rows))),
+            with_rides_only
+        );
+    }
+
     #[test]
     fn test_day_of_week_from_timestamp() {
         // 2024-01-01 is a Monday
@@ -1060,12 +1078,12 @@ mod tests {
     }
 
     #[test]
-    fn test_min_max_normalize() {
-        assert_eq!(min_max_normalize(5.0, 0.0, 10.0), 0.5);
-        assert_eq!(min_max_normalize(0.0, 0.0, 10.0), 0.0);
-        assert_eq!(min_max_normalize(10.0, 0.0, 10.0), 1.0);
+    fn test_min_max_normalise() {
+        assert_eq!(min_max_normalise(5.0, 0.0, 10.0), 0.5);
+        assert_eq!(min_max_normalise(0.0, 0.0, 10.0), 0.0);
+        assert_eq!(min_max_normalise(10.0, 0.0, 10.0), 1.0);
         // Equal min/max returns 0.5
-        assert_eq!(min_max_normalize(5.0, 5.0, 5.0), 0.5);
+        assert_eq!(min_max_normalise(5.0, 5.0, 5.0), 0.5);
     }
 
     #[test]
@@ -1117,31 +1135,6 @@ mod tests {
             "Well-separated clusters should have high silhouette, got {}",
             sil
         );
-    }
-
-    #[test]
-    fn test_compute_time_trend() {
-        // Improving: recent times are faster (lower)
-        let times = vec![
-            (100, 60.0), // newest: faster
-            (90, 65.0),
-            (80, 70.0),
-            (70, 75.0), // oldest: slower
-        ];
-        assert_eq!(compute_time_trend(&times), Some(1)); // improving
-
-        // Declining: recent times are slower (higher)
-        let times = vec![
-            (100, 75.0), // newest: slower
-            (90, 70.0),
-            (80, 65.0),
-            (70, 60.0), // oldest: faster
-        ];
-        assert_eq!(compute_time_trend(&times), Some(-1)); // declining
-
-        // Insufficient data
-        let times = vec![(100, 60.0), (90, 65.0)];
-        assert_eq!(compute_time_trend(&times), None);
     }
 
     #[test]
@@ -1199,16 +1192,7 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_metrics_returns_empty() {
-        // Cannot test compute_activity_patterns without a real DB connection,
-        // but we can verify the early return path is sane
-        let features: Vec<&ActivityFeature> = vec![];
-        let normalized = normalize_features(&features);
-        assert!(normalized.is_empty());
-    }
-
-    #[test]
-    fn test_normalize_features_single() {
+    fn test_normalise_features_single() {
         let f = ActivityFeature {
             activity_id: "a".to_string(),
             sport_type: "Ride".to_string(),
@@ -1219,13 +1203,105 @@ mod tests {
             distance_meters: 30000.0,
         };
         let features = vec![&f];
-        let normalized = normalize_features(&features);
-        assert_eq!(normalized.len(), 1);
-        // With single item, duration/tss/distance normalize to 0.5 (equal min/max)
-        assert!((normalized[0][1] - 0.5).abs() < 1e-10);
-        assert!((normalized[0][2] - 0.5).abs() < 1e-10);
-        assert!((normalized[0][3] - 0.5).abs() < 1e-10);
+        let normalised = normalise_features(&features);
+        assert_eq!(normalised.len(), 1);
+        // With single item, duration/tss/distance normalise to 0.5 (equal min/max)
+        assert!((normalised[0][1] - 0.5).abs() < 1e-10);
+        assert!((normalised[0][2] - 0.5).abs() < 1e-10);
+        assert!((normalised[0][3] - 0.5).abs() < 1e-10);
         // Day 3 / 6.0 = 0.5
-        assert!((normalized[0][0] - 0.5).abs() < 1e-10);
+        assert!((normalised[0][0] - 0.5).abs() < 1e-10);
+    }
+
+    /// The dominant season was picked with `max_by_key` over a `HashMap`,
+    /// so two seasons on an equal count were decided by the iteration order,
+    /// which `RandomState` makes different for every map.
+    fn feature_on(id: &str, date: i64) -> ActivityFeature {
+        ActivityFeature {
+            activity_id: id.to_string(),
+            sport_type: "Ride".to_string(),
+            day_of_week: 0,
+            date,
+            duration_secs: 3_600,
+            tss: 50.0,
+            distance_meters: 30_000.0,
+        }
+    }
+
+    /// January is winter, July is summer, and nothing else appears, so the
+    /// two-season branch runs on a dead tie.
+    fn tied_two_season_features() -> Vec<ActivityFeature> {
+        let winter = 1_704_153_600; // 2024-01-02
+        let summer = winter + 181 * 86_400;
+        vec![
+            feature_on("w1", winter),
+            feature_on("w2", winter + 86_400),
+            feature_on("s1", summer),
+            feature_on("s2", summer + 86_400),
+        ]
+    }
+
+    #[test]
+    fn a_tied_season_label_is_the_same_on_every_map() {
+        let owned = tied_two_season_features();
+        let refs: Vec<&ActivityFeature> = owned.iter().collect();
+        let features: Vec<&&ActivityFeature> = refs.iter().collect();
+
+        let first = compute_season_label(&features);
+        for _ in 0..200 {
+            assert_eq!(
+                compute_season_label(&features),
+                first,
+                "the tie is broken by the map's iteration order"
+            );
+        }
+        assert!(first == "summer" || first == "winter");
+    }
+
+    #[test]
+    fn a_tie_is_broken_on_the_season_name() {
+        let owned = tied_two_season_features();
+        let refs: Vec<&ActivityFeature> = owned.iter().collect();
+        let features: Vec<&&ActivityFeature> = refs.iter().collect();
+
+        assert_eq!(compute_season_label(&features), "summer");
+    }
+
+    #[test]
+    fn a_dominant_season_still_wins_outright() {
+        let winter = 1_704_153_600;
+        let summer = winter + 181 * 86_400;
+        let owned = vec![
+            feature_on("w1", winter),
+            feature_on("w2", winter + 86_400),
+            feature_on("w3", winter + 2 * 86_400),
+            feature_on("s1", summer),
+        ];
+        let refs: Vec<&ActivityFeature> = owned.iter().collect();
+        let features: Vec<&&ActivityFeature> = refs.iter().collect();
+
+        assert_eq!(compute_season_label(&features), "winter");
+    }
+
+    /// Three seasons with no majority is the branch the current fixtures land
+    /// in, and it must keep answering "all" whatever the tie does.
+    #[test]
+    fn three_seasons_without_a_majority_are_all() {
+        let winter = 1_704_153_600;
+        let owned = vec![
+            feature_on("w1", winter),
+            feature_on("sp1", winter + 90 * 86_400),
+            feature_on("su1", winter + 181 * 86_400),
+        ];
+        let refs: Vec<&ActivityFeature> = owned.iter().collect();
+        let features: Vec<&&ActivityFeature> = refs.iter().collect();
+
+        assert_eq!(compute_season_label(&features), "all");
+    }
+
+    #[test]
+    fn no_features_are_all() {
+        let features: Vec<&&ActivityFeature> = Vec::new();
+        assert_eq!(compute_season_label(&features), "all");
     }
 }

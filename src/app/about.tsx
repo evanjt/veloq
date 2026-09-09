@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { ScreenSafeAreaView } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
@@ -18,7 +18,7 @@ const VELOQ_URLS = {
 };
 
 interface LinkRowProps {
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   label: string;
   url: string;
   isDark: boolean;
@@ -40,7 +40,7 @@ function LinkRow({ icon, label, url, isDark, testID }: LinkRowProps) {
       activeOpacity={0.7}
       testID={testID}
     >
-      <MaterialCommunityIcons name={icon as any} size={22} color={colors.primary} />
+      <MaterialCommunityIcons name={icon} size={22} color={colors.primary} />
       <Text style={[styles.linkText, { color: textColor }]}>{label}</Text>
       <MaterialCommunityIcons name="open-in-new" size={18} color={mutedColor} />
     </TouchableOpacity>
@@ -48,16 +48,16 @@ function LinkRow({ icon, label, url, isDark, testID }: LinkRowProps) {
 }
 
 interface NavRowProps {
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   label: string;
-  route: string;
+  route: Href;
   isDark: boolean;
   testID?: string;
 }
 
 function NavRow({ icon, label, route, isDark, testID }: NavRowProps) {
   const handlePress = () => {
-    router.push(route as any);
+    router.push(route);
   };
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -70,7 +70,7 @@ function NavRow({ icon, label, route, isDark, testID }: NavRowProps) {
       activeOpacity={0.7}
       testID={testID}
     >
-      <MaterialCommunityIcons name={icon as any} size={22} color={colors.primary} />
+      <MaterialCommunityIcons name={icon} size={22} color={colors.primary} />
       <Text style={[styles.linkText, { color: textColor }]}>{label}</Text>
       <MaterialCommunityIcons name="chevron-right" size={22} color={mutedColor} />
     </TouchableOpacity>
@@ -83,23 +83,8 @@ export default function AboutScreen() {
   const shared = createSharedStyles(isDark);
 
   return (
-    <ScreenSafeAreaView testID="about-screen" style={shared.container}>
+    <ScreenSafeAreaView hasNativeHeader testID="about-screen" style={shared.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Header with back button */}
-        <View style={shared.header}>
-          <TouchableOpacity
-            testID="nav-back-button"
-            onPress={() => router.back()}
-            style={shared.backButton}
-            accessibilityLabel={t('common.back')}
-            accessibilityRole="button"
-          >
-            <MaterialCommunityIcons name="arrow-left" size={24} color={themeColors.text} />
-          </TouchableOpacity>
-          <Text style={shared.headerTitle}>{t('about.title')}</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
         {/* App Info */}
         <View testID="about-app-info" style={styles.section(isDark)}>
           <View style={styles.appInfo}>
@@ -253,7 +238,7 @@ const getSectionStyle = (isDark: boolean) => ({
 const getAppIconStyle = (isDark: boolean) => ({
   width: 80,
   height: 80,
-  borderRadius: 20,
+  borderRadius: layout.borderRadiusXl,
   backgroundColor: isDark ? 'rgba(20, 184, 166, 0.15)' : 'rgba(20, 184, 166, 0.1)',
   justifyContent: 'center' as const,
   alignItems: 'center' as const,
@@ -271,9 +256,6 @@ const styles = {
   // Static styles
   content: {
     paddingBottom: spacing.xl,
-  },
-  headerSpacer: {
-    width: 32,
   },
   sectionLabel: {
     ...typography.caption,

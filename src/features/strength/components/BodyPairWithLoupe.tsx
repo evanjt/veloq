@@ -10,7 +10,7 @@ import Animated, {
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
 import { CHART_CONFIG } from '@/constants';
-import { brand, loupeChrome } from '@/theme';
+import { brand, loupeChrome, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 
 import { findMuscleAtPoint } from '../lib/polygons';
@@ -24,10 +24,10 @@ const BODY_INTRINSIC_W = 200;
 const BODY_INTRINSIC_H = 400;
 
 interface BodyPairWithLoupeProps {
-  data: ReadonlyArray<ExtendedBodyPart>;
+  data: readonly ExtendedBodyPart[];
   gender: 'male' | 'female';
   scale: number;
-  colors: ReadonlyArray<string>;
+  colors: readonly string[];
   defaultFill?: string;
   onMuscleTap?: (slug: string) => void;
   onMuscleScrub?: (slug: string) => void;
@@ -93,9 +93,9 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
       // Normalized 0-1 coordinates within the SVG viewBox
       const nx = (localX - padX) / bodyPixelW;
       const ny = y / bodyPixelH;
-      return findMuscleAtPoint(nx, ny, side, tappableSlugs);
+      return findMuscleAtPoint(nx, ny, side, tappableSlugs, gender);
     },
-    [layoutSize, tappableSlugs, totalGap, bodyPixelW, bodyPixelH]
+    [layoutSize, tappableSlugs, totalGap, bodyPixelW, bodyPixelH, gender]
   );
 
   const handleScrubUpdate = useCallback(
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   loupeCrosshair: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: loupeChrome.crosshairDot,
     borderWidth: 1,
     borderColor: loupeChrome.crosshairRing,

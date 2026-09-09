@@ -3,6 +3,8 @@ import type { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { HEATMAP_TILES_DIR } from '@/features/maps/hooks/useHeatmapTiles';
+import { bundledBasemapAsset } from '@/features/maps/lib/bundledBasemap';
+import { buildBundledAssetReplyScript } from '@/features/maps/lib/htmlBuilders';
 import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
 import type {
   WebViewBridgeHandlers,
@@ -28,6 +30,8 @@ interface Map3DBridgeParams {
   onActivityClickRef: MutableRefObject<((activityId: string) => void) | undefined>;
   updateLayers: () => void;
   onMapReady?: () => void;
+  onMapFailed?: (reason: string) => void;
+  onTerrainUnavailable?: (reason: string) => void;
   onBearingChange?: (bearing: number) => void;
   onCameraStateChange?: (camera: Camera) => void;
 }
@@ -43,6 +47,8 @@ export function useMap3DBridge({
   onActivityClickRef,
   updateLayers,
   onMapReady,
+  onMapFailed,
+  onTerrainUnavailable,
   onBearingChange,
   onCameraStateChange,
 }: Map3DBridgeParams) {
@@ -56,6 +62,18 @@ export function useMap3DBridge({
         onMapReady?.();
         // Update layers after map is ready - small delay ensures style is fully settled
         setTimeout(() => updateLayers(), 100);
+      },
+      // Terminal counterpart to mapReady. The page cannot render, so the
+      // caller has to stop waiting rather than sit on a spinner.
+      mapFailed: (data: WebViewBridgeMessage) => {
+        mapReadyRef.current = false;
+        onMapFailed?.(typeof data.reason === 'string' ? data.reason : 'unknown');
+      },
+      // Not a failure: the page rendered, it just has no elevation to drape
+      // over. The caller drops to 2D rather than leaving a flat map that reads
+      // as broken 3D.
+      terrainUnavailable: (data: WebViewBridgeMessage) => {
+        onTerrainUnavailable?.(typeof data.reason === 'string' ? data.reason : 'unknown');
       },
       bearingChange: (data: WebViewBridgeMessage) => {
         if (typeof data.bearing === 'number') {
@@ -83,6 +101,13 @@ export function useMap3DBridge({
         if (typeof data.activityId === 'string') {
           onActivityClickRef.current?.(data.activityId);
         }
+      },
+      bundledAssetRequest: (data: WebViewBridgeMessage) => {
+        if (!data.requestId || !data.path) return;
+        const base64 = bundledBasemapAsset(data.path as string);
+        webViewRef.current?.injectJavaScript(
+          buildBundledAssetReplyScript(data.requestId as string, base64)
+        );
       },
       heatmapTileRequest: (data: WebViewBridgeMessage) => {
         if (!data.requestId || !data.tilePath) return;
@@ -164,6 +189,8 @@ export function useMap3DBridge({
       onSectionClickRef,
       onActivityClickRef,
       onMapReady,
+      onMapFailed,
+      onTerrainUnavailable,
       onBearingChange,
       onCameraStateChange,
       updateLayers,

@@ -2,9 +2,8 @@
  * Hook for section merge operations: finding candidates and executing merges.
  */
 
-import { useState, useMemo, useCallback } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from './useRouteEngine';
+import { useState, useCallback } from 'react';
+import { getEngine } from '@/shared/native/engine';
 import type { MergeCandidate } from 'veloqrs';
 
 interface UseMergeSectionsResult {
@@ -16,19 +15,15 @@ interface UseMergeSectionsResult {
   isMerging: boolean;
 }
 
-export function useMergeSections(sectionId: string | undefined): UseMergeSectionsResult {
-  const trigger = useEngineSubscription(['sections']);
+/**
+ * The candidates come from `getSectionDetailData`, which the screen reads before
+ * it mounts this hook.
+ */
+export function useMergeSections(candidates: MergeCandidate[]): UseMergeSectionsResult {
   const [isMerging, setIsMerging] = useState(false);
 
-  const candidates = useMemo(() => {
-    if (!sectionId) return [];
-    const engine = getRouteEngine();
-    if (!engine) return [];
-    return engine.getMergeCandidates(sectionId);
-  }, [sectionId, trigger]);
-
   const merge = useCallback((primaryId: string, secondaryId: string): string | null => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return null;
     setIsMerging(true);
     try {

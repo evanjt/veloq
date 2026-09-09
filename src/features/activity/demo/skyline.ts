@@ -18,13 +18,13 @@ function encodePacked(fieldNumber: number, values: number[]): number[] {
 
 // Split zone time into plausible interval blocks, then encode to base64.
 export function generateSkylineBytes(
-  zoneTimes: Array<{ id: string; secs: number }> | null,
+  zoneTimes: { id: string; secs: number }[] | null,
   hrZoneTimes: number[] | null,
   random: () => number
 ): string | undefined {
   // Power-based skyline
   if (zoneTimes) {
-    const intervals: Array<{ duration: number; zone: number; intensity: number }> = [];
+    const intervals: { duration: number; zone: number; intensity: number }[] = [];
     for (const zt of zoneTimes) {
       if (zt.secs < 10) continue;
       const zoneNum = parseInt(zt.id.replace('Z', ''), 10);
@@ -67,7 +67,7 @@ export function generateSkylineBytes(
   }
   // HR-based skyline
   if (hrZoneTimes) {
-    const intervals: Array<{ duration: number; zone: number; intensity: number }> = [];
+    const intervals: { duration: number; zone: number; intensity: number }[] = [];
     for (let z = 0; z < hrZoneTimes.length; z++) {
       if (hrZoneTimes[z] < 10) continue;
       const zoneNum = z + 1;

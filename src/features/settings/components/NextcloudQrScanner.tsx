@@ -4,7 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing } from '@/theme';
+import { colors, spacing, cameraOverlay, layout, typography } from '@/theme';
 
 interface NextcloudQrScannerProps {
   onScanned: (data: string) => void;
@@ -24,7 +24,7 @@ export function NextcloudQrScanner({ onScanned, onClose }: NextcloudQrScannerPro
   if (!permission.granted) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <MaterialCommunityIcons name="camera-off" size={48} color="#999" />
+        <MaterialCommunityIcons name="camera-off" size={48} color={cameraOverlay.hint} />
         <Text style={styles.permissionText}>
           {t('backup.cameraPermissionNeeded', 'Camera access is required to scan QR codes')}
         </Text>
@@ -58,7 +58,7 @@ export function NextcloudQrScanner({ onScanned, onClose }: NextcloudQrScannerPro
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <MaterialCommunityIcons name="close" size={24} color="#fff" />
+          <MaterialCommunityIcons name="close" size={24} color={cameraOverlay.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('backup.scanQrTitle', 'Scan Nextcloud QR Code')}</Text>
         <View style={{ width: 40 }} />
@@ -91,7 +91,7 @@ const CORNER_WIDTH = 3;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: cameraOverlay.bg,
   },
   centered: {
     justifyContent: 'center',
@@ -114,9 +114,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
-    color: '#fff',
+    color: cameraOverlay.text,
   },
   instructions: {
     position: 'absolute',
@@ -127,8 +127,8 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   instructionText: {
-    fontSize: 14,
-    color: '#fff',
+    fontSize: typography.bodySmall.fontSize,
+    color: cameraOverlay.text,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -149,50 +149,50 @@ const styles = StyleSheet.create({
     left: 0,
     borderTopWidth: CORNER_WIDTH,
     borderLeftWidth: CORNER_WIDTH,
-    borderColor: '#fff',
+    borderColor: cameraOverlay.text,
   },
   cornerTR: {
     top: 0,
     right: 0,
     borderTopWidth: CORNER_WIDTH,
     borderRightWidth: CORNER_WIDTH,
-    borderColor: '#fff',
+    borderColor: cameraOverlay.text,
   },
   cornerBL: {
     bottom: 0,
     left: 0,
     borderBottomWidth: CORNER_WIDTH,
     borderLeftWidth: CORNER_WIDTH,
-    borderColor: '#fff',
+    borderColor: cameraOverlay.text,
   },
   cornerBR: {
     bottom: 0,
     right: 0,
     borderBottomWidth: CORNER_WIDTH,
     borderRightWidth: CORNER_WIDTH,
-    borderColor: '#fff',
+    borderColor: cameraOverlay.text,
   },
   permissionText: {
-    fontSize: 16,
-    color: '#999',
+    fontSize: typography.body.fontSize,
+    color: cameraOverlay.hint,
     textAlign: 'center',
   },
   grantButton: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusXl,
     backgroundColor: colors.primary,
   },
   grantButtonText: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
-    color: '#fff',
+    color: cameraOverlay.text,
   },
   cancelButton: {
     paddingVertical: spacing.sm,
   },
   cancelText: {
-    fontSize: 15,
-    color: '#999',
+    fontSize: typography.bodyMedium.fontSize,
+    color: cameraOverlay.hint,
   },
 });

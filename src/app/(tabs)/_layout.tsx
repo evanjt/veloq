@@ -7,12 +7,13 @@ import { useRef } from 'react';
 import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
-import { useTilePrefetch } from '@/features/maps/hooks/useTilePrefetch';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('TabsLayout');
 
 export default function TabsLayout() {
   const { t } = useTranslation();
-  useTilePrefetch();
   // Remount frozen tabs on theme flip so PaperProvider's light/dark theme
   // actually propagates to screens that enableFreeze(true) has kept offscreen.
   const colorScheme = useResolvedColorScheme();
@@ -20,7 +21,7 @@ export default function TabsLayout() {
   const renderCount = useRef(0);
   renderCount.current++;
   if (PERF_DEBUG) {
-    console.log(`[RENDER] TabsLayout #${renderCount.current}`);
+    log.log(`[RENDER] TabsLayout #${renderCount.current}`);
   }
 
   return (
@@ -35,7 +36,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={{ title: t('navigation.feed') }} />
       <Tabs.Screen name="fitness" options={{ title: t('navigation.fitness') }} />
       <Tabs.Screen name="map" options={{ title: t('navigation.map') }} />
-      <Tabs.Screen name="routes" options={{ title: t('navigation.insights') }} />
+      <Tabs.Screen name="insights" options={{ title: t('navigation.insights') }} />
       <Tabs.Screen name="training" options={{ title: t('navigation.health') }} />
     </Tabs>
   );

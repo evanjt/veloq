@@ -8,10 +8,10 @@ import { useTheme } from '@/shared/app';
 import {
   spacing,
   layout,
-  brand,
   colors,
   gradients,
   colorWithOpacity,
+  ink,
   shadows,
   typography,
 } from '@/theme';
@@ -48,8 +48,8 @@ export function EmptyState({
           styles.iconContainer,
           {
             backgroundColor: isDark
-              ? colorWithOpacity('#FFFFFF', 0.1)
-              : colorWithOpacity('#000000', 0.05),
+              ? colorWithOpacity(ink.white, 0.1)
+              : colorWithOpacity(ink.black, 0.05),
           },
           compact && styles.iconContainerCompact,
         ]}
@@ -57,7 +57,7 @@ export function EmptyState({
         <MaterialCommunityIcons
           name={icon}
           size={compact ? 32 : 48}
-          color={isDark ? colorWithOpacity('#FFFFFF', 0.4) : colorWithOpacity('#000000', 0.3)}
+          color={isDark ? colorWithOpacity(ink.white, 0.4) : colorWithOpacity(ink.black, 0.3)}
         />
       </View>
 
@@ -78,7 +78,13 @@ export function EmptyState({
       )}
 
       {actionLabel && onAction && (
-        <TouchableOpacity style={styles.actionButton} onPress={onAction} activeOpacity={0.8}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={actionLabel}
+          style={styles.actionButton}
+          onPress={onAction}
+          activeOpacity={0.8}
+        >
           <LinearGradient
             colors={[...gradients.primary]}
             start={{ x: 0, y: 0 }}
@@ -93,35 +99,6 @@ export function EmptyState({
   );
 }
 
-// Preset for no activities
-export function NoActivitiesState({ onRefresh }: { onRefresh?: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <EmptyState
-      icon="run"
-      title={t('emptyState.noActivities.title')}
-      description={t('emptyState.noActivities.description')}
-      actionLabel={onRefresh ? t('emptyState.refresh') : undefined}
-      onAction={onRefresh}
-    />
-  );
-}
-
-// Preset for no results (search/filter)
-export function NoResultsState({ onClear }: { onClear?: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <EmptyState
-      icon="magnify-close"
-      title={t('emptyState.noResults.title')}
-      description={t('emptyState.noResults.description')}
-      actionLabel={onClear ? t('emptyState.clearFilters') : undefined}
-      onAction={onClear}
-    />
-  );
-}
-
-// Preset for network error
 export function NetworkErrorState({ onRetry }: { onRetry?: () => void }) {
   const { t } = useTranslation();
   return (
@@ -149,42 +126,6 @@ export function ErrorStatePreset({ message, onRetry }: { message?: string; onRet
   );
 }
 
-// Preset for no data in chart/stats
-export function NoDataState({
-  compact = true,
-  onRefresh,
-}: {
-  compact?: boolean;
-  onRefresh?: () => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <EmptyState
-      icon="chart-line-variant"
-      title={t('emptyState.noData.title')}
-      description={t('emptyState.noData.description')}
-      actionLabel={onRefresh ? t('emptyState.refresh') : undefined}
-      onAction={onRefresh}
-      compact={compact}
-    />
-  );
-}
-
-// Preset for offline mode
-export function OfflineState({ onRetry }: { onRetry?: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <EmptyState
-      icon="cloud-off-outline"
-      title={t('emptyState.offline.title')}
-      description={t('emptyState.offline.description')}
-      actionLabel={onRetry ? t('common.retry') : undefined}
-      onAction={onRetry}
-      compact
-    />
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
@@ -198,7 +139,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 96,
     height: 96,
-    borderRadius: 48, // half of width for circle
+    borderRadius: layout.borderRadiusFull,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.lg,
@@ -206,26 +147,26 @@ const styles = StyleSheet.create({
   iconContainerCompact: {
     width: 64,
     height: 64,
-    borderRadius: 32, // half of width for circle
+    borderRadius: layout.borderRadiusFull,
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: 20,
+    fontSize: typography.statsValue.fontSize,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
   titleCompact: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
   },
   description: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     textAlign: 'center',
     lineHeight: 20,
     maxWidth: 280,
   },
   descriptionCompact: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     maxWidth: 240,
   },
   actionButton: {

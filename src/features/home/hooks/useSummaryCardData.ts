@@ -1,7 +1,9 @@
 import { useMemo, useCallback, useRef } from 'react';
+import { summaryCardFtp } from '@/features/home/lib/summaryCardFtp';
 import { useTranslation } from 'react-i18next';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useWellness } from '@/features/wellness';
+import { computeWellnessStats } from '@/features/wellness/lib/wellnessStats';
 import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';
 import { usePaceCurve } from '@/features/stats';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
@@ -11,8 +13,9 @@ import { type MetricId } from '@/features/home/store';
 import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { colors } from '@/theme';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
+import { trendArrow, trendOfMetric, type TrendMetric } from '@/shared/format/trend';
 
 /**
  * Supporting metric for SummaryCard display
@@ -96,8 +99,16 @@ type PrecomputedCardData = any;
  *
  * When `precomputedCardData` is provided (from getStartupData), skips the
  * redundant getSummaryCardData FFI call and uses the pre-fetched data instead.
+ *
+ * `awaitPrecomputed` is for the feed, whose bundle arrives after the first
+ * paint: it renders defaults until then rather than putting its own read back
+ * on the render path. A caller with no bundle at all leaves it off and keeps
+ * the direct read.
  */
-export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): SummaryCardData {
+export function useSummaryCardData(
+  precomputedCardData?: PrecomputedCardData,
+  { awaitPrecomputed = false }: { awaitPrecomputed?: boolean } = {}
+): SummaryCardData {
   const { t } = useTranslation();
   const { data: athlete } = useAthlete();
   const { primarySport } = useSportPreference();
@@ -138,55 +149,7 @@ export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): S
     await refetchWellness();
   }, [refetchWellness]);
 
-  // Wellness-derived stats (pure JS math, no FFI calls)
-  const wellnessStats = useMemo(() => {
-    const sorted = wellnessData ? [...wellnessData].sort((a, b) => b.id.localeCompare(a.id)) : [];
-    const latest = sorted[0];
-    const previous = sorted[1];
-
-    const fitness = Math.round(latest?.ctl ?? latest?.ctlLoad ?? 0);
-    const fatigue = Math.round(latest?.atl ?? latest?.atlLoad ?? 0);
-    const form = fitness - fatigue;
-    const hrv = latest?.hrv ?? null;
-    const rhr = latest?.restingHR ?? null;
-    const weight = latest?.weight ?? null;
-
-    const prevFitness = Math.round(previous?.ctl ?? previous?.ctlLoad ?? fitness);
-    const prevFatigue = Math.round(previous?.atl ?? previous?.atlLoad ?? fatigue);
-    const prevForm = prevFitness - prevFatigue;
-    const prevHrv = previous?.hrv ?? hrv;
-    const prevRhr = previous?.restingHR ?? rhr;
-    // Look back ~7 days for weight trend (day-to-day changes are too small)
-    const prevWeight =
-      sorted.slice(1).find((w) => w.weight !== null && w.weight !== undefined)?.weight ?? weight;
-    const weekAgoWeight =
-      sorted.slice(5).find((w) => w.weight !== null && w.weight !== undefined)?.weight ??
-      prevWeight;
-
-    const getTrend = (
-      current: number | null,
-      prev: number | null,
-      threshold = 1
-    ): '↑' | '↓' | '' => {
-      if (current === null || prev === null) return '';
-      const diff = current - prev;
-      if (Math.abs(diff) < threshold) return '';
-      return diff > 0 ? '↑' : '↓';
-    };
-
-    return {
-      fitness,
-      fitnessTrend: getTrend(fitness, prevFitness, 1),
-      form,
-      formTrend: getTrend(form, prevForm, 2),
-      hrv,
-      hrvTrend: getTrend(hrv, prevHrv, 2),
-      rhr,
-      rhrTrend: getTrend(rhr, prevRhr, 1),
-      weight,
-      weightTrend: getTrend(weight, weekAgoWeight, 0.3),
-    };
-  }, [wellnessData]);
+  const wellnessStats = useMemo(() => computeWellnessStats(wellnessData), [wellnessData]);
 
   // Engine-derived stats - uses precomputed data from getStartupData when available,
   // falls back to direct FFI call (settings preview, non-feed contexts)
@@ -205,19 +168,15 @@ export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): S
     const getTrend = (
       current: number | null,
       prev: number | null,
-      threshold = 1
-    ): '↑' | '↓' | '' => {
-      if (current === null || prev === null) return '';
-      const diff = current - prev;
-      if (Math.abs(diff) < threshold) return '';
-      return diff > 0 ? '↑' : '↓';
-    };
+      metric: TrendMetric
+    ): '↑' | '↓' | '' => trendArrow(trendOfMetric(metric, current, prev));
 
     // Use precomputed data from getStartupData if available
     let cardData = precomputedCardData;
 
     if (!cardData) {
-      const engine = getRouteEngine();
+      if (awaitPrecomputed) return defaults;
+      const engine = getEngine();
       if (!engine) return defaults;
 
       const getMonday = (date: Date): Date => {
@@ -260,31 +219,33 @@ export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): S
     const prevWeekHours = Math.round((prevWeekSeconds / 3600) * 10) / 10;
 
     const cyclingSettings = getSettingsForSport(sportSettings, 'Ride');
-    const latestFtp = cyclingSettings?.ftp ?? cardData.ftpTrend.latestFtp ?? null;
-    const prevFtp = cardData.ftpTrend.previousFtp ?? null;
+    const { value: latestFtp, previous: prevFtp } = summaryCardFtp({
+      trend: cardData.ftpTrend,
+      configuredFtp: cyclingSettings?.ftp ?? null,
+    });
 
     const runPaceTrend = cardData.runPaceTrend;
     const swimPaceTrend = cardData.swimPaceTrend;
 
     return {
       weekHours,
-      weekHoursTrend: getTrend(weekHours, prevWeekHours, 0.5),
+      weekHoursTrend: getTrend(weekHours, prevWeekHours, 'weekHours'),
       weekCount,
-      weekCountTrend: getTrend(weekCount, cardData.prevWeek.count, 1),
+      weekCountTrend: getTrend(weekCount, cardData.prevWeek.count, 'weekCount'),
       ftp: latestFtp,
-      ftpTrend: getTrend(latestFtp, prevFtp, 2),
+      ftpTrend: getTrend(latestFtp, prevFtp, 'ftp'),
       thresholdPaceTrend: getTrend(
         runPaceTrend.latestPace ?? null,
         runPaceTrend.previousPace ?? null,
-        0.05
+        'thresholdPace'
       ),
       cssTrend: getTrend(
         swimPaceTrend.latestPace ?? null,
         swimPaceTrend.previousPace ?? null,
-        0.05
+        'css'
       ),
     };
-  }, [precomputedCardData, engineTrigger]);
+  }, [precomputedCardData, awaitPrecomputed, engineTrigger, sportSettings]);
 
   // Merged quick stats - recomputes only when either source changes
   const quickStats = useMemo(
@@ -337,7 +298,7 @@ export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): S
   // `wellnessData` is kept as a dep so the memo refreshes after each sync.
   const sparklines = useMemo(() => {
     if (!summaryCard.showSparkline) return null;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine?.getWellnessSparklines) return null;
     try {
       return engine.getWellnessSparklines(30);

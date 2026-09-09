@@ -3,4 +3,4 @@ v0.3.7
 • Sectiedetectie opnieuw ontworpen met drie methodes om uit te kiezen: Corridor, Dichtheidsraster en Stroomgrafiek
 • Elke methode heeft eigen schuifregelaars en een live voorbeeld
 • Knop opnieuw analyseren licht op wanneer instellingen wijzigen
-• Opgelost: lege sectiepagina's — overeenkomende activiteiten en geschiedenis zijn weer zichtbaar
+• Opgelost: lege sectiepagina's, overeenkomende activiteiten en geschiedenis zijn weer zichtbaar

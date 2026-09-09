@@ -3,13 +3,21 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { getSportDisplayName } from '@/features/activity/lib/activityUtils';
-import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
+import { getSportDisplayName, getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
-import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { SectionInsightMap } from './SectionInsightMap';
-import { colors, darkColors, spacing, opacity, shadows } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  opacity,
+  shadows,
+  insightIcon,
+  layout,
+  typography,
+} from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 
 interface StalePRContentProps {
@@ -33,7 +41,7 @@ function getSingleSportLabel(sections: SupportingSection[]): string | null {
 
 function getContextCopy(
   sections: SupportingSection[],
-  dataPoints: Array<{ label: string; unit?: string }>
+  dataPoints: { label: string; unit?: string }[]
 ): {
   heading: string;
   body: string;
@@ -73,7 +81,7 @@ function getContextCopy(
 const TopSectionMap = React.memo(function TopSectionMap({ sectionId }: { sectionId: string }) {
   const { section } = useSectionDetail(sectionId);
   if (!section?.polyline || section.polyline.length < 2) return null;
-  return <SectionInsightMap polyline={section.polyline} lineColor="#FF9800" />;
+  return <SectionInsightMap polyline={section.polyline} lineColor={insightIcon.opportunity} />;
 });
 
 /**
@@ -176,7 +184,7 @@ const styles = StyleSheet.create({
   },
   contextCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     gap: spacing.xs,
   },
@@ -184,7 +192,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   contextHeading: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -192,7 +200,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   contextBody: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
     color: colors.textPrimary,
   },
@@ -200,7 +208,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   contextMeta: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   contextMetaDark: {
@@ -208,7 +216,7 @@ const styles = StyleSheet.create({
   },
   dataCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     gap: spacing.sm,
   },
@@ -221,14 +229,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dataLabel: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   dataLabelDark: {
     color: darkColors.textSecondary,
   },
   dataValue: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -236,7 +244,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   dataValueGood: {
-    color: '#22C55E',
+    color: colors.success,
   },
   sectionList: {
     gap: spacing.xs,
@@ -245,7 +253,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
@@ -274,7 +282,7 @@ const styles = StyleSheet.create({
   },
   sectionName: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -282,7 +290,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   bestTime: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },

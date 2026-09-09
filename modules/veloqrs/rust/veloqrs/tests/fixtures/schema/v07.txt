@@ -1,0 +1,149 @@
+table activities
+  column created_at type=INTEGER notnull=0 default=strftime('%s', 'now') pk=0
+  column distance_meters type=REAL notnull=0 default=<none> pk=0
+  column duration_secs type=INTEGER notnull=0 default=<none> pk=0
+  column id type=TEXT notnull=0 default=<none> pk=1
+  column max_lat type=REAL notnull=1 default=<none> pk=0
+  column max_lng type=REAL notnull=1 default=<none> pk=0
+  column min_lat type=REAL notnull=1 default=<none> pk=0
+  column min_lng type=REAL notnull=1 default=<none> pk=0
+  column name type=TEXT notnull=0 default=<none> pk=0
+  column sport_type type=TEXT notnull=1 default=<none> pk=0
+  column start_date type=INTEGER notnull=0 default=<none> pk=0
+  index idx_activities_bounds unique=0 origin=c partial=0 cols=[min_lat,max_lat,min_lng,max_lng]
+  index idx_activities_sport unique=0 origin=c partial=0 cols=[sport_type]
+  index auto(id) unique=1 origin=pk partial=0 cols=[id]
+table activity_matches
+  column activity_id type=TEXT notnull=1 default=<none> pk=2
+  column direction type=TEXT notnull=1 default=<none> pk=0
+  column match_percentage type=REAL notnull=1 default=<none> pk=0
+  column route_id type=TEXT notnull=1 default=<none> pk=1
+  index idx_activity_matches_route unique=0 origin=c partial=0 cols=[route_id]
+  index auto(route_id,activity_id) unique=1 origin=pk partial=0 cols=[route_id,activity_id]
+table activity_metrics
+  column activity_id type=TEXT notnull=0 default=<none> pk=1
+  column avg_hr type=INTEGER notnull=0 default=<none> pk=0
+  column avg_power type=INTEGER notnull=0 default=<none> pk=0
+  column date type=INTEGER notnull=1 default=<none> pk=0
+  column distance type=REAL notnull=1 default=<none> pk=0
+  column elapsed_time type=INTEGER notnull=1 default=<none> pk=0
+  column elevation_gain type=REAL notnull=1 default=<none> pk=0
+  column ftp type=INTEGER notnull=0 default=<none> pk=0
+  column hr_zone_times type=TEXT notnull=0 default=<none> pk=0
+  column moving_time type=INTEGER notnull=1 default=<none> pk=0
+  column name type=TEXT notnull=1 default=<none> pk=0
+  column power_zone_times type=TEXT notnull=0 default=<none> pk=0
+  column sport_type type=TEXT notnull=1 default=<none> pk=0
+  column training_load type=REAL notnull=0 default=<none> pk=0
+  index auto(activity_id) unique=1 origin=pk partial=0 cols=[activity_id]
+table athlete_profile
+  column data type=TEXT notnull=1 default=<none> pk=0
+  column id type=TEXT notnull=0 default='current' pk=1
+  column updated_at type=INTEGER notnull=1 default=<none> pk=0
+  index auto(id) unique=1 origin=pk partial=0 cols=[id]
+table gps_tracks
+  column activity_id type=TEXT notnull=0 default=<none> pk=1
+  column point_count type=INTEGER notnull=1 default=<none> pk=0
+  column track_data type=BLOB notnull=1 default=<none> pk=0
+  index auto(activity_id) unique=1 origin=pk partial=0 cols=[activity_id]
+  fk activity_id -> activities.id on_update=NO ACTION on_delete=CASCADE
+table overlap_cache
+  column activity_a type=TEXT notnull=1 default=<none> pk=1
+  column activity_b type=TEXT notnull=1 default=<none> pk=2
+  column computed_at type=INTEGER notnull=1 default=<none> pk=0
+  column has_overlap type=INTEGER notnull=1 default=<none> pk=0
+  column overlap_data type=BLOB notnull=0 default=<none> pk=0
+  index idx_overlap_cache_a unique=0 origin=c partial=0 cols=[activity_a]
+  index idx_overlap_cache_b unique=0 origin=c partial=0 cols=[activity_b]
+  index auto(activity_a,activity_b) unique=1 origin=pk partial=0 cols=[activity_a,activity_b]
+table processed_activities
+  column activity_id type=TEXT notnull=0 default=<none> pk=1
+  column processed_at type=TEXT notnull=1 default=datetime('now') pk=0
+  index auto(activity_id) unique=1 origin=pk partial=0 cols=[activity_id]
+table route_groups
+  column activity_ids type=TEXT notnull=1 default=<none> pk=0
+  column bounds_max_lat type=REAL notnull=0 default=<none> pk=0
+  column bounds_max_lng type=REAL notnull=0 default=<none> pk=0
+  column bounds_min_lat type=REAL notnull=0 default=<none> pk=0
+  column bounds_min_lng type=REAL notnull=0 default=<none> pk=0
+  column id type=TEXT notnull=0 default=<none> pk=1
+  column representative_id type=TEXT notnull=1 default=<none> pk=0
+  column sport_type type=TEXT notnull=1 default=<none> pk=0
+  index idx_groups_sport unique=0 origin=c partial=0 cols=[sport_type]
+  index auto(id) unique=1 origin=pk partial=0 cols=[id]
+table route_names
+  column custom_name type=TEXT notnull=1 default=<none> pk=0
+  column route_id type=TEXT notnull=0 default=<none> pk=1
+  index auto(route_id) unique=1 origin=pk partial=0 cols=[route_id]
+table schema_info
+  column key type=TEXT notnull=0 default=<none> pk=1
+  column value type=TEXT notnull=1 default=<none> pk=0
+  index auto(key) unique=1 origin=pk partial=0 cols=[key]
+table section_activities
+  column activity_id type=TEXT notnull=1 default=<none> pk=2
+  column direction type=TEXT notnull=1 default='same' pk=0
+  column distance_meters type=REAL notnull=1 default=0 pk=0
+  column end_index type=INTEGER notnull=1 default=0 pk=0
+  column lap_pace type=REAL notnull=0 default=<none> pk=0
+  column lap_time type=REAL notnull=0 default=<none> pk=0
+  column section_id type=TEXT notnull=1 default=<none> pk=1
+  column start_index type=INTEGER notnull=1 default=0 pk=3
+  index idx_section_activities_activity unique=0 origin=c partial=0 cols=[activity_id]
+  index auto(section_id,activity_id,start_index) unique=1 origin=pk partial=0 cols=[section_id,activity_id,start_index]
+  fk section_id -> sections.id on_update=NO ACTION on_delete=CASCADE
+table sections
+  column average_spread type=REAL notnull=0 default=<none> pk=0
+  column confidence type=REAL notnull=0 default=<none> pk=0
+  column created_at type=TEXT notnull=1 default=datetime('now') pk=0
+  column distance_meters type=REAL notnull=1 default=<none> pk=0
+  column end_index type=INTEGER notnull=0 default=<none> pk=0
+  column id type=TEXT notnull=0 default=<none> pk=1
+  column is_user_defined type=INTEGER notnull=0 default=0 pk=0
+  column name type=TEXT notnull=0 default=<none> pk=0
+  column observation_count type=INTEGER notnull=0 default=<none> pk=0
+  column point_density_json type=TEXT notnull=0 default=<none> pk=0
+  column polyline_json type=TEXT notnull=1 default=<none> pk=0
+  column representative_activity_id type=TEXT notnull=0 default=<none> pk=0
+  column scale type=TEXT notnull=0 default=<none> pk=0
+  column section_type type=TEXT notnull=1 default=<none> pk=0
+  column source_activity_id type=TEXT notnull=0 default=<none> pk=0
+  column sport_type type=TEXT notnull=1 default=<none> pk=0
+  column stability type=REAL notnull=0 default=<none> pk=0
+  column start_index type=INTEGER notnull=0 default=<none> pk=0
+  column updated_at type=TEXT notnull=0 default=<none> pk=0
+  column version type=INTEGER notnull=0 default=1 pk=0
+  index idx_sections_sport unique=0 origin=c partial=0 cols=[sport_type]
+  index idx_sections_type unique=0 origin=c partial=0 cols=[section_type]
+  index auto(id) unique=1 origin=pk partial=0 cols=[id]
+table signatures
+  column activity_id type=TEXT notnull=0 default=<none> pk=1
+  column end_point_lat type=REAL notnull=1 default=<none> pk=0
+  column end_point_lng type=REAL notnull=1 default=<none> pk=0
+  column point_count type=INTEGER notnull=1 default=<none> pk=0
+  column points type=BLOB notnull=1 default=<none> pk=0
+  column start_point_lat type=REAL notnull=1 default=<none> pk=0
+  column start_point_lng type=REAL notnull=1 default=<none> pk=0
+  column total_distance type=REAL notnull=1 default=<none> pk=0
+  index auto(activity_id) unique=1 origin=pk partial=0 cols=[activity_id]
+  fk activity_id -> activities.id on_update=NO ACTION on_delete=CASCADE
+table sport_settings
+  column data type=TEXT notnull=1 default=<none> pk=0
+  column id type=TEXT notnull=0 default='current' pk=1
+  column updated_at type=INTEGER notnull=1 default=<none> pk=0
+  index auto(id) unique=1 origin=pk partial=0 cols=[id]
+table time_streams
+  column activity_id type=TEXT notnull=0 default=<none> pk=1
+  column point_count type=INTEGER notnull=1 default=<none> pk=0
+  column times type=BLOB notnull=1 default=<none> pk=0
+  index auto(activity_id) unique=1 origin=pk partial=0 cols=[activity_id]
+  fk activity_id -> activities.id on_update=NO ACTION on_delete=CASCADE
+index idx_activities_bounds :: CREATE INDEX idx_activities_bounds ON activities(min_lat, max_lat, min_lng, max_lng)
+index idx_activities_sport :: CREATE INDEX idx_activities_sport ON activities(sport_type)
+index idx_activity_matches_route :: CREATE INDEX idx_activity_matches_route ON activity_matches(route_id)
+index idx_groups_sport :: CREATE INDEX idx_groups_sport ON route_groups(sport_type)
+index idx_overlap_cache_a :: CREATE INDEX idx_overlap_cache_a ON overlap_cache(activity_a)
+index idx_overlap_cache_b :: CREATE INDEX idx_overlap_cache_b ON overlap_cache(activity_b)
+index idx_section_activities_activity :: CREATE INDEX idx_section_activities_activity ON section_activities(activity_id)
+index idx_sections_sport :: CREATE INDEX idx_sections_sport ON sections(sport_type)
+index idx_sections_type :: CREATE INDEX idx_sections_type ON sections(section_type)
+user_version 7

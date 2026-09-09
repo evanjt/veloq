@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, FlatList, Text } from 'react-native';
-import { isRunningActivity, isCyclingActivity } from '@/features/activity/lib/activityUtils';
+import { isPaceSport, measuresPower } from '@/features/activity/lib/activityUtils';
+import { intervalTypeLabel } from '@/features/activity/lib/intervalTypeLabel';
 import {
   formatDistance,
   formatDuration,
@@ -10,7 +11,7 @@ import {
   formatPower,
 } from '@/shared/format/format';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import type { ActivityInterval, ActivityType } from '@/types';
 
 interface IntervalsTableProps {
@@ -21,9 +22,9 @@ interface IntervalsTableProps {
 }
 
 export function IntervalsTable({ intervals, activityType, isMetric, isDark }: IntervalsTableProps) {
-  const showPace = isRunningActivity(activityType);
+  const showPace = isPaceSport(activityType);
 
-  const isCycling = isCyclingActivity(activityType);
+  const hasPowerZones = measuresPower(activityType);
   const hasHR = useMemo(() => intervals.some((i) => i.average_heartrate != null), [intervals]);
   const hasPower = useMemo(() => intervals.some((i) => i.average_watts != null), [intervals]);
 
@@ -33,15 +34,19 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
 
     // Zone-based coloring for WORK intervals
     // Z7 is near-black - swap to light grey in dark mode for visibility
-    const zoneColors = isCycling ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
+    const zoneColors = hasPowerZones ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
     let zoneColor =
       isWork && item.zone != null && item.zone >= 1
         ? zoneColors[Math.min(item.zone - 1, zoneColors.length - 1)]
         : null;
     if (isDark && zoneColor && item.zone === 7) zoneColor = darkColors.zone7;
 
-    const typeLabel =
-      isWork && zoneColor ? `Z${item.zone}` : isWork ? 'Work' : isRecovery ? 'Rec' : item.type;
+    const typeLabel = intervalTypeLabel({
+      type: item.type,
+      zone: item.zone,
+      label: item.label,
+      zoneColoured: zoneColor != null,
+    });
 
     return (
       <View
@@ -66,19 +71,17 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
         </Text>
         <View style={styles.statsRow}>
           <Text style={[styles.colStat, isDark && styles.textLight]}>
-            {formatDistance(item.distance, isMetric)}
+            {item.distance != null ? formatDistance(item.distance, isMetric) : '--'}
           </Text>
           <Text style={[styles.colStat, isDark && styles.textLight]}>
-            {formatDuration(item.moving_time)}
+            {item.moving_time != null ? formatDuration(item.moving_time) : '--'}
           </Text>
           <Text style={[styles.colStat, isDark && styles.textLight]}>
-            {showPace
-              ? item.average_speed > 0
+            {item.average_speed == null || item.average_speed <= 0
+              ? '--'
+              : showPace
                 ? formatPace(item.average_speed, isMetric)
-                : '--'
-              : item.average_speed > 0
-                ? formatSpeed(item.average_speed, isMetric)
-                : '--'}
+                : formatSpeed(item.average_speed, isMetric)}
           </Text>
           {hasHR && (
             <Text
@@ -135,14 +138,14 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.08)',
   },
   indexText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     width: 18,
     textAlign: 'center',
   },
   typeText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -155,7 +158,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   colStat: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
     textAlign: 'right',

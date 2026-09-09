@@ -1,11 +1,12 @@
 /**
  * The recording screen's single transient status slot. Shows at most one
- * message at a time (GPS warning > sensor issue > km-split toast) with an
- * animated swap, replacing the old stack of independent banners.
+ * message at a time (refused foreground service > GPS warning > sensor issue >
+ * km-split toast) with an animated swap, replacing the old stack of independent
+ * banners.
  */
 
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
@@ -19,13 +20,36 @@ interface StatusSlotProps extends StatusSlotInput {
 }
 
 export function StatusSlot({
+  backgroundTrackingWarning,
   gpsWarning,
   sensorIssue,
   splitBanner,
   onDismissGpsWarning,
 }: StatusSlotProps) {
-  const message = selectStatusMessage({ gpsWarning, sensorIssue, splitBanner });
+  const message = selectStatusMessage({
+    backgroundTrackingWarning,
+    gpsWarning,
+    sensorIssue,
+    splitBanner,
+  });
   if (!message) return null;
+
+  // No dismiss: the ride still cannot record off screen after it is read, and
+  // it clears itself if a later attempt succeeds.
+  if (message.kind === 'background') {
+    return (
+      <Animated.View
+        key="background"
+        entering={FadeInDown.duration(200)}
+        exiting={FadeOutUp.duration(150)}
+        style={[styles.row, styles.warnRow]}
+        testID="status-slot-background"
+      >
+        <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.warning} />
+        <Text style={[styles.text, { color: colors.warning }]}>{message.text}</Text>
+      </Animated.View>
+    );
+  }
 
   if (message.kind === 'gps') {
     return (

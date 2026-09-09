@@ -12,6 +12,8 @@ export type ActivityType =
   | 'EBikeRide'
   | 'MountainBikeRide'
   | 'GravelRide'
+  | 'TrackRide'
+  | 'Cyclocross'
   | 'Velomobile'
   | 'Handcycle'
   // Running
@@ -105,7 +107,7 @@ export interface Activity {
   stream_types?: string[];
   // Zone time distributions
   // icu_zone_times is array of {id: 'Z1', secs: 123} objects (power zones)
-  icu_zone_times?: Array<{ id: string; secs: number }>;
+  icu_zone_times?: { id: string; secs: number }[];
   // icu_hr_zone_times is flat array of seconds per HR zone
   icu_hr_zone_times?: number[];
   // Zone thresholds
@@ -115,6 +117,8 @@ export interface Activity {
   icu_training_load?: number; // TSS
   icu_ftp?: number; // FTP used for this activity
   icu_pm_ftp_watts?: number; // Estimated FTP from this activity (eFTP)
+  icu_rolling_ftp?: number; // eFTP intervals.icu accepted after this activity
+  icu_rolling_ftp_delta?: number; // Change this activity made to it, zero or absent when none
   icu_intensity?: number; // Intensity Factor as percentage (e.g., 92.26 = 92%)
   icu_efficiency_factor?: number; // Power:HR efficiency
   trimp?: number; // Training impulse (HR-based load)
@@ -183,26 +187,136 @@ export interface ActivityStreams {
   gap?: number[];
 }
 
-// Interval within an activity (lap/interval data from intervals.icu)
+/**
+ * One interval of an activity, as intervals.icu sends it.
+ *
+ * Measured from the live body rather than hand-listed: 84 keys, of which the
+ * six below are on every interval of every activity measured and the rest are
+ * mostly null on any one of them. Optional and nullable are both true of the
+ * body, so both are said. The fixture in
+ * `src/__tests__/__fixtures__/intervalBodies.json` is three real bodies with
+ * their values moved off the athlete's own readings, and it is what keeps this
+ * shape true: the next census is a diff.
+ */
 export interface ActivityInterval {
-  id: number;
-  type: 'WORK' | 'RECOVERY' | 'REST' | 'WARMUP' | 'COOLDOWN' | 'ACTIVE_RECOVERY';
-  label?: string | null;
-  start_index: number;
+  average_cadence?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_dfa_a1?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_epoc?: number | null;
+  average_feels_like?: number | null;
+  average_gradient?: number | null;
+  average_heartrate?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_impact_loading_rate?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_lactate?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_leg_spring_stiffness?: number | null;
+  average_respiration?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_smo2?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_smo2_2?: number | null;
+  average_speed?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_stance_time?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_stance_time_balance?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_stance_time_percent?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_step_length?: number | null;
+  average_stride?: number | null;
+  average_temp?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_thb?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_thb_2?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_tidal_volume?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_tidal_volume_min?: number | null;
+  average_torque?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_vertical_oscillation?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_vertical_ratio?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_vertical_speed?: number | null;
+  average_watts?: number | null;
+  average_watts_alt?: number | null;
+  average_watts_alt_acc?: number | null;
+  average_watts_kg?: number | null;
+  average_weather_temp?: number | null;
+  average_wind_gust?: number | null;
+  average_wind_speed?: number | null;
+  average_yaw?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  avg_lr_balance?: number | null;
+  /** A number, or the string `-Infinity` when the second half carried no power. */
+  decoupling?: number | string | null;
+  distance?: number | null;
+  elapsed_time?: number | null;
   end_index: number;
-  distance: number;
-  moving_time: number;
-  elapsed_time: number;
-  average_speed: number;
-  average_heartrate?: number;
-  average_watts?: number;
-  weighted_average_watts?: number;
-  average_cadence?: number;
-  max_heartrate?: number;
-  max_watts?: number;
-  total_elevation_gain?: number;
-  zone?: number;
-  gap?: number; // Grade-adjusted pace (running)
+  /** Elapsed seconds from the activity start. */
+  end_time: number;
+  gap?: number | null;
+  /** The group's own id, a duration and an average rather than a number or an index. */
+  group_id?: string | null;
+  headwind_percent?: number | null;
+  id: number;
+  intensity?: number | null;
+  joules?: number | null;
+  joules_above_ftp?: number | null;
+  /** The athlete's own words for this interval, where a workout was planned. */
+  label?: string | null;
+  max_altitude?: number | null;
+  max_cadence?: number | null;
+  max_heartrate?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  max_lactate?: number | null;
+  max_speed?: number | null;
+  max_torque?: number | null;
+  max_watts?: number | null;
+  max_watts_kg?: number | null;
+  min_altitude?: number | null;
+  min_cadence?: number | null;
+  min_heartrate?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  min_lactate?: number | null;
+  min_speed?: number | null;
+  min_torque?: number | null;
+  min_watts?: number | null;
+  moving_time?: number | null;
+  prevailing_wind_deg?: number | null;
+  /** Null on every activity measured. A list where it is not. */
+  segment_effort_ids?: number[] | null;
+  ss_cp?: number | null;
+  ss_p_max?: number | null;
+  /** The server fits its own W prime, so this arrives whether or not the
+   * athlete configured one. */
+  ss_w_prime?: number | null;
+  start_index: number;
+  /** Elapsed seconds from the activity start. Index-free, so it survives the
+   * `latlng` reduction both stream readers apply, which `start_index` does not. */
+  start_time: number;
+  strain_score?: number | null;
+  tailwind_percent?: number | null;
+  total_elevation_gain?: number | null;
+  training_load?: number | null;
+  /** Only `WORK` and `RECOVERY` were witnessed on the measured account. The
+   * other four stay because unwitnessed is not the same as absent. */
+  type: 'WORK' | 'RECOVERY' | 'REST' | 'WARMUP' | 'COOLDOWN' | 'ACTIVE_RECOVERY';
+  w5s_variability?: number | null;
+  wbal_end?: number | null;
+  /** The server fits its own W prime, so this arrives whether or not the
+   * athlete configured one. */
+  wbal_start?: number | null;
+  weighted_average_watts?: number | null;
+  zone?: number | null;
+  zone_max_watts?: number | null;
+  zone_min_watts?: number | null;
 }
 
 // Response from /api/v1/activity/{id}/intervals
@@ -211,20 +325,142 @@ export interface IntervalsDTO {
   icu_groups: ActivityIntervalGroup[];
 }
 
-// Group of intervals with matching characteristics
+/**
+ * A group of intervals sharing a shape.
+ *
+ * The same field set as its members minus `intensity`, plus a `count`. Its
+ * `id` is what a member's `group_id` holds. Nothing renders a group today.
+ */
 export interface ActivityIntervalGroup {
-  id: string;
+  average_cadence?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_dfa_a1?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_epoc?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_feels_like?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_gradient?: number | null;
+  average_heartrate?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_impact_loading_rate?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_lactate?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_leg_spring_stiffness?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_respiration?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_smo2?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_smo2_2?: number | null;
+  average_speed?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_stance_time?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_stance_time_balance?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_stance_time_percent?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_step_length?: number | null;
+  average_stride?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_temp?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_thb?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_thb_2?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_tidal_volume?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_tidal_volume_min?: number | null;
+  average_torque?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_vertical_oscillation?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_vertical_ratio?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_vertical_speed?: number | null;
+  average_watts?: number | null;
+  average_watts_alt?: number | null;
+  average_watts_alt_acc?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_watts_kg?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_weather_temp?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_wind_gust?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_wind_speed?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  average_yaw?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  avg_lr_balance?: number | null;
   count: number;
-  distance: number;
-  moving_time: number;
-  elapsed_time: number;
-  average_speed: number;
-  average_heartrate?: number;
-  average_watts?: number;
-  average_cadence?: number;
-  max_heartrate?: number;
-  max_watts?: number;
-  total_elevation_gain?: number;
+  /** A number, or the string `-Infinity` when the second half carried no power. */
+  decoupling?: number | string | null;
+  distance?: number | null;
+  elapsed_time?: number | null;
+  gap?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  headwind_percent?: number | null;
+  id: string;
+  /** Sport-specific, and null on every interval of the measured account. */
+  intensity?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  joules?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  joules_above_ftp?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  max_altitude?: number | null;
+  max_cadence?: number | null;
+  max_heartrate?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  max_lactate?: number | null;
+  max_speed?: number | null;
+  max_torque?: number | null;
+  max_watts?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  max_watts_kg?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  min_altitude?: number | null;
+  min_cadence?: number | null;
+  min_heartrate?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  min_lactate?: number | null;
+  min_speed?: number | null;
+  min_torque?: number | null;
+  min_watts?: number | null;
+  moving_time?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  prevailing_wind_deg?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  ss_cp?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  ss_p_max?: number | null;
+  /** The server fits its own W prime, so this arrives whether or not the
+   * athlete configured one. */
+  ss_w_prime?: number | null;
+  start_index?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  strain_score?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  tailwind_percent?: number | null;
+  total_elevation_gain?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  training_load?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  w5s_variability?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  wbal_end?: number | null;
+  /** The server fits its own W prime, so this arrives whether or not the
+   * athlete configured one. */
+  wbal_start?: number | null;
+  /** Sport-specific, and null on every interval of the measured account. */
+  weighted_average_watts?: number | null;
+  zone?: number | null;
+  zone_max_watts?: number | null;
+  zone_min_watts?: number | null;
 }
 
 export interface Athlete {
@@ -242,10 +478,6 @@ export interface Athlete {
   wPrime?: number;
 }
 
-/** Default W' (anaerobic work capacity) when the athlete has not set one. */
-export const DEFAULT_W_PRIME_JOULES = 20_000;
-
-// Wellness/Fitness data for CTL/ATL/TSB chart
 export interface WellnessData {
   id: string; // ISO-8601 date (YYYY-MM-DD)
   ctl?: number; // Chronic Training Load (Fitness) - 42 day avg
@@ -297,31 +529,35 @@ export interface SportLoadInfo {
   dayCount?: number;
 }
 
-// Daily activity summary for the fitness chart
-export interface DailyActivitySummary {
-  date: string;
-  load?: number; // Training load for the day
-  activities: {
-    id: string;
-    type: ActivityType;
-    name: string;
-    duration: number;
-    distance?: number;
-    load?: number;
-    averageHr?: number;
-    averageWatts?: number;
-  }[];
+/** One of the server's fitted critical-power models for a curve window. */
+export interface PowerModel {
+  /** `MS_2P`, `MORTON_3P`, `FFT_CURVES` or `ECP`. */
+  type: string;
+  criticalPower: number;
+  /** W prime, joules above critical power. */
+  wPrime: number;
+  ftp: number;
+  /** The three-parameter models' peak, absent on the two-parameter fit. */
+  pMax?: number;
 }
 
-// Power/Pace curve data point - best effort at a specific duration
-export interface CurvePoint {
-  secs: number; // Duration in seconds
-  value: number; // Power (watts) or pace (m/s)
-  activity_id?: string; // Activity where this best was achieved
-  start_index?: number; // Start index in activity stream
+/** An activity a curve point came from, as the body names it. */
+export interface CurveActivity {
+  id: string;
+  name: string;
+  distance: number;
+  movingTime: number;
+  trainingLoad: number;
+  weight: number;
+  startDateLocal: string;
+  race: boolean;
 }
 
-// Power curve response from API
+/**
+ * A power curve for one sport and window, as the body carries it. The body
+ * is stored whole in Rust, so what is not lifted here is not lost, only
+ * unread until a reader wants it.
+ */
 export interface PowerCurve {
   type: 'power';
   sport: string;
@@ -329,6 +565,17 @@ export interface PowerCurve {
   watts: number[]; // Best watts for each duration
   watts_per_kg?: number[]; // Best w/kg for each duration
   activity_ids?: string[]; // Activity IDs for each best
+  /** Activity ids for each per-kilogram best, which need not be the watts one. */
+  wkg_activity_ids?: string[];
+  /** The athlete's weight the per-kilogram series was divided by. */
+  weight?: number;
+  /** The server's fitted models, in the order it sent them. */
+  models?: PowerModel[];
+  /** Every activity a point came from, so a checkpoint has a date offline. */
+  activities?: Record<string, CurveActivity>;
+  startDate?: string;
+  endDate?: string;
+  days?: number;
 }
 
 // Pace curve response (for running)
@@ -339,6 +586,8 @@ export interface PaceCurve {
   times: number[]; // Array of times in seconds to cover each distance
   pace: number[]; // Pace in m/s at each distance (distance/time)
   activity_ids?: string[];
+  /** Every activity a point came from. */
+  activities?: Record<string, CurveActivity>;
   // Critical Speed model data
   criticalSpeed?: number; // Critical speed from pace model (m/s) - use as threshold pace
   dPrime?: number; // D' (anaerobic distance capacity) in meters
@@ -406,14 +655,6 @@ export interface ActivityBoundsItem {
   latlngs?: [number, number][];
 }
 
-// Cache structure for activity bounds
-export interface ActivityBoundsCache {
-  lastSync: string; // ISO date of most recent sync
-  oldestSynced: string; // ISO date of oldest synced activity
-  activities: Record<string, ActivityBoundsItem>;
-}
-
-// Map data response from API
 export interface ActivityMapData {
   bounds: [[number, number], [number, number]] | null;
   latlngs: ([number, number] | null)[] | null;

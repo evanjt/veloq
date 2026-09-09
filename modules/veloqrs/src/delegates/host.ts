@@ -1,19 +1,39 @@
 /**
  * Delegate host interface.
  *
- * RouteEngineClient implements this interface and passes `this` to each
+ * EngineClient implements this interface and passes `this` to each
  * delegate module function. Delegates remain stateless - they borrow the
  * engine reference, timing wrapper, and notification emitters from the host.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type EngineHandle = any;
+import type { VeloqEngineLike } from '../generated/veloqrs';
+
+/**
+ * The typed UniFFI engine handle. Typing this against the generated
+ * bindings makes tsc the FFI contract: a delegate calling a method the
+ * bindings no longer export fails the pre-commit typecheck instead of the
+ * user's session.
+ */
+export type EngineHandle = VeloqEngineLike;
 
 export interface DelegateHost {
   /** Cached UniFFI VeloqEngine handle. Null before initWithPath(). */
   readonly engine: EngineHandle;
-  /** True once the engine has been created. Delegates must guard on this. */
+  /** True once the engine has been created. Reads must guard on this. */
   readonly ready: boolean;
+  /**
+   * Run a write now, or hold it in order and replay it once the engine opens.
+   *
+   * Launch pushes credentials and demo entry seeds fixtures before
+   * `initWithPath` has run, and a write that guards on `ready` and returns
+   * void is lost with the caller reading void as success. Writes go through
+   * here so the host holds them instead of each delegate dropping them.
+   *
+   * A command that refers to work already in flight does not. `cancelSync`
+   * and `cancelPreviewDetect` keep the `ready` guard, because replaying a
+   * cancel after init cancels work the athlete did start.
+   */
+  write(name: string, run: () => void): void;
   /** Wraps an FFI call with DEV-mode timing logs and optional metric recording. */
   timed<T>(name: string, fn: () => T): T;
   /** Emit a change notification to subscribers of a single event channel. */

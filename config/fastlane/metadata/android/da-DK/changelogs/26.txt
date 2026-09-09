@@ -3,4 +3,4 @@ v0.3.7
 • Sektionsdetektion redesignet med tre metoder at vælge mellem: Korridor, Tæthedsgitter og Flowgraf
 • Hver metode har egne skydere og en live-forhåndsvisning
 • Genanalyse-knappen fremhæves når indstillinger ændres
-• Rettet: tomme sektionssider — matchede aktiviteter og historik vises igen
+• Rettet: tomme sektionssider, matchede aktiviteter og historik vises igen

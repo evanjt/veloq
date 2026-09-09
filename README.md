@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Open-source mobile client for <a href="https://intervals.icu">Intervals.icu</a></strong><br>
-  Maps, charts, and fitness tracking — open source, your data stays yours.
+  Maps, charts, and fitness tracking, open source, your data stays yours.
 </p>
 
 <p align="center">
@@ -37,10 +37,10 @@
 
 ## Features
 
-- **Maps** — Interactive GPS visualization with 3D terrain and heatmaps
-- **Charts** — Heart rate, power, pace, elevation with synchronized map scrubbing
-- **Route Matching** — Automatic detection of repeated routes for progress tracking
-- **Fitness** — CTL/ATL/TSB model with form zone visualization
+- **Maps**. Interactive GPS visualization with 3D terrain and heatmaps
+- **Charts**. Heart rate, power, pace, elevation with synchronized map scrubbing
+- **Route Matching**. Automatic detection of repeated routes for progress tracking
+- **Fitness**. CTL/ATL/TSB model with form zone visualization
 
 See [veloq.fit](https://veloq.fit) for the full feature list.
 
@@ -106,7 +106,7 @@ These also run on their own: a smoke check on every push, tier0+1 on every pull 
 
 1. Open **Settings**
 2. Tap the **version number** 5 times quickly
-3. A **Debug Mode** toggle appears — switch it on
+3. A **Debug Mode** toggle appears, switch it on
 4. A **Developer Dashboard** link appears below the toggle
 
 ### Debug Features
@@ -148,7 +148,7 @@ adb logcat | grep -E '🔴|🟡|🟢|\[NAV\]|━━━'
 
 ## Privacy
 
-Veloq doesn't store your data — but we have no control over data stored on intervals.icu. All analytics and activity data is sourced from there. OAuth uses a lightweight proxy for token exchange; API key mode is fully serverless.
+Veloq doesn't store your data, but we have no control over data stored on intervals.icu. All analytics and activity data is sourced from there. OAuth uses a lightweight proxy for token exchange; API key mode is fully serverless.
 
 Routes and sections are generated on-device using [tracematch](https://github.com/evanjt/tracematch).
 

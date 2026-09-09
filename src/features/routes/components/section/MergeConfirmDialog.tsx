@@ -9,7 +9,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { getActivityIcon } from '@/features/activity/lib/activityUtils';
-import { colors, darkColors, spacing, typography, layout, shadows } from '@/theme';
+import { colors, darkColors, spacing, typography, layout, shadows, ink } from '@/theme';
 
 interface SectionInfo {
   id: string;
@@ -112,7 +112,7 @@ export const MergeConfirmDialog = memo(function MergeConfirmDialog({
               activeOpacity={0.7}
             >
               {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={ink.white} />
               ) : (
                 <Text style={styles.mergeText}>{t('sections.merge')}</Text>
               )}
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   radio: {
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusFull,
     borderWidth: 2,
     borderColor: colors.textSecondary,
     justifyContent: 'center',
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   radioInner: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.primary,
   },
   optionContent: {
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   mergeText: {
-    color: '#fff',
+    color: ink.white,
     fontSize: typography.body.fontSize,
     fontWeight: '600',
   },

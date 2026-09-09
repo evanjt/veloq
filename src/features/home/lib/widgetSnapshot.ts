@@ -4,13 +4,19 @@
  * process and cannot call the Rust FFI, so everything they show is baked here.
  *
  * `composeSnapshot` is pure (fully unit-tested). `gatherWidgetSnapshot` reads the
- * engine singleton and is the entry point the write hooks call. A consolidating
- * Rust `getWidgetSnapshot()` FFI will later replace the multi-call gather, but the
- * snapshot shape it returns stays the same.
+ * engine singleton through one `getWidgetSnapshot()` call and is the entry point
+ * the write hooks call.
  *
- * Sparkline arrays from `getWellnessSparklines` are ordered NEWEST-FIRST
- * (`ORDER BY date DESC`), so index 0 = today, index 1 = yesterday.
+ * Sparkline arrays from `getWellnessSparklines` are ordered OLDEST-FIRST, which
+ * is also the order the native charts draw. Rust selects `ORDER BY date DESC`
+ * then reverses (`persistence/wellness.rs`), so the LAST element is today and
+ * the second-to-last is yesterday.
  */
+import {
+  composeRouteOutline,
+  ROUTE_OUTLINE_MAX_POINTS,
+  type RouteOutline,
+} from '@/shared/geo/routePreview';
 import { getFormZone, type FormZone } from '@/features/fitness/lib/fitness';
 import {
   formatDistance,
@@ -19,12 +25,20 @@ import {
   formatRelativeDate,
   formatSwimPace,
 } from '@/shared/format';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { getRecentRecordingTypes } from '@/shared/recording';
+import type { WidgetSnapshotData } from 'veloqrs';
 import { widgetActivityTint, widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
+import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 
 import { useDashboardPreferences, type SummaryCardPreferences } from '../store';
+import { TREND_DEADBAND, trendDirection } from '@/shared/format/trend';
 
-export const WIDGET_SNAPSHOT_SCHEMA_VERSION = 4;
+export const WIDGET_SNAPSHOT_SCHEMA_VERSION = 6;
+
+/** Trailing wellness window the widget sparklines cover. */
+const SPARKLINE_DAYS = 30;
 
 export type TrendDir = 'up' | 'down' | 'flat';
 
@@ -44,15 +58,12 @@ export interface FormMetricValue extends MetricValue {
 }
 
 /**
- * Normalised route outline for the latest GPS activity, so the widget can draw a
- * map-free preview. Points are 0..1 [x, y] pairs (y grows downward, screen
- * convention), downsampled to at most ROUTE_PREVIEW_MAX_POINTS.
+ * The route outline lives in shared geo: the Live Activity payload draws the same
+ * shape under the same byte budget, and a widget-named export in a feature is not
+ * somewhere the recording session can import from.
  */
-export interface WidgetRoutePreview {
-  points: [number, number][];
-  /** Projected bounding-box width divided by height, for letterboxed drawing. */
-  aspect: number;
-}
+export type WidgetRoutePreview = RouteOutline;
+export const composeRoutePreview = composeRouteOutline;
 
 export interface WidgetLatest {
   activityId: string;
@@ -133,6 +144,31 @@ export interface WidgetDisplay {
   impactLine: string | null;
 }
 
+/**
+ * One recent sport: the id, the name a surface shows, and the deep link that
+ * starts it. The URL is composed here and nowhere else, so no native holds a
+ * second copy of the rule and no surface can drift from the others.
+ */
+export interface WidgetRecordShortcut {
+  type: string;
+  label: string;
+  url: string;
+}
+
+/** Where a record surface goes when no sport is known: the picker, as before. */
+export const RECORD_PICKER_URL = 'veloq://record';
+
+/**
+ * Marks a link that came from outside the app. The recording screen reads it to
+ * decide whether the Always location dialog has earned itself: an athlete who
+ * starts from a home screen has just shown they want to start without the app in
+ * front, and an in-app start has shown nothing of the kind.
+ */
+export const QUICK_START_MARK = 'from=quickstart';
+
+/** What a launcher will show on a long press, and what that list is capped at. */
+export const RECORD_SHORTCUT_LIMIT = 3;
+
 export interface WidgetSnapshot {
   schemaVersion: number;
   /** Unix seconds. */
@@ -173,6 +209,20 @@ export interface WidgetSnapshot {
   summaryCard: WidgetSummaryCard | null;
   display: WidgetDisplay;
   theme: { light: WidgetPalette; dark: WidgetPalette };
+  /**
+   * The recent sports, most recent first, pre-localised. One source for every
+   * record surface: the widgets and the iOS control take the head, the Android
+   * launcher publishes the list as dynamic shortcuts and the Quick Settings tile
+   * draws the head's label. Empty until something has been recorded, which is
+   * the signal to fall back to the picker.
+   */
+  recordShortcuts: WidgetRecordShortcut[];
+  /**
+   * The head of `recordShortcuts`, capped at what a launcher will show on a long
+   * press. Carried rather than derived natively so the cap is decided once, and
+   * so a Siri phrase can offer every sport while the icon offers three.
+   */
+  launcherShortcuts: WidgetRecordShortcut[];
 }
 
 // Minimal structural shapes of the engine returns we consume, kept local so this
@@ -227,11 +277,14 @@ export interface RawWidgetData {
   nowSeconds: number;
   /** i18n lookup; falls back to the raw key when absent (pure-test safe). */
   translate?: (key: string) => string;
+  /** Recent sports, most recent first. Blanks and repeats are dropped here. */
+  recentRecordingTypes?: string[] | null;
 }
 
-const FORM_DEADBAND = 1; // CTL/ATL/form points are integers; <1 change reads as flat
+// The default for the integer point metrics: fitness, fatigue and resting HR.
+const POINT_DEADBAND = TREND_DEADBAND.fitness;
 const IMPACT_MAX_AGE_DAYS = 2; // only attribute impact to a genuinely recent activity
-export const ROUTE_PREVIEW_MAX_POINTS = 150;
+export const ROUTE_PREVIEW_MAX_POINTS = ROUTE_OUTLINE_MAX_POINTS;
 
 function num(v: number | bigint | null | undefined): number {
   if (v == null) return 0;
@@ -239,10 +292,8 @@ function num(v: number | bigint | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function trendOf(today: number, yesterday: number, deadband = FORM_DEADBAND): TrendDir {
-  const delta = today - yesterday;
-  if (Math.abs(delta) < deadband) return 'flat';
-  return delta > 0 ? 'up' : 'down';
+function trendOf(today: number, yesterday: number, deadband: number = POINT_DEADBAND): TrendDir {
+  return trendDirection(today, yesterday, deadband);
 }
 
 /** Trend between two possibly-missing values; missing data reads as flat. */
@@ -251,16 +302,15 @@ function trendOfNullable(
   prev: number | null | undefined,
   deadband: number
 ): TrendDir {
-  if (current == null || prev == null) return 'flat';
-  return trendOf(current, prev, deadband);
+  return trendDirection(current, prev, deadband);
 }
 
-/** Build a MetricValue from a newest-first series. Safe on empty/short arrays. */
-function metricFrom(series: number[], deadband = FORM_DEADBAND): MetricValue {
+/** Build a MetricValue from an oldest-first series. Safe on empty/short arrays. */
+function metricFrom(series: number[], deadband: number = POINT_DEADBAND): MetricValue {
   if (!series || series.length === 0) return { value: 0, trendDir: 'flat' };
-  const today = num(series[0]);
+  const today = num(series[series.length - 1]);
   if (series.length === 1) return { value: today, trendDir: 'flat' };
-  const yesterday = num(series[1]);
+  const yesterday = num(series[series.length - 2]);
   return {
     value: today,
     trendDir: trendOf(today, yesterday, deadband),
@@ -271,8 +321,9 @@ function metricFrom(series: number[], deadband = FORM_DEADBAND): MetricValue {
 /** CTL ramp: change in fitness across the trailing ~7 days of the series. */
 function rampRateFrom(fitness: number[]): number {
   if (!fitness || fitness.length < 2) return 0;
-  const today = num(fitness[0]);
-  const past = num(fitness[Math.min(6, fitness.length - 1)]);
+  const last = fitness.length - 1;
+  const today = num(fitness[last]);
+  const past = num(fitness[Math.max(0, last - 6)]);
   return Math.round((today - past) * 10) / 10;
 }
 
@@ -298,6 +349,7 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
   const latest = composeLatest(raw);
   const impact = composeImpact(raw, fitness, fatigue, form, latest);
   const t = raw.translate ?? ((k: string) => k);
+  const shortcuts = composeRecordShortcuts(raw.recentRecordingTypes, t);
 
   return {
     schemaVersion: WIDGET_SNAPSHOT_SCHEMA_VERSION,
@@ -312,12 +364,12 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
       rhr: metricFrom(rhr),
     },
     sparklines: {
-      // Reverse to oldest-first so the native chart draws left-to-right in time.
-      form: [...form].reverse(),
-      fitness: [...fitness].reverse(),
-      fatigue: [...fatigue].reverse(),
-      hrv: [...hrv].reverse(),
-      formZones: [...form].reverse().map((v) => getFormZone(num(v))),
+      // Already oldest-first from Rust, which is how the native chart draws.
+      form: [...form],
+      fitness: [...fitness],
+      fatigue: [...fatigue],
+      hrv: [...hrv],
+      formZones: form.map((v) => getFormZone(num(v))),
     },
     weekly: {
       tss: Math.round(curTss),
@@ -331,9 +383,39 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
     latest,
     impact,
     summaryCard: composeSummaryCard(raw, t),
-    display: buildDisplay(t, impact, getFormZone(num(form[0]))),
+    display: buildDisplay(t, impact, getFormZone(num(form[form.length - 1]))),
     theme: { light: widgetPalette.light, dark: widgetPalette.dark },
+    recordShortcuts: shortcuts,
+    launcherShortcuts: shortcuts.slice(0, RECORD_SHORTCUT_LIMIT),
   };
+}
+
+/**
+ * A blank sport is no sport and a repeat is one entry, so no surface gets an
+ * empty path or the same sport twice. Labels come from the translations the app
+ * already carries, which is why no native holds a sport-to-name map.
+ *
+ * Uncapped on purpose: a Siri phrase offers every sport the athlete records, and
+ * `launcherShortcuts` is where the launcher's three come from.
+ */
+function composeRecordShortcuts(
+  types: string[] | null | undefined,
+  t: (key: string) => string
+): WidgetRecordShortcut[] {
+  const seen = new Set<string>();
+  const out: WidgetRecordShortcut[] = [];
+  for (const raw of types ?? []) {
+    const type = typeof raw === 'string' ? raw.trim() : '';
+    if (type.length === 0 || seen.has(type)) continue;
+    seen.add(type);
+    const label = t(`activityTypes.${type}`);
+    out.push({
+      type,
+      label: label === `activityTypes.${type}` ? type : label,
+      url: `veloq://recording/${encodeURIComponent(type)}?${QUICK_START_MARK}`,
+    });
+  }
+  return out;
 }
 
 /** Form metric with its zone, so natives colour by enum and never do TSB maths. */
@@ -369,7 +451,7 @@ function composeSummaryCard(
         };
       }
       case 'form': {
-        const m = metricFrom(sp?.form ?? [], 2);
+        const m = metricFrom(sp?.form ?? [], TREND_DEADBAND.form);
         const v = Math.round(m.value);
         return {
           id,
@@ -380,7 +462,7 @@ function composeSummaryCard(
         };
       }
       case 'hrv': {
-        const m = metricFrom(sp?.hrv ?? [], 2);
+        const m = metricFrom(sp?.hrv ?? [], TREND_DEADBAND.hrv);
         return {
           id,
           label: t('metrics.hrv'),
@@ -406,7 +488,7 @@ function composeSummaryCard(
           id,
           label: t('metrics.week'),
           value: `${hours}h`,
-          trendDir: trendOf(hours, prevHours, 0.5),
+          trendDir: trendOf(hours, prevHours, TREND_DEADBAND.weekHours),
           colorKey: 'default',
         };
       }
@@ -416,7 +498,7 @@ function composeSummaryCard(
           id,
           label: '#',
           value: String(count),
-          trendDir: trendOf(count, num(summary?.prevWeek.count), 1),
+          trendDir: trendOf(count, num(summary?.prevWeek.count), TREND_DEADBAND.weekCount),
           colorKey: 'default',
         };
       }
@@ -426,7 +508,7 @@ function composeSummaryCard(
           id,
           label: t('metrics.ftp'),
           value: latestFtp == null ? '-' : String(Math.round(latestFtp)),
-          trendDir: trendOfNullable(latestFtp, summary?.ftpTrend?.previousFtp, 2),
+          trendDir: trendOfNullable(latestFtp, summary?.ftpTrend?.previousFtp, TREND_DEADBAND.ftp),
           colorKey: 'default',
         };
       }
@@ -436,7 +518,11 @@ function composeSummaryCard(
           id,
           label: t('metrics.pace'),
           value: pace == null || pace <= 0 ? '-' : formatPaceCompact(pace, raw.isMetric),
-          trendDir: trendOfNullable(pace, summary?.runPaceTrend?.previousPace, 0.05),
+          trendDir: trendOfNullable(
+            pace,
+            summary?.runPaceTrend?.previousPace,
+            TREND_DEADBAND.thresholdPace
+          ),
           colorKey: 'default',
         };
       }
@@ -446,7 +532,7 @@ function composeSummaryCard(
           id,
           label: t('metrics.css'),
           value: pace == null || pace <= 0 ? '-' : formatSwimPace(pace, raw.isMetric),
-          trendDir: trendOfNullable(pace, summary?.swimPaceTrend?.previousPace, 0.05),
+          trendDir: trendOfNullable(pace, summary?.swimPaceTrend?.previousPace, TREND_DEADBAND.css),
           colorKey: 'default',
         };
       }
@@ -537,68 +623,6 @@ function composeLatest(raw: RawWidgetData): WidgetLatest | null {
   };
 }
 
-/**
- * Project and normalise a GPS track into a 0..1 drawing box. Equirectangular
- * projection (x scaled by cos of the mid latitude) keeps the shape visually
- * faithful at route scale; y is flipped so it grows downward like screen pixels.
- */
-export function composeRoutePreview(
-  gps: RawGpsPoint[] | null | undefined
-): WidgetRoutePreview | null {
-  if (!gps || gps.length < 2) return null;
-
-  const stride = Math.max(1, Math.ceil(gps.length / ROUTE_PREVIEW_MAX_POINTS));
-  const sampled: RawGpsPoint[] = [];
-  for (let i = 0; i < gps.length; i += stride) {
-    const p = gps[i];
-    if (Number.isFinite(p.latitude) && Number.isFinite(p.longitude)) sampled.push(p);
-  }
-  const last = gps[gps.length - 1];
-  if (
-    sampled.length > 0 &&
-    sampled[sampled.length - 1] !== last &&
-    Number.isFinite(last.latitude) &&
-    Number.isFinite(last.longitude)
-  ) {
-    sampled.push(last);
-  }
-  if (sampled.length < 2) return null;
-
-  const midLat = (sampled[0].latitude + sampled[sampled.length - 1].latitude) / 2;
-  const lonScale = Math.cos((midLat * Math.PI) / 180) || 1;
-
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let maxY = -Infinity;
-  const projected = sampled.map((p) => {
-    const x = p.longitude * lonScale;
-    const y = p.latitude;
-    if (x < minX) minX = x;
-    if (x > maxX) maxX = x;
-    if (y < minY) minY = y;
-    if (y > maxY) maxY = y;
-    return { x, y };
-  });
-
-  const w = maxX - minX;
-  const h = maxY - minY;
-  if (!(w > 0) && !(h > 0)) return null;
-  const safeW = w > 0 ? w : 1;
-  const safeH = h > 0 ? h : 1;
-
-  const points: [number, number][] = projected.map((p) => [
-    round3((p.x - minX) / safeW),
-    round3(1 - (p.y - minY) / safeH),
-  ]);
-  const aspect = h > 0 ? Math.max(0.1, Math.min(10, w / h)) : 1;
-  return { points, aspect: Math.round(aspect * 100) / 100 };
-}
-
-function round3(v: number): number {
-  return Math.round(v * 1000) / 1000;
-}
-
 function composeImpact(
   raw: RawWidgetData,
   fitness: number[],
@@ -610,13 +634,17 @@ function composeImpact(
   if (form.length < 2 || fitness.length < 2 || fatigue.length < 2) return null;
   const ageDays = (raw.nowSeconds - latest.date) / 86400;
   if (ageDays < 0 || ageDays > IMPACT_MAX_AGE_DAYS) return null;
+  // Oldest-first: today is the last element, yesterday the one before it.
+  const today = form.length - 1;
+  const formAfter = num(form[today]);
+  const formBefore = num(form[today - 1]);
   return {
-    formBefore: num(form[1]),
-    formAfter: num(form[0]),
-    formBeforeZone: getFormZone(num(form[1])),
-    formAfterZone: getFormZone(num(form[0])),
-    ctlDelta: num(fitness[0]) - num(fitness[1]),
-    atlDelta: num(fatigue[0]) - num(fatigue[1]),
+    formBefore,
+    formAfter,
+    formBeforeZone: getFormZone(formBefore),
+    formAfterZone: getFormZone(formAfter),
+    ctlDelta: num(fitness[fitness.length - 1]) - num(fitness[fitness.length - 2]),
+    atlDelta: num(fatigue[fatigue.length - 1]) - num(fatigue[fatigue.length - 2]),
     tssAdded: latest.trainingLoad,
     dateLabel: latest.dateLabel,
   };
@@ -631,8 +659,7 @@ function relativeDateLabel(unixSeconds: number): string {
 
 /**
  * Read the engine and build the snapshot. Returns null when the engine isn't ready
- * (e.g. very early startup) so callers can no-op. The multi-call gather here is the
- * Phase-1 path; a consolidating `getWidgetSnapshot()` FFI supersedes it later.
+ * (e.g. very early startup) so callers can no-op.
  */
 export function gatherWidgetSnapshot(opts: {
   locale: string;
@@ -640,108 +667,61 @@ export function gatherWidgetSnapshot(opts: {
   now?: Date;
   translate?: (key: string) => string;
 }): WidgetSnapshot | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return null;
 
   const now = opts.now ?? new Date();
   const nowSeconds = Math.floor(now.getTime() / 1000);
 
-  let sparklines: RawSparklines | null = null;
-  let summary: RawSummary | null = null;
-  let latest: RawLatestActivity | null = null;
-  let latestGps: RawGpsPoint[] | null = null;
-  let summaryPrefs: SummaryCardPreferences | null = null;
-
-  try {
-    sparklines = engine.getWellnessSparklines?.(30) ?? null;
-  } catch {
-    sparklines = null;
-  }
-
+  let data: WidgetSnapshotData | undefined;
   try {
     const b = weekBounds(now);
-    summary =
-      (engine.getSummaryCardData?.(
-        b.currentStart,
-        b.currentEnd,
-        b.prevStart,
-        b.prevEnd
-      ) as RawSummary) ?? null;
+    data = engine.getWidgetSnapshot(
+      b.currentStart,
+      b.currentEnd,
+      b.prevStart,
+      b.prevEnd,
+      SPARKLINE_DAYS
+    );
   } catch {
-    summary = null;
+    data = undefined;
   }
 
-  try {
-    const ids = engine.getActivityIds?.() ?? [];
-    if (ids.length > 0) {
-      const metrics = (engine.getActivityMetricsForIds?.(ids) ?? []) as RawLatestActivity[];
-      latest = mostRecent(metrics);
-    }
-  } catch {
-    latest = null;
-  }
-
-  if (latest) {
-    latest = { ...latest, isPr: latestIsPr(engine, latest.activityId) };
-    try {
-      latestGps = (engine.getGpsTrack?.(latest.activityId) as RawGpsPoint[]) ?? null;
-    } catch {
-      latestGps = null;
-    }
-  }
-
+  let summaryPrefs: SummaryCardPreferences | null = null;
   try {
     summaryPrefs = useDashboardPreferences.getState().summaryCard;
   } catch {
     summaryPrefs = null;
   }
 
+  const latest = data?.latest
+    ? ({ ...data.latest, isPr: data.latestIsPr } as RawLatestActivity)
+    : null;
+
   return composeSnapshot({
-    sparklines,
-    summary,
+    sparklines: (data?.sparklines as RawSparklines | undefined) ?? null,
+    summary: (data?.summary as RawSummary | undefined) ?? null,
     latest,
-    latestGps,
+    latestGps: latest ? ((data?.latestGps as RawGpsPoint[]) ?? null) : null,
     summaryPrefs,
     locale: opts.locale,
     isMetric: opts.isMetric,
     nowSeconds,
     translate: opts.translate,
+    // No account, no shortcuts. Every one-tap surface starts a ride directly, so
+    // leaving a stale one on a launcher would walk straight past the sign-in
+    // gate, and clearing them is also what takes them off the icon on sign-out.
+    recentRecordingTypes: signedIn() ? getRecentRecordingTypes() : [],
   });
 }
 
-/**
- * True when the activity carries a route or section PR, read from the same
- * highlights bundle the feed badges use.
- */
-function latestIsPr(
-  engine: NonNullable<ReturnType<typeof getRouteEngine>>,
-  activityId: string
-): boolean {
+/** Whether anyone is signed in; a failed read counts as nobody. */
+function signedIn(): boolean {
   try {
-    const bundle = engine.getActivityHighlightsBundle?.([activityId]);
-    if (!bundle) return false;
-    return (
-      bundle.routeHighlights.some((r) => r.isPr) ||
-      bundle.indicators.some(
-        (i) => i.indicatorType === 'section_pr' || i.indicatorType === 'route_pr'
-      )
-    );
+    return useAuthStore.getState().authMethod != null;
   } catch {
     return false;
   }
-}
-
-function mostRecent(metrics: RawLatestActivity[]): RawLatestActivity | null {
-  let best: RawLatestActivity | null = null;
-  let bestDate = -Infinity;
-  for (const m of metrics) {
-    const d = num(m.date);
-    if (d > bestDate) {
-      bestDate = d;
-      best = m;
-    }
-  }
-  return best;
 }
 
 /** Current and previous ISO-week (Monday to today) bounds, mirroring useStartupData. */
@@ -759,11 +739,11 @@ function weekBounds(now: Date): {
   const startOfLastWeek = new Date(startOfWeek);
   startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
 
-  const toTs = (d: Date) => Math.floor(d.getTime() / 1000);
+  const toTs = localWallClockToEpochSeconds;
   return {
     currentStart: toTs(startOfWeek),
     currentEnd: toTs(now),
     prevStart: toTs(startOfLastWeek),
-    prevEnd: toTs(startOfWeek),
+    prevEnd: toTs(startOfWeek) - 1,
   };
 }

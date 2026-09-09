@@ -1,9 +1,17 @@
 import { create } from 'zustand';
+import type { InitOutcome } from 'veloqrs';
 
 interface EngineStatusState {
   /** Whether the Rust engine failed to initialize after all retries */
   initFailed: boolean;
   setInitFailed: (v: boolean) => void;
+  /**
+   * Why it failed, as the engine recorded it, or null when nothing was
+   * recorded. A newer build, a held file and an unwritable directory each
+   * need a different sentence, and the banner cannot re-derive which.
+   */
+  initFailureReason: InitOutcome | null;
+  setInitFailureReason: (v: InitOutcome | null) => void;
   /** Whether the user dismissed the engine init failure banner */
   engineBannerDismissed: boolean;
   setEngineBannerDismissed: (v: boolean) => void;
@@ -15,13 +23,25 @@ interface EngineStatusState {
    */
   retryNonce: number;
   requestRetry: () => void;
+  /**
+   * Bumped once the engine is open and usable. Effects that need a live
+   * engine but mount before the root layout's init effect runs depend on it,
+   * so they retry the moment the handle exists instead of latching on a
+   * call that never reached Rust.
+   */
+  readyNonce: number;
+  markEngineReady: () => void;
 }
 
 export const useEngineStatus = create<EngineStatusState>((set) => ({
   initFailed: false,
   setInitFailed: (v: boolean) => set({ initFailed: v }),
+  initFailureReason: null,
+  setInitFailureReason: (v: InitOutcome | null) => set({ initFailureReason: v }),
   engineBannerDismissed: false,
   setEngineBannerDismissed: (v: boolean) => set({ engineBannerDismissed: v }),
   retryNonce: 0,
   requestRetry: () => set((s) => ({ retryNonce: s.retryNonce + 1 })),
+  readyNonce: 0,
+  markEngineReady: () => set((s) => ({ readyNonce: s.readyNonce + 1 })),
 }));

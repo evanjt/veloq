@@ -177,14 +177,17 @@ describe('useTimer', () => {
     expect(result.current.lapTime).toBe(result.current.movingTime);
   });
 
-  it('computes lap time as moving time minus last lap endTime across lap setups', () => {
-    // lapTime ≈ (elapsed - paused) - lastLap.endTime. Covers a single lap, a paused
-    // recording, and multiple laps (last lap wins).
+  it('computes lap time as moving time minus last lap movingEndTime across lap setups', () => {
+    // lapTime ≈ (elapsed - paused) - lastLap.movingEndTime. Covers a single lap, a
+    // paused recording, and multiple laps (last lap wins).
     const laps = (...ends: number[]) =>
       ends.map((endTime, index) => ({
         index,
         startTime: index === 0 ? 0 : ends[index - 1],
         endTime,
+        startIndex: index,
+        endIndex: index,
+        movingEndTime: endTime,
         distance: 500,
         avgSpeed: 10,
         avgHeartrate: null,

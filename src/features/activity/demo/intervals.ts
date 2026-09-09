@@ -20,6 +20,7 @@ export function getActivityIntervals(id: string): IntervalsDTO {
   const numSplits = Math.max(2, Math.min(12, Math.floor(totalDist / splitDist)));
   const avgSpeed = activity.average_speed || 5;
   let currentIndex = 0;
+  let elapsedSeconds = 0;
 
   for (let i = 0; i < numSplits; i++) {
     const isWork = i % 2 === 0;
@@ -33,6 +34,8 @@ export function getActivityIntervals(id: string): IntervalsDTO {
       label: isWork ? `Interval ${Math.ceil((i + 1) / 2)}` : null,
       start_index: currentIndex,
       end_index: endIndex,
+      start_time: elapsedSeconds,
+      end_time: elapsedSeconds + Math.round(segTime * 1.02),
       distance: Math.round(segDist),
       moving_time: segTime,
       elapsed_time: Math.round(segTime * 1.02),
@@ -72,6 +75,7 @@ export function getActivityIntervals(id: string): IntervalsDTO {
 
     intervals.push(interval);
     currentIndex = endIndex;
+    elapsedSeconds += Math.round(segTime * 1.02);
   }
 
   // Build a summary group
@@ -79,10 +83,11 @@ export function getActivityIntervals(id: string): IntervalsDTO {
   const group: ActivityIntervalGroup = {
     id: 'work',
     count: workIntervals.length,
-    distance: workIntervals.reduce((s, i) => s + i.distance, 0),
-    moving_time: workIntervals.reduce((s, i) => s + i.moving_time, 0),
-    elapsed_time: workIntervals.reduce((s, i) => s + i.elapsed_time, 0),
-    average_speed: workIntervals.reduce((s, i) => s + i.average_speed, 0) / workIntervals.length,
+    distance: workIntervals.reduce((s, i) => s + (i.distance ?? 0), 0),
+    moving_time: workIntervals.reduce((s, i) => s + (i.moving_time ?? 0), 0),
+    elapsed_time: workIntervals.reduce((s, i) => s + (i.elapsed_time ?? 0), 0),
+    average_speed:
+      workIntervals.reduce((s, i) => s + (i.average_speed ?? 0), 0) / workIntervals.length,
     average_heartrate: workIntervals[0]?.average_heartrate
       ? workIntervals.reduce((s, i) => s + (i.average_heartrate || 0), 0) / workIntervals.length
       : undefined,

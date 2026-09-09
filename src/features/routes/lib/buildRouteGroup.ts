@@ -11,13 +11,13 @@ export function buildRouteGroupBase(engineGroup: EngineRouteGroup | null | undef
     activityCount: engineGroup.activityIds.length,
     firstDate: '', // Not available from engine
     lastDate: '', // Will be computed from activities
-    signature: null as { points: any[]; distance: number } | null,
+    signature: null as { points: { lat: number; lng: number }[]; distance: number } | null,
   };
 }
 
 export function buildFinalRouteGroup(
   routeGroupBase: ReturnType<typeof buildRouteGroupBase>,
-  consensusPoints: Array<{ lat: number; lng: number }> | null | undefined,
+  consensusPoints: { lat: number; lng: number }[] | null | undefined,
   routeStatsDistance: number
 ) {
   if (!routeGroupBase) return null;

@@ -13,7 +13,16 @@ import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-nativ
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, darkColors, spacing, brand, shadows } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  spacing,
+  brand,
+  shadows,
+  layout,
+  typography,
+} from '@/theme';
 import { formatDuration } from '@/shared/format/format';
 
 const HANDLE_SIZE = 28;
@@ -168,7 +177,7 @@ export function TrimSlider({
 
 const styles = StyleSheet.create({
   pill: {
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm + 4,
@@ -181,11 +190,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   title: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
   },
   timeRange: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
   },
@@ -215,7 +224,7 @@ const styles = StyleSheet.create({
   handleInner: {
     width: 22,
     height: 22,
-    borderRadius: 11,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.textOnDark,
     borderWidth: 2,
     justifyContent: 'center',
@@ -225,6 +234,6 @@ const styles = StyleSheet.create({
   handleBar: {
     width: 8,
     height: 2,
-    borderRadius: 1,
+    borderRadius: layout.borderRadiusFull,
   },
 });

@@ -1,7 +1,6 @@
 import React, { useCallback } from 'react';
 import { View, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -84,22 +83,7 @@ export default function RecordingsLibraryScreen() {
   );
 
   return (
-    <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          testID="recordings-back"
-          onPress={() => router.back()}
-          style={styles.backButton}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.back', 'Back')}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: textPrimary }]}>
-          {t('recording.library.title', 'My Recordings')}
-        </Text>
-      </View>
-
+    <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
       {isLoading ? (
         <View style={styles.loading}>
           <ActivityIndicator />
@@ -138,22 +122,6 @@ export default function RecordingsLibraryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...typography.sectionTitle,
-    marginLeft: spacing.xs,
   },
   loading: {
     flex: 1,
@@ -196,7 +164,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
   },
   statusText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
   },
 });

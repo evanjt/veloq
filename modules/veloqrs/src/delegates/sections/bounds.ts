@@ -23,7 +23,7 @@ export function trimSection(
     host.notifyAll('sections');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] trimSection failed:', sectionId, { startIndex, endIndex }, e);
+    console.error('[Engine] trimSection failed:', sectionId, { startIndex, endIndex }, e);
     return false;
   }
 }
@@ -36,30 +36,38 @@ export function resetSectionBounds(host: DelegateHost, sectionId: string): boole
     host.notifyAll('sections');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] resetSectionBounds failed:', sectionId, e);
+    console.error('[Engine] resetSectionBounds failed:', sectionId, e);
     return false;
   }
 }
 
 /**
- * Expand section bounds by providing a new polyline (can be larger than original).
+ * Expand section bounds to a wider range of the source activity's GPS track.
  * Backs up original polyline on first edit, re-matches activities.
  */
 export function expandSectionBounds(
   host: DelegateHost,
   sectionId: string,
-  newPolylineFlat: number[]
+  activityId: string,
+  startIndex: number,
+  endIndex: number
 ): boolean {
   if (!host.ready) return false;
   validateId(sectionId, 'section ID');
+  validateId(activityId, 'activity ID');
   try {
     host.timed('expandSectionBounds', () =>
-      host.engine.sections().expandBounds(sectionId, newPolylineFlat)
+      host.engine.sections().expandBounds(sectionId, activityId, startIndex, endIndex)
     );
     host.notifyAll('sections');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] expandSectionBounds failed:', sectionId, e);
+    console.error(
+      '[Engine] expandSectionBounds failed:',
+      sectionId,
+      { activityId, startIndex, endIndex },
+      e
+    );
     return false;
   }
 }

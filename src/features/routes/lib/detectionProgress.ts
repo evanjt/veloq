@@ -11,8 +11,8 @@ const PHASE_DISPLAY_NAMES: Record<string, string> = {
   clustering: 'Clustering sections',
   postprocessing: 'Processing sections',
   saving: 'Saving sections',
-  merging_cross_sport: 'Merging sections',
   recomputing_indicators: 'Computing indicators',
+  diffing: 'Comparing catalogues',
   complete: 'Complete',
 };
 

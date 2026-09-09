@@ -4,9 +4,13 @@
  */
 
 import { useMemo } from 'react';
-import { useEngineGroups } from './useRouteEngine';
+import { useEngineGroups } from './useEngine';
+import type { RouteGroup as NativeRouteGroup } from 'veloqrs';
 import type { RouteGroup } from '@/types';
 import { toActivityType } from '@/types';
+
+/** Engine groups supplied by a caller that already fetched them. */
+type RouteGroupsInput = readonly NativeRouteGroup[];
 
 interface UseRouteMatchResult {
   /** The route group this activity belongs to */
@@ -21,8 +25,17 @@ interface UseRouteMatchResult {
   representativeActivityId: string | null;
 }
 
-export function useRouteMatch(activityId: string | undefined, enabled = true): UseRouteMatchResult {
-  const { groups } = useEngineGroups({ minActivities: 1, enabled });
+export function useRouteMatch(
+  activityId: string | undefined,
+  enabled = true,
+  preComputedGroups?: RouteGroupsInput
+): UseRouteMatchResult {
+  const skipOwnFfiCall = preComputedGroups !== undefined;
+  const { groups: queriedGroups } = useEngineGroups({
+    minActivities: 1,
+    enabled: enabled && !skipOwnFfiCall,
+  });
+  const groups = preComputedGroups ?? queriedGroups;
 
   return useMemo(() => {
     if (!activityId) {
@@ -52,12 +65,10 @@ export function useRouteMatch(activityId: string | undefined, enabled = true): U
     const idx = routeGroup.activityIds.indexOf(activityId);
     const rank = idx >= 0 ? idx + 1 : null;
 
-    // Generate a readable name if no custom name is set
-    // Find the index of this group among same sport type groups for numbering
-    const sameTypeGroups = groups.filter((g) => g.sportType === routeGroup.sportType);
-    const groupIndex = sameTypeGroups.findIndex((g) => g.groupId === routeGroup.groupId) + 1;
-    const sportType = routeGroup.sportType || 'Route';
-    const defaultName = `${sportType} Route ${groupIndex}`;
+    // Generate a readable name if no custom name is set. Numbering is over the
+    // whole catalogue, matching what the engine mints: names carry no sport.
+    const groupIndex = groups.findIndex((g) => g.groupId === routeGroup.groupId) + 1;
+    const defaultName = `Route ${groupIndex}`;
 
     // Convert to RouteGroup type
     const typedGroup: RouteGroup = {

@@ -8,7 +8,7 @@
 
 use tempfile::TempDir;
 use tracematch::SectionConfig;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::persistence::settings_keys;
 
 #[test]
@@ -20,7 +20,7 @@ fn section_config_persists_across_engine_restart() {
     // First engine: write SectionConfig via set_section_config, which
     // both updates in-memory state and persists to the settings table.
     {
-        let mut engine = PersistentRouteEngine::new(db_path_str).unwrap();
+        let mut engine = PersistentEngine::new(db_path_str).unwrap();
         engine.set_section_config(SectionConfig {
             proximity_threshold: 75.0,
             min_section_length: 350.0,
@@ -31,7 +31,7 @@ fn section_config_persists_across_engine_restart() {
 
     // Second engine on the same DB: load() must hydrate section_config
     // from the settings table before any detection runs.
-    let mut engine2 = PersistentRouteEngine::new(db_path_str).unwrap();
+    let mut engine2 = PersistentEngine::new(db_path_str).unwrap();
     engine2.load().unwrap();
 
     assert_eq!(
@@ -56,7 +56,7 @@ fn section_config_falls_back_to_default_when_unset() {
     let dir = TempDir::new().unwrap();
     let db_path = dir.path().join("section_cfg_default.db");
 
-    let mut engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(db_path.to_str().unwrap()).unwrap();
     engine.load().unwrap();
 
     let default = SectionConfig::default();
@@ -83,7 +83,7 @@ fn unparseable_persisted_section_values_keep_existing_config() {
     // Plant garbage in one key, valid value in another. Loader must
     // skip the garbage and apply the valid value.
     {
-        let engine = PersistentRouteEngine::new(db_path_str).unwrap();
+        let engine = PersistentEngine::new(db_path_str).unwrap();
         engine
             .set_setting(settings_keys::SECTION_PROXIMITY_THRESHOLD, "not-a-number")
             .unwrap();
@@ -92,7 +92,7 @@ fn unparseable_persisted_section_values_keep_existing_config() {
             .unwrap();
     }
 
-    let mut engine = PersistentRouteEngine::new(db_path_str).unwrap();
+    let mut engine = PersistentEngine::new(db_path_str).unwrap();
     engine.load().unwrap();
 
     let default = SectionConfig::default();
@@ -111,7 +111,7 @@ fn unparseable_persisted_section_values_keep_existing_config() {
 /// The Phase 2 contract: a user choosing a preset via DetectionManager.set_config
 /// (which calls set_section_config) must see those values applied on the *next*
 /// engine boot without any TS-side re-apply. This test exercises the full chain
-/// at the PersistentRouteEngine layer.
+/// at the PersistentEngine layer.
 #[test]
 fn set_section_config_persists_and_reloads() {
     let dir = TempDir::new().unwrap();
@@ -120,7 +120,7 @@ fn set_section_config_persists_and_reloads() {
 
     // Mimic the user picking "Strict" preset (proximity=35, min_len=300, min_act=4).
     {
-        let mut engine = PersistentRouteEngine::new(db_path_str).unwrap();
+        let mut engine = PersistentEngine::new(db_path_str).unwrap();
         engine.set_section_config(SectionConfig {
             proximity_threshold: 35.0,
             min_section_length: 300.0,
@@ -131,7 +131,7 @@ fn set_section_config_persists_and_reloads() {
     }
 
     // App restart: engine should pick up the same values.
-    let mut engine = PersistentRouteEngine::new(db_path_str).unwrap();
+    let mut engine = PersistentEngine::new(db_path_str).unwrap();
     engine.load().unwrap();
 
     assert_eq!(engine.section_config_proximity_threshold(), 35.0);

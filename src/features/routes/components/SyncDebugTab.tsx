@@ -2,12 +2,12 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, ink, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useActivities } from '@/features/activity/hooks';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { PersistentEngineStats } from 'veloqrs';
@@ -33,7 +33,7 @@ function Section({
   children,
 }: {
   title: string;
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   isDark: boolean;
   defaultOpen?: boolean;
   children: React.ReactNode;
@@ -50,7 +50,7 @@ function Section({
         activeOpacity={0.7}
       >
         <View style={styles.sectionHeaderLeft}>
-          <MaterialCommunityIcons name={icon as any} size={20} color={colors.primary} />
+          <MaterialCommunityIcons name={icon} size={20} color={colors.primary} />
           <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
         </View>
         <MaterialCommunityIcons
@@ -86,11 +86,10 @@ export function SyncDebugTab() {
   const { data: apiActivities } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
-    includeStats: false,
   });
 
   // Engine data (refreshes on subscription trigger)
-  const engine = getRouteEngine();
+  const engine = getEngine();
   const engineActivityIds = useMemo(() => {
     return engine?.getActivityIds() ?? [];
   }, [trigger]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -118,12 +117,12 @@ export function SyncDebugTab() {
 
   // Traffic light color
   const alignmentColor = useMemo(() => {
-    if (alignment.apiCount === 0 && alignment.engineCount === 0) return '#9ca3af'; // gray
+    if (alignment.apiCount === 0 && alignment.engineCount === 0) return colors.iconNeutral;
     if (alignment.missingFromEngine.length === 0 && alignment.extraInEngine.length === 0) {
-      return '#22c55e'; // green
+      return colors.success;
     }
-    if (alignment.missingFromEngine.length <= 3) return '#f59e0b'; // yellow
-    return '#ef4444'; // red
+    if (alignment.missingFromEngine.length <= 3) return colors.warning;
+    return colors.error;
   }, [alignment]);
 
   // State for "Remove N Activities" stepper
@@ -174,10 +173,14 @@ export function SyncDebugTab() {
             setIsRemoving(true);
             let removed = 0;
             const removedIds: string[] = [];
+            const refused: string[] = [];
             for (const id of toRemove) {
-              if (engine.removeActivity(id)) {
+              const result = engine.removeActivity(id);
+              if (result.ok) {
                 removed++;
                 removedIds.push(id);
+              } else {
+                refused.push(`${id}: ${result.reason}`);
               }
             }
             // Clean up orphaned GPS track files
@@ -186,19 +189,17 @@ export function SyncDebugTab() {
             }
             setIsRemoving(false);
             if (removed === 0 && toRemove.length > 0) {
-              Alert.alert(
-                'Remove Failed',
-                'No activities were removed. The FFI bindings may be stale.\n\nRun: ./scripts/generate-bindings.sh && npx expo run:android'
-              );
+              Alert.alert('Remove Failed', `No activities were removed.\n\n${refused.join('\n')}`);
             } else {
               // Trigger background section detection to recompute groups + sections
               engine.startSectionDetection();
               // Invalidate cache + fire syncReset to trigger re-sync of removed activities
               queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
               engine.triggerRefresh('syncReset');
+              const refusalNote = refused.length > 0 ? `\n\nKept:\n${refused.join('\n')}` : '';
               Alert.alert(
                 'Done',
-                `Removed ${removed}/${toRemove.length} activities. Re-sync triggered.\n\nWatch Sync Status section for progress.`
+                `Removed ${removed}/${toRemove.length} activities. Re-sync triggered.\n\nWatch Sync Status section for progress.${refusalNote}`
               );
             }
           },
@@ -219,9 +220,10 @@ export function SyncDebugTab() {
           text: 'Clear & Re-sync',
           style: 'destructive',
           onPress: () => {
-            engine.clear();
-            queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-            Alert.alert('Done', 'Engine cleared. Full re-sync triggered.');
+            void engine.clear().then(() => {
+              queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
+              Alert.alert('Done', 'Engine cleared. Full re-sync triggered.');
+            });
           },
         },
       ]
@@ -427,7 +429,7 @@ export function SyncDebugTab() {
             activeOpacity={0.7}
             disabled={isRemoving || !apiActivities?.length}
           >
-            <MaterialCommunityIcons name="delete-outline" size={18} color="#fff" />
+            <MaterialCommunityIcons name="delete-outline" size={18} color={ink.white} />
             <Text style={styles.dangerButtonText}>
               {isRemoving ? 'Removing...' : `Remove ${removeCount} & Re-sync`}
             </Text>
@@ -441,7 +443,7 @@ export function SyncDebugTab() {
             activeOpacity={0.7}
             disabled={!engine}
           >
-            <MaterialCommunityIcons name="nuke" size={18} color="#fff" />
+            <MaterialCommunityIcons name="nuke" size={18} color={ink.white} />
             <Text style={styles.dangerButtonText}>Hard Re-sync</Text>
           </TouchableOpacity>
           <Text style={[styles.hintText, { color: mutedColor }]}>
@@ -473,7 +475,7 @@ const styles = StyleSheet.create({
   },
   section: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     marginBottom: spacing.md,
     overflow: 'hidden',
   },
@@ -492,7 +494,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
   },
   sectionContent: {
@@ -505,12 +507,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontFamily: 'monospace',
     color: colors.textSecondary,
   },
   statValue: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontFamily: 'monospace',
     color: colors.textPrimary,
     fontWeight: '500',
@@ -524,7 +526,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontStyle: 'italic',
   },
   trafficLight: {
@@ -536,10 +538,10 @@ const styles = StyleSheet.create({
   trafficDot: {
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: layout.borderRadiusFull,
   },
   trafficText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -551,7 +553,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   expandText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   idList: {
@@ -559,7 +561,7 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.sm,
   },
   idText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontFamily: 'monospace',
     lineHeight: 18,
   },
@@ -570,18 +572,18 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.background,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     marginBottom: spacing.sm,
   },
   actionButtonDark: {
     backgroundColor: darkColors.background,
   },
   actionButtonText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
   },
   statusText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontFamily: 'monospace',
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.xs,
@@ -596,7 +598,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   stepperLabel: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -608,7 +610,7 @@ const styles = StyleSheet.create({
   stepperBtn: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
@@ -617,7 +619,7 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.background,
   },
   stepperValue: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
     fontFamily: 'monospace',
     color: colors.textPrimary,
@@ -628,7 +630,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   hintText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     marginTop: spacing.xs,
     paddingHorizontal: spacing.xs,
   },
@@ -639,15 +641,15 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     paddingHorizontal: spacing.md,
-    backgroundColor: '#ef4444',
-    borderRadius: 8,
+    backgroundColor: colors.error,
+    borderRadius: layout.borderRadiusSm,
   },
   dangerButtonDisabled: {
     opacity: 0.5,
   },
   dangerButtonText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
-    color: '#fff',
+    color: ink.white,
   },
 });

@@ -1,12 +1,12 @@
-//! Tier 1.4 — assert that the perf indexes added in migration 024 are
+//! Tier 1.4, assert that the perf indexes added in migration 024 are
 //! actually used by the planner for the queries they target.
 //!
 //! Two checks via `EXPLAIN QUERY PLAN`:
 //! 1. `SELECT COUNT(*) FROM section_activities WHERE section_id = ?
-//!    AND excluded = 0 AND lap_time IS NOT NULL` — visit_count derivation,
+//!    AND excluded = 0 AND lap_time IS NOT NULL`, visit_count derivation,
 //!    must use `idx_section_activities_perf`.
 //! 2. `SELECT id FROM activity_metrics WHERE sport_type = ? ORDER BY date
-//!    DESC LIMIT 50` — feed/sport-filtered queries, must use
+//!    DESC LIMIT 50`, feed/sport-filtered queries, must use
 //!    `idx_activity_metrics_sport_date`.
 //!
 //! Without an index, EXPLAIN QUERY PLAN reports `SCAN <table>`. With the
@@ -17,7 +17,7 @@
 
 use rusqlite::Connection;
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 fn open_engine_db() -> (TempDir, Connection) {
     let dir = TempDir::new().expect("tempdir");
@@ -25,7 +25,7 @@ fn open_engine_db() -> (TempDir, Connection) {
     // Run migrations by opening the engine, then drop and reopen as plain
     // Connection to introspect.
     {
-        let _engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+        let _engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     }
     let conn = Connection::open(&path).expect("reopen");
     (dir, conn)
@@ -86,6 +86,28 @@ fn activity_metrics_sport_date_query_uses_composite_index() {
     );
     assert!(
         !joined.contains("SCAN activity_metrics"),
+        "expected SEARCH (index lookup), got SCAN: {}",
+        joined
+    );
+}
+
+#[test]
+fn activity_matches_by_activity_uses_the_activity_index() {
+    let (_dir, conn) = open_engine_db();
+    let plan = explain(
+        &conn,
+        "SELECT DISTINCT route_id FROM activity_matches \
+         WHERE activity_id = 'act_1' AND excluded = 0",
+    );
+    let joined = plan.join(" | ");
+    println!("[schema_indexes] activity_matches plan: {}", joined);
+    assert!(
+        joined.contains("idx_activity_matches_activity"),
+        "expected plan to use idx_activity_matches_activity, got: {}",
+        joined
+    );
+    assert!(
+        !joined.contains("SCAN activity_matches"),
         "expected SEARCH (index lookup), got SCAN: {}",
         joined
     );

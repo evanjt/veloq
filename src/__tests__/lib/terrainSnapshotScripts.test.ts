@@ -7,7 +7,12 @@
  * carry pitch 0, and 3D output is unchanged by the flat flag's existence.
  */
 
-import { buildRenderSnapshotScript } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
+import {
+  buildRenderSnapshotScript,
+  SNAPSHOT_JPEG_QUALITY,
+  QUALITY_CACHE_VERSION,
+} from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
+import { TERRAIN_CACHE_VERSION } from '@/features/maps/lib/storage/terrainPreviewCache';
 import type { SnapshotRequest } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
 
 function makeRequest(overrides: Partial<SnapshotRequest> = {}): SnapshotRequest {
@@ -72,5 +77,36 @@ describe('buildRenderSnapshotScript', () => {
       expect(script).toContain("id: 'route-outline'");
       expect(script).toContain("id: 'start-end-fill'");
     }
+  });
+});
+
+/**
+ * Scenario: a feed preview is a 1080x720 JPEG drawn once, shown at about a
+ * third of a screen height under a route line, and never zoomed. It was
+ * encoded at 0.95, which is the setting for an image that will be re-encoded,
+ * and cost a measured 240 KB each on a real device.
+ * Expected behaviour: the encode reads a named constant rather than a literal,
+ * and that constant stays in the band a thumbnail wants. A change to it has to
+ * move `TERRAIN_CACHE_VERSION` too, or every preview already on a device keeps
+ * being served at the old setting for the life of the install.
+ */
+describe('the snapshot encode', () => {
+  it('encodes through the shared constant, not a literal in the script', () => {
+    const script = buildRenderSnapshotScript(makeRequest(), 0, 1);
+
+    expect(script).toContain(`canvas.toDataURL('image/jpeg', ${SNAPSHOT_JPEG_QUALITY})`);
+  });
+
+  it('keeps the quality in the band a feed thumbnail wants', () => {
+    // Below 0.7 the route line's edge starts to show against satellite; at
+    // 0.95 the file is twice the size for a difference measured at 1.8% RMSE.
+    expect(SNAPSHOT_JPEG_QUALITY).toBeGreaterThanOrEqual(0.7);
+    expect(SNAPSHOT_JPEG_QUALITY).toBeLessThanOrEqual(0.85);
+  });
+
+  it('has a cache version recorded against the quality it was drawn at', () => {
+    // The pair moves together. A device holds previews drawn at whatever the
+    // quality was when they were made, and only a version bump redraws them.
+    expect(TERRAIN_CACHE_VERSION).toBeGreaterThanOrEqual(QUALITY_CACHE_VERSION);
   });
 });

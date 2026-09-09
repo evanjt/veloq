@@ -1,67 +1,85 @@
 /**
- * Shared conversion functions for native section types to app section types.
+ * The engine's section records, in the shape the app draws.
+ *
+ * One builder per record and no more, each spreading rather than listing its
+ * fields, so an enrichment column reaches every screen the day the engine
+ * starts sending it. Listing is what left `straightness` on three engine
+ * records with no app field at all, and `isLift` off the sections list while
+ * the detail screen had it.
  */
 
 import {
   decodeCoords,
-  type FrequentSection as NativeFrequentSection,
   type Section as NativeSection,
+  type SectionSummary as NativeSectionSummary,
+  type SectionWithPolyline,
 } from 'veloqrs';
 import { convertActivityPortions } from '@/shared/ffi/ffiConversions';
-import type { FrequentSection } from '@/types';
+import type { FrequentSection, RoutePoint, SectionType } from '@/types';
+
+/** The engine sends coordinates encoded; every screen draws them decoded. */
+function decodePolyline(encoded: ArrayBuffer): RoutePoint[] {
+  return decodeCoords(encoded).map((p) => ({ lat: p.latitude, lng: p.longitude }));
+}
+
+/** "custom" or "auto", never the raw string the engine sent. */
+function sectionTypeOf(value: string | undefined): SectionType {
+  return value === 'custom' ? 'custom' : 'auto';
+}
 
 /**
- * Convert a native section (FfiFrequentSection or FfiSection) to app section format.
+ * The full section record, from the in-memory catalogue or the database.
  *
- * FfiFrequentSection: returned by getSections/getEngineSections (non-optional fields)
- * FfiSection: returned by getSectionsForActivity (many optional fields)
+ * Every section-returning export sends this one shape, whichever filter asked
+ * for it.
  */
-export function convertNativeSectionToApp(
-  native: NativeFrequentSection | NativeSection
-): FrequentSection {
-  const polyline = decodeCoords(native.encodedPolyline).map((p) => ({
-    lat: p.latitude,
-    lng: p.longitude,
-  }));
-
-  // Determine section type - FfiSection has sectionType string, FfiFrequentSection doesn't
-  const sectionType =
-    'sectionType' in native
-      ? ((native.sectionType === 'custom' ? 'custom' : 'auto') as 'auto' | 'custom')
-      : 'auto';
-
-  // Convert activityPortions if present (FfiFrequentSection has them, FfiSection doesn't)
-  const activityPortions =
-    'activityPortions' in native && Array.isArray(native.activityPortions)
-      ? convertActivityPortions(native.activityPortions)
-      : undefined;
-
+export function convertNativeSectionToApp(native: NativeSection): FrequentSection {
   return {
-    id: native.id,
-    sectionType,
-    sportType: native.sportType,
-    polyline,
+    ...native,
+    sectionType: sectionTypeOf(native.sectionType),
+    polyline: decodePolyline(native.encodedPolyline),
     representativeActivityId: native.representativeActivityId ?? '',
-    activityIds: native.activityIds,
-    activityPortions,
-    routeIds: ('routeIds' in native ? native.routeIds : undefined) ?? [],
-    visitCount: native.visitCount,
-    distanceMeters: native.distanceMeters,
+    activityPortions: convertActivityPortions(native.activityPortions),
+    routeIds: native.routeIds ?? [],
     name: native.name ?? undefined,
     confidence: native.confidence ?? 0,
     observationCount: native.observationCount ?? 0,
     averageSpread: native.averageSpread ?? 0,
     pointDensity: native.pointDensity ?? [],
-    stability: ('stability' in native ? native.stability : undefined) ?? undefined,
-    version: ('version' in native ? native.version : undefined) ?? undefined,
-    updatedAt: ('updatedAt' in native ? native.updatedAt : undefined) ?? undefined,
-    createdAt: ('createdAt' in native ? native.createdAt : undefined) ?? '',
-    isUserDefined:
-      'isUserDefined' in native ? !!(native as { isUserDefined?: boolean }).isUserDefined : false,
-    disabled: 'disabled' in native ? !!(native as { disabled?: boolean }).disabled : false,
-    supersededBy:
-      ('supersededBy' in native
-        ? (native as { supersededBy?: string | null }).supersededBy
-        : null) ?? null,
+    createdAt: native.createdAt ?? '',
+    supersededBy: native.supersededBy ?? null,
+  };
+}
+
+/**
+ * The list record, which carries its own polyline so a row needs no call of
+ * its own. It has no `activityIds`: the list does not ask for them.
+ */
+export function convertSectionWithPolylineToApp(native: SectionWithPolyline): FrequentSection {
+  return {
+    ...native,
+    sectionType: native.id.startsWith('custom_') ? 'custom' : 'auto',
+    polyline: decodePolyline(native.encodedPolyline),
+    activityIds: [],
+    routeIds: [],
+    name: native.name ?? undefined,
+    scale: native.scale ?? undefined,
+    createdAt: new Date().toISOString(),
+    supersededBy: native.supersededBy ?? null,
+  };
+}
+
+/**
+ * The summary record, which carries no geometry at all. A caller that draws
+ * the line fetches it separately.
+ */
+export function convertSectionSummaryToApp(native: NativeSectionSummary): FrequentSection {
+  return {
+    ...native,
+    sectionType: sectionTypeOf(native.sectionType),
+    polyline: [],
+    activityIds: [],
+    name: native.name ?? undefined,
+    supersededBy: native.supersededBy ?? null,
   };
 }

@@ -1,0 +1,71 @@
+//! Suite #2, user-edit survival.
+//!
+//! The believability core: what the user does to a section must be honoured
+//! across later resyncs. Pins/accepts freeze; hides stay hidden; everything
+//! else is free to auto-morph. These behaviours live in the persistence layer
+//! and are method-agnostic, so they run on the fast Control arm.
+//!
+//! Snapshots read the user-visible DB view, so an accepted section shows up and
+//! a disabled one drops out exactly as the app renders them.
+//!
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2_edits`
+
+mod lifecycle_support;
+
+use lifecycle_support::*;
+use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
+
+fn corpus() -> LifecycleCorpus {
+    LifecycleCorpus::generate(&LifecycleConfig::default())
+}
+
+/// Accepting (pinning) a section survives a later resync without crashing and
+/// stays user-defined. The spared accepted row keeps a stable id, so fresh
+/// detection cannot re-mint that id for different ground and collide on INSERT.
+/// A red here means a pinned section breaks the next sync.
+#[test]
+fn accept_survives_resync() {
+    let corpus = corpus();
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, _f) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
+
+    engine.accept_section(&id).expect("accept_section");
+    let after = try_ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta))
+        .expect("resync after accepting a section must not crash")
+        .snapshot;
+
+    let kept = after
+        .sections
+        .get(&id)
+        .unwrap_or_else(|| panic!("accepted section {id} was wiped by resync"));
+    assert!(
+        kept.is_user_defined,
+        "accepted section {id} survived but lost its user-defined flag"
+    );
+}
+
+/// A disabled corridor must NOT re-emerge on resync (invariant 6). The
+/// disabled-only section row is `is_user_defined = 0` and dies in the
+/// re-detect wipe; what keeps the corridor hidden is the retained
+/// `section_intents` record, whose ground the emitter suppresses.
+#[test]
+fn disabled_corridor_stays_hidden() {
+    let corpus = corpus();
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, disabled_ground) =
+        busiest_section(&cold.snapshot).expect("cold detect produced a section");
+
+    engine.disable_section(&id).expect("disable_section");
+    let after = ingest_step(&mut engine, "resync", &refs(&corpus.bucket_b_delta)).snapshot;
+
+    let reemerged = after
+        .sections
+        .values()
+        .any(|s| ground_matches(&disabled_ground, s));
+    assert!(
+        !reemerged,
+        "disabled corridor {id} re-emerged as a visible section after resync (invariant 6)"
+    );
+}

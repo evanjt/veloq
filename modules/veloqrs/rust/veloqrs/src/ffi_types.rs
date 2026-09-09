@@ -170,10 +170,10 @@ impl From<crate::ActivityMetrics> for FfiActivityMetrics {
             avg_hr: m.avg_hr,
             avg_power: m.avg_power,
             sport_type: m.sport_type,
-            training_load: None,
-            ftp: None,
-            power_zone_times: None,
-            hr_zone_times: None,
+            training_load: m.training_load,
+            ftp: m.ftp,
+            power_zone_times: m.power_zone_times,
+            hr_zone_times: m.hr_zone_times,
         }
     }
 }
@@ -191,6 +191,10 @@ impl From<FfiActivityMetrics> for crate::ActivityMetrics {
             avg_hr: m.avg_hr,
             avg_power: m.avg_power,
             sport_type: m.sport_type,
+            training_load: m.training_load,
+            ftp: m.ftp,
+            power_zone_times: m.power_zone_times,
+            hr_zone_times: m.hr_zone_times,
         }
     }
 }
@@ -198,6 +202,22 @@ impl From<FfiActivityMetrics> for crate::ActivityMetrics {
 // ============================================================================
 // Aggregate Query Result Types
 // ============================================================================
+
+/// A week's load, day by day, with how evenly it was spread.
+///
+/// The window sum says a week carried four hundred points and not whether that
+/// was one day or seven. Two weeks of the same total spread very differently:
+/// over one real account's 190 loaded weeks, those carrying 200 to 400 points
+/// ran from 0.45 to 1.92 on `evenness`.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiWeekLoadShape {
+    /// One entry per day of the window, gaps included as zero.
+    pub daily: Vec<f64>,
+    /// Days carrying any load at all.
+    pub training_days: u32,
+    /// Mean daily load over its standard deviation. Higher is more even.
+    pub evenness: f64,
+}
 
 /// Aggregated stats for a date range.
 #[derive(Debug, Clone, uniffi::Record)]
@@ -212,17 +232,25 @@ pub struct FfiPeriodStats {
     pub total_tss: f64,
 }
 
-/// FTP trend data.
+/// Cycling FTP trend, read from the athlete's configured FTP setting as it
+/// stood on each activity (`icu_ftp`), not from a modelled estimate. It moves
+/// only when the setting is edited. The per-activity estimate
+/// (`icu_pm_ftp_watts`) and the daily model estimate (`sportInfo.eftp` in
+/// `wellness.raw`) are separate series and are not read here.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiFtpTrend {
-    /// Most recent FTP value
+    /// Newest FTP setting on record
     pub latest_ftp: Option<u16>,
-    /// Date of most recent FTP (Unix timestamp seconds)
+    /// Activity start of the newest setting (Unix timestamp seconds)
     pub latest_date: Option<i64>,
-    /// Previous different FTP value
+    /// Newest setting that differs from `latest_ftp`
     pub previous_ftp: Option<u16>,
-    /// Date of previous FTP (Unix timestamp seconds)
+    /// Activity start of that earlier setting (Unix timestamp seconds)
     pub previous_date: Option<i64>,
+    /// Days carrying an estimate from the one compared against to the newest,
+    /// inclusive. The insight ranker weighs a claim by what it stands on, and
+    /// a step measured off three days is not the one measured off thirty.
+    pub sample_count: u32,
 }
 
 /// Pace trend data (critical speed for running/swimming).
@@ -236,6 +264,9 @@ pub struct FfiPaceTrend {
     pub previous_pace: Option<f64>,
     /// Date of previous snapshot (Unix timestamp seconds)
     pub previous_date: Option<i64>,
+    /// Snapshots the trend was read from, for the same reason as
+    /// `FfiFtpTrend::sample_count`.
+    pub sample_count: u32,
 }
 
 /// Summary card batch data: combines period stats, FTP trend, and pace trends.
@@ -369,38 +400,6 @@ impl From<FfiRouteGroup> for tracematch::RouteGroup {
 // Section Detection Types
 // ============================================================================
 
-/// Scale preset for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiScalePreset {
-    pub name: String,
-    pub min_length: f64,
-    pub max_length: f64,
-    pub min_activities: u32,
-}
-
-impl From<tracematch::ScalePreset> for FfiScalePreset {
-    fn from(s: tracematch::ScalePreset) -> Self {
-        Self {
-            name: s.name.to_string(),
-            min_length: s.min_length,
-            max_length: s.max_length,
-            min_activities: s.min_activities,
-        }
-    }
-}
-
-impl From<FfiScalePreset> for tracematch::ScalePreset {
-    fn from(s: FfiScalePreset) -> Self {
-        Self {
-            name: s.name.parse().unwrap_or_default(),
-            min_length: s.min_length,
-            max_length: s.max_length,
-            min_activities: s.min_activities,
-        }
-    }
-}
-
 /// Section config for FFI
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -409,20 +408,7 @@ pub struct FfiSectionConfig {
     pub min_section_length: f64,
     pub max_section_length: f64,
     pub min_activities: u32,
-    pub cluster_tolerance: f64,
-    pub sample_points: u32,
-    pub detection_mode: String,
-    pub include_potentials: bool,
-    pub scale_presets: Vec<FfiScalePreset>,
-    pub preserve_hierarchy: bool,
-    pub jaccard_threshold: f64,
-    pub min_routes: u32,
-    pub enable_density_splits: bool,
-    pub merge_distance_multiplier: f64,
-    pub detection_method: String,
-    pub min_cell_visits: u32,
     pub divergence_threshold: f64,
-    pub min_corridor_tracks: u32,
 }
 
 impl From<FfiSectionConfig> for tracematch::SectionConfig {
@@ -432,24 +418,9 @@ impl From<FfiSectionConfig> for tracematch::SectionConfig {
             min_section_length: c.min_section_length,
             max_section_length: c.max_section_length,
             min_activities: c.min_activities,
-            cluster_tolerance: c.cluster_tolerance,
-            sample_points: c.sample_points,
-            detection_mode: c.detection_mode.parse().unwrap_or_default(),
-            include_potentials: c.include_potentials,
-            scale_presets: c
-                .scale_presets
-                .into_iter()
-                .map(tracematch::ScalePreset::from)
-                .collect(),
-            preserve_hierarchy: c.preserve_hierarchy,
-            jaccard_threshold: c.jaccard_threshold,
-            min_routes: c.min_routes,
-            enable_density_splits: c.enable_density_splits,
-            merge_distance_multiplier: c.merge_distance_multiplier,
-            detection_method: c.detection_method.parse().unwrap_or_default(),
-            min_cell_visits: c.min_cell_visits,
             divergence_threshold: c.divergence_threshold,
-            min_corridor_tracks: c.min_corridor_tracks,
+            // Pooling is not a user setting, so it stays off the FFI record.
+            pool_sports: tracematch::SectionConfig::default().pool_sports,
         }
     }
 }
@@ -461,25 +432,7 @@ impl From<&tracematch::SectionConfig> for FfiSectionConfig {
             min_section_length: c.min_section_length,
             max_section_length: c.max_section_length,
             min_activities: c.min_activities,
-            cluster_tolerance: c.cluster_tolerance,
-            sample_points: c.sample_points,
-            detection_mode: c.detection_mode.to_string(),
-            include_potentials: c.include_potentials,
-            scale_presets: c
-                .scale_presets
-                .iter()
-                .cloned()
-                .map(FfiScalePreset::from)
-                .collect(),
-            preserve_hierarchy: c.preserve_hierarchy,
-            jaccard_threshold: c.jaccard_threshold,
-            min_routes: c.min_routes,
-            enable_density_splits: c.enable_density_splits,
-            merge_distance_multiplier: c.merge_distance_multiplier,
-            detection_method: c.detection_method.to_string(),
-            min_cell_visits: c.min_cell_visits,
             divergence_threshold: c.divergence_threshold,
-            min_corridor_tracks: c.min_corridor_tracks,
         }
     }
 }
@@ -492,24 +445,7 @@ impl Default for FfiSectionConfig {
             min_section_length: c.min_section_length,
             max_section_length: c.max_section_length,
             min_activities: c.min_activities,
-            cluster_tolerance: c.cluster_tolerance,
-            sample_points: c.sample_points,
-            detection_mode: c.detection_mode.to_string(),
-            include_potentials: c.include_potentials,
-            scale_presets: c
-                .scale_presets
-                .into_iter()
-                .map(FfiScalePreset::from)
-                .collect(),
-            preserve_hierarchy: c.preserve_hierarchy,
-            jaccard_threshold: c.jaccard_threshold,
-            min_routes: c.min_routes,
-            enable_density_splits: c.enable_density_splits,
-            merge_distance_multiplier: c.merge_distance_multiplier,
-            detection_method: c.detection_method.to_string(),
-            min_cell_visits: c.min_cell_visits,
             divergence_threshold: c.divergence_threshold,
-            min_corridor_tracks: c.min_corridor_tracks,
         }
     }
 }
@@ -537,145 +473,33 @@ impl From<tracematch::SectionPortion> for FfiSectionPortion {
     }
 }
 
-/// Frequent section for FFI
+/// A named corridor: a durable user name keyed to ground, with its current
+/// resolution onto the visible catalogue. `section_id` is None while the
+/// name is dormant (no visible section covers its ground).
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
-pub struct FfiFrequentSection {
-    pub id: String,
-    pub name: Option<String>,
-    pub sport_type: String,
-    pub encoded_polyline: Vec<u8>,
-    pub representative_activity_id: String,
-    pub activity_ids: Vec<String>,
-    pub activity_portions: Vec<FfiSectionPortion>,
-    pub route_ids: Vec<String>,
-    pub visit_count: u32,
-    pub distance_meters: f64,
-    pub confidence: f64,
-    pub observation_count: u32,
-    pub average_spread: f64,
-    pub point_density: Vec<u32>,
-    pub scale: Option<String>,
-    pub is_user_defined: bool,
-    pub stability: f64,
-    pub version: u32,
-    pub updated_at: Option<String>,
-    pub created_at: Option<String>,
+pub struct FfiNamedCorridor {
+    pub intent_id: String,
+    pub name: String,
+    pub encoded_footprint: Vec<u8>,
+    pub sport_type: Option<String>,
+    pub created_at: String,
+    pub section_id: Option<String>,
+    pub coverage: f64,
+    pub primary: bool,
 }
 
-impl From<tracematch::FrequentSection> for FfiFrequentSection {
-    fn from(s: tracematch::FrequentSection) -> Self {
-        Self::from(&s)
-    }
-}
-
-// Borrow-based conversion so get-all / get-filtered paths don't deep-copy the
-// large `activity_traces` HashMap that the FFI struct never carries.
-impl From<&tracematch::FrequentSection> for FfiFrequentSection {
-    fn from(s: &tracematch::FrequentSection) -> Self {
+impl From<crate::persistence::sections::NamedCorridor> for FfiNamedCorridor {
+    fn from(c: crate::persistence::sections::NamedCorridor) -> Self {
         Self {
-            id: s.id.clone(),
-            name: s.name.clone(),
-            sport_type: s.sport_type.clone(),
-            encoded_polyline: crate::coords::encode(&s.polyline),
-            representative_activity_id: s.representative_activity_id.clone(),
-            activity_ids: s.activity_ids.clone(),
-            activity_portions: s
-                .activity_portions
-                .iter()
-                .cloned()
-                .map(FfiSectionPortion::from)
-                .collect(),
-            route_ids: s.route_ids.clone(),
-            visit_count: s.visit_count,
-            distance_meters: s.distance_meters,
-            confidence: s.confidence,
-            observation_count: s.observation_count,
-            average_spread: s.average_spread,
-            point_density: s.point_density.clone(),
-            scale: s.scale.map(|s| s.to_string()),
-            is_user_defined: s.is_user_defined,
-            stability: s.stability,
-            version: s.version,
-            updated_at: s.updated_at.clone(),
-            created_at: s.created_at.clone(),
-        }
-    }
-}
-
-/// Potential section for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiPotentialSection {
-    pub id: String,
-    pub sport_type: String,
-    pub encoded_polyline: Vec<u8>,
-    pub activity_ids: Vec<String>,
-    pub visit_count: u32,
-    pub distance_meters: f64,
-    pub confidence: f64,
-    pub scale: String,
-}
-
-impl From<tracematch::PotentialSection> for FfiPotentialSection {
-    fn from(s: tracematch::PotentialSection) -> Self {
-        Self {
-            id: s.id,
-            sport_type: s.sport_type,
-            encoded_polyline: crate::coords::encode(&s.polyline),
-            activity_ids: s.activity_ids,
-            visit_count: s.visit_count,
-            distance_meters: s.distance_meters,
-            confidence: s.confidence,
-            scale: s.scale.to_string(),
-        }
-    }
-}
-
-/// Detection stats for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiDetectionStats {
-    pub activities_processed: u32,
-    pub overlaps_found: u32,
-    pub sections_by_scale: std::collections::HashMap<String, u32>,
-    pub potentials_by_scale: std::collections::HashMap<String, u32>,
-}
-
-impl From<tracematch::DetectionStats> for FfiDetectionStats {
-    fn from(s: tracematch::DetectionStats) -> Self {
-        Self {
-            activities_processed: s.activities_processed,
-            overlaps_found: s.overlaps_found,
-            sections_by_scale: s.sections_by_scale,
-            potentials_by_scale: s.potentials_by_scale,
-        }
-    }
-}
-
-/// Multi-scale section result for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiMultiScaleSectionResult {
-    pub sections: Vec<FfiFrequentSection>,
-    pub potentials: Vec<FfiPotentialSection>,
-    pub stats: FfiDetectionStats,
-}
-
-impl From<tracematch::MultiScaleSectionResult> for FfiMultiScaleSectionResult {
-    fn from(r: tracematch::MultiScaleSectionResult) -> Self {
-        Self {
-            sections: r
-                .sections
-                .into_iter()
-                .map(FfiFrequentSection::from)
-                .collect(),
-            potentials: r
-                .potentials
-                .into_iter()
-                .map(FfiPotentialSection::from)
-                .collect(),
-            stats: FfiDetectionStats::from(r.stats),
+            intent_id: c.intent_id,
+            name: c.name,
+            encoded_footprint: crate::coords::encode(&c.footprint),
+            sport_type: c.sport_type,
+            created_at: c.created_at,
+            section_id: c.section_id,
+            coverage: c.coverage,
+            primary: c.primary,
         }
     }
 }
@@ -685,6 +509,27 @@ impl From<tracematch::MultiScaleSectionResult> for FfiMultiScaleSectionResult {
 // ============================================================================
 
 /// Unified section for FFI.
+/// Which sections a read wants. Every field is a narrowing, and an empty
+/// filter is every visible section.
+///
+/// One record rather than a call per narrowing: every read returns the same
+/// list, and the corridor-name overlay is applied once behind it.
+#[derive(Debug, Clone, Default, uniffi::Record)]
+pub struct FfiSectionFilter {
+    /// Only this sport's sections.
+    #[uniffi(default = None)]
+    pub sport_type: Option<String>,
+    /// Only sections visited at least this many times.
+    #[uniffi(default = None)]
+    pub min_visits: Option<u32>,
+    /// Only "auto" or only "custom" sections.
+    #[uniffi(default = None)]
+    pub section_type: Option<String>,
+    /// Only sections this activity passes through.
+    #[uniffi(default = None)]
+    pub activity_id: Option<String>,
+}
+
 /// Represents both auto-detected and custom sections with the same structure.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -697,6 +542,9 @@ pub struct FfiSection {
     pub distance_meters: f64,
     pub representative_activity_id: Option<String>,
     pub activity_ids: Vec<String>,
+    /// Each activity's portion of the section. Only the in-memory catalogue
+    /// carries these, so the database path sends an empty list.
+    pub activity_portions: Vec<FfiSectionPortion>,
     pub visit_count: u32,
     // Auto-specific metadata (None for custom sections)
     pub confidence: Option<f64>,
@@ -706,10 +554,12 @@ pub struct FfiSection {
     pub scale: Option<String>,
     pub is_user_defined: bool,
     pub stability: Option<f64>,
+    pub elevation_gain_m: Option<f64>,
+    pub avg_grade_percent: Option<f64>,
     pub version: Option<u32>,
     pub updated_at: Option<String>,
     pub created_at: String,
-    // Route associations
+    /// Routes the section's activities are grouped into, from the junction join
     pub route_ids: Option<Vec<String>>,
     // Custom-specific fields (None for auto sections)
     pub source_activity_id: Option<String>,
@@ -718,6 +568,13 @@ pub struct FfiSection {
     // Visibility state
     pub disabled: bool,
     pub superseded_by: Option<String>,
+    pub elevation_loss_m: Option<f64>,
+    pub max_grade_percent: Option<f64>,
+    pub straightness: Option<f64>,
+    pub klass: Option<String>,
+    pub is_lift: bool,
+    pub rank_score: Option<f64>,
+    pub sport_rank_score: Option<f64>,
 }
 
 impl From<crate::sections::Section> for FfiSection {
@@ -731,6 +588,7 @@ impl From<crate::sections::Section> for FfiSection {
             distance_meters: s.distance_meters,
             representative_activity_id: s.representative_activity_id,
             activity_ids: s.activity_ids,
+            activity_portions: Vec::new(),
             visit_count: s.visit_count,
             confidence: s.confidence,
             observation_count: s.observation_count,
@@ -739,6 +597,15 @@ impl From<crate::sections::Section> for FfiSection {
             scale: s.scale,
             is_user_defined: s.is_user_defined,
             stability: s.stability,
+            elevation_gain_m: s.elevation_gain_m,
+            avg_grade_percent: s.avg_grade_percent,
+            elevation_loss_m: s.elevation_loss_m,
+            max_grade_percent: s.max_grade_percent,
+            straightness: s.straightness,
+            klass: s.klass,
+            is_lift: s.is_lift,
+            rank_score: s.rank_score,
+            sport_rank_score: s.sport_rank_score,
             version: s.version,
             updated_at: s.updated_at,
             created_at: s.created_at,
@@ -749,6 +616,63 @@ impl From<crate::sections::Section> for FfiSection {
             disabled: s.disabled,
             superseded_by: s.superseded_by,
         }
+    }
+}
+
+/// The in-memory catalogue reaches TypeScript as the same record the database
+/// path sends. The catalogue does not model type, visibility or a custom
+/// section's source slice, so this fills them as an auto section that is
+/// visible; a read by id overlays the row's own values afterwards.
+impl From<&tracematch::FrequentSection> for FfiSection {
+    fn from(s: &tracematch::FrequentSection) -> Self {
+        Self {
+            id: s.id.clone(),
+            section_type: crate::sections::SectionType::Auto.as_str().to_string(),
+            name: s.name.clone(),
+            sport_type: s.sport_type.clone(),
+            encoded_polyline: crate::coords::encode(&s.polyline),
+            distance_meters: s.distance_meters,
+            representative_activity_id: Some(s.representative_activity_id.clone()),
+            activity_ids: s.activity_ids.clone(),
+            activity_portions: s
+                .activity_portions
+                .iter()
+                .cloned()
+                .map(FfiSectionPortion::from)
+                .collect(),
+            visit_count: s.visit_count,
+            confidence: Some(s.confidence),
+            observation_count: Some(s.observation_count),
+            average_spread: Some(s.average_spread),
+            point_density: Some(s.point_density.clone()),
+            scale: s.scale.map(|sc| sc.to_string()),
+            is_user_defined: s.is_user_defined,
+            stability: Some(s.stability),
+            elevation_gain_m: s.elevation_gain_m,
+            avg_grade_percent: s.avg_grade_percent,
+            version: Some(s.version),
+            updated_at: s.updated_at.clone(),
+            created_at: s.created_at.clone().unwrap_or_default(),
+            route_ids: None,
+            source_activity_id: None,
+            start_index: None,
+            end_index: None,
+            disabled: false,
+            superseded_by: None,
+            elevation_loss_m: s.enrichment.elevation_loss_m,
+            max_grade_percent: s.enrichment.max_grade_percent,
+            straightness: s.enrichment.straightness,
+            klass: s.enrichment.klass.map(|k| k.as_str().to_string()),
+            is_lift: s.enrichment.is_lift,
+            rank_score: s.rank.as_ref().map(|r| r.score),
+            sport_rank_score: s.rank.as_ref().map(|r| r.sport_score),
+        }
+    }
+}
+
+impl From<tracematch::FrequentSection> for FfiSection {
+    fn from(s: tracematch::FrequentSection) -> Self {
+        Self::from(&s)
     }
 }
 
@@ -770,12 +694,90 @@ pub struct FfiSectionLap {
     pub pace: f64,
     /// Distance in meters
     pub distance: f64,
-    /// Direction: "forward" or "backward"
+    /// Direction: "same", "reverse" or "partial"
     pub direction: String,
     /// Start index in the activity's GPS track
     pub start_index: u32,
     /// End index in the activity's GPS track
     pub end_index: u32,
+    /// Mean heart rate over the lap, when the activity carried a stream.
+    pub avg_hr: Option<f64>,
+}
+
+/// One ledger row of a section.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionHistoryEvent {
+    pub id: i64,
+    pub at: String,
+    /// formed, restored, split, recut, dissolved, merged, superseded,
+    /// reverted, pr_rebased, baseline or algorithm_changed.
+    pub kind: String,
+    /// JSON: the era snapshot, lineage links and what was around the change.
+    pub details: Option<String>,
+    pub geometry_version: Option<i64>,
+}
+
+/// One stored geometry version of a section.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionGeometryVersion {
+    pub version: i64,
+    pub created_at: String,
+    pub milestone: bool,
+    pub pinned: bool,
+}
+
+/// A section the ledger remembers and the catalogue no longer holds.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiRetiredSection {
+    pub section_id: String,
+    pub kind: String,
+    pub at: String,
+    pub into: Option<String>,
+    pub versions: Vec<i64>,
+}
+
+/// The claims the change card may make on this build.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiChangeCardSupport {
+    pub deterministic: bool,
+    pub same_result_drip_or_batch: bool,
+    pub ledger: bool,
+    pub revert: bool,
+    pub retired: bool,
+    pub pinned_survive: bool,
+    pub same_on_every_device: bool,
+}
+
+/// A recent change on a live section, for the insights feed.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionChange {
+    pub section_id: String,
+    pub kind: String,
+    pub at: String,
+}
+
+/// A split sibling's parent and discriminator, for the read side to name it.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionLineage {
+    pub section_id: String,
+    pub parent_id: String,
+    /// A cardinal ("north", "east", "south", "west") or an ordinal ("2").
+    pub discriminator: String,
+}
+
+/// One excluded traversal, addressed the way the junction stores it.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiExcludedLap {
+    pub activity_id: String,
+    /// Start index in the activity's GPS track
+    pub start_index: u32,
 }
 
 impl From<crate::SectionLap> for FfiSectionLap {
@@ -789,6 +791,7 @@ impl From<crate::SectionLap> for FfiSectionLap {
             direction: l.direction,
             start_index: l.start_index,
             end_index: l.end_index,
+            avg_hr: l.avg_hr,
         }
     }
 }
@@ -814,7 +817,7 @@ pub struct FfiSectionPerformanceRecord {
     pub avg_time: f64,
     /// Average pace in m/s
     pub avg_pace: f64,
-    /// Primary direction: "forward" or "backward"
+    /// Primary direction: "same" or "reverse"
     pub direction: String,
     /// Section distance in meters
     pub section_distance: f64,
@@ -995,6 +998,11 @@ pub struct FfiRoutePerformanceResult {
     pub reverse_stats: Option<FfiDirectionStats>,
     /// Current activity's rank (1 = fastest), if current_activity_id was provided
     pub current_rank: Option<u32>,
+    /// Attempts with a moving time, over the same population as `current_rank`
+    pub attempt_count: u32,
+    /// Share of those attempts slower than the current one, 0 to 100.
+    /// `None` for a lone attempt or an activity that is not on the route.
+    pub percentile_rank: Option<f64>,
 }
 
 impl From<crate::RoutePerformanceResult> for FfiRoutePerformanceResult {
@@ -1016,6 +1024,8 @@ impl From<crate::RoutePerformanceResult> for FfiRoutePerformanceResult {
             forward_stats: r.forward_stats.map(FfiDirectionStats::from),
             reverse_stats: r.reverse_stats.map(FfiDirectionStats::from),
             current_rank: r.current_rank,
+            attempt_count: r.attempt_count,
+            percentile_rank: r.percentile_rank,
         }
     }
 }
@@ -1079,6 +1089,14 @@ pub struct FfiSectionWithPolyline {
     pub is_user_defined: bool,
     pub disabled: bool,
     pub superseded_by: Option<String>,
+    pub elevation_gain_m: Option<f64>,
+    pub elevation_loss_m: Option<f64>,
+    pub avg_grade_percent: Option<f64>,
+    pub max_grade_percent: Option<f64>,
+    pub klass: Option<String>,
+    pub is_lift: bool,
+    pub rank_score: Option<f64>,
+    pub sport_rank_score: Option<f64>,
 }
 
 /// All data needed by the Routes screen in a single FFI call.
@@ -1120,7 +1138,7 @@ pub struct FfiRankedSection {
     pub median_recent_secs: f64,
     pub days_since_last: u32,
     /// -1 = declining, 0 = stable, 1 = improving
-    pub trend: i32,
+    pub trend: i8,
     /// Whether the most recent effort is the all-time best time
     pub latest_is_pr: bool,
 }
@@ -1205,8 +1223,9 @@ pub struct FfiWorkoutSection {
     pub last_time_secs: Option<f64>,
     pub days_since_last: Option<i32>,
     pub pr_days_ago: Option<i32>,
-    /// "improving" | "stable" | "declining" - empty string when insufficient data
-    pub trend: String,
+    /// -1 = declining, 0 = stable, 1 = improving. None when there is not
+    /// enough history to say.
+    pub trend: Option<i8>,
 }
 
 // ============================================================================
@@ -1337,6 +1356,42 @@ impl From<crate::CalendarSummary> for FfiCalendarSummary {
 // Activity Pattern Types
 // ============================================================================
 
+/// One Monday-anchored week of training totals, derived from
+/// `activity_metrics`. Replaces the intervals.icu athlete-summary endpoint:
+/// the screens read only these four numbers.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiWeeklySummary {
+    /// Monday of the week, epoch seconds at local midnight.
+    pub week_start: i64,
+    pub count: u32,
+    /// Moving time in seconds.
+    pub moving_time: i64,
+    /// Distance in metres.
+    pub distance: f64,
+    /// Training load (TSS).
+    pub training_load: f64,
+}
+
+/// One untyped calendar event payload, keyed by id and day.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiCalendarEventBody {
+    pub event_id: String,
+    /// Event day as epoch seconds.
+    pub date: i64,
+    pub raw: String,
+}
+
+/// One untyped activity payload, keyed by id and start time. Demo seeding
+/// writes these; a live sync writes them from the same shape.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivityBody {
+    pub activity_id: String,
+    /// Start time as epoch seconds.
+    pub date: i64,
+    /// The untyped intervals.icu activity payload.
+    pub raw: String,
+}
+
 /// One wellness row passed in from TS (intervals.icu sync). Fields outside
 /// this subset (sleepQuality, spO2, etc.) aren't persisted yet - the TS
 /// sync helper only forwards the fields the Rust atomics consume.
@@ -1357,6 +1412,9 @@ pub struct FfiWellnessRow {
     pub stress: Option<i32>,
     pub mood: Option<i32>,
     pub motivation: Option<i32>,
+    /// The untyped intervals.icu body for this day, when the caller has it.
+    /// Omitting it leaves any previously stored body intact.
+    pub raw: Option<String>,
 }
 
 /// Sparkline payload for the SummaryCard: rounded integer arrays, oldest
@@ -1390,14 +1448,6 @@ pub struct FfiRankedSectionsBySport {
     pub sections: Vec<FfiRankedSection>,
 }
 
-/// Bundled patterns payload for the home screen: today's pattern alongside
-/// the full detected set, delivered in a single FFI call.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiActivityPatternsBundle {
-    pub today: Option<FfiActivityPattern>,
-    pub all: Vec<FfiActivityPattern>,
-}
-
 /// A detected recurring training pattern from k-means clustering.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiActivityPattern {
@@ -1425,27 +1475,6 @@ pub struct FfiActivityPattern {
     pub silhouette_score: f32,
     /// Days since the most recent activity in this cluster
     pub days_since_last: u32,
-    /// Sections commonly traversed by activities in this pattern
-    pub common_sections: Vec<FfiPatternSection>,
-}
-
-/// A section commonly associated with a training pattern.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiPatternSection {
-    /// Section identifier
-    pub section_id: String,
-    /// Section display name
-    pub section_name: String,
-    /// Fraction of cluster activities that traverse this section (0.0-1.0)
-    pub appearance_rate: f32,
-    /// Best (fastest) traversal time in seconds
-    pub best_time_secs: f32,
-    /// Median of the 5 most recent traversal times in seconds
-    pub median_recent_secs: f32,
-    /// Performance trend: None=insufficient data, -1=declining, 0=stable, 1=improving
-    pub trend: Option<i8>,
-    /// Total number of traversals across cluster activities
-    pub traversal_count: u32,
 }
 
 // ============================================================================
@@ -1459,6 +1488,10 @@ pub struct FfiRecentPR {
     pub section_name: String,
     pub best_time: f64,
     pub days_ago: u32,
+    /// Lifetime traversals of the section. A record set over three outings and
+    /// one set over fifty are different claims, and the ranker has no other way
+    /// to tell them apart.
+    pub traversal_count: u32,
 }
 
 /// Batch insights data: combines period stats, trends, patterns, and recent PRs.
@@ -1483,6 +1516,51 @@ pub struct FfiInsightsData {
     pub today_pattern: Option<FfiActivityPattern>,
     /// Up to 3 recent section PRs (best times set in last 7 days)
     pub recent_prs: Vec<FfiRecentPR>,
+    /// Sections held by the engine, for the section-readiness check
+    pub section_count: u32,
+    /// Sport types the ranked-section lists were built for
+    pub sport_types: Vec<String>,
+    /// ML-ranked sections per sport, empty when sections were not requested
+    pub ranked_sections: Vec<FfiRankedSectionsBySport>,
+    /// Aerobic efficiency trends worth surfacing, already filtered and capped
+    pub efficiency_trends: Vec<FfiEfficiencyTrend>,
+    /// Whether any strength activity exists
+    pub has_strength_data: bool,
+    /// Strength volume over the requested month and weeks, when data exists
+    pub strength_series: Option<FfiStrengthInsightSeries>,
+}
+
+/// Scalar inputs for the insights bundle.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiInsightsParams {
+    /// Start of the current week
+    pub current_start: i64,
+    /// Now
+    pub current_end: i64,
+    /// Start of the previous week
+    pub prev_start: i64,
+    /// End of the previous week
+    pub prev_end: i64,
+    /// Start of the four-week chronic window
+    pub chronic_start: i64,
+    /// Start of today
+    pub today_start: i64,
+    /// Whether section-derived insights are wanted at all
+    pub include_sections: bool,
+    /// Ranked sections requested per sport
+    pub ranked_limit: u32,
+    /// Sections last visited beyond this many days get no efficiency trend
+    pub active_window_days: u32,
+    /// Efficiency candidates taken from each sport's ranked list
+    pub efficiency_per_sport: u32,
+    /// Efficiency trends to return at most
+    pub efficiency_limit: u32,
+    /// Minimum matched efforts before an efficiency trend counts
+    pub efficiency_min_efforts: u32,
+    /// Trailing month the strength summary covers
+    pub strength_month: FfiTimestampRange,
+    /// Trailing weeks the strength summary covers
+    pub strength_weeks: Vec<FfiTimestampRange>,
 }
 
 // ============================================================================
@@ -1497,31 +1575,176 @@ pub struct FfiPreviewTrack {
     pub encoded_coords: Vec<u8>,
 }
 
-/// All data needed for the feed screen on startup in one call.
-/// Reduces 20+ FFI calls to 1.
+/// The two things the feed paints on its first pass, in one call.
+///
+/// The insights record and the cached metric id list used to ride along here.
+/// Neither reached the screen: the insights tab fetches its own copy when it
+/// opens, and nothing ever read the id list.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiStartupData {
-    /// Insights data (replaces getInsightsData)
-    pub insights: FfiInsightsData,
     /// Summary card data (replaces getSummaryCardData)
     pub summary_card: FfiSummaryCardData,
     /// GPS tracks for initial visible activities (replaces N × getGpsTrack)
     pub preview_tracks: Vec<FfiPreviewTrack>,
-    /// Activity IDs with cached metrics (for sync skip check)
-    pub cached_metric_ids: Vec<String>,
+}
+
+// ============================================================================
+// Activity Detail Batch Types
+// ============================================================================
+
+/// One activity's portion of a single section, delta+varint encoded.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionTrace {
+    /// Section the trace belongs to
+    pub section_id: String,
+    /// Delta+varint encoded coordinates of the activity's portion
+    pub encoded_coords: Vec<u8>,
+}
+
+/// All data needed to paint the activity detail screen in one call.
+/// Replaces a fan-out that grew one trace extraction per matched section.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivityDetailData {
+    /// Total activities held by the engine
+    pub activity_count: u32,
+    /// Total sections held by the engine
+    pub section_count: u32,
+    /// Route groups meeting the caller's minimum, most attempts first
+    pub route_groups: Vec<FfiRouteGroup>,
+    /// Route group total before the minimum-activity filter
+    pub total_route_group_count: u32,
+    /// Visible sections this activity traverses, most-visited first
+    pub matched_sections: Vec<FfiSection>,
+    /// Every visible custom section, matched or not
+    pub custom_sections: Vec<FfiSection>,
+    /// One entry per (section, direction) this activity encountered
+    pub encounters: Vec<FfiSectionEncounter>,
+    /// Section indicators and route highlights for this activity
+    pub highlights: FfiActivityHighlightsBundle,
+    /// This activity's portion of every section it matches
+    pub section_traces: Vec<FfiSectionTrace>,
+    /// Sections where this activity currently holds the best record
+    pub pr_section_ids: Vec<String>,
+}
+
+// ============================================================================
+// Section Detail Batch Types
+// ============================================================================
+
+/// The section detail reads that do not depend on time streams.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionDetailData {
+    /// Total activities held by the engine
+    pub activity_count: u32,
+    /// The section itself, or `None` when the ID is unknown
+    pub section: Option<FfiSection>,
+    /// Sections within the requested radius, for the map overlay
+    pub nearby: Vec<FfiNearbySectionSummary>,
+    /// Sections this one could merge with
+    pub merge_candidates: Vec<FfiMergeCandidate>,
+    /// Activities the user excluded from this section
+    pub excluded_activity_ids: Vec<String>,
+    /// Whether the original bounds can still be restored
+    pub has_original_bounds: bool,
+    /// Metrics for every activity on the section
+    pub activity_metrics: Vec<FfiActivityMetrics>,
+    /// Simplified GPS signatures for scrub-time trace display
+    pub map_signatures: Vec<FfiMapSignature>,
+    /// Activities whose time streams still have to be fetched
+    pub missing_time_stream_ids: Vec<String>,
+    /// The section's change ledger, oldest first
+    pub history: Vec<FfiSectionHistoryEvent>,
+    /// Every stored geometry version, with the pinned one flagged
+    pub geometry_versions: Vec<FfiSectionGeometryVersion>,
+    /// The pinned version, or `None` when the section follows the newest cut
+    pub pinned_version: Option<i64>,
+    /// Laps the user excluded, keyed the way the junction rows are
+    pub excluded_laps: Vec<FfiExcludedLap>,
+    /// Efficiency trend, or `None` with too few efforts to call one
+    pub efficiency_trend: Option<FfiEfficiencyTrend>,
+}
+
+/// The section detail reads that need lap times.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionPerformanceData {
+    /// Year and month performance history, or `None` with no records
+    pub calendar_summary: Option<FfiCalendarSummary>,
+    /// Per-activity performance records for the requested sport
+    pub performances: FfiSectionPerformanceResult,
+    /// Pre-computed chart payload for the requested range and sport
+    pub chart_data: FfiSectionChartData,
+}
+
+// ============================================================================
+// Route Detail Batch Types
+// ============================================================================
+
+/// Everything the route detail screen paints with in one call.
+///
+/// The performances are unfiltered: the screen derives its sport pills from
+/// them and only asks for a filtered read once the user picks a sport.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiRouteDetailData {
+    /// Total activities held by the engine
+    pub activity_count: u32,
+    /// The route itself, or `None` when the ID is unknown
+    pub group: Option<FfiRouteGroup>,
+    /// Route groups above the caller's minimum, most attempts first
+    pub groups: Vec<FfiRouteGroup>,
+    /// Every attempt on the route, across sports
+    pub performances: FfiRoutePerformanceResult,
+    /// Consensus polyline, delta+varint encoded
+    pub encoded_consensus: Vec<u8>,
+    /// User-set route names by route ID
+    pub route_names: std::collections::HashMap<String, String>,
+    /// Activities the user excluded from this route
+    pub excluded_activity_ids: Vec<String>,
+    /// Simplified GPS signatures for the route's activities
+    pub map_signatures: Vec<FfiMapSignature>,
+    /// Visible sections the route's activities pass through
+    pub section_ids: Vec<String>,
+}
+
+// ============================================================================
+// Widget Snapshot Batch Types
+// ============================================================================
+
+/// Everything the home-screen widget snapshot is composed from.
+///
+/// Widgets run in a separate process and cannot reach the engine, so the app
+/// bakes their content. This is the single read that feeds it.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiWidgetSnapshotData {
+    /// Trailing wellness sparklines, `None` until wellness has synced
+    pub sparklines: Option<FfiWellnessSparklines>,
+    /// This week and last week, with the trends the widget shows
+    pub summary: FfiSummaryCardData,
+    /// The most recent activity, or `None` when there are none
+    pub latest: Option<FfiActivityMetrics>,
+    /// Whether the latest activity carries a route or section record
+    pub latest_is_pr: bool,
+    /// The latest activity's GPS track, empty for indoor activities
+    pub latest_gps: Vec<FfiGpsPoint>,
+}
+
+// ============================================================================
+// Map Screen Batch Types
+// ============================================================================
+
+/// Everything the map tab paints with in one call.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMapScreenData {
+    /// Total activities held by the engine, before the date and sport filters
+    pub activity_count: u32,
+    /// Sport types with at least one activity
+    pub available_sport_types: Vec<String>,
+    /// Activities inside the requested window and sport filter
+    pub activities: Vec<crate::persistence::MapActivityComplete>,
 }
 
 // ============================================================================
 // Helper functions
 // ============================================================================
-
-/// Get default scale presets
-pub fn default_scale_presets() -> Vec<FfiScalePreset> {
-    tracematch::ScalePreset::default_presets()
-        .into_iter()
-        .map(FfiScalePreset::from)
-        .collect()
-}
 
 // ============================================================================
 // Aerobic Efficiency Types
@@ -1571,81 +1794,58 @@ pub struct FfiEfficiencyTrend {
 
 #[cfg(test)]
 mod tests {
+    //! The fixtures here are exhaustive struct literals on purpose: a new
+    //! field on a source type breaks this build, while the `From` impl would
+    //! keep compiling and quietly stop carrying it. Every value is distinct so
+    //! a transposed pair of same-typed fields fails rather than passing.
     use super::*;
 
-    #[test]
-    fn test_ffi_direction_stats_from_tracematch() {
-        let stats = crate::DirectionStats {
+    fn direction_stats() -> crate::DirectionStats {
+        crate::DirectionStats {
             avg_time: Some(300.0),
             last_activity: Some(1700000000),
             count: 5,
             avg_speed: Some(4.5),
-        };
-        let ffi_stats = FfiDirectionStats::from(stats);
-        assert_eq!(ffi_stats.avg_time, Some(300.0));
-        assert_eq!(ffi_stats.last_activity, Some(1700000000));
-        assert_eq!(ffi_stats.count, 5);
+        }
     }
 
-    #[test]
-    fn test_ffi_section_lap_from_tracematch() {
-        let lap = crate::SectionLap {
+    fn section_lap() -> crate::SectionLap {
+        crate::SectionLap {
             id: "lap_1".to_string(),
             activity_id: "act_123".to_string(),
             time: 120.5,
             pace: 8.3,
             distance: 1000.0,
-            direction: "forward".to_string(),
-            start_index: 0,
-            end_index: 100,
-        };
-        let ffi_lap = FfiSectionLap::from(lap);
-        assert_eq!(ffi_lap.id, "lap_1");
-        assert_eq!(ffi_lap.activity_id, "act_123");
-        assert_eq!(ffi_lap.time, 120.5);
-        assert_eq!(ffi_lap.pace, 8.3);
-        assert_eq!(ffi_lap.direction, "forward");
+            direction: "same".to_string(),
+            start_index: 17,
+            end_index: 104,
+            avg_hr: Some(142.0),
+            coverage: Some(1.0),
+        }
     }
 
-    #[test]
-    fn test_ffi_section_performance_record_from_tracematch() {
-        let lap = crate::SectionLap {
-            id: "lap_1".to_string(),
-            activity_id: "act_123".to_string(),
-            time: 120.5,
-            pace: 8.3,
-            distance: 1000.0,
-            direction: "forward".to_string(),
-            start_index: 0,
-            end_index: 100,
-        };
-        let record = crate::SectionPerformanceRecord {
-            activity_id: "act_123".to_string(),
-            activity_name: "Morning Ride".to_string(),
+    fn section_record(direction: &str, best_time: f64) -> crate::SectionPerformanceRecord {
+        crate::SectionPerformanceRecord {
+            activity_id: format!("act_{direction}"),
+            activity_name: format!("{direction} effort"),
             activity_date: 1700000000,
-            laps: vec![lap],
+            laps: vec![section_lap()],
             lap_count: 1,
-            best_time: 120.5,
+            best_time,
             best_pace: 8.3,
-            avg_time: 120.5,
-            avg_pace: 8.3,
-            direction: "forward".to_string(),
+            avg_time: best_time + 4.0,
+            avg_pace: 7.9,
+            direction: direction.to_string(),
             section_distance: 1000.0,
-        };
-        let ffi_record = FfiSectionPerformanceRecord::from(record);
-        assert_eq!(ffi_record.activity_id, "act_123");
-        assert_eq!(ffi_record.activity_name, "Morning Ride");
-        assert_eq!(ffi_record.laps.len(), 1);
-        assert_eq!(ffi_record.best_time, 120.5);
+        }
     }
 
-    #[test]
-    fn test_ffi_route_performance_from_tracematch() {
-        let perf = crate::RoutePerformance {
-            activity_id: "act_123".to_string(),
+    fn route_performance(activity_id: &str, speed: f64) -> crate::RoutePerformance {
+        crate::RoutePerformance {
+            activity_id: activity_id.to_string(),
             name: "Morning Ride".to_string(),
             date: 1700000000,
-            speed: 8.5,
+            speed,
             duration: 3600,
             moving_time: 3500,
             distance: 30000.0,
@@ -1655,54 +1855,229 @@ mod tests {
             is_current: false,
             direction: "same".to_string(),
             match_percentage: Some(95.5),
-        };
-        let ffi_perf = FfiRoutePerformance::from(perf);
-        assert_eq!(ffi_perf.activity_id, "act_123");
-        assert_eq!(ffi_perf.speed, 8.5);
-        assert_eq!(ffi_perf.avg_hr, Some(145));
-        assert_eq!(ffi_perf.match_percentage, Some(95.5));
+        }
+    }
+
+    fn activity_metrics() -> crate::ActivityMetrics {
+        crate::ActivityMetrics {
+            activity_id: "act_123".to_string(),
+            name: "Morning Ride".to_string(),
+            date: 1700000000,
+            distance: 30000.0,
+            moving_time: 3500,
+            elapsed_time: 3600,
+            elevation_gain: 500.0,
+            avg_hr: Some(145),
+            avg_power: Some(200),
+            sport_type: "Ride".to_string(),
+            training_load: None,
+            ftp: None,
+            power_zone_times: None,
+            hr_zone_times: None,
+        }
     }
 
     #[test]
-    fn test_ffi_section_performance_result_empty() {
+    fn direction_stats_carries_every_field() {
+        let ffi = FfiDirectionStats::from(direction_stats());
+        assert_eq!(ffi.avg_time, Some(300.0));
+        assert_eq!(ffi.last_activity, Some(1700000000));
+        assert_eq!(ffi.count, 5);
+        // avg_speed and avg_time are both Option<f64>: a transposition here
+        // would show route stats as a speed in a seconds field.
+        assert_eq!(ffi.avg_speed, Some(4.5));
+    }
+
+    #[test]
+    fn direction_stats_keeps_an_absent_speed_absent() {
+        let mut stats = direction_stats();
+        stats.avg_speed = None;
+        let ffi = FfiDirectionStats::from(stats);
+        assert_eq!(ffi.avg_time, Some(300.0));
+        assert!(ffi.avg_speed.is_none());
+    }
+
+    #[test]
+    fn section_lap_carries_every_field() {
+        let ffi = FfiSectionLap::from(section_lap());
+        assert_eq!(ffi.id, "lap_1");
+        assert_eq!(ffi.activity_id, "act_123");
+        assert_eq!(ffi.time, 120.5);
+        assert_eq!(ffi.pace, 8.3);
+        assert_eq!(ffi.distance, 1000.0);
+        assert_eq!(ffi.direction, "same");
+        // Swapped track indices would draw the lap backwards on the map.
+        assert_eq!(ffi.start_index, 17);
+        assert_eq!(ffi.end_index, 104);
+    }
+
+    #[test]
+    fn section_performance_record_carries_every_field() {
+        let ffi = FfiSectionPerformanceRecord::from(section_record("same", 120.5));
+        assert_eq!(ffi.activity_id, "act_same");
+        assert_eq!(ffi.activity_name, "same effort");
+        assert_eq!(ffi.activity_date, 1700000000);
+        assert_eq!(ffi.lap_count, 1);
+        // best_* against avg_*: a transposition would report the average as
+        // the PR on the section detail.
+        assert_eq!(ffi.best_time, 120.5);
+        assert_eq!(ffi.avg_time, 124.5);
+        assert_eq!(ffi.best_pace, 8.3);
+        assert_eq!(ffi.avg_pace, 7.9);
+        assert_eq!(ffi.direction, "same");
+        assert_eq!(ffi.section_distance, 1000.0);
+
+        assert_eq!(ffi.laps.len(), 1);
+        assert_eq!(ffi.laps[0].id, "lap_1");
+        assert_eq!(ffi.laps[0].start_index, 17);
+    }
+
+    #[test]
+    fn route_performance_keeps_duration_and_moving_time_apart() {
+        // The route PR delta chip is moving-time based, so a swap of these two
+        // u32 fields would silently compare the wrong clock.
+        let ffi = FfiRoutePerformance::from(route_performance("act_123", 8.5));
+        assert_eq!(ffi.duration, 3600, "duration is elapsed time");
+        assert_eq!(ffi.moving_time, 3500, "moving_time is moving time");
+    }
+
+    #[test]
+    fn route_performance_carries_every_field() {
+        let ffi = FfiRoutePerformance::from(route_performance("act_123", 8.5));
+        assert_eq!(ffi.activity_id, "act_123");
+        assert_eq!(ffi.name, "Morning Ride");
+        assert_eq!(ffi.date, 1700000000);
+        assert_eq!(ffi.speed, 8.5);
+        assert_eq!(ffi.distance, 30000.0);
+        assert_eq!(ffi.elevation_gain, 500.0);
+        assert_eq!(ffi.avg_hr, Some(145));
+        assert_eq!(ffi.avg_power, Some(200));
+        assert!(!ffi.is_current);
+        assert_eq!(ffi.direction, "same");
+        assert_eq!(ffi.match_percentage, Some(95.5));
+    }
+
+    #[test]
+    fn activity_metrics_keeps_moving_and_elapsed_time_apart() {
+        let ffi = FfiActivityMetrics::from(activity_metrics());
+        assert_eq!(ffi.moving_time, 3500);
+        assert_eq!(ffi.elapsed_time, 3600);
+        assert_eq!(ffi.activity_id, "act_123");
+        assert_eq!(ffi.name, "Morning Ride");
+        assert_eq!(ffi.date, 1700000000);
+        assert_eq!(ffi.distance, 30000.0);
+        assert_eq!(ffi.elevation_gain, 500.0);
+        assert_eq!(ffi.avg_hr, Some(145));
+        assert_eq!(ffi.avg_power, Some(200));
+        assert_eq!(ffi.sport_type, "Ride");
+        // The fixture carries none of the four, and the conversion must not
+        // invent one.
+        assert!(ffi.training_load.is_none());
+        assert!(ffi.ftp.is_none());
+        assert!(ffi.power_zone_times.is_none());
+        assert!(ffi.hr_zone_times.is_none());
+    }
+
+    #[test]
+    fn activity_metrics_round_trips_back_without_drift() {
+        let original = activity_metrics();
+        let back = crate::ActivityMetrics::from(FfiActivityMetrics::from(original.clone()));
+        assert_eq!(back.activity_id, original.activity_id);
+        assert_eq!(back.name, original.name);
+        assert_eq!(back.date, original.date);
+        assert_eq!(back.distance, original.distance);
+        assert_eq!(back.moving_time, original.moving_time);
+        assert_eq!(back.elapsed_time, original.elapsed_time);
+        assert_eq!(back.elevation_gain, original.elevation_gain);
+        assert_eq!(back.avg_hr, original.avg_hr);
+        assert_eq!(back.avg_power, original.avg_power);
+        assert_eq!(back.sport_type, original.sport_type);
+    }
+
+    #[test]
+    fn section_performance_result_keeps_its_option_slots_distinct() {
         let result = crate::SectionPerformanceResult {
-            records: vec![],
-            best_record: None,
-            best_forward_record: None,
-            best_reverse_record: None,
-            forward_stats: None,
-            reverse_stats: None,
+            records: vec![
+                section_record("same", 120.5),
+                section_record("reverse", 131.0),
+            ],
+            best_record: Some(section_record("overall", 118.0)),
+            best_forward_record: Some(section_record("same", 120.5)),
+            best_reverse_record: Some(section_record("reverse", 131.0)),
+            forward_stats: Some(crate::DirectionStats {
+                avg_time: Some(300.0),
+                last_activity: Some(1700000000),
+                count: 5,
+                avg_speed: Some(4.5),
+            }),
+            reverse_stats: Some(crate::DirectionStats {
+                avg_time: Some(410.0),
+                last_activity: Some(1690000000),
+                count: 2,
+                avg_speed: Some(3.1),
+            }),
         };
-        let ffi_result = FfiSectionPerformanceResult::from(result);
-        assert!(ffi_result.records.is_empty());
-        assert!(ffi_result.best_record.is_none());
+
+        let ffi = FfiSectionPerformanceResult::from(result);
+        assert_eq!(ffi.records.len(), 2);
+        assert_eq!(ffi.records[0].direction, "same");
+        assert_eq!(ffi.records[1].direction, "reverse");
+        // Crossing these three slots would show the wrong PR per direction.
+        assert_eq!(ffi.best_record.as_ref().unwrap().best_time, 118.0);
+        assert_eq!(ffi.best_forward_record.as_ref().unwrap().best_time, 120.5);
+        assert_eq!(ffi.best_reverse_record.as_ref().unwrap().best_time, 131.0);
+        assert_eq!(ffi.forward_stats.as_ref().unwrap().count, 5);
+        assert_eq!(ffi.reverse_stats.as_ref().unwrap().count, 2);
     }
 
     #[test]
-    fn test_ffi_route_performance_result_empty() {
+    fn route_performance_result_keeps_its_option_slots_distinct() {
         let result = crate::RoutePerformanceResult {
-            performances: vec![],
-            activity_metrics: vec![],
-            best: None,
-            best_forward: None,
-            best_reverse: None,
-            forward_stats: None,
-            reverse_stats: None,
-            current_rank: None,
+            performances: vec![
+                route_performance("act_1", 7.0),
+                route_performance("act_2", 8.5),
+            ],
+            activity_metrics: vec![activity_metrics()],
+            best: Some(route_performance("act_best", 9.9)),
+            best_forward: Some(route_performance("act_fwd", 8.5)),
+            best_reverse: Some(route_performance("act_rev", 6.2)),
+            forward_stats: Some(crate::DirectionStats {
+                avg_time: Some(300.0),
+                last_activity: Some(1700000000),
+                count: 5,
+                avg_speed: Some(4.5),
+            }),
+            reverse_stats: Some(crate::DirectionStats {
+                avg_time: Some(410.0),
+                last_activity: Some(1690000000),
+                count: 2,
+                avg_speed: Some(3.1),
+            }),
+            current_rank: Some(3),
+            attempt_count: 2,
+            percentile_rank: Some(50.0),
         };
-        let ffi_result = FfiRoutePerformanceResult::from(result);
-        assert!(ffi_result.performances.is_empty());
-        assert!(ffi_result.best.is_none());
-        assert!(ffi_result.current_rank.is_none());
+
+        let ffi = FfiRoutePerformanceResult::from(result);
+        assert_eq!(ffi.performances.len(), 2);
+        assert_eq!(ffi.performances[0].activity_id, "act_1");
+        assert_eq!(ffi.performances[1].activity_id, "act_2");
+        assert_eq!(ffi.activity_metrics.len(), 1);
+        assert_eq!(ffi.activity_metrics[0].moving_time, 3500);
+        assert_eq!(ffi.best.as_ref().unwrap().activity_id, "act_best");
+        assert_eq!(ffi.attempt_count, 2);
+        assert_eq!(ffi.percentile_rank, Some(50.0));
+        assert_eq!(ffi.best_forward.as_ref().unwrap().activity_id, "act_fwd");
+        assert_eq!(ffi.best_reverse.as_ref().unwrap().activity_id, "act_rev");
+        assert_eq!(ffi.forward_stats.as_ref().unwrap().count, 5);
+        assert_eq!(ffi.reverse_stats.as_ref().unwrap().count, 2);
+        assert_eq!(ffi.current_rank, Some(3));
     }
 
-    #[test]
-    fn test_ffi_section_from_section() {
-        use crate::sections::{Section, SectionType};
-
-        let section = Section {
+    fn section_fixture(section_type: crate::sections::SectionType) -> crate::sections::Section {
+        crate::sections::Section {
             id: "section_123".to_string(),
-            section_type: SectionType::Auto,
+            section_type,
             name: Some("Test Section".to_string()),
             sport_type: "Ride".to_string(),
             polyline: vec![
@@ -1710,43 +2085,196 @@ mod tests {
                 tracematch::GpsPoint::new(40.1, -73.9),
             ],
             distance_meters: 1500.0,
-            representative_activity_id: Some("act_123".to_string()),
+            representative_activity_id: Some("act_rep".to_string()),
             activity_ids: vec!["act_123".to_string(), "act_456".to_string()],
             visit_count: 5,
             confidence: Some(0.95),
             observation_count: Some(10),
             average_spread: Some(15.0),
-            point_density: Some(vec![5, 5]),
+            point_density: Some(vec![4, 6]),
             scale: Some("medium".to_string()),
-            is_user_defined: false,
+            is_user_defined: true,
             stability: Some(0.85),
+            elevation_gain_m: Some(120.5),
+            avg_grade_percent: Some(4.2),
+            elevation_loss_m: Some(8.0),
+            max_grade_percent: Some(7.5),
+            straightness: Some(0.91),
+            klass: Some("climb".to_string()),
+            is_lift: false,
+            rank_score: Some(0.7),
+            sport_rank_score: Some(0.8),
             version: Some(3),
             updated_at: Some("2024-06-01T00:00:00Z".to_string()),
             created_at: "2024-01-01T00:00:00Z".to_string(),
             route_ids: Some(vec!["route_1".to_string()]),
-            source_activity_id: None,
-            start_index: None,
-            end_index: None,
-            disabled: false,
-            superseded_by: None,
-        };
+            source_activity_id: Some("act_src".to_string()),
+            start_index: Some(11),
+            end_index: Some(97),
+            disabled: true,
+            superseded_by: Some("section_999".to_string()),
+        }
+    }
 
-        let ffi_section = FfiSection::from(section);
-        assert_eq!(ffi_section.id, "section_123");
-        assert_eq!(ffi_section.section_type, "auto");
-        assert_eq!(ffi_section.name, Some("Test Section".to_string()));
-        assert_eq!(ffi_section.sport_type, "Ride");
+    #[test]
+    fn section_carries_every_field() {
+        let ffi = FfiSection::from(section_fixture(crate::sections::SectionType::Custom));
+        assert_eq!(ffi.id, "section_123");
+        assert_eq!(ffi.section_type, "custom");
+        assert_eq!(ffi.name, Some("Test Section".to_string()));
+        assert_eq!(ffi.sport_type, "Ride");
+        assert_eq!(ffi.distance_meters, 1500.0);
         assert_eq!(
-            crate::coords::decode(&ffi_section.encoded_polyline).len(),
-            2
+            ffi.representative_activity_id,
+            Some("act_rep".to_string()),
+            "representative and source activity ids must not be crossed"
         );
-        assert_eq!(ffi_section.distance_meters, 1500.0);
-        assert_eq!(ffi_section.activity_ids.len(), 2);
-        assert_eq!(ffi_section.visit_count, 5);
-        assert_eq!(ffi_section.confidence, Some(0.95));
-        assert!(!ffi_section.is_user_defined);
-        assert_eq!(ffi_section.route_ids, Some(vec!["route_1".to_string()]));
-        assert!(ffi_section.source_activity_id.is_none());
+        assert_eq!(ffi.source_activity_id, Some("act_src".to_string()));
+        assert_eq!(ffi.activity_ids, vec!["act_123", "act_456"]);
+        assert_eq!(ffi.visit_count, 5);
+        assert_eq!(ffi.confidence, Some(0.95));
+        assert_eq!(ffi.observation_count, Some(10));
+        assert_eq!(ffi.average_spread, Some(15.0));
+        assert_eq!(ffi.point_density, Some(vec![4, 6]));
+        assert_eq!(ffi.scale, Some("medium".to_string()));
+        assert!(ffi.is_user_defined);
+        assert_eq!(ffi.stability, Some(0.85));
+        assert_eq!(ffi.elevation_gain_m, Some(120.5));
+        assert_eq!(ffi.avg_grade_percent, Some(4.2));
+        assert_eq!(ffi.version, Some(3));
+        assert_eq!(ffi.updated_at, Some("2024-06-01T00:00:00Z".to_string()));
+        assert_eq!(ffi.created_at, "2024-01-01T00:00:00Z");
+        assert_eq!(ffi.route_ids, Some(vec!["route_1".to_string()]));
+        assert_eq!(ffi.start_index, Some(11));
+        assert_eq!(ffi.end_index, Some(97));
+        assert!(ffi.disabled);
+        assert_eq!(ffi.superseded_by, Some("section_999".to_string()));
+
+        // The polyline survives the delta+varint encoding in order, not just
+        // in count: a reversed or truncated encode draws the wrong overlay.
+        let decoded = crate::coords::decode(&ffi.encoded_polyline);
+        assert_eq!(decoded.len(), 2);
+        assert!((decoded[0].latitude - 40.0).abs() < 1e-5);
+        assert!((decoded[0].longitude + 74.0).abs() < 1e-5);
+        assert!((decoded[1].latitude - 40.1).abs() < 1e-5);
+        assert!((decoded[1].longitude + 73.9).abs() < 1e-5);
+    }
+
+    fn frequent_section_fixture() -> tracematch::FrequentSection {
+        tracematch::FrequentSection {
+            id: "section_777".to_string(),
+            name: Some("Catalogue Section".to_string()),
+            sport_type: "Run".to_string(),
+            polyline: vec![
+                tracematch::GpsPoint::new(40.0, -74.0),
+                tracematch::GpsPoint::new(40.1, -73.9),
+            ],
+            representative_activity_id: "act_rep".to_string(),
+            representative_range: None,
+            activity_ids: vec!["act_1".to_string(), "act_2".to_string()],
+            activity_portions: vec![tracematch::SectionPortion {
+                activity_id: "act_1".to_string(),
+                start_index: 4,
+                end_index: 40,
+                distance_meters: 900.0,
+                direction: tracematch::Direction::Same,
+            }],
+            visit_count: 6,
+            distance_meters: 950.0,
+            activity_traces: std::collections::HashMap::new(),
+            confidence: 0.75,
+            observation_count: 8,
+            average_spread: 12.0,
+            point_density: vec![3, 5],
+            scale: None,
+            is_user_defined: true,
+            stability: 0.6,
+            elevation_gain_m: Some(30.0),
+            avg_grade_percent: Some(3.0),
+            enrichment: Default::default(),
+            rank: None,
+            version: 4,
+            updated_at: Some("2024-06-01T00:00:00Z".to_string()),
+            created_at: Some("2024-01-01T00:00:00Z".to_string()),
+            consensus_state: None,
+        }
+    }
+
+    /// The catalogue and the database reach TypeScript as the same record, so
+    /// the conversion there does not have to sniff which fields are present.
+    #[test]
+    fn a_catalogue_section_reaches_ffi_as_the_one_section_record() {
+        let ffi = FfiSection::from(&frequent_section_fixture());
+
+        assert_eq!(ffi.id, "section_777");
+        assert_eq!(ffi.section_type, "auto");
+        assert_eq!(ffi.name, Some("Catalogue Section".to_string()));
+        assert_eq!(ffi.sport_type, "Run");
+        assert_eq!(ffi.distance_meters, 950.0);
+        assert_eq!(
+            ffi.representative_activity_id,
+            Some("act_rep".to_string()),
+            "the catalogue's non-optional id must not arrive as None"
+        );
+        assert_eq!(ffi.activity_ids, vec!["act_1", "act_2"]);
+        assert_eq!(ffi.visit_count, 6);
+        assert_eq!(ffi.confidence, Some(0.75));
+        assert_eq!(ffi.observation_count, Some(8));
+        assert_eq!(ffi.average_spread, Some(12.0));
+        assert_eq!(ffi.point_density, Some(vec![3, 5]));
+        assert!(ffi.is_user_defined);
+        assert_eq!(ffi.stability, Some(0.6));
+        assert_eq!(ffi.elevation_gain_m, Some(30.0));
+        assert_eq!(ffi.avg_grade_percent, Some(3.0));
+        assert_eq!(ffi.version, Some(4));
+        assert_eq!(ffi.updated_at, Some("2024-06-01T00:00:00Z".to_string()));
+        assert_eq!(ffi.created_at, "2024-01-01T00:00:00Z");
+
+        assert_eq!(ffi.activity_portions.len(), 1);
+        assert_eq!(ffi.activity_portions[0].activity_id, "act_1");
+        assert_eq!(ffi.activity_portions[0].start_index, 4);
+        assert_eq!(ffi.activity_portions[0].end_index, 40);
+
+        // Only visible sections reach this path, and the catalogue carries no
+        // custom-section fields at all.
+        assert!(!ffi.disabled);
+        assert_eq!(ffi.superseded_by, None);
+        assert_eq!(ffi.source_activity_id, None);
+        assert_eq!(ffi.start_index, None);
+        assert_eq!(ffi.end_index, None);
+
+        let decoded = crate::coords::decode(&ffi.encoded_polyline);
+        assert_eq!(decoded.len(), 2);
+        assert!((decoded[0].latitude - 40.0).abs() < 1e-5);
+        assert!((decoded[1].longitude + 73.9).abs() < 1e-5);
+    }
+
+    /// `created_at` is optional in the catalogue and required on the record.
+    #[test]
+    fn a_catalogue_section_without_a_created_at_reaches_ffi_empty() {
+        let ffi = FfiSection::from(&tracematch::FrequentSection {
+            created_at: None,
+            ..frequent_section_fixture()
+        });
+        assert_eq!(ffi.created_at, "");
+    }
+
+    /// A database section has no portions, and an empty list is the answer
+    /// rather than a missing field.
+    #[test]
+    fn a_database_section_reaches_ffi_with_no_portions() {
+        let ffi = FfiSection::from(section_fixture(crate::sections::SectionType::Auto));
+        assert!(ffi.activity_portions.is_empty());
+    }
+
+    #[test]
+    fn section_type_reaches_ffi_as_its_own_tag() {
+        // A conversion that hardcoded either tag would still satisfy the
+        // single-variant test above.
+        let auto = FfiSection::from(section_fixture(crate::sections::SectionType::Auto));
+        assert_eq!(auto.section_type, "auto");
+        let custom = FfiSection::from(section_fixture(crate::sections::SectionType::Custom));
+        assert_eq!(custom.section_type, "custom");
     }
 }
 
@@ -1933,7 +2461,7 @@ pub struct FfiActivityRouteHighlight {
 }
 
 // ============================================================================
-// Materialized Activity Indicator (from activity_indicators table)
+// Materialised Activity Indicator (from activity_indicators table)
 // ============================================================================
 
 /// Pre-computed PR or trend indicator for an activity.
@@ -2023,6 +2551,26 @@ pub struct FfiMergeCandidate {
     pub center_distance_meters: f64,
 }
 
+/// A section whose line starts within reach of one fix.
+///
+/// `start_distance_meters` is from the fix to the section's first point, not
+/// to its centre: a live recorder is asking what it is about to enter, and a
+/// long section's centre is nowhere near where it begins.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionNearPoint {
+    pub id: String,
+    pub name: Option<String>,
+    pub sport_type: String,
+    pub distance_meters: f64,
+    pub visit_count: u32,
+    pub start_distance_meters: f64,
+    /// Bearing of the section's opening metres, degrees clockwise from north.
+    /// `None` for a line whose first points coincide.
+    pub entry_bearing_degrees: Option<f64>,
+    /// Delta+varint encoded coordinates for map overlay
+    pub encoded_polyline: Vec<u8>,
+}
+
 /// Nearby section summary with distance info and polyline for map rendering.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiNearbySectionSummary {
@@ -2055,6 +2603,9 @@ pub struct FfiStalePrOpportunity {
     pub section_name: String,
     pub best_time_secs: f64,
     pub traversal_count: u32,
+    /// Days since the last traversal. The insight gates on this, so it has to
+    /// travel with the opportunity rather than be recovered downstream.
+    pub days_since_last: u32,
     /// "power" for cycling (FTP), "pace" for running/swimming (critical speed)
     pub fitness_metric: String,
     pub current_value: f64,

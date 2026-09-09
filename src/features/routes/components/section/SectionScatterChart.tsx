@@ -5,28 +5,36 @@
  */
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Dimensions, type ViewStyle } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  useWindowDimensions,
+  type ViewStyle,
+} from 'react-native';
 import { Text } from 'react-native-paper';
+
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { CartesianChart, type PointsArray } from 'victory-native';
 import { Circle, Path, Skia } from '@shopify/react-native-skia';
-import { bandSvgPath, polylineSvgPath } from '@/shared/charts/svgPath';
+import { ChartCanvas, bandSvgPath, polylineSvgPath, useChartGestures } from '@/shared/charts';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
-import { isRunningActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
-import { formatDuration, formatPace, formatSpeed, formatSwimPace } from '@/shared/format/format';
+import { isPaceSport, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
+import {
+  formatAxisDate,
+  formatDuration,
+  formatPace,
+  formatSpeed,
+  formatSwimPace,
+} from '@/shared/format/format';
 import {
   splitAndPositionChartData,
   buildTrendWithBand,
   type TrendBandPoint,
 } from '@/features/routes/lib/scatterData';
-import {
-  computeTimeAxisLabels,
-  axisLabelsNeedDay,
-  formatAxisDate,
-  useScatterGestures,
-} from '@/features/stats';
-import { colors, darkColors } from '@/theme';
+import { computeTimeAxisLabels, axisLabelsNeedDay } from '@/features/stats';
+import { colors, darkColors, layout, typography } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type {
   DirectionBestRecord,
@@ -35,12 +43,15 @@ import type {
 import { StatsRow } from './StatsRow';
 import { PerformanceTooltip } from './PerformanceTooltip';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CHART_WIDTH = SCREEN_WIDTH - 32;
+/** Horizontal room the chart leaves at the window edge. */
+const CHART_INSET = 32;
 const CHART_HEIGHT = 120;
 const CHART_PADDING = { left: 12, right: 8, top: 12, bottom: 12 } as const;
 const MINI_HEIGHT = 56;
 const MINI_PADDING = { left: 4, right: 4, top: 4, bottom: 4 } as const;
+const X_DOMAIN: [number, number] = [0, 1];
+const NO_SERIES = {} as Record<never, (p: PerformanceDataPoint) => number>;
+const xOf = (p: { x: number }) => p.x;
 
 export interface SectionScatterChartProps {
   chartData: (PerformanceDataPoint & { x: number })[];
@@ -51,7 +62,6 @@ export interface SectionScatterChartProps {
   forwardStats: DirectionSummaryStats | null;
   reverseStats: DirectionSummaryStats | null;
   onActivitySelect?: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
-  onScrubChange?: (scrubbing: boolean) => void;
   onExcludeActivity?: (activityId: string) => void;
   onIncludeActivity?: (activityId: string) => void;
   onSetAsReference?: (activityId: string) => void;
@@ -80,7 +90,6 @@ export function SectionScatterChart({
   forwardStats,
   reverseStats,
   onActivitySelect,
-  onScrubChange,
   onExcludeActivity,
   onIncludeActivity,
   onSetAsReference,
@@ -95,7 +104,7 @@ export function SectionScatterChart({
   useTimeAxis,
 }: SectionScatterChartProps) {
   const isSwimming = isSwimmingActivity(activityType);
-  const showPace = isRunningActivity(activityType) || isSwimming;
+  const showPace = isPaceSport(activityType) || isSwimming;
   const activityColor = isDark ? darkColors.primary : colors.primary;
   const sectionDistance = chartData[0]?.sectionDistance || 0;
 
@@ -108,10 +117,17 @@ export function SectionScatterChart({
     null
   );
 
-  // Clear selection when chart data changes (e.g., sport type filter switch)
-  useEffect(() => {
+  // Clear selection when chart data changes (e.g., sport type filter switch).
+  // Clearing while rendering keeps the previous selection out of the first
+  // frame drawn against the new data.
+  const [selectionFor, setSelectionFor] = useState(chartData);
+  if (chartData !== selectionFor) {
+    setSelectionFor(chartData);
     setSelectedPoint(null);
-  }, [chartData]);
+  }
+
+  const { width: windowWidth } = useWindowDimensions();
+  const chartWidth = windowWidth - CHART_INSET;
 
   const formatSpeedValue = useCallback(
     (speed: number) =>
@@ -138,6 +154,7 @@ export function SectionScatterChart({
 
   const yMin = useTimeAxis ? maxTime : minSpeed;
   const yMax = useTimeAxis ? minTime : maxSpeed;
+  const yDomain = useMemo<[number, number]>(() => [yMin, yMax], [yMin, yMax]);
 
   // Compute Gaussian kernel trend lines with confidence bands for all point counts (≥2)
   const { forwardTrend, reverseTrend } = useMemo(
@@ -145,7 +162,7 @@ export function SectionScatterChart({
       forwardTrend: buildTrendWithBand(forwardPoints, 200, useTimeAxis ? 'sectionTime' : 'speed'),
       reverseTrend: buildTrendWithBand(reversePoints, 200, useTimeAxis ? 'sectionTime' : 'speed'),
     }),
-    [forwardPoints, reversePoints]
+    [forwardPoints, reversePoints, useTimeAxis]
   );
 
   // Time axis labels: start, middle, end - include day when months repeat
@@ -160,18 +177,55 @@ export function SectionScatterChart({
     [onActivitySelect]
   );
 
-  const { composedGesture, crosshairStyle } = useScatterGestures({
-    allPoints,
-    chartWidth: CHART_WIDTH,
-    chartHeight: effectiveHeight,
-    padding: effectivePadding,
-    minSpeed,
-    maxSpeed,
-    compact,
-    mini,
-    onPointSelected: handlePointPress,
-    onScrubChange,
+  // Points carry a normalised x, so turn them into pixels once for the scrub
+  // to snap against.
+  const pointXCoords = useMemo(() => {
+    const contentWidth = chartWidth - effectivePadding.left - effectivePadding.right;
+    return allPoints.map((point) => effectivePadding.left + point.x * contentWidth);
+  }, [allPoints, effectivePadding, chartWidth]);
+
+  // Taps match on 2D distance so an outlier high above the trend is reachable.
+  const resolveTapIndex = useCallback(
+    (x: number, y: number) => {
+      if (allPoints.length === 0) return -1;
+      const contentWidth = chartWidth - effectivePadding.left - effectivePadding.right;
+      const contentHeight = effectiveHeight - effectivePadding.top - effectivePadding.bottom;
+      const normalisedX = Math.max(0, Math.min(1, (x - effectivePadding.left) / contentWidth));
+      const normalisedY = Math.max(0, Math.min(1, (y - effectivePadding.top) / contentHeight));
+      const speedRange = maxSpeed - minSpeed || 1;
+
+      let closestIdx = 0;
+      let closestDist = Infinity;
+      for (let i = 0; i < allPoints.length; i++) {
+        const dx = allPoints[i].x - normalisedX;
+        // Top of the chart is the fastest, so invert before comparing.
+        const dy = 1 - (allPoints[i].speed - minSpeed) / speedRange - normalisedY;
+        const dist = dx * dx + dy * dy;
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestIdx = i;
+        }
+      }
+      return closestIdx;
+    },
+    [allPoints, effectivePadding, effectiveHeight, minSpeed, maxSpeed, chartWidth]
+  );
+
+  const { gesture, crosshairStyle, syncBounds, syncXCoords } = useChartGestures<
+    PerformanceDataPoint & { x: number }
+  >({
+    data: allPoints,
+    enabled: !mini,
+    scrubEnabled: !compact,
+    crosshairMode: 'finger',
+    onSelect: handlePointPress,
+    resolveTapIndex,
   });
+
+  useEffect(() => {
+    syncBounds({ left: 0, right: chartWidth, top: 0, bottom: effectiveHeight });
+    syncXCoords(pointXCoords, (value) => value);
+  }, [syncBounds, syncXCoords, pointXCoords, effectiveHeight, chartWidth]);
 
   if (chartData.length < 1) return null;
 
@@ -211,215 +265,202 @@ export function SectionScatterChart({
       )}
 
       {/* Chart */}
-      <View style={[styles.chartWrapper, { height: effectiveHeight }]}>
+      <View style={{ width: chartWidth, height: effectiveHeight }}>
         <View style={StyleSheet.absoluteFill}>
-          <CartesianChart
-            data={allPoints as unknown as Record<string, unknown>[]}
-            xKey={'x' as never}
-            yKeys={[useTimeAxis ? 'sectionTime' : 'speed'] as never}
-            domain={{ x: [0, 1], y: [yMin, yMax] }}
+          <ChartCanvas
+            data={allPoints}
+            x={xOf}
+            series={NO_SERIES}
+            xDomain={X_DOMAIN}
+            yDomain={yDomain}
             padding={effectivePadding}
+            grid={5}
           >
-            {
-              (({
-                points,
-                chartBounds,
-              }: {
-                points: { speed: PointsArray; sectionTime: PointsArray };
-                chartBounds: { left: number; right: number; top: number; bottom: number };
-              }) => {
-                const yField = useTimeAxis ? points.sectionTime : points.speed;
-                // Build trend + band paths using chart coordinate system
-                const xScale = (x: number) =>
-                  chartBounds.left + (x / 1) * (chartBounds.right - chartBounds.left);
-                const yScale = (y: number) =>
-                  chartBounds.top +
-                  ((yMax - y) / (yMax - yMin)) * (chartBounds.bottom - chartBounds.top);
-
-                const buildPaths = (trend: TrendBandPoint[] | null) => {
-                  if (!trend || trend.length < 2) return { line: null, band: null };
-                  const linePts = trend.map((p) => ({ x: xScale(p.x), y: yScale(p.y) }));
-                  // Band: upper edge forward, then lower edge backward (closed shape)
-                  const upperPts = trend.map((p) => ({ x: xScale(p.x), y: yScale(p.upper) }));
-                  const lowerPts = trend.map((p) => ({ x: xScale(p.x), y: yScale(p.lower) }));
-                  return {
-                    line: Skia.Path.MakeFromSVGString(polylineSvgPath(linePts)),
-                    band: Skia.Path.MakeFromSVGString(bandSvgPath(upperPts, lowerPts)),
-                  };
+            {({ xFor, yFor }) => {
+              const yOf = (p: PerformanceDataPoint) => (useTimeAxis ? p.sectionTime : p.speed);
+              // Build trend + band paths using chart coordinate system
+              const buildPaths = (trend: TrendBandPoint[] | null) => {
+                if (!trend || trend.length < 2) return { line: null, band: null };
+                const linePts = trend.map((p) => ({ x: xFor(p.x), y: yFor(p.y) }));
+                // Band: upper edge forward, then lower edge backward (closed shape)
+                const upperPts = trend.map((p) => ({ x: xFor(p.x), y: yFor(p.upper) }));
+                const lowerPts = trend.map((p) => ({ x: xFor(p.x), y: yFor(p.lower) }));
+                return {
+                  line: Skia.Path.MakeFromSVGString(polylineSvgPath(linePts)),
+                  band: Skia.Path.MakeFromSVGString(bandSvgPath(upperPts, lowerPts)),
                 };
+              };
 
-                const fwd = buildPaths(forwardTrend);
-                const rev = buildPaths(reverseTrend);
+              const fwd = buildPaths(forwardTrend);
+              const rev = buildPaths(reverseTrend);
 
-                // Track which allPoints index maps to forward/reverse
-                let fwdIdx = 0;
-                let revIdx = 0;
+              // Track which allPoints index maps to forward/reverse
+              let fwdIdx = 0;
+              let revIdx = 0;
 
-                return (
-                  <>
-                    {/* Confidence bands (drawn first, behind everything) */}
-                    {fwd.band && (
-                      <Path path={fwd.band} color={activityColor} style="fill" opacity={0.08} />
-                    )}
-                    {rev.band && (
-                      <Path
-                        path={rev.band}
-                        color={colors.reverseDirection}
-                        style="fill"
-                        opacity={0.08}
-                      />
-                    )}
-                    {/* Trend lines */}
-                    {fwd.line && (
-                      <Path
-                        path={fwd.line}
-                        color={activityColor}
-                        style="stroke"
-                        strokeWidth={2}
-                        opacity={0.6}
-                      />
-                    )}
-                    {rev.line && (
-                      <Path
-                        path={rev.line}
-                        color={colors.reverseDirection}
-                        style="stroke"
-                        strokeWidth={2}
-                        opacity={0.6}
-                      />
-                    )}
+              return (
+                <>
+                  {/* Confidence bands (drawn first, behind everything) */}
+                  {fwd.band && (
+                    <Path path={fwd.band} color={activityColor} style="fill" opacity={0.08} />
+                  )}
+                  {rev.band && (
+                    <Path
+                      path={rev.band}
+                      color={colors.reverseDirection}
+                      style="fill"
+                      opacity={0.08}
+                    />
+                  )}
+                  {/* Trend lines */}
+                  {fwd.line && (
+                    <Path
+                      path={fwd.line}
+                      color={activityColor}
+                      style="stroke"
+                      strokeWidth={2}
+                      opacity={0.6}
+                    />
+                  )}
+                  {rev.line && (
+                    <Path
+                      path={rev.line}
+                      color={colors.reverseDirection}
+                      style="stroke"
+                      strokeWidth={2}
+                      opacity={0.6}
+                    />
+                  )}
 
-                    {/* Scatter points */}
-                    {(() => {
-                      const highlight: { x: number; y: number }[] = [];
+                  {/* Scatter points */}
+                  {(() => {
+                    const highlight: { x: number; y: number }[] = [];
 
-                      const dots = yField.map((point: PointsArray[number], idx: number) => {
-                        if (point.x == null || point.y == null) return null;
+                    const dots = allPoints.map((dataPoint, idx) => {
+                      const yValue = yOf(dataPoint);
+                      if (yValue == null || !Number.isFinite(yValue)) return null;
+                      const point = { x: xFor(dataPoint.x), y: yFor(yValue) };
 
-                        const dataPoint = allPoints[idx];
-                        if (!dataPoint) return null;
+                      const isReverse = dataPoint.direction === 'reverse';
+                      const dotColor = isReverse ? colors.reverseDirection : activityColor;
+                      const isPointExcluded = dataPoint.isExcluded === true;
 
-                        const isReverse = dataPoint.direction === 'reverse';
-                        const dotColor = isReverse ? colors.reverseDirection : activityColor;
-                        const isPointExcluded = dataPoint.isExcluded === true;
-
-                        // Determine if this is the best in its direction
-                        let isBest = false;
-                        if (!isPointExcluded) {
-                          if (isReverse) {
-                            if (revIdx === reverseBestIdx) isBest = true;
-                            revIdx++;
-                          } else {
-                            if (fwdIdx === forwardBestIdx) isBest = true;
-                            fwdIdx++;
-                          }
+                      // Determine if this is the best in its direction
+                      let isBest = false;
+                      if (!isPointExcluded) {
+                        if (isReverse) {
+                          if (revIdx === reverseBestIdx) isBest = true;
+                          revIdx++;
+                        } else {
+                          if (fwdIdx === forwardBestIdx) isBest = true;
+                          fwdIdx++;
                         }
+                      }
 
-                        // Track highlighted point for rendering last (on top)
-                        const isHighlighted =
-                          highlightedActivityId != null &&
-                          dataPoint.activityId === highlightedActivityId;
-                        if (isHighlighted && highlight.length === 0) {
-                          highlight.push({ x: point.x, y: point.y });
-                        }
+                      // Track highlighted point for rendering last (on top)
+                      const isHighlighted =
+                        highlightedActivityId != null &&
+                        dataPoint.activityId === highlightedActivityId;
+                      if (isHighlighted && highlight.length === 0) {
+                        highlight.push(point);
+                      }
 
-                        const isSelected =
-                          selectedPoint?.activityId === dataPoint.activityId &&
-                          selectedPoint?.id === dataPoint.id;
+                      const isSelected =
+                        selectedPoint?.activityId === dataPoint.activityId &&
+                        selectedPoint?.id === dataPoint.id;
 
-                        if (isSelected) {
-                          return (
-                            <React.Fragment key={`pt-${idx}`}>
-                              <Circle
-                                cx={point.x}
-                                cy={point.y}
-                                r={dotRadius + 3}
-                                color={colors.chartCyan}
-                              />
-                              <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
-                            </React.Fragment>
-                          );
-                        }
-
-                        // Skip highlighted point in main loop - rendered on top below
-                        if (isHighlighted) return null;
-
-                        if (isPointExcluded) {
-                          return (
+                      if (isSelected) {
+                        return (
+                          <React.Fragment key={`pt-${idx}`}>
                             <Circle
-                              key={`pt-${idx}`}
                               cx={point.x}
                               cy={point.y}
-                              r={dotRadius - 1}
-                              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                              opacity={0.25}
+                              r={dotRadius + 3}
+                              color={colors.chartCyan}
                             />
-                          );
-                        }
+                            <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
+                          </React.Fragment>
+                        );
+                      }
 
-                        if (isBest) {
-                          return (
-                            <React.Fragment key={`pt-${idx}`}>
-                              <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
-                              <Circle
-                                cx={point.x}
-                                cy={point.y}
-                                r={prRingRadius}
-                                color={colors.chartGold}
-                                style="stroke"
-                                strokeWidth={1.5}
-                              />
-                            </React.Fragment>
-                          );
-                        }
+                      // Skip highlighted point in main loop - rendered on top below
+                      if (isHighlighted) return null;
 
+                      if (isPointExcluded) {
                         return (
                           <Circle
                             key={`pt-${idx}`}
                             cx={point.x}
                             cy={point.y}
-                            r={dotRadius}
-                            color={dotColor}
-                            opacity={0.7}
+                            r={dotRadius - 1}
+                            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                            opacity={0.25}
                           />
                         );
-                      });
+                      }
 
-                      const hp = highlight[0];
+                      if (isBest) {
+                        return (
+                          <React.Fragment key={`pt-${idx}`}>
+                            <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
+                            <Circle
+                              cx={point.x}
+                              cy={point.y}
+                              r={prRingRadius}
+                              color={colors.chartGold}
+                              style="stroke"
+                              strokeWidth={1.5}
+                            />
+                          </React.Fragment>
+                        );
+                      }
+
                       return (
-                        <>
-                          {dots}
-                          {hp && (
-                            <React.Fragment key="highlighted-activity">
-                              <Circle
-                                cx={hp.x}
-                                cy={hp.y}
-                                r={dotRadius + 3}
-                                color={colors.chartGreen}
-                                style="stroke"
-                                strokeWidth={1.5}
-                              />
-                              <Circle
-                                cx={hp.x}
-                                cy={hp.y}
-                                r={dotRadius + 1}
-                                color={colors.chartGreen}
-                              />
-                            </React.Fragment>
-                          )}
-                        </>
+                        <Circle
+                          key={`pt-${idx}`}
+                          cx={point.x}
+                          cy={point.y}
+                          r={dotRadius}
+                          color={dotColor}
+                          opacity={0.7}
+                        />
                       );
-                    })()}
-                  </>
-                );
-              }) as any
-            }
-          </CartesianChart>
+                    });
+
+                    const hp = highlight[0];
+                    return (
+                      <>
+                        {dots}
+                        {hp && (
+                          <React.Fragment key="highlighted-activity">
+                            <Circle
+                              cx={hp.x}
+                              cy={hp.y}
+                              r={dotRadius + 3}
+                              color={colors.chartGreen}
+                              style="stroke"
+                              strokeWidth={1.5}
+                            />
+                            <Circle
+                              cx={hp.x}
+                              cy={hp.y}
+                              r={dotRadius + 1}
+                              color={colors.chartGreen}
+                            />
+                          </React.Fragment>
+                        )}
+                      </>
+                    );
+                  })()}
+                </>
+              );
+            }}
+          </ChartCanvas>
         </View>
 
         {/* Gesture target for tap + long-press scrub */}
         {!mini && (
-          <GestureDetector gesture={composedGesture}>
+          <GestureDetector gesture={gesture}>
             <Animated.View style={styles.tapTarget} />
           </GestureDetector>
         )}
@@ -430,10 +471,16 @@ export function SectionScatterChart({
         {/* Y-axis labels */}
         {!mini && (
           <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+            >
               {useTimeAxis ? formatDuration(minTime) : formatSpeedValue(maxSpeed)}
             </Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+            >
               {useTimeAxis ? formatDuration(maxTime) : formatSpeedValue(minSpeed)}
             </Text>
           </View>
@@ -445,6 +492,7 @@ export function SectionScatterChart({
         <View style={styles.timeAxis}>
           {timeAxisLabels.map((date, idx) => (
             <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
               key={idx}
               style={[
                 styles.timeAxisLabel,
@@ -498,7 +546,7 @@ export function SectionScatterChart({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     overflow: 'hidden',
   },
   containerDark: {
@@ -512,9 +560,6 @@ const styles = StyleSheet.create({
   },
   eyeToggle: {
     padding: 4,
-  },
-  chartWrapper: {
-    width: CHART_WIDTH,
   },
   tapTarget: {
     ...StyleSheet.absoluteFill,
@@ -540,7 +585,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   timeAxisLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textMuted,
   },
   timeAxisLabelFirst: {
@@ -553,7 +598,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   axisLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textMuted,
   },
   axisLabelDark: {

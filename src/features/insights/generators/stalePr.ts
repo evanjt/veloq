@@ -1,10 +1,8 @@
 import type { Insight } from '../types';
 import { formatDuration, formatPaceCompact, formatSwimPace } from '@/shared/format/format';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { INSIGHTS_CONFIG, maxPerCategoryFor, minAgeDaysFor } from '../lib/config';
+import { getEngine } from '@/shared/native/engine';
+import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor, minAgeDaysFor } from '../lib/config';
 import { insightIcon } from '@/theme';
-
-const DAY_MS = 86_400_000;
 
 /**
  * Stale PR / Opportunity Detection
@@ -30,8 +28,9 @@ export interface StalePRSectionData {
   sectionName: string;
   bestTimeSecs: number;
   traversalCount: number;
-  /** Timestamp (seconds since epoch) of the most recent traversal, if known */
-  lastTraversalTs?: number;
+  /** Days since the most recent traversal. The engine reports days, not an
+   *  instant, so this mirrors the unit rather than converting. */
+  daysSinceLast?: number;
   /** Sport type: 'Run', 'Ride', etc. */
   sportType?: string;
 }
@@ -41,13 +40,6 @@ export interface StalePRFtpTrend {
   latestDate?: bigint | number;
   previousFtp?: number;
   previousDate?: bigint | number;
-}
-
-export interface StalePRRecentPR {
-  sectionId: string;
-  sectionName: string;
-  bestTime: number;
-  daysAgo: number;
 }
 
 export interface StalePRPaceTrend {
@@ -64,7 +56,6 @@ export interface StalePRInput {
   paceTrend?: StalePRPaceTrend | null;
   runPaceTrend?: StalePRPaceTrend | null;
   swimPaceTrend?: StalePRPaceTrend | null;
-  recentPRs: StalePRRecentPR[];
 }
 
 export interface StalePROpportunity {
@@ -78,6 +69,10 @@ export interface StalePROpportunity {
   gainPercent: number;
   /** Unit label: 'W' for power, '/km' for running, '/100m' for swimming */
   unit: string;
+  /** Days since the last traversal. Feeds the recency gate. */
+  daysSinceLast: number;
+  /** Lifetime traversals. Feeds the repetition gate. */
+  traversalCount: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -100,138 +95,12 @@ function getMaxOpportunities(): number {
 }
 
 // ---------------------------------------------------------------------------
-// Detection logic
-// ---------------------------------------------------------------------------
-
-/** Check if a fitness metric has improved enough to flag opportunities */
-function getFitnessImprovement(
-  sportType: string | undefined,
-  ftpTrend: StalePRFtpTrend | null,
-  runPaceTrend: StalePRPaceTrend | null,
-  swimPaceTrend: StalePRPaceTrend | null
-): {
-  metric: 'power' | 'pace';
-  current: number;
-  previous: number;
-  gain: number;
-  unit: string;
-} | null {
-  const isRunning = sportType === 'Run' || sportType === 'VirtualRun' || sportType === 'TrailRun';
-  const isSwimming = sportType === 'Swim' || sportType === 'OpenWaterSwim';
-  const isCycling =
-    sportType === 'Ride' ||
-    sportType === 'VirtualRide' ||
-    sportType === 'MountainBikeRide' ||
-    sportType === 'GravelRide' ||
-    sportType === 'Handcycle' ||
-    sportType === 'Velomobile';
-  const paceTrend = isRunning ? runPaceTrend : isSwimming ? swimPaceTrend : null;
-
-  if ((isRunning || isSwimming) && paceTrend) {
-    const cur = paceTrend.latestPace;
-    const prev = paceTrend.previousPace;
-    if (cur == null || prev == null || !Number.isFinite(cur) || !Number.isFinite(prev)) return null;
-    // Pace trends are stored as critical speed in m/s, so higher is better.
-    if (cur <= prev) return null;
-    const gainPercent = ((cur - prev) / prev) * 100;
-    if (gainPercent < getMinFtpGainPercent()) return null;
-    return {
-      metric: 'pace',
-      current: cur,
-      previous: prev,
-      gain: Math.round(gainPercent * 10) / 10,
-      unit: isSwimming ? '/100m' : '/km',
-    };
-  }
-
-  if (isCycling && ftpTrend) {
-    const cur = ftpTrend.latestFtp;
-    const prev = ftpTrend.previousFtp;
-    if (cur == null || prev == null || !Number.isFinite(cur) || !Number.isFinite(prev)) return null;
-    if (cur <= prev) return null;
-    const gainPercent = ((cur - prev) / prev) * 100;
-    if (gainPercent < getMinFtpGainPercent()) return null;
-    return {
-      metric: 'power',
-      current: cur,
-      previous: prev,
-      gain: Math.round(gainPercent * 10) / 10,
-      unit: 'W',
-    };
-  }
-
-  return null;
-}
-
-/**
- * Detect sections where a PR might be beatable due to fitness improvement.
- *
- * Sport-aware: uses FTP for cycling sections, pace trend for running sections.
- * Only flags sections that haven't been visited in 30+ days and where the
- * relevant fitness metric has improved by 3%+.
- */
-export function detectStalePROpportunities(input: StalePRInput): StalePROpportunity[] {
-  const { sections, ftpTrend, paceTrend, runPaceTrend, swimPaceTrend, recentPRs } = input;
-  const resolvedRunPaceTrend = runPaceTrend ?? paceTrend ?? null;
-
-  // No fitness data at all → nothing to flag
-  if (!ftpTrend && !resolvedRunPaceTrend && !swimPaceTrend) return [];
-
-  // Build a set of section IDs that had a recent PR (within 30 days)
-  const recentPRSectionIds = new Set(
-    recentPRs.filter((pr) => pr.daysAgo <= getStaleThresholdDays()).map((pr) => pr.sectionId)
-  );
-
-  const now = Date.now() / 1000;
-  const opportunities: StalePROpportunity[] = [];
-
-  for (const section of sections) {
-    if (recentPRSectionIds.has(section.sectionId)) continue;
-    if (section.traversalCount === 0 || !Number.isFinite(section.bestTimeSecs)) continue;
-
-    // Check staleness
-    if (section.lastTraversalTs != null && Number.isFinite(section.lastTraversalTs)) {
-      const daysSinceLast = (now - section.lastTraversalTs) / 86400;
-      if (daysSinceLast < getStaleThresholdDays()) continue;
-    }
-
-    // Get sport-appropriate fitness improvement
-    const improvement = getFitnessImprovement(
-      section.sportType,
-      ftpTrend,
-      resolvedRunPaceTrend,
-      swimPaceTrend ?? null
-    );
-    if (!improvement) continue;
-
-    opportunities.push({
-      sectionId: section.sectionId,
-      sectionName: section.sectionName,
-      bestTimeSecs: section.bestTimeSecs,
-      fitnessMetric: improvement.metric,
-      currentValue: improvement.current,
-      previousValue: improvement.previous,
-      gainPercent: improvement.gain,
-      unit: improvement.unit,
-    });
-  }
-
-  opportunities.sort((a, b) => {
-    const aSection = sections.find((s) => s.sectionId === a.sectionId);
-    const bSection = sections.find((s) => s.sectionId === b.sectionId);
-    return (bSection?.traversalCount ?? 0) - (aSection?.traversalCount ?? 0);
-  });
-
-  return opportunities.slice(0, getMaxOpportunities());
-}
-
-// ---------------------------------------------------------------------------
 // Insight formatting
 // ---------------------------------------------------------------------------
 
 /**
  * Convert a StalePROpportunity into an Insight object suitable for the
- * insights panel and InsightLine rotation.
+ * insights panel.
  */
 export function stalePROpportunityToInsight(
   opportunity: StalePROpportunity,
@@ -261,15 +130,13 @@ export function stalePROpportunityToInsight(
   const displayedCurrent = isPower ? currentStr : `${currentStr}${opportunity.unit}`;
   const displayedPrevious = isPower ? previousStr : `${previousStr}${opportunity.unit}`;
 
-  // stale_pr omits sourceTimestamp: the detector already filtered by min
-  // staleness (30+ days). The rules pipeline's G1 min-age check is
-  // therefore redundant; signalling it via meta would require plumbing
-  // lastTraversalTs through the engine path, which isn't worth the
-  // duplication today.
   return {
     id: `stale_pr-${opportunity.sectionId}`,
     category: 'stale_pr',
     priority: 2,
+    // The lifetime traversals are what makes a stale record worth chasing:
+    // one that stood over two visits is a weaker claim than one over twenty.
+    confidence: confidenceFrom('stale_pr', opportunity.traversalCount),
     title: t('insights.stalePr.title', { section: opportunity.sectionName }),
     subtitle: t('insights.stalePr.subtitle', {
       prTime,
@@ -291,8 +158,12 @@ export function stalePROpportunityToInsight(
     isNew: true,
     meta: {
       comparisonKind: 'self',
-      repetitionCount: undefined,
-      specificity: { hasNumber: true, hasPlace: true, hasDate: false },
+      repetitionCount: opportunity.traversalCount,
+      // The age of the last traversal, not of the card. The recency gate reads
+      // this, and stamping it with `now` would age every card at zero days.
+      sourceTimestamp: timestamp - opportunity.daysSinceLast * 86_400_000,
+      placeName: opportunity.sectionName,
+      sectionId: opportunity.sectionId,
     },
     supportingData: {
       dataPoints: [
@@ -340,7 +211,6 @@ export interface GenerateStalePRInsightsInput {
   ftpTrend: StalePRFtpTrend | null;
   runPaceTrend: StalePRPaceTrend | null;
   swimPaceTrend: StalePRPaceTrend | null;
-  recentPRs: StalePRRecentPR[];
   /** IDs of insights already generated (to avoid duplicating section_pr cards) */
   existingInsightIds: Set<string>;
 }
@@ -354,19 +224,18 @@ export function generateStalePRInsights(
   t: (key: string, params?: Record<string, string | number>) => string,
   now: number
 ): Insight[] {
-  // Primary path: Rust atomic on FitnessManager does the full filter+sort+cap
-  // from SQLite-resident FTP/pace trends and ranked-section metadata. TS never
-  // sees the raw candidates. Fallback to the pure-TS detector for jest (no
-  // engine) and for the pre-sync startup window.
+  // The Rust atomic on FitnessManager does the whole filter, sort and cap from
+  // SQLite-resident FTP and pace trends and ranked-section metadata, so TS
+  // never sees the raw candidates and never decides which ones qualify.
   const excludeSectionIds: string[] = [];
   for (const id of input.existingInsightIds) {
     const m = id.match(/^section_pr-(.+)$/);
     if (m) excludeSectionIds.push(m[1]);
   }
 
-  let filtered: StalePROpportunity[] | null = null;
+  let filtered: StalePROpportunity[] = [];
   try {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (engine?.findStalePrOpportunities) {
       const rows = engine.findStalePrOpportunities(
         getStaleThresholdDays(),
@@ -378,6 +247,8 @@ export function generateStalePRInsights(
         sectionId: r.sectionId,
         sectionName: r.sectionName,
         bestTimeSecs: r.bestTimeSecs,
+        daysSinceLast: r.daysSinceLast,
+        traversalCount: r.traversalCount,
         fitnessMetric: r.fitnessMetric === 'power' ? 'power' : 'pace',
         currentValue: r.currentValue,
         previousValue: r.previousValue,
@@ -386,20 +257,9 @@ export function generateStalePRInsights(
       }));
     }
   } catch {
-    filtered = null;
-  }
-
-  if (filtered === null) {
-    const opportunities = detectStalePROpportunities({
-      sections: input.sections,
-      ftpTrend: input.ftpTrend,
-      runPaceTrend: input.runPaceTrend,
-      swimPaceTrend: input.swimPaceTrend,
-      recentPRs: input.recentPRs,
-    });
-    filtered = opportunities.filter(
-      (opp) => !input.existingInsightIds.has(`section_pr-${opp.sectionId}`)
-    );
+    // The engine is the only opinion. One that cannot answer yet produces no
+    // card, rather than a second detector answering differently.
+    filtered = [];
   }
 
   if (filtered.length === 0) return [];
@@ -431,6 +291,9 @@ export function generateStalePRInsights(
       id: 'stale_pr-group',
       category: 'stale_pr',
       priority: 2,
+      // The group stands on the thinnest section in it, not the sum: one
+      // well-visited section does not make the others' records solid.
+      confidence: confidenceFrom('stale_pr', Math.min(...filtered.map((o) => o.traversalCount))),
       icon: 'lightning-bolt',
       iconColor: insightIcon.opportunity,
       title: t('insights.stalePr.groupTitle', { count: filtered.length }),
@@ -447,9 +310,12 @@ export function generateStalePRInsights(
       timestamp: now,
       isNew: false,
       meta: {
-        // See note above - stale_pr opts out of G1 via unset sourceTimestamp.
         comparisonKind: 'self',
-        specificity: { hasNumber: true, hasPlace: false, hasDate: false },
+        // The freshest member, so the group is only as stale as its least stale
+        // section. The same for repetitions: one thin member should not let a
+        // group through a gate that member would fail alone.
+        sourceTimestamp: now - Math.min(...filtered.map((o) => o.daysSinceLast)) * 86_400_000,
+        repetitionCount: Math.min(...filtered.map((o) => o.traversalCount)),
       },
       supportingData: {
         sections: filtered.map((o) => ({

@@ -3,7 +3,7 @@
  * Provides viewport-based queries using the engine's R-tree index.
  */
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 export interface Viewport {
   minLat: number;
@@ -21,7 +21,7 @@ export const activitySpatialIndex = {
    */
   get ready(): boolean {
     try {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       return engine ? engine.getActivityCount() > 0 : false;
     } catch {
       return false;
@@ -33,7 +33,7 @@ export const activitySpatialIndex = {
    */
   get size(): number {
     try {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       return engine ? engine.getActivityCount() : 0;
     } catch {
       return 0;
@@ -47,7 +47,7 @@ export const activitySpatialIndex = {
    */
   queryViewport(viewport: Viewport): string[] {
     try {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return [];
       return engine.queryViewport(
         viewport.minLat,

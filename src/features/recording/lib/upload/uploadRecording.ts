@@ -1,21 +1,61 @@
-import { intervalsApi } from '@/api';
 import { debug } from '@/shared/debug/debug';
+import { uploadActivityFile } from './intervalsUploads';
+import { engine } from 'veloqrs';
 import {
+  recordingFitExists,
   readRecordingFit,
   markRecordingUploading,
   markRecordingUploaded,
   markRecordingUploadFailed,
   markRecordingRejected,
   markRecordingPermissionBlocked,
+  holdRecordingForAuth,
 } from '@/features/recording/lib/storage/recordingLibrary';
+import { recordProvisionalUpload } from '@/features/recording/lib/storage/provisionalActivity';
 import { classifyUploadError } from './classifyUploadError';
 import type { RecordingLibraryEntry } from '@/types';
 
 const log = debug.create('Upload');
 
+/**
+ * Pull the strength sets out of a recorded session's own FIT.
+ *
+ * intervals.icu keeps the sets in the file it was handed, so nothing comes
+ * back down the sync for them. Parsing the local copy is what puts a session
+ * recorded in the app on the same footing as one recorded on a watch.
+ *
+ * Best effort by design: the upload has already succeeded by the time this
+ * runs, and a session with no sets on device is worth less than a session the
+ * queue thinks failed.
+ */
+async function importRecordedStrengthSets(
+  entry: RecordingLibraryEntry,
+  activityId: string | undefined
+): Promise<void> {
+  if (entry.activityType !== 'WeightTraining') return;
+
+  // The sets key on the activity the server created. Without that id there is
+  // nothing to attach them to, and the next sync will carry them anyway.
+  if (!activityId) {
+    log.warn(`No activity id for ${entry.id}, leaving its strength sets to the sync`);
+    return;
+  }
+
+  try {
+    const fit = await readRecordingFit(entry);
+    if (!fit) return;
+
+    const inserted = engine.importSetsFromFit(activityId, new Uint8Array(fit));
+    log.log(`Imported ${inserted} strength sets from ${entry.id}`);
+  } catch (err) {
+    log.warn(`Strength set import failed for ${entry.id}: ${String(err)}`);
+  }
+}
+
 export type UploadRecordingOutcome =
   | 'uploaded'
   | 'permissionBlocked'
+  | 'authExpired'
   | 'rejected'
   | 'retriable'
   | 'network'
@@ -32,15 +72,16 @@ export interface UploadRecordingResult {
  * transition. The single upload path shared by the review-screen save, the
  * background processor, and the library's manual "upload now".
  *
- * The FIT file on disk is the source of truth; nothing is deleted here on any
- * outcome.
+ * The FIT file on disk is the source of truth until the upload lands, and no
+ * failure outcome deletes it. The engine streams it straight off disk, so a long
+ * ride never has to fit in memory to be uploaded. Once intervals.icu has the
+ * activity, and once everything that still needed the bytes has read them, the
+ * FIT is discarded.
  */
 export async function uploadRecording(
-  entry: RecordingLibraryEntry,
-  fitBuffer?: ArrayBuffer
+  entry: RecordingLibraryEntry
 ): Promise<UploadRecordingResult> {
-  const buffer = fitBuffer ?? (await readRecordingFit(entry));
-  if (!buffer) {
+  if (!(await recordingFitExists(entry))) {
     log.warn(`FIT file missing for ${entry.id}`);
     await markRecordingRejected(entry.id, 'FIT file missing on device');
     return { outcome: 'missing' };
@@ -49,11 +90,18 @@ export async function uploadRecording(
   await markRecordingUploading(entry.id);
   try {
     log.log(`Uploading ${entry.name}.fit (${entry.id})...`);
-    await intervalsApi.uploadActivity(buffer, `${entry.name}.fit`, {
+    const activityId = await uploadActivityFile(entry.fitPath, `${entry.name}.fit`, {
       name: entry.name,
       pairedEventId: entry.pairedEventId,
     });
-    await markRecordingUploaded(entry.id);
+    await markRecordingUploaded(entry.id, activityId);
+    // The provisional row keeps its key and gains the server's id.
+    await recordProvisionalUpload(entry, activityId);
+    await importRecordedStrengthSets(entry, activityId);
+    // Nothing is deleted here. A 200 says the server took the bytes, not that
+    // the activity survived, and until it has been read back the FIT on the
+    // device is the only copy of the ride. `confirmAndDeleteUploaded` does the
+    // deleting, once it has seen the activity.
     return { outcome: 'uploaded' };
   } catch (uploadErr) {
     const err = classifyUploadError(uploadErr);
@@ -64,6 +112,15 @@ export async function uploadRecording(
     if (err.type === 'http403') {
       await markRecordingPermissionBlocked(entry.id);
       return { outcome: 'permissionBlocked' };
+    }
+
+    // A refused credential is not the ride's fault and re-sending the same
+    // bytes against it cannot help, so the entry waits rather than being
+    // parked as rejected, which nothing requeues. The sign-out this 401 also
+    // triggers leaves it for the athlete who recorded it.
+    if (err.httpStatus === 401) {
+      await holdRecordingForAuth(entry.id, err.apiDetail ?? err.errMsg);
+      return { outcome: 'authExpired', errorDetail: err.apiDetail ?? err.errMsg };
     }
 
     if (err.type === 'network') {

@@ -15,7 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
-import { colors, darkColors, typography, spacing, layout } from '@/theme';
+import { colors, darkColors, typography, spacing, layout, ink } from '@/theme';
 import { formatDistance } from '@/shared/format/format';
 import { useMetricSystem, useTheme } from '@/shared/app';
 
@@ -31,7 +31,6 @@ interface SectionTrimOverlayProps {
   originalDistance: number;
   isSaving: boolean;
   canReset: boolean;
-  initiallyExpanded?: boolean;
   isExpandMode: boolean;
   sectionStartInWindow?: number;
   sectionEndInWindow?: number;
@@ -466,7 +465,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -516,8 +515,8 @@ const styles = StyleSheet.create({
   handleInner: {
     width: 22,
     height: 22,
-    borderRadius: 11,
-    backgroundColor: '#FFFFFF',
+    borderRadius: layout.borderRadiusFull,
+    backgroundColor: ink.white,
     borderWidth: 2,
     borderColor: colors.primary,
     justifyContent: 'center',
@@ -526,7 +525,7 @@ const styles = StyleSheet.create({
   handleBar: {
     width: 8,
     height: 2,
-    borderRadius: 1,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.primary,
   },
   stepRow: {
@@ -541,7 +540,7 @@ const styles = StyleSheet.create({
   stepButton: {
     width: 30,
     height: 28,
-    borderRadius: 6,
+    borderRadius: spacing.xsPlus,
     backgroundColor: colors.primary + '15',
     justifyContent: 'center',
     alignItems: 'center',

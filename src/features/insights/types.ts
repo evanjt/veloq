@@ -7,7 +7,8 @@ export type InsightCategory =
   | 'strength_progression'
   | 'strength_balance'
   | 'hrv_trend'
-  | 'efficiency_trend';
+  | 'efficiency_trend'
+  | 'section_changed';
 
 export type InsightPriority = 1 | 2 | 3 | 4 | 5;
 
@@ -16,7 +17,6 @@ export interface DataPoint {
   value: number | string;
   unit?: string;
   context?: 'good' | 'warning' | 'concern' | 'neutral';
-  range?: { min: number; max: number; label?: string };
 }
 
 export interface InsightAlternative {
@@ -31,8 +31,20 @@ export interface InsightMethodology {
   name: string;
   description: string;
   formula?: string;
-  reference?: string;
-  referenceUrl?: string;
+}
+
+/**
+ * The engine's ML relevance breakdown for one section, all 0..1.
+ * `relevance` is the composite the ranker sorts on, the other four are the
+ * components it weighs. Weights live in Rust
+ * (`persistence/sections/ranking.rs`) and are not restated here.
+ */
+export interface SectionRankingScores {
+  relevance: number;
+  recency: number;
+  improvement: number;
+  anomaly: number;
+  engagement: number;
 }
 
 export interface SupportingSection {
@@ -44,6 +56,7 @@ export interface SupportingSection {
   sportType?: string;
   hasRecentPR?: boolean;
   daysSinceLast?: number;
+  ranking?: SectionRankingScores;
 }
 
 export interface SupportingActivity {
@@ -89,8 +102,16 @@ export interface InsightMeta {
   comparisonKind?: 'self' | 'other' | 'none';
   /** Lifetime count of the repeated behaviour - drives repetition gate (G3). */
   repetitionCount?: number;
-  /** Proximal-specificity tags - drives R5 ranking bonus. */
-  specificity?: { hasNumber: boolean; hasPlace: boolean; hasDate: boolean };
+  /** The section this insight is about, which is what R9's scores are keyed on. */
+  sectionId?: string;
+  /** What the engine rates that section, filled in by the pipeline for R9. */
+  ranking?: SectionRankingScores;
+  /**
+   * The place this insight is about, as the generator knows it. R5 credits it
+   * only when it survives into the rendered copy, so this is the name to look
+   * for and not an assertion that it is there.
+   */
+  placeName?: string;
   /** Optional signal-to-noise delta (|value − baseline| / stddev) - drives R6. */
   signalDelta?: number;
 }
@@ -110,7 +131,12 @@ export interface Insight {
   alternatives?: InsightAlternative[];
   supportingData?: InsightSupportingData;
   methodology?: InsightMethodology;
-  confidence?: number;
+  /**
+   * R4 - how much population the claim stands on, 0 to 1, or `null` where the
+   * generator has none to count. Absent only on a hand-built insight, and the
+   * ranker scores that as the absence it is rather than substituting a middle.
+   */
+  confidence?: number | null;
   meta?: InsightMeta;
 }
 
@@ -128,6 +154,8 @@ export interface FtpTrend {
   latestDate?: bigint | number;
   previousFtp?: number;
   previousDate?: bigint | number;
+  /** Days of estimate from the one compared against to the newest. */
+  sampleCount?: number;
 }
 
 export interface PaceTrend {
@@ -135,6 +163,8 @@ export interface PaceTrend {
   latestDate?: bigint | number;
   previousPace?: number;
   previousDate?: bigint | number;
+  /** Snapshots the trend was read from. */
+  sampleCount?: number;
 }
 
 export interface SectionPR {
@@ -142,6 +172,8 @@ export interface SectionPR {
   sectionName: string;
   bestTime: number;
   daysAgo: number;
+  /** Lifetime traversals, the population the record stands on. */
+  traversalCount: number;
 }
 
 export interface SectionTrendData {
@@ -155,6 +187,7 @@ export interface SectionTrendData {
   sportType?: string;
   daysSinceLast?: number;
   latestIsPr?: boolean;
+  ranking?: SectionRankingScores;
 }
 
 /** Translation function signature (react-i18next-compatible). */

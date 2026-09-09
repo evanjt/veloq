@@ -16,6 +16,24 @@ export interface SectionDebugPanelProps {
   isDark: boolean;
 }
 
+/**
+ * The detector's per-point pass count, as a count and a spread. A section cut
+ * before the field existed carries an empty array, which is not the same claim
+ * as every point being seen zero times, so it reads as nothing at all.
+ */
+function formatDensity(pointDensity: number[] | undefined): string {
+  if (!pointDensity || pointDensity.length === 0) return '-';
+  const sorted = [...pointDensity].sort((a, b) => a - b);
+  const median = sorted[Math.floor((sorted.length - 1) / 2)];
+  const unit = sorted.length === 1 ? 'pt' : 'pts';
+  return `${sorted.length} ${unit}, ${sorted[0]}-${sorted[sorted.length - 1]}, med ${median}`;
+}
+
+/** A measured value, or null for absent, NaN and infinity alike. */
+function finite(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 export function SectionDebugPanel({ section, pageMetrics, isDark }: SectionDebugPanelProps) {
   const ffiEntries = pageMetrics.reduce<
     Record<string, { calls: number; totalMs: number; maxMs: number }>
@@ -26,10 +44,10 @@ export function SectionDebugPanel({ section, pageMetrics, isDark }: SectionDebug
     acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
     return acc;
   }, {});
-  const warnings: Array<{
+  const warnings: {
     level: 'warn' | 'error';
     message: string;
-  }> = [];
+  }[] = [];
   const actCount = section.activityIds.length;
   if (actCount > 500)
     warnings.push({
@@ -66,7 +84,7 @@ export function SectionDebugPanel({ section, pageMetrics, isDark }: SectionDebug
           { label: 'Type', value: section.sectionType },
           {
             label: 'Stability',
-            value: Number.isFinite(section.stability) ? section.stability!.toFixed(3) : '-',
+            value: finite(section.stability)?.toFixed(3) ?? '-',
           },
           {
             label: 'Version',
@@ -82,7 +100,7 @@ export function SectionDebugPanel({ section, pageMetrics, isDark }: SectionDebug
           },
           {
             label: 'Confidence',
-            value: Number.isFinite(section.confidence) ? section.confidence!.toFixed(2) : '-',
+            value: finite(section.confidence)?.toFixed(2) ?? '-',
           },
           {
             label: 'Observations',
@@ -90,9 +108,7 @@ export function SectionDebugPanel({ section, pageMetrics, isDark }: SectionDebug
           },
           {
             label: 'Avg Spread',
-            value: Number.isFinite(section.averageSpread)
-              ? section.averageSpread!.toFixed(1) + 'm'
-              : '-',
+            value: finite(section.averageSpread)?.toFixed(1).concat('m') ?? '-',
           },
           {
             label: 'Reference',
@@ -108,6 +124,10 @@ export function SectionDebugPanel({ section, pageMetrics, isDark }: SectionDebug
           {
             label: 'Points',
             value: String(section.polyline.length),
+          },
+          {
+            label: 'Density',
+            value: formatDensity(section.pointDensity),
           },
           ...Object.entries(ffiEntries).map(([name, m]) => ({
             label: name,

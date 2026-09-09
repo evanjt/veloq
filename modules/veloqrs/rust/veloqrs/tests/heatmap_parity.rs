@@ -1,8 +1,8 @@
-//! Tier 0.2 — pixel-parity fixture for heatmap tiles.
+//! Tier 0.2, pixel-parity fixture for heatmap tiles.
 //!
 //! Seeds a deterministic corpus, runs the full generation pipeline, decodes
 //! every tile PNG, and hashes the RGBA pixel buffers. The fixture stored at
-//! `tests/fixtures/heatmap_parity_v1.txt` is the canonical digest — Tier 1
+//! `tests/fixtures/heatmap_parity_v1.txt` is the canonical digest. Tier 1
 //! changes must either match it exactly or the test fails with the new
 //! digest printed for review.
 //!
@@ -17,11 +17,11 @@ use image::GenericImageView;
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 const FIXTURE_FILE: &str = "tests/fixtures/heatmap_parity_v1.txt";
 
-fn seed_engine(tmp: &TempDir) -> PersistentRouteEngine {
+fn seed_engine(tmp: &TempDir) -> PersistentEngine {
     let cfg = LifecycleConfig {
         bucket_a_count: 15,
         bucket_b_delta_count: 0,
@@ -32,7 +32,7 @@ fn seed_engine(tmp: &TempDir) -> PersistentRouteEngine {
     };
     let corpus = LifecycleCorpus::generate(&cfg);
     let db = tmp.path().join("parity.db");
-    let mut engine = PersistentRouteEngine::new(db.to_str().unwrap()).expect("open engine");
+    let mut engine = PersistentEngine::new(db.to_str().unwrap()).expect("open engine");
     for a in corpus.bucket_a {
         engine
             .add_activity(a.id, a.gps_points, a.sport_type)
@@ -135,7 +135,7 @@ fn tile_pixels_match_fixture() {
         }
         std::fs::write(&fixture_path, &actual).expect("write fixture");
         panic!(
-            "fixture was missing — wrote it to {}. Review the tile output, then commit the fixture so future runs can compare.",
+            "fixture was missing, wrote it to {}. Review the tile output, then commit the fixture so future runs can compare.",
             fixture_path.display()
         );
     }

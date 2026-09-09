@@ -1,12 +1,9 @@
 export { InsightsPanel } from './components/InsightsPanel';
-export { InsightCard } from './components/InsightCard';
 export { InsightListCard } from './components/InsightListCard';
 export { InsightDetailSheet } from './components/InsightDetailSheet';
-export { PatternDetailSheet } from './components/PatternDetailSheet';
 export { DataPointRow } from './components/DataPointRow';
 export { SupportingDataSection } from './components/SupportingDataSection';
 export { MethodologySection } from './components/MethodologySection';
-export { InsightQuickTake } from './components/InsightQuickTake';
 export { InsightDebugPanel } from './components/InsightDebugPanel';
 export { StrengthTab } from './components/StrengthTab';
 export { InsightDetailContent } from './components/content/InsightDetailContent';
@@ -17,17 +14,12 @@ export { generateInsights, getLastInsightOutcome } from './lib/generateInsights'
 export {
   computeInsightsFromData,
   fetchInsightsDataFromEngine,
-  invalidateInsightsCache,
   consolidateInsights,
 } from './lib/computeInsightsData';
-export type {
-  FfiInsightsDataShape,
-  FfiSummaryCardDataShape,
-  WellnessInput,
-} from './lib/computeInsightsData';
+export type { WellnessInput } from './lib/computeInsightsData';
 export { INSIGHTS_CONFIG } from './lib/config';
 
-export { detectStalePROpportunities, stalePROpportunityToInsight } from './generators/stalePr';
+export { stalePROpportunityToInsight } from './generators/stalePr';
 export { generateEfficiencyTrendInsights } from './generators/efficiencyTrend';
 
 export {
@@ -55,3 +47,5 @@ export type {
   SectionTrendData,
   TFunc,
 } from './types';
+
+export { aboutInsightsBody, type InsightsTab } from './lib/aboutCopy';

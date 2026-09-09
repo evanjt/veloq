@@ -1,7 +1,7 @@
 v0.1.3 (13 de feb. de 2026)
 
-• Corregido el cálculo de ritmo de secciones — ahora muestra el ritmo preciso para cada esfuerzo
-• Mejorada la interacción con la lista de secciones — mantén presionado para resaltar secciones
+• Corregido el cálculo de ritmo de secciones, ahora muestra el ritmo preciso para cada esfuerzo
+• Mejorada la interacción con la lista de secciones, mantén presionado para resaltar secciones
 • Corregidas las entradas duplicadas en los gráficos de historial de rendimiento
 • Corregido el desfase de coordenadas al deslizar por la lista de secciones
 

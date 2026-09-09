@@ -1,13 +1,18 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { Canvas, Path, LinearGradient, vec, Line as SkiaLine } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity } from '@/theme';
+import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
+import { polylineSvgPath, useChartColors } from '@/shared/charts';
 import type { Insight } from '@/types';
 import type { LayoutChangeEvent } from 'react-native';
+import type { TFunction } from 'i18next';
 
 const CHART_HEIGHT = 140;
 const CHART_PADDING = { top: 12, bottom: 24, left: 36, right: 12 };
@@ -29,11 +34,7 @@ function buildPath(
     x: padding.left + i * stepX,
     y: padding.top + drawH - ((v - yMin) / yRange) * drawH,
   }));
-  let d = `M ${points[0].x} ${points[0].y}`;
-  for (let i = 1; i < points.length; i++) {
-    d += ` L ${points[i].x} ${points[i].y}`;
-  }
-  return d;
+  return polylineSvgPath(points);
 }
 
 function buildAreaPath(
@@ -57,7 +58,9 @@ interface HrvTrendContentProps {
 export const HrvTrendContent = React.memo(function HrvTrendContent({
   insight,
 }: HrvTrendContentProps) {
+  const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
   const [chartWidth, setChartWidth] = useState(0);
 
   const onChartLayout = useCallback((e: LayoutChangeEvent) => {
@@ -108,7 +111,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
   }, [sparklineData, chartWidth]);
 
   const textMuted = isDark ? darkColors.textMuted : colors.textMuted;
-  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const gridColor = chartColors.gridFaint;
 
   return (
     <View style={styles.container}>
@@ -181,6 +184,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
                 const y = CHART_PADDING.top + drawH - ((tick - yMin) / yRange) * drawH;
                 return (
                   <Text
+                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                     key={`y-${i}`}
                     style={[
                       styles.axisLabel,
@@ -207,10 +211,18 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
                     { left: CHART_PADDING.left, right: CHART_PADDING.right },
                   ]}
                 >
-                  <Text style={[styles.axisLabel, { color: textMuted }]}>
-                    {formatDaysAgo(sparklineData.length - 1)}
+                  <Text
+                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                    style={[styles.axisLabel, { color: textMuted }]}
+                  >
+                    {formatDaysAgo(t, sparklineData.length - 1)}
                   </Text>
-                  <Text style={[styles.axisLabel, { color: textMuted }]}>Today</Text>
+                  <Text
+                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                    style={[styles.axisLabel, { color: textMuted }]}
+                  >
+                    {t('time.today')}
+                  </Text>
                 </View>
               ) : null}
             </View>
@@ -221,9 +233,9 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
   );
 });
 
-function formatDaysAgo(days: number): string {
-  if (days <= 1) return 'Yesterday';
-  return `${days}d ago`;
+function formatDaysAgo(t: TFunction, days: number): string {
+  if (days <= 1) return t('time.yesterday');
+  return t('time.daysAgo', { count: days });
 }
 
 const styles = StyleSheet.create({
@@ -232,7 +244,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     alignItems: 'center',
   },
@@ -245,7 +257,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   hrvValue: {
-    fontSize: 32,
+    fontSize: typography.headlineNumber.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -253,7 +265,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   hrvUnit: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '400',
     color: colors.textSecondary,
   },
@@ -267,7 +279,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   avgText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   avgTextDark: {
@@ -275,14 +287,14 @@ const styles = StyleSheet.create({
   },
   chartCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
   },
   chartCardDark: {
     backgroundColor: opacity.overlayDark.light,
   },
   chartLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
@@ -294,7 +306,7 @@ const styles = StyleSheet.create({
     height: CHART_HEIGHT,
   },
   axisLabel: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '500',
   },
   xAxisRow: {

@@ -39,7 +39,7 @@ describe('calculateDecoupling', () => {
   });
 
   it('never produces non-finite fields', () => {
-    const cases: Array<[number[], number[]]> = [
+    const cases: [number[], number[]][] = [
       [steady(100, 8), steady(0, 8)],
       [steady(0, 8), steady(0, 8)],
       [steady(NaN, 8), steady(140, 8)],

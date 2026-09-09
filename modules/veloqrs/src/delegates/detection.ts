@@ -7,12 +7,23 @@
  */
 
 import type { SectionDetectionProgress } from '../conversions';
-import type { FfiPotentialSection, FfiSectionConfig } from '../generated/veloqrs';
+import { FfiStartOutcome, type FfiSectionConfig } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
-export function startSectionDetection(host: DelegateHost, sportFilter?: string): boolean {
+export function startSectionDetection(host: DelegateHost): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
+  return host.timed('startSectionDetection', () => host.engine.detection().start());
+}
+
+/**
+ * Ask a running detection to stop. False when there was none.
+ *
+ * Cooperative: it returns at once and the worker ends at its next stage
+ * boundary, so a caller watches the progress rather than this answer.
+ */
+export function cancelSectionDetection(host: DelegateHost): boolean {
   if (!host.ready) return false;
-  return host.timed('startSectionDetection', () => host.engine.detection().start(sportFilter));
+  return host.timed('cancelSectionDetection', () => host.engine.detection().cancel());
 }
 
 export function pollSectionDetection(host: DelegateHost): string {
@@ -28,8 +39,46 @@ export function pollSectionDetection(host: DelegateHost): string {
     // this, a Rust-side panic or DB failure in the detection apply path
     // disappeared into the void and the UI just showed a status string
     // with no context for debugging.
-    console.error('[RouteEngine] pollSectionDetection threw:', e);
+    console.error('[Engine] pollSectionDetection threw:', e);
     return 'error';
+  }
+}
+
+/**
+ * How the last finished run ended, taking nothing.
+ *
+ * `pollSectionDetection` receives the completion from the worker's channel, so
+ * whichever caller polls first applies the run and every other caller then sees
+ * idle. Only the follower may do that. A status surface reads this and the
+ * progress instead: neither touches the channel.
+ */
+export function lastSectionDetectionOutcome(host: DelegateHost): string {
+  if (!host.ready) return 'idle';
+  try {
+    return host.timed('lastSectionDetectionOutcome', () =>
+      host.engine.detection().lastOutcome()
+    );
+  } catch (e) {
+    console.error('[Engine] lastSectionDetectionOutcome threw:', e);
+    return 'idle';
+  }
+}
+
+/**
+ * How many stored activities have never been through a detect.
+ *
+ * The progress read answers only for a run holding the slot now, and the phase
+ * behind it is process-global and starts at idle, so a relaunch with work
+ * outstanding reads as nothing to report. This is the durable half. Null means
+ * the engine could not answer, which must not read as nothing left to do.
+ */
+export function sectionDetectionAwaiting(host: DelegateHost): number | null {
+  if (!host.ready) return null;
+  try {
+    return host.timed('sectionDetectionAwaiting', () => host.engine.detection().awaitingCount());
+  } catch (e) {
+    console.error('[Engine] sectionDetectionAwaiting threw:', e);
+    return null;
   }
 }
 
@@ -40,16 +89,9 @@ export function getSectionDetectionProgress(host: DelegateHost): SectionDetectio
   );
 }
 
-export function detectPotentials(host: DelegateHost, sportFilter?: string): FfiPotentialSection[] {
-  if (!host.ready) return [];
-  return host.timed('detectPotentials', () =>
-    host.engine.detection().detectPotentials(sportFilter)
-  );
-}
 
 export function setSectionConfig(host: DelegateHost, config: FfiSectionConfig): void {
-  if (!host.ready) return;
-  host.timed('setSectionConfig', () => host.engine.detection().setConfig(config));
+  host.write('setSectionConfig', () => host.engine.detection().setConfig(config));
 }
 
 export function getSectionConfig(host: DelegateHost): FfiSectionConfig | null {
@@ -62,21 +104,17 @@ export function setMatchStrictness(
   minMatchPct: number,
   endpointThreshold: number
 ): void {
-  if (!host.ready) return;
-  host.timed('setMatchStrictness', () =>
+  host.write('setMatchStrictness', () =>
     host.engine.detection().setMatchStrictness(minMatchPct, endpointThreshold)
   );
 }
 
-export function forceRedetectSections(host: DelegateHost, sportFilter?: string): boolean {
-  if (!host.ready) return false;
+export function forceRedetectSections(host: DelegateHost): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
   try {
-    const started = host.timed('forceRedetectSections', () =>
-      host.engine.detection().forceRedetect(sportFilter)
-    );
-    return started;
+    return host.timed('forceRedetectSections', () => host.engine.detection().forceRedetect());
   } catch (e) {
-    console.error('[RouteEngine] forceRedetectSections failed:', e);
-    return false;
+    console.error('[Engine] forceRedetectSections failed:', e);
+    return FfiStartOutcome.Failed;
   }
 }

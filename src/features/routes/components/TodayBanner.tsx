@@ -7,15 +7,22 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useTodayWorkout } from '@/features/home/hooks/useTodayWorkout';
 import { useWorkoutSections } from '@/features/home/hooks/useWorkoutSections';
-import { useActivityPatterns } from '@/features/home/hooks/useActivityPatterns';
 import { useWellness } from '@/features/wellness';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
-import { formatDuration, formatDurationHuman } from '@/shared/format/format';
+import { formatDuration, formatDurationHuman, isolateNumeric } from '@/shared/format/format';
 import { WorkoutStepBar } from './WorkoutStepBar';
-import { colors, darkColors, spacing, layout, shadows, typography, brand } from '@/theme';
-import type { CalendarEvent } from '@/types';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  shadows,
+  brand,
+  verdictColor,
+  typography,
+} from '@/theme';
+import type { CalendarEvent, ActivityPattern } from '@/types';
 import type { WorkoutSection } from '@/features/home/hooks/useWorkoutSections';
-import type { ActivityPattern } from '@/types';
 
 const PR_RECENCY_DAYS = 7;
 
@@ -29,15 +36,23 @@ const DAY_NAMES_PLURAL = [
   'Sundays',
 ];
 
+interface TodayBannerProps {
+  /**
+   * Today's matching pattern, from the insights bundle the parent already
+   * holds. The k-means pass behind it is the most expensive row of that
+   * bundle, so the banner is handed the answer rather than asking again.
+   */
+  todayPattern: ActivityPattern | null;
+}
+
 /**
  * Routes page banner showing today's context: planned workout, activity patterns, or readiness.
  * Gracefully degrades - shows nothing when there's no relevant content.
  */
-export const TodayBanner = React.memo(function TodayBanner() {
+export const TodayBanner = React.memo(function TodayBanner({ todayPattern }: TodayBannerProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const { todayWorkout, tomorrowWorkout, isLoading } = useTodayWorkout();
-  const { todayPattern } = useActivityPatterns();
 
   const sportType = todayWorkout?.type ?? tomorrowWorkout?.type ?? todayPattern?.sportType;
   const { sections } = useWorkoutSections(sportType);
@@ -71,8 +86,7 @@ export const TodayBanner = React.memo(function TodayBanner() {
             : t('routeIntelligence.today', 'TODAY')}
         </Text>
         <Text style={[styles.readinessValue, { color: formColor }]}>
-          {formLabel} ({tsb > 0 ? '+' : ''}
-          {Math.round(tsb)} TSB)
+          {formLabel} ({isolateNumeric(`${tsb > 0 ? '+' : ''}${Math.round(tsb)}`)} TSB)
         </Text>
       </View>
 
@@ -178,14 +192,14 @@ const SectionHighlights = React.memo(function SectionHighlights({
         </View>
       )}
       {displayed.map((section) => {
-        const hasPR = section.prTimeSecs != null;
+        const prTimeSecs = section.prTimeSecs ?? null;
         const isRecentPR =
-          hasPR && section.prDaysAgo != null && section.prDaysAgo <= PR_RECENCY_DAYS;
+          prTimeSecs != null && section.prDaysAgo != null && section.prDaysAgo <= PR_RECENCY_DAYS;
         const delta =
-          hasPR && section.previousBestTimeSecs != null
-            ? section.previousBestTimeSecs - section.prTimeSecs!
+          prTimeSecs != null && section.previousBestTimeSecs != null
+            ? section.previousBestTimeSecs - prTimeSecs
             : null;
-        const showDelta = delta != null && delta > 0;
+        const gain = delta != null && delta > 0 ? delta : null;
 
         return (
           <TouchableOpacity
@@ -204,25 +218,23 @@ const SectionHighlights = React.memo(function SectionHighlights({
               {section.name}
             </Text>
             <View style={styles.sectionMeta}>
-              {hasPR && isRecentPR && (
+              {prTimeSecs != null && isRecentPR && (
                 <View style={styles.prCelebration}>
                   <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
-                  <Text style={styles.prTextCelebration}>
-                    PR {formatDuration(section.prTimeSecs!)}
-                  </Text>
-                  {showDelta && (
-                    <Text style={styles.prDelta}>{` \u2212${formatDuration(delta!)}`}</Text>
+                  <Text style={styles.prTextCelebration}>PR {formatDuration(prTimeSecs)}</Text>
+                  {gain != null && (
+                    <Text style={styles.prDelta}>{` \u2212${formatDuration(gain)}`}</Text>
                   )}
                 </View>
               )}
-              {hasPR && !isRecentPR && (
+              {prTimeSecs != null && !isRecentPR && (
                 <Text style={styles.prBadgeAccent}>
-                  PR {formatDuration(section.prTimeSecs!)}
-                  {showDelta ? ` (\u2212${formatDuration(delta!)})` : ''}
+                  PR {formatDuration(prTimeSecs)}
+                  {gain != null ? ` (\u2212${formatDuration(gain)})` : ''}
                 </Text>
               )}
               {section.trend && (
-                <Text style={[styles.trendArrow, getTrendStyle(section.trend)]}>
+                <Text style={[styles.trendArrow, getTrendStyle(section.trend, isDark)]}>
                   {section.trend === 'improving'
                     ? ' \u2191'
                     : section.trend === 'declining'
@@ -238,10 +250,10 @@ const SectionHighlights = React.memo(function SectionHighlights({
   );
 });
 
-function getTrendStyle(trend: string) {
-  if (trend === 'improving') return { color: colors.formOptimal };
-  if (trend === 'declining') return { color: colors.formHighRisk };
-  return { color: colors.formGreyZone };
+export function getTrendStyle(trend: string, isDark: boolean) {
+  if (trend === 'improving') return { color: verdictColor('positive', isDark) };
+  if (trend === 'declining') return { color: verdictColor('negative', isDark) };
+  return { color: verdictColor('neutral', isDark) };
 }
 
 const styles = StyleSheet.create({
@@ -267,18 +279,18 @@ const styles = StyleSheet.create({
   formDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
     marginRight: spacing.xs,
   },
   readinessLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     letterSpacing: 0.5,
     marginRight: spacing.sm,
   },
   readinessValue: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
   },
   textLight: {
@@ -294,12 +306,12 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   workoutName: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   workoutMeta: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -307,7 +319,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   patternText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -327,7 +339,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   prSummaryText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: brand.gold,
     fontVariant: ['tabular-nums'],
@@ -339,7 +351,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   sectionName: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textPrimary,
     flex: 1,
     marginRight: spacing.sm,
@@ -357,30 +369,30 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   prTextCelebration: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '700',
     color: brand.gold,
     fontVariant: ['tabular-nums'],
   },
   prDelta: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: brand.tealLight,
     fontVariant: ['tabular-nums'],
   },
   prBadge: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     fontVariant: ['tabular-nums'],
   },
   prBadgeAccent: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: brand.tealLight,
     fontVariant: ['tabular-nums'],
   },
   trendArrow: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '700',
   },
 });

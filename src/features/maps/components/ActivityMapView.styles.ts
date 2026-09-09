@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, darkColors, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -25,10 +25,6 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: layout.borderRadius,
   },
-  hiddenLayer: {
-    opacity: 0,
-    pointerEvents: 'none',
-  },
   map: {
     flex: 1,
   },
@@ -45,14 +41,14 @@ export const styles = StyleSheet.create({
   marker: {
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: layout.borderRadiusFull,
     borderWidth: 1.5,
     borderColor: colors.textOnDark,
   },
   sectionNumberBadge: {
     width: 22,
     height: 22,
-    borderRadius: 11,
+    borderRadius: layout.borderRadiusFull,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -67,7 +63,7 @@ export const styles = StyleSheet.create({
   prTrophyBadge: {
     width: 18,
     height: 18,
-    borderRadius: 9,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: '#D4AF37',
     alignItems: 'center',
     justifyContent: 'center',
@@ -78,7 +74,7 @@ export const styles = StyleSheet.create({
   sectionNumberBadgeText: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     textAlign: 'center',
   },
   startMarker: {
@@ -90,7 +86,7 @@ export const styles = StyleSheet.create({
   sectionCreationMarker: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusFull,
     borderWidth: 2,
     borderColor: colors.textOnDark,
     justifyContent: 'center',
@@ -105,7 +101,7 @@ export const styles = StyleSheet.create({
   highlightMarker: {
     width: 14,
     height: 14,
-    borderRadius: 7,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.primary,
     borderWidth: 1.5,
     borderColor: colors.textOnDark,

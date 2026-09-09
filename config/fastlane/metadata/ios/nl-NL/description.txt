@@ -13,13 +13,13 @@ Routeregistratie
 Detecteer automatisch herhaalde routes en secties in je activiteitengeschiedenis. Vergelijk prestaties in de tijd om je voortgang op favoriete beklimmingen en trajecten te zien.
 
 Grafieken en analyse
-Hartslag, vermogen, tempo, hoogte en cadans — alles gesynchroniseerd met de kaart. Bekijk zoneverdeling, TSS, intensiteitsfactor en ronde-overzichten.
+Hartslag, vermogen, tempo, hoogte en cadans, alles gesynchroniseerd met de kaart. Bekijk zoneverdeling, TSS, intensiteitsfactor en ronde-overzichten.
 
 Fitness
 Volg je vorm met CTL/ATL/TSB-tracking en visuele zones. Monitor HRV, rusthartslag, slaap en welzijn. Bekijk vermogens- en tempocurves per sport.
 
 Privacy
-Alle gegevens blijven op je apparaat. Geen analyses, geen tracking. Optionele pushmeldingen slaan een apparaattoken op onze server op met automatische vervaldatum na 30 dagen — er worden geen persoonlijke gegevens bewaard. Open source onder Apache 2.0.
+Alle gegevens blijven op je apparaat. Geen analyses, geen tracking. Optionele pushmeldingen slaan een apparaattoken op onze server op met automatische vervaldatum na 30 dagen, er worden geen persoonlijke gegevens bewaard. Open source onder Apache 2.0.
 
 Ondersteunt fietsen, hardlopen, zwemmen en meer dan 20 activiteitstypen. Probeer de ingebouwde demomodus om te verkennen zonder account.
 

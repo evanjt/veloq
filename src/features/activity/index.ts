@@ -1,4 +1,2 @@
-export * from './components';
-export * from './hooks';
-export * from './lib';
-export * from './types';
+export { toActivityMetrics } from './lib/activityMetrics';
+export { getActivityIcon, getActivityColor } from './lib/activityUtils';

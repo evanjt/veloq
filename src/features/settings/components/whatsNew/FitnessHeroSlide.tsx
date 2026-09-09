@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
 const FORM_ZONE_COLORS = {
   highRisk: colors.formHighRisk,
@@ -93,11 +93,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   heroLabel: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   heroValue: {
-    fontSize: 28,
+    fontSize: typography.screenTitle.fontSize,
     fontWeight: '700',
   },
   zoneBarContainer: {
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
   zoneBar: {
     flexDirection: 'row',
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
   },
   zoneSection: {
@@ -117,6 +117,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   zoneLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
   },
 });

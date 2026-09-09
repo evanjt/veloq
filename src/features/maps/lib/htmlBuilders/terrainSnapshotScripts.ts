@@ -1,11 +1,30 @@
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
-import {
-  getSnapshotSatelliteStyle,
-  rewriteSatelliteUrls,
-  TERRAIN_3D_CONFIG,
-} from '@/features/maps/components/mapStyles';
-import { DARK_MATTER_STYLE } from '@/features/maps/components/darkMatterStyle';
+import { TERRAIN_3D_CONFIG } from '@/features/maps/components/mapStyles';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
+import { resolveStyleExpression, TERRAIN_STYLE_OPTIONS } from './styleResolution';
+
+/**
+ * JPEG quality for a captured preview.
+ *
+ * A preview is a 1080x720 image drawn once, shown at roughly a third of a
+ * screen height under a route line and a gradient, and never zoomed. It was
+ * 0.95, which is the setting for an image that will be re-encoded, and cost a
+ * measured mean of 240 KB on a real device. At 0.8 the same files are 60% of
+ * that, and the difference from the 0.95 render measures 1.8% RMSE, which is
+ * below what the card's 3:1 downscale would show even if the eye could find it
+ * at full size.
+ */
+export const SNAPSHOT_JPEG_QUALITY = 0.8;
+
+/**
+ * The `TERRAIN_CACHE_VERSION` that `SNAPSHOT_JPEG_QUALITY` was last changed at.
+ *
+ * A device serves the previews it already holds, drawn at whatever the quality
+ * was when they were made, so changing the quality without moving the cache
+ * version leaves an install on the old setting for its whole life. Keeping the
+ * pair here is what lets a test say the two moved together.
+ */
+export const QUALITY_CACHE_VERSION = 7;
 
 export interface SnapshotRequest {
   activityId: string;
@@ -15,6 +34,11 @@ export interface SnapshotRequest {
   routeColor: string;
   /** Flat top-down basemap - no terrain drape, sky, or hillshade */
   flat?: boolean;
+  /**
+   * The athlete asked for this one render on the card they are looking at, so
+   * it goes to the head of the queue and survives an overflow (B416).
+   */
+  priority?: boolean;
   _retryAttempt?: number;
 }
 
@@ -31,27 +55,16 @@ export function buildRenderSnapshotScript(
   const isDark = request.mapStyle === 'dark' || request.mapStyle === 'satellite';
   const isFlat = request.flat === true;
 
-  // Satellite and dark: use inline style objects.
-  // Light: fetch full Liberty style from URL (same as detail 3D view).
-  const isLight = !isSatellite && request.mapStyle !== 'dark';
-  // Satellite: rewrite to cached protocol for tile caching.
-  // Dark: keep original TileJSON URL - let MapLibre fetch tiles natively
-  // (cached-vector:// rewrite was causing blank features after setStyle).
-  // Light: fetch URL-based style in JS.
-  const styleConfig = isSatellite
-    ? JSON.stringify(
-        rewriteSatelliteUrls(
-          getSnapshotSatelliteStyle(
-            request.camera.center[1],
-            request.camera.center[0],
-            request.camera.zoom
-          )
-        )
-      )
-    : isLight
-      ? 'null'
-      : JSON.stringify(DARK_MATTER_STYLE);
-  const lightStyleUrl = isLight ? 'https://tiles.openfreemap.org/styles/liberty' : '';
+  // Satellite and dark are inline objects; light is fetched from its URL so
+  // MapLibre resolves the TileJSON itself, the same as the detail 3D view. The
+  // bundle reaches the two inline styles only: a light snapshot fetches the
+  // hosted style and takes its sprite and glyph URLs from there, so it needs the
+  // radio for the style before the labels are a question at all.
+  const { styleJSON: styleConfig, url } = resolveStyleExpression(
+    request.mapStyle,
+    TERRAIN_STYLE_OPTIONS
+  );
+  const lightStyleUrl = url ?? '';
 
   const coordsJSON = JSON.stringify(request.coordinates);
   const cameraJSON = JSON.stringify(request.camera);
@@ -91,6 +104,8 @@ export function buildRenderSnapshotScript(
 
               window._snapshotGen = myGen;
               window._tileErrorCount = 0;
+              // A request is in flight from here until it posts its result.
+              window._heartbeat.start();
 
               function isStale() {
                 return window._snapshotGen !== myGen;
@@ -137,6 +152,7 @@ export function buildRenderSnapshotScript(
                         gen: myGen,
                         error: 'White tile detected',
                         tileErrors: window._tileErrorCount,
+                        tileThrottles: window._tileThrottleCount,
                       }));
                       return;
                     }
@@ -179,6 +195,7 @@ export function buildRenderSnapshotScript(
                         gen: myGen,
                         error: 'Gap detected (' + gapCount + '/6)',
                         tileErrors: window._tileErrorCount,
+                        tileThrottles: window._tileThrottleCount,
                       }));
                       return;
                     }
@@ -194,11 +211,12 @@ export function buildRenderSnapshotScript(
                       gen: myGen,
                       error: 'Tile errors: ' + window._tileErrorCount,
                       tileErrors: window._tileErrorCount,
+                      tileThrottles: window._tileThrottleCount,
                     }));
                     return;
                   }
 
-                  var dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                  var dataUrl = canvas.toDataURL('image/jpeg', ${SNAPSHOT_JPEG_QUALITY});
                   var base64 = dataUrl.split(',')[1];
                   window._rn_log('Captured ' + activityId + ' (' + Math.round(base64.length / 1024) + 'KB)');
                   window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -209,6 +227,7 @@ export function buildRenderSnapshotScript(
                     gen: myGen,
                     base64: base64,
                     tileErrors: window._tileErrorCount,
+                    tileThrottles: window._tileThrottleCount,
                   }));
                 } catch(e) {
                   window._rn_log('Capture error: ' + e.message);
@@ -219,6 +238,7 @@ export function buildRenderSnapshotScript(
                     gen: myGen,
                     error: e.message,
                     tileErrors: window._tileErrorCount,
+                    tileThrottles: window._tileThrottleCount,
                   }));
                 }
               }
@@ -376,6 +396,7 @@ export function buildRenderSnapshotScript(
                         type: 'snapshotError', workerId: workerId, activityId: activityId,
                         gen: myGen, error: 'Fast path render timeout',
                         tileErrors: window._tileErrorCount,
+                        tileThrottles: window._tileThrottleCount,
                       }));
                     }
                   }, 6000);
@@ -475,7 +496,6 @@ export function buildRenderSnapshotScript(
 
               // Wait for everything to load (DEM + vector + route tiles)
               window._tileStats = {};
-              _rafCount = 0;
               var done = false;
               var setStyleTime = Date.now();
 
@@ -507,6 +527,7 @@ export function buildRenderSnapshotScript(
                     gen: myGen,
                     error: 'Render timeout',
                     tileErrors: window._tileErrorCount,
+                    tileThrottles: window._tileThrottleCount,
                   }));
                 }
               }, 6000);

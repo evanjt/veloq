@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { setRecentRecordingTypes } from '@/shared/recording';
 import { getSetting, setSetting } from '@/shared/storage';
 import type { ActivityType, DataFieldType } from '@/types';
 
@@ -25,6 +26,11 @@ const DEFAULT_DATA_FIELDS: Record<string, DataFieldType[]> = {
 
 interface RecordingPreferencesState {
   recentActivityTypes: ActivityType[];
+  /**
+   * Whether the Always location dialog has been put to the athlete. iOS shows it
+   * once, so this is asked-not-granted: a denial must never lead to a second ask.
+   */
+  alwaysLocationAsked: boolean;
   autoPauseEnabled: boolean;
   autoPauseThresholds: Record<string, number>;
   dataFields: Record<string, DataFieldType[]>;
@@ -51,10 +57,12 @@ interface RecordingPreferencesState {
   setAutoPauseDuration: (ms: number) => void;
   setKeepAwake: (enabled: boolean) => void;
   dismissBatteryOptNudge: () => void;
+  markAlwaysLocationAsked: () => void;
 }
 
-export const useRecordingPreferences = create<RecordingPreferencesState>((set, get) => ({
+export const useRecordingPreferences = create<RecordingPreferencesState>((set) => ({
   recentActivityTypes: [],
+  alwaysLocationAsked: false,
   autoPauseEnabled: true,
   autoPauseThresholds: { ...DEFAULT_AUTO_PAUSE_THRESHOLDS },
   dataFields: { ...DEFAULT_DATA_FIELDS },
@@ -71,10 +79,12 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
       const stored = await getSetting(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as Partial<RecordingPreferencesState>;
+        const recentActivityTypes = Array.isArray(parsed.recentActivityTypes)
+          ? parsed.recentActivityTypes
+          : [];
+        setRecentRecordingTypes(recentActivityTypes);
         set({
-          recentActivityTypes: Array.isArray(parsed.recentActivityTypes)
-            ? parsed.recentActivityTypes
-            : [],
+          recentActivityTypes,
           autoPauseEnabled:
             typeof parsed.autoPauseEnabled === 'boolean' ? parsed.autoPauseEnabled : true,
           autoPauseThresholds:
@@ -109,6 +119,8 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
             typeof parsed.keepAwakeEnabled === 'boolean' ? parsed.keepAwakeEnabled : true,
           batteryOptDismissed:
             typeof parsed.batteryOptDismissed === 'boolean' ? parsed.batteryOptDismissed : false,
+          alwaysLocationAsked:
+            typeof parsed.alwaysLocationAsked === 'boolean' ? parsed.alwaysLocationAsked : false,
           isLoaded: true,
         });
       } else {
@@ -127,7 +139,16 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
       const filtered = state.recentActivityTypes.filter((t) => t !== type);
       const updated = [type, ...filtered].slice(0, 4);
       persistPreferences({ ...state, recentActivityTypes: updated });
+      setRecentRecordingTypes(updated);
       return { recentActivityTypes: updated };
+    });
+  },
+
+  markAlwaysLocationAsked: () => {
+    set((state) => {
+      if (state.alwaysLocationAsked) return state;
+      persistPreferences({ ...state, alwaysLocationAsked: true });
+      return { alwaysLocationAsked: true };
     });
   },
 
@@ -213,6 +234,7 @@ async function persistPreferences(state: Partial<RecordingPreferencesState>): Pr
       autoPauseDurationMs: state.autoPauseDurationMs,
       keepAwakeEnabled: state.keepAwakeEnabled,
       batteryOptDismissed: state.batteryOptDismissed,
+      alwaysLocationAsked: state.alwaysLocationAsked,
     };
     await setSetting(STORAGE_KEY, JSON.stringify(data));
   } catch {

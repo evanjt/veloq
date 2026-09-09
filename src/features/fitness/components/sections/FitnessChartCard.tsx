@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import type { WellnessData, Activity } from '@/types';
 import { FitnessChart, FormZoneChart, ActivityDotsChart } from '..';
+import { eftpChanges } from '../../lib/eftpChanges';
 import { FORM_ZONE_COLORS, type FormZone } from '../../lib';
 
 interface FitnessChartCardProps {
@@ -36,6 +37,7 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
 }: FitnessChartCardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const markers = useMemo(() => eftpChanges(activities), [activities]);
 
   return (
     <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
@@ -45,6 +47,7 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
       </Text>
       <FitnessChart
         data={wellness}
+        markers={markers}
         height={220}
         selectedDate={selectedDate}
         sharedSelectedIdx={sharedSelectedIdx}
@@ -149,7 +152,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     borderLeftWidth: 3,
     borderLeftColor: colors.primary,
   },

@@ -10,27 +10,74 @@
 
 import { Alert } from 'react-native';
 import { i18n } from '@/i18n';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine, isEngineReady } from '@/shared/native/engine';
+import { DEMO_ATHLETE_ID, useAuthStore } from '@/shared/app/AuthStore';
 import { safeJsonParse } from '@/shared/validation/validation';
+import { rememberCachedAthleteId, readCachedAthleteIdMirror } from '@/shared/storage';
 
 export type AccountChangeKind = 'login' | 'demo';
 
 /**
- * Returns the cached athlete id from the engine's `athlete_profile` blob,
- * or null if nothing is cached.
+ * Returns the cached athlete id, or null if the device holds no account data.
+ *
+ * Three sources, in order of confidence. The engine is only initialised in
+ * the authenticated branch, so at the login screen on a cold start it is
+ * closed and every read answers its empty default for a device that is full
+ * of another account's data. The gate is readiness, not the handle: the
+ * handle is a singleton that exists from the first require and is never null
+ * once the native module loads, so branching on it reads those defaults as
+ * facts. `clearAuthOnly` drops the profile blob but keeps the activities,
+ * which leaves the same gap with the engine up; the `__athlete_id` setting
+ * covers that one, and the AsyncStorage mirror outlives the engine being down
+ * and covers both the cold start and an engine that is up but has not been
+ * told who it holds yet.
  */
-export function getCachedAthleteId(): string | null {
-  const engine = getRouteEngine();
-  if (!engine) return null;
-  const json = engine.getAthleteProfile();
-  if (!json) return null;
-  const parsed = safeJsonParse<{ id?: number | string }>(json, {});
-  if (!parsed?.id) return null;
-  return String(parsed.id);
+export async function getCachedAthleteId(): Promise<string | null> {
+  const engine = isEngineReady() ? getEngine() : null;
+  if (engine) {
+    const json = engine.getAthleteProfile();
+    const parsed = json ? safeJsonParse<{ id?: number | string }>(json, {}) : null;
+    const id = parsed?.id ? String(parsed.id) : engine.getSetting('__athlete_id');
+    if (id) {
+      await rememberCachedAthleteId(id);
+      return id;
+    }
+  }
+  return readCachedAthleteIdMirror();
 }
 
+/** What a sign-in or demo entry owes the data already on the device. */
+export type AccountChangeAction = 'keep' | 'wipe' | 'confirm-then-wipe';
+
+/**
+ * The one rule three screens ask: the two login paths and `Try demo`.
+ *
+ * Demo fixtures are not an account. They are generated on demand and the demo
+ * banner already discards them without asking, so a sign-in that has to clear
+ * them asks nothing either. Anything else on disk is a real library and the
+ * user has to say so before it goes.
+ */
+export function accountChangeAction(
+  cachedAthleteId: string | null,
+  incomingAthleteId: string,
+  storedActivityCount = 0
+): AccountChangeAction {
+  if (cachedAthleteId === incomingAthleteId) return 'keep';
+  // A restore from the login screen leaves a full library nothing has named,
+  // so the count is the only evidence there is anything to lose.
+  if (!cachedAthleteId) return storedActivityCount > 0 ? 'confirm-then-wipe' : 'keep';
+  if (cachedAthleteId === DEMO_ATHLETE_ID) return 'wipe';
+  return 'confirm-then-wipe';
+}
+
+/**
+ * Stands in for the athlete of a library the device cannot name, which is
+ * what a restore from the login screen leaves until the sign-in stamps it.
+ */
+export const UNNAMED_LIBRARY = '__unnamed__';
+
 interface ConfirmAccountChangeArgs {
-  /** Identifier of the account currently cached on this device. */
+  /** Identifier of the account currently cached, or `UNNAMED_LIBRARY`. */
   cachedAthleteId: string;
   /** What we're switching to: another real account, or demo mode. */
   incomingKind: AccountChangeKind;
@@ -53,17 +100,27 @@ export function confirmAccountChange(args: ConfirmAccountChangeArgs): Promise<bo
     defaultValue: 'Different account detected',
   });
   const body =
-    incomingKind === 'demo'
-      ? t('alerts.accountChangeDemoMessage', {
-          cachedAthleteId,
-          defaultValue:
-            'This device has cached data for another account ({{cachedAthleteId}}). Continuing to demo mode will permanently delete that data. To keep it, go back and sign in to that account first.',
-        })
-      : t('alerts.accountChangeMessage', {
-          cachedAthleteId,
-          defaultValue:
-            'This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.',
-        });
+    cachedAthleteId === UNNAMED_LIBRARY
+      ? incomingKind === 'demo'
+        ? t('alerts.accountChangeUnknownDemoMessage', {
+            defaultValue:
+              'This device holds a library from another account. Continuing to demo mode will permanently delete it. To keep it, go back and sign in to that account first.',
+          })
+        : t('alerts.accountChangeUnknownMessage', {
+            defaultValue:
+              'This device holds a library from another account. Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.',
+          })
+      : incomingKind === 'demo'
+        ? t('alerts.accountChangeDemoMessage', {
+            cachedAthleteId,
+            defaultValue:
+              'This device has cached data for another account ({{cachedAthleteId}}). Continuing to demo mode will permanently delete that data. To keep it, go back and sign in to that account first.',
+          })
+        : t('alerts.accountChangeMessage', {
+            cachedAthleteId,
+            defaultValue:
+              'This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.',
+          });
   const continueLabel = t('alerts.accountChangeContinue', {
     defaultValue: 'Continue and delete',
   });
@@ -74,5 +131,57 @@ export function confirmAccountChange(args: ConfirmAccountChangeArgs): Promise<bo
       { text: cancelLabel, style: 'cancel', onPress: () => resolve(false) },
       { text: continueLabel, style: 'destructive', onPress: () => resolve(true) },
     ]);
+  });
+}
+
+interface PromptAccountMismatchArgs {
+  /** Whose data the engine holds, read from `__athlete_id`. */
+  storedAthleteId: string;
+  /** Who is signing in. */
+  credentialsAthleteId: string;
+}
+
+/**
+ * The engine holds one athlete's library and another has signed in. Ask,
+ * then clear on acceptance and hand the engine its new identity; on refusal
+ * sign out, which returns the athlete to the login screen with the library
+ * intact. Resolves whether the library was cleared.
+ */
+export function promptAccountMismatch(args: PromptAccountMismatchArgs): Promise<boolean> {
+  const { storedAthleteId, credentialsAthleteId } = args;
+  const t = i18n.t.bind(i18n);
+
+  return new Promise((resolve) => {
+    Alert.alert(
+      t('backup.differentAccount', { defaultValue: 'Different Account' }),
+      t('backup.differentAccountMessage', {
+        cachedAthleteId: storedAthleteId,
+        defaultValue:
+          'The restored data belongs to a different account. Clear data and sync fresh for this account?',
+      }),
+      [
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+          onPress: () => {
+            useAuthStore.getState().clearCredentials();
+            resolve(false);
+          },
+        },
+        {
+          text: t('backup.clearAndSync', { defaultValue: 'Clear & Sync' }),
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              const engine = getEngine();
+              engine?.clear();
+              engine?.setSetting('__athlete_id', credentialsAthleteId);
+              await rememberCachedAthleteId(credentialsAthleteId);
+              resolve(true);
+            })();
+          },
+        },
+      ]
+    );
   });
 }

@@ -18,14 +18,12 @@ import { ScreenSafeAreaView } from '@/shared/ui';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
 import { formatDistance, formatDuration, formatElevation } from '@/shared/format/format';
-import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
+import { recordingActions } from '@/features/recording/lib/recordingActions';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
-import {
-  getRecording,
-  readRecordingStreams,
-} from '@/features/recording/lib/storage/recordingLibrary';
+import { getRecording } from '@/features/recording/lib/storage/recordingLibrary';
+import { readRecordingTrack } from '@/features/recording';
 import { useRecordingLibrary } from '@/features/recording/hooks/useRecordingLibrary';
-import type { RecordingLibraryEntry, RecordingStreams } from '@/types';
+import type { RecordingLibraryEntry } from '@/types';
 
 export default function RecordingDetailScreen() {
   const { t } = useTranslation();
@@ -36,7 +34,7 @@ export default function RecordingDetailScreen() {
   const { uploadNow, remove, uploadingId } = useRecordingLibrary();
 
   const [entry, setEntry] = useState<RecordingLibraryEntry | null>(null);
-  const [streams, setStreams] = useState<RecordingStreams | null>(null);
+  const [coordinates, setCoordinates] = useState<[number, number][]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -44,7 +42,7 @@ export default function RecordingDetailScreen() {
     const found = await getRecording(id);
     setEntry(found);
     if (found) {
-      setStreams(await readRecordingStreams(found));
+      setCoordinates(await readRecordingTrack(found));
     }
     setLoading(false);
   }, [id]);
@@ -103,7 +101,10 @@ export default function RecordingDetailScreen() {
 
   if (loading) {
     return (
-      <ScreenSafeAreaView style={[styles.container, styles.center, { backgroundColor: bg }]}>
+      <ScreenSafeAreaView
+        hasNativeHeader
+        style={[styles.container, styles.center, { backgroundColor: bg }]}
+      >
         <ActivityIndicator />
       </ScreenSafeAreaView>
     );
@@ -119,11 +120,9 @@ export default function RecordingDetailScreen() {
     );
   }
 
-  const isUploading = uploadingId === entry.id || entry.uploadStatus === 'uploading';
-  const canUpload = entry.uploadStatus !== 'uploaded' && !isUploading;
-  const coordinates = streams?.latlng ?? [];
+  const { isUploading, canUpload, canShare } = recordingActions(entry, uploadingId);
 
-  const stats: Array<{ label: string; value: string }> = [
+  const stats: { label: string; value: string }[] = [
     {
       label: t('recording.library.recorded', 'Recorded'),
       value: new Date(entry.startTime).toLocaleString(),
@@ -151,27 +150,6 @@ export default function RecordingDetailScreen() {
 
   return (
     <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          testID="recording-detail-back"
-          onPress={() => router.back()}
-          style={styles.backButton}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.back', 'Back')}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
-        </TouchableOpacity>
-        <MaterialCommunityIcons
-          name={getActivityIcon(entry.activityType)}
-          size={22}
-          color={getActivityColor(entry.activityType)}
-          style={styles.headerIcon}
-        />
-        <Text style={[styles.headerTitle, { color: textPrimary }]} numberOfLines={1}>
-          {entry.name}
-        </Text>
-      </View>
-
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }}>
         {coordinates.length >= 2 && (
           <View style={[styles.mapContainer, { borderColor: border }]}>
@@ -224,17 +202,19 @@ export default function RecordingDetailScreen() {
               <ActivityIndicator size="small" color={colors.textOnDark} />
             </View>
           )}
-          <TouchableOpacity
-            testID="recording-share-button"
-            style={[styles.actionButton, styles.secondaryButton, { borderColor: border }]}
-            onPress={handleShare}
-            activeOpacity={0.8}
-          >
-            <MaterialCommunityIcons name="export-variant" size={18} color={textPrimary} />
-            <Text style={[styles.secondaryButtonText, { color: textPrimary }]}>
-              {t('recording.library.share', 'Share FIT file')}
-            </Text>
-          </TouchableOpacity>
+          {canShare && (
+            <TouchableOpacity
+              testID="recording-share-button"
+              style={[styles.actionButton, styles.secondaryButton, { borderColor: border }]}
+              onPress={handleShare}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="export-variant" size={18} color={textPrimary} />
+              <Text style={[styles.secondaryButtonText, { color: textPrimary }]}>
+                {t('recording.library.share', 'Share FIT file')}
+              </Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             testID="recording-delete-button"
             style={[
@@ -263,26 +243,6 @@ const styles = StyleSheet.create({
   center: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerIcon: {
-    marginLeft: spacing.xs,
-    marginRight: spacing.xs,
-  },
-  headerTitle: {
-    ...typography.sectionTitle,
-    flex: 1,
   },
   mapContainer: {
     height: 220,
@@ -330,7 +290,7 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: colors.textOnDark,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
   secondaryButton: {
@@ -338,7 +298,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   secondaryButtonText: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
 });

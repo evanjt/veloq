@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, StyleSheet, Dimensions, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  runOnJS,
   Easing,
   FadeIn,
   FadeOut,
@@ -16,25 +15,26 @@ import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
 import { navigateTab } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, ink, typography } from '@/theme';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { getAllSlides, getSlidesSince } from './slides';
 import { WhatsNewSlide } from './WhatsNewSlide';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.2;
+const SWIPE_THRESHOLD_RATIO = 0.2;
 const VELOCITY_THRESHOLD = 400;
 const TIMING_CONFIG = { duration: 250, easing: Easing.out(Easing.cubic) };
 
 const MODAL_HORIZONTAL_PADDING = spacing.xl;
-const CONTENT_WIDTH = SCREEN_WIDTH - MODAL_HORIZONTAL_PADDING * 2;
 const ALL_SLIDES = getAllSlides();
 
 export function WhatsNewModal() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
+  const contentWidth = windowWidth - MODAL_HORIZONTAL_PADDING * 2;
+  const swipeThreshold = windowWidth * SWIPE_THRESHOLD_RATIO;
   const isLoaded = useWhatsNewStore((s) => s.isLoaded);
   const lastSeenVersion = useWhatsNewStore((s) => s.lastSeenVersion);
   const tourState = useWhatsNewStore((s) => s.tourState);
@@ -93,11 +93,11 @@ export function WhatsNewModal() {
     if (modeChanged || resumeChanged) {
       const idx = modeChanged ? 0 : tourState.resumeIndex;
       activeIndex.value = idx;
-      translateX.value = withTiming(-CONTENT_WIDTH * idx, TIMING_CONFIG);
+      translateX.value = withTiming(-contentWidth * idx, TIMING_CONFIG);
     }
     prevResumeIndex.current = tourState.resumeIndex;
     prevMode.current = tourState.mode;
-  }, [tourState, translateX, activeIndex]);
+  }, [tourState, translateX, activeIndex, contentWidth]);
 
   const dismiss = useCallback(() => {
     if (isAutoTriggered) {
@@ -109,9 +109,9 @@ export function WhatsNewModal() {
   const goToSlide = useCallback(
     (index: number) => {
       activeIndex.value = index;
-      translateX.value = withTiming(-CONTENT_WIDTH * index, TIMING_CONFIG);
+      translateX.value = withTiming(-contentWidth * index, TIMING_CONFIG);
     },
-    [translateX, activeIndex]
+    [translateX, activeIndex, contentWidth]
   );
 
   const handleNext = useCallback(() => {
@@ -150,20 +150,20 @@ export function WhatsNewModal() {
         .activeOffsetX([-10, 10])
         .onUpdate((event) => {
           'worklet';
-          const currentOffset = -CONTENT_WIDTH * activeIndex.value;
+          const currentOffset = -contentWidth * activeIndex.value;
           let newX = currentOffset + event.translationX;
-          const maxOffset = -CONTENT_WIDTH * (slideCount - 1);
+          const maxOffset = -contentWidth * (slideCount - 1);
           newX = Math.max(maxOffset, Math.min(0, newX));
           translateX.value = newX;
         })
         .onEnd((event) => {
           'worklet';
           const velocity = event.velocityX;
-          const currentOffset = -CONTENT_WIDTH * activeIndex.value;
+          const currentOffset = -contentWidth * activeIndex.value;
           const distance = translateX.value - currentOffset;
 
           let targetIndex = activeIndex.value;
-          if (Math.abs(distance) > SWIPE_THRESHOLD || Math.abs(velocity) > VELOCITY_THRESHOLD) {
+          if (Math.abs(distance) > swipeThreshold || Math.abs(velocity) > VELOCITY_THRESHOLD) {
             if (distance < 0 && velocity <= 0) {
               targetIndex = Math.min(slideCount - 1, activeIndex.value + 1);
             } else if (distance > 0 && velocity >= 0) {
@@ -172,9 +172,9 @@ export function WhatsNewModal() {
           }
 
           activeIndex.value = targetIndex;
-          translateX.value = withTiming(-CONTENT_WIDTH * targetIndex, TIMING_CONFIG);
+          translateX.value = withTiming(-contentWidth * targetIndex, TIMING_CONFIG);
         }),
-    [translateX, activeIndex, slideCount]
+    [translateX, activeIndex, slideCount, contentWidth, swipeThreshold]
   );
 
   const contentStyle = useAnimatedStyle(() => ({
@@ -186,7 +186,6 @@ export function WhatsNewModal() {
   if (!showModal || slideCount === 0) return null;
 
   const bgColor = isDark ? darkColors.surface : colors.surface;
-  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
   const primaryColor = isDark ? darkColors.primary : colors.primary;
 
@@ -199,11 +198,11 @@ export function WhatsNewModal() {
       exiting={FadeOut.duration(200)}
     >
       <Pressable style={styles.backdrop} onPress={dismiss} />
-      <View style={[styles.card, { backgroundColor: bgColor }]}>
+      <View style={[styles.card, { width: contentWidth, backgroundColor: bgColor }]}>
         <GestureDetector gesture={panGesture}>
           <View style={styles.slideArea}>
             <Animated.View
-              style={[styles.slideRow, { width: CONTENT_WIDTH * slideCount }, contentStyle]}
+              style={[styles.slideRow, { width: contentWidth * slideCount }, contentStyle]}
             >
               {slides.map((slide, index) => (
                 <WhatsNewSlide
@@ -255,7 +254,6 @@ export function WhatsNewModal() {
           onSkip={dismiss}
           onNext={handleNext}
           onShowMe={handleShowMe}
-          textColor={textColor}
           mutedColor={mutedColor}
           primaryColor={primaryColor}
           skipLabel={t('whatsNew.skipButton')}
@@ -295,7 +293,6 @@ function NavigationButtons({
   onSkip,
   onNext,
   onShowMe,
-  textColor,
   mutedColor,
   primaryColor,
   skipLabel,
@@ -309,7 +306,6 @@ function NavigationButtons({
   onSkip: () => void;
   onNext: () => void;
   onShowMe: () => void;
-  textColor: string;
   mutedColor: string;
   primaryColor: string;
   skipLabel: string;
@@ -358,7 +354,7 @@ function NavigationButtons({
             hitSlop={12}
             style={[styles.doneButton, { backgroundColor: primaryColor }]}
           >
-            <Text style={[styles.doneText, { color: '#FFFFFF' }]}>{doneLabel}</Text>
+            <Text style={[styles.doneText, { color: ink.white }]}>{doneLabel}</Text>
           </Pressable>
         </Animated.View>
         <Animated.View style={[styles.nextOverlay, isLast]}>
@@ -385,7 +381,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
   card: {
-    width: SCREEN_WIDTH - MODAL_HORIZONTAL_PADDING * 2,
     borderRadius: layout.borderRadius,
     overflow: 'hidden',
     maxHeight: '80%',
@@ -408,7 +403,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
   },
   modeToggleText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
   },
   dots: {
@@ -419,7 +414,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   dot: {
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
   },
   nav: {
     flexDirection: 'row',
@@ -433,7 +428,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   navText: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '500',
   },
   navTextBold: {
@@ -457,7 +452,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
   },
   doneText: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
   },
 });

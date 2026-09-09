@@ -11,7 +11,11 @@ import { renderHook, act } from '@testing-library/react-native';
 import { useReviewSave } from '@/features/recording/hooks/useReviewSave';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
-import { saveRecording } from '@/features/recording/lib/storage/recordingLibrary';
+import {
+  attachEngineActivity,
+  saveRecording,
+} from '@/features/recording/lib/storage/recordingLibrary';
+import { writeProvisionalActivity } from '@/features/recording/lib/storage/provisionalActivity';
 import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
 import { generateFitFile } from '@/features/recording/lib/fitGenerator';
@@ -36,6 +40,11 @@ jest.mock('@/features/recording/lib/fitGenerator', () => ({
 
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   saveRecording: jest.fn(),
+  attachEngineActivity: jest.fn(async () => null),
+}));
+
+jest.mock('@/features/recording/lib/storage/provisionalActivity', () => ({
+  writeProvisionalActivity: jest.fn(async () => 'local-deadbeef'),
 }));
 
 jest.mock('@/features/recording/lib/upload/uploadRecording', () => ({
@@ -58,11 +67,13 @@ jest.mock('@/features/recording/hooks/usePermissionUpgrade', () => ({
   }),
 }));
 
-jest.mock('@/api', () => ({
-  intervalsApi: { createManualActivity: jest.fn() },
+jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
+  createManualActivity: jest.fn(),
 }));
 
 const mockSaveRecording = saveRecording as jest.Mock;
+const mockAttachEngineActivity = attachEngineActivity as jest.Mock;
+const mockWriteProvisional = writeProvisionalActivity as jest.Mock;
 const mockUploadRecording = uploadRecording as jest.Mock;
 const mockClearBackup = clearRecordingBackup as jest.Mock;
 const mockGenerateFit = generateFitFile as jest.Mock;
@@ -92,7 +103,7 @@ function makeArgs(overrides: Record<string, unknown> = {}) {
     summary: { duration: 2, distance: 16, avgHeartrate: 130, elevationGain: 2 },
     notes: '',
     startTime: 1_700_000_000_000,
-    pausedDuration: 0,
+    pausedSecondsInWindow: 0,
     laps: [],
     pairedEventId: null,
     getTrimmedStreams: () => STREAMS,
@@ -221,5 +232,45 @@ describe('useReviewSave', () => {
     expect(fitArgs.streams.time).toEqual([0, 1, 2]);
     expect(fitArgs.streams.distance).toEqual([0, 8, 16]);
     expect(fitArgs.startTime.getTime()).toBe(1_700_000_000_000 + 10_000);
+  });
+
+  it('writes the provisional engine row from the same streams the FIT was built from', async () => {
+    mockSaveRecording.mockResolvedValue(ENTRY);
+    mockUploadRecording.mockResolvedValue({ outcome: 'uploaded' });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+
+    expect(mockWriteProvisional).toHaveBeenCalledWith(ENTRY, STREAMS);
+    expect(mockAttachEngineActivity).toHaveBeenCalledWith('rec-1', 'local-deadbeef');
+  });
+
+  it('carries the engine key into the upload, so the server id reaches the row', async () => {
+    mockSaveRecording.mockResolvedValue(ENTRY);
+    mockAttachEngineActivity.mockResolvedValue({
+      id: 'rec-1',
+      uploadStatus: 'pending',
+      engineActivityId: 'local-deadbeef',
+    });
+    mockUploadRecording.mockResolvedValue({ outcome: 'uploaded' });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+
+    expect(mockUploadRecording).toHaveBeenCalledWith(
+      expect.objectContaining({ engineActivityId: 'local-deadbeef' })
+    );
+  });
+
+  it('uploads anyway when no provisional row could be written', async () => {
+    mockSaveRecording.mockResolvedValue(ENTRY);
+    mockWriteProvisional.mockResolvedValue(null);
+    mockUploadRecording.mockResolvedValue({ outcome: 'uploaded' });
+
+    const { result } = renderHook(() => useReviewSave(makeArgs()));
+    await act(() => result.current.handleSave());
+
+    expect(mockAttachEngineActivity).not.toHaveBeenCalled();
+    expect(mockUploadRecording).toHaveBeenCalledWith(ENTRY);
   });
 });

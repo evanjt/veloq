@@ -24,7 +24,7 @@ runs:
           echo "$GOOGLE_SERVICES_JSON" | base64 -d > google-services.json
           echo "Wrote google-services.json from secret ($(stat -c%s google-services.json) bytes)"
         else
-          echo "::notice::GOOGLE_SERVICES_JSON not available — writing stub for CI build"
+          echo "::notice::GOOGLE_SERVICES_JSON not available, writing stub for CI build"
           cat > google-services.json << STUBEOF
         {
           "project_info": {
