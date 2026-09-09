@@ -168,26 +168,14 @@ tags:
 - tapOn:
     id: "debug-section-support-card"
 
-# The expanded controls first appear under the tab bar, where the tap goes to
-# the tab and leaves the screen instead of setting the preset. Walk the block
-# up until the bottom-most control, the legacy toggle, is clear of the bar.
-- repeat:
-    times: 10
-    commands:
-      - runFlow:
-          when:
-            notVisible:
-              id: "debug-support-legacy-toggle"
-          commands:
-            - swipe:
-                start: 90%, 70%
-                end: 90%, 30%
-                duration: 250
-
-- extendedWaitUntil:
-    visible:
-      id: "debug-support-preset-31d"
-    timeout: 10000
+# Centre the control, not merely its accessibility bounds: an element behind
+# the translucent tab bar can be reported visible while its tap opens a tab.
+- scrollUntilVisible:
+    element:
+      id: "debug-support-legacy-toggle"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
 
 # Earlier flows seed demo activities and the app then marks the profile a
 # legacy purchaser, which short-circuits the support card ahead of the date
@@ -199,8 +187,24 @@ tags:
       - tapOn:
           id: "debug-support-legacy-toggle"
 
+- scrollUntilVisible:
+    element:
+      id: "debug-support-preset-31d"
+    direction: UP
+    timeout: 20000
+    centerElement: true
+
+- evalScript: |
+    ${var d = new Date(); d.setDate(d.getDate() - 31); output.supportExpectedDate = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);}
+
 - tapOn:
     id: "debug-support-preset-31d"
+
+# Prove the preset was applied before attributing a missing card to the app.
+- assertVisible:
+    id: "debug-screen"
+- assertVisible:
+    text: "${output.supportExpectedDate}"
 
 - takeScreenshot: "screenshots/support-debug-set-31d-ago"
 

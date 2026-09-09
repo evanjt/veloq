@@ -21,6 +21,17 @@ tags:
       id: "home-activity-list"
     timeout: 15000
 
+# A preceding support-card flow can leave this fixed card open above the list.
+# Dismiss it through the UI so scrolling reaches the activity viewport.
+- runFlow:
+    when:
+      visible:
+        id: "support-card"
+    commands:
+      - tapOn: "Remind me later"
+      - assertNotVisible:
+          id: "support-card"
+
 # The record FAB floats over the feed's bottom-right corner, exactly where a
 # card's indicator chips sit when that card rests at the bottom of the
 # viewport. A tap on an occluded chip opens the record screen instead. Nudge
@@ -57,6 +68,15 @@ tags:
 - assertVisible:
     id: "activity-card-.*-section-chip"
 
+# Bring the stable fixture into view before testing its optional indicators.
+# Otherwise these branches silently skip when a date-generated card is visible.
+- scrollUntilVisible:
+    element:
+      id: "activity-card-demo-test-0"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+
 # ====================================================================
 # US-F2: PR count parity, if demo-test-0 has a section chip, count PR
 # trophies after navigating in and compare.
@@ -66,6 +86,13 @@ tags:
       visible:
         id: "activity-card-demo-test-0-section-chip"
     commands:
+      # Visible can still mean behind the tab bar or floating record button.
+      - scrollUntilVisible:
+          element:
+            id: "activity-card-demo-test-0-section-chip"
+          direction: DOWN
+          timeout: 15000
+          centerElement: true
       - takeScreenshot: "screenshots/feed-indicators-demo-0-chip"
 
       # Tap chip → Sections tab
@@ -100,6 +127,13 @@ tags:
       visible:
         id: "activity-card-demo-test-0-route-chip"
     commands:
+      # Visible can still mean behind the tab bar or floating record button.
+      - scrollUntilVisible:
+          element:
+            id: "activity-card-demo-test-0-route-chip"
+          direction: DOWN
+          timeout: 15000
+          centerElement: true
       - takeScreenshot: "screenshots/feed-indicators-demo-0-route-chip"
       - tapOn:
           id: "activity-card-demo-test-0-route-chip"
