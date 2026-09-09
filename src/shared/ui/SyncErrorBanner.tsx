@@ -46,16 +46,17 @@ export function SyncErrorBanner() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const { isOnline } = useNetwork();
   const { isDark } = useTheme();
   const { lastError, lastErrorReason, lastSuccessAt } = useSyncHealth();
 
   // The offline banner already owns the no-connection case, and both live in the
   // same top slot. A logged-out user has no sync to report on, and the engine
-  // keeps the error from the session that just ended.
+  // keeps the error from the session that just ended. Demo data needs no account sync.
   const reasonKey = lastErrorReason === null ? undefined : REASON_KEY[lastErrorReason];
 
-  if (!isAuthenticated || !isOnline || (!lastError && !reasonKey)) {
+  if (!isAuthenticated || isDemoMode || !isOnline || (!lastError && !reasonKey)) {
     return null;
   }
 
@@ -81,7 +82,9 @@ export function SyncErrorBanner() {
           </Text>
           <Text style={[styles.detail, { color: palette.subtext }]}>
             {lastSuccessAt
-              ? t('emptyState.syncError.lastSynced', { when: formatDateTime(lastSuccessAt) })
+              ? t('emptyState.syncError.lastSynced', {
+                  when: formatDateTime(lastSuccessAt),
+                })
               : t('emptyState.syncError.neverSynced')}
           </Text>
         </View>

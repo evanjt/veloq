@@ -28,7 +28,9 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 40, bottom: 0, left: 0, right: 0 }),
 }));
 
-jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
+jest.mock('@/shared/app/useTheme', () => ({
+  useTheme: () => ({ isDark: false }),
+}));
 
 let mockIsOnline = true;
 jest.mock('@/shared/app/NetworkContext', () => ({
@@ -51,12 +53,28 @@ jest.mock('@/shared/native/useSyncHealth', () => ({
 describe('SyncErrorBanner', () => {
   beforeEach(() => {
     mockIsOnline = true;
-    mockHealth = { lastError: null, lastErrorReason: null, lastSuccessAt: null };
-    useAuthStore.setState({ isAuthenticated: true });
+    mockHealth = {
+      lastError: null,
+      lastErrorReason: null,
+      lastSuccessAt: null,
+    };
+    useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
   });
 
   it('stays hidden while the sync is healthy', () => {
     const { queryByTestId } = render(<SyncErrorBanner />);
+    expect(queryByTestId('sync-error-banner')).toBeNull();
+  });
+
+  it('hides missing-credentials errors in demo mode', () => {
+    useAuthStore.setState({ isDemoMode: true });
+    mockHealth = {
+      lastError: 'No intervals.icu login stored',
+      lastErrorReason: SyncErrorReason.NotConfigured,
+      lastSuccessAt: null,
+    };
+    const { queryByTestId } = render(<SyncErrorBanner />);
+
     expect(queryByTestId('sync-error-banner')).toBeNull();
   });
 
@@ -73,7 +91,11 @@ describe('SyncErrorBanner', () => {
   });
 
   it('says no sync has ever landed when there is no success time', () => {
-    mockHealth = { lastError: 'timed out', lastErrorReason: null, lastSuccessAt: null };
+    mockHealth = {
+      lastError: 'timed out',
+      lastErrorReason: null,
+      lastSuccessAt: null,
+    };
     const { getByText } = render(<SyncErrorBanner />);
 
     expect(getByText('emptyState.syncError.neverSynced')).toBeTruthy();
@@ -92,7 +114,11 @@ describe('SyncErrorBanner', () => {
 
   it('defers to the offline banner when the device is offline', () => {
     mockIsOnline = false;
-    mockHealth = { lastError: 'timed out', lastErrorReason: null, lastSuccessAt: null };
+    mockHealth = {
+      lastError: 'timed out',
+      lastErrorReason: null,
+      lastSuccessAt: null,
+    };
     const { queryByTestId } = render(<SyncErrorBanner />);
 
     expect(queryByTestId('sync-error-banner')).toBeNull();
@@ -100,7 +126,11 @@ describe('SyncErrorBanner', () => {
 
   it('says nothing to a signed-out user', () => {
     useAuthStore.setState({ isAuthenticated: false });
-    mockHealth = { lastError: 'timed out', lastErrorReason: null, lastSuccessAt: null };
+    mockHealth = {
+      lastError: 'timed out',
+      lastErrorReason: null,
+      lastSuccessAt: null,
+    };
     const { queryByTestId } = render(<SyncErrorBanner />);
 
     expect(queryByTestId('sync-error-banner')).toBeNull();
@@ -138,14 +168,22 @@ describe('SyncErrorBanner', () => {
   });
 
   it('still says something when the engine gives neither a reason nor a message', () => {
-    mockHealth = { lastError: '', lastErrorReason: SyncErrorReason.Internal, lastSuccessAt: null };
+    mockHealth = {
+      lastError: '',
+      lastErrorReason: SyncErrorReason.Internal,
+      lastSuccessAt: null,
+    };
     const { getByText } = render(<SyncErrorBanner />);
 
     expect(getByText('emptyState.syncError.reason.internal')).toBeTruthy();
   });
 
   it('hides again once a later sync clears the error', () => {
-    mockHealth = { lastError: 'timed out', lastErrorReason: null, lastSuccessAt: null };
+    mockHealth = {
+      lastError: 'timed out',
+      lastErrorReason: null,
+      lastSuccessAt: null,
+    };
     const { queryByTestId, rerender } = render(<SyncErrorBanner />);
     expect(queryByTestId('sync-error-banner')).toBeTruthy();
 

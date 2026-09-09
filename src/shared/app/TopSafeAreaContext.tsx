@@ -39,7 +39,7 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
     const showOfflineBanner = isAuthenticated && !isOnline;
     // A connected device whose sync keeps failing takes the same slot, so the
     // offline case is checked first and the two never both claim the inset.
-    const showSyncErrorBanner = isAuthenticated && isOnline && lastError !== null;
+    const showSyncErrorBanner = isAuthenticated && !isDemoMode && isOnline && lastError !== null;
     const showDemoBanner = isDemoMode && !hideDemoBanner;
 
     let activeBanner: 'demo' | 'offline' | 'syncError' | null = null;

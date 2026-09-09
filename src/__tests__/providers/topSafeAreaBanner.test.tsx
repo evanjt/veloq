@@ -35,7 +35,11 @@ describe('TopSafeAreaProvider with a failing sync', () => {
   beforeEach(() => {
     mockIsOnline = true;
     mockHealth = { lastError: null, lastSuccessAt: null };
-    useAuthStore.setState({ isAuthenticated: true, isDemoMode: false, hideDemoBanner: false });
+    useAuthStore.setState({
+      isAuthenticated: true,
+      isDemoMode: false,
+      hideDemoBanner: false,
+    });
   });
 
   it('reserves the top edge for the sync-error banner', () => {
@@ -45,6 +49,18 @@ describe('TopSafeAreaProvider with a failing sync', () => {
     expect(result.current.activeBanner).toBe('syncError');
     expect(result.current.hasTopBanner).toBe(true);
     expect(result.current.screenEdges).not.toContain('top');
+  });
+
+  it.each([false, true])('ignores demo sync errors with hideDemoBanner=%s', (hideDemoBanner) => {
+    useAuthStore.setState({ isDemoMode: true, hideDemoBanner });
+    mockHealth = {
+      lastError: 'No intervals.icu login stored',
+      lastSuccessAt: null,
+    };
+    const { result } = renderHook(() => useTopSafeArea(), { wrapper });
+
+    expect(result.current.activeBanner).toBe(hideDemoBanner ? null : 'demo');
+    expect(result.current.screenEdges.includes('top')).toBe(hideDemoBanner);
   });
 
   it('lets the offline banner win when there is no connection', () => {
