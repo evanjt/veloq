@@ -118,7 +118,7 @@
     "expo-screen-orientation": "~56.0.5",
     "expo-secure-store": "~56.0.4",
     "expo-sharing": "~56.0.15",
-    "expo-splash-screen": "^57.0.8",
+    "expo-splash-screen": "~56.0.15",
     "expo-status-bar": "~56.0.4",
     "expo-task-manager": "~56.0.16",
     "expo-web-browser": "~56.0.5",
