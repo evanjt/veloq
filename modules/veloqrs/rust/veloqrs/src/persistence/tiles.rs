@@ -1,18 +1,19 @@
-//! Heatmap tile generation for PersistentRouteEngine.
+//! Heatmap tile generation for PersistentEngine.
 //!
 //! Tile generation runs on a background thread with its own SQLite connection,
 //! following the same pattern as section detection. The engine mutex is held
 //! only briefly to extract metadata (db_path, tiles_path, activity bounds).
 
-use super::{PersistentRouteEngine, TileGenerationHandle, codec};
+use super::codec::TrackRead;
+use super::{PersistentEngine, TileGenerationHandle};
 use crate::tiles;
 use log::info;
 use rayon::prelude::*;
 use rusqlite::Connection;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc;
 use tracematch::{Bounds, GpsPoint};
 
@@ -24,7 +25,63 @@ const TILE_FORMAT_VERSION: &str = "7";
 /// Cleared after tile generation completes. Prevents redundant generation on app restart.
 const DIRTY_MARKER: &str = ".dirty";
 
-impl PersistentRouteEngine {
+/// Number of unreadable activities named individually in the log.
+const CORRUPT_ID_LOG_CAP: usize = 20;
+
+/// Ids whose stored track did not decode on the last run, kept beside the tile
+/// version. A tile drawn while an activity was unreadable is short that
+/// activity, and `tile_exists` would serve it forever, so the next run redraws
+/// the tiles those activities reach whether or not they are readable again.
+const CORRUPT_RECORD: &str = "corrupt-activities.json";
+
+/// Distinguishes two marks written inside the same clock tick.
+static DIRTY_TOKEN: AtomicU64 = AtomicU64::new(0);
+
+/// Whether a tile pass is on a thread in this process. There is one handle
+/// slot, so a second pass drops the first's handle and reports its own
+/// progress in place of it, while both workers write the same tile files and
+/// each clears the dirty mark against the token it captured before it began.
+static TILE_PASS_RUNNING: AtomicBool = AtomicBool::new(false);
+
+/// Holds the single tile-pass slot. Release is structural, so a panic in the
+/// pass cannot leave tile generation unstartable for the life of the process.
+struct TilePassGuard;
+
+impl Drop for TilePassGuard {
+    fn drop(&mut self) {
+        TILE_PASS_RUNNING.store(false, Ordering::SeqCst);
+    }
+}
+
+impl TilePassGuard {
+    /// Claim the slot, or `None` when a pass already holds it.
+    fn claim() -> Option<Self> {
+        TILE_PASS_RUNNING
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .ok()
+            .map(|_| TilePassGuard)
+    }
+}
+
+/// Every activity's track, plus the ones whose stored blob did not decode.
+struct LoadedTracks {
+    tracks: HashMap<String, Arc<Vec<GpsPoint>>>,
+    corrupt: Vec<(String, String)>,
+}
+
+/// What one background tile run produced. `corrupt` is the number of
+/// activities whose stored track did not decode, so the caller can tell a
+/// complete tile set from one drawn over part of the library.
+#[derive(Debug, Default, Clone, Copy)]
+struct TileGeneration {
+    generated: u32,
+    corrupt: usize,
+    /// The athlete stopped it. The counts are what it managed, not what it
+    /// owed, so nothing downstream may read a cancelled run as a finished one.
+    cancelled: bool,
+}
+
+impl PersistentEngine {
     /// Check whether heatmap tiles need (re)generation.
     /// Returns true if the dirty marker exists or no version file is present (first time / cache cleared).
     pub fn is_heatmap_dirty(&self) -> bool {
@@ -46,17 +103,7 @@ impl PersistentRouteEngine {
         let Some(ref path) = self.heatmap_tiles_path else {
             return;
         };
-        let base = Path::new(path);
-        if let Err(e) = std::fs::create_dir_all(base) {
-            log::warn!(
-                "[heatmap] Failed to create tiles directory for dirty marker: {}",
-                e
-            );
-            return;
-        }
-        if let Err(e) = std::fs::write(base.join(DIRTY_MARKER), b"") {
-            log::warn!("[heatmap] Failed to write dirty marker: {}", e);
-        }
+        write_dirty_marker(Path::new(path));
     }
 
     /// Set the filesystem path where heatmap tiles are stored.
@@ -112,7 +159,10 @@ impl PersistentRouteEngine {
     /// (microseconds), then releases. The heavy work runs on a separate thread
     /// with its own SQLite connection.
     ///
-    /// Returns None if no tiles path is configured or no activities exist.
+    /// Returns None if no tiles path is configured, no activities exist, or a
+    /// pass is already running. The engine spawns one at load when the set is
+    /// stale and the GPS sync spawns one whenever it stores a track, so the
+    /// two overlap on the ordinary shape of a cold launch that then syncs.
     pub fn generate_tiles_background(&self) -> Option<TileGenerationHandle> {
         let tiles_path = self.heatmap_tiles_path.clone()?;
         let db_path = self.db_path.clone();
@@ -120,6 +170,11 @@ impl PersistentRouteEngine {
         if self.activity_metadata.is_empty() {
             return None;
         }
+
+        let Some(pass) = TilePassGuard::claim() else {
+            info!("[heatmap] A tile pass is already running - not starting another");
+            return None;
+        };
 
         // Extract all activity (id, bounds) pairs from in-memory metadata.
         // The background thread uses IDs to bulk-load GPS tracks and bounds
@@ -135,23 +190,66 @@ impl PersistentRouteEngine {
         let total_counter = Arc::new(AtomicU32::new(0));
         let gen_clone = generated_counter.clone();
         let total_clone = total_counter.clone();
+        let cancel = super::CancelToken::new();
+        let worker_cancel = cancel.clone();
+
+        // Captured before the pass so a sweep that marks the set dirty while
+        // it runs is not cleared by it.
+        let started_on = read_dirty_token(Path::new(&tiles_path));
 
         std::thread::spawn(move || {
-            let generated = background_generate_tiles(
-                &db_path,
-                &tiles_path,
-                &activities,
-                &gen_clone,
-                &total_clone,
-            );
-            clear_dirty_marker(&tiles_path);
+            let generated = {
+                // The slot is held for the generation itself, and released
+                // structurally, so a panic anywhere in the pass still frees it.
+                let _pass = pass;
+                let run = background_generate_tiles(
+                    &db_path,
+                    &tiles_path,
+                    &activities,
+                    &gen_clone,
+                    &total_clone,
+                    &worker_cancel,
+                );
+                // The pass ran, so the marker clears. Holding it for an
+                // unreadable activity would re-run the whole pass at every
+                // launch for as long as the row stays bad. The redraw the
+                // incomplete tiles need is carried by the corrupt record
+                // instead, which is scoped to the tiles those activities reach.
+                //
+                // A cancelled pass is the exception, and it must be: it left
+                // ground undrawn on purpose, so clearing the marker would make
+                // the heatmap permanently half-drawn.
+                if run.cancelled {
+                    info!(
+                        "[heatmap] Pass cancelled after {} tiles, the set stays dirty",
+                        run.generated
+                    );
+                } else {
+                    clear_dirty_marker(&tiles_path, started_on);
+                }
+                if run.corrupt > 0 {
+                    log::error!(
+                        "[heatmap] Tile set is incomplete: {} activities were unreadable. The tiles they reach are redrawn on the next run.",
+                        run.corrupt
+                    );
+                }
+                run.generated
+            };
+            // The slot is free before the count is sent, so a caller that
+            // blocks on the receiver and then asks for another pass is not
+            // refused by the one it just waited out.
             tx.send(generated).ok();
+            // The worker owns no engine lock, so the announcement is safe to
+            // make from here. A screen waiting on the pass hears it instead of
+            // draining this receiver on a timer.
+            crate::objects::observer::notify(|o| o.tiles_generated());
         });
 
         Some(TileGenerationHandle {
             receiver: rx,
             generated: generated_counter,
             total: total_counter,
+            cancel,
         })
     }
 
@@ -170,32 +268,102 @@ impl PersistentRouteEngine {
         }
         count
     }
+}
 
-    /// Delete heatmap tiles within a geographic bounding box across all zoom levels.
-    /// Used when activities are removed to prevent stale heatmap traces.
-    pub fn invalidate_tiles_for_bounds(&self, bounds: &Bounds) -> u32 {
-        if let Some(ref tiles_path) = self.heatmap_tiles_path {
-            let config = tiles::HeatmapConfig::default();
-            tiles::invalidate_tiles_in_bounds(
-                Path::new(tiles_path),
-                bounds.min_lat,
-                bounds.max_lat,
-                bounds.min_lng,
-                bounds.max_lng,
-                config.min_zoom,
-                config.max_zoom,
-            )
-        } else {
-            0
+/// Ids whose track did not decode on the last run. An absent or unreadable
+/// record reads as none, which costs one redraw of nothing.
+fn read_corrupt_record(base: &Path) -> Vec<String> {
+    std::fs::read_to_string(base.join(CORRUPT_RECORD))
+        .ok()
+        .and_then(|body| serde_json::from_str::<Vec<String>>(&body).ok())
+        .unwrap_or_default()
+}
+
+/// Store the ids whose track did not decode on this run. A run with nothing
+/// unreadable removes the record, so a repaired library stops paying for it.
+fn write_corrupt_record(base: &Path, ids: &[String]) {
+    let path = base.join(CORRUPT_RECORD);
+    if ids.is_empty() {
+        match std::fs::remove_file(&path) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => log::warn!("[heatmap] Failed to clear the corrupt record: {}", e),
         }
+        return;
+    }
+    let mut sorted: Vec<&str> = ids.iter().map(|id| id.as_str()).collect();
+    sorted.sort_unstable();
+    match serde_json::to_string(&sorted) {
+        Ok(body) => {
+            if let Err(e) = std::fs::write(&path, body) {
+                log::warn!("[heatmap] Failed to write the corrupt record: {}", e);
+            }
+        }
+        Err(e) => log::warn!("[heatmap] Failed to encode the corrupt record: {}", e),
     }
 }
 
-/// Remove the dirty marker from the tiles directory after successful generation.
-fn clear_dirty_marker(tiles_path: &str) {
-    let marker = Path::new(tiles_path).join(DIRTY_MARKER);
-    if marker.exists() {
-        if let Err(e) = std::fs::remove_file(&marker) {
+/// Whether an activity's bounding box reaches a tile. Bounds are all an
+/// unreadable activity leaves behind, so the swept track coverage is not
+/// available and the box is the widest the redraw can be.
+fn bounds_reach_tile(bounds: &Bounds, z: u8, x: u32, y: u32) -> bool {
+    let x0 = tiles::lon_to_tile_x(bounds.min_lng, z).floor();
+    let x1 = tiles::lon_to_tile_x(bounds.max_lng, z).floor();
+    // Tile y grows southwards, so the northern edge gives the lower index.
+    let y0 = tiles::lat_to_tile_y(bounds.max_lat, z).floor();
+    let y1 = tiles::lat_to_tile_y(bounds.min_lat, z).floor();
+    let (x, y) = (x as f64, y as f64);
+    x >= x0 && x <= x1 && y >= y0 && y <= y1
+}
+
+/// Mark the tile set at `tiles_path` as needing regeneration, without the
+/// engine. Callers that sweep tiles on a detached thread hold only the path.
+pub(crate) fn mark_tiles_dirty(tiles_path: &str) {
+    write_dirty_marker(Path::new(tiles_path));
+}
+
+/// Mark the tile set as needing regeneration. Each mark carries its own token
+/// so a run can tell the mark it started on from one that arrived while it was
+/// working.
+fn write_dirty_marker(base: &Path) {
+    if let Err(e) = std::fs::create_dir_all(base) {
+        log::warn!(
+            "[heatmap] Failed to create tiles directory for dirty marker: {}",
+            e
+        );
+        return;
+    }
+    let token = DIRTY_TOKEN.fetch_add(1, Ordering::Relaxed);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    if let Err(e) = std::fs::write(base.join(DIRTY_MARKER), format!("{}-{}", nanos, token)) {
+        log::warn!("[heatmap] Failed to write dirty marker: {}", e);
+    }
+}
+
+/// The token of the mark currently standing, or None when the set is clean.
+fn read_dirty_token(base: &Path) -> Option<String> {
+    std::fs::read_to_string(base.join(DIRTY_MARKER)).ok()
+}
+
+/// Remove the dirty marker after a successful generation run, but only the
+/// mark that run started on. A sweep that deletes tiles marks the set dirty,
+/// and clearing that mark would strand the ground it deleted: nothing else
+/// regenerates it, and at low zoom one activity's bounds cover the whole
+/// library, which is how the pyramid emptied below z12.
+fn clear_dirty_marker(tiles_path: &str, started_on: Option<String>) {
+    let base = Path::new(tiles_path);
+    let Some(started_on) = started_on else {
+        return;
+    };
+    if read_dirty_token(base).as_deref() != Some(started_on.as_str()) {
+        info!("[heatmap] Set was re-marked during the run, leaving it dirty");
+        return;
+    }
+    if let Err(e) = std::fs::remove_file(base.join(DIRTY_MARKER)) {
+        if e.kind() != std::io::ErrorKind::NotFound {
             log::warn!("[heatmap] Failed to clear dirty marker: {}", e);
         }
     }
@@ -213,20 +381,21 @@ fn clear_dirty_marker(tiles_path: &str) {
 ///
 /// Strictly better than the old per-tile loop: GPS tracks are deserialized
 /// once instead of once-per-tile, empty bbox tiles are never enumerated, and
-/// the slow rasterization+PNG encode parallelises across cores.
+/// the slow rasterisation+PNG encode parallelises across cores.
 fn background_generate_tiles(
     db_path: &str,
     tiles_path: &str,
     activities: &[(String, Bounds)],
     generated_counter: &AtomicU32,
     total_counter: &AtomicU32,
-) -> u32 {
+    cancel: &super::CancelToken,
+) -> TileGeneration {
     let start = std::time::Instant::now();
     let base = Path::new(tiles_path);
     let config = tiles::HeatmapConfig::default();
 
     if activities.is_empty() {
-        return 0;
+        return TileGeneration::default();
     }
 
     // Open own SQLite connection (same pattern as section detection).
@@ -234,14 +403,65 @@ fn background_generate_tiles(
         Ok(c) => c,
         Err(e) => {
             log::error!("[heatmap] Failed to open database: {}", e);
-            return 0;
+            return TileGeneration::default();
         }
     };
 
     // --- Phase 1: bulk-load all GPS tracks into an Arc cache ----------------
+    let previously_corrupt = read_corrupt_record(base);
     let load_started = std::time::Instant::now();
-    let tracks_by_id = bulk_load_tracks(&conn, activities);
+    let LoadedTracks {
+        tracks: tracks_by_id,
+        corrupt,
+    } = bulk_load_tracks(&conn, activities);
     let load_ms = load_started.elapsed().as_millis();
+
+    // Only a repaired track needs its ground redrawn. A track still unreadable
+    // contributed nothing to the tiles that exist, which therefore still hold
+    // the heat it laid down while it was readable, and redrawing without it
+    // would drop that heat rather than restore it.
+    let unreadable_now: HashSet<&str> = corrupt.iter().map(|(id, _)| id.as_str()).collect();
+    let stale_ids: HashSet<&str> = previously_corrupt
+        .iter()
+        .map(|id| id.as_str())
+        .filter(|id| !unreadable_now.contains(id))
+        .collect();
+    let stale_bounds: Vec<&Bounds> = activities
+        .iter()
+        .filter(|(id, _)| stale_ids.contains(id.as_str()))
+        .map(|(_, bounds)| bounds)
+        .collect();
+
+    for (id, reason) in corrupt.iter().take(CORRUPT_ID_LOG_CAP) {
+        log::error!(
+            "[heatmap] activity {} omitted from the tile set, track unreadable: {}",
+            id,
+            reason
+        );
+    }
+    if corrupt.len() > CORRUPT_ID_LOG_CAP {
+        log::error!(
+            "[heatmap] {} further activities omitted, tracks unreadable",
+            corrupt.len() - CORRUPT_ID_LOG_CAP
+        );
+    }
+    if !corrupt.is_empty() {
+        log::error!(
+            "[heatmap] {} of {} activities missing from the tile set: the heatmap is incomplete",
+            corrupt.len(),
+            activities.len()
+        );
+    }
+
+    // The first safe point: the load is the longest stretch that cannot be
+    // interrupted, and nothing has been written yet, so stopping here leaves
+    // the tile set exactly as the pass found it.
+    if cancel.is_cancelled() {
+        return TileGeneration {
+            cancelled: true,
+            ..TileGeneration::default()
+        };
+    }
 
     // --- Phase 2: build (z,x,y) → [Arc<track>] via polyline sweep ------------
     let plan_started = std::time::Instant::now();
@@ -265,10 +485,31 @@ fn background_generate_tiles(
     let plan_ms = plan_started.elapsed().as_millis();
 
     // --- Phase 3: filter existing, sort for deterministic progress ----------
+    // A tile an unreadable activity reaches is redrawn even when it exists,
+    // because what is on disk was drawn while that activity was missing.
+    let mut redrawn = 0u32;
     let mut pending: Vec<((u8, u32, u32), Vec<Arc<Vec<GpsPoint>>>)> = tile_tracks
         .into_iter()
-        .filter(|(coord, _)| !tiles::tile_exists(base, coord.0, coord.1, coord.2))
+        .filter(|(coord, _)| {
+            if !tiles::tile_exists(base, coord.0, coord.1, coord.2) {
+                return true;
+            }
+            let stale = stale_bounds
+                .iter()
+                .any(|bounds| bounds_reach_tile(bounds, coord.0, coord.1, coord.2));
+            if stale {
+                redrawn += 1;
+            }
+            stale
+        })
         .collect();
+    if redrawn > 0 {
+        info!(
+            "[heatmap] Redrawing {} existing tiles reached by {} repaired activities",
+            redrawn,
+            stale_bounds.len()
+        );
+    }
     // Deterministic ordering keeps progress reporting stable across runs -
     // otherwise HashMap iteration order shuffles `processed_counter` deltas.
     pending.sort_unstable_by_key(|((z, x, y), _)| (*z, *x, *y));
@@ -277,11 +518,19 @@ fn background_generate_tiles(
     total_counter.store(total, Ordering::SeqCst);
 
     if total == 0 {
+        write_corrupt_record(
+            base,
+            &corrupt.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>(),
+        );
         info!(
             "[heatmap] Background: nothing to generate (load={}ms plan={}ms)",
             load_ms, plan_ms
         );
-        return 0;
+        return TileGeneration {
+            generated: 0,
+            corrupt: corrupt.len(),
+            cancelled: false,
+        };
     }
 
     info!(
@@ -294,20 +543,36 @@ fn background_generate_tiles(
         plan_ms,
     );
 
-    // --- Phase 4: parallel rasterize + save ---------------------------------
+    // --- Phase 4: parallel rasterise + save ---------------------------------
     // Each worker owns its own refs; Arc<Vec<GpsPoint>> is shared so we don't
     // deep-clone tracks across threads. No SQLite connection inside workers.
     let generated = AtomicU32::new(0);
     let processed = AtomicU32::new(0);
 
     pending.par_iter().for_each(|(coord, arcs)| {
+        // Per tile, not per batch: a tile is tens of milliseconds and a whole
+        // pass is minutes, so this is where a cancel actually lands. A tile
+        // already written stays written, which is correct: the marker below
+        // is what tells the next pass the rest is still owed.
+        if cancel.is_cancelled() {
+            return;
+        }
         // Build a slice-of-slices view without deep-cloning the track data;
         // each `&[GpsPoint]` impls `AsRef<[GpsPoint]>`, matching the
         // generic bound on `generate_heatmap_tile`.
         let slices: Vec<&[GpsPoint]> = arcs.iter().map(|a| a.as_slice()).collect();
-        if let Some(png_data) = tiles::generate_heatmap_tile(coord.0, coord.1, coord.2, &slices) {
-            if tiles::save_tile(base, coord.0, coord.1, coord.2, &png_data).is_ok() {
-                generated.fetch_add(1, Ordering::Relaxed);
+        match tiles::generate_heatmap_tile(coord.0, coord.1, coord.2, &slices) {
+            Some(png_data) => {
+                if tiles::save_tile(base, coord.0, coord.1, coord.2, &png_data).is_ok() {
+                    generated.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+            // Nothing reached this tile. Say so on disk, or the existence
+            // check cannot tell it from ground that has never been drawn and
+            // schedules it again on every pass for as long as the library
+            // exists. It is not counted as generated: nothing was drawn.
+            None => {
+                let _ = tiles::mark_tile_empty(base, coord.0, coord.1, coord.2);
             }
         }
         let done = processed.fetch_add(1, Ordering::Relaxed) + 1;
@@ -316,27 +581,55 @@ fn background_generate_tiles(
 
     let generated = generated.load(Ordering::SeqCst);
 
+    // A cancelled pass records nothing and leaves the previous record standing,
+    // for the reason the comment below gives: the record claims the tiles it
+    // guards are drawn, and a stopped pass did not draw them.
+    if cancel.is_cancelled() {
+        info!(
+            "[heatmap] Background: cancelled after {} tiles / {} scheduled, {}ms",
+            generated,
+            total,
+            start.elapsed().as_millis()
+        );
+        return TileGeneration {
+            generated,
+            corrupt: corrupt.len(),
+            cancelled: true,
+        };
+    }
+
+    // Recorded only once the tiles it guards are on disk. A run killed before
+    // this point leaves the previous record standing, so the next run still
+    // knows which ground is owed a redraw.
+    write_corrupt_record(
+        base,
+        &corrupt.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>(),
+    );
+
     info!(
         "[heatmap] Background: generated {} tiles / {} scheduled, total wall time {}ms",
         generated,
         total,
         start.elapsed().as_millis()
     );
-    generated
+    TileGeneration {
+        generated,
+        corrupt: corrupt.len(),
+        cancelled: false,
+    }
 }
 
 /// Bulk-load every activity's GPS track in chunked `IN (...)` queries.
-/// Returns a map from activity_id → Arc<Vec<GpsPoint>>. Missing rows and
-/// failed deserialization log warnings and are omitted (same behaviour as
-/// the old per-tile `load_gps_track`).
-fn bulk_load_tracks(
-    conn: &Connection,
-    activities: &[(String, Bounds)],
-) -> HashMap<String, Arc<Vec<GpsPoint>>> {
+/// Returns a map from activity_id → Arc<Vec<GpsPoint>> and the ids whose
+/// stored track did not decode. An unreadable track is omitted rather than
+/// mapped to an empty one: the map must not claim to hold a track it could
+/// not read.
+fn bulk_load_tracks(conn: &Connection, activities: &[(String, Bounds)]) -> LoadedTracks {
     // SQLite's default parameter limit is 999; chunk well under that so the
     // query never fails for large corpora.
     const CHUNK: usize = 500;
-    let mut out: HashMap<String, Arc<Vec<GpsPoint>>> = HashMap::with_capacity(activities.len());
+    let mut tracks: HashMap<String, Arc<Vec<GpsPoint>>> = HashMap::with_capacity(activities.len());
+    let mut corrupt: Vec<(String, String)> = Vec::new();
 
     for chunk in activities.chunks(CHUNK) {
         let placeholders: String = std::iter::repeat("?")
@@ -373,21 +666,132 @@ fn bulk_load_tracks(
 
         for row in rows {
             let Ok((id, blob)) = row else { continue };
-            match codec::deserialize_points(&blob) {
-                Ok(track) => {
-                    out.insert(id, Arc::new(track));
+            match TrackRead::from_blob(&blob) {
+                TrackRead::Present(track) => {
+                    tracks.insert(id, Arc::new(track));
                 }
-                Err(e) => {
-                    log::warn!(
-                        "[heatmap] Failed to deserialize GPS track for activity {}: {}",
-                        id,
-                        e
-                    );
-                    out.insert(id, Arc::new(Vec::new()));
-                }
+                TrackRead::Missing => {}
+                TrackRead::Corrupt(reason) => corrupt.push((id, reason)),
             }
         }
     }
 
-    out
+    LoadedTracks { tracks, corrupt }
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Scenario: a tile sweep marks the set dirty while a generation run is
+    /// already in flight. Expected behaviour: the run clears only the mark it
+    /// started with, so the sweep's mark survives and the deleted tiles are
+    /// redrawn on the next pass.
+    #[test]
+    fn clear_dirty_marker_keeps_a_mark_written_during_the_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path();
+        let path = base.to_str().unwrap().to_string();
+
+        write_dirty_marker(base);
+        let token = read_dirty_token(base);
+
+        write_dirty_marker(base);
+        clear_dirty_marker(&path, token);
+
+        assert!(
+            base.join(DIRTY_MARKER).exists(),
+            "a mark written mid-run must outlive the run that did not see it"
+        );
+    }
+
+    #[test]
+    fn clear_dirty_marker_removes_the_mark_the_run_started_with() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path();
+        let path = base.to_str().unwrap().to_string();
+
+        write_dirty_marker(base);
+        let token = read_dirty_token(base);
+        clear_dirty_marker(&path, token);
+
+        assert!(!base.join(DIRTY_MARKER).exists());
+    }
+
+    #[test]
+    fn each_mark_carries_its_own_token() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path();
+
+        write_dirty_marker(base);
+        let first = read_dirty_token(base);
+        write_dirty_marker(base);
+        let second = read_dirty_token(base);
+
+        assert!(first.is_some());
+        assert_ne!(first, second);
+    }
+
+    /// A run that started on a clean set must not clear a mark that arrived
+    /// after it began.
+    #[test]
+    fn a_run_that_saw_no_mark_clears_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path();
+        let path = base.to_str().unwrap().to_string();
+
+        let token = read_dirty_token(base);
+        assert!(token.is_none());
+
+        write_dirty_marker(base);
+        clear_dirty_marker(&path, token);
+
+        assert!(base.join(DIRTY_MARKER).exists());
+    }
+
+    /// Scenario: the engine spawns a tile pass at load when the set is stale,
+    /// and the GPS sync spawns another as soon as it stores a track. There is
+    /// one handle slot, so a second pass makes the first unobservable and the
+    /// two workers write the same tile files.
+    mod one_pass_at_a_time {
+        use super::*;
+        use crate::test_globals::serial_global_state;
+
+        #[test]
+        fn a_second_pass_is_refused_while_one_runs() {
+            let _serial = serial_global_state();
+            let held = TilePassGuard::claim().expect("the slot was free");
+
+            assert!(
+                TilePassGuard::claim().is_none(),
+                "a second pass was started beside the first"
+            );
+
+            drop(held);
+            assert!(
+                TilePassGuard::claim().is_some(),
+                "the slot did not come back when the pass ended"
+            );
+        }
+
+        #[test]
+        fn a_panicking_pass_releases_the_slot() {
+            let _serial = serial_global_state();
+            let claimed = TilePassGuard::claim().expect("the slot was free");
+            let pass = std::thread::spawn(move || {
+                let _held = claimed;
+                panic!("background_generate_tiles");
+            });
+            assert!(pass.join().is_err(), "the pass panicked");
+
+            assert!(
+                TilePassGuard::claim().is_some(),
+                "a panicked pass left tiles unstartable for the process"
+            );
+        }
+    }
 }

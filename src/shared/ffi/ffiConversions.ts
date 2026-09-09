@@ -68,7 +68,7 @@ export function castDirection(direction: string | null | undefined): 'same' | 'r
  */
 export function convertActivityPortions<T extends { direction: string }>(
   portions: T[] | null | undefined
-): Array<Omit<T, 'direction'> & { direction: 'same' | 'reverse' }> | undefined {
+): (Omit<T, 'direction'> & { direction: 'same' | 'reverse' })[] | undefined {
   return portions?.map((p) => ({
     ...p,
     direction: castDirection(p.direction),

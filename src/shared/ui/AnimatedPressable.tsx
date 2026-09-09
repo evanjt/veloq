@@ -108,20 +108,6 @@ export function AnimatedPressable({
   );
 }
 
-// Preset for cards
-export function AnimatedCard({
-  children,
-  style,
-  ...props
-}: Omit<AnimatedPressableProps, 'pressScale' | 'hapticType'>) {
-  return (
-    <AnimatedPressable pressScale={0.98} hapticType="light" style={style} {...props}>
-      {children}
-    </AnimatedPressable>
-  );
-}
-
-// Preset for buttons
 export function AnimatedButton({
   children,
   style,
@@ -129,19 +115,6 @@ export function AnimatedButton({
 }: Omit<AnimatedPressableProps, 'pressScale' | 'hapticType'>) {
   return (
     <AnimatedPressable pressScale={0.95} hapticType="medium" style={style} {...props}>
-      {children}
-    </AnimatedPressable>
-  );
-}
-
-// Preset for list items
-export function AnimatedListItem({
-  children,
-  style,
-  ...props
-}: Omit<AnimatedPressableProps, 'pressScale' | 'hapticType'>) {
-  return (
-    <AnimatedPressable pressScale={0.99} hapticType="selection" style={style} {...props}>
       {children}
     </AnimatedPressable>
   );

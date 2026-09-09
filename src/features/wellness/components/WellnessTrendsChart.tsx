@@ -9,6 +9,7 @@ import { useSharedValue, runOnJS } from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
 import { colors, spacing, typography, opacity, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
+import { useChartColors } from '@/shared/charts';
 import { sortByDateId } from '@/features/activity/lib/activityUtils';
 import { formatShortDateWithWeekday } from '@/shared/format/format';
 import {
@@ -27,15 +28,6 @@ interface WellnessTrendsChartProps {
   smoothingWindow?: SmoothingWindow;
   onDateSelect?: (date: string | null) => void;
 }
-
-// Colors for different metrics (NO orange)
-const METRIC_COLORS = {
-  hrv: '#EC4899', // Pink-500
-  rhr: '#EF4444', // Red-500 (classic HR color)
-  sleep: '#A855F7', // Purple-500
-  sleepScore: '#6366F1', // Indigo-500
-  weight: '#64748B', // Slate-500
-};
 
 interface MetricChartData {
   x: number;
@@ -127,6 +119,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 }: WellnessTrendsChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
@@ -229,7 +222,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       metrics.push({
         key: 'hrv',
         data: hrvData,
-        color: METRIC_COLORS.hrv,
+        color: chartColors.hrv,
         label: t('metrics.hrv'),
         unit: 'ms',
         formatValue: (v) => Math.round(v).toString(),
@@ -238,7 +231,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       metrics.push({
         key: 'rhr',
         data: rhrData,
-        color: METRIC_COLORS.rhr,
+        color: chartColors.rhr,
         label: t('wellness.restingHR'),
         unit: t('units.bpm'),
         formatValue: (v) => Math.round(v).toString(),
@@ -247,7 +240,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       metrics.push({
         key: 'sleep',
         data: sleepData,
-        color: METRIC_COLORS.sleep,
+        color: chartColors.sleep,
         label: t('wellness.sleep'),
         unit: '',
         formatValue: (v) => formatSleepDuration(v),
@@ -256,7 +249,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       metrics.push({
         key: 'sleepScore',
         data: sleepScoreData,
-        color: METRIC_COLORS.sleepScore,
+        color: chartColors.sleepScore,
         label: t('wellness.sleepScore'),
         unit: '',
         formatValue: (v) => Math.round(v).toString(),
@@ -265,13 +258,13 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       metrics.push({
         key: 'weight',
         data: weightData,
-        color: METRIC_COLORS.weight,
+        color: chartColors.weight,
         label: t('wellness.weight'),
         unit: 'kg',
         formatValue: (v) => v.toFixed(1),
       });
     return metrics;
-  }, [hrvData, rhrData, sleepData, sleepScoreData, weightData, t]);
+  }, [hrvData, rhrData, sleepData, sleepScoreData, weightData, chartColors, t]);
 
   const hasAnyData = activeMetrics.length > 0;
 

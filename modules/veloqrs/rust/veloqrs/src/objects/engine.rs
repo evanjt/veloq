@@ -1,15 +1,60 @@
 use super::error::{VeloqError, with_engine};
 use crate::init_logging;
-use crate::persistence::{NAME_TRANSLATIONS, PERSISTENT_ENGINE, PersistentEngineStats};
+use crate::persistence::persistent_engine_ffi::{
+    BACKUP_HANDLE, BULK_EXPORT_HANDLE, CLEAR_ALL_HANDLE, CLEAR_DERIVED_HANDLE, CLEAR_HANDLE,
+};
+use crate::persistence::{
+    DerivedClear, NAME_TRANSLATIONS, PERSISTENT_ENGINE, PersistentEngineStats, WorkerPoll,
+};
 use log::info;
-use rusqlite::backup;
 use std::sync::Arc;
 
-#[derive(uniffi::Object)]
-pub struct VeloqEngine {
-    #[allow(dead_code)]
-    db_path: String,
+/// What a running or finished clear-cache wipe removed. The counts are only
+/// meaningful once `state` reads "complete".
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct DerivedClearPoll {
+    pub state: String,
+    pub sections_removed: u32,
+    pub activities_removed: u32,
+    pub activities_kept: u32,
 }
+
+impl DerivedClearPoll {
+    fn idle() -> Self {
+        DerivedClearPoll {
+            state: "idle".to_string(),
+            sections_removed: 0,
+            activities_removed: 0,
+            activities_kept: 0,
+        }
+    }
+}
+
+/// What a running or finished bulk export has done. `skipped` and
+/// `total_bytes` are only meaningful once `state` reads "complete".
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct BulkExportPoll {
+    pub state: String,
+    pub exported: u32,
+    pub total: u32,
+    pub skipped: u32,
+    pub total_bytes: u64,
+}
+
+impl BulkExportPoll {
+    fn idle() -> Self {
+        BulkExportPoll {
+            state: "idle".to_string(),
+            exported: 0,
+            total: 0,
+            skipped: 0,
+            total_bytes: 0,
+        }
+    }
+}
+
+#[derive(uniffi::Object)]
+pub struct VeloqEngine;
 
 #[uniffi::export]
 impl VeloqEngine {
@@ -23,11 +68,26 @@ impl VeloqEngine {
             .is_some();
 
         if !already {
-            info!("[VeloqEngine] Initializing at {}", db_path);
-            crate::persistence::persistent_engine_ffi::persistent_engine_init(db_path.clone());
+            info!("[VeloqEngine] Initialising at {}", db_path);
+            crate::persistence::persistent_engine_ffi::persistent_engine_init(db_path);
         }
 
-        Arc::new(Self { db_path })
+        Arc::new(Self)
+    }
+
+    /// Register the listener Rust calls when work finishes off the JavaScript
+    /// thread. One per process; a second call replaces the first.
+    fn set_observer(&self, observer: Option<Arc<dyn crate::objects::observer::EngineObserver>>) {
+        crate::objects::observer::set_observer(observer);
+    }
+
+    /// How the last init in this process ended.
+    ///
+    /// `is_initialized` says whether the engine is usable, which is what the
+    /// caller needs to decide what to do next. This says why it is not, which
+    /// is what the athlete needs to decide what to do about it.
+    fn init_outcome(&self) -> crate::objects::init::FfiInitOutcome {
+        crate::objects::init::last_init_outcome()
     }
 
     fn is_initialized(&self) -> bool {
@@ -70,26 +130,171 @@ impl VeloqEngine {
         })?
     }
 
+    /// Start the route/section wipe on a background thread. Poll
+    /// `poll_clear_routes_and_sections` for the outcome.
+    ///
+    /// The wipe takes the engine write lock like any other writer, so unlike a
+    /// backup it does not get its own connection. What moves off the calling
+    /// thread is the wait: a 750-activity library takes 367 ms to wipe, and the
+    /// caller is the settings toggle, so on the JS thread that is a switch the
+    /// athlete flipped freezing the app.
+    fn start_clear_routes_and_sections(&self) -> Result<(), VeloqError> {
+        let mut guard = CLEAR_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+        if guard.is_some() {
+            return Err(VeloqError::Database {
+                msg: "A clear is already running".to_string(),
+            });
+        }
+        // No engine check here on purpose. Reading `PERSISTENT_ENGINE` takes
+        // the read lock, which a live writer holds exclusively, so the check
+        // would reintroduce exactly the wait this method exists to remove. A
+        // missing engine comes back through the poll instead.
+        *guard = Some(crate::persistence::clear_routes_and_sections_background());
+        Ok(())
+    }
+
+    /// Poll the running wipe: "idle" | "running" | "complete". A failed or
+    /// panicking wipe is an error, and either outcome clears the slot so the
+    /// next toggle can start one.
+    fn poll_clear_routes_and_sections(&self) -> Result<String, VeloqError> {
+        let mut guard = CLEAR_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+
+        let Some(handle) = guard.as_ref() else {
+            return Ok("idle".to_string());
+        };
+
+        match handle.poll_state() {
+            WorkerPoll::Running => Ok("running".to_string()),
+            WorkerPoll::Ready(Ok(())) => {
+                *guard = None;
+                Ok("complete".to_string())
+            }
+            WorkerPoll::Ready(Err(msg)) => {
+                *guard = None;
+                Err(VeloqError::Database { msg })
+            }
+            WorkerPoll::Died => {
+                *guard = None;
+                Err(VeloqError::Database {
+                    msg: "Clear thread died without a result".to_string(),
+                })
+            }
+        }
+    }
+
+    /// Start the clear-cache wipe on a Rust thread. Refuses while one runs.
+    fn start_clear_derived(&self) -> Result<(), VeloqError> {
+        let mut guard = CLEAR_DERIVED_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if guard.is_some() {
+            return Err(VeloqError::Database {
+                msg: "A clear is already running".to_string(),
+            });
+        }
+        // No engine check here, for the reason `start_clear_routes_and_sections`
+        // gives: the check itself would take the lock this exists to avoid
+        // waiting on. A missing engine comes back through the poll.
+        *guard = Some(crate::persistence::clear_derived_background());
+        Ok(())
+    }
+
+    /// Poll the running clear-cache wipe: "idle" | "running" | "complete", and
+    /// what went once it is complete. Either terminal outcome frees the slot.
+    fn poll_clear_derived(&self) -> Result<DerivedClearPoll, VeloqError> {
+        let mut guard = CLEAR_DERIVED_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+
+        let Some(handle) = guard.as_ref() else {
+            return Ok(DerivedClearPoll::idle());
+        };
+
+        match handle.poll_state() {
+            WorkerPoll::Running => Ok(DerivedClearPoll {
+                state: "running".to_string(),
+                ..DerivedClearPoll::idle()
+            }),
+            WorkerPoll::Ready(Ok(cleared)) => {
+                *guard = None;
+                Ok(DerivedClearPoll {
+                    state: "complete".to_string(),
+                    sections_removed: cleared.sections_removed,
+                    activities_removed: cleared.activities_removed,
+                    activities_kept: cleared.activities_kept,
+                })
+            }
+            WorkerPoll::Ready(Err(msg)) => {
+                *guard = None;
+                Err(VeloqError::Database { msg })
+            }
+            WorkerPoll::Died => {
+                *guard = None;
+                Err(VeloqError::Database {
+                    msg: "Clear thread died without a result".to_string(),
+                })
+            }
+        }
+    }
+
+    /// Start the whole-database wipe on a Rust thread. Refuses while one runs.
+    ///
+    /// The caller re-opens the engine once this completes, so the poll is what
+    /// keeps the re-open ordered after the wipe rather than racing it.
+    fn start_clear_all(&self) -> Result<(), VeloqError> {
+        let mut guard = CLEAR_ALL_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+        if guard.is_some() {
+            return Err(VeloqError::Database {
+                msg: "A clear is already running".to_string(),
+            });
+        }
+        *guard = Some(crate::persistence::clear_all_background());
+        Ok(())
+    }
+
+    /// Poll the running whole-database wipe: "idle" | "running" | "complete".
+    fn poll_clear_all(&self) -> Result<String, VeloqError> {
+        let mut guard = CLEAR_ALL_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+
+        let Some(handle) = guard.as_ref() else {
+            return Ok("idle".to_string());
+        };
+
+        match handle.poll_state() {
+            WorkerPoll::Running => Ok("running".to_string()),
+            WorkerPoll::Ready(Ok(())) => {
+                *guard = None;
+                Ok("complete".to_string())
+            }
+            WorkerPoll::Ready(Err(msg)) => {
+                *guard = None;
+                Err(VeloqError::Database { msg })
+            }
+            WorkerPoll::Died => {
+                *guard = None;
+                Err(VeloqError::Database {
+                    msg: "Clear thread died without a result".to_string(),
+                })
+            }
+        }
+    }
+
+    /// Empty what the engine can re-derive and keep what the athlete made:
+    /// the clear-cache button's database half.
+    fn clear_derived_data(&self) -> Result<DerivedClear, VeloqError> {
+        with_engine(|e| {
+            e.clear_derived().map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
+        })?
+    }
+
     /// Drop the persistent engine entirely, closing the SQLite connection.
-    /// The next call to `create()` will re-initialize from scratch.
+    /// The next call to `create()` will re-initialise from scratch.
     fn destroy(&self) {
         let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
         info!("[VeloqEngine] Destroying persistent engine");
         *guard = None;
-    }
-
-    fn cleanup_old_activities(&self, retention_days: u32) -> Result<u32, VeloqError> {
-        with_engine(|e| {
-            let count =
-                e.cleanup_old_activities(retention_days)
-                    .map_err(|e| VeloqError::Database {
-                        msg: format!("{}", e),
-                    })?;
-            if retention_days > 0 && count > 0 {
-                info!("[VeloqEngine] Cleanup: {} activities removed", count);
-            }
-            Ok(count)
-        })?
     }
 
     fn mark_for_recomputation(&self) -> Result<(), VeloqError> {
@@ -142,28 +347,56 @@ impl VeloqEngine {
         Arc::new(super::tiles::HeatmapManager { _private: () })
     }
 
+    fn recordings(&self) -> Arc<super::recordings::RecordingManager> {
+        Arc::new(super::recordings::RecordingManager { _private: () })
+    }
+
     fn sync(&self) -> Arc<super::sync::SyncManager> {
         Arc::new(super::sync::SyncManager { _private: () })
     }
 
-    /// Create an atomic SQLite backup at the given path.
-    /// Uses sqlite3_backup API - safe to call while the database is in use.
-    fn backup_database(&self, dest_path: String) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            let mut dest =
-                rusqlite::Connection::open(&dest_path).map_err(|e| VeloqError::Database {
-                    msg: format!("Failed to open backup destination: {}", e),
-                })?;
-            let b = backup::Backup::new(&e.db, &mut dest).map_err(|e| VeloqError::Database {
-                msg: format!("Failed to init backup: {}", e),
-            })?;
-            b.run_to_completion(100, std::time::Duration::from_millis(10), None)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("Backup failed: {}", e),
-                })?;
-            info!("[VeloqEngine] Database backed up to {}", dest_path);
-            Ok(())
-        })?
+    /// Start an atomic SQLite backup at the given path on a background thread.
+    /// Poll `poll_backup` for the outcome. The copy runs on its own connection,
+    /// so neither the engine lock nor the calling thread waits for it.
+    fn start_backup(&self, dest_path: String) -> Result<(), VeloqError> {
+        let mut guard = BACKUP_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+        if guard.is_some() {
+            return Err(VeloqError::Database {
+                msg: "A backup is already running".to_string(),
+            });
+        }
+        let handle = with_engine(|e| e.backup_database_background(&dest_path))?;
+        *guard = Some(handle);
+        Ok(())
+    }
+
+    /// Poll the running backup: "idle" | "running" | "complete". A failed copy
+    /// is an error, and either outcome clears the slot so the next backup can
+    /// start.
+    fn poll_backup(&self) -> Result<String, VeloqError> {
+        let mut guard = BACKUP_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+
+        let Some(handle) = guard.as_ref() else {
+            return Ok("idle".to_string());
+        };
+
+        match handle.poll_state() {
+            WorkerPoll::Running => Ok("running".to_string()),
+            WorkerPoll::Ready(Ok(())) => {
+                *guard = None;
+                Ok("complete".to_string())
+            }
+            WorkerPoll::Ready(Err(msg)) => {
+                *guard = None;
+                Err(VeloqError::Database { msg })
+            }
+            WorkerPoll::Died => {
+                *guard = None;
+                Err(VeloqError::Database {
+                    msg: "Backup thread died without a result".to_string(),
+                })
+            }
+        }
     }
 
     /// Get backup metadata as JSON for validation before restore.
@@ -193,26 +426,522 @@ impl VeloqEngine {
         })?
     }
 
-    /// Bulk export all activities with GPS data as a ZIP of GPX files.
-    /// Streams one track at a time - constant memory regardless of activity count.
-    fn bulk_export_gpx(
+    /// Start a bulk export of every activity with GPS data, in `format`, on a
+    /// background thread. Poll `poll_bulk_export` for progress and outcome.
+    /// The file is written from a connection of its own, so neither the JS
+    /// thread nor the engine's write lock waits for it.
+    fn start_bulk_export(
         &self,
+        format: crate::persistence::export::BulkExportFormat,
         dest_path: String,
-    ) -> Result<crate::persistence::export::BulkExportResult, VeloqError> {
-        with_engine(|e| {
-            e.bulk_export_gpx(&dest_path)
-                .map_err(|msg| VeloqError::Database { msg })
-        })?
+    ) -> Result<(), VeloqError> {
+        let mut guard = BULK_EXPORT_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+        if guard.is_some() {
+            return Err(VeloqError::Database {
+                msg: "An export is already running".to_string(),
+            });
+        }
+        let handle = with_engine(|e| e.bulk_export_background(format, &dest_path))?;
+        *guard = Some(handle);
+        Ok(())
     }
 
-    /// Bulk export all activities with GPS data as a single GeoJSON FeatureCollection.
-    fn bulk_export_geojson(
-        &self,
-        dest_path: String,
-    ) -> Result<crate::persistence::export::BulkExportResult, VeloqError> {
-        with_engine(|e| {
-            e.bulk_export_geojson(&dest_path)
-                .map_err(|msg| VeloqError::Database { msg })
-        })?
+    /// Poll the running export. `state` is "idle" | "running" | "complete",
+    /// and `exported` against `total` is what a progress bar reads while it
+    /// runs. A failed export is an error, and either outcome clears the slot
+    /// so the next export can start.
+    fn poll_bulk_export(&self) -> Result<BulkExportPoll, VeloqError> {
+        let mut guard = BULK_EXPORT_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+
+        let Some(handle) = guard.as_ref() else {
+            return Ok(BulkExportPoll::idle());
+        };
+
+        let (exported, total) = handle.progress();
+        match handle.poll_state() {
+            WorkerPoll::Running => Ok(BulkExportPoll {
+                state: "running".to_string(),
+                exported,
+                total,
+                skipped: 0,
+                total_bytes: 0,
+            }),
+            WorkerPoll::Ready(Ok(result)) => {
+                *guard = None;
+                Ok(BulkExportPoll {
+                    state: "complete".to_string(),
+                    exported: result.exported,
+                    total: result.exported,
+                    skipped: result.skipped,
+                    total_bytes: result.total_bytes,
+                })
+            }
+            WorkerPoll::Ready(Err(msg)) => {
+                *guard = None;
+                Err(VeloqError::Database { msg })
+            }
+            WorkerPoll::Died => {
+                *guard = None;
+                Err(VeloqError::Database {
+                    msg: "Export thread died without a result".to_string(),
+                })
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence::export::BulkExportFormat;
+    use crate::test_globals::{init_global_engine, serial_global_state};
+    use crate::with_persistent_engine;
+    use tracematch::GpsPoint;
+
+    fn seed_activity(id: &str) {
+        with_persistent_engine(|e| {
+            let track: Vec<GpsPoint> = (0..8)
+                .map(|i| GpsPoint::new(46.2 + f64::from(i) * 0.001, 7.35))
+                .collect();
+            e.add_activity(id.to_string(), track, "Ride".into())
+                .expect("add activity");
+            e.update_activity_metadata(
+                id,
+                Some(1_700_000_000),
+                Some("ride"),
+                Some(1000.0),
+                Some(600),
+            )
+            .expect("metadata");
+        })
+        .expect("engine");
+    }
+
+    #[test]
+    fn create_on_a_live_engine_keeps_it_and_destroy_drops_it() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        seed_activity("a1");
+
+        let engine =
+            VeloqEngine::create(tmp.path().join("other.db").to_string_lossy().into_owned());
+        assert!(engine.is_initialized());
+        assert_eq!(
+            engine.get_activity_count().unwrap(),
+            1,
+            "a second create must not reopen"
+        );
+
+        engine.destroy();
+        assert!(!engine.is_initialized());
+        assert!(matches!(
+            engine.get_activity_count(),
+            Err(VeloqError::NotInitialized)
+        ));
+        assert!(matches!(
+            engine.get_stats(),
+            Err(VeloqError::NotInitialized)
+        ));
+    }
+
+    /// Turning route matching off wipes the derived catalogue. Measured at a
+    /// 750-activity library the wipe takes 367 ms, and it ran on the JS thread
+    /// under the engine write lock, so a switch the athlete flipped froze the
+    /// app for its duration.
+    ///
+    /// Expected behaviour: the start returns while another writer still holds
+    /// the lock, so the caller never waits on the wipe; a second start is
+    /// refused while one runs; and the poll carries the terminal state.
+    #[test]
+    fn the_clear_runs_off_the_calling_thread() {
+        use std::sync::mpsc;
+        use std::thread;
+        use std::time::{Duration, Instant};
+
+        /// Long enough that a caller which waited for the lock could not be
+        /// mistaken for one that did not.
+        const HOLD: Duration = Duration::from_millis(500);
+        /// A start that took this long went through the lock, not around it.
+        const START_BUDGET: Duration = Duration::from_millis(100);
+
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("clear.db");
+        let engine = VeloqEngine;
+
+        assert_eq!(
+            engine.poll_clear_routes_and_sections().unwrap(),
+            "idle",
+            "nothing has started yet"
+        );
+
+        seed_activity("a1");
+
+        let (holding, held) = mpsc::channel();
+        let writer = thread::spawn(move || {
+            with_persistent_engine(|_| {
+                holding.send(()).ok();
+                thread::sleep(HOLD);
+            })
+            .expect("engine");
+        });
+        held.recv().expect("the writer took the lock");
+
+        let start = Instant::now();
+        engine
+            .start_clear_routes_and_sections()
+            .expect("first start");
+        let returned_in = start.elapsed();
+        assert!(
+            returned_in < START_BUDGET,
+            "start blocked for {returned_in:?}, so it waited on the write lock"
+        );
+
+        assert!(
+            engine.start_clear_routes_and_sections().is_err(),
+            "a second clear started while the first was still running"
+        );
+
+        writer.join().expect("writer thread");
+
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let terminal = loop {
+            let state = engine.poll_clear_routes_and_sections().unwrap();
+            if state != "running" {
+                break state;
+            }
+            assert!(Instant::now() < deadline, "the clear never settled");
+            thread::sleep(Duration::from_millis(10));
+        };
+        assert_eq!(terminal, "complete");
+
+        assert_eq!(
+            engine.poll_clear_routes_and_sections().unwrap(),
+            "idle",
+            "the terminal poll clears the slot"
+        );
+    }
+
+    #[test]
+    fn create_opens_a_database_when_none_is_live() {
+        let _guard = serial_global_state();
+        let tmp = tempfile::TempDir::new().unwrap();
+        VeloqEngine::create(tmp.path().join("fresh.db").to_string_lossy().into_owned()).destroy();
+        let engine =
+            VeloqEngine::create(tmp.path().join("fresh.db").to_string_lossy().into_owned());
+        assert!(engine.is_initialized());
+        assert_eq!(engine.get_activity_count().unwrap(), 0);
+        engine.destroy();
+    }
+
+    #[test]
+    fn stats_counts_and_backfill_list_read_through_the_object() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        assert_eq!(engine.get_stats().unwrap().activity_count, 0);
+        assert!(
+            engine
+                .get_activities_needing_time_streams()
+                .unwrap()
+                .is_empty()
+        );
+
+        seed_activity("a1");
+        let stats = engine.get_stats().unwrap();
+        assert_eq!(stats.activity_count, 1);
+        assert_eq!(stats.gps_track_count, 1);
+        // The backfill list is section activities without a time stream, so an
+        // activity no section holds is not on it.
+        assert!(
+            engine
+                .get_activities_needing_time_streams()
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn the_three_clears_remove_what_they_say() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+        seed_activity("a2");
+
+        engine.clear_routes_and_sections().unwrap();
+        assert_eq!(engine.get_activity_count().unwrap(), 2);
+
+        // A synced activity is re-derivable, so the derived clear takes it and
+        // keeps only what a section still references.
+        let derived = engine.clear_derived_data().unwrap();
+        assert_eq!(derived.activities_removed, 2);
+        assert_eq!(derived.activities_kept, 0);
+        assert_eq!(derived.sections_removed, 0);
+        assert_eq!(engine.get_activity_count().unwrap(), 0);
+
+        seed_activity("a3");
+        engine.clear().unwrap();
+        assert_eq!(engine.get_activity_count().unwrap(), 0);
+        engine.mark_for_recomputation().unwrap();
+    }
+
+    #[test]
+    fn name_translations_are_written_to_the_shared_words() {
+        let engine = VeloqEngine;
+        engine.set_name_translations("Strecke".into(), "Abschnitt".into());
+        let words = NAME_TRANSLATIONS.read().unwrap();
+        assert_eq!(words.route_word, "Strecke");
+        assert_eq!(words.section_word, "Abschnitt");
+        drop(words);
+        engine.set_name_translations("Route".into(), "Section".into());
+    }
+
+    #[test]
+    fn every_manager_hangs_off_the_engine() {
+        let engine = VeloqEngine;
+        let _ = engine.sections();
+        let _ = engine.activities();
+        let _ = engine.routes();
+        let _ = engine.maps();
+        let _ = engine.fitness();
+        let _ = engine.settings();
+        let _ = engine.detection();
+        let _ = engine.strength();
+        let _ = engine.heatmap();
+        let _ = engine.sync();
+    }
+
+    #[test]
+    fn backup_runs_once_at_a_time_and_reports_its_metadata() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+        assert_eq!(engine.poll_backup().unwrap(), "idle");
+
+        let dest = tmp.path().join("backup.db").to_string_lossy().into_owned();
+        engine.start_backup(dest.clone()).unwrap();
+        let second = engine.start_backup(dest.clone());
+        let mut state = engine.poll_backup().unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while state == "running" {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "backup never finished"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            state = engine.poll_backup().unwrap();
+        }
+        assert_eq!(state, "complete");
+        assert!(
+            second.is_err() || std::path::Path::new(&dest).exists(),
+            "a second start while one runs is refused; one that lands after it is a fresh backup"
+        );
+        assert!(std::path::Path::new(&dest).exists());
+        assert_eq!(
+            engine.poll_backup().unwrap(),
+            "idle",
+            "a finished backup clears its slot"
+        );
+
+        let metadata: serde_json::Value =
+            serde_json::from_str(&engine.get_backup_metadata().unwrap()).unwrap();
+        assert_eq!(metadata["activity_count"], 1);
+        assert_eq!(metadata["gps_track_count"], 1);
+        assert_ne!(metadata["schema_version"], "0");
+        assert!(metadata["athlete_id"].is_null());
+    }
+
+    #[test]
+    fn bulk_exports_write_a_file_per_format() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        seed_activity("a1");
+
+        let gpx = tmp.path().join("all.zip").to_string_lossy().into_owned();
+        let result = with_engine(|e| e.bulk_export_gpx(&gpx)).unwrap().unwrap();
+        assert_eq!(result.exported, 1);
+        assert!(std::path::Path::new(&gpx).exists());
+
+        let geojson = tmp
+            .path()
+            .join("all.geojson")
+            .to_string_lossy()
+            .into_owned();
+        let result = with_engine(|e| e.bulk_export_geojson(&geojson))
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.exported, 1);
+        assert!(
+            std::fs::read_to_string(&geojson)
+                .unwrap()
+                .contains("FeatureCollection")
+        );
+    }
+    /// Scenario: an export of a whole library runs while a sync holds the
+    /// engine's write lock.
+    /// Expected behaviour: it finishes anyway, because it reads from a
+    /// connection of its own.
+    #[test]
+    fn an_export_finishes_while_the_engine_write_lock_is_held() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+        assert_eq!(engine.poll_bulk_export().unwrap().state, "idle");
+
+        let dest = tmp.path().join("all.zip").to_string_lossy().into_owned();
+        engine
+            .start_bulk_export(BulkExportFormat::Gpx, dest.clone())
+            .unwrap();
+
+        let poll = with_engine(|_| {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+            loop {
+                let poll = engine.poll_bulk_export().unwrap();
+                if poll.state != "running" {
+                    return poll;
+                }
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "the export must not wait on the engine write lock"
+                );
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        })
+        .unwrap();
+
+        assert_eq!(poll.state, "complete");
+        assert_eq!(poll.exported, 1);
+        assert!(poll.total_bytes > 0);
+        assert!(std::path::Path::new(&dest).exists());
+        assert_eq!(
+            engine.poll_bulk_export().unwrap().state,
+            "idle",
+            "a finished export clears its slot"
+        );
+    }
+
+    #[test]
+    fn a_second_export_is_refused_while_one_runs() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+
+        let dest = tmp.path().join("all.zip").to_string_lossy().into_owned();
+        engine
+            .start_bulk_export(BulkExportFormat::Gpx, dest.clone())
+            .unwrap();
+        let second = engine.start_bulk_export(
+            BulkExportFormat::GeoJson,
+            tmp.path()
+                .join("all.geojson")
+                .to_string_lossy()
+                .into_owned(),
+        );
+        drain_export(&engine);
+        assert!(
+            second.is_err() || std::path::Path::new(&dest).exists(),
+            "a second start while one runs is refused; one that lands after it is a fresh export"
+        );
+    }
+
+    #[test]
+    fn a_geojson_export_reports_its_counts_and_writes_the_collection() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+
+        let dest = tmp
+            .path()
+            .join("all.geojson")
+            .to_string_lossy()
+            .into_owned();
+        engine
+            .start_bulk_export(BulkExportFormat::GeoJson, dest.clone())
+            .unwrap();
+        let poll = drain_export(&engine);
+
+        assert_eq!(poll.state, "complete");
+        assert_eq!(poll.exported, 1);
+        assert!(
+            std::fs::read_to_string(&dest)
+                .unwrap()
+                .contains("FeatureCollection")
+        );
+    }
+
+    /// An export of an empty library still terminates and still writes a file.
+    #[test]
+    fn an_export_with_nothing_to_write_completes() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+
+        let dest = tmp.path().join("empty.zip").to_string_lossy().into_owned();
+        engine
+            .start_bulk_export(BulkExportFormat::Gpx, dest.clone())
+            .unwrap();
+        let poll = drain_export(&engine);
+
+        assert_eq!(poll.state, "complete");
+        assert_eq!(poll.exported, 0);
+        assert_eq!(poll.total, 0);
+        assert!(std::path::Path::new(&dest).exists());
+    }
+
+    /// A destination that cannot be created fails the poll rather than
+    /// stranding the slot at "running" forever.
+    #[test]
+    fn an_unwritable_destination_fails_the_poll_and_frees_the_slot() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+
+        let dest = tmp
+            .path()
+            .join("no-such-directory")
+            .join("all.zip")
+            .to_string_lossy()
+            .into_owned();
+        engine
+            .start_bulk_export(BulkExportFormat::Gpx, dest)
+            .unwrap();
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        loop {
+            match engine.poll_bulk_export() {
+                Ok(poll) if poll.state == "running" => {
+                    assert!(std::time::Instant::now() < deadline, "export never failed");
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Ok(poll) => panic!("expected a failure, got {}", poll.state),
+                Err(_) => break,
+            }
+        }
+        assert_eq!(
+            engine.poll_bulk_export().unwrap().state,
+            "idle",
+            "a failed export clears its slot"
+        );
+    }
+
+    /// Poll until the export leaves "running", failing rather than hanging.
+    fn drain_export(engine: &VeloqEngine) -> BulkExportPoll {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        loop {
+            let poll = engine.poll_bulk_export().expect("export failed");
+            if poll.state != "running" {
+                return poll;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "export never finished"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
     }
 }

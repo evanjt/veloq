@@ -1,62 +1,44 @@
 import { useCallback } from 'react';
 import { router } from 'expo-router';
-import type { MutableRefObject } from 'react';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import {
-  buildRecordingBackup,
-  clearRecordingBackup,
-  saveRecordingBackup,
-} from '@/features/recording/lib/storage/recordingBackup';
-import { navigateTo } from '@/shared/app/navigation';
-import type { createAutoPauseDetector } from '@/features/recording/lib/autoPause';
+import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
+import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
+import { resetAutoPause } from '@/features/recording/lib/recordingSession';
 import type { ActivityType } from '@/features/activity/types';
 
-type AutoPauseDetector = ReturnType<typeof createAutoPauseDetector>;
-
 export function useRecordingHandlers({
-  autoPauseDetectorRef,
-  stopTracking,
-  setAutoPaused,
   setShowTypePicker,
 }: {
-  autoPauseDetectorRef: MutableRefObject<AutoPauseDetector>;
-  stopTracking: () => Promise<void>;
-  setAutoPaused: (paused: boolean) => void;
   setShowTypePicker: (show: boolean) => void;
 }) {
   const handlePause = useCallback(() => {
-    autoPauseDetectorRef.current.reset();
-    setAutoPaused(false);
+    resetAutoPause();
     useRecordingStore.getState().pauseRecording();
-  }, [autoPauseDetectorRef, setAutoPaused]);
+  }, []);
 
   const handleResume = useCallback(() => {
-    autoPauseDetectorRef.current.reset();
-    setAutoPaused(false);
+    resetAutoPause();
     useRecordingStore.getState().resumeRecording();
-  }, [autoPauseDetectorRef, setAutoPaused]);
+  }, []);
 
   const handleLap = useCallback(() => {
     useRecordingStore.getState().addLap();
   }, []);
 
+  // `stopRecording` and `reset` end the session, which stops the location
+  // watch, so neither handler tears down tracking itself. The stop sequence
+  // itself lives in `endRecordingSession`, because the notification's STOP
+  // button has to do the same three things and used to do only the first.
   const handleStop = useCallback(async () => {
-    useRecordingStore.getState().stopRecording();
-    await stopTracking();
-    // Persist the stopped session so an app kill on the review screen cannot
-    // lose the recording. Cleared only after a successful save or a discard.
-    const backup = buildRecordingBackup(useRecordingStore.getState());
-    if (backup) await saveRecordingBackup(backup);
-    navigateTo('/recording/review');
-  }, [stopTracking]);
+    await endRecordingSession();
+  }, []);
 
   const handleDiscard = useCallback(async () => {
     useRecordingStore.getState().reset();
-    await stopTracking();
     await clearRecordingBackup();
     router.replace('/');
-  }, [stopTracking]);
+  }, []);
 
   const handleChangeType = useCallback(
     (newType: ActivityType) => {

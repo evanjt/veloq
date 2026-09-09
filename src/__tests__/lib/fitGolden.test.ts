@@ -38,17 +38,6 @@ describe('FIT golden file', () => {
     return btoa(binary);
   }
 
-  it('produces deterministic binary output', async () => {
-    const buffer = await generateFitFile(FROZEN_INPUT);
-    const base64 = arrayBufferToBase64(buffer);
-
-    // Generate twice to verify determinism
-    const buffer2 = await generateFitFile(FROZEN_INPUT);
-    const base642 = arrayBufferToBase64(buffer2);
-
-    expect(base64).toBe(base642);
-  });
-
   it('output matches golden snapshot', async () => {
     const buffer = await generateFitFile(FROZEN_INPUT);
     const base64 = arrayBufferToBase64(buffer);

@@ -4,7 +4,11 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
-import { confirmAccountChange, getCachedAthleteId } from '@/features/auth/lib/accountChange';
+import {
+  accountChangeAction,
+  confirmAccountChange,
+  getCachedAthleteId,
+} from '@/features/auth/lib/accountChange';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -53,8 +57,9 @@ export function useOAuthLogin({ setError }: UseOAuthLoginParams) {
         // refresh keeps cached activities; switching accounts requires
         // explicit confirmation before we wipe the previous identity.
         const incomingId = String(tokenResponse.athlete_id);
-        const cachedId = getCachedAthleteId();
-        if (cachedId && cachedId !== incomingId) {
+        const cachedId = await getCachedAthleteId();
+        const action = accountChangeAction(cachedId, incomingId);
+        if (cachedId && action === 'confirm-then-wipe') {
           const proceed = await confirmAccountChange({
             cachedAthleteId: cachedId,
             incomingKind: 'login',
@@ -63,9 +68,11 @@ export function useOAuthLogin({ setError }: UseOAuthLoginParams) {
             setIsLoading(false);
             return;
           }
-          await clearAccountData(queryClient);
-        } else {
+        }
+        if (action === 'keep') {
           await clearAuthOnly(queryClient);
+        } else {
+          await clearAccountData(queryClient);
         }
         resetSyncDateRange();
 

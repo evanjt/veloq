@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { colors, darkColors, typography } from '@/theme';
+import { colors, darkColors, typography, layout } from '@/theme';
 import type { SeriesInfo } from '@/features/stats';
 
 interface ChartYAxisLabelProps {
@@ -35,7 +35,7 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
   formatYAxisValue,
 }: ChartYAxisLabelProps) {
   const accent = showYAxisAccent
-    ? { borderLeftWidth: 2, borderLeftColor: yAxisSeries.color }
+    ? { borderLeftWidth: 2, borderLeftColor: yAxisSeries.config.color }
     : null;
 
   return (
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     paddingHorizontal: 3,
     paddingVertical: 1,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusXs,
     overflow: 'hidden',
   },
   yLabelDark: {

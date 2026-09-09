@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as FileSystem from 'expo-file-system/legacy';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { getAvailableBackends, type BackupEntry } from '@/features/settings/lib/autobackup';
 import { restoreDatabaseBackup } from '@/features/settings/lib/backup';
 
@@ -21,7 +21,7 @@ export function useBackupRestore() {
   const [dismissedRestore, setDismissedRestore] = useState(false);
 
   useEffect(() => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     const activityCount = engine?.getActivityCount() ?? 0;
     if (activityCount > 0) return;
 

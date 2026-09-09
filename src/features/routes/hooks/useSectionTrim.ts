@@ -11,7 +11,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { FrequentSection, RoutePoint } from '@/types';
@@ -142,9 +142,14 @@ interface UseSectionTrimResult {
   setTrimEnd: (index: number) => void;
 }
 
+/**
+ * Whether the section can be reset comes from `getSectionDetailData`, which the
+ * screen reads before it mounts this hook.
+ */
 export function useSectionTrim(
   section: FrequentSection | null,
-  onRefresh: () => void
+  onRefresh: () => void,
+  hasOriginalBoundsFromBundle: boolean
 ): UseSectionTrimResult {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -176,23 +181,9 @@ export function useSectionTrim(
     const sliced = section.polyline.slice(trimStart, trimEnd + 1);
     if (sliced.length < 2) return 0;
     return polylineDistance(sliced);
-  }, [
-    section?.polyline,
-    section?.distanceMeters,
-    isTrimming,
-    isExpanded,
-    expandContext,
-    trimStart,
-    trimEnd,
-  ]);
+  }, [section, isTrimming, isExpanded, expandContext, trimStart, trimEnd]);
 
-  // Check if section has original bounds that can be restored
-  const canReset = useMemo(() => {
-    if (!section?.id) return false;
-    const engine = getRouteEngine();
-    if (!engine) return false;
-    return engine.hasOriginalBounds(section.id);
-  }, [section?.id]);
+  const canReset = hasOriginalBoundsFromBundle;
 
   const startTrim = useCallback(() => {
     if (!section?.polyline) return;
@@ -202,7 +193,7 @@ export function useSectionTrim(
     setIsExpanded(false);
     setExpandContext(null);
     setIsTrimming(true);
-  }, [section?.polyline]);
+  }, [section]);
 
   const toggleExpand = useCallback(() => {
     if (!section?.id || !section?.polyline) return;
@@ -217,7 +208,7 @@ export function useSectionTrim(
     }
 
     // Switch to expand mode - load extension track and compute padded window
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return;
 
     try {
@@ -259,7 +250,7 @@ export function useSectionTrim(
         t('sections.expandUnavailable', 'No activity track available for expansion')
       );
     }
-  }, [section?.id, section?.polyline, section?.distanceMeters, isExpanded, t]);
+  }, [section, isExpanded, t]);
 
   const cancelTrim = useCallback(() => {
     setIsTrimming(false);
@@ -280,7 +271,7 @@ export function useSectionTrim(
     }
 
     setIsSaving(true);
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) {
       setIsSaving(false);
       return;
@@ -295,13 +286,19 @@ export function useSectionTrim(
         trimEnd > expandContext.sectionEndInWindow;
 
       if (expandedBeyond) {
-        // Expansion: extract new polyline from window points
-        const windowSlice = expandContext.windowPoints.slice(trimStart, trimEnd + 1);
-        const newPolylineFlat: number[] = [];
-        for (const p of windowSlice) {
-          newPolylineFlat.push(p.lat, p.lng);
+        // The window is a slice of the representative track, so window indices offset into it
+        const activityId = section.representativeActivityId;
+        if (!activityId) {
+          setIsSaving(false);
+          Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
+          return;
         }
-        success = engine.expandSectionBounds(section.id, newPolylineFlat);
+        success = engine.expandSectionBounds(
+          section.id,
+          activityId,
+          expandContext.windowStartIdx + trimStart,
+          expandContext.windowStartIdx + trimEnd
+        );
       } else {
         // User shrunk within section - map window indices back to section polyline indices
         const sectionStart = trimStart - expandContext.sectionStartInWindow;
@@ -324,7 +321,7 @@ export function useSectionTrim(
     } else {
       Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
     }
-  }, [section?.id, trimStart, trimEnd, isExpanded, expandContext, queryClient, onRefresh, t]);
+  }, [section, trimStart, trimEnd, isExpanded, expandContext, queryClient, onRefresh, t]);
 
   const resetBounds = useCallback(() => {
     if (!section?.id) return;
@@ -334,7 +331,7 @@ export function useSectionTrim(
       {
         text: t('common.reset'),
         onPress: () => {
-          const engine = getRouteEngine();
+          const engine = getEngine();
           if (!engine) return;
 
           const success = engine.resetSectionBounds(section.id);
@@ -348,7 +345,7 @@ export function useSectionTrim(
         },
       },
     ]);
-  }, [section?.id, queryClient, onRefresh, t]);
+  }, [section, queryClient, onRefresh, t]);
 
   return {
     isTrimming,

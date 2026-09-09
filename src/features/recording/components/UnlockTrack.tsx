@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 
 import { useTheme } from '@/shared/app';
-import { brand, colors, colorWithOpacity, darkColors, spacing } from '@/theme';
+import { brand, colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
 
 const HANDLE_SIZE = 48;
 const TRACK_HEIGHT = 56;
@@ -46,7 +46,11 @@ export function UnlockTrack({ onUnlock }: { onUnlock: () => void }) {
         translateX.setValue(Math.max(0, Math.min(gesture.dx, threshold)));
       },
       onPanResponderRelease: (_, gesture) => {
-        const threshold = trackWidthRef.current - HANDLE_SIZE - spacing.xs * 2;
+        // Unlock at 80% of the travel rather than the absolute end. Requiring
+        // the final pixels makes the gesture feel unresponsive, and a swipe
+        // that lands just short reads as the control being broken.
+        const travel = trackWidthRef.current - HANDLE_SIZE - spacing.xs * 2;
+        const threshold = travel * 0.8;
         if (threshold > 0 && gesture.dx >= threshold) {
           handleUnlock();
         } else {
@@ -112,7 +116,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: '100%',
     textAlign: 'center',
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     letterSpacing: 1,
   },
   handle: {

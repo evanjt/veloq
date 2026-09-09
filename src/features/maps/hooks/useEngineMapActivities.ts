@@ -3,7 +3,8 @@
  * All filtering happens in Rust (single O(n) pass) - no JS filtering.
  */
 import { useMemo, useState, useEffect } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineReady } from '@/shared/native/useEngineReady';
 import type { ActivityBoundsItem } from '@/types';
 
 interface UseEngineMapActivitiesOptions {
@@ -38,71 +39,43 @@ export function useEngineMapActivities({
   selectedTypes,
   enabled = true,
 }: UseEngineMapActivitiesOptions): UseEngineMapActivitiesReturn {
-  const [activityCount, setActivityCount] = useState(0);
+  // Bumped by the engine subscription; the count itself comes from the bundle.
+  const [trigger, setTrigger] = useState(0);
 
-  // Subscribe to engine activity changes - retry if engine not ready on mount
+  // Subscribe to engine activity changes. An engine that opens after this
+  // mounts arrives as a dependency change through `useEngineReady`.
+  const engine = useEngineReady();
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !engine) return undefined;
 
     let cancelled = false;
-    let unsubscribe: (() => void) | null = null;
+    setTrigger((v) => v + 1);
 
-    function trySubscribe(): boolean {
-      const engine = getRouteEngine();
-      if (!engine) return false;
-
-      // Initial count
-      if (!cancelled) {
-        setActivityCount(engine.getActivityCount());
-      }
-
-      unsubscribe = engine.subscribe('activities', () => {
-        if (cancelled) return;
-        const eng = getRouteEngine();
-        setActivityCount(eng ? eng.getActivityCount() : 0);
-      });
-      return true;
-    }
-
-    if (!trySubscribe()) {
-      const interval = setInterval(() => {
-        if (trySubscribe()) {
-          clearInterval(interval);
-        }
-      }, 200);
-      return () => {
-        cancelled = true;
-        clearInterval(interval);
-        unsubscribe?.();
-      };
-    }
+    const unsubscribe = engine.subscribe('activities', () => {
+      if (cancelled) return;
+      setTrigger((v) => v + 1);
+    });
 
     return () => {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [enabled]);
+  }, [enabled, engine]);
 
-  // Get filtered activities from engine (all filtering in Rust)
-  const { activities, availableTypes } = useMemo(() => {
-    if (!enabled || activityCount === 0) {
-      return { activities: [], availableTypes: [] };
-    }
+  // One call: engine total, sport types and the filtered activities.
+  const { activities, availableTypes, activityCount } = useMemo(() => {
+    const empty = { activities: [], availableTypes: [], activityCount: 0 };
+    if (!enabled) return empty;
 
-    const engine = getRouteEngine();
-    if (!engine) {
-      return { activities: [], availableTypes: [] };
-    }
+    const engine = getEngine();
+    if (!engine) return empty;
 
-    // Get available sport types from engine (SQL DISTINCT query)
-    const availableTypesList = engine.getAvailableSportTypes();
-
-    // Get filtered activities from engine (filtering in Rust)
     const sportTypesArray = selectedTypes.size > 0 ? Array.from(selectedTypes) : undefined;
-    const filtered = engine.getMapActivitiesFiltered(startDate, endDate, sportTypesArray);
+    const data = engine.getMapScreenData(startDate, endDate, sportTypesArray);
+    if (!data || data.activityCount === 0) return empty;
 
     // Convert to ActivityBoundsItem format
-    const items: ActivityBoundsItem[] = filtered.map((a) => ({
+    const items: ActivityBoundsItem[] = data.activities.map((a) => ({
       id: a.activityId,
       bounds: [
         [a.bounds.minLat, a.bounds.minLng],
@@ -118,9 +91,10 @@ export function useEngineMapActivities({
 
     return {
       activities: items,
-      availableTypes: availableTypesList,
+      availableTypes: data.availableSportTypes,
+      activityCount: data.activityCount,
     };
-  }, [enabled, activityCount, startDate, endDate, selectedTypes]);
+  }, [enabled, trigger, startDate, endDate, selectedTypes]);
 
   return {
     activities,

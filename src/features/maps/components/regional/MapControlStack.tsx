@@ -7,7 +7,7 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Animated, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, shadows } from '@/theme';
+import { colors, darkColors, spacing, shadows, layout } from '@/theme';
 import { CompassArrow } from '@/shared/ui';
 
 /** Reusable layer toggle button inside a LayerToggleGroup. */
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   controlButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   // Dual button styles (location + fit-all combined)
   dualButtonContainer: {
     width: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     overflow: 'hidden',
     ...shadows.mapOverlay,
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   // Layer toggle styles (activities/sections/routes combined)
   layerToggleContainer: {
     width: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     overflow: 'hidden',
     ...shadows.mapOverlay,
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   layerToggleSingle: {
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusXl,
   },
   layerToggleTop: {
     borderTopLeftRadius: 20,

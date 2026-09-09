@@ -1,13 +1,19 @@
 /**
  * Tests for backup/restore functionality.
  *
- * Covers: createBackup, restoreBackup, exportBackup
+ * Covers: restoreBackup, restoreDatabaseBackup
  * Bug fixes validated:
  * - version === undefined conflated with version > BACKUP_VERSION
  * - Missing startIndex < endIndex validation
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert } from 'react-native';
+
+import { restoreBackup, restoreDatabaseBackup } from '@/features/settings/lib/backup';
+import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
+import * as FileSystem from 'expo-file-system/legacy';
+import { queryClient } from '@/shared/query/QueryProvider';
 
 // Mock the route engine
 const mockEngine = {
@@ -20,16 +26,20 @@ const mockEngine = {
   setRouteName: jest.fn(),
   destroyEngine: jest.fn(),
   getActivityCount: jest.fn().mockReturnValue(100),
+  clearRecordings: jest.fn(),
   notifyAll: jest.fn(),
+  getSetting: jest.fn().mockReturnValue(null),
+  setSetting: jest.fn(),
+  getStats: jest.fn().mockReturnValue({ activityCount: 100, newestDate: 1_760_000_000 }),
 };
 
 const mockNativeModule = {
   validateBackupDatabase: jest.fn(),
-  routeEngine: { initWithPath: jest.fn() },
+  engine: { initWithPath: jest.fn() },
 };
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => mockEngine,
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => mockEngine,
   getRouteDbPath: () => '/data/veloq.db',
   getNativeModule: () => mockNativeModule,
 }));
@@ -54,6 +64,24 @@ jest.mock('@/features/settings/lib/shareFile', () => ({
   shareFile: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@/features/routes/lib/elevationBackfillTrigger', () => ({
+  startElevationBackfillAfterUpdate: jest.fn().mockResolvedValue(false),
+  ELEVATION_BACKFILL_STAMP_KEY: 'veloq-elevation-backfill-version',
+}));
+
+jest.mock('@/shared/storage/databaseStamps', () => ({
+  DATABASE_LOCAL_STAMPS: [
+    'veloq-elevation-backfill-version',
+    'veloq-section-health-check-v1',
+    'terrain-preview-cache-version',
+  ],
+  clearDatabaseStamps: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('@/features/routes/lib/cutoverTrigger', () => ({
+  startDetectorCutoverAfterUpdate: jest.fn().mockResolvedValue(false),
+}));
+
 jest.mock('@/shared/app/ThemeProvider', () => ({
   initializeTheme: jest.fn().mockResolvedValue(undefined),
 }));
@@ -73,26 +101,14 @@ jest.mock('@/features/home/store', () => ({
 jest.mock('@/features/insights/store', () => ({
   initializeInsightsStore: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('@/features/maps/stores/TileCacheStore', () => ({
-  initializeTileCacheStore: jest.fn().mockResolvedValue(undefined),
+jest.mock('@/features/maps/lib/storage/tileCacheSettings', () => ({
+  migrateTileCacheSettings: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/recording/stores/RecordingPreferencesStore', () => ({
   initializeRecordingPreferences: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('@/features/routes/stores/DisabledSectionsStore', () => ({
-  initializeDisabledSections: jest.fn().mockResolvedValue(undefined),
-}));
-jest.mock('@/features/routes/stores/PotentialSectionsStore', () => ({
-  initializePotentialSections: jest.fn().mockResolvedValue(undefined),
-}));
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   initializeRouteSettings: jest.fn().mockResolvedValue(undefined),
-}));
-jest.mock('@/features/routes/stores/SectionDismissalsStore', () => ({
-  initializeSectionDismissals: jest.fn().mockResolvedValue(undefined),
-}));
-jest.mock('@/features/routes/stores/SupersededSectionsStore', () => ({
-  initializeSupersededSections: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/settings/stores/DebugStore', () => ({
   initializeDebugStore: jest.fn().mockResolvedValue(undefined),
@@ -134,10 +150,6 @@ jest.mock('expo-constants', () => ({
   default: { expoConfig: { version: '0.3.0' } },
 }));
 
-import { createBackup, restoreBackup, restoreDatabaseBackup } from '@/features/settings/lib/backup';
-import * as FileSystem from 'expo-file-system/legacy';
-import { queryClient } from '@/shared/query/QueryProvider';
-
 function makeValidBackup(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
     version: 2,
@@ -163,51 +175,6 @@ beforeEach(() => {
   mockEngine.setRouteName.mockImplementation(() => {});
   (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
   (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
-});
-
-describe('createBackup', () => {
-  it('returns valid JSON with version and appVersion', async () => {
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.version).toBe(2);
-    expect(backup.appVersion).toBe('0.3.0');
-    expect(backup.exportedAt).toBeDefined();
-  });
-
-  it('includes custom sections from engine', async () => {
-    mockEngine.getSectionsByType.mockReturnValueOnce([
-      {
-        name: 'Hill Climb',
-        sportType: 'Ride',
-        sourceActivityId: 'a1',
-        startIndex: 10,
-        endIndex: 50,
-      },
-    ]);
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.customSections).toHaveLength(1);
-    expect(backup.customSections[0].name).toBe('Hill Climb');
-  });
-
-  it('includes section and route names', async () => {
-    mockEngine.getAllSectionNames.mockReturnValueOnce({ s1: 'My Section' });
-    mockEngine.getAllRouteNames.mockReturnValueOnce({ r1: 'My Route' });
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.sectionNames).toEqual({ s1: 'My Section' });
-    expect(backup.routeNames).toEqual({ r1: 'My Route' });
-  });
-
-  it('includes preferences from AsyncStorage, handles non-JSON values as raw strings', async () => {
-    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) => {
-      if (key === 'veloq-theme-preference') return Promise.resolve('not-json');
-      return Promise.resolve(null);
-    });
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.preferences['veloq-theme-preference']).toBe('not-json');
-  });
 });
 
 describe('restoreBackup', () => {
@@ -301,16 +268,6 @@ describe('restoreBackup', () => {
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('veloq-debug-mode', 'true');
   });
 
-  it('round-trips: create then restore produces consistent result', async () => {
-    mockEngine.getSectionsByType.mockReturnValue([]);
-    mockEngine.getAllSectionNames.mockReturnValue({ s1: 'My Hill' });
-    mockEngine.getAllRouteNames.mockReturnValue({});
-
-    const json = await createBackup();
-    const result = await restoreBackup(json);
-    expect(result.namesApplied).toBe(1);
-  });
-
   it('handles section creation throwing an exception', async () => {
     mockEngine.getGpsTrack.mockReturnValue(new Array(100).fill({ lat: 0, lng: 0 }));
     mockEngine.createSectionFromIndices.mockImplementation(() => {
@@ -364,8 +321,13 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   }
 
   beforeEach(() => {
+    // The restore asks before it replaces a library that holds activities.
+    // These tests are the mechanics after that answer, so they accept it.
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _body, buttons) => {
+      buttons?.find((b) => b.style === 'destructive')?.onPress?.();
+    });
     mockNativeModule.validateBackupDatabase.mockReset();
-    mockNativeModule.routeEngine.initWithPath.mockReset().mockReturnValue(true);
+    mockNativeModule.engine.initWithPath.mockReset().mockReturnValue(true);
     mockEngine.destroyEngine.mockClear();
     mockEngine.getActivityCount.mockReturnValue(100);
     mockEngine.notifyAll.mockClear();
@@ -387,7 +349,51 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
     );
   });
 
-  it('refuses a forward-schema backup newer than the live DB', async () => {
+  it('refuses a backup stamped past what this build supports', async () => {
+    mockProbe(
+      JSON.stringify({
+        schema_version: '22',
+        athlete_id: 'athlete-1',
+        activity_count: 50,
+        supported_schema_version: 21,
+      })
+    );
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/newer version/i);
+    expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
+  });
+
+  it('restores a backup older than this build, which migrations carry forward', async () => {
+    mockProbe(
+      JSON.stringify({
+        schema_version: '13',
+        athlete_id: 'athlete-1',
+        activity_count: 50,
+        supported_schema_version: 21,
+      })
+    );
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(true);
+  });
+
+  it('refuses a forward backup on a fresh install, where the live database cannot be read', async () => {
+    mockNativeModule.validateBackupDatabase.mockImplementation((path: string) => {
+      if (path.includes('veloq.db')) throw new Error('Cannot open backup: no such table');
+      return JSON.stringify({
+        schema_version: '22',
+        athlete_id: 'athlete-1',
+        activity_count: 50,
+        supported_schema_version: 21,
+      });
+    });
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/newer version/i);
+    expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the live database when an older binary reports no supported version', async () => {
     mockProbe(
       JSON.stringify({ schema_version: '13', athlete_id: 'athlete-1', activity_count: 50 })
     );
@@ -439,11 +445,60 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
     expect(queryClient.invalidateQueries).toHaveBeenCalled();
   });
 
+  /**
+   * The snapshot is taken with the engine closed and the live database intact.
+   * A throw there used to escape the function, so the caller alerted over an
+   * app whose database was fine on disk and closed in memory until relaunch.
+   */
+  it('reports a failure and reopens the engine when the snapshot cannot be taken', async () => {
+    mockProbe(
+      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
+    );
+    (FileSystem.copyAsync as jest.Mock).mockImplementation(async ({ to }: { to: string }) => {
+      if (to === 'file:///data/veloq.db.bak') throw new Error('No space left on device');
+    });
+
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(result.success).toBe(false);
+    expect(mockNativeModule.engine.initWithPath).toHaveBeenCalledWith('/data/veloq.db');
+  });
+
+  it('leaves the live database alone when the snapshot cannot be taken', async () => {
+    mockProbe(
+      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
+    );
+    (FileSystem.copyAsync as jest.Mock).mockImplementation(async ({ to }: { to: string }) => {
+      if (to === 'file:///data/veloq.db.bak') throw new Error('No space left on device');
+    });
+
+    await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(FileSystem.copyAsync).not.toHaveBeenCalledWith(
+      expect.objectContaining({ to: 'file:///data/veloq.db' })
+    );
+  });
+
+  it('never rolls back from a snapshot it did not take', async () => {
+    mockProbe(
+      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
+    );
+    (FileSystem.copyAsync as jest.Mock).mockImplementation(async ({ to }: { to: string }) => {
+      if (to === 'file:///data/veloq.db.bak') throw new Error('No space left on device');
+    });
+
+    await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(FileSystem.copyAsync).not.toHaveBeenCalledWith(
+      expect.objectContaining({ from: 'file:///data/veloq.db.bak' })
+    );
+  });
+
   it('rolls back to the snapshot when initWithPath fails after overwrite', async () => {
     mockProbe(
       JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
     );
-    mockNativeModule.routeEngine.initWithPath
+    mockNativeModule.engine.initWithPath
       .mockImplementationOnce(() => {
         throw new Error('init failed on restored DB');
       })
@@ -476,25 +531,221 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   });
 });
 
-describe('getLastBackupTimestamp falsy zero bug (autoBackup.ts:82)', () => {
-  // autoBackup.ts:82 uses: `return value ? Number(value) : null;`
-  // The bug: when the stored value is '0', Number('0') === 0 which is falsy,
-  // so the ternary returns null instead of 0.
+describe('getLastBackupTimestamp', () => {
+  it('reads the stored epoch millis', () => {
+    mockEngine.getSetting.mockReturnValue('1712345678000');
+    expect(getLastBackupTimestamp()).toBe(1712345678000);
+  });
 
-  // Replicate the exact pattern from autoBackup.ts:82
-  function parseStoredTimestamp(value: string | null | undefined): number | null {
-    return value != null ? Number(value) : null;
+  it('reports never-backed-up only when nothing is stored', () => {
+    mockEngine.getSetting.mockReturnValue(null);
+    expect(getLastBackupTimestamp()).toBeNull();
+    mockEngine.getSetting.mockReturnValue(undefined);
+    expect(getLastBackupTimestamp()).toBeNull();
+    // A stored '0' is a real timestamp, not "never" - it must survive the guard.
+    mockEngine.getSetting.mockReturnValue('0');
+    expect(getLastBackupTimestamp()).toBe(0);
+  });
+});
+
+/**
+ * Scenario: an athlete restores a 0.3.x backup onto a device whose own library
+ * was already fully elevated, so the elevation trigger's stamp names the
+ * running app version.
+ *
+ * Expected behaviour: the stamp is a claim about a database that has just been
+ * replaced, so the restore drops it and re-runs both launch triggers. Without
+ * that the trigger declines on every future launch of this app version, no
+ * pass runs, the count never reaches zero, the cutover can never start, and
+ * the engine's refusal to detect freezes the catalogue for good.
+ */
+describe('restoreDatabaseBackup re-arms the migration', () => {
+  const LIVE_META = JSON.stringify({
+    schema_version: '12',
+    athlete_id: 'athlete-1',
+    activity_count: 100,
+  });
+
+  const { startElevationBackfillAfterUpdate } = jest.requireMock(
+    '@/features/routes/lib/elevationBackfillTrigger'
+  );
+  const { clearDatabaseStamps } = jest.requireMock('@/shared/storage/databaseStamps');
+  const { startDetectorCutoverAfterUpdate } = jest.requireMock(
+    '@/features/routes/lib/cutoverTrigger'
+  );
+
+  beforeEach(() => {
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _body, buttons) => {
+      buttons?.find((b) => b.style === 'destructive')?.onPress?.();
+    });
+    mockNativeModule.validateBackupDatabase.mockReset().mockImplementation(() => LIVE_META);
+    mockNativeModule.engine.initWithPath.mockReset().mockReturnValue(true);
+    mockEngine.getActivityCount.mockReturnValue(100);
+    (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true, size: 1024 });
+    (FileSystem.copyAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
+    (FileSystem.deleteAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
+    (FileSystem.readDirectoryAsync as jest.Mock).mockReset().mockResolvedValue([]);
+    clearDatabaseStamps.mockClear();
+    startElevationBackfillAfterUpdate.mockClear();
+    startDetectorCutoverAfterUpdate.mockClear();
+  });
+
+  it('drops every stamp that described the replaced database', async () => {
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(result.success).toBe(true);
+    expect(clearDatabaseStamps).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * The backup is a whole-file copy, so the recording index rides along in it.
+   * The FIT files it names do not: they are on the device that made it.
+   */
+  it('drops the recording rows, whose FIT files did not come with the file', async () => {
+    mockEngine.clearRecordings.mockClear();
+
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(result.success).toBe(true);
+    expect(mockEngine.clearRecordings).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts a backfill pass on the restored database without a relaunch', async () => {
+    await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(startElevationBackfillAfterUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the cutover reachable without a relaunch', async () => {
+    await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(startDetectorCutoverAfterUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops the stamp before it asks for a pass', async () => {
+    await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(clearDatabaseStamps.mock.invocationCallOrder[0]).toBeLessThan(
+      startElevationBackfillAfterUpdate.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('re-arms nothing when the restore was refused', async () => {
+    mockNativeModule.validateBackupDatabase.mockImplementation((path: string) => {
+      if (path.includes('veloq.db')) return LIVE_META;
+      return JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 0 });
+    });
+
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(result.success).toBe(false);
+    expect(clearDatabaseStamps).not.toHaveBeenCalled();
+    expect(startElevationBackfillAfterUpdate).not.toHaveBeenCalled();
+    expect(startDetectorCutoverAfterUpdate).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The legacy JSON path restores names and preferences and never replaces the
+ * database, so the elevation stamp still describes the database in place.
+ */
+describe('restoreBackup leaves the migration markers alone', () => {
+  const { startElevationBackfillAfterUpdate } = jest.requireMock(
+    '@/features/routes/lib/elevationBackfillTrigger'
+  );
+  const { clearDatabaseStamps } = jest.requireMock('@/shared/storage/databaseStamps');
+  const { startDetectorCutoverAfterUpdate } = jest.requireMock(
+    '@/features/routes/lib/cutoverTrigger'
+  );
+
+  beforeEach(() => {
+    clearDatabaseStamps.mockClear();
+    startElevationBackfillAfterUpdate.mockClear();
+    startDetectorCutoverAfterUpdate.mockClear();
+  });
+
+  it('does not clear the stamps, because it replaces no database', async () => {
+    await restoreBackup(
+      JSON.stringify({ version: 2, sections: [], sectionNames: {}, routeNames: {} })
+    );
+
+    expect(clearDatabaseStamps).not.toHaveBeenCalled();
+    expect(startElevationBackfillAfterUpdate).not.toHaveBeenCalled();
+    expect(startDetectorCutoverAfterUpdate).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Scenario: a restore replaces the database file with three raw copies and
+ * names only the main file. SQLite applies a `-wal` it finds beside a database
+ * on the next open, so one left over from the file that was just replaced
+ * would be applied to the file that replaced it.
+ *
+ * Expected behaviour: every copy carries the set, and nothing stale is left
+ * beside a file it does not belong to. The engine is closed first, which would
+ * be enough if it were the last connection, and the backup source and the
+ * detection worker each hold one of their own.
+ */
+describe('restoreDatabaseBackup carries the database sidecars', () => {
+  const LIVE_META = JSON.stringify({
+    schema_version: '12',
+    athlete_id: 'athlete-1',
+    activity_count: 100,
+  });
+  const DB = '/data/veloq.db';
+
+  /** Every path the run copied to, in order. */
+  function copiedTo(): string[] {
+    return (FileSystem.copyAsync as jest.Mock).mock.calls.map((c) => c[0].to as string);
   }
 
-  it('parses stored timestamps, distinguishing zero from null', () => {
-    expect(parseStoredTimestamp('1712345678000')).toBe(1712345678000);
-    expect(parseStoredTimestamp('42')).toBe(42);
-    expect(parseStoredTimestamp('3.14')).toBeCloseTo(3.14);
-    expect(parseStoredTimestamp(null)).toBeNull();
-    expect(parseStoredTimestamp(undefined)).toBeNull();
-    // '0' must stay 0, not null - Number('0') is falsy but value != null guards it.
-    expect(parseStoredTimestamp('0')).toBe(0);
-    // empty string passes the value != null guard through to Number('') = 0.
-    expect(parseStoredTimestamp('')).toBe(0);
+  function deleted(): string[] {
+    return (FileSystem.deleteAsync as jest.Mock).mock.calls.map((c) => c[0] as string);
+  }
+
+  beforeEach(() => {
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _body, buttons) => {
+      buttons?.find((b) => b.style === 'destructive')?.onPress?.();
+    });
+    mockNativeModule.validateBackupDatabase.mockReset().mockReturnValue(LIVE_META);
+    mockNativeModule.engine.initWithPath.mockReset().mockReturnValue(true);
+    mockEngine.getActivityCount.mockReturnValue(100);
+    (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true, size: 1024 });
+    (FileSystem.copyAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
+    (FileSystem.deleteAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
+    (FileSystem.readDirectoryAsync as jest.Mock).mockReset().mockResolvedValue([]);
+  });
+
+  it('clears the replaced database sidecars rather than leaving them beside the new file', async () => {
+    await restoreDatabaseBackup('file:///downloads/veloq.veloqdb');
+
+    expect(deleted()).toEqual(expect.arrayContaining([`file://${DB}-wal`, `file://${DB}-shm`]));
+  });
+
+  it('snapshots the sidecars with the database the rollback would restore', async () => {
+    await restoreDatabaseBackup('file:///downloads/veloq.veloqdb');
+
+    expect(copiedTo()).toEqual(
+      expect.arrayContaining([`file://${DB}.bak`, `file://${DB}.bak-wal`, `file://${DB}.bak-shm`])
+    );
+  });
+
+  it('puts the whole set back when the restored database will not open', async () => {
+    mockNativeModule.engine.initWithPath.mockReturnValue(false);
+
+    await restoreDatabaseBackup('file:///downloads/veloq.veloqdb');
+
+    const rolledBack = copiedTo().filter((to) => to.startsWith(`file://${DB}`));
+    expect(rolledBack).toEqual(
+      expect.arrayContaining([`file://${DB}`, `file://${DB}-wal`, `file://${DB}-shm`])
+    );
+  });
+
+  it('drops the snapshot set once the restore has succeeded', async () => {
+    await restoreDatabaseBackup('file:///downloads/veloq.veloqdb');
+
+    expect(deleted()).toEqual(
+      expect.arrayContaining([`file://${DB}.bak`, `file://${DB}.bak-wal`, `file://${DB}.bak-shm`])
+    );
   });
 });

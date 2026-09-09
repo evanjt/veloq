@@ -1,11 +1,84 @@
 import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
-import { useMemo } from 'react';
-import { intervalsApi } from '@/api';
+import { useCallback, useEffect, useMemo } from 'react';
+import {
+  DETAIL_STREAM_TYPES,
+  readStreams,
+  requestStreams,
+} from '@/features/activity/lib/engineStreams';
 import { formatLocalDate } from '@/shared/format/format';
+import { addDaysToDay, dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
-import type { Activity, IntervalsDTO } from '@/types';
+import { hasStarted } from 'veloqrs';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineBody } from '@/shared/native/engineBodies';
+import { useEngineChannel } from '@/shared/native/useEngineChannel';
+import type { Activity, ActivityDetail, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useReconnect, useSyncSettled } from '@/shared/app/useRetryTriggers';
+
+/**
+ * Read stored activities over a date window, newest first. A body that will
+ * not parse is dropped rather than surfaced as a half-populated card.
+ */
+function readActivities(oldest: string, newest: string): Activity[] {
+  const engine = getEngine();
+  if (!engine?.getActivityBodies) return [];
+
+  const out: Activity[] = [];
+  for (const body of engine.getActivityBodies(
+    dayStartEpochSeconds(oldest),
+    dayEndEpochSeconds(newest)
+  )) {
+    try {
+      out.push(JSON.parse(body) as Activity);
+    } catch {
+      // A body we cannot parse is a corrupt row, not an activity with no data.
+    }
+  }
+  return out;
+}
+
+/**
+ * Ask Rust to fill a window the default sync may not cover.
+ *
+ * The sync pulls a year on launch. The timeline slider and the infinite feed
+ * both reach further back than that, so a window they open is requested once
+ * and the engine event wakes the read when it lands.
+ *
+ * Only an accepted job is remembered. `syncActivitiesWindow` refuses whenever
+ * the exclusive sync slot is held, which the launch sync holds for minutes, and
+ * a key recorded for a job that never ran leaves that window blank for the life
+ * of the process.
+ */
+const requestedWindows = new Set<string>();
+
+function windowKey(oldest: string, newest: string): string {
+  return `${oldest}:${newest}`;
+}
+
+function requestActivityWindow(oldest: string, newest: string): void {
+  if (requestedWindows.has(windowKey(oldest, newest))) return;
+  const engine = getEngine();
+  if (!engine?.syncActivitiesWindow) return;
+  try {
+    if (hasStarted(engine.syncActivitiesWindow(oldest, newest))) {
+      requestedWindows.add(windowKey(oldest, newest));
+    }
+  } catch {
+    // A throw is a settled failure, so the key stays free for the next ask.
+  }
+}
+
+/** Forget requested windows so a new session re-fetches them. */
+export function resetActivityWindowRequests(): void {
+  requestedWindows.clear();
+}
+
+/** Forget one window, so the next ask reaches the engine again. */
+function forgetActivityWindow(oldest: string, newest: string): void {
+  requestedWindows.delete(windowKey(oldest, newest));
+}
 
 interface UseActivitiesOptions {
   /** Number of days to fetch (from today backwards) */
@@ -14,8 +87,6 @@ interface UseActivitiesOptions {
   oldest?: string;
   /** End date (YYYY-MM-DD) - defaults to today */
   newest?: string;
-  /** Include additional stats fields (eFTP, zone times) - use for performance page */
-  includeStats?: boolean;
   /** Whether to enable the query (default: true) */
   enabled?: boolean;
 }
@@ -25,39 +96,49 @@ interface UseActivitiesOptions {
  * Use this for specific date range queries (e.g., stats page, wellness).
  */
 export function useActivities(options: UseActivitiesOptions = {}) {
-  const { days, oldest, newest, includeStats = false, enabled = true } = options;
+  const { days, oldest, newest, enabled = true } = options;
   const athleteId = useAuthStore((s) => s.athleteId);
 
-  // Calculate date range
-  let queryOldest = oldest;
-  let queryNewest = newest;
+  // Both ends are always resolved. An `oldest` with no `newest` used to leave
+  // the far end undefined, which reaches the engine as NaN and reads back an
+  // empty window, so an open-ended range read nothing at all (B424).
+  const today = new Date();
+  const windowStart = new Date(today);
+  windowStart.setDate(windowStart.getDate() - (days || 30));
+  const queryOldest = oldest ?? formatLocalDate(windowStart);
+  const queryNewest = newest ?? formatLocalDate(today);
 
-  if (!oldest) {
-    const today = new Date();
-    const daysAgo = new Date(today);
-    daysAgo.setDate(daysAgo.getDate() - (days || 30));
-    queryOldest = formatLocalDate(daysAgo);
-    queryNewest = newest || formatLocalDate(today);
-  }
+  useEngineChannel('activities', queryKeys.activities.all);
+
+  const askForWindow = useCallback(() => {
+    if (!enabled || !athleteId) return;
+    requestActivityWindow(queryOldest, queryNewest);
+  }, [enabled, athleteId, queryOldest, queryNewest]);
+
+  useEffect(askForWindow, [askForWindow]);
+
+  // A window accepted while the connection was dropping may have fetched
+  // nothing, and the mount effect never re-runs for an unchanged window.
+  useReconnect(() => {
+    if (!enabled || !athleteId) return;
+    forgetActivityWindow(queryOldest, queryNewest);
+    askForWindow();
+  });
+
+  // The launch sync holds the exclusive slot for minutes and refuses every
+  // window opened while it runs. Nothing else observes it letting go, so a
+  // window asked for at launch would otherwise stay blank until the user went
+  // offline and back. An accepted window is already recorded, so this is a
+  // no-op for it.
+  useSyncSettled(askForWindow);
 
   return useQuery<Activity[]>({
-    queryKey: queryKeys.activities.list(
-      athleteId ?? 'anon',
-      queryOldest!,
-      queryNewest!,
-      includeStats
-    ),
-    queryFn: () =>
-      intervalsApi.getActivities({
-        oldest: queryOldest,
-        newest: queryNewest,
-        includeStats,
-      }),
-    // Stale-while-revalidate: show cached data immediately, refetch in background
-    staleTime: CACHE.SHORT, // 5 minutes - data appears instantly from cache
+    queryKey: queryKeys.activities.list(athleteId ?? 'anon', queryOldest, queryNewest),
+    queryFn: () => readActivities(queryOldest, queryNewest),
+    // SQLite is the source, so a sync decides freshness, not a clock.
+    staleTime: Infinity,
     gcTime: CACHE.HOUR, // 1 hour - keep in memory for navigation
     placeholderData: keepPreviousData,
-    refetchOnWindowFocus: true, // Pick up new activities on foreground
     enabled: enabled && !!athleteId,
   });
 }
@@ -74,24 +155,23 @@ const PAGE_SIZE_DAYS = 30;
  * background refetch picks up new activities. Persisted to AsyncStorage
  * so the feed renders immediately on subsequent opens.
  */
-export function useInfiniteActivities(options: { includeStats?: boolean } = {}) {
-  const { includeStats = false } = options;
+export function useInfiniteActivities() {
   const athleteId = useAuthStore((s) => s.athleteId);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
+  useEngineChannel('activities', queryKeys.activities.infinite.all);
+
   const query = useInfiniteQuery<Activity[], Error>({
-    queryKey: queryKeys.activities.infinite.byAthlete(athleteId ?? 'anon', includeStats),
-    queryFn: async ({ pageParam }) => {
+    queryKey: queryKeys.activities.infinite.byAthlete(athleteId ?? 'anon'),
+    queryFn: ({ pageParam }) => {
       const { oldest, newest } = pageParam as {
         oldest: string;
         newest: string;
       };
-
-      return intervalsApi.getActivities({
-        oldest,
-        newest,
-        includeStats,
-      });
+      // Scrolling past what the launch sync covers opens a window Rust has
+      // not fetched. Ask for it, then read; the engine event brings it in.
+      requestActivityWindow(oldest, newest);
+      return readActivities(oldest, newest);
     },
     initialPageParam: (() => {
       const today = new Date();
@@ -102,38 +182,43 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
         newest: formatLocalDate(today),
       };
     })(),
-    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
-      // Stop if no more activities
-      if (lastPage.length === 0) {
-        return undefined;
-      }
-
+    getNextPageParam: (_lastPage, _allPages, lastPageParam) => {
+      // An empty page no longer means "end of history": the window may simply
+      // not be fetched yet. Paging stops on the page cap instead.
       const pageParam = lastPageParam as { oldest: string };
-      const nextEnd = new Date(pageParam.oldest);
-      nextEnd.setDate(nextEnd.getDate() - 1);
-      const nextStart = new Date(nextEnd);
-      nextStart.setDate(nextStart.getDate() - PAGE_SIZE_DAYS);
+      const nextEnd = addDaysToDay(pageParam.oldest, -1);
 
       return {
-        oldest: formatLocalDate(nextStart),
-        newest: formatLocalDate(nextEnd),
+        oldest: addDaysToDay(nextEnd, -PAGE_SIZE_DAYS),
+        newest: nextEnd,
       };
     },
-    // Stale-while-revalidate: show cached data immediately, refetch in background
-    staleTime: CACHE.SHORT, // 5 minutes - data appears instantly from cache
+    // SQLite is the source, so a sync decides freshness, not a clock.
+    staleTime: Infinity,
     gcTime: CACHE.HOUR, // 1 hour - keep in memory for navigation
-    // refetchOnMount: false (inherits global default) - persisted cache shows instantly,
-    // 'always' bypasses staleTime so new activities appear immediately on foreground
-    refetchOnWindowFocus: 'always',
     maxPages: 10, // Evict old pages to prevent memory growth
     enabled: isAuthenticated && !!athleteId,
+  });
+
+  // The pages already loaded asked for their windows once. A reconnect is the
+  // point where a window that came back empty is worth asking for again.
+  useReconnect(() => {
+    resetActivityWindowRequests();
+    void query.refetch();
+  });
+
+  // The launch sync refuses any page opened while it runs. Refetching replays
+  // every loaded page through the queryFn, which re-asks only the windows that
+  // were refused, so no reset is wanted here.
+  useSyncSettled(() => {
+    void query.refetch();
   });
 
   // All activities flattened from loaded pages
   const allActivities = useMemo(() => {
     if (!query.data?.pages) return [];
     return query.data.pages.flat();
-  }, [query.data?.pages]);
+  }, [query.data]);
 
   return {
     ...query,
@@ -142,53 +227,95 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
 }
 
 export function useActivity(id: string) {
-  return useQuery({
-    queryKey: queryKeys.activities.detail(id),
-    queryFn: () => intervalsApi.getActivity(id),
-    // Single activity - cache for 1 hour, rarely changes
-    staleTime: CACHE.HOUR,
-    // GC after 4 hours to prevent memory bloat when viewing many activities
-    gcTime: CACHE.HOUR * 4,
+  const queryKey = queryKeys.activities.detail(id);
+
+  // The list sync stores a lighter body for every activity. Opening one asks
+  // for the full detail, which replaces that row in place.
+  useEngineBody(false, () => getEngine()?.syncActivityDetail(id), queryKey, !!id);
+
+  return useQuery<ActivityDetail | null>({
+    queryKey,
+    queryFn: () => {
+      const stored = readActivityBody(id);
+      return (stored as ActivityDetail | null) ?? null;
+    },
+    // SQLite is the source, so a sync decides freshness, not a clock.
+    staleTime: Infinity,
+    // A closed detail is let go within minutes. SQLite is the source and the
+    // re-read is sub-second, so an hour of browsing must not pin every body it
+    // opened. The window is long enough for a step to a neighbour and back.
+    gcTime: CACHE.SHORT,
     enabled: !!id,
   });
 }
 
+/** The stored body for one activity, from the window that contains its day. */
+function readActivityBody(id: string): Activity | null {
+  const engine = getEngine();
+  if (!engine?.getActivityBodies || !id) return null;
+  // The store is keyed by id but queried by window, so scan the widest range
+  // the app ever shows. The table holds one row per activity, not per day.
+  for (const body of engine.getActivityBodies(0, Math.floor(Date.now() / 1000) + 86400)) {
+    try {
+      const parsed = JSON.parse(body) as Activity;
+      if (parsed.id === id) return parsed;
+    } catch {
+      // Skip a corrupt row rather than failing the lookup.
+    }
+  }
+  return null;
+}
+
 export function useActivityStreams(id: string) {
+  const queryKey = queryKeys.activities.streams(id);
+
+  const stored = id ? readStreams(id, DETAIL_STREAM_TYPES) : null;
+  useEngineBody(stored !== null, () => requestStreams(id, DETAIL_STREAM_TYPES), queryKey, !!id);
+
   return useQuery({
-    queryKey: queryKeys.activities.streams(id),
-    queryFn: () =>
-      intervalsApi.getActivityStreams(id, [
-        'latlng',
-        'altitude',
-        'fixed_altitude',
-        'heartrate',
-        'watts',
-        'cadence',
-        'distance',
-        'time',
-        'velocity_smooth',
-        'grade_smooth',
-        'temp',
-        'w_bal',
-        'ga_velocity',
-      ]),
+    queryKey,
+    queryFn: () => readStreams(id, DETAIL_STREAM_TYPES) ?? {},
     // Streams NEVER change - infinite staleTime prevents refetching
     staleTime: Infinity,
-    // Streams are the largest payloads (100-500KB each). GC them sooner so
-    // browsing many activities in one session doesn't pin them all in memory;
-    // re-decoding from the engine on revisit is cheap.
-    gcTime: CACHE.MEDIUM,
+    // Streams are the largest payloads (100-500KB each), so they go on the
+    // same short window as the body they belong to. Re-decoding from the
+    // engine on revisit is cheap.
+    gcTime: CACHE.SHORT,
     enabled: !!id,
   });
 }
 
 export function useActivityIntervals(id: string) {
-  return useQuery<IntervalsDTO>({
-    queryKey: queryKeys.activities.intervals(id),
-    queryFn: () => intervalsApi.getActivityIntervals(id),
+  const queryKey = queryKeys.activities.intervals(id);
+
+  // The query is the only reader of the stored body. `null` is "never
+  // fetched", which is the cue to ask Rust for it.
+  const query = useQuery<IntervalsDTO | null>({
+    queryKey,
+    queryFn: () => {
+      const stored = getEngine()?.getIntervalBody(id);
+      if (!stored) return null;
+      try {
+        return JSON.parse(stored) as IntervalsDTO;
+      } catch {
+        return EMPTY_INTERVALS;
+      }
+    },
     // Intervals never change
     staleTime: Infinity,
-    gcTime: CACHE.HOUR * 2,
+    // Held for as long as the body they belong to, and no longer.
+    gcTime: CACHE.SHORT,
     enabled: !!id,
   });
+  useEngineBody(
+    query.data !== null,
+    () => getEngine()?.syncActivityIntervals(id),
+    queryKey,
+    !!id && query.data !== undefined
+  );
+
+  return { ...query, data: query.data ?? EMPTY_INTERVALS };
 }
+
+/** Rendered as "no intervals" rather than an error while the fetch is in flight. */
+const EMPTY_INTERVALS = { icu_intervals: [], icu_groups: [] } as unknown as IntervalsDTO;

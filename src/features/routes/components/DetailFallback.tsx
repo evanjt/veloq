@@ -8,7 +8,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { ChartSkeleton, EmptyState } from '@/shared/ui';
-import { colors, darkColors, opacity, spacing } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout } from '@/theme';
 
 interface DetailFallbackProps {
   isDark: boolean;
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: opacity.overlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',

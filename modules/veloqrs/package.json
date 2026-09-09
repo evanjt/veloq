@@ -19,6 +19,7 @@
     "generate:android:all": "npx uniffi-bindgen-react-native build android --release --and-generate && npm run fix-includes",
     "generate:ios": "npx uniffi-bindgen-react-native build ios --release --and-generate --targets ${VELOQ_IOS_TARGET:-aarch64-apple-ios-sim} && npm run fix-includes",
     "generate:ios:all": "npx uniffi-bindgen-react-native build ios --release --and-generate && npm run fix-includes",
+    "generate": "./scripts/generate-bindings.sh",
     "fix-includes": "./scripts/fix-generated.sh",
     "android": "expo run:android",
     "ios": "expo run:ios"

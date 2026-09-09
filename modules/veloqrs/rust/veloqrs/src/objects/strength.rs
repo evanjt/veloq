@@ -4,16 +4,101 @@
 //! caches in SQLite, and returns structured data to TypeScript.
 
 use super::error::{VeloqError, with_engine};
+use super::observer;
+use super::sync;
 use crate::fit;
 use crate::http::ActivityFetcher;
+use crate::net::transport::NetError;
+use crate::persistence::FitOutcome;
+use crate::persistence::attempts::JobKey;
 use crate::{
     FfiExerciseActivities, FfiExerciseActivity, FfiExerciseContribution, FfiExerciseSet,
     FfiExerciseSummary, FfiMuscleExerciseSummary, FfiMuscleGroup, FfiMuscleGroupDetail,
-    FfiMuscleVolume, FfiStrengthInsightSeries, FfiStrengthSummary, FfiTimestampRange,
+    FfiMuscleVolume, FfiStrengthSummary, FfiTimestampRange,
 };
 use log::info;
 use std::collections::HashMap;
 use std::sync::Arc;
+
+/// Parse a downloaded FIT file, store whatever sets it holds, and settle the
+/// activity. Both fetch paths share it so one download can only ever produce one
+/// verdict, written the same way.
+fn store_parsed_sets(activity_id: &str, data: &[u8]) {
+    let sets = fit::parse_fit_sets(data);
+    let outcome = if sets.is_empty() {
+        FitOutcome::Empty
+    } else {
+        FitOutcome::Parsed
+    };
+    info!(
+        "[Strength] Parsed {} sets for {} ({} bytes)",
+        sets.len(),
+        activity_id,
+        data.len()
+    );
+
+    let stored = with_engine(|e| -> Result<(), VeloqError> {
+        if !sets.is_empty() {
+            e.store_exercise_sets(activity_id, &sets)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })?;
+        }
+        e.mark_fit_outcome(activity_id, outcome)
+            .map_err(|err| VeloqError::Database {
+                msg: format!("{}", err),
+            })?;
+        Ok(())
+    });
+    if let Err(e) = stored.and_then(|inner| inner) {
+        log::error!("[Strength] Failed to store sets for {}: {}", activity_id, e);
+        return;
+    }
+    // Announced only once the verdict is committed and the lock is released: an
+    // event without a row would send the reader straight back for another fetch.
+    observer::notify(|o| o.fit_parsed(activity_id.to_string()));
+}
+
+/// Decide what a failed download means for the activity.
+///
+/// Only a 404 or 410 settles it: upstream holds no FIT file and a later attempt
+/// would fetch the same nothing. Every other failure is the network, the token
+/// or the server, so nothing is recorded and the activity stays in
+/// `get_unprocessed_strength_ids` for the next attempt. Marking those settled is
+/// what deleted a user's strength data for good.
+fn settle_failed_download(activity_id: &str, error: NetError) -> Result<(), NetError> {
+    if !fit_is_absent_upstream(&error) {
+        log::warn!(
+            "[Strength] FIT download failed for {}, will retry: {}",
+            activity_id,
+            error
+        );
+        return Err(error);
+    }
+
+    info!(
+        "[Strength] No FIT file upstream for {} ({}), settling",
+        activity_id, error
+    );
+    let settled = with_engine(|engine| {
+        engine
+            .mark_fit_outcome(activity_id, FitOutcome::Absent)
+            .map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
+    });
+    if let Err(e) = settled.and_then(|inner| inner) {
+        log::error!("[Strength] Failed to settle {}: {}", activity_id, e);
+        return Ok(());
+    }
+    observer::notify(|o| o.fit_parsed(activity_id.to_string()));
+    Ok(())
+}
+
+/// Whether the failure means the activity has no FIT file to fetch, ever.
+fn fit_is_absent_upstream(error: &NetError) -> bool {
+    matches!(error, NetError::Http { status, .. } if *status == 404 || *status == 410)
+}
 
 #[derive(uniffi::Object)]
 pub struct StrengthManager {
@@ -50,75 +135,32 @@ impl StrengthManager {
         })?
     }
 
-    /// Download FIT file, parse exercise sets, store in SQLite, return results.
-    /// The FIT binary is held in memory only - not persisted to disk.
+    /// Start a FIT download for one activity, parse its exercise sets and store
+    /// them. Returns false when a download for this activity is already in
+    /// flight or there are no credentials.
+    ///
+    /// Nothing is returned to the caller: the download ran on the JS thread
+    /// before, so a black-hole network froze the UI for as long as the request
+    /// took. The sets land in SQLite and are read back through
+    /// `get_exercise_sets`, the same path a cache hit takes.
     fn fetch_and_parse_exercise_sets(
         &self,
-        auth_header: String,
         activity_id: String,
-    ) -> Result<Vec<FfiExerciseSet>, VeloqError> {
+    ) -> crate::objects::start::FfiStartOutcome {
         info!("[Strength] Fetching FIT file for {}", activity_id);
-
-        // Download FIT file on the shared process runtime.
-        let fit_data = {
-            let fetcher = ActivityFetcher::with_auth_header(auth_header)
-                .map_err(|e| VeloqError::Database { msg: e })?;
-
-            crate::runtime::block_on(fetcher.download_fit_file(&activity_id))
-        };
-
-        match fit_data {
-            Ok(data) => {
-                info!(
-                    "[Strength] Downloaded {} bytes for {}",
-                    data.len(),
-                    activity_id
-                );
-
-                // Parse exercise sets
-                let sets = fit::parse_fit_sets(&data);
-                let has_sets = !sets.is_empty();
-
-                info!("[Strength] Parsed {} sets for {}", sets.len(), activity_id);
-
-                // Store in SQLite and mark as processed
-                with_engine(|e| {
-                    if has_sets {
-                        e.store_exercise_sets(&activity_id, &sets).map_err(|e| {
-                            VeloqError::Database {
-                                msg: format!("{}", e),
-                            }
-                        })?;
-                    }
-                    e.mark_fit_processed(&activity_id, has_sets).map_err(|e| {
-                        VeloqError::Database {
-                            msg: format!("{}", e),
-                        }
-                    })?;
-                    Ok(sets_to_ffi(&activity_id, &sets))
-                })?
-            }
-            Err(e) => {
-                info!("[Strength] FIT download failed for {}: {}", activity_id, e);
-
-                // Mark as processed (no sets) so we don't retry on 404
-                if let Err(err) = with_engine(|engine| {
-                    engine.mark_fit_processed(&activity_id, false).map_err(|e| {
-                        VeloqError::Database {
-                            msg: format!("{}", e),
-                        }
-                    })
-                }) {
-                    log::error!(
-                        "[Strength] Failed to mark {} as processed: {}",
-                        activity_id,
-                        err
-                    );
-                }
-
-                Ok(Vec::new())
-            }
-        }
+        sync::spawn_once(
+            JobKey::new("fit", &[&activity_id]),
+            move |transport, _athlete_id| async move {
+                let fetcher = ActivityFetcher::with_transport(transport);
+                let upstream = sync::upstream_id(&activity_id).await;
+                let data = match fetcher.download_fit_file(&upstream).await {
+                    Ok(data) => data,
+                    Err(e) => return settle_failed_download(&activity_id, e),
+                };
+                store_parsed_sets(&activity_id, &data);
+                Ok(())
+            },
+        )
     }
 
     /// Get activity IDs from the input list that have not been FIT-processed yet.
@@ -134,15 +176,19 @@ impl StrengthManager {
         })?
     }
 
-    /// Batch download and parse FIT files for multiple activities.
-    /// Returns the list of successfully processed activity IDs.
+    /// Start FIT downloads for a batch of activities. Returns false when a batch
+    /// is already in flight or there are no credentials.
+    ///
+    /// Runs in the background for the same reason the single fetch does: the
+    /// caller is the sync path on the JS thread, and this loop is one blocking
+    /// request per activity.
     fn batch_fetch_exercise_sets(
         &self,
-        auth_header: String,
         activity_ids: Vec<String>,
-    ) -> Result<Vec<String>, VeloqError> {
+    ) -> crate::objects::start::FfiStartOutcome {
         if activity_ids.is_empty() {
-            return Ok(Vec::new());
+            // An empty list is not a refusal to work, it is no work.
+            return crate::objects::start::FfiStartOutcome::NotOwed;
         }
 
         info!(
@@ -150,67 +196,36 @@ impl StrengthManager {
             activity_ids.len()
         );
 
-        let fetcher = ActivityFetcher::with_auth_header(auth_header)
-            .map_err(|e| VeloqError::Database { msg: e })?;
+        sync::spawn_once(
+            JobKey::new("fit", &["batch"]),
+            move |transport, _athlete_id| async move {
+                let fetcher = ActivityFetcher::with_transport(transport);
+                let total = activity_ids.len();
+                let mut parsed = 0usize;
 
-        let mut processed = Vec::new();
-
-        for activity_id in &activity_ids {
-            let fit_result = crate::runtime::block_on(fetcher.download_fit_file(activity_id));
-
-            match fit_result {
-                Ok(data) => {
-                    let sets = fit::parse_fit_sets(&data);
-                    let has_sets = !sets.is_empty();
-
-                    info!("[Strength] Parsed {} sets for {}", sets.len(), activity_id);
-
-                    let stored = with_engine(|e| -> Result<(), VeloqError> {
-                        if has_sets {
-                            e.store_exercise_sets(activity_id, &sets).map_err(|e| {
-                                VeloqError::Database {
-                                    msg: format!("{}", e),
-                                }
-                            })?;
+                for activity_id in &activity_ids {
+                    let upstream = sync::upstream_id(activity_id).await;
+                    match fetcher.download_fit_file(&upstream).await {
+                        Ok(data) => {
+                            store_parsed_sets(activity_id, &data);
+                            parsed += 1;
                         }
-                        e.mark_fit_processed(activity_id, has_sets).map_err(|e| {
-                            VeloqError::Database {
-                                msg: format!("{}", e),
-                            }
-                        })?;
-                        Ok(())
-                    })?;
-
-                    if stored.is_ok() {
-                        processed.push(activity_id.clone());
+                        Err(NetError::Unauthorized) => {
+                            // The whole batch shares one credential, so the rest
+                            // would fail the same way. Surface it once and stop
+                            // rather than log the same 401 per activity.
+                            return Err(NetError::Unauthorized);
+                        }
+                        Err(e) => {
+                            let _ = settle_failed_download(activity_id, e);
+                        }
                     }
                 }
-                Err(e) => {
-                    info!("[Strength] FIT download failed for {}: {}", activity_id, e);
-                    // Mark as processed so we don't retry on 404
-                    if let Err(err) = with_engine(|e| {
-                        e.mark_fit_processed(activity_id, false)
-                            .map_err(|e| VeloqError::Database {
-                                msg: format!("{}", e),
-                            })
-                    }) {
-                        log::error!(
-                            "[Strength] Failed to mark {} as processed: {}",
-                            activity_id,
-                            err
-                        );
-                    }
-                }
-            }
-        }
 
-        info!(
-            "[Strength] Batch complete: {}/{} successful",
-            processed.len(),
-            activity_ids.len()
-        );
-
-        Ok(processed)
+                info!("[Strength] Batch complete: {}/{} downloaded", parsed, total);
+                Ok(())
+            },
+        )
     }
 
     /// Get aggregated strength training volume for a date range.
@@ -249,40 +264,6 @@ impl StrengthManager {
                         })
                 })
                 .collect()
-        })?
-    }
-
-    /// Bundled strength payload for insights: one monthly summary + N weekly
-    /// summaries, computed in a single lock. Collapses the 5× FFI loop in
-    /// `computeInsightsData.ts` into one call.
-    fn get_strength_insight_series(
-        &self,
-        monthly: FfiTimestampRange,
-        weekly: Vec<FfiTimestampRange>,
-    ) -> Result<FfiStrengthInsightSeries, VeloqError> {
-        with_engine(|e| {
-            let monthly_sets = e
-                .get_exercise_sets_in_range(monthly.start_ts, monthly.end_ts)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })?;
-            let monthly_summary = aggregate_strength_sets(&monthly_sets);
-
-            let weekly_summaries: Result<Vec<_>, VeloqError> = weekly
-                .into_iter()
-                .map(|range| {
-                    e.get_exercise_sets_in_range(range.start_ts, range.end_ts)
-                        .map(|sets| aggregate_strength_sets(&sets))
-                        .map_err(|err| VeloqError::Database {
-                            msg: format!("{}", err),
-                        })
-                })
-                .collect();
-
-            Ok(FfiStrengthInsightSeries {
-                monthly: monthly_summary,
-                weekly: weekly_summaries?,
-            })
         })?
     }
 
@@ -469,6 +450,11 @@ impl StrengthManager {
             })?;
         let count = sets.len() as u32;
         let has_sets = !sets.is_empty();
+        let outcome = if has_sets {
+            FitOutcome::Parsed
+        } else {
+            FitOutcome::Empty
+        };
 
         info!(
             "[Strength] Imported {} sets from FIT bytes for {}",
@@ -482,12 +468,17 @@ impl StrengthManager {
                         msg: format!("{}", err),
                     })?;
             }
-            e.mark_fit_processed(&activity_id, has_sets)
+            e.mark_fit_outcome(&activity_id, outcome)
                 .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
                 })?;
             Ok(())
         })??;
+
+        // The caller reads the count back on this tick, so the card that asked
+        // is served. Every other card on the same activity is not, and the
+        // reader carries no timer to find out on its own.
+        observer::notify(|o| o.fit_parsed(activity_id.clone()));
 
         Ok(count)
     }
@@ -516,6 +507,11 @@ impl StrengthManager {
             })
             .collect();
         let has_sets = !internal.is_empty();
+        let outcome = if has_sets {
+            FitOutcome::Parsed
+        } else {
+            FitOutcome::Empty
+        };
         with_engine(|e| -> Result<(), VeloqError> {
             if has_sets {
                 e.store_exercise_sets(&activity_id, &internal)
@@ -523,12 +519,18 @@ impl StrengthManager {
                         msg: format!("{}", err),
                     })?;
             }
-            e.mark_fit_processed(&activity_id, has_sets)
+            e.mark_fit_outcome(&activity_id, outcome)
                 .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
                 })?;
             Ok(())
-        })?
+        })??;
+
+        // Same reason as the import above, and it is the demo seed's only
+        // signal that its synthetic sets have landed.
+        observer::notify(|o| o.fit_parsed(activity_id.clone()));
+
+        Ok(())
     }
 
     /// Check if there are any strength activities with exercise data.
@@ -603,7 +605,9 @@ fn sets_to_ffi(activity_id: &str, sets: &[fit::FitExerciseSet]) -> Vec<FfiExerci
 /// Aggregate a slice of (activity_id, exercise_set) into a strength summary.
 /// Extracted from `get_strength_summary` so batch callers can reuse the loop
 /// without paying N engine locks.
-fn aggregate_strength_sets(sets: &[(String, fit::FitExerciseSet)]) -> FfiStrengthSummary {
+pub(crate) fn aggregate_strength_sets(
+    sets: &[(String, fit::FitExerciseSet)],
+) -> FfiStrengthSummary {
     struct MuscleAgg {
         primary_sets: u32,
         secondary_sets: u32,
@@ -760,5 +764,140 @@ fn aggregate_muscle_detail(
         total_volume_kg,
         primary_exercises,
         secondary_exercises,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::observer::{recorder::Recorder, set_observer};
+    use super::*;
+    use crate::test_globals::{init_global_engine, serial_global_state};
+
+    /// The reader carries no timer, so an activity that settles without
+    /// announcing leaves the strength card waiting for as long as it is open.
+    #[test]
+    fn test_store_parsed_sets_announces_the_committed_verdict() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_parsed.db");
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        // A FIT file carrying no sets settles the activity all the same.
+        store_parsed_sets("a1", &[]);
+        set_observer(None);
+
+        assert_eq!(recorder.events(), vec!["fit_parsed:a1"]);
+        assert!(
+            with_engine(|e| e.is_fit_processed("a1").unwrap()).unwrap(),
+            "the verdict must be committed before the announcement"
+        );
+    }
+
+    #[test]
+    fn test_a_file_absent_upstream_announces_its_settle() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_absent.db");
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        settle_failed_download(
+            "a2",
+            NetError::Http {
+                status: 404,
+                body: String::new(),
+            },
+        )
+        .expect("an absent file settles rather than fails");
+        set_observer(None);
+
+        assert_eq!(recorder.events(), vec!["fit_parsed:a2"]);
+        assert!(with_engine(|e| e.is_fit_processed("a2").unwrap()).unwrap());
+    }
+
+    /// A retryable failure records nothing, so announcing one would send the
+    /// reader back for a fetch that is already queued for the next visit.
+    #[test]
+    fn test_a_retryable_failure_announces_nothing() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_retry.db");
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        assert!(settle_failed_download("a3", NetError::RateLimited).is_err());
+        set_observer(None);
+
+        assert!(recorder.events().is_empty());
+        assert!(!with_engine(|e| e.is_fit_processed("a3").unwrap()).unwrap());
+    }
+
+    /// Both of these are called from TypeScript and return the verdict to the
+    /// caller, so the card that asked is served either way. Any other card on
+    /// the same activity, and the demo seed's own reader, hear nothing without
+    /// the announcement.
+    #[test]
+    fn test_importing_fit_bytes_announces_the_verdict() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_import.db");
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        // Not a FIT file, so the parse fails and nothing is committed.
+        let manager = StrengthManager::new();
+        assert!(
+            manager
+                .import_sets_from_fit("a4".to_string(), b"not a fit file".to_vec())
+                .is_err()
+        );
+        assert!(
+            recorder.events().is_empty(),
+            "a parse that committed nothing has nothing to announce"
+        );
+
+        manager
+            .bulk_insert_exercise_sets("a5".to_string(), vec![])
+            .expect("an empty seed still settles the activity");
+        set_observer(None);
+
+        assert_eq!(recorder.events(), vec!["fit_parsed:a5"]);
+        assert!(
+            with_engine(|e| e.is_fit_processed("a5").unwrap()).unwrap(),
+            "the verdict must be committed before the announcement"
+        );
+    }
+
+    /// A settled verdict permanently excludes an activity from the retry paths,
+    /// so only a failure that will repeat forever may produce one. Recording a
+    /// transport blip or an expired token is what destroyed a user's strength
+    /// data with no way back short of wiping the database.
+    #[test]
+    fn only_a_missing_file_upstream_settles_an_activity() {
+        assert!(fit_is_absent_upstream(&NetError::Http {
+            status: 404,
+            body: String::new(),
+        }));
+        assert!(fit_is_absent_upstream(&NetError::Http {
+            status: 410,
+            body: String::new(),
+        }));
+
+        for retryable in [
+            NetError::Unauthorized,
+            NetError::RateLimited,
+            NetError::Transport("connection reset".to_string()),
+            NetError::Io("read failed".to_string()),
+            NetError::Http {
+                status: 500,
+                body: String::new(),
+            },
+            NetError::Http {
+                status: 403,
+                body: String::new(),
+            },
+        ] {
+            assert!(
+                !fit_is_absent_upstream(&retryable),
+                "{retryable} must leave the activity queued for another attempt"
+            );
+        }
     }
 }

@@ -8,7 +8,6 @@ import React, {
   ReactNode,
 } from 'react';
 import { getSetting, setSetting } from '@/shared/storage';
-import { safeJsonParseWithSchema } from '@/shared/validation/validation';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import type { ActivityType, Terrain3DMode } from '@/types';
 import { isActivityType } from '@/types';

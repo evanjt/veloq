@@ -1,15 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { Platform } from 'react-native';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Switch,
-  TextInput,
-  Modal,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput, Modal } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
@@ -17,24 +7,48 @@ import {
   useImportDatabaseBackup,
   useBulkExport,
 } from '@/features/settings/hooks/exportIndex';
-import { formatFileSize } from '@/shared/format/format';
 import { useTheme } from '@/shared/app';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { useActivityCount } from '@/shared/native/useActivityCount';
 import {
   isAutoBackupEnabled,
   setAutoBackupEnabled,
   getLastBackupTimestamp,
+  getLastBackupFailure,
+  failureMessageKey,
+  isBackupTransferError,
   performBackup,
   getConfiguredBackend,
   setBackendPreference,
-  getAvailableBackends,
+  getOfferableBackends,
   getWebdavConfig,
   setWebdavConfig,
   testWebdavConnection,
+  webdavUrlProblem,
   type BackupBackend,
 } from '@/features/settings/lib/autobackup';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import {
+  brand,
+  colors,
+  colorWithOpacity,
+  darkColors,
+  spacing,
+  layout,
+  ink,
+  typography,
+} from '@/theme';
+import { BulkExportProgress } from './BulkExportProgress';
+import { ExportPrivacyRow } from './ExportPrivacyRow';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
+
+const BACKEND_LABELS = {
+  local: { labelKey: 'backup.backendLocal', icon: 'cellphone' },
+  webdav: { labelKey: 'backup.backendWebdav', icon: 'server-network' },
+  icloud: { labelKey: 'backup.backendIcloud', icon: 'apple-icloud' },
+} as const;
+
+function backendLabel(id: string) {
+  return id in BACKEND_LABELS ? BACKEND_LABELS[id as keyof typeof BACKEND_LABELS] : undefined;
+}
 
 export function BackupSection() {
   const { isDark } = useTheme();
@@ -46,28 +60,19 @@ export function BackupSection() {
   const [backupResult, setBackupResult] = useState<'success' | 'error' | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   const lastBackupTs = useMemo(() => getLastBackupTimestamp(), [backingUp]);
+  // A failure the user has to act on survives leaving the screen, so an
+  // unattended backup that was rejected is not invisible.
+  const lastFailure = useMemo(() => getLastBackupFailure(), [backingUp]);
 
-  const handleToggleAutoBackup = useCallback(
-    async (value: boolean) => {
-      setAutoBackupEnabled(value);
-      setAutoEnabled(value);
-      // Trigger immediate backup when enabling auto-backup
-      if (value) {
-        setBackingUp(true);
-        try {
-          await performBackup(true);
-        } catch {
-          // Silent - auto-backup will retry on next trigger
-        } finally {
-          setBackingUp(false);
-        }
-      }
+  const describeBackupError = useCallback(
+    (error: unknown): string => {
+      if (isBackupTransferError(error)) return t(failureMessageKey(error.kind));
+      return error instanceof Error ? error.message : t('backup.backupFailedMessage');
     },
-    [backingUp]
+    [t]
   );
 
-  const handleBackupNow = useCallback(async () => {
-    if (backingUp) return;
+  const runBackup = useCallback(async () => {
     setBackingUp(true);
     setBackupResult(null);
     setBackupError(null);
@@ -77,33 +82,50 @@ export function BackupSection() {
       if (!success) setBackupError(t('backup.backupFailedMessage'));
     } catch (error) {
       setBackupResult('error');
-      setBackupError(error instanceof Error ? error.message : t('backup.backupFailedMessage'));
+      setBackupError(describeBackupError(error));
     } finally {
       setBackingUp(false);
     }
-  }, [backingUp, t]);
+  }, [describeBackupError, t]);
+
+  const handleToggleAutoBackup = useCallback(
+    async (value: boolean) => {
+      setAutoBackupEnabled(value);
+      setAutoEnabled(value);
+      // Trigger immediate backup when enabling auto-backup
+      if (value) await runBackup();
+    },
+    [runBackup]
+  );
+
+  const handleBackupNow = useCallback(async () => {
+    if (backingUp) return;
+    await runBackup();
+  }, [backingUp, runBackup]);
 
   // Backend picker state
   const [currentBackend, setCurrentBackend] = useState(() => getConfiguredBackend());
   const [showBackendPicker, setShowBackendPicker] = useState(false);
-  const [availableBackends, setAvailableBackends] = useState<BackupBackend[]>([]);
+  const [offerableBackends, setOfferableBackends] = useState<BackupBackend[]>([]);
 
   // WebDAV config state
   const [webdavUrl, setWebdavUrl] = useState('');
   const [webdavUser, setWebdavUser] = useState('');
   const [webdavPass, setWebdavPass] = useState('');
+  const [webdavPlainLan, setWebdavPlainLan] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionResult, setConnectionResult] = useState<'success' | 'error' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [showQrScanner, setShowQrScanner] = useState(false);
 
   useEffect(() => {
-    getAvailableBackends().then(setAvailableBackends);
+    getOfferableBackends().then(setOfferableBackends);
     const config = getWebdavConfig();
     if (config) {
       setWebdavUrl(config.url);
       setWebdavUser(config.username);
       setWebdavPass(config.password);
+      setWebdavPlainLan(config.plainLan);
     }
   }, []);
 
@@ -113,12 +135,45 @@ export function BackupSection() {
     setShowBackendPicker(false);
   }, []);
 
-  const handleSaveWebdav = useCallback(async () => {
-    if (!webdavUrl || !webdavUser || !webdavPass) return;
-    await setWebdavConfig(webdavUrl, webdavUser, webdavPass);
-    // Refresh available backends since WebDAV is now configured
-    getAvailableBackends().then(setAvailableBackends);
-  }, [webdavUrl, webdavUser, webdavPass]);
+  // Basic credentials and the raw database cross on every backup, so an
+  // address that would carry them in the clear is refused before it is stored.
+  const urlProblemText = useCallback(
+    (url: string, plainLan: boolean): string | null => {
+      const problem = webdavUrlProblem(url, plainLan);
+      if (problem === 'not-https') {
+        return t(
+          'backup.webdavHttpsRequired',
+          'Use an https:// address. A plain http:// server would receive your password and your whole database unencrypted.'
+        );
+      }
+      if (problem === 'invalid') {
+        return t('backup.webdavInvalidUrl', 'That is not a valid server address');
+      }
+      return null;
+    },
+    [t]
+  );
+
+  const handleSaveWebdav = useCallback(async (): Promise<boolean> => {
+    if (!webdavUrl || !webdavUser || !webdavPass) return false;
+    const refused = urlProblemText(webdavUrl, webdavPlainLan);
+    if (refused) {
+      setConnectionResult('error');
+      setConnectionError(refused);
+      return false;
+    }
+    await setWebdavConfig(webdavUrl, webdavUser, webdavPass, webdavPlainLan);
+    // Refresh the offer list since WebDAV is now configured
+    getOfferableBackends().then(setOfferableBackends);
+    return true;
+  }, [webdavUrl, webdavUser, webdavPass, webdavPlainLan, urlProblemText]);
+
+  const handleTogglePlainLan = useCallback((value: boolean) => {
+    setWebdavPlainLan(value);
+    setConnectionResult(null);
+    setConnectionError(null);
+  }, []);
+  const plainHttp = /^\s*http:/i.test(webdavUrl);
 
   const handleQrScanned = useCallback(
     (data: string) => {
@@ -153,13 +208,19 @@ export function BackupSection() {
       setWebdavUser(user);
       setWebdavPass(password);
       setShowQrScanner(false);
+      const refused = urlProblemText(webdavEndpoint, webdavPlainLan);
+      if (refused) {
+        setConnectionResult('error');
+        setConnectionError(refused);
+        return;
+      }
       setConnectionResult(null);
       // Auto-save config
-      setWebdavConfig(webdavEndpoint, user, password).then(() => {
-        getAvailableBackends().then(setAvailableBackends);
+      setWebdavConfig(webdavEndpoint, user, password, webdavPlainLan).then(() => {
+        getOfferableBackends().then(setOfferableBackends);
       });
     },
-    [t]
+    [t, urlProblemText, webdavPlainLan]
   );
 
   const handleTestConnection = useCallback(async () => {
@@ -171,7 +232,10 @@ export function BackupSection() {
     setTestingConnection(true);
     setConnectionResult(null);
     setConnectionError(null);
-    await handleSaveWebdav();
+    if (!(await handleSaveWebdav())) {
+      setTestingConnection(false);
+      return;
+    }
     const error = await testWebdavConnection();
     setTestingConnection(false);
     if (error) {
@@ -191,13 +255,12 @@ export function BackupSection() {
     exportAll,
     exportAllGeoJson,
     isExporting: bulkExporting,
+    format: bulkFormat,
     phase: bulkPhase,
-    current: bulkCurrent,
-    total: bulkTotal,
     sizeBytes: bulkSizeBytes,
   } = useBulkExport();
 
-  const totalActivities = useMemo(() => getRouteEngine()?.getActivityCount() ?? 0, []);
+  const totalActivities = useActivityCount();
 
   const lastBackupText = lastBackupTs
     ? t('backup.lastBackup', { date: new Date(lastBackupTs).toLocaleDateString() })
@@ -295,6 +358,19 @@ export function BackupSection() {
               autoCorrect={false}
               keyboardType="url"
             />
+            {plainHttp && (
+              <View style={styles.plainLanRow}>
+                <Text style={[styles.qrHint, styles.plainLanText, isDark && styles.textMuted]}>
+                  {t('backup.webdavPlainLan', 'Allow an unencrypted server on my own network')}
+                </Text>
+                <Switch
+                  value={webdavPlainLan}
+                  onValueChange={handleTogglePlainLan}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  testID="backup-webdav-plain-lan"
+                />
+              </View>
+            )}
             <TextInput
               style={[styles.input, isDark && styles.inputDark]}
               placeholder={t('backup.username')}
@@ -356,60 +432,43 @@ export function BackupSection() {
               <Text style={[styles.modalTitle, isDark && styles.textLight]}>
                 {t('backup.selectBackend')}
               </Text>
-              {[
-                { id: 'local', name: t('backup.backendLocal'), icon: 'cellphone' as const },
-                { id: 'webdav', name: t('backup.backendWebdav'), icon: 'server-network' as const },
-                ...(Platform.OS === 'ios'
-                  ? [
-                      {
-                        id: 'icloud',
-                        name: t('backup.backendIcloud'),
-                        icon: 'apple-icloud' as const,
-                      },
-                    ]
-                  : []),
-              ].map((option) => (
-                <TouchableOpacity
-                  key={option.id}
-                  style={[
-                    styles.modalOption,
-                    currentBackend.id === option.id && styles.modalOptionSelected,
-                  ]}
-                  onPress={() => {
-                    const backend =
-                      availableBackends.find((b) => b.id === option.id) ??
-                      (option.id === 'webdav'
-                        ? { id: 'webdav', name: 'WebDAV' }
-                        : { id: 'local', name: 'Local Storage' });
-                    handleSelectBackend(backend as BackupBackend);
-                  }}
-                  activeOpacity={0.6}
-                >
-                  <MaterialCommunityIcons
-                    name={option.icon}
-                    size={20}
-                    color={
-                      currentBackend.id === option.id
-                        ? colors.primary
-                        : isDark
-                          ? darkColors.textSecondary
-                          : colors.textSecondary
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.modalOptionText,
-                      isDark && styles.textLight,
-                      currentBackend.id === option.id && { color: colors.primary },
-                    ]}
+              {offerableBackends.map((backend) => {
+                const label = backendLabel(backend.id);
+                if (!label) return null;
+                const selected = currentBackend.id === backend.id;
+                return (
+                  <TouchableOpacity
+                    key={backend.id}
+                    style={[styles.modalOption, selected && styles.modalOptionSelected]}
+                    onPress={() => handleSelectBackend(backend)}
+                    activeOpacity={0.6}
                   >
-                    {option.name}
-                  </Text>
-                  {currentBackend.id === option.id && (
-                    <MaterialCommunityIcons name="check" size={18} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
+                    <MaterialCommunityIcons
+                      name={label.icon}
+                      size={20}
+                      color={
+                        selected
+                          ? colors.primary
+                          : isDark
+                            ? darkColors.textSecondary
+                            : colors.textSecondary
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        isDark && styles.textLight,
+                        selected && { color: colors.primary },
+                      ]}
+                    >
+                      {t(label.labelKey)}
+                    </Text>
+                    {selected && (
+                      <MaterialCommunityIcons name="check" size={18} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </TouchableOpacity>
         </Modal>
@@ -422,6 +481,9 @@ export function BackupSection() {
         >
           <NextcloudQrScanner onScanned={handleQrScanned} onClose={() => setShowQrScanner(false)} />
         </Modal>
+
+        {/* What an export leaves behind, beside the warning about what it is */}
+        <ExportPrivacyRow />
 
         {/* Encryption warning */}
         <View style={[styles.warningRow, isDark && styles.warningRowDark]}>
@@ -451,6 +513,15 @@ export function BackupSection() {
             {backupResult === 'error' && (
               <Text testID="backup-error-message" style={styles.connectionError}>
                 {backupError}
+              </Text>
+            )}
+            {backupResult === null && lastFailure && (
+              <Text testID="backup-failure-notice" style={styles.connectionError}>
+                {t('backup.lastAttemptFailed', {
+                  date: new Date(lastFailure.at).toLocaleDateString(),
+                })}
+                {'\n'}
+                {t(failureMessageKey(lastFailure.kind))}
               </Text>
             )}
           </View>
@@ -511,30 +582,12 @@ export function BackupSection() {
         <View style={styles.actionRow}>
           <MaterialCommunityIcons name="map-marker-path" size={22} color={colors.primary} />
           {bulkExporting ? (
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.actionText, isDark && styles.textLight]}>
-                {bulkPhase === 'sharing'
-                  ? t('export.bulkSharing')
-                  : t('export.bulkExporting', { current: bulkCurrent, total: bulkTotal })}
-              </Text>
-              <View
-                style={[styles.progressBarContainer, isDark && styles.progressBarContainerDark]}
-              >
-                <View
-                  style={[
-                    styles.progressBar,
-                    {
-                      width:
-                        bulkTotal > 0 ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%` : '0%',
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={[styles.progressDetail, isDark && styles.textMuted]}>
-                {bulkTotal > 0 ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%` : '0%'}
-                {bulkSizeBytes > 0 && ` · ${formatFileSize(bulkSizeBytes)}`}
-              </Text>
-            </View>
+            <BulkExportProgress
+              phase={bulkPhase}
+              format={bulkFormat}
+              sizeBytes={bulkSizeBytes}
+              isDark={isDark}
+            />
           ) : (
             <>
               <Text style={[styles.actionText, isDark && styles.textLight]}>
@@ -566,7 +619,7 @@ export function BackupSection() {
 
 const styles = StyleSheet.create({
   sectionLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     marginTop: spacing.lg,
@@ -577,7 +630,7 @@ const styles = StyleSheet.create({
   section: {
     backgroundColor: colors.surface,
     marginHorizontal: layout.screenPadding,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     overflow: 'hidden',
   },
   sectionDark: {
@@ -592,11 +645,11 @@ const styles = StyleSheet.create({
   },
   actionText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: colors.textPrimary,
   },
   subtitleText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -612,11 +665,11 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.background,
   },
   statusText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   linkText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.primary,
     fontWeight: '600',
   },
@@ -631,26 +684,6 @@ const styles = StyleSheet.create({
   dividerDark: {
     backgroundColor: darkColors.border,
   },
-  progressBarContainer: {
-    height: 4,
-    backgroundColor: colors.border,
-    borderRadius: 2,
-    marginTop: 6,
-    overflow: 'hidden',
-  },
-  progressBarContainerDark: {
-    backgroundColor: darkColors.border,
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
-  progressDetail: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
   pillRow: {
     flexDirection: 'row',
     gap: spacing.xs,
@@ -658,19 +691,19 @@ const styles = StyleSheet.create({
   pill: {
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.xs,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     backgroundColor: colors.primary,
   },
   pillDark: {
     backgroundColor: colors.primary,
   },
   pillText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
-    color: '#fff',
+    color: ink.white,
   },
   backendValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginRight: 4,
   },
@@ -684,9 +717,9 @@ const styles = StyleSheet.create({
     height: 40,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     paddingHorizontal: spacing.sm,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textPrimary,
     backgroundColor: colors.background,
   },
@@ -704,7 +737,7 @@ const styles = StyleSheet.create({
   testButton: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     backgroundColor: colors.primary,
   },
   qrSetupButton: {
@@ -713,23 +746,30 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     borderWidth: 1,
     borderColor: colors.primary,
     borderStyle: 'dashed',
   },
   qrSetupText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.primary,
   },
+  plainLanRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  plainLanText: { flex: 1, marginBottom: 0 },
   qrHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
   configLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -737,18 +777,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   testButtonText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
-    color: '#fff',
+    color: ink.white,
   },
   connectionSuccess: {
-    fontSize: 13,
-    color: colors.success ?? '#10B981',
+    fontSize: typography.bodyCompact.fontSize,
+    color: colors.success ?? colors.run,
     marginTop: spacing.xs,
   },
   connectionError: {
-    fontSize: 13,
-    color: colors.error ?? '#EF4444',
+    fontSize: typography.bodyCompact.fontSize,
+    color: colors.error ?? colors.chartRed,
     marginTop: spacing.xs,
   },
   warningRow: {
@@ -764,7 +804,7 @@ const styles = StyleSheet.create({
   },
   warningText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   modalOverlay: {
@@ -776,14 +816,14 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '80%',
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     padding: spacing.lg,
   },
   modalContentDark: {
     backgroundColor: darkColors.surfaceCard,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.md,
@@ -794,14 +834,14 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   modalOptionSelected: {
-    backgroundColor: 'rgba(252, 76, 2, 0.08)',
+    backgroundColor: colorWithOpacity(brand.tealLight, 0.08),
   },
   modalOptionText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: colors.textPrimary,
   },
   textLight: {

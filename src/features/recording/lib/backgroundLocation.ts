@@ -4,10 +4,109 @@ import * as Location from 'expo-location';
 import { debug } from '@/shared/debug/debug';
 import { brand } from '@/theme';
 import { getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
+import { locationServiceRunning, updateRecordingNotification } from './recordingNotification';
+import {
+  buildRecordingBackup,
+  loadRecordingBackup,
+  saveRecordingBackup,
+} from './storage/recordingBackup';
 
 const log = debug.create('BackgroundLocation');
 
 export const BACKGROUND_LOCATION_TASK = 'veloq-background-location';
+
+const SERVICE_CHECK_DELAY_MS = 400;
+const SERVICE_CHECK_RETRIES = 6;
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// True once this runtime has rehydrated a session from disk. A headless
+// runtime is torn down with the batch, so the flag is only ever set for the
+// batches that follow the restoring one inside the same runtime.
+let restoredFromBackup = false;
+
+// Use require to avoid a circular dependency - this runs outside the React tree
+function recordingStore() {
+  return require('@/features/recording/stores/RecordingStore').useRecordingStore;
+}
+
+/**
+ * Rehydrate a session that only exists on disk. Android can kill the process
+ * while the foreground service keeps the location request alive, and the next
+ * batch is then delivered by loading the bundle headlessly, where the store is
+ * a fresh `idle`. The gap is not credited as paused time for a recording
+ * session: the rider was moving, and the fixes in the batch carry their own
+ * timestamps. A paused session reopens its pause at the last save, so the gap
+ * is credited when it resumes or stops.
+ */
+async function restoreSessionFromBackup(): Promise<boolean> {
+  const backup = await loadRecordingBackup();
+  if (!backup) return false;
+  if (backup.status !== 'recording' && backup.status !== 'paused') return false;
+
+  const store = recordingStore();
+  store
+    .getState()
+    .startRecording(backup.activityType, backup.mode, backup.pairedEventId ?? undefined);
+  store.setState({
+    status: backup.status,
+    startTime: backup.startTime,
+    pausedDuration: backup.pausedDuration,
+    pauseIntervals: backup.pauseIntervals ?? [],
+    streams: backup.streams,
+    laps: backup.laps,
+    _pauseStart: backup.status === 'paused' ? backup.savedAt : null,
+  });
+  log.log('Restored a recording from its backup in a headless runtime');
+  return true;
+}
+
+export async function handleBackgroundLocations(
+  locations: Location.LocationObject[]
+): Promise<void> {
+  if (!locations || locations.length === 0) return;
+
+  const store = recordingStore();
+  if (store.getState().status === 'idle' && !restoredFromBackup) {
+    restoredFromBackup = await restoreSessionFromBackup();
+  }
+
+  const { addGpsPoint, setRawLocationFix, status } = store.getState();
+  if (status !== 'recording' && status !== 'paused') return;
+
+  const rejectThreshold = getAccuracyRejectThreshold();
+  for (const location of locations) {
+    // Drop low-accuracy points to reduce GPS noise (threshold is a preference)
+    if (location.coords.accuracy != null && location.coords.accuracy > rejectThreshold) continue;
+
+    const point = {
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+      altitude: location.coords.altitude,
+      accuracy: location.coords.accuracy,
+      speed: location.coords.speed,
+      heading: location.coords.heading,
+      timestamp: location.timestamp,
+    };
+    // Auto-pause needs a speed signal while paused, so raw fixes are published
+    // whether or not the point itself is recorded.
+    setRawLocationFix(point);
+    if (status === 'recording') addGpsPoint(point);
+  }
+
+  // A headless runtime has no screen and no periodic timer, so each batch
+  // persists itself or the next kill loses everything since the last one.
+  if (restoredFromBackup) {
+    const backup = buildRecordingBackup(store.getState());
+    if (backup) await saveRecordingBackup(backup);
+  }
+
+  // The notification is the ride's only surface while the app is backgrounded,
+  // and a batch is the only thing that happens out here.
+  updateRecordingNotification();
+
+  log.log(`Background: processed ${locations.length} location(s)`);
+}
 
 // Must be called at module scope (top level, not inside a component)
 TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
@@ -17,31 +116,7 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   }
 
   const { locations } = data as { locations: Location.LocationObject[] };
-  if (!locations || locations.length === 0) return;
-
-  // Use require to avoid circular dependency - this runs outside React tree
-  const { useRecordingStore } = require('@/features/recording/stores/RecordingStore');
-  const { addGpsPoint, status } = useRecordingStore.getState();
-
-  if (status !== 'recording') return;
-
-  const rejectThreshold = getAccuracyRejectThreshold();
-  for (const location of locations) {
-    // Drop low-accuracy points to reduce GPS noise (threshold is a preference)
-    if (location.coords.accuracy != null && location.coords.accuracy > rejectThreshold) continue;
-
-    addGpsPoint({
-      latitude: location.coords.latitude,
-      longitude: location.coords.longitude,
-      altitude: location.coords.altitude,
-      accuracy: location.coords.accuracy,
-      speed: location.coords.speed,
-      heading: location.coords.heading,
-      timestamp: location.timestamp,
-    });
-  }
-
-  log.log(`Background: processed ${locations.length} location(s)`);
+  await handleBackgroundLocations(locations);
 });
 
 export async function startBackgroundLocation(options?: {
@@ -62,6 +137,46 @@ export async function startBackgroundLocation(options?: {
     activityType: Location.ActivityType.Fitness,
     showsBackgroundLocationIndicator: true,
   });
+}
+
+/**
+ * Whether the location foreground service is actually running.
+ * `startLocationUpdatesAsync` resolves even when Android refuses it, so the
+ * promise says nothing and something else has to answer.
+ *
+ * Two cheaper answers were tried on a device and both lie, so neither is worth
+ * reaching for again. The task registry, `hasStartedLocationUpdatesAsync`,
+ * answers whether the task is **registered**, and an abnormally ended ride
+ * leaves it registered across a process restart. The service's notification is
+ * worse: `manager.notify` takes ownership of the id, so the re-posted one
+ * outlives the service and the process both, and was measured still on screen
+ * with no app process alive.
+ *
+ * Android's own list of this app's running services is the one leftovers cannot
+ * fake. The registry stays as the fallback for where the module is absent, which
+ * is iOS, where nothing refuses the service in the first place.
+ */
+export async function backgroundLocationRunning(): Promise<boolean> {
+  try {
+    // The service comes up asynchronously, so absence has to be waited out
+    // before it counts as a refusal. A refused start showed no service at all
+    // for fifteen seconds, so this separates slow from never with room to spare.
+    for (let attempt = 0; attempt <= SERVICE_CHECK_RETRIES; attempt++) {
+      const running = await locationServiceRunning();
+      if (running == null) break;
+      if (running) return true;
+      if (attempt < SERVICE_CHECK_RETRIES) await delay(SERVICE_CHECK_DELAY_MS);
+    }
+    if ((await locationServiceRunning()) != null) return false;
+  } catch (e) {
+    log.warn('Could not read the running services:', e);
+  }
+  try {
+    return await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+  } catch (e) {
+    log.warn('Could not read the location task state:', e);
+    return false;
+  }
 }
 
 export async function stopBackgroundLocation(): Promise<void> {

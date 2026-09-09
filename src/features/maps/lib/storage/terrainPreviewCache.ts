@@ -5,8 +5,9 @@
  * on the number of cached images. Uses an in-memory index for fast lookups
  * without filesystem calls.
  *
- * Cache keys are compound: `{activityId}_{style}` so switching map styles
- * doesn't serve stale images.
+ * Cache keys are compound: `{activityId}_{style}` for the flat basemap and
+ * `{activityId}_{style}_3d` for the terrain drape, so neither a style change
+ * nor a 3D toggle serves the previous render.
  *
  * Storage location: cacheDirectory/terrain_previews/
  */
@@ -23,48 +24,40 @@ const MAX_CACHED_PREVIEWS = 150;
  * (style, hillshade, tile loading, camera, pixel ratio).
  * On mismatch, all cached snapshots are cleared so users get fresh renders.
  */
-const TERRAIN_CACHE_VERSION = 5;
-const VERSION_KEY = 'terrain-preview-cache-version';
+export const TERRAIN_CACHE_VERSION = 7;
+/** The rendering version the cached previews on this device were drawn at. */
+export const TERRAIN_PREVIEW_VERSION_KEY = 'terrain-preview-cache-version';
+const VERSION_KEY = TERRAIN_PREVIEW_VERSION_KEY;
 
-/** Compound cache key */
-function cacheKey(activityId: string, style: string): string {
-  return `${activityId}_${style}`;
+/**
+ * What a render fell back to when the one asked for could not be drawn. Today
+ * the only rung is a 3D drape served as the flat basemap.
+ */
+export type PreviewDowngrade = 'flat';
+
+/**
+ * Compound cache key. The drape and the flat basemap are two entries, and a
+ * drape that had to be drawn flat is a third.
+ *
+ * The downgrade lives in the key rather than beside it because the index is
+ * rebuilt on launch by listing this directory, so a filename is the only state
+ * that survives a restart. Keys for renders that got what they asked for are
+ * unchanged, which is why no cache version bump is owed: every preview already
+ * on a device stays valid and stays not-a-downgrade.
+ */
+function cacheKey(
+  activityId: string,
+  style: string,
+  is3D: boolean,
+  downgradedTo?: PreviewDowngrade
+): string {
+  if (!is3D) return `${activityId}_${style}`;
+  return downgradedTo ? `${activityId}_${style}_3d_${downgradedTo}` : `${activityId}_${style}_3d`;
 }
 
 /** In-memory index of cached compound keys (ordered by insertion) */
 let cachedKeys: string[] = [];
 let initialized = false;
-
-/**
- * Activities flagged for preview regeneration.
- * When style/3D is changed in the detail view, the activity is marked dirty
- * instead of immediately deleting + regenerating (which would compete with
- * the active Map3DWebView for WebView resources). The feed checks this set
- * and triggers regeneration when the card becomes visible again.
- */
-const dirtyActivities = new Set<string>();
-
-/**
- * Mark an activity's previews as needing regeneration.
- * The old cached file is kept until the new snapshot replaces it.
- */
-export function invalidateTerrainPreview(activityId: string): void {
-  dirtyActivities.add(activityId);
-}
-
-/**
- * Check if an activity has been flagged for regeneration.
- */
-export function isTerrainPreviewDirty(activityId: string): boolean {
-  return dirtyActivities.has(activityId);
-}
-
-/**
- * Clear the dirty flag for an activity (called after successful regeneration).
- */
-export function clearTerrainPreviewDirty(activityId: string): void {
-  dirtyActivities.delete(activityId);
-}
 
 /**
  * Load index from disk on app start.
@@ -122,19 +115,42 @@ async function ensureDir(): Promise<void> {
 }
 
 /**
- * Check if a preview exists for the given activity and style (sync via in-memory index).
- * Returns false for dirty activities so the feed triggers regeneration.
+ * Check if a preview exists for this activity, style and render (sync via
+ * in-memory index).
  */
-export function hasTerrainPreview(activityId: string, style: string): boolean {
-  if (dirtyActivities.has(activityId)) return false;
-  return cachedKeys.includes(cacheKey(activityId, style));
+export function hasTerrainPreview(activityId: string, style: string, is3D: boolean): boolean {
+  return (
+    cachedKeys.includes(cacheKey(activityId, style, is3D)) ||
+    cachedKeys.includes(cacheKey(activityId, style, is3D, 'flat'))
+  );
+}
+
+/**
+ * Whether the cached preview for this request is standing in for one that
+ * could not be drawn. A card is served either way, so this is what an upgrade
+ * pass keys on rather than a miss.
+ */
+export function isTerrainPreviewDowngraded(
+  activityId: string,
+  style: string,
+  is3D: boolean
+): boolean {
+  if (cachedKeys.includes(cacheKey(activityId, style, is3D))) return false;
+  return cachedKeys.includes(cacheKey(activityId, style, is3D, 'flat'));
 }
 
 /**
  * Get cached preview URI (file:// path).
  */
-export function getTerrainPreviewUri(activityId: string, style: string): string {
-  return `${TERRAIN_DIR}${cacheKey(activityId, style)}.jpg`;
+export function getTerrainPreviewUri(activityId: string, style: string, is3D: boolean): string {
+  const asked = cacheKey(activityId, style, is3D);
+  if (
+    !cachedKeys.includes(asked) &&
+    cachedKeys.includes(cacheKey(activityId, style, is3D, 'flat'))
+  ) {
+    return `${TERRAIN_DIR}${cacheKey(activityId, style, is3D, 'flat')}.jpg`;
+  }
+  return `${TERRAIN_DIR}${asked}.jpg`;
 }
 
 /**
@@ -144,11 +160,25 @@ export function getTerrainPreviewUri(activityId: string, style: string): string 
 export async function saveTerrainPreview(
   activityId: string,
   style: string,
-  base64: string
+  is3D: boolean,
+  base64: string,
+  options?: { downgradedTo?: PreviewDowngrade }
 ): Promise<string> {
   await ensureDir();
 
-  const key = cacheKey(activityId, style);
+  const key = cacheKey(activityId, style, is3D, options?.downgradedTo);
+
+  // The drape finally rendered, so its stand-in is not just superseded, it is
+  // wrong: leaving it indexed would report the activity as downgraded forever.
+  if (!options?.downgradedTo) {
+    const stale = cacheKey(activityId, style, is3D, 'flat');
+    if (cachedKeys.includes(stale)) {
+      cachedKeys = cachedKeys.filter((k) => k !== stale);
+      await FileSystem.deleteAsync(`${TERRAIN_DIR}${stale}.jpg`, { idempotent: true }).catch(
+        () => {}
+      );
+    }
+  }
 
   // Evict oldest if at cap (and the key to save isn't already cached)
   if (!cachedKeys.includes(key) && cachedKeys.length >= MAX_CACHED_PREVIEWS) {
@@ -168,52 +198,55 @@ export async function saveTerrainPreview(
   cachedKeys = cachedKeys.filter((k) => k !== key);
   cachedKeys.push(key);
 
-  // Clear dirty + priority flags - fresh preview saved
-  dirtyActivities.delete(activityId);
+  // Fresh preview saved, so the activity no longer needs the priority slot
   prioritySnapshotIds.delete(activityId);
 
   return filePath;
 }
 
 /**
- * Delete all cached snapshots for a specific activity (all styles).
- * Used when camera override changes to force regeneration.
+ * Delete every cached snapshot for one activity, both renders and all styles.
+ * Used when the camera override changes to force regeneration.
+ *
+ * The index is dropped first and the files after. A caller that requests a new
+ * snapshot without awaiting this would otherwise see the entry still indexed
+ * and drop its request against a file that is on its way out.
  */
 export async function deleteTerrainPreviewsForActivity(activityId: string): Promise<void> {
   const prefix = `${activityId}_`;
   const toDelete = cachedKeys.filter((k) => k.startsWith(prefix));
+  cachedKeys = cachedKeys.filter((k) => !k.startsWith(prefix));
 
   for (const key of toDelete) {
     const path = `${TERRAIN_DIR}${key}.jpg`;
     await FileSystem.deleteAsync(path, { idempotent: true }).catch(() => {});
   }
-
-  cachedKeys = cachedKeys.filter((k) => !k.startsWith(prefix));
 }
 
 /**
- * Garbage collect: given the current ordered list of feed activity IDs,
- * delete any cached images not matching those activities.
+ * Drop every cached snapshot for one activity except the one just rendered.
+ *
+ * Called after a render lands, never before, so a failed re-render leaves the
+ * card with the image it already had. Without it every style and render the
+ * athlete has ever tried for an activity stays on disk under its own key, an
+ * unbounded set of orphaned JPEGs per card on anyone who experiments (B416).
  */
-export async function gcTerrainPreviews(visibleActivityIds: string[]): Promise<void> {
-  const keepSet = new Set(visibleActivityIds.slice(0, MAX_CACHED_PREVIEWS));
-  // Keep any key whose activityId portion matches a visible activity
-  const toEvict = cachedKeys.filter((key) => {
-    const activityId = key.substring(0, key.lastIndexOf('_'));
-    return !keepSet.has(activityId);
-  });
+export async function deleteSupersededTerrainPreviews(
+  activityId: string,
+  style: string,
+  is3D: boolean
+): Promise<void> {
+  const keep = cacheKey(activityId, style, is3D);
+  const prefix = `${activityId}_`;
+  const toDelete = cachedKeys.filter((k) => k.startsWith(prefix) && k !== keep);
+  if (toDelete.length === 0) return;
+  cachedKeys = cachedKeys.filter((k) => !toDelete.includes(k));
 
-  for (const key of toEvict) {
-    const path = `${TERRAIN_DIR}${key}.jpg`;
-    await FileSystem.deleteAsync(path, { idempotent: true }).catch(() => {});
+  for (const key of toDelete) {
+    await FileSystem.deleteAsync(`${TERRAIN_DIR}${key}.jpg`, { idempotent: true }).catch(() => {});
   }
-
-  cachedKeys = cachedKeys.filter((key) => !toEvict.includes(key));
 }
 
-/**
- * Clear all terrain preview images.
- */
 export async function clearTerrainPreviews(): Promise<void> {
   try {
     const dirInfo = await FileSystem.getInfoAsync(TERRAIN_DIR);
@@ -252,22 +285,6 @@ export async function getTerrainPreviewCacheSize(): Promise<number> {
   }
 }
 
-/**
- * Get count of cached previews.
- */
-export function getTerrainPreviewCount(): number {
-  return cachedKeys.length;
-}
-
-// ============================================================================
-// Priority snapshot queue (consumed pending → in-memory for cards)
-// ============================================================================
-
-/**
- * Activity IDs that need priority snapshot generation.
- * Populated from consumePendingSnapshots() - cards check this set to bypass
- * the index-based throttle (index >= 10 skip) and request snapshots immediately.
- */
 const prioritySnapshotIds = new Set<string>();
 
 /**
@@ -301,24 +318,6 @@ export function clearPrioritySnapshot(activityId: string): void {
 type SnapshotNeededListener = () => void;
 let snapshotNeededListener: SnapshotNeededListener | null = null;
 
-/**
- * Register a listener that fires when any card needs a terrain snapshot.
- * The feed screen uses this to mount WebView workers only on demand.
- * Returns an unsubscribe function.
- */
-export function registerSnapshotNeededListener(listener: SnapshotNeededListener): () => void {
-  snapshotNeededListener = listener;
-  return () => {
-    if (snapshotNeededListener === listener) {
-      snapshotNeededListener = null;
-    }
-  };
-}
-
-/**
- * Signal that a terrain snapshot is needed (cache miss or dirty).
- * Triggers the listener so the feed screen can mount WebView workers.
- */
 export function signalSnapshotNeeded(): void {
   snapshotNeededListener?.();
 }

@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
 interface DebugInfoPanelProps {
-  entries: Array<{ label: string; value: string }>;
+  entries: { label: string; value: string }[];
   isDark: boolean;
 }
 
@@ -20,7 +20,12 @@ export function DebugInfoPanel({ entries, isDark }: DebugInfoPanelProps) {
       {entries.map((entry) => (
         <View key={entry.label} style={styles.row}>
           <Text style={[styles.label, isDark && styles.textMuted]}>{entry.label}</Text>
-          <Text style={[styles.value, isDark && styles.valueDark]}>{entry.value}</Text>
+          <Text
+            testID={`debug-value-${entry.label}`}
+            style={[styles.value, isDark && styles.valueDark]}
+          >
+            {entry.value}
+          </Text>
         </View>
       ))}
     </View>
@@ -33,7 +38,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     marginBottom: spacing.sm,
     padding: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     borderWidth: 1,
     backgroundColor: colors.surface,
   },
@@ -41,7 +46,7 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surfaceElevated,
   },
   title: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     fontFamily: 'monospace',
     color: colors.textSecondary,
@@ -58,7 +63,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   label: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontFamily: 'monospace',
     color: colors.textSecondary,
   },
@@ -66,7 +71,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   value: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontFamily: 'monospace',
     color: colors.textPrimary,
   },

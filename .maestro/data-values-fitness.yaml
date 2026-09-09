@@ -23,7 +23,7 @@ tags:
     text: "NaN"
 - assertNotVisible:
     text: "undefined"
-- takeScreenshot: "data-values-fitness-initial-load"
+- takeScreenshot: "screenshots/data-values-fitness-initial-load"
 
 # Switch to 6-month range
 - tapOn:
@@ -37,7 +37,7 @@ tags:
     text: "NaN"
 - assertNotVisible:
     text: "undefined"
-- takeScreenshot: "data-values-fitness-6m"
+- takeScreenshot: "screenshots/data-values-fitness-6m"
 
 # Switch to 1-year range
 - tapOn:
@@ -51,7 +51,7 @@ tags:
     text: "NaN"
 - assertNotVisible:
     text: "undefined"
-- takeScreenshot: "data-values-fitness-1y"
+- takeScreenshot: "screenshots/data-values-fitness-1y"
 
 # Switch to 3-month range
 - tapOn:
@@ -65,6 +65,6 @@ tags:
     text: "NaN"
 - assertNotVisible:
     text: "undefined"
-- takeScreenshot: "data-values-fitness-3m"
+- takeScreenshot: "screenshots/data-values-fitness-3m"
 
-- takeScreenshot: "data-values-fitness-complete"
+- takeScreenshot: "screenshots/data-values-fitness-complete"

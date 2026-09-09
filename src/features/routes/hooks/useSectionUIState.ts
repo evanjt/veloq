@@ -2,14 +2,13 @@ import { useState } from 'react';
 import type { MergeCandidate } from 'veloqrs';
 import type { RoutePoint } from '@/types';
 import type { SectionTimeRange } from '@/features/routes/constants';
+import { DEFAULT_PERIOD } from '@/shared/app/period';
 
 export function useSectionUIState() {
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
     RoutePoint[] | undefined
   >(undefined);
-  // Track if user is actively scrubbing - used to defer expensive map updates
-  const [isScrubbing, setIsScrubbing] = useState(false);
   // Defer map loading until after first paint for faster perceived load
   const [mapReady, setMapReady] = useState(false);
   // Merge dialog state
@@ -18,7 +17,7 @@ export function useSectionUIState() {
   const [showMergePicker, setShowMergePicker] = useState(false);
 
   // Time range for chart data (passed to useSectionChartData)
-  const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>('all');
+  const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>(DEFAULT_PERIOD);
 
   // Sport type filter for cross-sport sections
   const [selectedSportType, setSelectedSportType] = useState<string | undefined>(undefined);
@@ -28,8 +27,6 @@ export function useSectionUIState() {
     setHighlightedActivityId,
     highlightedActivityPoints,
     setHighlightedActivityPoints,
-    isScrubbing,
-    setIsScrubbing,
     mapReady,
     setMapReady,
     mergeTarget,

@@ -5,11 +5,15 @@ import { useTranslation } from 'react-i18next';
 
 import { generateFitFile } from '@/features/recording/lib/fitGenerator';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { intervalsApi } from '@/api';
+import { createManualActivity } from '@/features/recording/lib/upload/intervalsUploads';
 import { debug } from '@/shared/debug/debug';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
-import { saveRecording } from '@/features/recording/lib/storage/recordingLibrary';
+import {
+  attachEngineActivity,
+  saveRecording,
+} from '@/features/recording/lib/storage/recordingLibrary';
+import { writeProvisionalActivity } from '@/features/recording/lib/storage/provisionalActivity';
 import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
@@ -32,7 +36,8 @@ export interface UseReviewSaveArgs {
   };
   notes: string;
   startTime: number | null;
-  pausedDuration: number;
+  /** Paused seconds inside the window being saved, not the whole session. */
+  pausedSecondsInWindow: number;
   laps: RecordingLap[];
   pairedEventId: number | null;
   getTrimmedStreams: () => RecordingStreams;
@@ -60,7 +65,7 @@ export interface UseReviewSave {
 /**
  * Orchestrates saving a recorded or manual activity - local-save-first.
  *
- * Manual: calls `intervalsApi.createManualActivity` directly.
+ * Manual: creates the activity upstream directly.
  * GPS: generates a FIT file, persists it to the recordings library FIRST
  * (the durable copy - a crash or failed upload can no longer lose data),
  * then uploads from there when auto-upload is on.
@@ -77,7 +82,7 @@ export function useReviewSave({
   summary,
   notes,
   startTime,
-  pausedDuration,
+  pausedSecondsInWindow,
   laps,
   pairedEventId,
   getTrimmedStreams,
@@ -94,7 +99,6 @@ export function useReviewSave({
   // The library entry created on the first save attempt; retries reuse it so a
   // failed upload never produces a duplicate recording.
   const savedEntryRef = useRef<RecordingLibraryEntry | null>(null);
-  const fitBufferRef = useRef<ArrayBuffer | null>(null);
 
   const finishAndGoHome = useCallback(
     (message: string | null) => {
@@ -120,7 +124,7 @@ export function useReviewSave({
     setCanRetry(false);
     try {
       if (isManual) {
-        await intervalsApi.createManualActivity({
+        await createManualActivity({
           type,
           name,
           start_date_local: new Date().toISOString(),
@@ -154,14 +158,17 @@ export function useReviewSave({
                 distance: sliced.distance.map((d) => d - distBase),
               }
             : sliced;
-        const adjustedStart = new Date(startTime! + timeBase * 1000);
+        // A recording with no start time is a state the FIT writer has no
+        // answer for. Falling back to now keeps the file valid; the arithmetic
+        // on a null would have dated it to 1970.
+        const adjustedStart = new Date((startTime ?? Date.now()) + timeBase * 1000);
         const fitBuffer = await generateFitFile({
           activityType: type,
           startTime: adjustedStart,
           streams: trimmedStreams,
           laps,
           name,
-          pausedTimeSeconds: pausedDuration / 1000,
+          pausedTimeSeconds: pausedSecondsInWindow,
         });
 
         const entry = await saveRecording({
@@ -184,7 +191,14 @@ export function useReviewSave({
           return;
         }
         savedEntryRef.current = entry;
-        fitBufferRef.current = fitBuffer;
+        // The ride reaches the feed, the heatmap and the week from here.
+        const engineActivityId = await writeProvisionalActivity(entry, trimmedStreams);
+        if (engineActivityId) {
+          savedEntryRef.current = (await attachEngineActivity(entry.id, engineActivityId)) ?? {
+            ...entry,
+            engineActivityId,
+          };
+        }
         // The recording is durable now - the crash backup has done its job
         await clearRecordingBackup();
       }
@@ -200,10 +214,7 @@ export function useReviewSave({
         return;
       }
 
-      const result = await uploadRecording(
-        savedEntryRef.current,
-        fitBufferRef.current ?? undefined
-      );
+      const result = await uploadRecording(savedEntryRef.current);
 
       switch (result.outcome) {
         case 'uploaded':
@@ -265,7 +276,7 @@ export function useReviewSave({
     summary,
     notes,
     startTime,
-    pausedDuration,
+    pausedSecondsInWindow,
     laps,
     pairedEventId,
     t,

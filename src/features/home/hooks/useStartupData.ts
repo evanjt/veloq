@@ -1,7 +1,10 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
-import { decodeCoords } from 'veloqrs';
+import { useState, useEffect, useRef } from 'react';
+import { InteractionManager } from 'react-native';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
+import { decodeCoords, SyncState } from 'veloqrs';
+import type { PreviewTrack as PreviewTrackRecord, SummaryCardData } from 'veloqrs';
+import { buildInsightsParams } from '@/features/insights/lib/insightsParams';
 import type { LatLng } from '@/shared/geo/polyline';
 
 /**
@@ -17,51 +20,13 @@ export interface PreviewTrack {
  * Result from the single getStartupData() FFI call.
  */
 export interface StartupResult {
-  /** Raw insights data from Rust (same shape as getInsightsData) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  insightsData: any;
-  /** Raw summary card data from Rust (same shape as getSummaryCardData) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  summaryCardData: any;
+  /** Summary card data from Rust (same record as getSummaryCardData) */
+  summaryCardData: SummaryCardData;
   /** Pre-fetched GPS tracks keyed by activity ID */
   previewTracks: Map<string, PreviewTrack>;
-  /** Activity IDs with metrics already cached in engine */
-  cachedMetricIds: Set<string>;
 }
 
-// Compute timestamps once per session (they don't change within a single app open)
-function computeTimestamps() {
-  const now = new Date();
-  const startOfWeek = new Date(now);
-  const day = startOfWeek.getDay();
-  startOfWeek.setDate(startOfWeek.getDate() - day + (day === 0 ? -6 : 1));
-  startOfWeek.setHours(0, 0, 0, 0);
-
-  const startOfLastWeek = new Date(startOfWeek);
-  startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
-
-  const fourWeeksAgo = new Date(startOfWeek);
-  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-
-  const toTs = (d: Date) => Math.floor(d.getTime() / 1000);
-
-  return {
-    currentStart: toTs(startOfWeek),
-    currentEnd: toTs(now),
-    prevStart: toTs(startOfLastWeek),
-    prevEnd: toTs(startOfWeek),
-    chronicStart: toTs(fourWeeksAgo),
-    todayStart: toTs(todayStart),
-  };
-}
-
-function buildPreviewTracks(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rawTracks: any[]
-): Map<string, PreviewTrack> {
+function buildPreviewTracks(rawTracks: readonly PreviewTrackRecord[]): Map<string, PreviewTrack> {
   const tracks = new Map<string, PreviewTrack>();
   for (const track of rawTracks) {
     const decoded = decodeCoords(track.encodedCoords);
@@ -70,7 +35,7 @@ function buildPreviewTracks(
       tracks.set(track.activityId, {
         activityId: track.activityId,
         coordinates: coords,
-        altitude: undefined, // encoded format does not include elevation
+        altitude: undefined, // preview cards render position only
       });
     }
   }
@@ -79,83 +44,160 @@ function buildPreviewTracks(
 
 /**
  * Fetch startup data from the engine using current timestamps.
- * Shared by initial useMemo and manual refresh - single source of truth
- * for the computeTimestamps + getStartupData + result-building pipeline.
+ * Returns null when the engine is absent or the read fails, which the caller
+ * reads as "keep what is already on screen".
  */
 function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return null;
 
   try {
-    const ts = computeTimestamps();
-    const result = engine.getStartupData(
-      ts.currentStart,
-      ts.currentEnd,
-      ts.prevStart,
-      ts.prevEnd,
-      ts.chronicStart,
-      ts.todayStart,
-      previewActivityIds
-    );
+    const result = engine.getStartupData(buildInsightsParams(), previewActivityIds);
     if (!result) return null;
 
     return {
-      insightsData: result.insights,
       summaryCardData: result.summaryCard,
       previewTracks: buildPreviewTracks(result.previewTracks ?? []),
-      cachedMetricIds: new Set(result.cachedMetricIds ?? []),
     };
   } catch {
     return null;
   }
 }
 
+/** Whether the engine says a sync is running right now. */
+function syncInFlight(): boolean {
+  try {
+    return getEngine()?.getSyncStatus()?.state === SyncState.Syncing;
+  } catch {
+    return false;
+  }
+}
+
+/** How often the absent engine is asked for, and for how long. */
+const ENGINE_WAIT_INTERVAL_MS = 200;
+
+/** Ten seconds. An engine that is not open by then failed to open. */
+const ENGINE_WAIT_TICKS = 50;
+
 /**
- * Single FFI call on mount that fetches ALL data the feed screen needs:
- * insights, summary card, GPS preview tracks, and cached metric IDs.
- *
- * Called synchronously in useMemo (not deferred) so data is available
- * on the very first render - eliminates duplicate getInsightsData calls.
+ * A counter that advances when the engine says a sync reached a terminal
+ * state. The channel carries no payload, so the value is only a signal.
  */
-export function useStartupData(previewActivityIds: string[]): {
-  data: StartupResult | null;
-  refresh: () => void;
-} {
-  const trigger = useEngineSubscription(['activities', 'sections']);
-  const isMountedRef = useRef(true);
+function useSyncSettled(): number {
+  const [settled, setSettled] = useState(0);
 
   useEffect(() => {
-    isMountedRef.current = true;
+    const bump = () => setSettled((n) => n + 1);
+    let unsubscribe = getEngine()?.subscribe('syncSettled', bump);
+    if (unsubscribe) return unsubscribe;
+    // The engine can arrive after this screen mounts, and a launch sync
+    // settles once. Missing it would leave the feed on its first read.
+    //
+    // The wait is capped because an engine that failed to open never arrives,
+    // and the uncapped version asked five times a second for as long as the
+    // feed was open. Giving up leaves the feed on its first read, which is
+    // where it was going to be either way.
+    let attempts = 0;
+    const interval = setInterval(() => {
+      const engine = getEngine();
+      if (!engine) {
+        attempts += 1;
+        if (attempts >= ENGINE_WAIT_TICKS) clearInterval(interval);
+        return;
+      }
+      unsubscribe = engine.subscribe('syncSettled', bump);
+      clearInterval(interval);
+    }, ENGINE_WAIT_INTERVAL_MS);
     return () => {
-      isMountedRef.current = false;
+      clearInterval(interval);
+      unsubscribe?.();
     };
   }, []);
 
-  // Synchronous initial call - provides insights/summary immediately
-  const initialData = useMemo(
-    () => fetchStartupData(previewActivityIds),
-    // Only re-run when engine data changes or preview IDs change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trigger, previewActivityIds.length > 0 ? previewActivityIds.join(',') : '']
-  );
+  return settled;
+}
 
-  // Track latest data (initial sync, updated when trigger changes)
-  const [data, setData] = useState<StartupResult | null>(initialData);
+/**
+ * One FFI call for the two things the feed paints: the summary card and the
+ * GPS preview tracks for the first visible cards.
+ *
+ * The read runs after the interactions of the frame that scheduled it, never
+ * during render, so the feed paints before the engine answers.
+ *
+ * A sync announces `activities` once per page it lands, and each announcement
+ * used to cost a whole bundle: 70 to 85 ms on the JS thread under the engine
+ * write lock, five times in the first four and a half seconds of a launch. So
+ * while a sync is in flight the bundle is read once, the rest are held, and the
+ * sync settling spends the one read that covers all of them. Outside a sync
+ * every announcement reads, because then there is nothing else to wait for.
+ */
+export function useStartupData(previewActivityIds: string[]): {
+  data: StartupResult | null;
+} {
+  const trigger = useEngineSubscription(['activities', 'sections']);
+  const settled = useSyncSettled();
+  const idsKey = previewActivityIds.join(',');
 
-  // Update state when initialData changes
+  // Read inside the deferred task so a changed list does not re-key the effect
+  // twice for the same value.
+  const idsRef = useRef(previewActivityIds);
+  idsRef.current = previewActivityIds;
+
+  // Whether this sync has already been read for, and whether anything was held
+  // back while it ran. Refs, because neither may re-render on its own.
+  const readThisSync = useRef(false);
+  const held = useRef(false);
+  // The settle effect runs once on mount before any sync has settled, and its
+  // reset would spend a second read on the announcement that follows.
+  const settleSeen = useRef(false);
+
+  const [data, setData] = useState<StartupResult | null>(null);
+
   useEffect(() => {
-    if (initialData) {
-      setData(initialData);
+    if (syncInFlight()) {
+      if (readThisSync.current) {
+        held.current = true;
+        return undefined;
+      }
+      readThisSync.current = true;
+    } else {
+      readThisSync.current = false;
     }
-  }, [initialData]);
 
-  const refresh = useCallback(() => {
-    if (!isMountedRef.current) return;
-    const result = fetchStartupData(previewActivityIds);
-    if (result && isMountedRef.current) {
-      setData(result);
+    let cancelled = false;
+    const handle = InteractionManager.runAfterInteractions(() => {
+      if (cancelled) return;
+      const next = fetchStartupData(idsRef.current);
+      if (!cancelled && next) setData(next);
+    });
+    return () => {
+      cancelled = true;
+      handle.cancel();
+    };
+  }, [trigger, idsKey]);
+
+  useEffect(() => {
+    if (!settleSeen.current) {
+      settleSeen.current = true;
+      return undefined;
     }
-  }, [previewActivityIds]);
+    readThisSync.current = false;
+    // A settle with nothing held back has nothing new to report: the last read
+    // already saw whatever the sync landed.
+    if (!held.current) return undefined;
+    held.current = false;
 
-  return { data: data ?? initialData, refresh };
+    let cancelled = false;
+    const handle = InteractionManager.runAfterInteractions(() => {
+      if (cancelled) return;
+      const next = fetchStartupData(idsRef.current);
+      if (!cancelled && next) setData(next);
+    });
+    return () => {
+      cancelled = true;
+      handle.cancel();
+    };
+  }, [settled]);
+
+  return { data };
 }

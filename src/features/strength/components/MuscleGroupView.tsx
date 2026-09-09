@@ -11,7 +11,16 @@ import type { ExerciseSet } from 'veloqrs';
 
 import { useMetricSystem } from '@/shared/app';
 import { formatDateTime, formatDuration } from '@/shared/format/format';
-import { colors, darkColors, spacing, typography, brand } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  typography,
+  brand,
+  bodyDiagram,
+  loupeChrome,
+  layout,
+} from '@/theme';
 import type { ActivityDetail } from '@/types';
 
 import { useMuscleGroups } from '../hooks/useExerciseSets';
@@ -66,7 +75,9 @@ export function MuscleGroupView({
       (muscleGroups ?? []).map((g) => ({
         slug: g.slug as ExtendedBodyPart['slug'],
         intensity: g.intensity,
-        ...(g.slug === selectedMuscle ? { styles: { stroke: '#1A1A1A', strokeWidth: 2.5 } } : {}),
+        ...(g.slug === selectedMuscle
+          ? { styles: { stroke: bodyDiagram.selectedStroke, strokeWidth: 2.5 } }
+          : {}),
       })),
     [muscleGroups, selectedMuscle]
   );
@@ -232,10 +243,10 @@ export function MuscleGroupView({
 const styles = StyleSheet.create({
   hero: {
     position: 'relative',
-    backgroundColor: '#F0F0F0',
+    backgroundColor: loupeChrome.bgLight,
   },
   heroDark: {
-    backgroundColor: '#111',
+    backgroundColor: loupeChrome.bgDark,
   },
   floatingHeader: {
     position: 'absolute',
@@ -250,7 +261,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: 'rgba(128,128,128,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -275,14 +286,14 @@ const styles = StyleSheet.create({
   legendDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
   },
   legendText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
   },
   hintText: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textDisabled,
     marginTop: spacing.xs,
     fontStyle: 'italic',
@@ -301,10 +312,10 @@ const styles = StyleSheet.create({
   detailDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
   },
   detailName: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -312,7 +323,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   detailStat: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     lineHeight: 16,
   },
@@ -336,11 +347,11 @@ const styles = StyleSheet.create({
   detailExDot: {
     width: 5,
     height: 5,
-    borderRadius: 2.5,
+    borderRadius: layout.borderRadiusFull,
     flexShrink: 0,
   },
   detailExName: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     flexShrink: 1,
@@ -349,7 +360,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   detailExSub: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     paddingLeft: 8,
   },

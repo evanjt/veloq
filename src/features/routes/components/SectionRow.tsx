@@ -1,21 +1,18 @@
 /**
- * Section row component.
- * Displays a frequently-traveled road section with polyline preview and stats.
- * Now shows activity traces overlaid on section for richer visualization.
- *
- * Supports both full sections (FrequentSection) and lightweight summaries (SectionSummary).
- * When using summaries, the polyline is lazy-loaded on-demand.
+ * Section row: a section's polyline preview, its stats, and any activity
+ * traces overlaid on it. A section without a polyline lazy-loads one.
  */
 
 import React, { memo, useCallback, useMemo, useId } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useSectionPolyline } from '@/features/routes/hooks/useRouteEngine';
+import { useSectionPolyline } from '@/features/routes/hooks/useEngine';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import {
+  brand,
   colors,
   darkColors,
   spacing,
@@ -24,12 +21,13 @@ import {
   shadows,
   mapPreviewColors,
   colorWithOpacity,
+  ink,
 } from '@/theme';
 import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activityUtils';
-import { formatDistance } from '@/shared/format/format';
+import { formatDistance, formatElevation } from '@/shared/format/format';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
-import type { ActivityType, FrequentSection, RoutePoint } from '@/types';
-import type { SectionSummary } from 'veloqrs';
+import { sectionElevation } from '@/features/routes/lib/sectionElevation';
+import type { ActivityType, Section } from '@/types';
 
 /** A single activity's trace through the section */
 export interface ActivityTrace {
@@ -38,31 +36,8 @@ export interface ActivityTrace {
   points: [number, number][];
 }
 
-/**
- * Section data that can be displayed in a row.
- * Supports both full FrequentSection and lightweight SectionSummary.
- */
-interface SectionRowData {
-  id: string;
-  name?: string;
-  sportType: string;
-  distanceMeters: number;
-  visitCount: number;
-  /** Number of activities (from activityCount or activityIds.length) */
-  activityCount: number;
-  /** Polyline (optional - will be lazy-loaded if not provided) */
-  polyline?: RoutePoint[];
-  /** Section type (auto, custom, potential) */
-  sectionType?: string;
-  /** All sport types present in this section's activities */
-  sportTypes?: string[];
-  /** Whether this section has been accepted/pinned by the user */
-  isUserDefined?: boolean;
-}
-
 interface SectionRowProps {
-  /** Section data - can be FrequentSection or SectionSummary */
-  section: FrequentSection | SectionSummary | SectionRowData;
+  section: Section;
   /** Optional pre-loaded activity traces for this section */
   activityTraces?: ActivityTrace[];
   /** Whether this section is disabled/hidden */
@@ -72,69 +47,12 @@ interface SectionRowProps {
   onPress?: (id: string) => void;
 }
 
-/**
- * Normalize section data to a common format.
- * Handles both FrequentSection (with polyline, activityIds) and
- * SectionSummary (lightweight, no polyline).
- */
-function normalizeSectionData(
-  section: FrequentSection | SectionSummary | SectionRowData
-): SectionRowData {
-  // Check if it's a FrequentSection (has activityIds array)
-  if ('activityIds' in section && Array.isArray(section.activityIds)) {
-    // Use activityCount if available (preserved from SectionSummary), else count array
-    const activityCount =
-      'activityCount' in section && typeof section.activityCount === 'number'
-        ? section.activityCount
-        : section.activityIds.length;
-    return {
-      id: section.id,
-      name: section.name,
-      sportType: section.sportType,
-      distanceMeters: section.distanceMeters,
-      visitCount: section.visitCount,
-      activityCount,
-      polyline: section.polyline,
-      sectionType:
-        'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
-      sportTypes:
-        'sportTypes' in section ? (section as { sportTypes: string[] }).sportTypes : undefined,
-      isUserDefined:
-        'isUserDefined' in section
-          ? (section as { isUserDefined: boolean }).isUserDefined
-          : undefined,
-    };
-  }
-  // Check if it's a SectionSummary (has activityCount number)
-  if ('activityCount' in section && typeof section.activityCount === 'number') {
-    return {
-      id: section.id,
-      name: section.name,
-      sportType: section.sportType,
-      distanceMeters: section.distanceMeters,
-      visitCount: section.visitCount,
-      activityCount: section.activityCount,
-      polyline: undefined, // Will be lazy-loaded
-      sectionType:
-        'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
-      sportTypes:
-        'sportTypes' in section ? (section as { sportTypes: string[] }).sportTypes : undefined,
-      isUserDefined:
-        'isUserDefined' in section
-          ? (section as { isUserDefined: boolean }).isUserDefined
-          : undefined,
-    };
-  }
-  // Already normalized
-  return section as SectionRowData;
-}
-
 // Activity trace colors - muted versions of the primary color
 const TRACE_COLORS = [
-  'rgba(252, 76, 2, 0.15)', // Primary orange, very muted
-  'rgba(252, 76, 2, 0.20)',
-  'rgba(252, 76, 2, 0.25)',
-  'rgba(252, 76, 2, 0.30)',
+  colorWithOpacity(brand.tealLight, 0.15),
+  colorWithOpacity(brand.tealLight, 0.2),
+  colorWithOpacity(brand.tealLight, 0.25),
+  colorWithOpacity(brand.tealLight, 0.3),
 ];
 
 const PREVIEW_WIDTH = 48;
@@ -142,7 +60,7 @@ const PREVIEW_HEIGHT = 36;
 const PREVIEW_PADDING = 4;
 
 export const SectionRow = memo(function SectionRow({
-  section: rawSection,
+  section,
   activityTraces,
   isDisabled,
   distanceFromUser,
@@ -155,8 +73,7 @@ export const SectionRow = memo(function SectionRow({
   const uniqueId = useId();
   const gradientId = `sectionGradient-${uniqueId}`;
 
-  // Normalize section data to common format
-  const section = useMemo(() => normalizeSectionData(rawSection), [rawSection]);
+  const elevation = useMemo(() => sectionElevation(section), [section]);
 
   // Lazy-load polyline if not provided (e.g., when using SectionSummary)
   // This is fast - Rust query with LRU caching
@@ -194,17 +111,20 @@ export const SectionRow = memo(function SectionRow({
   }, [polyline]);
 
   // Normalize point to SVG coordinates
-  const normalizePoint = (lat: number, lng: number): { x: number; y: number } => {
-    if (!bounds) return { x: 0, y: 0 };
-    return {
-      x:
-        PREVIEW_PADDING +
-        ((lng - bounds.minLng) / bounds.range) * (PREVIEW_WIDTH - 2 * PREVIEW_PADDING),
-      y:
-        PREVIEW_PADDING +
-        (1 - (lat - bounds.minLat) / bounds.range) * (PREVIEW_HEIGHT - 2 * PREVIEW_PADDING),
-    };
-  };
+  const normalizePoint = useCallback(
+    (lat: number, lng: number): { x: number; y: number } => {
+      if (!bounds) return { x: 0, y: 0 };
+      return {
+        x:
+          PREVIEW_PADDING +
+          ((lng - bounds.minLng) / bounds.range) * (PREVIEW_WIDTH - 2 * PREVIEW_PADDING),
+        y:
+          PREVIEW_PADDING +
+          (1 - (lat - bounds.minLat) / bounds.range) * (PREVIEW_HEIGHT - 2 * PREVIEW_PADDING),
+      };
+    },
+    [bounds]
+  );
 
   // Normalize section polyline
   const sectionPolylineString = useMemo(() => {
@@ -215,7 +135,7 @@ export const SectionRow = memo(function SectionRow({
         return `${x},${y}`;
       })
       .join(' ');
-  }, [polyline, bounds]);
+  }, [polyline, bounds, normalizePoint]);
 
   // Normalize activity traces
   const normalizedTraces = useMemo(() => {
@@ -230,7 +150,7 @@ export const SectionRow = memo(function SectionRow({
         .join(' '),
       color: TRACE_COLORS[idx % TRACE_COLORS.length],
     }));
-  }, [activityTraces, bounds]);
+  }, [activityTraces, bounds, normalizePoint]);
 
   const hasTraces = normalizedTraces.length > 0;
   const hasSectionPolyline = sectionPolylineString.length > 0;
@@ -252,7 +172,7 @@ export const SectionRow = memo(function SectionRow({
       start: normalized[0],
       end: normalized[normalized.length - 1],
     };
-  }, [polyline, bounds]);
+  }, [polyline, bounds, normalizePoint]);
 
   return (
     <TouchableOpacity
@@ -323,7 +243,7 @@ export const SectionRow = memo(function SectionRow({
             <Polyline
               points={sectionPolylineString}
               fill="none"
-              stroke="#000000"
+              stroke={ink.black}
               strokeWidth={3}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -354,7 +274,7 @@ export const SectionRow = memo(function SectionRow({
                   cx={polylinePoints.start.x}
                   cy={polylinePoints.start.y}
                   r={2}
-                  fill="#FFFFFF"
+                  fill={ink.white}
                 />
               </>
             )}
@@ -368,7 +288,12 @@ export const SectionRow = memo(function SectionRow({
                   r={3}
                   fill={colors.error}
                 />
-                <Circle cx={polylinePoints.end.x} cy={polylinePoints.end.y} r={2} fill="#FFFFFF" />
+                <Circle
+                  cx={polylinePoints.end.x}
+                  cy={polylinePoints.end.y}
+                  r={2}
+                  fill={ink.white}
+                />
               </>
             )}
           </Svg>
@@ -415,6 +340,18 @@ export const SectionRow = memo(function SectionRow({
           <Text style={[styles.metaText, isDark && styles.textMuted]}>
             {formatDistance(section.distanceMeters, isMetric)}
           </Text>
+          {elevation && (
+            <View style={styles.gainChip}>
+              <MaterialCommunityIcons
+                name={elevation.direction === 'loss' ? 'arrow-bottom-right' : 'arrow-top-right'}
+                size={10}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
+              <Text style={[styles.metaText, isDark && styles.textMuted]}>
+                {formatElevation(elevation.metres, isMetric)}
+              </Text>
+            </View>
+          )}
           {distanceFromUser != null && Number.isFinite(distanceFromUser) && (
             <View style={styles.proximityTag}>
               <MaterialCommunityIcons
@@ -452,7 +389,7 @@ export const SectionRow = memo(function SectionRow({
       {/* Visit count badge */}
       <View style={styles.countBadge}>
         <Text style={styles.countText}>{section.visitCount}</Text>
-        <MaterialCommunityIcons name="chevron-right" size={16} color="#FFFFFF" />
+        <MaterialCommunityIcons name="chevron-right" size={16} color={ink.white} />
       </View>
     </TouchableOpacity>
   );
@@ -465,7 +402,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     marginHorizontal: spacing.md,
     marginBottom: 2,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: 6,
     ...shadows.pill,
   },
@@ -475,13 +412,13 @@ const styles = StyleSheet.create({
   previewBox: {
     width: PREVIEW_WIDTH,
     height: PREVIEW_HEIGHT,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusXs,
     overflow: 'hidden',
   },
   previewPlaceholder: {
     width: PREVIEW_WIDTH,
     height: PREVIEW_HEIGHT,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusXs,
     backgroundColor: 'rgba(0,0,0,0.05)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -539,13 +476,18 @@ const styles = StyleSheet.create({
   textMuted: {
     color: darkColors.textSecondary,
   },
+  gainChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
   proximityTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
   },
   proximityText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textDisabled,
   },
   proximityTextDark: {
@@ -555,18 +497,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(168, 85, 247, 0.12)',
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
   },
   customTagDark: {
     backgroundColor: 'rgba(192, 132, 252, 0.15)',
   },
   customTagText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
-    color: '#A855F7',
+    color: colors.chartPurple,
   },
   customTagTextDark: {
-    color: '#C084FC',
+    color: darkColors.chartFatigue,
   },
   disabledTag: {
     flexDirection: 'row',
@@ -575,13 +517,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(217, 119, 6, 0.12)',
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
   },
   disabledTagDark: {
     backgroundColor: colorWithOpacity(darkColors.amberIcon, 0.15),
   },
   disabledTagText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
     color: colors.amberIcon,
   },

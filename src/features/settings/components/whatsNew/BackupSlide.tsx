@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, layout } from '@/theme';
 
 const ICON_SIZE = 36;
 
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   iconBox: {
     width: 60,
     height: 60,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,7 +1,7 @@
 v0.1.3 (Feb 13, 2026)
 
-• Fixed section pace calculations — now shows accurate pace for each effort, have a geez!
-• Improved section list interaction — hold to highlight sections
+• Fixed section pace calculations, now shows accurate pace for each effort. Have a geez!
+• Improved section list interaction, hold to highlight sections
 • Fixed duplicate entries in performance history charts
 • Fixed coordinate mismatch when scrubbing through the section list
 

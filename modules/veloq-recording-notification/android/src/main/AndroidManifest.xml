@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- Not exported: the only sender is this app's own notification buttons. -->
+    <receiver
+      android:name=".RecordingActionReceiver"
+      android:exported="false" />
+  </application>
+</manifest>

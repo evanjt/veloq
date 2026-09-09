@@ -18,8 +18,9 @@ pub use ffi_types::*;
 // Persistence layer with SQLite storage
 pub mod persistence;
 pub use persistence::{
-    GroupSummary, PERSISTENT_ENGINE, PersistentEngineStats, PersistentRouteEngine,
-    SectionDetectionHandle, with_persistent_engine,
+    CacheUpdate, ExportPrivacyPreview, FitOutcome, GroupSummary, PERSISTENT_ENGINE,
+    PersistentEngine, PersistentEngineStats, SectionDetectionHandle, mint_local_activity_id,
+    with_persistent_engine,
 };
 
 // Shared process-wide async runtime for all outbound network work
@@ -33,7 +34,7 @@ pub mod net;
 
 // HTTP client for activity fetching
 pub mod http;
-pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};
+pub use http::{ActivityFetcher, ActivityMapResult};
 
 // FFI bindings for mobile platforms
 pub mod ffi;
@@ -44,7 +45,7 @@ pub use sections::SectionSummary;
 
 // Domain objects (UniFFI Object API)
 pub mod objects;
-pub use objects::{VeloqEngine, VeloqError};
+pub use objects::{FfiQuarantineReport, VeloqEngine, VeloqError, take_quarantine_report};
 
 // App-layer types that were moved out of tracematch (persistence/UI data containers)
 pub mod types;
@@ -53,11 +54,260 @@ pub use types::*;
 // Activity pattern detection via k-means clustering
 pub mod patterns;
 
+// The one three-way better/worse/same verdict every trend reads
+pub mod trend;
+
+/// The one sport taxonomy, three questions of an open sport string.
+pub mod sport;
+
 // FIT file parser for strength training exercise data
 pub mod fit;
 
 // Raster tile generation for activity heatmaps
 pub mod tiles;
+
+// The Rust-owned basemap tile store: one z/x/y tree per source on disk
+pub mod basemap;
+
+/// Captured log lines, for the tests that assert a path says something rather
+/// than dropping silently. The logger is process-wide and the lib tests share
+/// one process, so the buffer is never cleared: a test filters it for a
+/// fragment only it produces.
+#[cfg(test)]
+pub(crate) mod test_log {
+    use log::{Level, Log, Metadata, Record};
+    use std::sync::{Mutex, OnceLock};
+
+    static LINES: OnceLock<Mutex<Vec<(Level, String)>>> = OnceLock::new();
+
+    fn lines() -> &'static Mutex<Vec<(Level, String)>> {
+        LINES.get_or_init(|| Mutex::new(Vec::new()))
+    }
+
+    struct Capture;
+
+    impl Log for Capture {
+        fn enabled(&self, _: &Metadata) -> bool {
+            true
+        }
+        fn log(&self, record: &Record) {
+            lines()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .push((record.level(), record.args().to_string()));
+        }
+        fn flush(&self) {}
+    }
+
+    /// Install the capture. Idempotent: a second call keeps the first logger,
+    /// which is what a parallel test run does.
+    pub(crate) fn capturing() {
+        let _ = log::set_boxed_logger(Box::new(Capture));
+        log::set_max_level(log::LevelFilter::Trace);
+    }
+
+    /// Every warning captured so far carrying `fragment`.
+    pub(crate) fn warnings_with(fragment: &str) -> Vec<String> {
+        lines()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .filter(|(level, line)| *level <= Level::Warn && line.contains(fragment))
+            .map(|(_, line)| line.clone())
+            .collect()
+    }
+}
+
+/// Fixtures for the process-wide engine, detection handle and suspension
+/// counter. They live at the crate root because tests in several modules race
+/// the same globals and have to take the same lock to stay honest.
+#[cfg(test)]
+pub(crate) mod test_globals {
+    use crate::objects::detection::{DetectionPoll, poll_detection_once};
+    use crate::persistence::persistent_engine_ffi::persistent_engine_init;
+    use crate::persistence::with_persistent_engine;
+    use std::sync::{Arc, Barrier, Mutex, MutexGuard};
+    use std::thread::{ThreadId, current};
+    use std::time::{Duration, Instant};
+    use tempfile::TempDir;
+    use tracematch::GpsPoint;
+
+    /// Threads released together at a start, enough that a blind install
+    /// overwrites more than once.
+    pub(crate) const RACERS: usize = 4;
+
+    /// Who holds the crate lock, so a fixture can refuse to swap the engine
+    /// out from under whoever does. A second private lock in another test
+    /// module let two tests own `PERSISTENT_ENGINE` at once, and the one that
+    /// finished first deleted its TempDir under the other's detection worker.
+    static SERIAL_HOLDER: Mutex<Option<ThreadId>> = Mutex::new(None);
+
+    /// The crate lock plus the record of who holds it.
+    pub(crate) struct SerialGuard(#[allow(dead_code)] MutexGuard<'static, ()>);
+
+    impl Drop for SerialGuard {
+        fn drop(&mut self) {
+            *SERIAL_HOLDER.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        }
+    }
+
+    /// One lock for the whole crate: the engine, the detection handle and the
+    /// suspension counter are process-wide, so these tests run one at a time.
+    /// Every test that points `PERSISTENT_ENGINE` at its own database takes
+    /// this one, never a private mutex of its own.
+    pub(crate) fn serial_global_state() -> SerialGuard {
+        static SERIAL: Mutex<()> = Mutex::new(());
+        let guard = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        *SERIAL_HOLDER.lock().unwrap_or_else(|e| e.into_inner()) = Some(current().id());
+        SerialGuard(guard)
+    }
+
+    fn assert_serial_held() {
+        let holder = *SERIAL_HOLDER.lock().unwrap_or_else(|e| e.into_inner());
+        assert_eq!(
+            holder,
+            Some(current().id()),
+            "a fixture pointed the process-wide engine at a new database without \
+             holding serial_global_state(). Another test's engine, detection handle \
+             and TempDir are live while this one runs, and whichever finishes first \
+             deletes the database the other is still writing to."
+        );
+    }
+
+    /// Point the process-wide engine at an empty database in a fresh TempDir.
+    /// The directory lives as long as the returned handle, so the caller has
+    /// to hold it for the whole test.
+    pub(crate) fn init_global_engine(file_name: &str) -> TempDir {
+        assert_serial_held();
+        let tmp = TempDir::new().expect("tempdir");
+        let db_path = tmp.path().join(file_name);
+        assert!(
+            persistent_engine_init(db_path.to_string_lossy().into_owned()),
+            "the fixture database must open"
+        );
+        tmp
+    }
+
+    fn track(seed: f64) -> Vec<GpsPoint> {
+        (0..8)
+            .map(|i| GpsPoint::new(46.2 + seed + f64::from(i) * 0.001, 7.35 + seed))
+            .collect()
+    }
+
+    /// A global engine holding unprocessed activities, so a start reaches the
+    /// spawn rather than the no-new-activities short circuit.
+    pub(crate) fn seeded_global_engine() -> TempDir {
+        let tmp = init_global_engine("detection.db");
+        with_persistent_engine(|engine| {
+            for i in 0..6 {
+                let id = format!("a{}", i);
+                engine
+                    .add_activity(id.clone(), track(f64::from(i) * 0.05), "Ride".into())
+                    .expect("add activity");
+                engine
+                    .update_activity_metadata(
+                        &id,
+                        Some(1_700_000_000 - i64::from(i) * 86_400),
+                        Some("ride"),
+                        Some(12_345.0),
+                        Some(3_600),
+                    )
+                    .expect("metadata");
+            }
+        })
+        .expect("engine");
+        tmp
+    }
+
+    pub(crate) fn clear_detection_handle() {
+        *crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+        // A driver from an earlier run polls the same slot every 250 ms and
+        // applies whatever it finds. Emptying the slot is what ends it, but it
+        // ends on its own next tick, and a run installed before then is one the
+        // driver takes: it applies the result, records the outcome and leaves
+        // this test's `last_outcome` reading complete before anything of its
+        // own has polled. So the reset is not done until every driver has gone,
+        // and no test has to remember to ask.
+        wait_for_slot_drivers();
+        // The outcome is the other half of "no run has happened here", and it
+        // is a process-wide atomic. Leaving it standing let whichever test
+        // cargo happened to run first decide whether the next one saw idle.
+        crate::objects::detection::reset_last_outcome();
+    }
+
+    /// Wait until no detached driver is polling the shared detection slot.
+    ///
+    /// Three production paths spawn a thread that polls the slot and none of
+    /// them is joined, so one from an earlier test is still running when the
+    /// next starts and takes that run's completion. A test that has to be the
+    /// only poller calls this after clearing the handle.
+    pub(crate) fn wait_for_slot_drivers() {
+        let deadline = Instant::now() + Duration::from_secs(60);
+        while crate::objects::detection::slot_drivers() > 0 {
+            assert!(
+                Instant::now() < deadline,
+                "a detached driver is still polling the detection slot after 60s"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    /// Drive the winning run to its end so the worker is finished with the
+    /// database before the fixture directory goes away.
+    pub(crate) fn drain_detection() {
+        let deadline = Instant::now() + Duration::from_secs(120);
+        loop {
+            match poll_detection_once() {
+                Ok(DetectionPoll::Idle) => return,
+                Ok(_) => std::thread::sleep(Duration::from_millis(25)),
+                Err(e) => panic!("drain failed: {:?}", e),
+            }
+            assert!(Instant::now() < deadline, "detection never went idle");
+        }
+    }
+
+    /// Wait for a detached elevation pass to release its slot. The pass holds
+    /// detection suspended for its whole life, and the counter is
+    /// process-wide, so a test that started one and returned early would
+    /// leave every start in the next test refused.
+    pub(crate) fn drain_backfill() {
+        let deadline = Instant::now() + Duration::from_secs(120);
+        while crate::net::elevation_backfill::pass_running() {
+            std::thread::sleep(Duration::from_millis(25));
+            assert!(
+                Instant::now() < deadline,
+                "the backfill pass never finished"
+            );
+        }
+    }
+
+    /// Run `start` on `RACERS` threads released together and report how many
+    /// claimed to have started.
+    pub(crate) fn race<F>(start: F) -> usize
+    where
+        F: Fn() -> bool + Send + Sync + 'static,
+    {
+        let barrier = Arc::new(Barrier::new(RACERS));
+        let start = Arc::new(start);
+        let racers: Vec<_> = (0..RACERS)
+            .map(|_| {
+                let barrier = Arc::clone(&barrier);
+                let start = Arc::clone(&start);
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    start()
+                })
+            })
+            .collect();
+        racers
+            .into_iter()
+            .map(|r| r.join().expect("racer thread"))
+            .filter(|started| *started)
+            .count()
+    }
+}
 
 /// Helper to calculate elapsed milliseconds from an Instant
 #[inline]
@@ -76,28 +326,45 @@ pub(crate) fn calendar_days_between(earlier: i64, later: i64) -> u32 {
 
 uniffi::setup_scaffolding!();
 
-/// Initialize logging for Android
+/// Seven call sites reach for the logger and only the first one may set it.
+#[cfg(any(target_os = "android", target_os = "ios"))]
+static LOGGING_INIT: std::sync::Once = std::sync::Once::new();
+
+/// Every level below this is compiled out of a release build by the `log`
+/// crate's own filter, so a hot path costs nothing to leave instrumented.
+/// A debug build keeps the running commentary.
+#[cfg(any(target_os = "android", target_os = "ios"))]
+fn log_level() -> log::LevelFilter {
+    if cfg!(debug_assertions) {
+        log::LevelFilter::Debug
+    } else {
+        log::LevelFilter::Warn
+    }
+}
+
+/// Initialise logging for Android
 #[cfg(target_os = "android")]
 pub(crate) fn init_logging() {
     use android_logger::Config;
-    use log::LevelFilter;
 
-    android_logger::init_once(
-        Config::default()
-            .with_max_level(LevelFilter::Debug)
-            .with_tag("veloqrs"),
-    );
+    LOGGING_INIT.call_once(|| {
+        android_logger::init_once(
+            Config::default()
+                .with_max_level(log_level())
+                .with_tag("veloqrs"),
+        );
+    });
 }
 
-/// Initialize logging for iOS (Apple unified logging / os_log)
+/// Initialise logging for iOS (Apple unified logging / os_log)
 #[cfg(target_os = "ios")]
 pub(crate) fn init_logging() {
-    use log::LevelFilter;
-
-    oslog::OsLogger::new("com.veloq.app.rust")
-        .level_filter(LevelFilter::Debug)
-        .init()
-        .ok(); // ok() ignores AlreadyInitialized error on repeated calls
+    LOGGING_INIT.call_once(|| {
+        oslog::OsLogger::new("com.veloq.app.rust")
+            .level_filter(log_level())
+            .init()
+            .ok();
+    });
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]

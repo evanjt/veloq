@@ -17,3 +17,4 @@ export * from './queries';
 export * from './mutations';
 export * from './visibility';
 export * from './bounds';
+export * from './history';

@@ -2,6 +2,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { debug } from '@/shared/debug/debug';
+import { getEngine } from '@/shared/native/engine';
+import { getStoredCredentials } from '@/shared/app/AuthStore';
 import type {
   ActivityType,
   RecordingLibraryEntry,
@@ -12,32 +14,62 @@ import type {
 const log = debug.create('RecordingLibrary');
 
 const RECORDINGS_DIR = `${FileSystem.documentDirectory}recordings/`;
-const LIBRARY_KEY = 'veloq-recording-library';
+/**
+ * The index lived under this key until it became a table. It is read once
+ * more, to adopt whatever a released install still holds, and then removed.
+ */
+const LEGACY_INDEX_KEY = 'veloq-recording-library';
 const LEGACY_QUEUE_KEY = 'veloq-upload-queue';
 const LEGACY_UPLOADS_DIR = `${FileSystem.documentDirectory}pending_uploads/`;
 
-/** Automatic retries before an entry parks as 'failed' (manual retry only). Files are never deleted. */
-const MAX_AUTO_RETRIES = 5;
-const BACKOFF_BASE_MS = 30_000;
-const BACKOFF_CAP_MS = 60 * 60 * 1000;
-
-// ─── Locking ──────────────────────────────────────────────────────────────────
-// Serialize every index access through one promise chain. The index is a
-// load-modify-save over a single AsyncStorage key, so concurrent callers (the
-// upload processor draining while a freshly-saved recording is added) would
-// otherwise read the same snapshot and the later write would clobber the
-// earlier one - silently dropping a recording that has no server backstop.
-let libraryLock: Promise<unknown> = Promise.resolve();
-function withLibraryLock<T>(fn: () => Promise<T>): Promise<T> {
-  const run = libraryLock.then(fn, fn);
-  libraryLock = run.then(
-    () => undefined,
-    () => undefined
-  );
-  return run;
-}
+/**
+ * Automatic retries before an entry parks as 'failed' (manual retry only). A
+ * failed upload never loses its FIT. The engine applies this; the copy here is
+ * what the library screen tells the athlete.
+ */
+export const MAX_AUTO_RETRIES = 5;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * The engine's row shape and the app's differ in one way that matters: the row
+ * carries an open `string` status and a `string` activity type, because Rust
+ * does not own either vocabulary.
+ */
+type EngineEntry = ReturnType<ReturnType<typeof library>['listRecordings']>[number];
+
+/**
+ * The app's entry as the engine row wants it. Two fields differ and both are
+ * the app's looseness, not the engine's: an absent average heart rate is an
+ * absent field rather than a recorded `null`, and a row adopted from the old
+ * AsyncStorage index carries no reconcile flag, which reads as owing one.
+ */
+function toEngineEntry(entry: RecordingLibraryEntry): EngineEntry {
+  return {
+    ...entry,
+    avgHeartrate: entry.avgHeartrate ?? undefined,
+    engineReconciled: entry.engineReconciled ?? false,
+  };
+}
+
+function toLibraryEntry(row: EngineEntry): RecordingLibraryEntry {
+  return {
+    ...row,
+    activityType: row.activityType as ActivityType,
+    uploadStatus: row.uploadStatus as RecordingUploadStatus,
+  };
+}
+
+/**
+ * The engine, or a throw. The index is the only record of a recording the
+ * server does not have yet, so a caller that cannot reach it must hear so
+ * rather than read an empty library as "nothing recorded".
+ */
+function library(): NonNullable<ReturnType<typeof getEngine>> {
+  const engine = getEngine();
+  if (!engine) throw new Error('Engine not initialized');
+  return engine;
+}
 
 async function ensureRecordingsDir(): Promise<void> {
   const dirInfo = await FileSystem.getInfoAsync(RECORDINGS_DIR);
@@ -47,20 +79,8 @@ async function ensureRecordingsDir(): Promise<void> {
   }
 }
 
-async function loadIndex(): Promise<RecordingLibraryEntry[]> {
-  try {
-    const stored = await AsyncStorage.getItem(LIBRARY_KEY);
-    if (!stored) return [];
-    const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? (parsed as RecordingLibraryEntry[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-async function saveIndex(entries: RecordingLibraryEntry[]): Promise<void> {
-  await AsyncStorage.setItem(LIBRARY_KEY, JSON.stringify(entries));
-}
+const BACKOFF_BASE_MS = 30_000;
+const BACKOFF_CAP_MS = 60 * 60 * 1000;
 
 export function bufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -80,7 +100,13 @@ export function base64ToBuffer(base64: string): ArrayBuffer {
   return bytes.buffer as ArrayBuffer;
 }
 
-/** Whether a pending entry is eligible for an automatic retry right now. */
+/**
+ * Whether a pending entry is eligible for an automatic retry right now.
+ *
+ * The engine applies this when it picks the next upload. This is the same rule
+ * for a caller holding an entry it already has, so the screen does not make a
+ * round trip to grey out a button.
+ */
 export function isRetryEligible(entry: RecordingLibraryEntry, now: number): boolean {
   if (entry.uploadStatus !== 'pending') return false;
   if (!entry.lastAttemptAt) return true;
@@ -106,8 +132,10 @@ export interface SaveRecordingParams {
 
 /**
  * Persist a completed recording: FIT file (+ optional streams sidecar for the
- * detail view) plus an index entry. This is the durable copy - upload is an
- * optional step over it and nothing here is ever deleted by retry logic.
+ * detail view) plus an index entry. The FIT is the durable copy until the upload
+ * succeeds, and no retry ever deletes it. Once intervals.icu holds the activity
+ * the FIT has no reader left, and `discardRecordingFit` takes it. The sidecar
+ * stays: it is what the detail view renders from.
  */
 export async function saveRecording(
   params: SaveRecordingParams
@@ -141,13 +169,13 @@ export async function saveRecording(
       createdAt: Date.now(),
       uploadStatus: params.uploadStatus,
       retryCount: 0,
+      // Whose ride this is, read once at save time. A forced sign-out holds
+      // pending entries instead of demoting them, so this is what keeps one
+      // athlete's recording out of the next athlete's account.
+      athleteId: getStoredCredentials().athleteId ?? undefined,
     };
 
-    await withLibraryLock(async () => {
-      const entries = await loadIndex();
-      entries.push(entry);
-      await saveIndex(entries);
-    });
+    library().addRecording(toEngineEntry(entry));
     log.log(`Saved recording ${id} (${params.name}, ${params.uploadStatus})`);
     return entry;
   } catch (error) {
@@ -157,18 +185,26 @@ export async function saveRecording(
 }
 
 /** All recordings, newest first. */
-export function listRecordings(): Promise<RecordingLibraryEntry[]> {
-  return withLibraryLock(async () => {
-    const entries = await loadIndex();
-    return entries.sort((a, b) => b.createdAt - a.createdAt);
-  });
+export async function listRecordings(): Promise<RecordingLibraryEntry[]> {
+  return library().listRecordings().map(toLibraryEntry);
 }
 
-export function getRecording(id: string): Promise<RecordingLibraryEntry | null> {
-  return withLibraryLock(async () => {
-    const entries = await loadIndex();
-    return entries.find((e) => e.id === id) ?? null;
-  });
+export async function getRecording(id: string): Promise<RecordingLibraryEntry | null> {
+  const row = library().getRecording(id);
+  return row ? toLibraryEntry(row) : null;
+}
+
+/**
+ * Whether the FIT file is still on disk. The upload path streams the file from
+ * Rust, so it needs to know the file is there without reading it into memory.
+ */
+export async function recordingFitExists(entry: RecordingLibraryEntry): Promise<boolean> {
+  try {
+    const info = await FileSystem.getInfoAsync(entry.fitPath);
+    return info.exists;
+  } catch {
+    return false;
+  }
 }
 
 export async function readRecordingFit(entry: RecordingLibraryEntry): Promise<ArrayBuffer | null> {
@@ -200,30 +236,30 @@ export async function readRecordingStreams(
 
 // ─── Status transitions ───────────────────────────────────────────────────────
 
-async function patchEntry(
+/**
+ * Remember the engine key the recording was written under. It lives in the
+ * index so a background retry can still reconcile the upload.
+ */
+export async function attachEngineActivity(
   id: string,
-  patch: Partial<RecordingLibraryEntry>
+  engineActivityId: string
 ): Promise<RecordingLibraryEntry | null> {
-  return withLibraryLock(async () => {
-    const entries = await loadIndex();
-    const idx = entries.findIndex((e) => e.id === id);
-    if (idx < 0) return null;
-    entries[idx] = { ...entries[idx], ...patch };
-    await saveIndex(entries);
-    return entries[idx];
-  });
+  library().attachRecordingEngineActivity(id, engineActivityId);
+  return getRecording(id);
+}
+
+/** The engine row now carries the id intervals.icu gave the upload. */
+export async function markRecordingReconciled(id: string): Promise<RecordingLibraryEntry | null> {
+  library().markRecordingReconciled(id);
+  return getRecording(id);
 }
 
 export async function markRecordingUploading(id: string): Promise<void> {
-  await patchEntry(id, { uploadStatus: 'uploading' });
+  library().markRecordingUploading(id);
 }
 
 export async function markRecordingUploaded(id: string, intervalsActivityId?: string) {
-  await patchEntry(id, {
-    uploadStatus: 'uploaded',
-    intervalsActivityId,
-    lastError: undefined,
-  });
+  library().markRecordingUploaded(id, intervalsActivityId);
   log.log(`Recording uploaded: ${id}`);
 }
 
@@ -233,122 +269,182 @@ export async function markRecordingUploaded(id: string, intervalsActivityId?: st
  * is always kept.
  */
 export async function markRecordingUploadFailed(id: string, error: string): Promise<void> {
-  await withLibraryLock(async () => {
-    const entries = await loadIndex();
-    const idx = entries.findIndex((e) => e.id === id);
-    if (idx < 0) return;
-    const retryCount = entries[idx].retryCount + 1;
-    entries[idx] = {
-      ...entries[idx],
-      retryCount,
-      lastAttemptAt: Date.now(),
-      lastError: error,
-      uploadStatus: retryCount >= MAX_AUTO_RETRIES ? 'failed' : 'pending',
-    };
-    await saveIndex(entries);
-    log.log(`Upload failed for ${id} (retry ${retryCount}/${MAX_AUTO_RETRIES}): ${error}`);
-  });
+  const retryCount = library().markRecordingUploadFailed(id, error, Date.now());
+  log.log(`Upload failed for ${id} (retry ${retryCount}/${MAX_AUTO_RETRIES}): ${error}`);
 }
 
 /** A server-side rejection that automatic retries cannot fix. */
 export async function markRecordingRejected(id: string, error: string): Promise<void> {
-  await patchEntry(id, { uploadStatus: 'failed', lastError: error, lastAttemptAt: Date.now() });
+  library().markRecordingRejected(id, error, Date.now());
   log.warn(`Upload rejected for ${id}: ${error}`);
 }
 
 export async function markRecordingPermissionBlocked(id: string): Promise<void> {
-  await patchEntry(id, { uploadStatus: 'permissionBlocked', lastAttemptAt: Date.now() });
+  library().markRecordingPermissionBlocked(id, Date.now());
+}
+
+/**
+ * A credential was refused mid-upload. The ride goes back in the queue with its
+ * attempt count intact: a 401 says nothing about the ride, and spending one of
+ * its attempts on a dead credential would retire a recording the server never
+ * saw.
+ */
+export async function holdRecordingForAuth(id: string, error: string): Promise<void> {
+  library().holdRecordingForAuth(id, error);
+  log.log(`Holding ${id}: the credential was refused`);
+}
+
+/**
+ * An athlete signed in: stop auto-uploading every ride that is not theirs.
+ *
+ * What they recorded keeps its place in the queue. A ride stamped with someone
+ * else, and an unstamped one from before the stamp existed, becomes local-only,
+ * so nothing lands in the wrong account. Neither is deleted, and either can
+ * still be sent up by hand.
+ */
+export async function holdRecordingsOfOtherAthletes(athleteId: string): Promise<void> {
+  library().holdRecordingsOfOtherAthletes(athleteId);
+  log.log(`Held any recording not belonging to ${athleteId}`);
 }
 
 /** Manual retry (or post-upgrade requeue): back to 'pending' with a clean slate. */
 export async function requeueRecording(id: string): Promise<void> {
-  await patchEntry(id, {
-    uploadStatus: 'pending',
-    retryCount: 0,
-    lastAttemptAt: undefined,
-    lastError: undefined,
-  });
+  library().requeueRecording(id);
 }
 
 /** After an OAuth write upgrade, everything permission-blocked becomes uploadable. */
-export function clearPermissionBlocked(): Promise<void> {
-  return withLibraryLock(async () => {
-    const entries = await loadIndex();
-    const updated = entries.map((e) =>
-      e.uploadStatus === 'permissionBlocked'
-        ? { ...e, uploadStatus: 'pending' as const, retryCount: 0, lastAttemptAt: undefined }
-        : e
-    );
-    await saveIndex(updated);
-    log.log('Cleared permission-blocked recordings');
-  });
+export async function clearPermissionBlocked(): Promise<void> {
+  library().clearRecordingPermissionBlocked();
+  log.log('Cleared permission-blocked recordings');
 }
 
 /**
  * On logout: keep every recording on device, but stop auto-uploading so
  * nothing lands in a different account after the next login.
  */
-export function demotePendingToLocalOnly(): Promise<void> {
-  return withLibraryLock(async () => {
-    const entries = await loadIndex();
-    const updated = entries.map((e) =>
-      e.uploadStatus === 'pending' ||
-      e.uploadStatus === 'uploading' ||
-      e.uploadStatus === 'permissionBlocked'
-        ? { ...e, uploadStatus: 'localOnly' as const }
-        : e
-    );
-    await saveIndex(updated);
-    log.log('Demoted pending uploads to local-only');
-  });
+export async function demotePendingToLocalOnly(): Promise<void> {
+  library().demoteRecordingsToLocalOnly();
+  log.log('Demoted pending uploads to local-only');
 }
 
 /** Next entry eligible for automatic upload, respecting exponential backoff. */
-export function nextPendingUpload(now = Date.now()): Promise<RecordingLibraryEntry | null> {
-  return withLibraryLock(async () => {
-    const entries = await loadIndex();
-    return entries.find((e) => isRetryEligible(e, now)) ?? null;
-  });
+export async function nextPendingUpload(now = Date.now()): Promise<RecordingLibraryEntry | null> {
+  const row = library().nextPendingRecording(now);
+  return row ? toLibraryEntry(row) : null;
+}
+
+// ─── Deletion ─────────────────────────────────────────────────────────────────
+
+/**
+ * Drop the FIT bytes once intervals.icu has the activity. The file exists to be
+ * uploaded, so keeping it grows the device by every recording the athlete has
+ * ever made. The streams sidecar and the index entry stay, which is what the
+ * library and its detail view read.
+ *
+ * Best effort by design: the upload succeeded either way, and a delete that
+ * throws must not turn a finished upload into a retry.
+ */
+export async function discardRecordingFit(id: string): Promise<void> {
+  const entry = library().getRecording(id);
+  if (!entry) return;
+  try {
+    await FileSystem.deleteAsync(entry.fitPath, { idempotent: true });
+    log.log(`Discarded FIT for uploaded recording ${id}`);
+  } catch {
+    // The next discard, or the user's own delete, gets it.
+  }
+}
+
+/**
+ * Drop the streams sidecar once the engine holds the ride's track. It is the
+ * last file that grows with every recording, and the detail view reads the
+ * engine first. The path is cleared with it, so nothing looks for the file.
+ *
+ * Best effort by design, the same as the FIT: a delete that throws must not
+ * turn a finished upload into a retry.
+ */
+export async function discardRecordingStreams(id: string): Promise<void> {
+  const row = library().getRecording(id);
+  const path = row?.streamsPath;
+  if (!path) return;
+  // The row stops naming the file before the file goes, never after: a delete
+  // that succeeds against a row still pointing at it leaves the library
+  // looking for a path that is not there.
+  library().clearRecordingStreamsPath(id);
+  try {
+    await FileSystem.deleteAsync(path, { idempotent: true });
+    log.log(`Discarded streams sidecar for uploaded recording ${id}`);
+  } catch {
+    // The row no longer names it, and the user's own delete gets the file.
+  }
 }
 
 // ─── Deletion (user-initiated only) ──────────────────────────────────────────
 
-export function deleteRecording(id: string): Promise<void> {
-  return withLibraryLock(async () => {
-    const entries = await loadIndex();
-    const entry = entries.find((e) => e.id === id);
-    await saveIndex(entries.filter((e) => e.id !== id));
-    if (!entry) return;
-    for (const path of [entry.fitPath, entry.streamsPath]) {
-      if (!path) continue;
-      try {
-        await FileSystem.deleteAsync(path, { idempotent: true });
-      } catch {
-        // Best effort cleanup
-      }
+export async function deleteRecording(id: string): Promise<void> {
+  const entry = library().deleteRecording(id);
+  if (!entry) return;
+  for (const path of [entry.fitPath, entry.streamsPath]) {
+    if (!path) continue;
+    try {
+      await FileSystem.deleteAsync(path, { idempotent: true });
+    } catch {
+      // Best effort cleanup
     }
-    log.log(`Deleted recording ${id}`);
-  });
+  }
+  log.log(`Deleted recording ${id}`);
 }
 
 // ─── Counts ───────────────────────────────────────────────────────────────────
 
 /** Recordings not yet on intervals.icu (any status except 'uploaded'). */
-export function getUnuploadedCount(): Promise<number> {
-  return withLibraryLock(async () => {
-    const entries = await loadIndex();
-    return entries.filter((e) => e.uploadStatus !== 'uploaded').length;
-  });
+export async function getUnuploadedCount(): Promise<number> {
+  return library().unuploadedRecordingCount();
 }
 
-export function getPermissionBlockedCount(): Promise<number> {
-  return withLibraryLock(async () => {
-    const entries = await loadIndex();
-    return entries.filter((e) => e.uploadStatus === 'permissionBlocked').length;
-  });
+export async function getPermissionBlockedCount(): Promise<number> {
+  return library().permissionBlockedRecordingCount();
 }
 
 // ─── Legacy migration ─────────────────────────────────────────────────────────
+
+/**
+ * Adopt the AsyncStorage index into the table, once.
+ *
+ * Runs after `migrateLegacyUploadQueue`, not instead of it: a released install
+ * may still be arriving through the old `veloq-upload-queue`, and that path
+ * writes into the index this one then reads. Insert-if-absent, so a partial
+ * run that is interrupted before the key is removed adopts the rest next time
+ * without duplicating what it already took.
+ */
+export async function adoptAsyncStorageIndex(): Promise<number> {
+  try {
+    const stored = await AsyncStorage.getItem(LEGACY_INDEX_KEY);
+    if (!stored) return 0;
+
+    const parsed: unknown = JSON.parse(stored);
+    if (!Array.isArray(parsed)) {
+      await AsyncStorage.removeItem(LEGACY_INDEX_KEY);
+      return 0;
+    }
+
+    let adopted = 0;
+    for (const entry of parsed as RecordingLibraryEntry[]) {
+      // An entry with no id has no row to be, and nothing can find it again.
+      if (!entry?.id || !entry.fitPath) continue;
+      if (library().addRecording(toEngineEntry(entry))) adopted += 1;
+    }
+
+    await AsyncStorage.removeItem(LEGACY_INDEX_KEY);
+    log.log(`Adopted ${adopted} recording(s) from the AsyncStorage index`);
+    return adopted;
+  } catch (error) {
+    // Leave the key in place: the next launch tries again rather than losing
+    // the only record of a recording that has not been uploaded.
+    log.warn('Recording index adoption failed:', error);
+    return 0;
+  }
+}
 
 interface LegacyQueueEntry {
   id: string;
@@ -396,13 +492,7 @@ export async function migrateLegacyUploadQueue(): Promise<void> {
           retryCount: 0,
           lastError: old.lastError,
         };
-        await withLibraryLock(async () => {
-          const entries = await loadIndex();
-          if (!entries.some((e) => e.id === entry.id)) {
-            entries.push(entry);
-            await saveIndex(entries);
-          }
-        });
+        library().addRecording(toEngineEntry(entry));
       } catch (err) {
         log.warn(`Failed to migrate legacy upload ${old.id}:`, err);
       }

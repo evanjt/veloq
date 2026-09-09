@@ -33,6 +33,6 @@ tags:
     timeout: 10000
     speed: 40
 
-- takeScreenshot: "settings-cache-section"
+- takeScreenshot: "screenshots/settings-cache-section"
 
-- takeScreenshot: "settings-cache-complete"
+- takeScreenshot: "screenshots/settings-cache-complete"

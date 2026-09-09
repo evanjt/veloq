@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 
 type Refetcher = () => Promise<unknown>;
 
@@ -16,6 +17,7 @@ export function useFitnessRefresh(refetchWellness: Refetcher) {
 
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
+    requestSyncRefresh();
     await Promise.all([
       refetchWellness(),
       queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),

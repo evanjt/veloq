@@ -2,7 +2,8 @@ import { View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { RouteMapView } from './RouteMapView';
-import { MAP_HEIGHT, styles } from './RouteDetailScreen.styles';
+import { useHeroMapHeight } from '@/shared/ui';
+import { styles } from './RouteDetailScreen.styles';
 import type { buildFinalRouteGroup } from '../lib/buildRouteGroup';
 import type { RoutePoint } from '../types';
 
@@ -12,7 +13,7 @@ interface RouteDetailMapProps {
   routeGroup: FinalRouteGroup;
   highlightedActivityId: string | null;
   highlightedActivityPoints: RoutePoint[] | undefined;
-  signatures: Record<string, { points: Array<{ lat: number; lng: number }> }>;
+  signatures: Record<string, { points: { lat: number; lng: number }[] }>;
   hasMapData: boolean;
   activityColor: string;
 }
@@ -25,12 +26,13 @@ export function RouteDetailMap({
   hasMapData,
   activityColor,
 }: RouteDetailMapProps) {
+  const mapHeight = useHeroMapHeight();
   return (
     <View testID="route-detail-map" style={styles.mapContainer}>
       {hasMapData ? (
         <RouteMapView
           routeGroup={routeGroup}
-          height={MAP_HEIGHT}
+          height={mapHeight}
           interactive={false}
           highlightedActivityId={highlightedActivityId}
           highlightedLapPoints={highlightedActivityPoints}
@@ -42,7 +44,7 @@ export function RouteDetailMap({
           style={[
             styles.mapPlaceholder,
             {
-              height: MAP_HEIGHT,
+              height: mapHeight,
               backgroundColor: activityColor + '20',
             },
           ]}

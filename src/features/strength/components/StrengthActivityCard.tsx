@@ -51,6 +51,8 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
   const isMetric = useMetricSystem();
   const [menuVisible, setMenuVisible] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
+  const averageHeartRate = activity.average_heartrate || activity.icu_average_hr;
+  const averagePower = activity.average_watts || activity.icu_average_watts;
   const handlePressIn = useCallback(() => setIsPressed(true), []);
   const handlePressOut = useCallback(() => setIsPressed(false), []);
 
@@ -68,7 +70,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
   const scrollRef = useRef<ScrollView>(null);
   const hasFlashed = useRef(false);
 
-  const handleContentSizeChange = useCallback((contentWidth: number, _contentHeight: number) => {
+  const handleContentSizeChange = useCallback((_contentWidth: number, _contentHeight: number) => {
     if (!hasFlashed.current && scrollRef.current) {
       hasFlashed.current = true;
       setTimeout(() => scrollRef.current?.flashScrollIndicators(), 400);
@@ -102,28 +104,28 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             </RNText>
           </View>
         )}
-        {!!(activity.average_heartrate || activity.icu_average_hr) && (
+        {averageHeartRate ? (
           <View
             style={styles.secondaryStat}
-            accessibilityLabel={`${t('activity.heartRate')}: ${formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)} ${t('units.bpm')}`}
+            accessibilityLabel={`${t('activity.heartRate')}: ${formatHeartRate(averageHeartRate)} ${t('units.bpm')}`}
           >
             <MaterialCommunityIcons name="heart-pulse" size={14} color={colors.error} />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
-              {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
+              {formatHeartRate(averageHeartRate)}
             </RNText>
           </View>
-        )}
-        {!!(activity.average_watts || activity.icu_average_watts) && (
+        ) : null}
+        {averagePower ? (
           <View
             style={styles.secondaryStat}
-            accessibilityLabel={`${t('activity.power')}: ${formatPower(activity.average_watts || activity.icu_average_watts!)} ${t('units.watts')}`}
+            accessibilityLabel={`${t('activity.power')}: ${formatPower(averagePower)} ${t('units.watts')}`}
           >
             <MaterialCommunityIcons name="lightning-bolt" size={14} color={colors.warning} />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
-              {formatPower(activity.average_watts || activity.icu_average_watts!)}
+              {formatPower(averagePower)}
             </RNText>
           </View>
-        )}
+        ) : null}
         {!!activity.calories && (
           <View
             style={styles.secondaryStat}
@@ -312,11 +314,11 @@ const styles = StyleSheet.create({
   },
   strengthStatRow: {},
   strengthStatValue: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
   },
   strengthStatLabel: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -347,7 +349,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     justifyContent: 'center',
     alignItems: 'center',
   },

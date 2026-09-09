@@ -37,10 +37,10 @@ export function RouteDetailDebugPanel({
     acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
     return acc;
   }, {});
-  const warnings: Array<{
+  const warnings: {
     level: 'warn' | 'error';
     message: string;
-  }> = [];
+  }[] = [];
   const actCount = engineGroup.activityIds.length;
   if (actCount > 500)
     warnings.push({

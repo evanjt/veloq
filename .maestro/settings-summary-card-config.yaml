@@ -28,14 +28,14 @@ tags:
     id: "settings-summary-card"
     optional: true
 
-- takeScreenshot: "settings-summary-card-config"
+- takeScreenshot: "screenshots/settings-summary-card-config"
 
 # Try toggling sparkline
 - tapOn:
     id: "settings-summary-card-sparkline-toggle"
     optional: true
 
-- takeScreenshot: "settings-summary-card-sparkline-toggled"
+- takeScreenshot: "screenshots/settings-summary-card-sparkline-toggled"
 
 # Navigate to home to verify changes applied
 - openLink: "veloq://"
@@ -49,4 +49,4 @@ tags:
       id: "home-screen"
     timeout: 10000
 
-- takeScreenshot: "settings-summary-card-config-complete"
+- takeScreenshot: "screenshots/settings-summary-card-config-complete"

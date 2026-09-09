@@ -16,6 +16,8 @@
 
 import { useCallback, useRef } from 'react';
 
+import type { MapCameraState } from '@/features/maps/components/MapSurface';
+
 /** Zoom level at or above which sections are auto-shown. */
 const SECTIONS_AUTO_SHOW_ZOOM = 13;
 /** Zoom level below which sections are auto-hidden. */
@@ -29,14 +31,14 @@ interface UseSectionAutoToggleParams {
   /** State setter for showSections. */
   setShowSections: (value: boolean) => void;
   /** Base region-did-change handler to compose with. */
-  baseHandleRegionDidChange: (feature: GeoJSON.Feature) => void;
+  baseHandleRegionDidChange: (state: MapCameraState) => void;
   /** Base toggleSections callback (from useMapHandlers). */
   baseToggleSections: () => void;
 }
 
 interface UseSectionAutoToggleResult {
   /** Wrapped region-did-change handler that also auto-toggles sections. */
-  handleRegionDidChange: (feature: GeoJSON.Feature) => void;
+  handleRegionDidChange: (state: MapCameraState) => void;
   /** Wrapped toggleSections that marks the user as having taken manual control. */
   toggleSections: () => void;
 }
@@ -66,21 +68,18 @@ export function useSectionAutoToggle({
     baseToggleSections();
   }, [baseToggleSections]);
 
-  // CRITICAL: Read showSections from ref (not closure) to keep callback
-  // identity stable. Changing onRegionDidChange prop causes Android MapLibre to
-  // re-render and snap camera back.
+  // Read showSections from a ref rather than the closure so the callback keeps
+  // its identity across renders.
   const handleRegionDidChange = useCallback(
-    (feature: GeoJSON.Feature) => {
-      baseHandleRegionDidChange(feature);
+    (state: MapCameraState) => {
+      baseHandleRegionDidChange(state);
 
       if (userToggledSectionsRef.current) return;
 
-      const zoomLevel = (feature.properties as { zoomLevel?: number } | undefined)?.zoomLevel;
-      if (zoomLevel === undefined) return;
+      const zoomLevel = state.zoom;
 
-      // Defer section visibility change to avoid React re-render during
-      // gesture momentum. Matches the 300ms debounce used for zoom/center
-      // updates in useMapHandlers.
+      // Defer the visibility change so it does not land mid-gesture. Matches
+      // the settle debounce used for zoom and centre in useMapHandlers.
       if (showSectionsDebounceRef.current) clearTimeout(showSectionsDebounceRef.current);
       showSectionsDebounceRef.current = setTimeout(() => {
         if (zoomLevel >= SECTIONS_AUTO_SHOW_ZOOM && !showSectionsRef.current) {

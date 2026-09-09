@@ -1,7 +1,7 @@
 import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import type { Insight, FtpTrend, PaceTrend, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
-import { INSIGHTS_CONFIG } from '../lib/config';
+import { INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
 import { insightIcon } from '@/theme';
 
 const YEAR_2000_MS = 946_684_800_000;
@@ -69,10 +69,12 @@ function addPaceMilestoneInsight(
       }),
       navigationTarget: '/fitness',
       timestamp: now,
+      // The snapshots the pace history was read from. A step measured off
+      // three is a thinner claim than the same step off twenty.
+      confidence: confidenceFrom('fitness_milestone', pace.sampleCount ?? 0),
       meta: {
         sourceTimestamp: dateToMs(pace.latestDate) ?? now,
         comparisonKind: 'self',
-        specificity: { hasNumber: true, hasPlace: false, hasDate: true },
       },
       supportingData: {
         dataPoints: [
@@ -136,10 +138,10 @@ export function generateFitnessMilestoneInsights(
           }),
           navigationTarget: '/fitness',
           timestamp: now,
+          confidence: confidenceFrom('fitness_milestone', ftp.sampleCount ?? 0),
           meta: {
             sourceTimestamp: dateToMs(ftp.latestDate) ?? now,
             comparisonKind: 'self',
-            specificity: { hasNumber: true, hasPlace: false, hasDate: true },
           },
           supportingData: {
             dataPoints: [

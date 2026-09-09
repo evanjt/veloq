@@ -27,6 +27,13 @@ const HOOK_NAMES = ['useMemo', 'useState', 'useEffect', 'useCallback', 'useRef']
 // How many preceding source lines to scan for a guard before a Math.max(...x) site.
 const GUARD_WINDOW = 12;
 
+// Generated bundles hold vendored third-party source on single lines megabytes
+// long. They are not hand-written components, and the structural scan is
+// quadratic in line length.
+function isGenerated(name) {
+  return name.endsWith('.generated.ts') || name.endsWith('.generated.tsx');
+}
+
 function walk(dir, exts, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -34,7 +41,7 @@ function walk(dir, exts, out = []) {
     if (entry.isDirectory()) {
       if (entry.name === 'node_modules' || entry.name === 'generated') continue;
       walk(full, exts, out);
-    } else if (exts.some((e) => entry.name.endsWith(e))) {
+    } else if (exts.some((e) => entry.name.endsWith(e)) && !isGenerated(entry.name)) {
       out.push(full);
     }
   }
@@ -88,13 +95,6 @@ function stripNoise(src) {
   return out.join('');
 }
 
-function lineOf(src, index) {
-  let line = 1;
-  for (let i = 0; i < index && i < src.length; i++) {
-    if (src[i] === '\n') line++;
-  }
-  return line;
-}
 
 // Per-line brace depth, computed on noise-stripped source.
 function braceDepths(clean) {
@@ -349,7 +349,7 @@ function resolveTargets(args) {
     const abs = path.resolve(ROOT, a);
     if (!fs.existsSync(abs)) continue;
     const within = (dir) => abs.startsWith(dir + path.sep);
-    if ((abs.endsWith('.ts') || abs.endsWith('.tsx')) && within(SRC_DIR)) {
+    if ((abs.endsWith('.ts') || abs.endsWith('.tsx')) && within(SRC_DIR) && !isGenerated(path.basename(abs))) {
       if (abs.includes(`${path.sep}__tests__${path.sep}`) || abs.endsWith('.test.ts') || abs.endsWith('.test.tsx')) {
         continue;
       }

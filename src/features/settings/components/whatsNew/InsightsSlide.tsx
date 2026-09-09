@@ -3,13 +3,13 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
 const INSIGHT_ITEMS = [
-  { icon: 'trophy-outline', label: 'Section PRs', color: '#F59E0B' },
-  { icon: 'heart-pulse', label: 'Efficiency trends', color: '#EC4899' },
-  { icon: 'lightning-bolt', label: 'Fitness milestones', color: '#8B5CF6' },
-  { icon: 'trending-up', label: 'HRV trends', color: '#22C55E' },
+  { icon: 'trophy-outline', label: 'Section PRs', color: colors.warning },
+  { icon: 'heart-pulse', label: 'Efficiency trends', color: colors.chartHrv },
+  { icon: 'lightning-bolt', label: 'Fitness milestones', color: colors.walk },
+  { icon: 'trending-up', label: 'HRV trends', color: colors.success },
 ];
 
 export function InsightsSlide() {
@@ -45,10 +45,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: 10,
     paddingHorizontal: spacing.md,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
   },
   label: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
   },
 });

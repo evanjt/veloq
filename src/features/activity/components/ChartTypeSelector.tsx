@@ -3,8 +3,9 @@ import { View, StyleSheet, Pressable, Text } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, typography, layout, spacing } from '@/theme';
+import { colors, layout, typography } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
+import { isolateNumeric } from '@/shared/format';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 
 /** Chart type translation key type */
@@ -149,7 +150,7 @@ export function ChartTypeSelector({
               <View style={styles.chipValueContainer}>
                 {/* Hidden max-width text to reserve stable chip width */}
                 <Text style={[styles.chipValue, styles.chipValueHidden]} numberOfLines={1}>
-                  {metric.maxValueWidth || metric.value}
+                  {isolateNumeric(metric.maxValueWidth || metric.value)}
                   {metric.unit ? ` ${metric.unit}` : ''}
                 </Text>
                 {/* Visible value centered on top */}
@@ -157,7 +158,7 @@ export function ChartTypeSelector({
                   style={[styles.chipValue, styles.chipValueVisible, { color: textColor }]}
                   numberOfLines={1}
                 >
-                  {metric.value}
+                  {isolateNumeric(metric.value)}
                   {metric.unit ? ` ${metric.unit}` : ''}
                 </Text>
               </View>
@@ -193,7 +194,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   chipLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
   },
   chipValueContainer: {

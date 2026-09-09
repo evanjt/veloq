@@ -2,11 +2,15 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 
 import type { Athlete } from '@/types';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
+import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
 const ATHLETE_ID_STORAGE_KEY = 'intervals_athlete_id';
 const ACCESS_TOKEN_STORAGE_KEY = 'intervals_access_token';
+// Whose the stored API key is. The key outlives a rejected session so the
+// re-entry can offer it back, and this says who it may be offered to.
+const API_KEY_ATHLETE_STORAGE_KEY = 'intervals_api_key_athlete_id';
 
 /**
  * Validates that a credential is non-null and non-empty after trimming.
@@ -22,8 +26,62 @@ export const DEMO_ATHLETE_ID = 'demo';
 // Auth method type
 export type AuthMethod = 'oauth' | 'apiKey' | 'demo' | null;
 
-// Session expiry reason
-export type SessionExpiredReason = 'token_expired' | 'token_revoked' | null;
+/**
+ * Hand the current credential to the Rust sync service, the single owner of
+ * outbound intervals.icu auth. This is the only place the store's `apiKey`
+ * method name is translated to the engine's `api_key`.
+ *
+ * Safe to call before the engine exists: the delegate no-ops until
+ * `initWithPath` has run, and the layout init effect calls this again once it
+ * has. A credential the engine cannot use is cleared rather than left stale.
+ */
+export function pushCredentialsToEngine(): void {
+  const engine = getEngine();
+  if (!engine) return;
+
+  const { apiKey, accessToken, athleteId, authMethod } = getStoredCredentials();
+
+  if (athleteId && authMethod === 'oauth' && isValidCredential(accessToken)) {
+    engine.setSyncCredentials('oauth', accessToken, athleteId);
+    return;
+  }
+  if (athleteId && authMethod === 'apiKey' && isValidCredential(apiKey)) {
+    engine.setSyncCredentials('api_key', apiKey, athleteId);
+    return;
+  }
+  engine.clearSyncCredentials();
+}
+
+/**
+ * The stored API key, but only for the athlete whose library is on the device.
+ *
+ * A rejected key stays in the keychain so the login form can offer it back,
+ * which is only safe while the two identities agree. On a device handed to
+ * someone else, or one whose library has been wiped, they do not, and the
+ * answer is null.
+ */
+export async function readApiKeyForAthlete(athleteId: string | null): Promise<string | null> {
+  if (!isValidCredential(athleteId)) return null;
+
+  const [apiKey, owner] = await Promise.all([
+    SecureStore.getItemAsync(API_KEY_STORAGE_KEY),
+    SecureStore.getItemAsync(API_KEY_ATHLETE_STORAGE_KEY),
+  ]);
+
+  if (!isValidCredential(apiKey) || owner !== athleteId) return null;
+  return apiKey;
+}
+
+/**
+ * Why the session ended. One signal, a 401, but two credentials, so the
+ * wording splits on which one the server rejected: an athlete who pasted a
+ * key needs to hear about that key, not about a token they never saw.
+ * Neither reason claims an expiry or a revocation. intervals.icu issues one
+ * live token per athlete per app, so a second device signing in takes this
+ * one's credential, and that 401 is indistinguishable from either at the
+ * server. Claiming one would be telling the athlete something it never said.
+ */
+export type SessionExpiredReason = 'signed_out' | 'key_rejected' | null;
 
 interface AuthState {
   apiKey: string | null;
@@ -35,7 +93,7 @@ interface AuthState {
   isDemoMode: boolean;
   hideDemoBanner: boolean;
   authMethod: AuthMethod;
-  /** Set when OAuth session expires due to 401 response */
+  /** Set when a 401 ends the session, whichever credential carried it */
   sessionExpired: SessionExpiredReason;
 
   // Actions
@@ -51,8 +109,8 @@ interface AuthState {
   enterDemoMode: () => void;
   exitDemoMode: () => void;
   setHideDemoBanner: (hide: boolean) => void;
-  /** Called when OAuth token is rejected with 401 - clears OAuth credentials */
-  handleSessionExpired: (reason?: SessionExpiredReason) => Promise<void>;
+  /** Called when a 401 ends the session - clears the rejected credential */
+  handleSessionExpired: () => Promise<void>;
   /** Clear the session expired state (e.g., after user acknowledges) */
   clearSessionExpired: () => void;
 }
@@ -87,17 +145,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else if (isValidCredential(apiKey) && isValidCredential(athleteId)) {
         authMethod = 'apiKey';
         isAuthenticated = true;
-      } else {
-        // No valid credentials found - clear any stale route engine data
-        // This handles the case where demo mode was active but app was restarted
-        // (demo mode doesn't persist, but SQLite cache does)
-        const engine = getRouteEngine();
-        if (engine) {
-          engine.clear();
-          if (__DEV__) {
-            console.log('[AuthStore] Cleared route engine - no persisted credentials');
-          }
-        }
       }
 
       set({
@@ -109,6 +156,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isDemoMode: false,
         authMethod,
       });
+      pushCredentialsToEngine();
     } catch {
       set({
         isLoading: false,
@@ -138,6 +186,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       SecureStore.setItemAsync(ATHLETE_ID_STORAGE_KEY, trimmedAthleteId, {
         keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       }),
+      SecureStore.setItemAsync(API_KEY_ATHLETE_STORAGE_KEY, trimmedAthleteId, {
+        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+      }),
       // Clear OAuth token when using API key auth
       SecureStore.deleteItemAsync(ACCESS_TOKEN_STORAGE_KEY),
     ]);
@@ -150,6 +201,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isDemoMode: false,
       authMethod: 'apiKey',
     });
+    pushCredentialsToEngine();
   },
 
   setOAuthCredentials: async (accessToken: string, athleteId: string, athleteName?: string) => {
@@ -173,6 +225,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }),
       // Clear API key when using OAuth
       SecureStore.deleteItemAsync(API_KEY_STORAGE_KEY),
+      SecureStore.deleteItemAsync(API_KEY_ATHLETE_STORAGE_KEY),
     ]);
 
     set({
@@ -185,6 +238,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Set basic athlete info if provided
       athlete: athleteName ? ({ id: trimmedAthleteId, name: athleteName } as Athlete) : null,
     });
+    pushCredentialsToEngine();
 
     // If the user previously opted into push notifications (e.g. restored a
     // backup or logged back in after a logout), re-register the push token so
@@ -224,6 +278,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     await Promise.all([
       SecureStore.deleteItemAsync(API_KEY_STORAGE_KEY),
+      SecureStore.deleteItemAsync(API_KEY_ATHLETE_STORAGE_KEY),
       SecureStore.deleteItemAsync(ATHLETE_ID_STORAGE_KEY),
       SecureStore.deleteItemAsync(ACCESS_TOKEN_STORAGE_KEY),
     ]);
@@ -237,6 +292,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isDemoMode: false,
       authMethod: null,
     });
+    pushCredentialsToEngine();
   },
 
   setAthlete: (athlete: Athlete) => {
@@ -251,6 +307,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authMethod: 'demo',
       athlete: null,
     });
+    // Demo mode has no upstream credential, so the engine must hold none.
+    pushCredentialsToEngine();
+    // The engine usually does not exist yet on first entry; the layout init
+    // effect seeds again once it does.
+    seedDemoEngine();
   },
 
   exitDemoMode: () => {
@@ -262,23 +323,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authMethod: null,
       athlete: null,
     });
+    pushCredentialsToEngine();
   },
 
   setHideDemoBanner: (hide: boolean) => {
     set({ hideDemoBanner: hide });
   },
 
-  handleSessionExpired: async (reason: SessionExpiredReason = 'token_expired') => {
+  handleSessionExpired: async () => {
     const { authMethod, athleteId: currentAthleteId } = get();
-
-    // Only handle session expiry for OAuth auth method
-    if (authMethod !== 'oauth') {
+    if (authMethod !== 'oauth' && authMethod !== 'apiKey') {
       return;
     }
+    const reason: SessionExpiredReason = authMethod === 'apiKey' ? 'key_rejected' : 'signed_out';
 
     // Unregister push token before clearing credentials (fire-and-forget).
     // Without this the worker would keep trying to deliver pushes to a
-    // device whose OAuth session has been revoked.
+    // device whose session the server no longer accepts.
     try {
       if (currentAthleteId) {
         const {
@@ -294,14 +355,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Push token cleanup is best-effort
     }
 
-    // Clear OAuth credentials from storage
+    // The stored API key survives, because the login form has one field and
+    // the re-entry prefills it from here. The athlete id goes with the token, or
+    // `initialize()` reads the pair back and signs the rejected key straight
+    // in again. Only an explicit sign-out deletes the key itself.
     await Promise.all([
       SecureStore.deleteItemAsync(ACCESS_TOKEN_STORAGE_KEY),
       SecureStore.deleteItemAsync(ATHLETE_ID_STORAGE_KEY),
     ]);
 
-    // Update state to logged out with session expired reason
     set({
+      apiKey: null,
       accessToken: null,
       athleteId: null,
       athlete: null,
@@ -309,6 +373,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authMethod: null,
       sessionExpired: reason,
     });
+    pushCredentialsToEngine();
   },
 
   clearSessionExpired: () => {
@@ -330,4 +395,26 @@ export function getStoredCredentials(): {
     athleteId: state.athleteId,
     authMethod: state.authMethod,
   };
+}
+
+// A headless start runs no React tree, so the layout effect that calls
+// `initialize()` never fires and every synchronous credential read returns
+// null. The background task reaches the engine before anything has hydrated,
+// so it asks for the credential here instead of assuming somebody else has.
+// The promise is shared because two rungs of the task can arrive at once, and
+// `isLoading` settling to false is what stops a signed-out or failed read from
+// going back to SecureStore on every call.
+let hydrating: Promise<void> | null = null;
+
+export function ensureCredentialsHydrated(): Promise<void> {
+  if (!useAuthStore.getState().isLoading) return Promise.resolve();
+  if (!hydrating) {
+    hydrating = useAuthStore
+      .getState()
+      .initialize()
+      .finally(() => {
+        hydrating = null;
+      });
+  }
+  return hydrating;
 }

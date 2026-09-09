@@ -16,10 +16,13 @@ const path = require("path");
  */
 
 // Quick-Record stays compiled but out of the gallery until the record surface is
-// ready. Flip to true to register its receiver again.
-const INCLUDE_RECORD_WIDGET = false;
+// ready. The flag is shared with the iOS plugin so one edit moves both, and on
+// this side it drops the standalone receiver and writes the bool the Dashboard
+// widget's large layout reads, which carries a record button over the same deep
+// link.
+const { INCLUDE_RECORD_WIDGET } = require("./widgetFlags");
 
-// Dashboard (all sizes, tap-to-cycle hero), Latest Activity, and the flagged-off
+// Dashboard (all sizes, tap-to-cycle hero), Latest Activity, and the
 // Quick-Record button. Excluded receivers are actively removed so an incremental
 // prebuild can't keep a stale registration.
 const RECEIVERS = [
@@ -45,32 +48,62 @@ function copyDir(src, dest) {
   }
 }
 
-function withWidgetSources(config) {
-  return withDangerousMod(config, [
-    "android",
-    (cfg) => {
-      const androidRoot = cfg.modRequest.platformProjectRoot;
-      const widgetSrc = path.join(cfg.modRequest.projectRoot, "widget", "android");
-      const pkg = cfg.android?.package || "com.veloq.app";
-      const mainSrc = path.join(androidRoot, "app", "src", "main");
+// The Kotlin cannot read the JS constant, so it reaches the natives as a resource.
+// Generated rather than tracked, so there is no second copy to drift.
+function writeFlags(resDir) {
+  const values = path.join(resDir, "values");
+  fs.mkdirSync(values, { recursive: true });
+  fs.writeFileSync(
+    path.join(values, "widget_flags.xml"),
+    `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <bool name="widget_record_enabled">${INCLUDE_RECORD_WIDGET}</bool>
+</resources>
+`
+  );
+}
+
+function writeWidgetSources(projectRoot, androidRoot, pkg) {
+  const widgetSrc = path.join(projectRoot, "widget", "android");
+  const mainSrc = path.join(androidRoot, "app", "src", "main");
 
       copyDir(path.join(widgetSrc, "res"), path.join(mainSrc, "res"));
+      writeFlags(path.join(mainSrc, "res"));
 
       const javaDest = path.join(mainSrc, "java", pkg.replace(/\./g, "/"), "widget");
       fs.mkdirSync(javaDest, { recursive: true });
       const javaSrc = path.join(widgetSrc, "java");
-      for (const file of fs.readdirSync(javaSrc)) {
+      const sources = fs.readdirSync(javaSrc);
+
+      // This directory holds nothing but the generated widget sources, so a
+      // file no longer in widget/android/java is stale and must go. Copying
+      // alone is additive and would keep compiling deleted Kotlin.
+      const kept = new Set(sources);
+      for (const file of fs.readdirSync(javaDest)) {
+        if (!kept.has(file)) fs.rmSync(path.join(javaDest, file), { force: true });
+      }
+
+      for (const file of sources) {
         const templated = fs.readFileSync(path.join(javaSrc, file), "utf8").replace(/__PKG__/g, pkg);
         fs.writeFileSync(path.join(javaDest, file), templated);
       }
+}
+
+function withWidgetSources(config) {
+  return withDangerousMod(config, [
+    "android",
+    (cfg) => {
+      writeWidgetSources(
+        cfg.modRequest.projectRoot,
+        cfg.modRequest.platformProjectRoot,
+        cfg.android?.package || "com.veloq.app"
+      );
       return cfg;
     },
   ]);
 }
 
-function withWidgetReceiver(config) {
-  return withAndroidManifest(config, (mod) => {
-    const app = AndroidConfig.Manifest.getMainApplicationOrThrow(mod.modResults);
+function applyReceivers(app) {
     app.receiver = app.receiver || [];
     for (const { name, include } of RECEIVERS) {
       if (!include) {
@@ -98,6 +131,38 @@ function withWidgetReceiver(config) {
         ],
       });
     }
+}
+
+// The Quick Settings tile rides the same gate as the widget: one record surface
+// off means every record surface off. Removed rather than skipped, so an
+// incremental prebuild cannot keep a stale registration.
+const TILE_SERVICE = ".widget.RecordTileService";
+
+function applyServices(app, include = INCLUDE_RECORD_WIDGET) {
+  app.service = app.service || [];
+  app.service = app.service.filter((s) => s.$?.["android:name"] !== TILE_SERVICE);
+  if (!include) return;
+  app.service.push({
+    $: {
+      "android:name": TILE_SERVICE,
+      "android:exported": "true",
+      "android:icon": "@drawable/widget_record_roundel",
+      "android:label": "@string/app_name",
+      "android:permission": "android.permission.BIND_QUICK_SETTINGS_TILE",
+    },
+    "intent-filter": [
+      {
+        action: [{ $: { "android:name": "android.service.quicksettings.action.QS_TILE" } }],
+      },
+    ],
+  });
+}
+
+function withWidgetReceiver(config) {
+  return withAndroidManifest(config, (mod) => {
+    const app = AndroidConfig.Manifest.getMainApplicationOrThrow(mod.modResults);
+    applyReceivers(app);
+    applyServices(app);
     return mod;
   });
 }
@@ -107,3 +172,8 @@ module.exports = function withAndroidWidget(config) {
   config = withWidgetSources(config);
   return config;
 };
+
+module.exports.INCLUDE_RECORD_WIDGET = INCLUDE_RECORD_WIDGET;
+module.exports.applyReceivers = applyReceivers;
+module.exports.applyServices = applyServices;
+module.exports.writeWidgetSources = writeWidgetSources;

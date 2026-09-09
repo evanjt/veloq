@@ -42,19 +42,19 @@ tags:
       visible:
         id: "section-inline-plot-0"
     commands:
-      - takeScreenshot: "section-swipe-before"
+      - takeScreenshot: "screenshots/section-swipe-before"
       - swipe:
           start: 90%, 68%
           end: 20%, 68%
           duration: 800
       - waitForAnimationToEnd:
           timeout: 1500
-      - takeScreenshot: "section-swipe-revealed"
+      - takeScreenshot: "screenshots/section-swipe-revealed"
       - tapOn:
           text: "Hide"
       - waitForAnimationToEnd:
           timeout: 2000
-      - takeScreenshot: "section-swipe-after-hide"
+      - takeScreenshot: "screenshots/section-swipe-after-hide"
       - assertVisible:
           id: "activity-sections-list"
 

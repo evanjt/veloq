@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
+
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
@@ -12,7 +14,7 @@ import {
   formatPace,
   formatElevation,
 } from '@/shared/format/format';
-import { colors, colorWithOpacity, darkColors, spacing } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
 import type { DataFieldType } from '@/types';
 
 export interface HrZoneInfo {
@@ -132,12 +134,17 @@ function DataFieldGridInner({
             ]}
           >
             <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
               style={[styles.value, { color: zoned ? hrZone.color : themeColors.text }]}
               numberOfLines={1}
             >
               {formatFieldValue(field, metrics, isMetric)}
             </Text>
-            <Text style={[styles.label, { color: themeColors.textMuted }]} numberOfLines={1}>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[styles.label, { color: themeColors.textMuted }]}
+              numberOfLines={1}
+            >
               {zoned
                 ? `${t(`recording.fields.${field}`)} · Z${hrZone.zone}`
                 : t(`recording.fields.${field}`)}
@@ -165,12 +172,12 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   value: {
-    fontSize: 24,
+    fontSize: typography.statsValueLarge.fontSize,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   label: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '400',
     marginTop: 2,
   },

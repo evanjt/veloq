@@ -56,10 +56,6 @@ const RUN_NAMES: Record<SessionType, string[]> = {
   race: ['Race Pace Run', 'Race Simulation', 'Parkrun'],
 };
 
-function pickFromArray<T>(arr: T[], rng: () => number): T {
-  return arr[Math.floor(rng() * arr.length)];
-}
-
 function generateActivityName(
   type: string,
   hour: number,
@@ -569,7 +565,9 @@ function generateActivities(): ApiActivity[] {
   // === STRESS TEST: 20 runs on the same route with fitness-driven times ===
   // Pre-compute all times, then ensure demo-stress-0 (newest) is the fastest
   const stressTemplate = templates[5]; // route-rio-run-1
-  const stressLocation = getRouteLocation(stressTemplate.route!);
+  const stressLocation = stressTemplate.route
+    ? getRouteLocation(stressTemplate.route)
+    : { locality: null, country: null };
   const stressTimes: number[] = [];
   const stressDaysAgo: number[] = [];
   for (let i = 0; i < 20; i++) {
@@ -732,7 +730,9 @@ function generateWellness(): ApiWellness[] {
 const generatedActivities = generateActivities();
 const stableActivities = generateStableTestActivities();
 
-// Stable test activities come first so e2e flows see them as the most recent.
+// `getActivities` sorts by date, so the order here does not survive the read:
+// the generated activities cover the same recent days and interleave with the
+// stable ones. An e2e flow can target a demo-test-N id, never its position.
 export const fixtures = {
   athlete: DEMO_ATHLETE,
   activities: [...stableActivities, ...generatedActivities],

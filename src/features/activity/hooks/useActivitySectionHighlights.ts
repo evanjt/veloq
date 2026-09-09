@@ -2,7 +2,8 @@
  * Batch-fetches section indicators (from materialized table) and route highlights
  * (computed inline) for a list of activity IDs.
  *
- * Section indicators: read from `activity_indicators` table via getActivityIndicators().
+ * Section indicators: read from the `activity_indicators` table through
+ * `getActivityHighlightsBundle`.
  * Route highlights: computed inline from groups + activity_metrics via getActivityRouteHighlights().
  *
  * NOTE: The feed badge counts here are derived from the materialized
@@ -14,9 +15,13 @@
  */
 
 import { useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import type { ActivityHighlightsBundle } from 'veloqrs';
+import { getEngine } from '@/shared/native/engine';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('ActivitySectionHighlights');
 
 export interface ActivitySectionHighlight {
   sectionId: string;
@@ -39,14 +44,67 @@ export interface ActivityRouteHighlight {
 }
 
 /**
+ * Content-addressed identity for the highlight objects.
+ *
+ * `ActivityCard`'s comparator compares both highlight props by identity, and
+ * the engine announces sections, groups and activities separately, five times
+ * during launch alone. Each announcement rebuilds this hook's result, so
+ * without this every highlighted card re-renders with nothing new to draw.
+ * Keying on the rendered fields means equal content is literally the same
+ * object, with no render-phase state to keep in step.
+ */
+const sectionIdentity = new Map<string, { key: string; value: ActivitySectionHighlight[] }>();
+const routeIdentity = new Map<string, { key: string; value: ActivityRouteHighlight }>();
+
+function sectionsKey(highlights: ActivitySectionHighlight[]): string {
+  return highlights
+    .map((h) => `${h.sectionId}|${h.direction}|${h.sectionName}|${h.lapTime}|${h.isPr}|${h.trend}`)
+    .join(';');
+}
+
+function routeKey(highlight: ActivityRouteHighlight): string {
+  const { routeId, routeName, isPr, trend, timeDeltaSeconds } = highlight;
+  return `${routeId}|${routeName}|${isPr}|${trend}|${timeDeltaSeconds}`;
+}
+
+/** The stored object when the content matches, otherwise `value`, now stored. */
+function carry<T>(
+  cache: Map<string, { key: string; value: T }>,
+  id: string,
+  value: T,
+  key: string
+): T {
+  const held = cache.get(id);
+  if (held && held.key === key) return held.value;
+  cache.set(id, { key, value });
+  return value;
+}
+
+/** The cache follows the batch, so a feed that scrolls does not grow it. */
+function prune(ids: string[]): void {
+  const live = new Set(ids);
+  for (const cache of [sectionIdentity, routeIdentity]) {
+    for (const id of cache.keys()) {
+      if (!live.has(id)) cache.delete(id);
+    }
+  }
+}
+
+/**
  * Returns maps of activity ID → section/route highlights for a batch of activities.
  * Re-queries when section data changes (engine subscription).
  */
-export function useActivitySectionHighlights(activityIds: string[]): {
+export function useActivitySectionHighlights(
+  activityIds: string[],
+  preComputedBundle?: ActivityHighlightsBundle
+): {
   sections: Map<string, ActivitySectionHighlight[]>;
   routes: Map<string, ActivityRouteHighlight>;
 } {
   const trigger = useEngineSubscription(['sections', 'groups', 'activities']);
+  // The list arrives as a fresh array every render, so the joined ids are what
+  // the memo can be keyed on.
+  const activityKey = activityIds.join(',');
 
   return useMemo(() => {
     const empty = {
@@ -56,12 +114,15 @@ export function useActivitySectionHighlights(activityIds: string[]): {
 
     if (!isRouteMatchingEnabled() || activityIds.length === 0) return empty;
 
-    const engine = getRouteEngine();
-    if (!engine) return empty;
-
     try {
-      // Single FFI call returns both section indicators and route highlights.
-      const bundle = engine.getActivityHighlightsBundle(activityIds);
+      // Single FFI call returns both section indicators and route highlights,
+      // unless the caller already has the bundle.
+      let bundle = preComputedBundle;
+      if (!bundle) {
+        const engine = getEngine();
+        if (!engine) return empty;
+        bundle = engine.getActivityHighlightsBundle(activityIds);
+      }
       const indicators = bundle.indicators;
       const rawRoutes = bundle.routeHighlights;
       const sectionMap = new Map<string, ActivitySectionHighlight[]>();
@@ -118,17 +179,24 @@ export function useActivitySectionHighlights(activityIds: string[]): {
       if (__DEV__) {
         const prRoutes = rawRoutes.filter((r) => r.isPr);
         const trendRoutes = rawRoutes.filter((r) => r.trend !== 0 && !r.isPr);
-        console.log(
+        log.log(
           `[Indicators] sections: ${sectionMap.size}, routes: ${rawRoutes.length} raw (${prRoutes.length} PR, ${trendRoutes.length} trend)`
         );
         if (prRoutes.length > 0) {
-          console.log(
+          log.log(
             `[Indicators] Route PRs:`,
             prRoutes.map((r) => `${r.activityId.slice(-6)} "${r.routeName}" trend=${r.trend}`)
           );
         }
       }
 
+      prune(activityIds);
+      for (const [id, highlights] of sectionMap) {
+        sectionMap.set(id, carry(sectionIdentity, id, highlights, sectionsKey(highlights)));
+      }
+      for (const [id, highlight] of routeMap) {
+        routeMap.set(id, carry(routeIdentity, id, highlight, routeKey(highlight)));
+      }
       return { sections: sectionMap, routes: routeMap };
     } catch (e) {
       if (__DEV__) {
@@ -137,5 +205,5 @@ export function useActivitySectionHighlights(activityIds: string[]): {
       return empty;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityIds.join(','), trigger]);
+  }, [activityKey, trigger, preComputedBundle]);
 }

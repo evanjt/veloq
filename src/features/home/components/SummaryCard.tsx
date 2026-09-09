@@ -4,8 +4,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  Dimensions,
   InteractionManager,
+  useWindowDimensions,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,6 +15,9 @@ import { colors, darkColors, spacing, layout, typography, shadows, opacity } fro
 import { SummaryCardSparkline, type ScrubValues } from './SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('SummaryCard');
 
 /**
  * Supporting metric displayed in the bottom row of SummaryCard
@@ -58,9 +61,6 @@ export interface SummaryCardProps {
 
   // Supporting metrics (max 4)
   supportingMetrics: SupportingMetric[];
-
-  // Optional insight line rendered right-aligned in top row
-  insightLine?: React.ReactNode;
 }
 
 /**
@@ -95,14 +95,14 @@ export const SummaryCard = React.memo(function SummaryCard({
   showSparkline,
   showSparklineLabels = false,
   supportingMetrics,
-  insightLine,
 }: SummaryCardProps) {
+  const { width: windowWidth } = useWindowDimensions();
   if (__DEV__) {
     const start = performance.now();
     // eslint-disable-next-line react-hooks/rules-of-hooks
     React.useEffect(() => {
       const dur = performance.now() - start;
-      if (dur > 20) console.log(`  📊 SummaryCard render: ${dur.toFixed(0)}ms`);
+      if (dur > 20) log.log(`  📊 SummaryCard render: ${dur.toFixed(0)}ms`);
     });
   }
   const { isDark, colors: themeColors } = useTheme();
@@ -124,16 +124,14 @@ export const SummaryCard = React.memo(function SummaryCard({
 
   // Determine which sparkline to show - deferred until after first frame
   const isHrvMode = heroMetric === 'hrv';
-  const fitnessSparklineVisible =
-    sparklinesReady &&
-    showSparkline &&
-    !isHrvMode &&
-    fitnessData &&
-    fitnessData.length > 0 &&
-    formData &&
-    formData.length > 0;
-  const hrvSparklineVisible =
-    sparklinesReady && showSparkline && isHrvMode && hrvData && hrvData.length >= 2;
+  // The series a sparkline needs are carried on the flag rather than checked
+  // again at the call site, so the plot cannot be reached without them.
+  const showAny = sparklinesReady && showSparkline;
+  const fitnessSparkline =
+    showAny && !isHrvMode && fitnessData?.length && formData?.length
+      ? { fitness: fitnessData, form: formData }
+      : null;
+  const hrvSparkline = showAny && isHrvMode && hrvData && hrvData.length >= 2 ? hrvData : null;
 
   // During scrub, override the hero display
   const displayValue =
@@ -162,7 +160,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   const currentRhr = scrubValues?.rhr ?? rhrData?.[hrvLastIdx] ?? null;
 
   // Compute explicit sparkline width (screen minus card margins and padding)
-  const sparklineWidth = Dimensions.get('window').width - layout.screenPadding * 2 - spacing.md * 2;
+  const sparklineWidth = windowWidth - layout.screenPadding * 2 - spacing.md * 2;
 
   return (
     <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
@@ -214,7 +212,7 @@ export const SummaryCard = React.memo(function SummaryCard({
           disabled={!onHeroPress}
           activeOpacity={onHeroPress ? 0.7 : 1}
         >
-          {fitnessSparklineVisible ? (
+          {fitnessSparkline ? (
             <View>
               <View style={styles.heroValueRow}>
                 <Text style={[styles.heroValueFixed, { color: colors.fitnessBlue }]}>
@@ -234,7 +232,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                 </Text>
               </View>
             </View>
-          ) : hrvSparklineVisible ? (
+          ) : hrvSparkline ? (
             <View style={styles.heroValueRow}>
               <Text style={[styles.heroValueFixed, { color: colors.chartPink }]}>{currentHrv}</Text>
               <Text style={[styles.heroLabel, { color: colors.chartPink }]}>HRV</Text>
@@ -268,17 +266,15 @@ export const SummaryCard = React.memo(function SummaryCard({
             </View>
           )}
         </TouchableOpacity>
-
-        {insightLine && <View style={styles.insightSlot}>{insightLine}</View>}
       </View>
 
       {/* Sparkline row - fitness or HRV depending on hero metric */}
-      {fitnessSparklineVisible && (
+      {fitnessSparkline && (
         <View testID="summary-card-sparkline" style={styles.sparklineRow}>
           <SummaryCardSparkline
-            fitnessData={fitnessData!}
+            fitnessData={fitnessSparkline.fitness}
             fatigueData={fatigueData}
-            formData={formData!}
+            formData={fitnessSparkline.form}
             width={sparklineWidth}
             showLabels={showSparklineLabels}
             onScrub={showSparklineLabels ? undefined : handleScrub}
@@ -286,10 +282,10 @@ export const SummaryCard = React.memo(function SummaryCard({
           />
         </View>
       )}
-      {hrvSparklineVisible && (
+      {hrvSparkline && (
         <View style={styles.sparklineRow}>
           <SummaryCardHRVSparkline
-            hrvData={hrvData!}
+            hrvData={hrvSparkline}
             rhrData={rhrData}
             width={sparklineWidth}
             showLabels={showSparklineLabels}
@@ -395,7 +391,7 @@ const styles = StyleSheet.create({
   profilePhoto: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
     backgroundColor: colors.divider,
     justifyContent: 'center',
@@ -413,7 +409,7 @@ const styles = StyleSheet.create({
     right: 0,
     width: 18,
     height: 18,
-    borderRadius: 9,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
@@ -443,23 +439,17 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   heroSubText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
   },
-  // Insight slot - fills remaining space in topRow, right-aligned
-  insightSlot: {
-    flex: 1,
-    alignItems: 'flex-end',
-    justifyContent: 'flex-start',
-  },
   heroValue: {
-    fontSize: 24,
+    fontSize: typography.statsValueLarge.fontSize,
     fontWeight: '700',
     lineHeight: 28,
     letterSpacing: -0.5,
   },
   heroValueFixed: {
-    fontSize: 24,
+    fontSize: typography.statsValueLarge.fontSize,
     fontWeight: '700',
     lineHeight: 28,
     letterSpacing: -0.5,
@@ -467,7 +457,7 @@ const styles = StyleSheet.create({
     textAlign: 'right' as const,
   },
   secondaryValueFixed: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     lineHeight: 20,
     letterSpacing: -0.3,
@@ -476,13 +466,13 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   secondaryLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
     flexShrink: 1,
   },
   heroTrend: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     marginLeft: 1,
   },
   heroLabel: {
@@ -497,7 +487,7 @@ const styles = StyleSheet.create({
   zoneDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
   },
 
   // Sparkline - own row, full width

@@ -7,9 +7,9 @@ use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::{GroupSummary, PersistentRouteEngine, codec, get_route_word};
+use super::{GroupSummary, PersistentEngine, codec, get_route_word};
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     // ========================================================================
     // Loading
     // ========================================================================
@@ -92,14 +92,14 @@ impl PersistentRouteEngine {
         let groups_count = self.groups.len();
         let matches_count = self.activity_matches.len();
         log::info!(
-            "tracematch: load_groups: {} groups, {} activity_matches entries",
+            "veloqrs: load_groups: {} groups, {} activity_matches entries",
             groups_count,
             matches_count
         );
 
         if !self.groups.is_empty() && self.activity_matches.is_empty() {
             log::info!(
-                "tracematch: Forcing groups recompute: groups exist but activity_matches is empty"
+                "veloqrs: Forcing groups recompute: groups exist but activity_matches is empty"
             );
             self.groups_dirty = true;
         } else {
@@ -132,7 +132,7 @@ impl PersistentRouteEngine {
             // Reload matches to include the new entries
             self.load_activity_matches()?;
             log::info!(
-                "tracematch: Backfilled {} missing activity_matches entries from group member lists",
+                "veloqrs: Backfilled {} missing activity_matches entries from group member lists",
                 backfilled
             );
         }
@@ -164,7 +164,7 @@ impl PersistentRouteEngine {
 
             if !has_any_nonzero {
                 log::info!(
-                    "tracematch: [migration] All non-representative match percentages are 0.0, \
+                    "veloqrs: [migration] All non-representative match percentages are 0.0, \
                      running one-time AMD recalculation"
                 );
                 self.recalculate_match_percentages_from_tracks();
@@ -178,7 +178,7 @@ impl PersistentRouteEngine {
                     }
                     Err(e) => {
                         log::error!(
-                            "tracematch: [migration] Failed to persist match percentages: {}",
+                            "veloqrs: [migration] Failed to persist match percentages: {}",
                             e
                         );
                     }
@@ -227,7 +227,7 @@ impl PersistentRouteEngine {
 
         if !orphaned_ids.is_empty() {
             log::info!(
-                "tracematch: [PersistentEngine] load_route_names: Cleaning up {} orphaned route names",
+                "veloqrs: [PersistentEngine] load_route_names: Cleaning up {} orphaned route names",
                 orphaned_ids.len()
             );
             let mut delete_stmt = self
@@ -239,17 +239,21 @@ impl PersistentRouteEngine {
             }
         }
 
-        // Migration: Generate names for groups that don't have names yet
-        let groups_without_names: Vec<(String, String)> = self
+        // Migration: Generate names for groups that don't have names yet.
+        // Sorted by id, because the counter below hands out numbers in this
+        // order and an unordered walk gives the same route a different number
+        // on the next run.
+        let mut groups_without_names: Vec<(String, String)> = self
             .groups
             .iter()
             .filter(|g| !names.contains_key(&g.group_id))
             .map(|g| (g.group_id.clone(), g.sport_type.clone()))
             .collect();
+        groups_without_names.sort();
 
         if !groups_without_names.is_empty() {
             log::info!(
-                "tracematch: [PersistentEngine] Migrating {} routes without names",
+                "veloqrs: [PersistentEngine] Migrating {} routes without names",
                 groups_without_names.len()
             );
 
@@ -266,7 +270,7 @@ impl PersistentRouteEngine {
                         taken_numbers.insert(num);
                     }
                 }
-                // Old pattern: "{Sport} Route N" - still recognize for numbering
+                // Old pattern: "{Sport} Route N" - still recognise for numbering
                 for sport in [
                     "Ride",
                     "Run",
@@ -335,6 +339,10 @@ impl PersistentRouteEngine {
                 }
             }
 
+            // The walk over `names` above is unordered, and every step below
+            // hands out numbers positionally, so canonicalise once here.
+            renames.sort();
+
             if !renames.is_empty() {
                 let mut used: std::collections::HashSet<u32> = std::collections::HashSet::new();
                 for name in names.values() {
@@ -351,8 +359,10 @@ impl PersistentRouteEngine {
                     .db
                     .prepare("UPDATE route_names SET custom_name = ? WHERE route_id = ?")?;
 
-                // Group by number to resolve conflicts
-                let mut by_num: HashMap<u32, Vec<String>> = HashMap::new();
+                // Group by number to resolve conflicts. Keyed order, because the
+                // loop below assigns final numbers as it walks.
+                let mut by_num: std::collections::BTreeMap<u32, Vec<String>> =
+                    std::collections::BTreeMap::new();
                 for (id, num) in &renames {
                     by_num.entry(*num).or_default().push(id.clone());
                 }
@@ -371,7 +381,7 @@ impl PersistentRouteEngine {
                             (id.as_str(), count)
                         })
                         .collect();
-                    sorted_ids.sort_by(|a, b| b.1.cmp(&a.1));
+                    sorted_ids.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
 
                     for (i, (id, _)) in sorted_ids.iter().enumerate() {
                         let final_num = if i == 0 && !used.contains(num) {
@@ -394,7 +404,7 @@ impl PersistentRouteEngine {
                 }
 
                 log::info!(
-                    "tracematch: [PersistentEngine] Stripped sport prefixes from {} route names",
+                    "veloqrs: [PersistentEngine] Stripped sport prefixes from {} route names",
                     renames.len()
                 );
             }
@@ -413,6 +423,61 @@ impl PersistentRouteEngine {
     // ========================================================================
     // Route Groups
     // ========================================================================
+
+    /// How tightly rides group into routes, and the two settings rows behind
+    /// it, in one place.
+    ///
+    /// The grouping is recomputed only when `groups_dirty` is set, and until
+    /// this existed that flag was set by the activity ingestion paths alone.
+    /// So the rule could change and the groups it made would stand until an
+    /// unrelated import happened to dirty them. Guarded on equality for the
+    /// same reason `set_section_config` is: re-sending the value already held
+    /// is not a reason to regroup a whole library.
+    pub fn set_match_strictness(&mut self, min_match_pct: f64, endpoint_threshold: f64) {
+        if self.match_config.min_match_percentage == min_match_pct
+            && self.match_config.endpoint_threshold == endpoint_threshold
+        {
+            return;
+        }
+        self.match_config.min_match_percentage = min_match_pct;
+        self.match_config.endpoint_threshold = endpoint_threshold;
+        // Logged rather than propagated, like the detector config's own
+        // persist: the in-memory rule has already changed, and the loader
+        // falls back to the default when a key is absent.
+        for (key, value) in [
+            (
+                crate::persistence::settings_keys::MATCH_MIN_MATCH_PCT,
+                min_match_pct,
+            ),
+            (
+                crate::persistence::settings_keys::MATCH_ENDPOINT_THRESHOLD,
+                endpoint_threshold,
+            ),
+        ] {
+            if let Err(e) = self.set_setting(key, &value.to_string()) {
+                log::warn!(
+                    "veloqrs: [set_match_strictness] persist {} failed: {}",
+                    key,
+                    e
+                );
+            }
+        }
+        self.groups_dirty = true;
+    }
+
+    /// The strictness in force, as `(min_match_percentage, endpoint_threshold)`.
+    pub fn match_strictness(&self) -> (f64, f64) {
+        (
+            self.match_config.min_match_percentage,
+            self.match_config.endpoint_threshold,
+        )
+    }
+
+    /// Whether the grouping is waiting to be recomputed.
+    #[doc(hidden)]
+    pub fn groups_are_dirty(&self) -> bool {
+        self.groups_dirty
+    }
 
     /// Get route groups, recomputing if dirty.
     pub fn get_groups(&mut self) -> &[RouteGroup] {
@@ -462,8 +527,8 @@ impl PersistentRouteEngine {
         // Take the incremental path when we have existing groups AND the
         // new-to-total ratio is small. `group_incremental` is O(N × M) vs
         // the full path's O(N²). For 550 activities with 3 new, that's
-        // ~10× less work - this was the dominant slice of scenario E
-        // before the change (4s of the 9s wall-clock).
+        // ~10× less work, and the full path dominates the wall clock
+        // without it (4s of 9s on a full resync).
         let group_start = Instant::now();
 
         let already_grouped: std::collections::HashSet<&str> = self
@@ -488,7 +553,7 @@ impl PersistentRouteEngine {
         let use_incremental =
             !self.groups.is_empty() && new_count > 0 && (new_count as f64) < (total as f64 * 0.9);
 
-        // Materialize owned Vecs for tracematch (needs &[RouteSignature]).
+        // Materialise owned Vecs for tracematch (needs &[RouteSignature]).
         // With Arc this is one clone per sig instead of two (cache-hit + partition).
         let result = if use_incremental {
             let new_sigs: Vec<RouteSignature> = arc_sigs
@@ -506,16 +571,12 @@ impl PersistentRouteEngine {
                 new_sigs.len(),
                 existing_sigs.len()
             );
-            let groups = tracematch::group_incremental(
+            tracematch::group_incremental_with_matches(
                 &new_sigs,
                 &self.groups,
                 &existing_sigs,
                 &self.match_config,
-            );
-            tracematch::GroupingResult {
-                groups,
-                activity_matches: std::collections::HashMap::new(),
-            }
+            )
         } else {
             let signatures: Vec<RouteSignature> =
                 arc_sigs.iter().map(|a| a.as_ref().clone()).collect();
@@ -533,10 +594,33 @@ impl PersistentRouteEngine {
             group_ms
         );
 
-        self.groups = result.groups;
-        if !result.activity_matches.is_empty() {
-            self.activity_matches = result.activity_matches;
+        // Remap the freshly-grouped catalogue onto stable assign-once ids. The
+        // grouping assigned each group the Union-Find root as its id (which the
+        // full and incremental paths pick differently, re-keying to the min member
+        // on a resync); the registry carries the prior stable id and the user's
+        // representative onto the matching group by member overlap instead.
+        let prior_groups = std::mem::take(&mut self.groups);
+        let (remapped, id_map) = self.route_identity_remap(prior_groups, result.groups);
+        self.groups = remapped;
+        // A regroup rebuilds the in-memory groups from geometry; the names
+        // live in `route_names` and ride back onto the ids that survived.
+        let names = self.get_all_route_names();
+        for group in &mut self.groups {
+            group.custom_name = names.get(&group.group_id).cloned();
         }
+        // Re-key the grouping's match info (which carries each member's
+        // direction) by the stable ids the remap assigned, or the direction
+        // lookup in route highlights would miss the new id and default every
+        // traversal to forward. The incremental path reports only the groups
+        // that took a new member, so merge over what is already held and then
+        // drop the ids the grouping no longer emits.
+        for (old_id, matches) in result.activity_matches {
+            let id = id_map.get(&old_id).cloned().unwrap_or(old_id);
+            self.activity_matches.insert(id, matches);
+        }
+        let live: std::collections::HashSet<String> =
+            self.groups.iter().map(|g| g.group_id.clone()).collect();
+        self.activity_matches.retain(|id, _| live.contains(id));
 
         // Phase 3: Recalculate match percentages using ORIGINAL GPS tracks (not simplified signatures)
         // This captures actual GPS variation that was smoothed out by Douglas-Peucker
@@ -567,16 +651,18 @@ impl PersistentRouteEngine {
 
         // Phase 4: Save to database
         let save_start = Instant::now();
+        // `save_groups` writes the route registry blob in its own transaction
+        // (mint counter + seniority), atomic with the groups it describes.
         if let Err(e) = self.save_groups() {
-            log::error!("tracematch: Failed to save groups to database: {}", e);
+            log::error!("veloqrs: Failed to save groups to database: {}", e);
         }
         let save_ms = save_start.elapsed().as_millis();
         self.groups_dirty = false;
 
-        // Recompute materialized PR/trend indicators with updated route groups
+        // Recompute materialised PR/trend indicators with updated route groups
         if let Err(e) = self.recompute_activity_indicators() {
             log::warn!(
-                "tracematch: [recompute_groups] Indicator recomputation failed: {}",
+                "veloqrs: [recompute_groups] Indicator recomputation failed: {}",
                 e
             );
         }
@@ -602,7 +688,7 @@ impl PersistentRouteEngine {
         let func_start = Instant::now();
 
         log::info!(
-            "tracematch: [PERF] recalculate_match_percentages: {} groups, parallel AMD via rayon",
+            "veloqrs: [PERF] recalculate_match_percentages: {} groups, parallel AMD via rayon",
             self.groups.len()
         );
 
@@ -644,8 +730,8 @@ impl PersistentRouteEngine {
 
         // Second pass: recalculate match percentages using AMD
         // PERF: CPU bound - O(n*m) distance calculations per pair
-        // OPTIMIZATION 1: Skip self-comparisons (activity == representative)
-        // OPTIMIZATION 2: Parallelize with rayon
+        // OPTIMISATION 1: Skip self-comparisons (activity == representative)
+        // OPTIMISATION 2: Parallelize with rayon
         let calc_start = Instant::now();
 
         let mut work_items: Vec<(String, String, Arc<Vec<GpsPoint>>, Arc<Vec<GpsPoint>>)> =
@@ -716,7 +802,7 @@ impl PersistentRouteEngine {
             let matches = self.activity_matches.entry(group_id).or_default();
             if let Some(match_info) = matches.iter_mut().find(|m| m.activity_id == activity_id) {
                 log::debug!(
-                    "tracematch: recalc match % for {}: {:.1}% -> {:.1}% (AMD: {:.1}m, {} vs {} points)",
+                    "veloqrs: recalc match % for {}: {:.1}% -> {:.1}% (AMD: {:.1}m, {} vs {} points)",
                     activity_id,
                     match_info.match_percentage,
                     new_percentage,
@@ -768,14 +854,14 @@ impl PersistentRouteEngine {
         }
         if updated > 0 {
             log::info!(
-                "tracematch: Persisted {} non-zero match percentages to DB",
+                "veloqrs: Persisted {} non-zero match percentages to DB",
                 updated
             );
         }
         Ok(())
     }
 
-    fn save_groups(&self) -> SqlResult<()> {
+    pub(super) fn save_groups(&self) -> SqlResult<()> {
         // The DELETE + rebuild below must be atomic: a failure mid-way would
         // otherwise permanently drop every route group and activity match.
         self.db.execute_batch("BEGIN IMMEDIATE")?;
@@ -824,7 +910,7 @@ impl PersistentRouteEngine {
 
             if !orphaned_ids.is_empty() {
                 log::info!(
-                    "tracematch: [PersistentEngine] Cleaning up {} orphaned route names",
+                    "veloqrs: [PersistentEngine] Cleaning up {} orphaned route names",
                     orphaned_ids.len()
                 );
                 let mut delete_stmt = self
@@ -855,10 +941,18 @@ impl PersistentRouteEngine {
 
             let route_word = get_route_word();
 
-            // Collect which numbers are already taken for each sport type (from user-renamed routes)
-            // Only count names that follow the auto-generated pattern (e.g., "Run Route 1")
-            let mut taken_numbers: HashMap<String, std::collections::HashSet<u32>> = HashMap::new();
+            // Which numbers are already spoken for. Names are not per sport, so
+            // one set, and the old "Run Route 1" shape still counts against it
+            // until the loader's migration has rewritten those rows.
+            let mut taken_numbers: std::collections::HashSet<u32> =
+                std::collections::HashSet::new();
             for name in existing_names.values() {
+                let prefix = format!("{} ", route_word);
+                if name.starts_with(&prefix) {
+                    if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                        taken_numbers.insert(num);
+                    }
+                }
                 for sport in [
                     "Ride",
                     "Run",
@@ -868,13 +962,10 @@ impl PersistentRouteEngine {
                     "VirtualRide",
                     "VirtualRun",
                 ] {
-                    let prefix = format!("{} {} ", sport, route_word);
-                    if name.starts_with(&prefix) {
-                        if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                            taken_numbers
-                                .entry(sport.to_string())
-                                .or_default()
-                                .insert(num);
+                    let old_prefix = format!("{} {} ", sport, route_word);
+                    if name.starts_with(&old_prefix) {
+                        if let Ok(num) = name[old_prefix.len()..].parse::<u32>() {
+                            taken_numbers.insert(num);
                         }
                     }
                 }
@@ -893,17 +984,19 @@ impl PersistentRouteEngine {
                 "INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)",
             )?;
 
-            // Sort groups by sport type and activity count (most activities first)
-            // This ensures consistent, predictable numbering
+            // Sport, then most activities first. The id closes the ordering so
+            // two groups tied on both do not swap numbers between runs, matching
+            // the section-side comparator.
             let mut sorted_groups: Vec<&tracematch::RouteGroup> = self.groups.iter().collect();
             sorted_groups.sort_by(|a, b| {
                 a.sport_type
                     .cmp(&b.sport_type)
                     .then_with(|| b.activity_ids.len().cmp(&a.activity_ids.len()))
+                    .then_with(|| a.group_id.cmp(&b.group_id))
             });
 
-            // Track next available number for each sport type (for sequential assignment)
-            let mut sport_counters: HashMap<String, u32> = HashMap::new();
+            // Track the next available number. Numbering is global, not per sport.
+            let mut counter: u32 = 0;
 
             for group in sorted_groups {
                 let activity_ids_json = serde_json::to_string(&group.activity_ids)
@@ -924,20 +1017,17 @@ impl PersistentRouteEngine {
 
                 // Generate unique name if route doesn't already have one
                 if !existing_names.contains_key(&group.group_id) {
-                    let taken = taken_numbers.entry(group.sport_type.clone()).or_default();
-                    let counter = sport_counters.entry(group.sport_type.clone()).or_insert(0);
-
                     // Find next available number (skip taken numbers)
                     loop {
-                        *counter += 1;
-                        if !taken.contains(counter) {
+                        counter += 1;
+                        if !taken_numbers.contains(&counter) {
                             break;
                         }
                     }
 
-                    let new_name = format!("{} {} {}", group.sport_type, route_word, counter);
+                    let new_name = format!("{} {}", route_word, counter);
                     name_stmt.execute(params![group.group_id, new_name])?;
-                    taken.insert(*counter); // Mark this number as taken
+                    taken_numbers.insert(counter); // Mark this number as taken
                 }
             }
 
@@ -984,10 +1074,21 @@ impl PersistentRouteEngine {
                 }
                 if restored > 0 {
                     log::info!(
-                        "tracematch: Restored {} excluded flags after save_groups",
+                        "veloqrs: Restored {} excluded flags after save_groups",
                         restored
                     );
                 }
+            }
+
+            // Write the route registry blob in THIS transaction so it commits
+            // atomically with the groups.
+            if let Some(blob) = self.route_identity_blob() {
+                self.db.execute(
+                    "INSERT INTO identity_state (key, blob, updated_at)
+                     VALUES (?, ?, datetime('now'))
+                     ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
+                    params![super::route_identity::ROUTE_IDENTITY_KEY, blob],
+                )?;
             }
 
             Ok(())
@@ -1024,7 +1125,7 @@ impl PersistentRouteEngine {
             Ok(s) => s,
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] Failed to prepare group summaries query: {}",
+                    "veloqrs: [PersistentEngine] Failed to prepare group summaries query: {}",
                     e
                 );
                 return Vec::new();
@@ -1111,14 +1212,18 @@ impl PersistentRouteEngine {
             })
             .unwrap_or_default();
 
-        // Populate sport_types from activity_metrics lookup
+        // Every sport that has traversed the ground, from the same authority a
+        // section reads: `sport_of` prefers `activity_metadata`, written on
+        // ingest, and falls back to `activity_metrics`, which fills only once
+        // metrics load. Reading metrics alone left a route's sport icons empty
+        // on a cold start while the section list beside it had them.
         let results: Vec<GroupSummary> = raw_results
             .into_iter()
             .map(|(mut summary, activity_ids)| {
                 let mut types: std::collections::HashSet<String> = std::collections::HashSet::new();
                 for id in &activity_ids {
-                    if let Some(m) = self.activity_metrics.get(id) {
-                        types.insert(m.sport_type.clone());
+                    if let Some(sport) = self.sport_of(id) {
+                        types.insert(sport.to_string());
                     }
                 }
                 let mut sport_types: Vec<String> = types.into_iter().collect();
@@ -1129,7 +1234,7 @@ impl PersistentRouteEngine {
             .collect();
 
         log::info!(
-            "tracematch: [PersistentEngine] get_group_summaries returned {} summaries",
+            "veloqrs: [PersistentEngine] get_group_summaries returned {} summaries",
             results.len()
         );
         results
@@ -1141,7 +1246,7 @@ impl PersistentRouteEngine {
         // Check LRU cache first
         if let Some(group) = self.group_cache.get(&group_id.to_string()) {
             log::debug!(
-                "tracematch: [PersistentEngine] get_group_by_id cache hit for {}",
+                "veloqrs: [PersistentEngine] get_group_by_id cache hit for {}",
                 group_id
             );
             return Some(group.clone());
@@ -1212,12 +1317,12 @@ impl PersistentRouteEngine {
         if let Some(ref group) = result {
             self.group_cache.put(group_id.to_string(), group.clone());
             log::info!(
-                "tracematch: [PersistentEngine] get_group_by_id found and cached group {}",
+                "veloqrs: [PersistentEngine] get_group_by_id found and cached group {}",
                 group_id
             );
         } else {
             log::info!(
-                "tracematch: [PersistentEngine] get_group_by_id: group {} not found",
+                "veloqrs: [PersistentEngine] get_group_by_id: group {} not found",
                 group_id
             );
         }
@@ -1266,7 +1371,7 @@ impl PersistentRouteEngine {
             Ok(s) => s,
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] Failed to prepare batch signature query: {}",
+                    "veloqrs: [PersistentEngine] Failed to prepare batch signature query: {}",
                     e
                 );
                 return HashMap::new();
@@ -1551,11 +1656,218 @@ impl PersistentRouteEngine {
         self.recalculate_match_percentages_from_tracks();
         if let Err(e) = self.persist_match_percentages() {
             log::error!(
-                "tracematch: Failed to persist match percentages after representative change: {}",
+                "veloqrs: Failed to persist match percentages after representative change: {}",
                 e
             );
         }
 
         Ok(())
+    }
+}
+
+impl PersistentEngine {
+    /// The routes each section's activities are grouped into, from the
+    /// junction join, for a batch of sections in one statement. `DISTINCT`
+    /// because the junction is keyed per pass, and an exclusion on either
+    /// table keeps its row out. A section on no route is absent from the map.
+    pub fn route_ids_for_sections(&self, section_ids: &[String]) -> HashMap<String, Vec<String>> {
+        let mut out: HashMap<String, Vec<String>> = HashMap::new();
+        if section_ids.is_empty() {
+            return out;
+        }
+        let placeholders = vec!["?"; section_ids.len()].join(", ");
+        let sql = format!(
+            "SELECT DISTINCT sa.section_id, am.route_id
+             FROM section_activities sa
+             JOIN activity_matches am ON am.activity_id = sa.activity_id
+             WHERE sa.section_id IN ({placeholders}) AND sa.excluded = 0 AND am.excluded = 0
+             ORDER BY sa.section_id, am.route_id"
+        );
+        let Ok(mut stmt) = self.db.prepare(&sql) else {
+            return out;
+        };
+        let rows = stmt.query_map(rusqlite::params_from_iter(section_ids.iter()), |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        });
+        if let Ok(rows) = rows {
+            for (section_id, route_id) in rows.filter_map(|r| r.ok()) {
+                out.entry(section_id).or_default().push(route_id);
+            }
+        }
+        out
+    }
+
+    /// The visible sections a route's activities pass through, from the same join.
+    pub fn section_ids_for_route(&self, route_id: &str) -> Vec<String> {
+        let sql = format!(
+            "SELECT DISTINCT sa.section_id
+             FROM activity_matches am
+             JOIN section_activities sa ON sa.activity_id = am.activity_id
+             JOIN sections s ON s.id = sa.section_id
+             WHERE am.route_id = ? AND am.excluded = 0 AND sa.excluded = 0 AND {}
+             ORDER BY sa.section_id",
+            Self::VISIBLE_FILTER
+        );
+        let Ok(mut stmt) = self.db.prepare(&sql) else {
+            return Vec::new();
+        };
+        stmt.query_map(params![route_id], |row| row.get(0))
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rusqlite::params;
+
+    use super::PersistentEngine;
+    use tracematch::GpsPoint;
+
+    /// Two sections over three activities, four routes, with one exclusion on
+    /// each side of the join: `a3`'s pass through `s2` and `a2`'s match on `r4`.
+    fn engine_with_routes_and_sections() -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        for id in ["a1", "a2", "a3"] {
+            engine
+                .add_activity(
+                    id.to_string(),
+                    vec![GpsPoint::new(46.2, 7.3), GpsPoint::new(46.21, 7.31)],
+                    "Ride".to_string(),
+                )
+                .unwrap();
+        }
+        for sid in ["s1", "s2"] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                        distance_meters, is_user_defined, version, created_at,
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                     VALUES (?, 'auto', ?, 'Ride', '[]', 400.0, 0, 1, '2026-01-01T00:00:00Z',
+                        46.2, 46.21, 7.3, 7.31)",
+                    params![sid, sid],
+                )
+                .unwrap();
+        }
+        for (sid, aid, excluded) in [
+            ("s1", "a1", 0),
+            ("s1", "a2", 0),
+            ("s2", "a2", 0),
+            ("s2", "a3", 1),
+        ] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_activities (section_id, activity_id, direction,
+                        start_index, end_index, distance_meters, excluded)
+                     VALUES (?, ?, 'same', 0, 2, 400.0, ?)",
+                    params![sid, aid, excluded],
+                )
+                .unwrap();
+        }
+        for (rid, aid, excluded) in [
+            ("r1", "a1", 0),
+            ("r2", "a1", 0),
+            ("r2", "a2", 0),
+            ("r3", "a3", 0),
+            ("r4", "a2", 1),
+        ] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activity_matches (route_id, activity_id, match_percentage,
+                        direction, excluded)
+                     VALUES (?, ?, 100.0, 'same', ?)",
+                    params![rid, aid, excluded],
+                )
+                .unwrap();
+        }
+        // The rows above stand in for a saved regroup; a dirty flag would
+        // have `get_groups` rewrite them from the activities' empty signatures.
+        engine.groups_dirty = false;
+        engine
+    }
+
+    #[test]
+    fn a_section_read_carries_the_routes_its_activities_are_grouped_into() {
+        let engine = engine_with_routes_and_sections();
+
+        let s1 = engine.get_section("s1").unwrap();
+        assert_eq!(s1.route_ids, Some(vec!["r1".to_string(), "r2".to_string()]));
+
+        let s2 = engine.get_section("s2").unwrap();
+        assert_eq!(s2.route_ids, Some(vec!["r2".to_string()]));
+    }
+
+    #[test]
+    fn the_section_list_carries_route_ids_on_every_row() {
+        let engine = engine_with_routes_and_sections();
+
+        let mut sections = engine.get_sections_by_type(None);
+        sections.sort_by(|a, b| a.id.cmp(&b.id));
+
+        let routes: Vec<Option<Vec<String>>> = sections.into_iter().map(|s| s.route_ids).collect();
+        assert_eq!(
+            routes,
+            vec![
+                Some(vec!["r1".to_string(), "r2".to_string()]),
+                Some(vec!["r2".to_string()]),
+            ]
+        );
+    }
+
+    #[test]
+    fn the_batch_read_names_each_section_once_per_route_and_honours_both_exclusions() {
+        let engine = engine_with_routes_and_sections();
+
+        let routes = engine.route_ids_for_sections(&["s1".to_string(), "s2".to_string()]);
+
+        assert_eq!(routes["s1"], vec!["r1", "r2"]);
+        assert_eq!(routes["s2"], vec!["r2"]);
+        assert!(engine.route_ids_for_sections(&[]).is_empty());
+    }
+
+    #[test]
+    fn a_route_read_names_the_visible_sections_its_activities_pass_through() {
+        let engine = engine_with_routes_and_sections();
+
+        assert_eq!(engine.section_ids_for_route("r2"), vec!["s1", "s2"]);
+        assert_eq!(engine.section_ids_for_route("r1"), vec!["s1"]);
+        assert!(
+            engine.section_ids_for_route("r3").is_empty(),
+            "a3's pass is excluded"
+        );
+        assert!(
+            engine.section_ids_for_route("r4").is_empty(),
+            "a2's match is excluded"
+        );
+        assert!(engine.section_ids_for_route("r9").is_empty());
+
+        engine
+            .db
+            .execute("UPDATE sections SET disabled = 1 WHERE id = 's2'", [])
+            .unwrap();
+        assert_eq!(engine.section_ids_for_route("r2"), vec!["s1"]);
+    }
+
+    #[test]
+    fn the_route_bundle_carries_its_section_list() {
+        let mut engine = engine_with_routes_and_sections();
+
+        let bundle = engine.route_detail_data("r2", None, 0);
+
+        assert_eq!(bundle.section_ids, vec!["s1", "s2"]);
+    }
+
+    #[test]
+    fn a_section_no_route_covers_carries_an_empty_list_not_none() {
+        let engine = engine_with_routes_and_sections();
+        engine
+            .db
+            .execute("DELETE FROM activity_matches", [])
+            .unwrap();
+
+        assert_eq!(engine.get_section("s1").unwrap().route_ids, Some(vec![]));
     }
 }

@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
+import android.text.format.DateUtils
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
@@ -172,7 +173,35 @@ object WidgetRenderer {
     val chartW = (chartWidthDp(minWidthDp, 300) - 8) / 2
     bindTrendChart(context, v, R.id.med_sparkline, snap, heroKey, chartW.coerceAtLeast(120), 48)
     bindCycleTap(context, v, R.id.med_hero, widgetId)
+    bindUpdatedAt(context, v, R.id.med_updated, snap)
     return v
+  }
+
+  /**
+   * When the app last wrote this snapshot, as the system phrases it.
+   *
+   * The widget is stale exactly for the athlete whose app has not run, and the
+   * numbers on it give no clue how old they are. The line is computed at render
+   * rather than carried in the payload: a pre-formatted "just now" written at
+   * save time would still say "just now" a day later.
+   *
+   * A snapshot from before the field carries zero and the line is hidden, which
+   * says nothing rather than saying 1970.
+   */
+  private fun bindUpdatedAt(context: Context, v: RemoteViews, id: Int, snap: WidgetSnapshot?) {
+    val seconds = snap?.generatedAt ?: 0L
+    if (seconds <= 0L) {
+      v.setViewVisibility(id, View.GONE)
+      return
+    }
+    val label =
+      DateUtils.getRelativeTimeSpanString(
+        seconds * 1000L,
+        System.currentTimeMillis(),
+        DateUtils.MINUTE_IN_MILLIS,
+        DateUtils.FORMAT_ABBREV_RELATIVE)
+    v.setViewVisibility(id, View.VISIBLE)
+    v.setTextViewText(id, label)
   }
 
   private class RowIds(val row: Int, val label: Int, val value: Int, val trend: Int)
@@ -278,7 +307,16 @@ object WidgetRenderer {
     v.setTextViewText(R.id.large_rhr_value, value(snap?.rhr))
     bindTrend(context, v, R.id.large_rhr_trend, snap?.rhr)
 
-    v.setOnClickPendingIntent(R.id.large_record, recordIntent(context))
+    // One gate with the standalone Quick-Record widget: INCLUDE_RECORD_WIDGET in
+    // with-android-widget.js writes this bool and drops that receiver together.
+    // On since 2026-09-08, so the branch is the off switch rather than the state.
+    if (context.resources.getBoolean(R.bool.widget_record_enabled)) {
+      v.setViewVisibility(R.id.large_record, View.VISIBLE)
+      v.setOnClickPendingIntent(R.id.large_record, recordIntent(context, snap))
+    } else {
+      v.setViewVisibility(R.id.large_record, View.GONE)
+    }
+    bindUpdatedAt(context, v, R.id.large_updated, snap)
     return v
   }
 
@@ -334,14 +372,29 @@ object WidgetRenderer {
 
   // ---- intents ------------------------------------------------------------------
 
-  fun recordIntent(context: Context): PendingIntent = deepLink(context, "veloq://record", 0)
+  /**
+   * A tap on record starts the ride, so it takes the deep link the snapshot
+   * carries for the most recent sport. The picker is the fallback and nothing
+   * else: with no sport known there is no recording screen to open.
+   */
+  const val RECORD_PICKER_URL = "veloq://record"
+
+  fun recordUrl(snap: WidgetSnapshot?): String =
+    snap?.recordShortcuts?.firstOrNull()?.url ?: RECORD_PICKER_URL
+
+  fun recordIntent(context: Context, snap: WidgetSnapshot?): PendingIntent =
+    deepLink(context, recordUrl(snap), 0)
 
   private fun deepLink(context: Context, url: String, requestCode: Int): PendingIntent {
     val intent =
       Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
         `package` = context.packageName
       }
-    return PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_IMMUTABLE)
+    // The record URL follows the last sport, so a cached intent for one request
+    // code has to be rewritten rather than handed back with its old data.
+    return PendingIntent.getActivity(
+      context, requestCode, intent,
+      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
   }
 
   private fun bindCycleTap(context: Context, v: RemoteViews, id: Int, widgetId: Int) {

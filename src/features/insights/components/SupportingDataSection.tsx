@@ -6,7 +6,7 @@ import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, shadows } from '@/theme';
+import { colors, darkColors, spacing, opacity, shadows, ink, layout, typography } from '@/theme';
 import { DataPointRow } from './DataPointRow';
 import { formatDuration } from '@/shared/format/format';
 import type { InsightSupportingData } from '@/types';
@@ -85,14 +85,15 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
   const { isDark } = useTheme();
   const { t } = useTranslation();
 
-  const hasDataPoints = data.dataPoints && data.dataPoints.length > 0;
-  const hasSparkline = data.sparklineData && data.sparklineData.length >= 2;
-  const hasComparison = data.comparisonData != null;
-  const hasSections = data.sections && data.sections.length > 0;
+  const dataPoints = data.dataPoints?.length ? data.dataPoints : null;
+  const sparkline =
+    data.sparklineData && data.sparklineData.length >= 2 ? data.sparklineData : null;
+  const comparison = data.comparisonData ?? null;
+  const sections = data.sections?.length ? data.sections : null;
 
   const sparklineTrend = useMemo(
-    () => (hasSparkline ? computeSparklineTrend(data.sparklineData!) : null),
-    [hasSparkline, data.sparklineData]
+    () => (sparkline ? computeSparklineTrend(sparkline) : null),
+    [sparkline]
   );
 
   const trendColor = useMemo(() => {
@@ -105,12 +106,12 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
   return (
     <View style={styles.container}>
       {/* Data Points */}
-      {hasDataPoints
-        ? data.dataPoints!.map((dp, i) => <DataPointRow key={`dp-${i}`} dataPoint={dp} />)
+      {dataPoints
+        ? dataPoints.map((dp, i) => <DataPointRow key={`dp-${i}`} dataPoint={dp} />)
         : null}
 
       {/* Sparkline - Skia Canvas with gradient fill */}
-      {hasSparkline ? (
+      {sparkline ? (
         <View style={[styles.sparklineCard, isDark && styles.sparklineCardDark]}>
           <View style={styles.sparklineHeader}>
             {data.sparklineLabel ? (
@@ -137,18 +138,18 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
               </View>
             ) : null}
           </View>
-          <SparklineChart data={data.sparklineData!} color={trendColor} />
+          <SparklineChart data={sparkline} color={trendColor} />
         </View>
       ) : null}
 
       {/* Comparison Card */}
-      {hasComparison ? (
+      {comparison ? (
         <View
           style={[
             styles.comparisonCard,
             isDark && styles.comparisonCardDark,
-            data.comparisonData!.change.context === 'good' && styles.comparisonPositive,
-            data.comparisonData!.change.context === 'concern' && styles.comparisonNegative,
+            comparison.change.context === 'good' && styles.comparisonPositive,
+            comparison.change.context === 'concern' && styles.comparisonNegative,
           ]}
         >
           <View style={styles.comparisonColumns}>
@@ -157,11 +158,11 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
                 {t('insights.current', 'Current')}
               </Text>
               <Text style={[styles.comparisonValue, isDark && styles.comparisonValueDark]}>
-                {String(data.comparisonData!.current.value)}
-                {data.comparisonData!.current.unit ? ` ${data.comparisonData!.current.unit}` : ''}
+                {String(comparison.current.value)}
+                {comparison.current.unit ? ` ${comparison.current.unit}` : ''}
               </Text>
               <Text style={[styles.comparisonLabel, isDark && styles.comparisonLabelDark]}>
-                {data.comparisonData!.current.label}
+                {comparison.current.label}
               </Text>
             </View>
             <View style={styles.comparisonDivider} />
@@ -170,28 +171,28 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
                 {t('insights.previous', 'Previous')}
               </Text>
               <Text style={[styles.comparisonValue, isDark && styles.comparisonValueDark]}>
-                {String(data.comparisonData!.previous.value)}
-                {data.comparisonData!.previous.unit ? ` ${data.comparisonData!.previous.unit}` : ''}
+                {String(comparison.previous.value)}
+                {comparison.previous.unit ? ` ${comparison.previous.unit}` : ''}
               </Text>
               <Text style={[styles.comparisonLabel, isDark && styles.comparisonLabelDark]}>
-                {data.comparisonData!.previous.label}
+                {comparison.previous.label}
               </Text>
             </View>
           </View>
           <View style={styles.comparisonChange}>
             <MaterialCommunityIcons
               name={
-                data.comparisonData!.change.context === 'good'
+                comparison.change.context === 'good'
                   ? 'arrow-up'
-                  : data.comparisonData!.change.context === 'concern'
+                  : comparison.change.context === 'concern'
                     ? 'arrow-down'
                     : ('minus' as never)
               }
               size={16}
               color={
-                data.comparisonData!.change.context === 'good'
+                comparison.change.context === 'good'
                   ? colors.success
-                  : data.comparisonData!.change.context === 'concern'
+                  : comparison.change.context === 'concern'
                     ? colors.error
                     : isDark
                       ? darkColors.textSecondary
@@ -201,21 +202,21 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
             <Text
               style={[
                 styles.comparisonChangeText,
-                data.comparisonData!.change.context === 'good' && styles.changePositive,
-                data.comparisonData!.change.context === 'concern' && styles.changeNegative,
+                comparison.change.context === 'good' && styles.changePositive,
+                comparison.change.context === 'concern' && styles.changeNegative,
               ]}
             >
-              {String(data.comparisonData!.change.value)}
-              {data.comparisonData!.change.unit ? ` ${data.comparisonData!.change.unit}` : ''}
+              {String(comparison.change.value)}
+              {comparison.change.unit ? ` ${comparison.change.unit}` : ''}
             </Text>
           </View>
         </View>
       ) : null}
 
       {/* Section Links */}
-      {hasSections ? (
+      {sections ? (
         <View style={styles.sectionsContainer}>
-          {data.sections!.map((section) => (
+          {sections.map((section) => (
             <Pressable
               key={section.sectionId}
               style={[styles.sectionCard, isDark && styles.sectionCardDark]}
@@ -304,7 +305,7 @@ const styles = StyleSheet.create({
   // Sparkline
   sparklineCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
     marginTop: spacing.sm,
   },
@@ -318,7 +319,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   sparklineLabel: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   sparklineLabelDark: {
@@ -330,7 +331,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   sparklineChange: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -342,7 +343,7 @@ const styles = StyleSheet.create({
   },
   // Comparison
   comparisonCard: {
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     marginTop: spacing.sm,
     backgroundColor: opacity.overlay.subtle,
@@ -371,7 +372,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.sm,
   },
   comparisonHeader: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -382,7 +383,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   comparisonValue: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -390,7 +391,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   comparisonLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -405,7 +406,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   comparisonChangeText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
   },
@@ -423,8 +424,8 @@ const styles = StyleSheet.create({
   sectionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    backgroundColor: ink.white,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
@@ -444,7 +445,7 @@ const styles = StyleSheet.create({
   },
   sectionName: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
     marginRight: spacing.sm,
@@ -458,7 +459,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   sectionBestTime: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -466,7 +467,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   sectionTraversals: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   sectionTraversalsDark: {

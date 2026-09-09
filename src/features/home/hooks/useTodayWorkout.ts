@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/shared/format/format';
 import { CACHE } from '@/shared/app/constants';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineBody } from '@/shared/native/engineBodies';
+import { readCalendarEvents } from '@/features/home/lib/calendarEvents';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { CalendarEvent } from '@/types';
 
@@ -17,18 +19,29 @@ export function useTodayWorkout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const today = formatLocalDate(new Date());
-  const tomorrow = formatLocalDate(new Date(Date.now() + 86400000));
+  // Calendar arithmetic, not 24 hours. A spring-forward day is 23 hours long,
+  // so adding a fixed day skips a date in the hour before midnight.
+  const tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrow = formatLocalDate(tomorrowDate);
+
+  const queryKey = queryKeys.calendar.events(today);
+
+  // A planned workout can be added or cancelled upstream at any time, so the
+  // window is re-requested on every mount rather than only when empty.
+  useEngineBody(
+    false,
+    () => getEngine()?.syncCalendarEvents(today, tomorrow),
+    queryKey,
+    isAuthenticated
+  );
 
   const query = useQuery<CalendarEvent[]>({
-    queryKey: queryKeys.calendar.events(today),
-    queryFn: () =>
-      intervalsApi.getCalendarEvents({
-        oldest: today,
-        newest: tomorrow,
-        category: 'WORKOUT',
-      }),
+    queryKey,
+    queryFn: () => readCalendarEvents(today, tomorrow).filter((e) => e.category === 'WORKOUT'),
     enabled: isAuthenticated,
-    staleTime: CACHE.SHORT, // 5 min - planned workouts don't change often
+    // SQLite is the source, so a sync decides freshness, not a clock.
+    staleTime: Infinity,
     gcTime: CACHE.HOUR, // 1 hour
   });
 

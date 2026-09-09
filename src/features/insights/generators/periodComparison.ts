@@ -1,17 +1,14 @@
-import type { InsightMethodology, InsightSupportingData } from '../types';
-import type { Insight, PeriodStats, TFunc } from '../types';
+import type {
+  InsightMethodology,
+  InsightSupportingData,
+  Insight,
+  PeriodStats,
+  TFunc,
+} from '../types';
 import { makeInsight } from '../lib/insightBuilder';
-import { INSIGHTS_CONFIG } from '../lib/config';
+import { INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
 import { insightIcon } from '@/theme';
-
-/** Format seconds to compact duration string (e.g., "1h30" or "45m"). */
-export function formatDurationCompact(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds <= 0) return '0m';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return m > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
-  return `${m}m`;
-}
+import { formatDurationCompact } from '@/shared/format/format';
 
 export function generatePeriodComparisonInsights(
   currentPeriod: PeriodStats | null,
@@ -50,6 +47,10 @@ export function generatePeriodComparisonInsights(
         current: formatDurationCompact(cur.totalDuration),
         previous: formatDurationCompact(prev.totalDuration),
       });
+
+  // Both weeks' activities are what the comparison rests on: a week against
+  // one other week is a claim about however many rides made the two.
+  const periodConfidence = confidenceFrom('period_comparison', cur.count + prev.count);
 
   const upKey = useTss ? 'insights.weeklyLoadUp' : 'insights.weeklyVolumeUp';
   const downKey = useTss ? 'insights.weeklyLoadDown' : 'insights.weeklyVolumeDown';
@@ -92,7 +93,6 @@ export function generatePeriodComparisonInsights(
   const periodMeta = {
     sourceTimestamp: now,
     comparisonKind: 'self' as const,
-    specificity: { hasNumber: true, hasPlace: false, hasDate: true },
   };
 
   const insights: Insight[] = [];
@@ -106,8 +106,9 @@ export function generatePeriodComparisonInsights(
         iconColor: insightIcon.positive,
         title: t(upKey, { percent }),
         body,
-        navigationTarget: '/routes?tab=routes',
+        navigationTarget: '/insights?tab=routes',
         timestamp: now,
+        confidence: periodConfidence,
         methodology: comparisonMethodology,
         supportingData: comparisonSupportingData,
         meta: periodMeta,
@@ -123,8 +124,9 @@ export function generatePeriodComparisonInsights(
         iconColor: insightIcon.caution,
         title: t(downKey, { percent }),
         body,
-        navigationTarget: '/routes?tab=routes',
+        navigationTarget: '/insights?tab=routes',
         timestamp: now,
+        confidence: periodConfidence,
         methodology: comparisonMethodology,
         supportingData: comparisonSupportingData,
         meta: periodMeta,
@@ -163,12 +165,14 @@ function generateLastWeekVsAverageInsight(
       icon: ratio > 0 ? 'trending-up' : 'trending-down',
       iconColor: ratio > 0 ? insightIcon.positive : insightIcon.caution,
       title: t('insights.weeklyLoad.title', { percent, direction }),
-      navigationTarget: '/routes?tab=routes',
+      navigationTarget: '/insights?tab=routes',
       timestamp: now,
+      // A week against a chronic average: the week's activities plus the ones
+      // the average was built from.
+      confidence: confidenceFrom('period_comparison', prev.count + chronic.count),
       meta: {
         sourceTimestamp: now,
         comparisonKind: 'self',
-        specificity: { hasNumber: true, hasPlace: false, hasDate: true },
       },
       supportingData: {
         comparisonData: {

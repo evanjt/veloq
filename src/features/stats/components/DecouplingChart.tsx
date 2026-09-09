@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   decouplingValue: {
-    fontSize: 28,
+    fontSize: typography.screenTitle.fontSize,
     fontWeight: '700',
   },
   statusRow: {

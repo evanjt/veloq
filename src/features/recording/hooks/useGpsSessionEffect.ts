@@ -3,39 +3,35 @@ import { Alert, Linking } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
+import { ensureLocationWatch } from '@/features/recording/lib/recordingSession';
 import { debug } from '@/shared/debug/debug';
 import { GPS_WARNING_MS, GPS_ALERT_MS } from '../lib/constants';
 import type { RecordingMode, RecordingStatus } from '../types';
 
 const log = debug.create('RecordingScreen');
 
-type LocationTracking = {
-  startTracking: () => Promise<void>;
-  stopTracking: () => Promise<void>;
-  hasPermission: boolean;
-  requestPermission: () => Promise<boolean>;
-  lastFixAtRef: { current: number | null };
-};
-
-// Start location tracking for GPS mode. Keyed on the session being active
-// (recording or paused) rather than `status` directly, so auto-pause does not
-// tear down and restart the location watcher. Points received while paused are
-// dropped at ingestion by the recording store's addGpsPoint guard.
+/**
+ * The screen's half of the GPS session: the permission prompt and the
+ * signal-loss warnings. The watch itself belongs to the recording session, so
+ * nothing here starts or stops it and leaving the screen does not end the ride.
+ */
 export function useGpsSessionEffect({
   mode,
   status,
-  location,
+  hasPermission,
+  requestPermission,
   setGpsWarning,
   onDiscard,
 }: {
   mode: RecordingMode;
   status: RecordingStatus;
-  location: LocationTracking;
+  hasPermission: boolean;
+  requestPermission: () => Promise<boolean>;
   setGpsWarning: (warning: string | null) => void;
   onDiscard: () => void;
 }) {
   const { t } = useTranslation();
-  const { startTracking, stopTracking, hasPermission, requestPermission, lastFixAtRef } = location;
 
   const gpsSessionActive = mode === 'gps' && (status === 'recording' || status === 'paused');
 
@@ -43,17 +39,18 @@ export function useGpsSessionEffect({
   // missing FIRST fix; this covers the signal dropping later (tunnel, canyon,
   // indoors). Cleared automatically by useGpsWarningClearEffect on regain.
   useEffect(() => {
-    if (!gpsSessionActive) return;
+    if (!gpsSessionActive) return undefined;
     const interval = setInterval(() => {
-      const last = lastFixAtRef.current;
+      const last = useRecordingLiveStore.getState().lastFixAt;
       if (last != null && Date.now() - last > GPS_WARNING_MS) {
         setGpsWarning(t('recording.gpsWaiting'));
       }
     }, 5000);
     return () => clearInterval(interval);
   }, [gpsSessionActive]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
-    if (!gpsSessionActive) return;
+    if (!gpsSessionActive) return undefined;
     let cancelled = false;
     let gpsWarningTimer: ReturnType<typeof setTimeout> | null = null;
     let gpsAlertTimer: ReturnType<typeof setTimeout> | null = null;
@@ -72,7 +69,9 @@ export function useGpsSessionEffect({
             return;
           }
         }
-        await startTracking();
+        // The session starts the watch itself when the permission was already
+        // granted; this covers the run where the rider has just granted it.
+        await ensureLocationWatch();
 
         // Stage 1: Warning banner after 20s without GPS
         if (!cancelled) {
@@ -134,7 +133,6 @@ export function useGpsSessionEffect({
         clearTimeout(gpsAlertTimer);
         gpsAlertTimer = null;
       }
-      stopTracking();
     };
   }, [gpsSessionActive]); // eslint-disable-line react-hooks/exhaustive-deps
 }

@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   statValue: {
-    fontSize: 28,
+    fontSize: typography.screenTitle.fontSize,
     fontWeight: '700',
   },
   statSubtext: {
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   secondaryValue: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
   },
   secondaryHint: {

@@ -3,4 +3,4 @@ v0.3.7
 • Deteção de secções redesenhada com três métodos à escolha: Corredor, Grelha de densidade e Grafo de fluxo
 • Cada método tem os seus próprios controlos e uma pré-visualização ao vivo
 • Botão de reanálise destaca-se quando as definições mudam
-• Corrigido: páginas de secção vazias — atividades correspondentes e histórico voltam a aparecer
+• Corrigido: páginas de secção vazias, atividades correspondentes e histórico voltam a aparecer

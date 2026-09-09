@@ -1,10 +1,7 @@
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-export const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.42); // Canonical detail hero map height
 
 export const styles = StyleSheet.create({
   container: {
@@ -48,7 +45,7 @@ export const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -59,7 +56,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 24,
+    borderRadius: layout.borderRadiusLg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     marginTop: spacing.lg,
@@ -76,7 +73,7 @@ export const styles = StyleSheet.create({
   },
   exportGpxButtonText: {
     color: colors.textOnPrimary,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600' as const,
   },
   // Content section below hero

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, StyleSheet, Dimensions, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -12,13 +12,10 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { colors, darkColors, spacing } from '@/theme';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { brand, colors, darkColors, spacing, layout, typography } from '@/theme';
 
 // Gesture thresholds
 const SWIPE_THRESHOLD_RATIO = 0.2; // 20% of screen width
-const SWIPE_THRESHOLD = SCREEN_WIDTH * SWIPE_THRESHOLD_RATIO;
 const VELOCITY_THRESHOLD = 400; // pixels per second
 
 // Timing config for smooth, non-bouncy animation
@@ -66,16 +63,18 @@ export function SwipeableTabs({
   lazy = false,
 }: SwipeableTabsProps) {
   const tabCount = tabs.length;
-  const maxOffset = -SCREEN_WIDTH * (tabCount - 1);
+  const { width: screenWidth } = useWindowDimensions();
+  const swipeThreshold = screenWidth * SWIPE_THRESHOLD_RATIO;
+  const maxOffset = -screenWidth * (tabCount - 1);
 
   // Track which tabs have been visited (for lazy rendering)
   const visitedRef = useRef<Set<number>>(new Set([0])); // First tab always visited
 
   // Find initial tab index
-  const getTabIndex = (key: string) => tabs.findIndex((t) => t.key === key);
+  const getTabIndex = useCallback((key: string) => tabs.findIndex((t) => t.key === key), [tabs]);
   const initialIndex = Math.max(0, getTabIndex(activeTab));
 
-  const translateX = useSharedValue(-SCREEN_WIDTH * initialIndex);
+  const translateX = useSharedValue(-screenWidth * initialIndex);
   const indicatorProgress = useSharedValue(initialIndex);
   // Track active tab index in shared value for worklet access
   const activeTabIndex = useSharedValue(initialIndex);
@@ -98,15 +97,16 @@ export function SwipeableTabs({
     visitedRef.current.add(currentIndex);
   }
 
-  // Sync animation with activeTab state changes (e.g., from tab press)
+  // Sync animation with activeTab state changes (e.g., from tab press), and
+  // with the window, since the page offset is a multiple of its width.
   useEffect(() => {
     const targetIndex = getTabIndex(activeTab);
     if (targetIndex < 0) return;
-    const targetX = -SCREEN_WIDTH * targetIndex;
+    const targetX = -screenWidth * targetIndex;
     activeTabIndex.value = targetIndex;
     translateX.value = withTiming(targetX, TIMING_CONFIG);
     indicatorProgress.value = withTiming(targetIndex, TIMING_CONFIG);
-  }, [activeTab, tabs, translateX, indicatorProgress, activeTabIndex]);
+  }, [activeTab, getTabIndex, screenWidth, translateX, indicatorProgress, activeTabIndex]);
 
   // Memoize pan gesture to prevent recreation on every render
   const panGesture = useMemo(
@@ -116,7 +116,7 @@ export function SwipeableTabs({
         .activeOffsetX([-GESTURE_ACTIVATION_OFFSET, GESTURE_ACTIVATION_OFFSET])
         .onUpdate((event) => {
           'worklet';
-          const currentOffset = -SCREEN_WIDTH * activeTabIndex.value;
+          const currentOffset = -screenWidth * activeTabIndex.value;
           let newTranslateX = currentOffset + event.translationX;
           // Clamp between maxOffset and 0
           newTranslateX = Math.max(maxOffset, Math.min(0, newTranslateX));
@@ -127,13 +127,13 @@ export function SwipeableTabs({
         .onEnd((event) => {
           'worklet';
           const velocity = event.velocityX;
-          const currentOffset = -SCREEN_WIDTH * activeTabIndex.value;
+          const currentOffset = -screenWidth * activeTabIndex.value;
           const distance = translateX.value - currentOffset;
 
           let targetTabIndex = activeTabIndex.value;
 
           // Determine target based on swipe distance or velocity
-          if (Math.abs(distance) > SWIPE_THRESHOLD || Math.abs(velocity) > VELOCITY_THRESHOLD) {
+          if (Math.abs(distance) > swipeThreshold || Math.abs(velocity) > VELOCITY_THRESHOLD) {
             if (distance < 0 && velocity <= 0) {
               // Swiped left -> go to next tab
               targetTabIndex = Math.min(tabCount - 1, activeTabIndex.value + 1);
@@ -143,7 +143,7 @@ export function SwipeableTabs({
             }
           }
 
-          const targetX = -SCREEN_WIDTH * targetTabIndex;
+          const targetX = -screenWidth * targetTabIndex;
           translateX.value = withTiming(targetX, TIMING_CONFIG);
           indicatorProgress.value = withTiming(targetTabIndex, TIMING_CONFIG);
 
@@ -161,6 +161,8 @@ export function SwipeableTabs({
       tabs,
       tabCount,
       maxOffset,
+      screenWidth,
+      swipeThreshold,
       gestureEnabled,
     ]
   );
@@ -171,7 +173,7 @@ export function SwipeableTabs({
 
   // Animated underline indicator - works with N tabs
   const indicatorStyle = useAnimatedStyle(() => {
-    const tabWidth = (SCREEN_WIDTH - spacing.md * 2) / tabCount;
+    const tabWidth = (screenWidth - spacing.md * 2) / tabCount;
     return {
       transform: [{ translateX: indicatorProgress.value * tabWidth }],
       width: tabWidth,
@@ -270,10 +272,10 @@ export function SwipeableTabs({
       {/* Swipeable Content - N pages */}
       <GestureDetector gesture={panGesture}>
         <Animated.View
-          style={[styles.contentContainer, { width: SCREEN_WIDTH * tabCount }, contentStyle]}
+          style={[styles.contentContainer, { width: screenWidth * tabCount }, contentStyle]}
         >
           {React.Children.toArray(children).map((child, index) => (
-            <View key={index} style={styles.page}>
+            <View key={index} style={{ width: screenWidth }}>
               {lazy && !visitedRef.current.has(index) ? null : child}
             </View>
           ))}
@@ -309,7 +311,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   tabText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
@@ -322,7 +324,7 @@ const styles = StyleSheet.create({
   },
   tabBadge: {
     backgroundColor: colors.gray200,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusSm,
     paddingHorizontal: 6,
     paddingVertical: 2,
     minWidth: 22,
@@ -335,16 +337,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   tabBadgePr: {
-    backgroundColor: '#D4AF37',
+    backgroundColor: brand.gold,
   },
   tabBadgePositive: {
-    backgroundColor: '#22C55E',
+    backgroundColor: colors.success,
   },
   tabBadgeNegative: {
-    backgroundColor: '#71717A',
+    backgroundColor: colors.textMuted,
   },
   tabBadgeText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
   },
@@ -364,8 +366,5 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     // Width is set dynamically based on tab count
-  },
-  page: {
-    width: SCREEN_WIDTH,
   },
 });

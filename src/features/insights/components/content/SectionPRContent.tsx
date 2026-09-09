@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
+import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { useSectionPerformances } from '@/features/routes/hooks/useSectionPerformances';
 import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { Shimmer } from '@/shared/ui/Shimmer';
@@ -11,7 +11,7 @@ import { SectionInsightMap } from './SectionInsightMap';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration, formatShortDate } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity, brand } from '@/theme';
+import { colors, darkColors, spacing, opacity, brand, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     alignItems: 'center',
     gap: spacing.xs,
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
   },
@@ -211,19 +211,19 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   prTime: {
-    fontSize: 32,
+    fontSize: typography.headlineNumber.fontSize,
     fontWeight: '700',
     color: ACCENT_COLOR,
     fontVariant: ['tabular-nums'],
   },
   deltaText: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: ACCENT_COLOR,
     fontVariant: ['tabular-nums'],
   },
   previousText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     fontVariant: ['tabular-nums'],
   },
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   },
   contextChip: {
     backgroundColor: opacity.overlay.light,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.medium,
   },
   contextText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   },
   shimmerCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
   },
   shimmerCardDark: {

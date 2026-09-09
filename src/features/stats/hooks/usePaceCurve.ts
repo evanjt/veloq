@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { intervalsApi } from '@/api';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineBody } from '@/shared/native/engineBodies';
+import { parsePaceCurveBody } from '@/features/stats/lib/curveBodies';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { PaceCurve } from '@/types';
 
@@ -17,14 +18,29 @@ interface UsePaceCurveOptions {
 export function usePaceCurve(options: UsePaceCurveOptions = {}) {
   const { sport = 'Run', days = 42, gap = false, enabled = true } = options;
 
-  const result = useQuery<PaceCurve>({
-    queryKey: queryKeys.charts.paceCurve.bySport(sport, days, gap),
-    queryFn: () => intervalsApi.getPaceCurve({ sport, days, gap }),
+  const queryKey = queryKeys.charts.paceCurve.bySport(sport, days, gap);
+
+  // The query is the only reader of the stored body. `null` is "never
+  // fetched", which is the cue to ask Rust for it; the empty curve is what the
+  // chart draws in the meantime.
+  const query = useQuery<PaceCurve | null>({
+    queryKey,
+    queryFn: () => {
+      const stored = getEngine()?.getPaceCurveBody(sport, days, gap);
+      return stored ? parsePaceCurveBody(stored, sport) : null;
+    },
     enabled,
-    staleTime: 1000 * 60 * 15, // 15 minutes - curves change infrequently
-    retry: 1,
+    // SQLite is the source, so a sync decides freshness, not a clock.
+    staleTime: Infinity,
     placeholderData: keepPreviousData,
   });
+  useEngineBody(
+    query.data !== null,
+    () => getEngine()?.syncPaceCurve(sport, days, gap),
+    queryKey,
+    enabled && query.data !== undefined
+  );
+  const result = { ...query, data: query.data ?? emptyPaceCurve(sport) };
 
   // Snapshot critical speed for trend tracking (idempotent: INSERT OR REPLACE by date+sport)
   const lastSnapshotted = useRef<string | null>(null);
@@ -34,13 +50,18 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
     const key = `${sport}:${cs}`;
     if (lastSnapshotted.current === key) return;
     lastSnapshotted.current = key;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return;
     const todayTs = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
     engine.savePaceSnapshot(sport, cs, result.data?.dPrime, result.data?.r2, todayTs);
   }, [result.data?.criticalSpeed, sport, result.data?.dPrime, result.data?.r2]);
 
   return result;
+}
+
+/** Rendered as "no data yet" rather than an error while the fetch is in flight. */
+function emptyPaceCurve(sport: string): PaceCurve {
+  return { type: 'pace', sport, distances: [], times: [], pace: [] };
 }
 
 // Standard distances for running pace curve (in meters)
@@ -132,27 +153,6 @@ export function getTimeAtDistance(
   return curve.times[index] ?? null;
 }
 
-/**
- * Convert m/s to min:sec per km (for display)
- */
-export function paceToMinPerKm(metersPerSecond: number): {
-  minutes: number;
-  seconds: number;
-} {
-  if (metersPerSecond <= 0) return { minutes: 0, seconds: 0 };
-  const secondsPerKm = 1000 / metersPerSecond;
-  let minutes = Math.floor(secondsPerKm / 60);
-  let seconds = Math.round(secondsPerKm % 60);
-  if (seconds === 60) {
-    minutes += 1;
-    seconds = 0;
-  }
-  return { minutes, seconds };
-}
-
-/**
- * Convert m/s to min:sec per 100m (for swimming)
- */
 export function paceToMinPer100m(metersPerSecond: number): {
   minutes: number;
   seconds: number;

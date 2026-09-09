@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { ScreenSafeAreaView } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import type { ParseKeys } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
@@ -26,7 +26,7 @@ interface LicenseEntry {
 
 interface LicenseSection {
   title: string;
-  titleKey?: string;
+  titleKey?: ParseKeys;
   description?: string;
   entries: LicenseEntry[];
 }
@@ -51,9 +51,9 @@ const LICENSE_DATA: LicenseSection[] = [
     titleKey: 'licenses.sectionMapsGraphics',
     entries: [
       {
-        name: 'MapLibre React Native',
-        license: 'MIT',
-        repository: 'https://github.com/maplibre/maplibre-react-native',
+        name: 'MapLibre GL JS',
+        license: 'BSD-3-Clause',
+        repository: 'https://github.com/maplibre/maplibre-gl-js',
       },
       {
         name: '@mapbox/polyline',
@@ -69,11 +69,6 @@ const LICENSE_DATA: LicenseSection[] = [
         name: 'React Native SVG',
         license: 'MIT',
         repository: 'https://github.com/software-mansion/react-native-svg',
-      },
-      {
-        name: 'Victory Native',
-        license: 'MIT',
-        repository: 'https://github.com/FormidableLabs/victory',
       },
     ],
   },
@@ -141,9 +136,7 @@ const LICENSE_DATA: LicenseSection[] = [
     title: 'Networking & Utilities',
     titleKey: 'licenses.sectionNetworkingUtilities',
     entries: [
-      { name: 'Axios', license: 'MIT', repository: 'https://github.com/axios/axios' },
       { name: 'i18next', license: 'MIT', repository: 'https://github.com/i18next/i18next' },
-      { name: 'JSZip', license: 'MIT', repository: 'https://github.com/Stuk/jszip' },
     ],
   },
   {
@@ -351,7 +344,7 @@ function CollapsibleSection({ section, isDark, testID }: CollapsibleSectionProps
       <TouchableOpacity style={styles.sectionHeader} onPress={toggleExpanded} activeOpacity={0.7}>
         <View style={styles.sectionTitleRow}>
           <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
-            {section.titleKey ? t(section.titleKey as any) : section.title}
+            {section.titleKey ? t(section.titleKey) : section.title}
           </Text>
           <Text style={[styles.entryCount, { color: themeColors.textSecondary }]}>
             {section.entries.length}
@@ -456,23 +449,8 @@ export default function LicensesScreen() {
   const shared = createSharedStyles(isDark);
 
   return (
-    <ScreenSafeAreaView testID="licenses-screen" style={shared.container}>
+    <ScreenSafeAreaView hasNativeHeader testID="licenses-screen" style={shared.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Header with back button */}
-        <View style={shared.header}>
-          <TouchableOpacity
-            testID="nav-back-button"
-            onPress={() => router.back()}
-            style={shared.backButton}
-            accessibilityLabel={t('common.back')}
-            accessibilityRole="button"
-          >
-            <MaterialCommunityIcons name="arrow-left" size={24} color={themeColors.text} />
-          </TouchableOpacity>
-          <Text style={shared.headerTitle}>{t('licenses.title')}</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
         {/* Intro text */}
         <View style={styles.introContainer}>
           <Text style={[styles.introText, { color: themeColors.textSecondary }]}>
@@ -504,9 +482,6 @@ export default function LicensesScreen() {
 const styles = {
   content: {
     paddingBottom: spacing.xl,
-  },
-  headerSpacer: {
-    width: 32,
   },
   introContainer: {
     paddingHorizontal: layout.screenPadding,
@@ -543,7 +518,7 @@ const styles = {
     backgroundColor: 'rgba(128, 128, 128, 0.2)',
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
     overflow: 'hidden' as const,
   },
   sectionContent: {
@@ -587,7 +562,7 @@ const styles = {
     marginTop: spacing.sm,
     padding: spacing.sm,
     backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
   }),
   licenseText: {
     ...typography.micro,

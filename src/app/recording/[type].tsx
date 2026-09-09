@@ -1,12 +1,14 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { getRecordingMode } from '@/features/recording/lib/recordingModes';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
 import { DataFieldGrid } from '@/features/recording/components/DataFieldGrid';
@@ -20,24 +22,28 @@ import { StatusSlot } from '@/features/recording/components/StatusSlot';
 import { UnlockTrack } from '@/features/recording/components/UnlockTrack';
 import { IndoorDisplay } from '@/features/recording/components/IndoorDisplay';
 import { useTimer } from '@/features/recording/hooks/useTimer';
-import { useLocationTracking } from '@/features/recording/hooks/useLocationTracking';
+import { useLocationPermission } from '@/features/recording/hooks/useLocationPermission';
 import { useRecordingMetrics } from '@/features/recording/hooks/useRecordingMetrics';
 import { useRecordingScreenState } from '@/features/recording/hooks/useRecordingScreenState';
 import { useRecordingScreenColors } from '@/features/recording/hooks/useRecordingScreenColors';
 import { useRecordingLock } from '@/features/recording/hooks/useRecordingLock';
 import { useStatusPulseAnimation } from '@/features/recording/hooks/useStatusPulseAnimation';
 import { useGpsWarningClearEffect } from '@/features/recording/hooks/useGpsWarningClearEffect';
-import { useAutoPauseEffect } from '@/features/recording/hooks/useAutoPauseEffect';
 import { useKmSplitBannerEffect } from '@/features/recording/hooks/useKmSplitBannerEffect';
 import { useHrZoneColorEffect } from '@/features/recording/hooks/useHrZoneColorEffect';
-import { useCrashRecoveryBackupEffect } from '@/features/recording/hooks/useCrashRecoveryBackupEffect';
 import { useGpsSessionEffect } from '@/features/recording/hooks/useGpsSessionEffect';
 import { useInitRecordingEffect } from '@/features/recording/hooks/useInitRecordingEffect';
+import {
+  RecordingGate,
+  useAlwaysLocationPrompt,
+  useCanRecord,
+  usePermissionUpgrade,
+} from '@/features/recording';
 import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKeepAwake';
-import { useIndoorSampleEffect } from '@/features/recording/hooks/useIndoorSampleEffect';
 import { useSensorSession, useSensorIssue } from '@/features/sensors';
-import { useConsensusRoute } from '@/features/routes/hooks/useRouteEngine';
+import { useConsensusRoute } from '@/features/routes/hooks/useEngine';
 import { useRecordingHandlers } from '@/features/recording/hooks/useRecordingHandlers';
+import { colors } from '@/theme';
 import { styles } from '@/features/recording/RecordingScreen.styles';
 import type { ActivityType, DataFieldType } from '@/types';
 
@@ -47,7 +53,16 @@ export default function RecordingScreen() {
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const isMetric = useMetricSystem();
-  const { type, pairedEventId } = useLocalSearchParams<{ type: string; pairedEventId?: string }>();
+  const { type, pairedEventId, from } = useLocalSearchParams<{
+    type: string;
+    pairedEventId?: string;
+    from?: string;
+  }>();
+
+  // Every one-tap surface deep-links here rather than to the picker, so the gate
+  // the picker applies has to be applied here too or it is not a gate at all.
+  const { canRecord, reason } = useCanRecord();
+  const { upgradePermissions, isUpgrading, error: upgradeError } = usePermissionUpgrade();
 
   const activityType = type as ActivityType;
   const mode = getRecordingMode(activityType);
@@ -57,7 +72,6 @@ export default function RecordingScreen() {
   // selector would never notify). Each GPS point changes only the relevant
   // length, so only the consumers that need it re-render.
   const latlngLength = useRecordingStore((s) => s.streams.latlng.length);
-  const speedLength = useRecordingStore((s) => s.streams.speed.length);
   const distanceLength = useRecordingStore((s) => s.streams.distance.length);
   const heartrateLength = useRecordingStore((s) => s.streams.heartrate.length);
 
@@ -72,8 +86,6 @@ export default function RecordingScreen() {
   const {
     gpsWarning,
     setGpsWarning,
-    autoPaused,
-    setAutoPaused,
     splitBanner,
     setSplitBanner,
     showTypePicker,
@@ -96,35 +108,34 @@ export default function RecordingScreen() {
     () => ({ ...baseMetrics, elapsedTime, movingTime }),
     [baseMetrics, elapsedTime, movingTime]
   );
-  const location = useLocationTracking();
-  const { stopTracking, currentLocation, accuracy } = location;
+  // The location watch, the indoor tick, auto-pause and the crash backup are
+  // owned by the recording session, so the screen only reads what they publish.
+  const currentLocation = useRecordingLiveStore((s) => s.currentLocation);
+  const accuracy = useRecordingLiveStore((s) => s.accuracy);
+  const autoPaused = useRecordingLiveStore((s) => s.autoPaused);
+  const backgroundTrackingFailed = useRecordingLiveStore((s) => s.backgroundTrackingFailed);
+  const { t } = useTranslation();
+  const { hasPermission, requestPermission } = useLocationPermission();
 
   useGpsWarningClearEffect(currentLocation, gpsWarning, setGpsWarning);
 
-  const autoPauseDetectorRef = useAutoPauseEffect({
-    activityType,
-    mode,
-    status,
-    speedLength,
-    autoPaused,
-    setAutoPaused,
-  });
-
   useKmSplitBannerEffect({ mode, status, distanceLength, isMetric, setSplitBanner });
   useHrZoneColorEffect(heartrateLength, setHrZone);
-  useCrashRecoveryBackupEffect(status, activityType, mode);
 
   const { handlePause, handleResume, handleLap, handleStop, handleDiscard, handleChangeType } =
-    useRecordingHandlers({
-      autoPauseDetectorRef,
-      stopTracking,
-      setAutoPaused,
-      setShowTypePicker,
-    });
+    useRecordingHandlers({ setShowTypePicker });
 
-  useGpsSessionEffect({ mode, status, location, setGpsWarning, onDiscard: handleDiscard });
-  useInitRecordingEffect(status, activityType, mode, pairedEventId);
-  useIndoorSampleEffect(mode, status);
+  useGpsSessionEffect({
+    mode,
+    status,
+    hasPermission,
+    requestPermission,
+    setGpsWarning,
+    onDiscard: handleDiscard,
+  });
+  useInitRecordingEffect(status, activityType, mode, pairedEventId, canRecord);
+  // Nothing to ask for on a ride that never started.
+  useAlwaysLocationPrompt(canRecord && from === 'quickstart', status);
   useSensorSession();
   const sensorIssue = useSensorIssue();
 
@@ -162,6 +173,35 @@ export default function RecordingScreen() {
   // Read current activity type from store (may change during recording)
   const currentActivityType = useRecordingStore((s) => s.activityType) ?? activityType;
 
+  // An answer that has not arrived is not a refusal. A cold start from a widget,
+  // tile, shortcut or Siri can beat the permission store, and gating there shows
+  // the athlete a wall for a permission they may well have.
+  if (reason === 'checking') {
+    return (
+      <View
+        style={[styles.container, styles.centred, { backgroundColor: bg, paddingTop: insets.top }]}
+        testID="recording-checking"
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  // Before anything else, including the manual entry form: a ride that cannot be
+  // uploaded should not be started or typed in either.
+  if (!canRecord && reason !== 'ok') {
+    return (
+      <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top }]}>
+        <RecordingGate
+          reason={reason}
+          onGrantAccess={upgradePermissions}
+          isUpgrading={isUpgrading}
+          error={upgradeError}
+        />
+      </View>
+    );
+  }
+
   if (mode === 'manual') {
     return (
       <ManualEntry
@@ -190,6 +230,9 @@ export default function RecordingScreen() {
       />
 
       <StatusSlot
+        backgroundTrackingWarning={
+          backgroundTrackingFailed ? t('recording.gpsTrackingError') : null
+        }
         gpsWarning={gpsWarning}
         sensorIssue={sensorIssue}
         splitBanner={splitBanner}
@@ -238,7 +281,6 @@ export default function RecordingScreen() {
           onPause={handlePause}
           onResume={handleResume}
           onStop={handleStop}
-          onDiscard={handleDiscard}
           onLap={handleLap}
           style={{ paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }}
         />

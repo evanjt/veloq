@@ -1,12 +1,39 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { routeEngine } from 'veloqrs';
+import { useMemo, useCallback } from 'react';
 import type { SectionOverlay } from '@/features/maps/components/ActivityMapView';
 import type { SectionMatch } from '@/features/routes/hooks/useSectionMatches';
 import type { Section } from '@/types';
+import type { SectionEncounter } from 'veloqrs';
 
 interface LatLng {
   latitude: number;
   longitude: number;
+}
+
+const EMPTY_SECTION_ENCOUNTERS: SectionEncounter[] = [];
+
+/** Traces and record holders a caller already read from the engine. */
+export interface PreComputedOverlays {
+  /** This activity's portion of each section, keyed by section ID */
+  sectionTraces: Record<string, LatLng[]>;
+  /** Sections where this activity holds the record */
+  prSectionIds: Set<string>;
+}
+
+interface DirectionAwareSectionOverlay extends SectionOverlay {
+  /** Stable overlay key including encounter direction when available */
+  overlayKey: string;
+  /** Sort tie-breaker when nearest track index is the same */
+  sortOrder: number;
+  /** Direction used to keep forward and reverse rows distinct */
+  encounterDirection?: string;
+}
+
+function makeSectionOverlayKey(sectionId: string, direction?: string): string {
+  return direction == null ? sectionId : `${sectionId}|${direction}`;
+}
+
+function makeDirectionKey(encounter: { sectionId: string; direction: string }): string {
+  return `${encounter.sectionId}|${encounter.direction}`;
 }
 
 /**
@@ -21,111 +48,67 @@ export function useSectionOverlays(
   activityId: string | undefined,
   engineSectionMatches: SectionMatch[],
   customMatchedSections: Section[],
-  coordinates: LatLng[]
+  coordinates: LatLng[],
+  bundle: PreComputedOverlays,
+  sectionEncounters?: SectionEncounter[]
 ) {
-  // Internal state for computed traces
-  const [computedActivityTraces, setComputedActivityTraces] = useState<Record<string, LatLng[]>>(
-    {}
-  );
-
-  // Create stable section IDs string to avoid infinite loops
-  const engineSectionIds = useMemo(
-    () =>
-      engineSectionMatches
-        .map((m) => m.section.id)
-        .sort()
-        .join(','),
-    [engineSectionMatches]
-  );
-  const customSectionIds = useMemo(
-    () =>
-      customMatchedSections
-        .map((s) => s.id)
-        .sort()
-        .join(','),
-    [customMatchedSections]
-  );
-
-  // Compute activity traces using Rust engine's extractSectionTrace
-  // Always compute traces (not just on sections tab) so overlays show on the map immediately
-  useEffect(() => {
-    if (!activityId) {
-      return;
-    }
-
-    // Deduplicate sections by ID (custom sections might appear in both lists)
-    const seenIds = new Set<string>();
-    const combinedSections = [
-      ...engineSectionMatches.map((m) => m.section),
-      ...customMatchedSections,
-    ].filter((section) => {
-      if (seenIds.has(section.id)) return false;
-      seenIds.add(section.id);
-      return true;
-    });
-    if (combinedSections.length === 0) {
-      setComputedActivityTraces({});
-      return;
-    }
-
-    const traces: Record<string, LatLng[]> = {};
-
-    for (const section of combinedSections) {
-      // Use section polyline directly (already has data from engine)
-      const polyline = section.polyline || [];
-
-      if (polyline.length < 2) continue;
-
-      // Flatten polyline to [lat, lng, lat, lng, ...] for Rust engine
-      const polylineFlat: number[] = [];
-      for (const p of polyline as {
-        lat?: number;
-        lng?: number;
-        latitude?: number;
-        longitude?: number;
-      }[]) {
-        polylineFlat.push(p.lat ?? p.latitude ?? 0, p.lng ?? p.longitude ?? 0);
-      }
-
-      const extractedTrace = routeEngine.extractSectionTrace(activityId, polylineFlat);
-
-      if (extractedTrace && extractedTrace.length > 0) {
-        // Convert GpsPoint[] to LatLng format
-        traces[section.id] = extractedTrace.map((p) => ({
-          latitude: p.latitude,
-          longitude: p.longitude,
-        }));
-      }
-    }
-
-    setComputedActivityTraces(traces);
-    // Use stable string IDs instead of array references to prevent infinite loops
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityId, engineSectionIds, customSectionIds]);
+  const activityTraces = bundle.sectionTraces;
 
   // Determine which sections this activity holds the PR for.
   // Single FFI call instead of per-section getSectionPerformances loop.
-  const prSectionIds = useMemo((): Set<string> => {
-    if (!activityId) return new Set();
-    const allIds = [
-      ...engineSectionMatches.map((m) => m.section.id),
-      ...customMatchedSections.map((s) => s.id),
-    ];
-    if (allIds.length === 0) return new Set();
-    try {
-      return new Set(routeEngine.getActivityPrSections(activityId, allIds));
-    } catch {
-      return new Set();
-    }
-  }, [engineSectionMatches, customMatchedSections, activityId]);
+  const prSectionIds = bundle.prSectionIds;
 
   // Build section overlays for map display (always computed, shown on all tabs)
   const sectionOverlays = useMemo((): SectionOverlay[] | null => {
+    const activeSectionEncounters = sectionEncounters ?? EMPTY_SECTION_ENCOUNTERS;
     if (!engineSectionMatches.length && !customMatchedSections.length) return null;
     if (coordinates.length === 0) return null;
 
-    const overlays: SectionOverlay[] = [];
+    const directionToSortOrder = new Map<string, number>();
+    const directionsBySection = new Map<string, string[]>();
+
+    for (let index = 0; index < activeSectionEncounters.length; index += 1) {
+      const encounter = activeSectionEncounters[index];
+      const directionKey = makeDirectionKey(encounter);
+
+      if (!directionToSortOrder.has(directionKey)) {
+        directionToSortOrder.set(directionKey, index);
+      }
+
+      const directions = directionsBySection.get(encounter.sectionId);
+      if (!directions) {
+        directionsBySection.set(encounter.sectionId, [encounter.direction]);
+      } else if (!directions.includes(encounter.direction)) {
+        directions.push(encounter.direction);
+      }
+    }
+
+    const overlays: DirectionAwareSectionOverlay[] = [];
     const processedIds = new Set<string>();
+    let fallbackSortOrder = activeSectionEncounters.length;
+
+    const addSectionOverlay = (
+      sectionId: string,
+      sectionPolyline: LatLng[],
+      activityPortion?: LatLng[]
+    ) => {
+      const directions = directionsBySection.get(sectionId);
+      const shouldSplitByDirection = directions != null && directions.length > 0;
+      const sectionDirections = shouldSplitByDirection ? directions : [undefined];
+
+      for (const direction of sectionDirections) {
+        const overlayKey = makeSectionOverlayKey(sectionId, direction);
+        overlays.push({
+          id: sectionId,
+          sectionPolyline,
+          activityPortion,
+          isPR: prSectionIds.has(sectionId),
+          overlayKey,
+          sortOrder: directionToSortOrder.get(overlayKey) ?? fallbackSortOrder++,
+          encounterDirection: direction,
+        });
+      }
+    };
 
     // Process engine-detected sections
     for (const match of engineSectionMatches) {
@@ -145,18 +128,18 @@ export function useSectionOverlays(
       );
 
       // Try to get activity's portion from multiple sources (in order of preference):
-      // 1. computedActivityTraces (extracted via engine.extractSectionTrace - most accurate)
+      // 1. activityTraces (extracted by the engine - most accurate)
       // 2. activityTraces from section data (pre-computed by engine)
       // 3. portion indices (slice from coordinates - least accurate)
       let activityPortion;
 
       // First try computed traces - these use extractSectionTrace for accuracy
-      const computedTrace = computedActivityTraces[match.section.id];
+      const computedTrace = activityTraces[match.section.id];
       if (computedTrace && computedTrace.length > 0) {
         activityPortion = computedTrace;
       } else {
         // Try activityTraces from section data
-        const activityTrace = match.section.activityTraces?.[activityId!];
+        const activityTrace = activityId ? match.section.activityTraces?.[activityId] : undefined;
         if (activityTrace && activityTrace.length > 0) {
           // Convert RoutePoint to LatLng format
           activityPortion = activityTrace.map(
@@ -168,12 +151,7 @@ export function useSectionOverlays(
         }
       }
 
-      overlays.push({
-        id: match.section.id,
-        sectionPolyline,
-        activityPortion,
-        isPR: prSectionIds.has(match.section.id),
-      });
+      addSectionOverlay(match.section.id, sectionPolyline, activityPortion);
     }
 
     // Process custom sections
@@ -189,7 +167,7 @@ export function useSectionOverlays(
 
       // Try computed traces first (from extractSectionTrace)
       let activityPortion;
-      const computedTrace = computedActivityTraces[section.id];
+      const computedTrace = activityTraces[section.id];
       if (computedTrace && computedTrace.length > 0) {
         activityPortion = computedTrace;
       } else {
@@ -221,12 +199,7 @@ export function useSectionOverlays(
         }
       }
 
-      overlays.push({
-        id: section.id,
-        sectionPolyline,
-        activityPortion,
-        isPR: prSectionIds.has(section.id),
-      });
+      addSectionOverlay(section.id, sectionPolyline, activityPortion);
     }
 
     // Sort overlays by where each section starts along this activity's track.
@@ -248,15 +221,25 @@ export function useSectionOverlays(
         }
         return best;
       };
-      const startIndexById = new Map<string, number>();
-      for (const o of overlays) {
-        const first = o.activityPortion?.[0] ?? o.sectionPolyline?.[0];
-        if (first) startIndexById.set(o.id, findNearestIndex(first.latitude, first.longitude));
+
+      const startIndexByKey = new Map<string, number>();
+      for (const overlay of overlays) {
+        const first = overlay.activityPortion?.[0] ?? overlay.sectionPolyline?.[0];
+        if (first) {
+          startIndexByKey.set(
+            overlay.overlayKey,
+            findNearestIndex(first.latitude, first.longitude)
+          );
+        }
       }
+
       const INF = Number.MAX_SAFE_INTEGER;
-      overlays.sort(
-        (a, b) => (startIndexById.get(a.id) ?? INF) - (startIndexById.get(b.id) ?? INF)
-      );
+      overlays.sort((a, b) => {
+        const aIndex = startIndexByKey.get(a.overlayKey) ?? INF;
+        const bIndex = startIndexByKey.get(b.overlayKey) ?? INF;
+        if (aIndex !== bIndex) return aIndex - bIndex;
+        return a.sortOrder - b.sortOrder;
+      });
     }
 
     return overlays;
@@ -265,8 +248,9 @@ export function useSectionOverlays(
     customMatchedSections,
     coordinates,
     activityId,
-    computedActivityTraces,
+    activityTraces,
     prSectionIds,
+    sectionEncounters,
   ]);
 
   // Helper to get activity portion as RoutePoint[] for MiniTraceView
@@ -274,7 +258,7 @@ export function useSectionOverlays(
   const getActivityPortion = useCallback(
     (sectionId: string, portion?: { startIndex?: number; endIndex?: number }) => {
       // First try computed traces
-      const computedTrace = computedActivityTraces[sectionId];
+      const computedTrace = activityTraces[sectionId];
       if (computedTrace && computedTrace.length > 0) {
         return computedTrace.map((c) => ({
           lat: c.latitude,
@@ -288,7 +272,7 @@ export function useSectionOverlays(
       if (end <= start || coordinates.length === 0) return undefined;
       return coordinates.slice(start, end + 1).map((c) => ({ lat: c.latitude, lng: c.longitude }));
     },
-    [coordinates, computedActivityTraces]
+    [coordinates, activityTraces]
   );
 
   return { sectionOverlays, getActivityPortion };

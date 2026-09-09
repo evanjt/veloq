@@ -1,0 +1,59 @@
+# Second half of scripts/upgrade-test.sh. Launches the upgraded build over the
+# database the previous release wrote.
+#
+# No clearState anywhere: it runs `pm clear` and destroys the data this flow
+# exists to check.
+#
+# This flow proves only that the upgraded binary starts and initialises its
+# engine over an old database. That is deliberately narrow. Reaching home is
+# necessary but nowhere near sufficient, because a failed migration is
+# quarantined and the app then starts perfectly with an empty library. The row
+# comparison in upgrade-test.sh is what actually catches that.
+#
+# The engine initialises during startup, before any screen decision, so waiting
+# for the login screen is enough for the script to read the migrated database.
+# Demo mode persists no credential, so a demo-seeded run always returns here on
+# relaunch. Re-entering demo would regenerate the library and destroy the
+# comparison, so this flow deliberately stops at the gate rather than logging in.
+#
+# For an API-key or OAuth install the session does survive, so a login screen
+# after upgrade would be a real regression. That case needs a seeded credential
+# and is not covered here.
+appId: com.veloq.app
+---
+- launchApp:
+    clearState: false
+
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+- runFlow:
+    when:
+      visible: "Skip"
+    commands:
+      - tapOn: "Skip"
+- runFlow:
+    when:
+      visible: "Close"
+    commands:
+      - tapOn: "Close"
+
+# Either landing means the process survived engine init over the old database.
+# A crash or a wedged migration never reaches either one.
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 90000
+    optional: true
+
+- runFlow:
+    when:
+      notVisible:
+        id: "login-screen"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "home-screen"
+          timeout: 90000

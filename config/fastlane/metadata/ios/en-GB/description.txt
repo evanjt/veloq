@@ -13,13 +13,13 @@ Route tracking
 Automatically detect repeated routes and sections in your activity history. Compare efforts over time to see your progress on favourite climbs and stretches.
 
 Charts and analysis
-Heart rate, power, pace, elevation, and cadence — all synchronised with the map. View zone distributions, TSS, intensity factor, and lap breakdowns.
+Heart rate, power, pace, elevation, and cadence, all synchronised with the map. View zone distributions, TSS, intensity factor, and lap breakdowns.
 
 Fitness
 Follow your form with CTL/ATL/TSB tracking and visual zones. Monitor HRV, resting heart rate, sleep, and wellness. View power and pace curves by sport.
 
 Privacy
-All data stays on your device. No analytics, no tracking. Optional push notifications store a device token on our server with automatic 30-day expiry — no personal data is retained. Open source under Apache 2.0.
+All data stays on your device. No analytics, no tracking. Optional push notifications store a device token on our server with automatic 30-day expiry, no personal data is retained. Open source under Apache 2.0.
 
 Supports cycling, running, swimming, and 20+ activity types. Try the built-in demo mode to explore without an account.
 

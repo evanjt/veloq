@@ -130,3 +130,12 @@ appId: com.veloq.app.dev
           visible:
             id: "home-screen"
           timeout: 30000
+
+# A home screen can also belong to a real account. Never silently run fixture
+# flows against that session; leave its credentials and data untouched.
+- assertVisible:
+    id: "demo-mode-banner"
+
+# Demo fixtures never require a live account sync.
+- assertNotVisible:
+    id: "sync-error-banner"

@@ -1,14 +1,13 @@
 //! Raster tile generation for activity heatmaps.
 //!
 //! Generates PNG tiles from GPS traces using web mercator projection.
-//! Uses an intensity buffer with additive accumulation and a color gradient
+//! Uses an intensity buffer with additive accumulation and a colour gradient
 //! LUT to produce heatmap tiles with additive intensity.
 
 use image::{ImageBuffer, Rgba, RgbaImage};
-use rayon::prelude::*;
 use std::f64::consts::PI;
 use std::io::Cursor;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracematch::GpsPoint;
 
 /// Tile size in pixels (512 for retina/2x quality on high-DPI mobile screens).
@@ -32,13 +31,13 @@ impl Default for HeatmapConfig {
 }
 
 // ============================================================================
-// Color Gradient LUT
+// Colour Gradient LUT
 // ============================================================================
 
-/// Pre-computed 256-entry color lookup table mapping intensity to RGBA.
+/// Pre-computed 256-entry colour lookup table mapping intensity to RGBA.
 /// Gradient: transparent → deep teal → brand teal → pale teal highlight.
 /// Uses the Veloq brand teal palette for good contrast on both light and dark maps.
-fn build_color_lut() -> [[u8; 4]; 256] {
+fn build_colour_lut() -> [[u8; 4]; 256] {
     let mut lut = [[0u8; 4]; 256];
 
     // Gradient stops: (intensity, r, g, b, a)
@@ -83,17 +82,17 @@ fn build_color_lut() -> [[u8; 4]; 256] {
     lut
 }
 
-/// Cached color LUT (built once)
-static COLOR_LUT: std::sync::LazyLock<[[u8; 4]; 256]> = std::sync::LazyLock::new(build_color_lut);
+/// Cached colour LUT (built once)
+static COLOUR_LUT: std::sync::LazyLock<[[u8; 4]; 256]> = std::sync::LazyLock::new(build_colour_lut);
 
 /// Pre-computed `u16 intensity → u8 lut_idx` table for a given exposure.
-/// Replaces the per-pixel exp()/round/clamp in the color mapping loop.
+/// Replaces the per-pixel exp()/round/clamp in the colour mapping loop.
 fn build_intensity_idx_lut(exposure: f32) -> Box<[u8; 65536]> {
     let mut v: Vec<u8> = vec![0u8; 65536];
     // Index 0 stays 0 (skip write path in the hot loop).
     for val in 1..65536u32 {
-        let normalized = (1.0 - (-(val as f32) / exposure).exp()).clamp(0.0, 1.0);
-        let idx = (normalized * 255.0).round().clamp(1.0, 255.0) as u8;
+        let normalised = (1.0 - (-(val as f32) / exposure).exp()).clamp(0.0, 1.0);
+        let idx = (normalised * 255.0).round().clamp(1.0, 255.0) as u8;
         v[val as usize] = idx;
     }
     let slice: Box<[u8]> = v.into_boxed_slice();
@@ -131,16 +130,6 @@ fn intensity_idx_lut_for_zoom(zoom: u8) -> &'static [u8; 65536] {
         _ => &IDX_LUT_Z17P,
     }
 }
-
-/// Cached fully transparent PNG used for empty raster tiles.
-static EMPTY_TILE_PNG: std::sync::LazyLock<Vec<u8>> = std::sync::LazyLock::new(|| {
-    let img: RgbaImage = ImageBuffer::from_pixel(TILE_SIZE, TILE_SIZE, Rgba([0, 0, 0, 0]));
-    let mut png_data = Vec::new();
-    let mut cursor = Cursor::new(&mut png_data);
-    img.write_to(&mut cursor, image::ImageFormat::Png)
-        .expect("Empty tile PNG encoding failed");
-    png_data
-});
 
 // ============================================================================
 // Zoom-Dependent Line Width
@@ -227,22 +216,37 @@ pub struct TileBounds {
     pub max_lat: f64,
 }
 
+/// How far outside its own tile a point may sit and still be drawn into this
+/// one, so a stroke that crosses the edge is continuous across the seam.
+///
+/// It is also the only reason a tile a point does not sit in gets scheduled at
+/// all, so `tiles_along_track` measures the halo against this rather than
+/// adding every neighbour.
+pub const DRAW_MARGIN: f32 = 100.0;
+
+/// A point's pixel coordinates in this tile's frame, however far outside it
+/// the point lies. A segment is drawn from where its ends actually are, so
+/// both have to be placed before either can be judged.
+#[inline]
+fn gps_to_pixel_unbounded(point: &GpsPoint, z: u8, tile_x: u32, tile_y: u32) -> (f32, f32) {
+    let global_x = lon_to_tile_x(point.longitude, z);
+    let global_y = lat_to_tile_y(point.latitude, z);
+    (
+        ((global_x - tile_x as f64) * TILE_SIZE as f64) as f32,
+        ((global_y - tile_y as f64) * TILE_SIZE as f64) as f32,
+    )
+}
+
 /// Convert GPS point to pixel coordinates within a tile.
 /// Returns None if the point is too far outside the tile.
 #[inline]
 pub fn gps_to_pixel(point: &GpsPoint, z: u8, tile_x: u32, tile_y: u32) -> Option<(f32, f32)> {
-    let global_x = lon_to_tile_x(point.longitude, z);
-    let global_y = lat_to_tile_y(point.latitude, z);
+    let (px, py) = gps_to_pixel_unbounded(point, z, tile_x, tile_y);
 
-    let px = ((global_x - tile_x as f64) * TILE_SIZE as f64) as f32;
-    let py = ((global_y - tile_y as f64) * TILE_SIZE as f64) as f32;
-
-    // Allow margin outside tile for line continuity (scaled for 512px tiles)
-    let margin = 100.0;
-    if px >= -margin
-        && px < (TILE_SIZE as f32 + margin)
-        && py >= -margin
-        && py < (TILE_SIZE as f32 + margin)
+    if px >= -DRAW_MARGIN
+        && px < (TILE_SIZE as f32 + DRAW_MARGIN)
+        && py >= -DRAW_MARGIN
+        && py < (TILE_SIZE as f32 + DRAW_MARGIN)
     {
         Some((px, py))
     } else {
@@ -250,24 +254,30 @@ pub fn gps_to_pixel(point: &GpsPoint, z: u8, tile_x: u32, tile_y: u32) -> Option
     }
 }
 
-/// Determine which tiles a GPS track intersects at a given zoom level
-pub fn tiles_for_track(points: &[GpsPoint], zoom: u8) -> Vec<(u32, u32)> {
-    let mut tiles = std::collections::HashSet::new();
-    for point in points {
-        if !point.is_valid() {
-            continue;
-        }
-        let tx = lon_to_tile_x(point.longitude, zoom).floor() as u32;
-        let ty = lat_to_tile_y(point.latitude, zoom).floor() as u32;
-        tiles.insert((tx, ty));
-    }
-    tiles.into_iter().collect()
+/// Which neighbouring tiles a point at fractional position `frac` within its
+/// own tile can still be drawn into, as an offset range along one axis.
+///
+/// A point sitting in the middle of its tile reaches no neighbour: it is
+/// `DRAW_MARGIN` pixels outside their bounds and `gps_to_pixel` refuses it. It
+/// reaches the one before only in the first `DRAW_MARGIN` pixels of its own
+/// tile, and the one after only in the last.
+fn halo_range(frac: f64) -> std::ops::RangeInclusive<i64> {
+    let margin = DRAW_MARGIN as f64 / TILE_SIZE as f64;
+    let lo = if frac < margin { -1 } else { 0 };
+    let hi = if frac > 1.0 - margin { 1 } else { 0 };
+    lo..=hi
 }
 
-/// Sweep the polyline through tile space at a given zoom, returning every
-/// tile a line segment crosses plus a one-tile neighbour halo (to match the
-/// 100 px margin used by `gps_to_pixel` so antialiased strokes that bleed
-/// into adjacent tiles are still scheduled for generation).
+/// Sweep the polyline through tile space at a given zoom, returning every tile
+/// a line segment crosses plus, for each point, the neighbours whose
+/// `DRAW_MARGIN` that point falls inside, so an antialiased stroke bleeding
+/// across a seam is still scheduled.
+///
+/// The halo is measured against the margin rather than being a flat one-tile
+/// ring. A ring schedules all eight neighbours of every tile the track
+/// touches, and the rasteriser then draws nothing into the ones no point can
+/// reach, so an empty tile is written nowhere and the next pass schedules it
+/// again for as long as the library exists.
 ///
 /// Much tighter than `tiles_for_bounds`: a long point-to-point activity
 /// enumerates ~O(segments) tiles instead of the full bbox rectangle.
@@ -275,24 +285,15 @@ pub fn tiles_along_track(points: &[GpsPoint], zoom: u8) -> std::collections::Has
     let max_xy: i64 = (1i64 << zoom).max(1);
     let mut tiles: std::collections::HashSet<(u32, u32)> = std::collections::HashSet::new();
 
-    let mut add_with_halo =
-        |tiles: &mut std::collections::HashSet<(u32, u32)>, tx: i64, ty: i64| {
-            for dy in -1..=1 {
-                for dx in -1..=1 {
-                    let nx = tx + dx;
-                    let ny = ty + dy;
-                    if nx >= 0 && ny >= 0 && nx < max_xy && ny < max_xy {
-                        tiles.insert((nx as u32, ny as u32));
-                    }
-                }
-            }
-        };
+    let mut add = |tiles: &mut std::collections::HashSet<(u32, u32)>, tx: i64, ty: i64| {
+        if tx >= 0 && ty >= 0 && tx < max_xy && ty < max_xy {
+            tiles.insert((tx as u32, ty as u32));
+        }
+    };
 
-    let mut prev_tile: Option<(i64, i64)> = None;
     let mut prev_valid: Option<(f64, f64)> = None;
     for point in points {
         if !point.is_valid() {
-            prev_tile = None;
             prev_valid = None;
             continue;
         }
@@ -300,25 +301,34 @@ pub fn tiles_along_track(points: &[GpsPoint], zoom: u8) -> std::collections::Has
         let gy = lat_to_tile_y(point.latitude, zoom);
         let tx = gx.floor() as i64;
         let ty = gy.floor() as i64;
-        add_with_halo(&mut tiles, tx, ty);
-
-        if let Some((px, py)) = prev_valid {
-            sweep_line_tiles(&mut tiles, &mut add_with_halo, px, py, gx, gy);
+        for dy in halo_range(gy - ty as f64) {
+            for dx in halo_range(gx - tx as f64) {
+                add(&mut tiles, tx + dx, ty + dy);
+            }
         }
 
-        prev_tile = Some((tx, ty));
+        if let Some((px, py)) = prev_valid {
+            // The plan and the rasteriser have to agree on which segments are
+            // ground. A segment past the cap draws nothing, so scheduling the
+            // tiles under it would only write empty markers along a line
+            // nobody rode.
+            let span = MAX_DRAWN_SEGMENT_TILES as f64;
+            if (gx - px).abs() <= span && (gy - py).abs() <= span {
+                sweep_line_tiles(&mut tiles, &mut add, px, py, gx, gy);
+            }
+        }
+
         prev_valid = Some((gx, gy));
     }
-    let _ = prev_tile;
     tiles
 }
 
 /// Bresenham-style supercover: walk integer tile coords from (x0,y0) to
-/// (x1,y1) in fractional-tile space and call `add_with_halo` at each step.
-/// The halo function handles out-of-bounds and neighbour inclusion.
+/// (x1,y1) in fractional-tile space and call `add` at each step.
+/// `add` handles out-of-bounds; the caller adds each point's margin halo.
 fn sweep_line_tiles<F>(
     tiles: &mut std::collections::HashSet<(u32, u32)>,
-    add_with_halo: &mut F,
+    add: &mut F,
     x0: f64,
     y0: f64,
     x1: f64,
@@ -344,7 +354,7 @@ fn sweep_line_tiles<F>(
     let limit = 400_000i64;
     let mut steps = 0i64;
     loop {
-        add_with_halo(tiles, x, y);
+        add(tiles, x, y);
         if x == ix1 && y == iy1 {
             break;
         }
@@ -387,10 +397,10 @@ pub fn tiles_for_bounds(
 }
 
 // ============================================================================
-// Intensity Buffer Line Rasterization
+// Intensity Buffer Line Rasterisation
 // ============================================================================
 
-/// Intensity buffer for accumulating line draws before color mapping
+/// Intensity buffer for accumulating line draws before colour mapping
 pub struct IntensityBuffer {
     data: Vec<u16>,
     width: u32,
@@ -487,6 +497,42 @@ fn draw_disc_intensity(buf: &mut IntensityBuffer, cx: f32, cy: f32, radius: f32,
 }
 
 /// Draw a line as a filled, antialiased stroke with round caps.
+/// How far the stroke's ink can land either side of the line's centre.
+/// `draw_line_intensity` derives the same figure; this is the version the
+/// caller needs before deciding whether to call it at all.
+fn stroke_reach(width: f32) -> f32 {
+    (width * 0.5).max(0.75) + 1.0
+}
+
+/// Longest segment, in tiles, that is drawn as covered ground.
+///
+/// Two reasons and they point the same way. A straight line across a gap this
+/// wide is invented rather than recorded: at the highest zoom a tile is around
+/// 200 m, so this is a fix six kilometres from the one before it, which is a
+/// glitch and not a dropout. And a segment is rasterised per tile it crosses,
+/// so a fix that jumps across the world would otherwise put a full-tile
+/// distance pass into every one of the hundred thousand tiles the sweep walks.
+const MAX_DRAWN_SEGMENT_TILES: f32 = 32.0;
+
+/// Whether a segment's ink can land inside this tile at all.
+///
+/// The bounding box is the cheap half of what `draw_line_intensity` would
+/// work out anyway, and it is what lets a segment be drawn from where its ends
+/// really are instead of only when both of them sit near this tile. A tile the
+/// track crosses in the middle of a long segment is heat the athlete earned,
+/// and dropping it leaves a hole that reads as ground never covered.
+fn segment_reaches_tile(x0: f32, y0: f32, x1: f32, y1: f32, reach: f32) -> bool {
+    let span = MAX_DRAWN_SEGMENT_TILES * TILE_SIZE as f32;
+    if (x1 - x0).abs() > span || (y1 - y0).abs() > span {
+        return false;
+    }
+    let edge = TILE_SIZE as f32;
+    x0.max(x1) + reach >= 0.0
+        && x0.min(x1) - reach < edge
+        && y0.max(y1) + reach >= 0.0
+        && y0.min(y1) - reach < edge
+}
+
 fn draw_line_intensity(
     buf: &mut IntensityBuffer,
     x0: f32,
@@ -575,6 +621,8 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
 
     let mut buf = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
 
+    let reach = stroke_reach(line_width);
+
     // Draw each track onto the intensity buffer
     for track in tracks {
         let track = track.as_ref();
@@ -586,14 +634,13 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
                 continue;
             }
 
-            if let Some((px, py)) = gps_to_pixel(point, z, x, y) {
-                if let Some((prev_x, prev_y)) = prev_pixel {
-                    draw_line_intensity(&mut buf, prev_x, prev_y, px, py, line_width, intensity);
-                }
-                prev_pixel = Some((px, py));
-            } else {
-                prev_pixel = None;
+            let (px, py) = gps_to_pixel_unbounded(point, z, x, y);
+            if let Some((prev_x, prev_y)) = prev_pixel
+                && segment_reaches_tile(prev_x, prev_y, px, py, reach)
+            {
+                draw_line_intensity(&mut buf, prev_x, prev_y, px, py, line_width, intensity);
             }
+            prev_pixel = Some((px, py));
         }
     }
 
@@ -606,12 +653,12 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
     let buf = if z <= 9 { gaussian_blur_3x3(&buf) } else { buf };
 
     // Map intensity buffer to RGBA via two pre-computed LUTs:
-    //   u16 intensity → u8 color idx (depends on zoom's exposure curve)
-    //   u8 color idx  → RGBA (shared gradient)
+    //   u16 intensity → u8 colour idx (depends on zoom's exposure curve)
+    //   u8 colour idx  → RGBA (shared gradient)
     // Replaces the per-pixel exp()/round/clamp from the original code;
     // pixel output is bit-identical because the f32 math is pre-computed
     // once at the same precision.
-    let color_lut = &*COLOR_LUT;
+    let colour_lut = &*COLOUR_LUT;
     let idx_lut = intensity_idx_lut_for_zoom(z);
     let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
     for y_px in 0..TILE_SIZE {
@@ -619,7 +666,7 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
             let val = buf.get(x_px, y_px);
             if val > 0 {
                 let lut_idx = idx_lut[val as usize] as usize;
-                let c = color_lut[lut_idx];
+                let c = colour_lut[lut_idx];
                 img.put_pixel(x_px, y_px, Rgba(c));
             }
         }
@@ -634,44 +681,48 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
     Some(png_data)
 }
 
-/// Generate heatmap tiles for a set of tile coordinates.
-/// Returns vec of (z, x, y, png_bytes) for non-empty tiles.
-pub fn generate_tiles_parallel<T>(
-    tile_coords: &[(u8, u32, u32)],
-    tracks: &[T],
-) -> Vec<(u8, u32, u32, Vec<u8>)>
-where
-    T: AsRef<[GpsPoint]> + Sync,
-{
-    tile_coords
-        .par_iter()
-        .filter_map(|&(z, x, y)| generate_heatmap_tile(z, x, y, tracks).map(|png| (z, x, y, png)))
-        .collect()
+fn tile_path(base_path: &Path, z: u8, x: u32, y: u32, extension: &str) -> PathBuf {
+    base_path
+        .join(z.to_string())
+        .join(x.to_string())
+        .join(format!("{}.{}", y, extension))
+}
+
+fn write_tile_file(
+    base_path: &Path,
+    z: u8,
+    x: u32,
+    y: u32,
+    extension: &str,
+    bytes: &[u8],
+) -> std::io::Result<()> {
+    std::fs::create_dir_all(base_path.join(z.to_string()).join(x.to_string()))?;
+    std::fs::write(tile_path(base_path, z, x, y, extension), bytes)
 }
 
 /// Save a tile PNG to disk at the standard z/x/y.png path
 pub fn save_tile(base_path: &Path, z: u8, x: u32, y: u32, png_data: &[u8]) -> std::io::Result<()> {
-    let tile_dir = base_path.join(z.to_string()).join(x.to_string());
-    std::fs::create_dir_all(&tile_dir)?;
-    std::fs::write(tile_dir.join(format!("{}.png", y)), png_data)
+    write_tile_file(base_path, z, x, y, "png", png_data)
 }
 
-/// Write a valid transparent PNG to mark an empty tile (prevents re-generation).
-/// MapLibre still decodes requested raster tiles, so a 0-byte sentinel will log
-/// bitmap decode errors on Android.
-pub fn save_empty_sentinel(base_path: &Path, z: u8, x: u32, y: u32) -> std::io::Result<()> {
-    let tile_dir = base_path.join(z.to_string()).join(x.to_string());
-    std::fs::create_dir_all(&tile_dir)?;
-    std::fs::write(tile_dir.join(format!("{}.png", y)), &*EMPTY_TILE_PNG)
+/// Record that a tile was rasterised and came out with nothing in it.
+///
+/// A tile the sweep schedules but no stroke reaches produces no PNG, so
+/// nothing on disk distinguishes it from a tile that has never been drawn and
+/// every later pass schedules it again. The marker is what the existence check
+/// reads; the map never asks for it, so it is not served.
+pub fn mark_tile_empty(base_path: &Path, z: u8, x: u32, y: u32) -> std::io::Result<()> {
+    write_tile_file(base_path, z, x, y, EMPTY_MARKER_EXT, &[])
 }
 
-/// Check if a tile file already exists on disk (including transparent empty tiles)
+/// The extension of the marker `mark_tile_empty` writes.
+pub const EMPTY_MARKER_EXT: &str = "empty";
+
+/// Whether this tile has already been drawn, whether it came out with heat in
+/// it or empty.
 pub fn tile_exists(base_path: &Path, z: u8, x: u32, y: u32) -> bool {
-    base_path
-        .join(z.to_string())
-        .join(x.to_string())
-        .join(format!("{}.png", y))
-        .exists()
+    tile_path(base_path, z, x, y, "png").exists()
+        || tile_path(base_path, z, x, y, EMPTY_MARKER_EXT).exists()
 }
 
 /// Delete tile files within a bounding box across all zoom levels
@@ -688,14 +739,18 @@ pub fn invalidate_tiles_in_bounds(
     for z in min_zoom..=max_zoom {
         let tiles = tiles_for_bounds(min_lat, max_lat, min_lng, max_lng, z);
         for (x, y) in tiles {
-            let path = base_path
-                .join(z.to_string())
-                .join(x.to_string())
-                .join(format!("{}.png", y));
-            if path.exists() {
-                if std::fs::remove_file(&path).is_ok() {
-                    deleted += 1;
+            // The marker has to go with the tile. Left behind it claims the
+            // ground is drawn, and the redraw the invalidation asked for is
+            // then skipped for ever.
+            let mut gone = false;
+            for extension in ["png", EMPTY_MARKER_EXT] {
+                let path = tile_path(base_path, z, x, y, extension);
+                if path.exists() && std::fs::remove_file(&path).is_ok() {
+                    gone = true;
                 }
+            }
+            if gone {
+                deleted += 1;
             }
         }
     }
@@ -816,6 +871,174 @@ mod tests {
         }
     }
 
+    /// A point at a known fractional position inside tile (x, y) at `zoom`.
+    fn point_at(zoom: u8, x: u32, y: u32, frac_x: f64, frac_y: f64) -> GpsPoint {
+        GpsPoint::new(
+            tile_y_to_lat(y as f64 + frac_y, zoom),
+            tile_x_to_lon(x as f64 + frac_x, zoom),
+        )
+    }
+
+    #[test]
+    fn a_point_in_the_middle_of_its_tile_schedules_no_neighbour() {
+        let zoom = 14;
+        let track = vec![point_at(zoom, 8_000, 5_500, 0.5, 0.5)];
+        assert_eq!(
+            tiles_along_track(&track, zoom),
+            std::collections::HashSet::from([(8_000, 5_500)]),
+            "a neighbour is 512 px away and the draw margin is {DRAW_MARGIN}, \
+             so nothing of this point can reach one"
+        );
+    }
+
+    #[test]
+    fn a_point_inside_the_margin_schedules_across_that_seam_only() {
+        let zoom = 14;
+        // Just inside the last DRAW_MARGIN pixels of its tile on x, and clear
+        // of both seams on y.
+        let inset = DRAW_MARGIN as f64 / TILE_SIZE as f64 / 2.0;
+        let track = vec![point_at(zoom, 8_000, 5_500, 1.0 - inset, 0.5)];
+        assert_eq!(
+            tiles_along_track(&track, zoom),
+            std::collections::HashSet::from([(8_000, 5_500), (8_001, 5_500)]),
+            "the stroke bleeds across the x seam and no other"
+        );
+    }
+
+    #[test]
+    fn a_corner_point_schedules_the_three_tiles_it_can_bleed_into() {
+        let zoom = 14;
+        let inset = DRAW_MARGIN as f64 / TILE_SIZE as f64 / 2.0;
+        let track = vec![point_at(zoom, 8_000, 5_500, inset, inset)];
+        assert_eq!(
+            tiles_along_track(&track, zoom),
+            std::collections::HashSet::from([
+                (8_000, 5_500),
+                (7_999, 5_500),
+                (8_000, 5_499),
+                (7_999, 5_499),
+            ]),
+        );
+    }
+
+    #[test]
+    fn every_scheduled_tile_a_point_reaches_accepts_that_point() {
+        let zoom = 14;
+        let inset = DRAW_MARGIN as f64 / TILE_SIZE as f64 / 2.0;
+        for (fx, fy) in [(0.5, 0.5), (1.0 - inset, 0.5), (inset, inset), (0.5, inset)] {
+            let point = point_at(zoom, 8_000, 5_500, fx, fy);
+            for (x, y) in tiles_along_track(&[point], zoom) {
+                assert!(
+                    gps_to_pixel(&point, zoom, x, y).is_some(),
+                    "scheduled ({x},{y}) for a point at ({fx},{fy}) the rasteriser refuses"
+                );
+            }
+        }
+    }
+
+    /// Scenario: consecutive fixes more than a tile apart, which is any GPS
+    /// dropout at the heatmap's higher zooms. Expected behaviour: the ground
+    /// between them is drawn, and so is the ground each fix sits on.
+    #[test]
+    fn a_segment_longer_than_a_tile_draws_in_every_tile_it_crosses() {
+        let zoom = 14;
+        let track = vec![
+            point_at(zoom, 8_000, 5_500, 0.5, 0.5),
+            point_at(zoom, 8_002, 5_500, 0.5, 0.5),
+        ];
+        for x in 8_000..=8_002 {
+            assert!(
+                generate_heatmap_tile(zoom, x, 5_500, &[track.as_slice()]).is_some(),
+                "tile ({x},5500) is on a segment the sweep scheduled and drew nothing"
+            );
+        }
+    }
+
+    #[test]
+    fn a_fix_that_jumps_across_the_world_is_not_drawn_as_ground() {
+        let zoom = 14;
+        let track = vec![
+            point_at(zoom, 8_000, 5_500, 0.5, 0.5),
+            point_at(zoom, 100, 5_500, 0.5, 0.5),
+        ];
+        assert!(
+            generate_heatmap_tile(zoom, 4_000, 5_500, &[track.as_slice()]).is_none(),
+            "a straight line across a glitch is invented ground, not recorded ground"
+        );
+        let scheduled = tiles_along_track(&track, zoom);
+        assert!(
+            !scheduled.contains(&(4_000, 5_500)),
+            "the plan schedules a tile the rasteriser will not draw"
+        );
+        assert!(
+            scheduled.contains(&(8_000, 5_500)) && scheduled.contains(&(100, 5_500)),
+            "both fixes are still real ground"
+        );
+    }
+
+    #[test]
+    fn a_segment_that_misses_the_tile_entirely_still_draws_nothing() {
+        let zoom = 14;
+        let track = vec![
+            point_at(zoom, 8_000, 5_500, 0.5, 0.5),
+            point_at(zoom, 8_002, 5_500, 0.5, 0.5),
+        ];
+        assert!(
+            generate_heatmap_tile(zoom, 8_001, 5_510, &[track.as_slice()]).is_none(),
+            "ten tiles south of the segment is not ground it covers"
+        );
+    }
+
+    #[test]
+    fn a_track_of_one_point_draws_nothing_on_its_own() {
+        let zoom = 14;
+        let track = vec![point_at(zoom, 8_000, 5_500, 0.5, 0.5)];
+        assert!(
+            generate_heatmap_tile(zoom, 8_000, 5_500, &[track.as_slice()]).is_none(),
+            "a single fix is not a stretch of ground and has never been drawn as one"
+        );
+    }
+
+    #[test]
+    fn a_tile_that_rendered_empty_is_not_scheduled_again() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let base = dir.path();
+        assert!(!tile_exists(base, 14, 8_000, 5_500));
+        mark_tile_empty(base, 14, 8_000, 5_500).expect("marker");
+        assert!(
+            tile_exists(base, 14, 8_000, 5_500),
+            "a tile drawn and found empty has been drawn"
+        );
+        assert!(
+            !base.join("14").join("8000").join("5500.png").exists(),
+            "the marker is not served as a tile"
+        );
+    }
+
+    #[test]
+    fn invalidating_ground_takes_the_empty_markers_with_it() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let base = dir.path();
+        let (lat, lng) = (46.5, 7.5);
+        let x = lon_to_tile_x(lng, 14).floor() as u32;
+        let y = lat_to_tile_y(lat, 14).floor() as u32;
+        mark_tile_empty(base, 14, x, y).expect("marker");
+        let deleted = invalidate_tiles_in_bounds(
+            base,
+            lat - 0.01,
+            lat + 0.01,
+            lng - 0.01,
+            lng + 0.01,
+            14,
+            14,
+        );
+        assert!(deleted >= 1, "the marker is a tile for invalidation");
+        assert!(
+            !tile_exists(base, 14, x, y),
+            "a marker left behind claims ground that was asked to be redrawn is drawn"
+        );
+    }
+
     #[test]
     fn tiles_along_track_is_tight_vs_bbox() {
         // A long point-to-point track (several km of span each axis) should
@@ -882,8 +1105,8 @@ mod tests {
     }
 
     #[test]
-    fn test_color_lut() {
-        let lut = &*COLOR_LUT;
+    fn test_colour_lut() {
+        let lut = &*COLOUR_LUT;
         // Index 0 is transparent
         assert_eq!(lut[0], [0, 0, 0, 0]);
         // Index 255 should be bright
@@ -903,7 +1126,7 @@ mod tests {
     }
 
     #[test]
-    fn test_thick_line_rasterization_produces_solid_center() {
+    fn test_thick_line_rasterisation_produces_solid_center() {
         let mut buf = IntensityBuffer::new(32, 32);
         draw_line_intensity(&mut buf, 4.0, 16.0, 28.0, 16.0, 6.0, 24.0);
 

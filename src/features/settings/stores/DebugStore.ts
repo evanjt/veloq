@@ -60,15 +60,15 @@ export async function initializeDebugStore(): Promise<void> {
   syncDebugToFFI();
 }
 
-/** Sync debug enabled state to RouteEngineClient for FFI metric recording */
+/** Sync debug enabled state to EngineClient for FFI metric recording */
 function syncDebugToFFI(): void {
   try {
-    const { RouteEngineClient } = require('veloqrs');
+    const { EngineClient } = require('veloqrs');
     const { recordFFIMetric } = require('@/shared/debug/renderTimer');
-    RouteEngineClient.setMetricRecorder(recordFFIMetric);
-    RouteEngineClient.setDebugEnabled(useDebugStore.getState().enabled);
+    EngineClient.setMetricRecorder(recordFFIMetric);
+    EngineClient.setDebugEnabled(useDebugStore.getState().enabled);
     useDebugStore.subscribe((state) => {
-      RouteEngineClient.setDebugEnabled(state.enabled);
+      EngineClient.setDebugEnabled(state.enabled);
     });
   } catch {
     // Native module not available (web/Expo Go)

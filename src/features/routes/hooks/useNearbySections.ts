@@ -3,9 +3,6 @@
  * Returns summaries with polyline data for map overlay rendering.
  */
 
-import { useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from './useRouteEngine';
 import type { NearbySectionSummary } from 'veloqrs';
 
 interface UseNearbySectionsResult {
@@ -13,18 +10,10 @@ interface UseNearbySectionsResult {
   isLoading: boolean;
 }
 
-export function useNearbySections(
-  sectionId: string | undefined,
-  radiusMeters: number = 500
-): UseNearbySectionsResult {
-  const trigger = useEngineSubscription(['sections']);
-
-  const nearby = useMemo(() => {
-    if (!sectionId) return [];
-    const engine = getRouteEngine();
-    if (!engine) return [];
-    return engine.getNearbySections(sectionId, radiusMeters);
-  }, [sectionId, radiusMeters, trigger]);
-
+/**
+ * The neighbours come from `getSectionDetailData`, which the screen reads before
+ * it mounts this hook.
+ */
+export function useNearbySections(nearby: NearbySectionSummary[]): UseNearbySectionsResult {
   return { nearby, isLoading: false };
 }

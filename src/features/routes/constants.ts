@@ -1,20 +1,13 @@
-export type SectionTimeRange = '1m' | '3m' | '6m' | '1y' | 'all';
+import { periodOptions, periodRangeDays, type Period } from '@/shared/app/period';
 
-export const SECTION_TIME_RANGES: { id: SectionTimeRange; label: string }[] = [
-  { id: '1m', label: '1M' },
-  { id: '3m', label: '3M' },
-  { id: '6m', label: '6M' },
-  { id: '1y', label: '1Y' },
-  { id: 'all', label: 'All' },
-];
+export type SectionTimeRange = Extract<Period, '1m' | '3m' | '6m' | '1y' | 'all'>;
 
-export const RANGE_DAYS: Record<SectionTimeRange, number> = {
-  '1m': 30,
-  '3m': 90,
-  '6m': 180,
-  '1y': 365,
-  all: 0,
-};
+export const SECTION_TIME_RANGES = periodOptions<SectionTimeRange>(['1m', '3m', '6m', '1y', 'all']);
+
+/** Days the engine limits a section read to, zero for no limit. */
+export const RANGE_DAYS: Record<SectionTimeRange, number> = Object.fromEntries(
+  SECTION_TIME_RANGES.map((o) => [o.id, periodRangeDays(o.id)])
+) as Record<SectionTimeRange, number>;
 
 // Patterns cycle first, then colors (6 patterns x 10 colors = 60 unique styles).
 // Tight thatches keep dashed lines reading as continuous on the map.

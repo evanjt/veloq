@@ -20,14 +20,15 @@ import {
   typography,
   shadows,
   mapPreviewColors,
+  ink,
 } from '@/theme';
 import {
   getActivityColor,
   getActivityIcon,
-  isRunningActivity,
+  isPaceSport,
 } from '@/features/activity/lib/activityUtils';
 import { formatPace, formatSpeed, formatDistance } from '@/shared/format/format';
-import { useConsensusRoute } from '@/features/routes/hooks/useRouteEngine';
+import { useConsensusRoute } from '@/features/routes/hooks/useEngine';
 import { toActivityType } from '@/features/routes/types';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 
@@ -132,7 +133,7 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
       <Polyline
         points={pointsString}
         fill="none"
-        stroke="#000000"
+        stroke={ink.black}
         strokeWidth={3}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -152,11 +153,11 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
 
       {/* Start marker (green) */}
       <Circle cx={startPoint.x} cy={startPoint.y} r={3} fill={colors.success} />
-      <Circle cx={startPoint.x} cy={startPoint.y} r={2} fill="#FFFFFF" />
+      <Circle cx={startPoint.x} cy={startPoint.y} r={2} fill={ink.white} />
 
       {/* End marker (red) */}
       <Circle cx={endPoint.x} cy={endPoint.y} r={3} fill={colors.error} />
-      <Circle cx={endPoint.x} cy={endPoint.y} r={2} fill="#FFFFFF" />
+      <Circle cx={endPoint.x} cy={endPoint.y} r={2} fill={ink.white} />
     </Svg>
   );
 });
@@ -168,14 +169,12 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
   const [expanded, setExpanded] = useState(false);
 
   // Use pre-loaded consensus points if available (from batch FFI), otherwise lazy-load
-  const hasPreloadedConsensus =
-    isRouteGroup(route) && route.consensusPoints && route.consensusPoints.length > 0;
+  const preloadedConsensus =
+    isRouteGroup(route) && route.consensusPoints?.length ? route.consensusPoints : null;
   const { points: lazyConsensusPoints } = useConsensusRoute(
-    isRouteGroup(route) && !hasPreloadedConsensus ? route.id : null
+    isRouteGroup(route) && !preloadedConsensus ? route.id : null
   );
-  const consensusPoints = hasPreloadedConsensus
-    ? (route as RouteGroup).consensusPoints!
-    : lazyConsensusPoints;
+  const consensusPoints = preloadedConsensus ?? lazyConsensusPoints;
 
   // Display name comes from parent via route.name (which includes custom name from useRouteGroups)
   // This ensures reactivity when names change via the hook chain
@@ -228,7 +227,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
   // Get best pace (only available on RouteGroup with performance data)
   const bestPace = isRouteGroup(route) ? route.bestPace : undefined;
   const routeType = toActivityType(route.type);
-  const showPace = isRunningActivity(routeType);
+  const showPace = isPaceSport(routeType);
 
   // Format pace/speed for display
   const formattedPace = useMemo(() => {
@@ -380,7 +379,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: 6,
     ...shadows.pill,
   },
@@ -390,13 +389,13 @@ const styles = StyleSheet.create({
   previewBox: {
     width: 48,
     height: 36,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusXs,
     overflow: 'hidden',
   },
   previewPlaceholder: {
     width: 48,
     height: 36,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusXs,
     backgroundColor: opacity.overlay.subtle,
     justifyContent: 'center',
     alignItems: 'center',
@@ -441,7 +440,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   proximityText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textDisabled,
   },
   proximityTextDark: {

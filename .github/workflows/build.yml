@@ -21,7 +21,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # main builds can feed release artifacts — only auto-cancel branch/PR re-runs
+  # main builds can feed release artifacts, only auto-cancel branch/PR re-runs
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
@@ -31,11 +31,46 @@ env:
   NODE_VERSION: "22"
 
 jobs:
+  # A pull request pays for the iOS build only when something native can
+  # change. The gate's APK is the app check for everything else. push,
+  # schedule and dispatch skip this job and build unconditionally below.
+  changes:
+    name: Detect Native Changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      native: ${{ steps.filter.outputs.native }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            native:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'app.json'
+              - 'app.config.js'
+              - 'src/plugins/**'
+              - 'widget/**'
+              - 'expo-modules/**'
+              - 'modules/**'
+              - 'ios/**'
+              - 'patches/**'
+              - '.github/workflows/build.yml'
+              - '.github/actions/**'
+
   # ============================================
   # Build Android
   # ============================================
+  # Not on pull requests: the E2E gate builds and exercises the APK there, and
+  # this job's PR artefact was downloaded by nothing. e2e-smoke needs it on
+  # push, schedule and dispatch, which still build.
   build-android:
     name: Build Android
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -61,7 +96,7 @@ jobs:
           build-type-override: ${{ inputs.build_type }}
           source-profile: android
 
-      # Source-hash cache — skip build if code unchanged.
+      # Source-hash cache, skip build if code unchanged.
       # Key is segmented by build type so an APK-only cache from a feature branch
       # can't satisfy a main/dispatch build that also needs the AAB.
       - name: Cache built APK/AAB
@@ -116,7 +151,7 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit != 'true'
         run: npm ci
 
-      # Rust library cache — skip toolchain install + compilation if Rust unchanged
+      # Rust library cache, skip toolchain install + compilation if Rust unchanged
       - name: Cache Rust Android libraries
         id: rust-android-cache
         if: steps.apk-cache.outputs.cache-hit != 'true'
@@ -160,22 +195,10 @@ jobs:
           secret-contents: ${{ secrets.GOOGLE_SERVICES_JSON }}
           package-name: com.veloq.app
 
-      - name: Cache Android prebuild
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        id: android-prebuild-cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            android
-            !android/build
-            !android/.gradle
-            !android/.cxx
-            !android/app/build
-            !android/app/.cxx
-          key: android-prebuild-v7-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'modules/**/package.json', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
-
+      # Prebuild takes seconds; caching android/ retained hundreds of MB after
+      # Gradle ran. Keep dependencies and compiled libraries cached instead.
       - name: Generate Android native project
-        if: steps.apk-cache.outputs.cache-hit != 'true' && steps.android-prebuild-cache.outputs.cache-hit != 'true'
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         run: APP_VARIANT=production npx expo prebuild --platform android
 
       - name: Install Gradle init script
@@ -219,7 +242,7 @@ jobs:
             echo "Signing configured (release key)"
           else
             echo "is_signed=false" >> $GITHUB_OUTPUT
-            echo "::notice::Android signing secrets not available — APK will use debug signing"
+            echo "::notice::Android signing secrets not available. APK will use debug signing"
           fi
 
       - name: Verify veloqrs libraries
@@ -294,7 +317,7 @@ jobs:
           # On cache hits the signing step is skipped, but the cached APK was signed
           # correctly when it was first built, so the warning would be misleading.
           if [ "${{ steps.signing.outputs.is_signed }}" = "false" ]; then
-            echo "::warning::keystore.properties not found — APK uses debug signing"
+            echo "::warning::keystore.properties not found. APK uses debug signing"
           fi
           cp android/app/build/outputs/apk/release/app-release.apk \
             "artifacts/${{ steps.version.outputs.filename }}.apk"
@@ -377,6 +400,8 @@ jobs:
   # ============================================
   build-ios:
     name: Build iOS
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.native == 'true') }}
     runs-on: macos-26
     timeout-minutes: 120
     outputs:
@@ -396,6 +421,23 @@ jobs:
         with:
           xcode-version: '26.2'
 
+      # `apple.ccacheEnabled` in app.json routes every clang call through
+      # ccache, so a second build of the same pods is a cache read. The store
+      # is capped and keyed by native inputs, avoiding a snapshot per JS commit.
+      # A native change can still warm-start from the previous store.
+      - name: Setup ccache
+        run: |
+          brew install ccache
+          ccache --max-size=1G
+
+      - name: Cache ccache store
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/ccache
+          key: ccache-ios-v2-${{ runner.arch }}-${{ hashFiles('package-lock.json', 'app.json', 'app.config.js', 'src/plugins/**', 'widget/ios/**', 'modules/**/ios/**', 'modules/**/cpp/**', '.github/workflows/build.yml') }}
+          restore-keys: |
+            ccache-ios-v2-${{ runner.arch }}-
+
       - name: Get version info
         id: version
         uses: ./.github/actions/compute-version-info
@@ -404,7 +446,7 @@ jobs:
           source-profile: ios
 
       # Source-hash cache for simulator .app (skip on main/schedule/dispatch where
-      # the signed IPA step runs — it needs the xcodeproj from prebuild)
+      # the signed IPA step runs, it needs the xcodeproj from prebuild)
       - name: Cache simulator app
         if: github.ref != 'refs/heads/main' && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
         id: app-cache
@@ -420,7 +462,7 @@ jobs:
           cache: "npm"
 
       # ---- Rust Build ----
-      # Rust library cache — skip toolchain install + compilation if Rust unchanged
+      # Rust library cache, skip toolchain install + compilation if Rust unchanged
       - name: Cache Rust iOS libraries
         id: rust-ios-cache
         if: steps.app-cache.outputs.cache-hit != 'true'
@@ -500,15 +542,26 @@ jobs:
         id: ios-prebuild-cache
         uses: actions/cache@v4
         with:
-          path: ios
+          path: |
+            ios
+            !ios/Pods
+            !ios/build
+            !ios/**/build
+            !ios/Frameworks
           # No restore-keys: a prefix fallback would restore a stale ios/ from before an
           # app.json change, and incremental `expo prebuild` reuses it without rewriting
-          # Podfile.properties.json — so a config change (e.g. buildReactNativeFromSource)
+          # Podfile.properties.json, so a config change (e.g. buildReactNativeFromSource)
           # silently never reaches the build. Exact-key only forces a fresh prebuild.
-          key: ios-prebuild-v8-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
+          key: ios-prebuild-v10-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'src/plugins/**', 'widget/ios/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
 
       - name: Install dependencies
         run: npm ci
+
+      # The bridge pod compiles the Live Activity contract, which the plugin copies
+      # out of widget/ios during prebuild. A restored native project skips prebuild,
+      # and the copy lands outside ios/, so nothing else puts those files on disk.
+      - name: Sync Live Activity sources
+        run: npm run sync:live-activity
 
       - name: Generate native project
         if: steps.app-cache.outputs.cache-hit != 'true' && steps.ios-prebuild-cache.outputs.cache-hit != 'true'
@@ -566,6 +619,7 @@ jobs:
       - name: Build simulator app
         if: steps.app-cache.outputs.cache-hit != 'true'
         run: |
+          set -o pipefail
           xcodebuild -workspace ios/Veloq.xcworkspace \
             -scheme Veloq \
             -configuration Release \
@@ -630,7 +684,7 @@ jobs:
             echo "iOS signing credentials found"
           else
             echo "has_signing=false" >> $GITHUB_OUTPUT
-            echo "::notice::iOS signing not configured — skipping IPA build"
+            echo "::notice::iOS signing not configured, skipping IPA build"
           fi
 
       - name: Import code signing certificate
@@ -791,7 +845,7 @@ jobs:
           retention-days: 30
 
   # ============================================
-  # E2E Smoke — quick post-build sanity check
+  # E2E Smoke, quick post-build sanity check
   # ============================================
   e2e-smoke:
     name: E2E Smoke

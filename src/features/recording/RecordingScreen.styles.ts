@@ -6,6 +6,11 @@ export const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  /** Waiting for an answer the screen cannot act without. */
+  centred: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   timerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -27,7 +32,7 @@ export const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   typeBadgeText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     maxWidth: 80,
   },
@@ -49,7 +54,7 @@ export const styles = StyleSheet.create({
   lockChip: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: layout.borderRadiusFull,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -61,7 +66,7 @@ export const styles = StyleSheet.create({
   statusDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
   },
   statusText: {
     ...typography.captionBold,

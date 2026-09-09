@@ -60,13 +60,6 @@ export async function getCrashLog(): Promise<CrashEntry[]> {
   return [...entries].reverse();
 }
 
-export async function clearCrashLog(): Promise<void> {
-  cache = [];
-  try {
-    await AsyncStorage.removeItem(CRASH_LOG_KEY);
-  } catch {}
-}
-
 export function formatCrashLog(entries: CrashEntry[]): string {
   if (!entries.length) return '';
   return entries
@@ -104,7 +97,9 @@ export function installGlobalCrashHandler() {
         stack: err?.stack ? String(err.stack) : undefined,
         fatal: !!isFatal,
       });
-    } catch {}
+    } catch {
+      // Recording the crash must never mask the crash itself.
+    }
     prev?.(error, isFatal);
   });
 }

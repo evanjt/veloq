@@ -13,6 +13,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { findCppKeywordParams } from './lib/cppKeywords';
 
 const RUST_SRC_DIR = path.resolve(__dirname, '../modules/veloqrs/rust/veloqrs/src');
 
@@ -23,6 +24,12 @@ interface FfiExport {
   line: number;
   returnType: string;
   params: string[];
+  /**
+   * The item's doc comment, joined into one line. UniFFI hashes the whole
+   * metadata buffer and that buffer carries the docstring, so this is part of
+   * the ABI, not a comment.
+   */
+  docs: string;
   /** If set, this export is a method on a UniFFI Object with this name. */
   object?: string;
 }
@@ -72,10 +79,12 @@ function parseFnDecl(
   }
   signature = signature.replace(/\s+/g, ' ').trim();
 
-  // Matches both `pub fn name(...)` and `fn name(...)` (methods inside impl
-  // blocks often omit `pub`). Optional return type after `->`.
+  // Matches `pub fn name(...)`, `fn name(...)` and the async forms of both
+  // (methods inside impl blocks often omit `pub`). Optional return type after
+  // `->`. An async export resolves to a promise on the TypeScript side, which
+  // the manifest records as the awaited type.
   const match = signature.match(
-    /(?:pub\s+)?fn\s+(\w+)\s*(?:<[^>]*>)?\s*\(([\s\S]*?)\)(?:\s*->\s*([^{;]+?))?\s*[{;]/
+    /(?:pub\s+)?(?:async\s+)?fn\s+(\w+)\s*(?:<[^>]*>)?\s*\(([\s\S]*?)\)(?:\s*->\s*([^{;]+?))?\s*[{;]/
   );
   if (!match) return null;
 
@@ -93,6 +102,31 @@ function parseFnDecl(
     returnType: returnType?.trim() || 'void',
     line: startLine + 1, // 1-indexed
   };
+}
+
+/**
+ * The doc comment attached to the item declared at `declLine`, joined into one
+ * line, skipping any attributes between the comment and the declaration.
+ *
+ * It is collected because `uniffi` hashes it: `FnMetadata` carries the
+ * docstring and the export macro hashes the whole metadata buffer, so editing
+ * a comment moves the runtime checksum the generated bindings assert.
+ */
+function docsAbove(lines: string[], declLine: number): string {
+  const collected: string[] = [];
+  for (let i = declLine - 1; i >= 0; i--) {
+    const trimmed = lines[i].trim();
+    if (trimmed.startsWith('#[') || trimmed.length === 0) {
+      if (trimmed.length === 0 && collected.length > 0) break;
+      continue;
+    }
+    if (trimmed.startsWith('///')) {
+      collected.push(trimmed.slice(3).trim());
+      continue;
+    }
+    break;
+  }
+  return collected.reverse().join(' ').replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -145,7 +179,7 @@ function extractExportsFromFile(filePath: string): FfiExport[] {
         // preceded by start-of-line, whitespace, or `pub` - we reject occurrences
         // inside comments or within parameter/type positions.
         if (trimmed.startsWith('//')) continue;
-        if (!/^(?:pub\s+)?fn\s+\w/.test(trimmed)) continue;
+        if (!/^(?:pub\s+)?(?:async\s+)?fn\s+\w/.test(trimmed)) continue;
 
         const decl = parseFnDecl(lines, j);
         if (!decl) continue;
@@ -157,6 +191,7 @@ function extractExportsFromFile(filePath: string): FfiExport[] {
           line: decl.line,
           returnType: decl.returnType,
           params: decl.params,
+          docs: docsAbove(lines, j),
           object: implName,
         });
       }
@@ -164,7 +199,7 @@ function extractExportsFromFile(filePath: string): FfiExport[] {
     }
 
     // Case 2: standalone function.
-    if (/^(?:pub\s+)?fn\s+\w/.test(firstDeclLine)) {
+    if (/^(?:pub\s+)?(?:async\s+)?fn\s+\w/.test(firstDeclLine)) {
       const decl = parseFnDecl(lines, declStart);
       if (!decl) continue;
       exports.push({
@@ -174,6 +209,9 @@ function extractExportsFromFile(filePath: string): FfiExport[] {
         line: decl.line,
         returnType: decl.returnType,
         params: decl.params,
+        // The export attribute sits above the declaration, so the comment is
+        // above that, not above `declStart`.
+        docs: docsAbove(lines, i),
       });
     }
   }
@@ -221,9 +259,23 @@ function extractAllFfiExports(): FfiExport[] {
 }
 
 // Main execution
+// eslint-disable-next-line @typescript-eslint/no-redeclare -- module-scope name, not CommonJS exports
 const exports = extractAllFfiExports();
 const outputJson = process.argv.includes('--json');
 const checkMode = process.argv.includes('--check');
+
+// Refused before anything else reads the surface. The C++ codegen copies an
+// argument name verbatim, so a keyword here compiles in Rust, type checks in
+// TypeScript and then fails inside CMake on the only platform that builds C++.
+{
+  const offenders = findCppKeywordParams(exports);
+  if (offenders.length > 0) {
+    console.error('ERROR: an FFI argument is named after a C++ keyword!');
+    offenders.forEach((o) => console.error('  ' + o));
+    console.error('Rename the argument in Rust, then run: npm run ffi:manifest');
+    process.exit(1);
+  }
+}
 
 if (outputJson) {
   console.log(JSON.stringify(exports, null, 2));
@@ -258,11 +310,9 @@ if (checkMode) {
   // in RUST_TO_TS_NAME) don't get captured as a `name:` field, which would
   // pull the camelCase value into the set and falsely flag it as removed.
   const existingNames = new Set(
-    [
-      ...existingContent.matchAll(
-        /(?:["']name["']|\bname)\s*:\s*["']([A-Za-z0-9_]+)["']/g
-      ),
-    ].map((m) => m[1])
+    [...existingContent.matchAll(/(?:["']name["']|\bname)\s*:\s*["']([A-Za-z0-9_]+)["']/g)].map(
+      (m) => m[1]
+    )
   );
 
   const missingInManifest: string[] = [];
@@ -297,16 +347,26 @@ if (checkMode) {
   // a parameter or return-type change in Rust fails the check even when the name
   // and export count are unchanged. Keyed by object::name (not file:line) so an
   // unrelated code move does not trip a false positive.
-  const sigKey = (e: { object?: string; name: string }) => `${e.object ?? '<standalone>'}::${e.name}`;
-  const manifestArray = existingContent.match(/FFI_EXPORTS:\s*FfiExportInfo\[\]\s*=\s*(\[[\s\S]*?\n\]);/);
-  if (manifestArray) {
-    let manifestEntries: { name: string; object?: string; paramCount?: number; returnType?: string }[] =
-      [];
-    try {
-      manifestEntries = JSON.parse(manifestArray[1]);
-    } catch {
-      manifestEntries = [];
-    }
+  const sigKey = (e: { object?: string; name: string }) =>
+    `${e.object ?? '<standalone>'}::${e.name}`;
+  // Read the array the manifest exports rather than parsing its source text.
+  // Scraping it out and JSON.parsing worked only while the file stayed
+  // double-quoted: one Prettier pass turned every real drift into a silent pass.
+  let manifestEntries: {
+    name: string;
+    object?: string;
+    paramCount?: number;
+    returnType?: string;
+    docs?: string;
+  }[] = [];
+  try {
+    manifestEntries = require(tsOutput).FFI_EXPORTS;
+  } catch (err) {
+    console.error('ERROR: could not read FFI_EXPORTS from the manifest:', err);
+    console.error('Run: npm run ffi:manifest');
+    process.exit(1);
+  }
+  {
     const manifestSig = new Map(manifestEntries.map((e) => [sigKey(e), e]));
     const drift: string[] = [];
     for (const exp of exports) {
@@ -322,6 +382,25 @@ if (checkMode) {
       console.error('ERROR: FFI signature drift detected (arity/return type changed)!');
       drift.forEach((d) => console.error('  ' + d));
       console.error('Run: npm run ffi:manifest');
+      process.exit(1);
+    }
+
+    // A docstring is hashed into the export's runtime checksum, so an edited
+    // comment against unregenerated bindings is a build that refuses to start
+    // with ApiChecksumMismatch. Entries with no recorded docs are skipped:
+    // that is a manifest written before this was captured, not a change.
+    const docDrift: string[] = [];
+    for (const exp of exports) {
+      const m = manifestSig.get(sigKey(exp));
+      if (!m || m.docs == null) continue;
+      if (m.docs !== exp.docs) docDrift.push(sigKey(exp));
+    }
+    if (docDrift.length > 0) {
+      console.error('ERROR: FFI doc comment drift detected!');
+      console.error('A docstring is hashed into the export checksum the bindings assert,');
+      console.error('so this tree would fail uniffiEnsureInitialized with ApiChecksumMismatch.');
+      docDrift.forEach((d) => console.error('  ' + d));
+      console.error('Regenerate the bindings, then run: npm run ffi:manifest');
       process.exit(1);
     }
   }
@@ -403,6 +482,12 @@ export interface FfiExportInfo {
   paramCount: number;
   /** Raw Rust return type, or 'void'. */
   returnType: string;
+  /**
+   * The item's doc comment on one line. UniFFI hashes the metadata buffer and
+   * that buffer carries the docstring, so an edit here moves the checksum the
+   * generated bindings assert at startup.
+   */
+  docs: string;
   /** If defined, the UniFFI Object that owns this method. */
   object?: string;
 }
@@ -412,8 +497,8 @@ export interface FfiExportInfo {
  * Total: ${exports.length} exports (${standaloneCount} standalone + ${methodCount} methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = ${JSON.stringify(
-    exports.map(({ name, camelName, file, line, object, params, returnType }) => {
-      const base = { name, camelName, file, line, paramCount: params.length, returnType };
+    exports.map(({ name, camelName, file, line, object, params, returnType, docs }) => {
+      const base = { name, camelName, file, line, paramCount: params.length, returnType, docs };
       return object ? { ...base, object } : base;
     }),
     null,
@@ -449,6 +534,17 @@ ${uniffiObjects.map((o) => `  '${o}',`).join('\n')}
 ] as const;
 `;
 
-  fs.writeFileSync(tsOutput, tsContent);
-  console.log(`\nGenerated: ${tsOutput}`);
+  // Write what Prettier would write, so `npm run format:check` stays green
+  // straight after a regeneration and the pre-commit hook never reformats
+  // this file underneath an unrelated change.
+  const prettier = require('prettier');
+  const prettierConfig = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, '../config/.prettierrc'), 'utf8')
+  );
+  void prettier
+    .format(tsContent, { ...prettierConfig, parser: 'typescript' })
+    .then((formatted: string) => {
+      fs.writeFileSync(tsOutput, formatted);
+      console.log(`\nGenerated: ${tsOutput}`);
+    });
 }

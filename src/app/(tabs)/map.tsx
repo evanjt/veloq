@@ -13,12 +13,18 @@ import {
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useActivityBoundsCache, useActivities } from '@/features/activity/hooks';
 import { useEngineMapActivities } from '@/features/maps/hooks';
+import { filterMapActivities } from '@/features/maps';
+import {
+  PERIOD_OPTIONS,
+  getPeriodStart,
+  type MapPeriod,
+  DEFAULT_MAP_PERIOD,
+} from '@/features/maps/lib/mapPeriod';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, ink, spacing, typography, layout } from '@/theme';
 import {
-  getActivityTypeConfig,
   groupTypesByCategory,
   ACTIVITY_CATEGORIES,
 } from '@/features/maps/components/ActivityTypeFilter';
@@ -26,35 +32,10 @@ import {
 // Stable date references - creating new Date() in the component body triggers
 // useEngineMapActivities useMemo on every render, causing cascading re-renders
 // that make Android MapLibre snap the camera back.
-const ALL_TIME_START = new Date('2000-01-01');
 const ALL_TIME_END = new Date('2099-12-31');
 const ALL_TYPES = new Set<string>();
 
-type PeriodKey = 'all' | 'year' | '6m' | '3m' | '1m' | '1w';
 type DistanceKey = 'all' | 'xshort' | 'short' | 'medium' | 'long';
-
-// Pre-compute period start dates (stable references, computed once)
-function getPeriodStart(period: PeriodKey): Date {
-  if (period === 'all') return ALL_TIME_START;
-  const d = new Date();
-  if (period === 'year') {
-    d.setMonth(0, 1);
-    d.setHours(0, 0, 0, 0);
-  } else if (period === '6m') d.setMonth(d.getMonth() - 6);
-  else if (period === '3m') d.setMonth(d.getMonth() - 3);
-  else if (period === '1m') d.setMonth(d.getMonth() - 1);
-  else if (period === '1w') d.setDate(d.getDate() - 7);
-  return d;
-}
-
-const PERIOD_OPTIONS: { key: PeriodKey; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'year', label: 'This year' },
-  { key: '6m', label: '6 mo' },
-  { key: '3m', label: '3 mo' },
-  { key: '1m', label: '1 mo' },
-  { key: '1w', label: '1 wk' },
-];
 
 // Distance thresholds in meters (metric) and labels for both systems
 function getDistanceOptions(isMetric: boolean): { key: DistanceKey; label: string }[] {
@@ -73,13 +54,6 @@ function getDistanceOptions(isMetric: boolean): { key: DistanceKey; label: strin
         { key: 'medium', label: '6–30mi' },
         { key: 'long', label: '30mi+' },
       ];
-}
-
-// Thresholds in meters - imperial uses approximate mile equivalents
-function getDistanceThresholds(isMetric: boolean) {
-  return isMetric
-    ? { xshort: 5000, short: 10000, medium: 50000 }
-    : { xshort: 4828, short: 9656, medium: 48280 }; // 3mi, 6mi, 30mi
 }
 
 export default function MapScreen() {
@@ -102,25 +76,20 @@ export default function MapScreen() {
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
   // Fetch activities for the current sync range (triggers GlobalDataSync)
-  const {
-    isLoading: isLoadingActivities,
-    isError: isActivitiesError,
-    refetch: refetchActivities,
-  } = useActivities({
+  const { isError: isActivitiesError, refetch: refetchActivities } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
-    includeStats: false,
     enabled: isAuthenticated,
   });
 
   // Get sync state from engine cache
-  const { isReady, progress, cacheStats } = useActivityBoundsCache();
+  const { isReady, cacheStats } = useActivityBoundsCache();
   const oldestSyncedDate = cacheStats.oldestDate;
   const newestSyncedDate = cacheStats.newestDate;
 
   // Filter state
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
-  const [period, setPeriod] = useState<PeriodKey>('all');
+  const [period, setPeriod] = useState<MapPeriod>(DEFAULT_MAP_PERIOD);
   const [distanceFilter, setDistanceFilter] = useState<DistanceKey>('all');
 
   // Memoize period start date to keep reference stable across renders
@@ -136,33 +105,24 @@ export default function MapScreen() {
   });
 
   // Apply sport type + distance filters JS-side
-  const displayActivities = useMemo(() => {
-    let result = allActivities;
-    // Sport type filter
-    if (selectedTypes.size > 0 && selectedTypes.size < availableTypes.length) {
-      result = result.filter((a) => selectedTypes.has(a.type));
-    }
-    // Distance filter
-    if (distanceFilter !== 'all') {
-      const thresholds = getDistanceThresholds(isMetric);
-      result = result.filter((a) => {
-        if (distanceFilter === 'xshort') return a.distance < thresholds.xshort;
-        if (distanceFilter === 'short')
-          return a.distance >= thresholds.xshort && a.distance < thresholds.short;
-        if (distanceFilter === 'medium')
-          return a.distance >= thresholds.short && a.distance < thresholds.medium;
-        return a.distance >= thresholds.medium;
-      });
-    }
-    return result;
-  }, [allActivities, selectedTypes, availableTypes.length, distanceFilter]);
+  const displayActivities = useMemo(
+    () =>
+      filterMapActivities(
+        allActivities,
+        selectedTypes,
+        availableTypes.length,
+        distanceFilter,
+        isMetric
+      ),
+    [allActivities, selectedTypes, availableTypes.length, distanceFilter, isMetric]
+  );
 
-  // Initialize selected types when data loads
-  useEffect(() => {
-    if (availableTypes.length > 0 && selectedTypes.size === 0) {
-      setSelectedTypes(new Set(availableTypes));
-    }
-  }, [availableTypes]);
+  // Everything is selected until the athlete narrows it. Choosing while
+  // rendering keeps the first frame after the data lands from showing an empty
+  // map, and it converges: the set is no longer empty once it runs.
+  if (availableTypes.length > 0 && selectedTypes.size === 0) {
+    setSelectedTypes(new Set(availableTypes));
+  }
 
   const router = useRouter();
 
@@ -278,7 +238,7 @@ export default function MapScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.chipRow}
           >
-            {PERIOD_OPTIONS.map(({ key, label }) => (
+            {PERIOD_OPTIONS.map(({ id: key, labelKey }) => (
               <TouchableOpacity
                 key={key}
                 onPress={() => setPeriod(key)}
@@ -301,7 +261,7 @@ export default function MapScreen() {
                         : styles.chipTextInactive,
                   ]}
                 >
-                  {label}
+                  {t(labelKey as never)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -468,7 +428,7 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
   },
   chipInactive: {
     backgroundColor: 'rgba(0, 0, 0, 0.08)',
@@ -477,11 +437,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   chipText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
   },
   chipTextActive: {
-    color: '#FFFFFF',
+    color: ink.white,
   },
   chipTextInactive: {
     color: colors.textSecondary,
@@ -490,7 +450,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
   },
   chipCount: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '400',
   },
   chipCountActive: {
@@ -510,14 +470,14 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   infoText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   infoTextDark: {
     color: darkColors.textSecondary,
   },
   infoLink: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.primary,
     fontWeight: '600',
   },
@@ -535,7 +495,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30, 30, 30, 0.8)',
   },
   attributionText: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
   },
   attributionTextDark: {

@@ -3,10 +3,12 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, colorWithOpacity, darkColors, opacity, typography, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
+import { DenseText } from '@/shared/ui/DenseText';
+
 import type { StatDetail } from './types';
 
 interface StatCardProps {
@@ -34,8 +36,8 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
 
       {/* Value and title */}
       <View style={styles.statContent}>
-        <Text style={[styles.statValue, isDark && styles.textLight]}>{stat.value}</Text>
-        <Text style={styles.statTitle}>{stat.title}</Text>
+        <DenseText style={[styles.statValue, isDark && styles.textLight]}>{stat.value}</DenseText>
+        <DenseText style={styles.statTitle}>{stat.title}</DenseText>
       </View>
 
       {/* Comparison badge or context */}
@@ -64,7 +66,7 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
                   : colors.textSecondary
             }
           />
-          <Text
+          <DenseText
             style={[
               styles.comparisonText,
               stat.comparison.isGood === true && styles.comparisonTextGood,
@@ -72,12 +74,12 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
             ]}
           >
             {stat.comparison.value}
-          </Text>
+          </DenseText>
         </View>
       ) : stat.context ? (
-        <Text style={styles.contextText} numberOfLines={1}>
+        <DenseText style={styles.contextText} numberOfLines={1}>
           {stat.context}
-        </Text>
+        </DenseText>
       ) : null}
     </Pressable>
   );
@@ -87,7 +89,7 @@ const styles = StyleSheet.create({
   statCard: {
     width: '31%', // 3 columns with gaps
     backgroundColor: colors.background,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: 10,
     position: 'relative',
   },

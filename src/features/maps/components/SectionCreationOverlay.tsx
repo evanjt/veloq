@@ -74,8 +74,8 @@ interface SectionCreationOverlayProps {
 function getSectionSizeColor(pointCount: number | null): string {
   if (pointCount === null) return colors.primary;
   if (pointCount < 2000) return colors.success;
-  if (pointCount < 5000) return '#FFC107';
-  if (pointCount < 7000) return '#FF9800';
+  if (pointCount < 5000) return colors.cautionYellow;
+  if (pointCount < 7000) return colors.cautionOrange;
   return colors.error;
 }
 
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: layout.borderRadiusFull,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.elevated,
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   statusPill: {
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 22,
+    borderRadius: layout.borderRadiusFull,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     minHeight: 44,
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
   technicalText: {
     ...typography.caption,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     flex: 1,
   },

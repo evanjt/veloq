@@ -1,6 +1,5 @@
 export { BodyPairWithLoupe } from './components/BodyPairWithLoupe';
 export { ExerciseTable } from './components/ExerciseTable';
-export { MuscleDetailSheet } from './components/MuscleDetailSheet';
 export { MuscleGroupView } from './components/MuscleGroupView';
 export { StrengthActivityCard, type StrengthCardData } from './components/StrengthActivityCard';
 export { StrengthBodyDiagram } from './components/StrengthBodyDiagram';
@@ -19,6 +18,7 @@ export {
   useActivitiesForExercise,
 } from './hooks/useStrengthVolume';
 export { generateStrengthInsights } from './hooks/strengthInsights';
+export { STRENGTH_PERIODS } from './periods';
 
 export { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from './lib/exerciseMuscleMap';
 export { buildStrengthProgression, buildStrengthBalancePairs, BALANCE_PAIRS } from './lib/analysis';
@@ -28,7 +28,7 @@ export {
   formatSetCount,
   formatBalanceRatio,
 } from './lib/formatting';
-export { findMuscleAtPoint, FRONT_POLYGONS, BACK_POLYGONS } from './lib/polygons';
+export { findMuscleAtPoint } from './lib/polygons';
 export type { MusclePolygons, Polygon } from './lib/polygons';
 
 export type {

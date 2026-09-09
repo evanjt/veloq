@@ -1,11 +1,11 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, Linking, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
-import { colors, darkColors, spacing, opacity } from '@/theme';
+import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
 import type { Insight, SupportingActivity } from '@/types';
 
 interface MethodologySectionProps {
@@ -25,16 +25,14 @@ export const MethodologySection = React.memo(function MethodologySection({
   const formula = supportingData?.formula ?? methodology?.formula;
   const algorithmDescription = supportingData?.algorithmDescription;
   const activities = supportingData?.activities;
-  const hasActivities = activities != null && activities.length > 0;
-  const hasLegacyReference = methodology?.reference != null;
-  const hasDescription = methodology?.description != null;
+  const sourceActivities = activities?.length ? activities : null;
+  const description = methodology?.description ?? null;
 
   const hasAnyContent =
     formula != null ||
     algorithmDescription != null ||
-    hasActivities ||
-    hasLegacyReference ||
-    hasDescription;
+    sourceActivities != null ||
+    description != null;
 
   if (!hasAnyContent) return null;
 
@@ -50,9 +48,9 @@ export const MethodologySection = React.memo(function MethodologySection({
           <Text style={[styles.algorithmText, isDark && styles.algorithmTextDark]}>
             {algorithmDescription}
           </Text>
-        ) : hasDescription ? (
+        ) : description ? (
           <Text style={[styles.algorithmText, isDark && styles.algorithmTextDark]}>
-            {methodology!.description}
+            {description}
           </Text>
         ) : null}
 
@@ -60,15 +58,8 @@ export const MethodologySection = React.memo(function MethodologySection({
         {formula ? <FormulaBlock formula={formula} isDark={isDark} /> : null}
 
         {/* Source activities */}
-        {hasActivities ? <SourceActivitiesList activities={activities!} isDark={isDark} /> : null}
-
-        {/* Legacy single reference */}
-        {hasLegacyReference ? (
-          <LegacyReference
-            reference={methodology!.reference!}
-            referenceUrl={methodology!.referenceUrl}
-            isDark={isDark}
-          />
+        {sourceActivities ? (
+          <SourceActivitiesList activities={sourceActivities} isDark={isDark} />
         ) : null}
       </View>
     </View>
@@ -143,45 +134,6 @@ const SourceActivitiesList = React.memo(function SourceActivitiesList({
   );
 });
 
-/** Renders a single legacy reference */
-const LegacyReference = React.memo(function LegacyReference({
-  reference,
-  referenceUrl,
-  isDark,
-}: {
-  reference: string;
-  referenceUrl?: string;
-  isDark: boolean;
-}) {
-  const handlePress = useCallback(() => {
-    if (referenceUrl) {
-      Linking.openURL(referenceUrl);
-    }
-  }, [referenceUrl]);
-
-  if (referenceUrl) {
-    return (
-      <Pressable onPress={handlePress} style={styles.legacyReferenceContainer}>
-        <Text
-          style={[
-            styles.referenceText,
-            isDark && styles.referenceTextDark,
-            styles.referenceTappable,
-          ]}
-        >
-          {reference}
-        </Text>
-      </Pressable>
-    );
-  }
-
-  return (
-    <View style={styles.legacyReferenceContainer}>
-      <Text style={[styles.referenceText, isDark && styles.referenceTextDark]}>{reference}</Text>
-    </View>
-  );
-});
-
 /** Format an ISO date string to a short readable date */
 function formatActivityDate(dateStr: string): string {
   try {
@@ -201,7 +153,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -217,7 +169,7 @@ const styles = StyleSheet.create({
   // Formula
   formulaContainer: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
@@ -226,7 +178,7 @@ const styles = StyleSheet.create({
   },
   formulaText: {
     fontFamily: 'monospace',
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textPrimary,
     lineHeight: 20,
   },
@@ -235,7 +187,7 @@ const styles = StyleSheet.create({
   },
   // Algorithm description
   algorithmText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     lineHeight: 19,
   },
@@ -247,7 +199,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   activitiesSectionLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -261,7 +213,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     backgroundColor: opacity.overlay.subtle,
   },
   activityRowDark: {
@@ -274,7 +226,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   activityDate: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     minWidth: 72,
   },
@@ -283,14 +235,14 @@ const styles = StyleSheet.create({
   },
   activityName: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textPrimary,
   },
   activityNameDark: {
     color: darkColors.textPrimary,
   },
   moreActivities: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     fontStyle: 'italic',
     paddingLeft: spacing.sm,
@@ -299,7 +251,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   referenceText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontStyle: 'italic',
     color: colors.textSecondary,
     lineHeight: 18,
@@ -308,7 +260,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   referenceTappable: {
-    color: '#009688',
+    color: colors.linkTeal,
     textDecorationLine: 'underline',
   },
   legacyReferenceContainer: {

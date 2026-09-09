@@ -8,10 +8,10 @@
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 struct Setup {
-    engine: PersistentRouteEngine,
+    engine: PersistentEngine,
     raw: Connection,
     _tmp: TempDir,
 }
@@ -21,7 +21,7 @@ fn setup() -> Setup {
     let path: PathBuf = tmp.path().join("test.db");
     let path_str = path.to_str().unwrap().to_string();
 
-    let engine = PersistentRouteEngine::new(&path_str).expect("engine new");
+    let engine = PersistentEngine::new(&path_str).expect("engine new");
     let raw = Connection::open(&path).expect("raw open");
 
     Setup {
@@ -141,7 +141,7 @@ fn merge_rejects_missing_section() {
 
 #[test]
 fn merge_preserves_unique_activity_mappings() {
-    // Both sections already contain a1 — merging should not blow up and
+    // Both sections already contain a1, merging should not blow up and
     // the primary should end up with a single row for a1.
     let mut s = setup();
     insert_activity(&s.raw, "a1", 1_700_000_000);

@@ -41,29 +41,6 @@ export const FORM_ZONE_COLORS: Record<FormZone, string> = {
   transition: colors.formTransition,
 };
 
-/** Line/marker colour for a TSB value (the solid FORM_ZONE_COLORS swatch). */
-export function getFormZoneColor(tsb: number): string {
-  return FORM_ZONE_COLORS[getFormZone(tsb)];
-}
-
-/**
- * Fill RGB per zone for translucent chart backgrounds. `optimal` deliberately
- * uses a deeper green than FORM_ZONE_COLORS so it stays legible under opacity.
- */
-const FORM_ZONE_FILL_RGB: Record<FormZone, readonly [number, number, number]> = {
-  highRisk: [239, 83, 80],
-  optimal: [76, 175, 80],
-  greyZone: [158, 158, 158],
-  fresh: [129, 199, 132],
-  transition: [100, 181, 246],
-};
-
-/** Translucent band fill for a zone; opacity is per-chart (denser for small charts). */
-export function formZoneFill(zone: FormZone, opacity: number): string {
-  const [r, g, b] = FORM_ZONE_FILL_RGB[zone];
-  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-}
-
 export const FORM_ZONE_LABELS: Record<FormZone, string> = {
   highRisk: 'High Risk',
   optimal: 'Optimal',
@@ -81,13 +58,4 @@ export const FORM_ZONE_BOUNDARIES: Record<FormZone, { min: number; max: number }
   greyZone: { min: -10, max: 5 },
   optimal: { min: -30, max: -10 },
   highRisk: { min: -50, max: -30 },
-};
-
-/** i18n keys for contextual guidance per form zone */
-export const FORM_ZONE_GUIDANCE_KEYS: Record<FormZone, string> = {
-  highRisk: 'fitnessScreen.guidance.highRisk',
-  optimal: 'fitnessScreen.guidance.optimal',
-  greyZone: 'fitnessScreen.guidance.greyZone',
-  fresh: 'fitnessScreen.guidance.fresh',
-  transition: 'fitnessScreen.guidance.transition',
 };

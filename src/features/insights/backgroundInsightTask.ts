@@ -10,10 +10,13 @@ import {
 } from '@/features/settings/lib/notificationService';
 import type { NotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 
-import { buildActivityNotificationBody } from './lib/activityNotificationBody';
+import { buildActivityNotification } from './lib/activityNotificationBody';
 import type { ActivityInfo } from './lib/activityNotificationBody';
+import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import { extractPushPayload } from './lib/pushPayload';
+import { replaceActivityTrayEntry, trayActionFor } from './lib/traySweep';
 import { appendTaskRun } from './lib/taskRunLog';
+import { awaitActivityBody } from './lib/awaitActivityBody';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
 import type { WellnessInput } from './lib/computeInsightsData';
 import {
@@ -24,11 +27,11 @@ import {
   prunePushHistory,
 } from './notifications';
 import { computeInsightFingerprint } from './store';
+import { readInsightFingerprint, writeInsightFingerprint } from './lib/fingerprintStore';
 const log = debug.create('BackgroundInsight');
 
 export const BACKGROUND_INSIGHT_TASK = 'veloq-background-insight';
 
-const FINGERPRINT_KEY = 'veloq-insights-fingerprint';
 const PREFS_KEY = 'veloq-notification-preferences';
 /** History of recent push timestamps (ms epoch) for D11 cooldown enforcement. */
 const PUSH_HISTORY_KEY = 'veloq-insight-push-history';
@@ -55,9 +58,15 @@ async function appendPushHistory(ts: number): Promise<void> {
   }
 }
 
+/** Wellness window the insight generators need, matching the app's '1m' range. */
+const WELLNESS_WINDOW_DAYS = 30;
+
 /** Max time to wait for GPS download (15 seconds) */
 const GPS_DOWNLOAD_TIMEOUT_MS = 15_000;
 const GPS_DOWNLOAD_POLL_MS = 250;
+
+/** Max time to wait for the engine to store the activity's detail body. */
+const ACTIVITY_DETAIL_TIMEOUT_MS = 15_000;
 
 /**
  * Read notification preferences directly from AsyncStorage.
@@ -77,34 +86,47 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForDownloadCompletion(
-  getDownloadProgress: () => { active: boolean }
-): Promise<boolean> {
+/**
+ * Wait for one run's own result.
+ *
+ * This used to poll `getDownloadProgress().active`, which is a single global
+ * flag: with a foreground sync running, the push task could watch that sync's
+ * download finish, return, and take a result that was never its own. A run's
+ * result appears only when that run finishes, so waiting on it is the same
+ * wait without the mistake.
+ */
+interface FetchRunResult {
+  successCount: number;
+  totalPoints: number;
+}
+
+async function waitForRunResult(
+  takeResult: (run: bigint) => FetchRunResult | null | undefined,
+  run: bigint
+): Promise<FetchRunResult | null> {
   const deadline = Date.now() + GPS_DOWNLOAD_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const progress = getDownloadProgress();
-    if (!progress.active) {
-      return true;
-    }
+    const result = takeResult(run);
+    if (result) return result;
     await sleep(GPS_DOWNLOAD_POLL_MS);
   }
-  return false;
+  return null;
 }
 
 /**
  * Attach a freshly ingested activity to existing sections and route groups so
- * its PRs are available when buildActivityNotificationBody queries the engine.
+ * its PRs are available when buildActivityNotification queries the engine.
  * Cheap (one activity vs existing sections, incremental regroup) so it fits
  * the background push budget where a full O(N²) detection cannot. New sections
  * the activity might create wait for the next full detection run.
  */
 async function indexActivity(
-  routeEngine: { indexNewActivity: (activityId: string) => unknown },
+  engine: { indexNewActivity: (activityId: string) => unknown },
   activityId: string
 ): Promise<void> {
   const start = Date.now();
   try {
-    const summary = routeEngine.indexNewActivity(activityId) as {
+    const summary = engine.indexNewActivity(activityId) as {
       matchedSections: number;
       insertedPortions: number;
       regrouped: boolean;
@@ -132,40 +154,35 @@ async function indexActivity(
  */
 async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo | null> {
   try {
-    const { getStoredCredentials } = require('@/shared/app/AuthStore');
-    const creds = getStoredCredentials();
-    if (!creds.athleteId) return null;
+    const {
+      ensureCredentialsHydrated,
+      getStoredCredentials,
+      pushCredentialsToEngine,
+    } = require('@/shared/app/AuthStore');
 
-    // Build auth header
-    let authHeader: string;
-    if (creds.authMethod === 'oauth' && creds.accessToken) {
-      authHeader = `Bearer ${creds.accessToken}`;
-    } else if (creds.apiKey) {
-      const encoded = btoa(`API_KEY:${creds.apiKey}`);
-      authHeader = `Basic ${encoded}`;
-    } else {
-      return null;
-    }
+    // A headless start mounts no React tree, so nothing has called
+    // `initialize()` and the credential is null however signed in the athlete
+    // is. Read it from SecureStore before the guard, or every cold push bails
+    // here and no rung below it ever runs.
+    await ensureCredentialsHydrated();
+    if (!getStoredCredentials().athleteId) return null;
 
-    // Fetch activity metadata
-    const { intervalsApi } = require('@/api');
-    const activity = await intervalsApi.getActivity(activityId);
+    // A headless start may reach the engine before the layout init effect has,
+    // so hand it the rehydrated credential before asking it to fetch.
+    pushCredentialsToEngine();
+
+    const { startFetchAndStore, takeFetchAndStoreResult, engine } = require('veloqrs');
+
+    const activity = await awaitActivityBody(engine, activityId, ACTIVITY_DETAIL_TIMEOUT_MS);
     if (!activity) return null;
 
     const activityInfo: ActivityInfo = {
-      name: activity.name ?? 'Activity',
-      type: activity.type ?? 'Ride',
+      name: typeof activity.name === 'string' ? activity.name : 'Activity',
+      type: typeof activity.type === 'string' ? activity.type : 'Ride',
       ingested: false,
       distance: typeof activity.distance === 'number' ? activity.distance : undefined,
       movingTime: typeof activity.moving_time === 'number' ? activity.moving_time : undefined,
     };
-
-    const {
-      startFetchAndStore,
-      getDownloadProgress,
-      takeFetchAndStoreResult,
-      routeEngine,
-    } = require('veloqrs');
 
     // Skip GPS download if we already have this activity in SQLite - the
     // enrichment path reads sections from the DB, so a re-delivered webhook
@@ -173,7 +190,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
     // a pointless 150–15000ms network roundtrip.
     const alreadyIngested = (() => {
       try {
-        return routeEngine.getActivityIds().includes(activityId);
+        return engine.getActivityIds().includes(activityId);
       } catch {
         return false;
       }
@@ -183,23 +200,32 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       activityInfo.ingested = true;
       log.log(`Activity already in DB, skipping download: ${activityInfo.name}`);
       // Idempotent, and covers a webhook that arrived before indexing ran.
-      await indexActivity(routeEngine, activityId);
+      await indexActivity(engine, activityId);
       return activityInfo;
     }
 
-    startFetchAndStore(authHeader, [activityId], [{ activityId, sportType: activityInfo.type }]);
+    const run = startFetchAndStore(
+      [activityId],
+      [
+        {
+          activityId,
+          sportType: activityInfo.type,
+          startDate: activityStartEpoch(
+            typeof activity.start_date_local === 'string' ? activity.start_date_local : undefined
+          ),
+        },
+      ]
+    );
 
     const startTime = Date.now();
-    const completed = await waitForDownloadCompletion(getDownloadProgress);
-    if (!completed) {
+    const result = await waitForRunResult(takeFetchAndStoreResult, run);
+    if (!result) {
       log.warn(`GPS ingest timed out after ${GPS_DOWNLOAD_TIMEOUT_MS}ms for ${activityId}`);
     }
-
-    const result = takeFetchAndStoreResult();
     if (result && result.successCount > 0) {
       const { toActivityMetrics } = require('@/features/activity/lib/activityMetrics');
-      routeEngine.setActivityMetrics([toActivityMetrics(activity)]);
-      routeEngine.triggerRefresh('activities');
+      engine.setActivityMetrics([toActivityMetrics(activity)]);
+      engine.triggerRefresh('activities');
       activityInfo.ingested = true;
       log.log(
         `Activity ingested: ${activityInfo.name} (${result.totalPoints} GPS points, ${Date.now() - startTime}ms)`
@@ -207,7 +233,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
 
       // Attach the new activity to existing sections and route groups so its
       // PRs are present when the notification body queries the engine below.
-      await indexActivity(routeEngine, activityId);
+      await indexActivity(engine, activityId);
 
       // Queue for priority terrain snapshot generation when app opens
       const { addPendingSnapshot } = require('@/features/maps/lib/storage/terrainPreviewCache');
@@ -263,12 +289,13 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
 
     log.log(`Push received: event=${eventType}, activity=${activityId}, shape=${sourceShape}`);
 
-    // The visible tray push also wakes this task (Expo delivers `notification`
-    // messages through the same TaskBroadcastReceiver as `data` messages), but
-    // with no event_type/activity_id. Bail immediately - the silent push right
-    // behind it carries the real payload.
+    // A wake with no event type. The visible tray push carries none, and it
+    // reaches this task only while the app is in the foreground: backgrounded,
+    // the Firebase SDK renders a `notification` message itself and expo's
+    // delegate hands it to no listener, so nothing here runs. Whichever it was,
+    // the silent push right behind it carries the real payload, so bail.
     if (!eventType) {
-      log.log('No event type (visible-push wake), skipping');
+      log.log('No event type, skipping');
       await appendTaskRun({
         stage: 'bailed',
         sourceShape,
@@ -306,14 +333,28 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       });
     }
 
-    // 6. Fetch fresh wellness data from intervals.icu API
+    // 6. Read wellness from the engine, refreshed by the sync above
     let wellnessData: WellnessInput[] | null = null;
     try {
-      const { intervalsApi } = require('@/api');
-      const wellness = await intervalsApi.getWellness();
-      wellnessData = wellness as WellnessInput[];
+      const { engine } = require('veloqrs');
+      const newest = new Date();
+      const oldest = new Date(newest);
+      oldest.setDate(oldest.getDate() - WELLNESS_WINDOW_DAYS);
+      const bodies: string[] = engine.getWellnessBodies(
+        oldest.toISOString().split('T')[0],
+        newest.toISOString().split('T')[0]
+      );
+      wellnessData = bodies
+        .map((body) => {
+          try {
+            return JSON.parse(body) as WellnessInput;
+          } catch {
+            return null;
+          }
+        })
+        .filter((row): row is WellnessInput => row !== null);
     } catch (e) {
-      log.warn('Could not fetch wellness data:', e);
+      log.warn('Could not read wellness data:', e);
     }
 
     // 7. Generate insights (now includes new activity if ingested)
@@ -339,58 +380,64 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     }
 
     // 8. Find insights that are NEW (caused by this activity)
-    const storedFingerprint = await AsyncStorage.getItem(FINGERPRINT_KEY);
-    const previousIds = new Set((storedFingerprint ?? '').split('|'));
+    const storedFingerprint = await readInsightFingerprint();
+    const previousIds = new Set(storedFingerprint.split('|'));
     const newInsights = insights.filter((i) => !previousIds.has(i.id));
     const allowedNewInsights = filterInsightsForNotificationPreferences(newInsights, prefs);
 
     // 9. Replace the placeholder with the enriched activity notification
     if (isActivityEvent && activityId) {
-      const activityName = activityInfo?.name ?? t('notifications.activityRecorded.title');
-      const body = buildActivityNotificationBody(
+      // An ingest that failed has no name, and an empty body is how that
+      // reaches the tray decision below rather than as the notification's own
+      // title repeated back to the athlete.
+      const { title, body } = buildActivityNotification(
         activityId,
-        activityName,
+        activityInfo?.name ?? '',
         allowedNewInsights,
         prefs,
         activityInfo,
         t
       );
 
-      // Clear any tray entries for this activity (both the FCM-generated
-      // visible push and any older on-device one). We re-present below only
-      // if the app is not in foreground - if the user already opened the app
-      // via the notification tap, the in-app UI shows the data and leaving
-      // a stale tray entry up is noise.
-      try {
-        const presented = await Notifications.getPresentedNotificationsAsync();
-        for (const n of presented) {
-          const data = n.request.content.data as { activityId?: string } | undefined;
-          const isThisActivity = data?.activityId === activityId;
-          const isGenericFcm = !data?.activityId; // FCM-posted visible push
-          if (isThisActivity || isGenericFcm) {
-            await Notifications.dismissNotificationAsync(n.request.identifier);
-          }
-        }
-      } catch (e) {
-        log.warn('Could not dismiss tray entries:', e);
-      }
+      // The enriched entry goes up, then the entries it replaces come down.
+      // Nothing is posted when the app is already open: the athlete is on the
+      // activity and a tray entry is noise, which is the common case when
+      // tapping the visible push cold-starts the app and the silent push fires
+      // the task a second later. The old entries still come down.
+      const action = trayActionFor(body, AppState.currentState === 'active');
+      const posted =
+        action === 'leave'
+          ? false
+          : await replaceActivityTrayEntry({
+              activityId,
+              listPresented: async () =>
+                (await Notifications.getPresentedNotificationsAsync()).map((n) => ({
+                  identifier: n.request.identifier,
+                  data: n.request.content.data,
+                })),
+              dismiss: (identifier) => Notifications.dismissNotificationAsync(identifier),
+              present:
+                action === 'dismiss-only'
+                  ? null
+                  : () =>
+                      presentActivityNotification(activityId, title, body, {
+                        route: `/activity/${activityId}`,
+                        activityId,
+                      }),
+            });
 
-      // Skip re-presenting if the user has already opened the app - they're
-      // looking at the data already, a tray entry is redundant. This is the
-      // common case when tapping the generic visible push cold-starts the
-      // app and the silent push fires the task a second or two later.
-      if (AppState.currentState === 'active') {
+      if (posted) {
+        log.log(`Notification sent: ${body}`);
+        await appendTaskRun({ stage: 'notified', activityId, detail: body });
+      } else if (action === 'leave') {
+        log.warn('Nothing to say about this activity, leaving the tray as it is');
+        await appendTaskRun({ stage: 'notified', activityId, detail: 'skipped (no detail)' });
+      } else if (action === 'dismiss-only') {
         log.log('App foregrounded, skipping enriched notification re-post');
         await appendTaskRun({ stage: 'notified', activityId, detail: 'skipped (foreground)' });
       } else {
-        await presentActivityNotification(
-          activityId,
-          t('notifications.activityRecorded.title'),
-          body,
-          { route: `/activity/${activityId}`, activityId }
-        );
-        log.log(`Notification sent: ${body}`);
-        await appendTaskRun({ stage: 'notified', activityId, detail: body });
+        log.warn('Enriched notification could not be posted, tray left as it was');
+        await appendTaskRun({ stage: 'notified', activityId, detail: 'post failed' });
       }
     } else if (allowedNewInsights.length > 0) {
       // Non-activity event (fitness update, wellness change) with new insights.
@@ -412,31 +459,23 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       log.log('No notification content to show');
     }
 
-    // 9b. Kick a full section detection for anything cheap indexing can't do
-    // (genuinely new sections). Fire-and-forget: no polling, the foreground
-    // drain picks up the completed run on next app open.
-    if (isActivityEvent && activityInfo?.ingested) {
-      try {
-        const { routeEngine } = require('veloqrs');
-        routeEngine.startSectionDetection();
-      } catch {
-        // Best-effort.
-      }
-    }
+    // 9b. The engine starts a detection run itself when the stored batch
+    // lands; the foreground drain picks up the completed run on next open.
 
     // 9. Update stored fingerprint
     const currentFingerprint = insights.length > 0 ? computeInsightFingerprint(insights) : '';
     if (currentFingerprint) {
-      await AsyncStorage.setItem(FINGERPRINT_KEY, currentFingerprint);
+      await writeInsightFingerprint(currentFingerprint);
     }
 
     // 10. A delivered push proves the pipeline is alive, so use it to keep
     // the server-side token registration (30-day TTL) fresh for users who
-    // rarely open the app. Runs last: by now the auth store has rehydrated
-    // (a cold headless start reads athleteId as null until then). Throttled
-    // to once a day inside the helper.
+    // rarely open the app. Throttled to once a day inside the helper. A wake
+    // carrying no activity reaches here without the ingest above, so it asks
+    // for the credential itself rather than assuming that ran.
     try {
-      const { getStoredCredentials } = require('@/shared/app/AuthStore');
+      const { ensureCredentialsHydrated, getStoredCredentials } = require('@/shared/app/AuthStore');
+      await ensureCredentialsHydrated();
       const athleteId: string | null = getStoredCredentials().athleteId;
       if (athleteId) {
         const {

@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Pressable, StyleSheet, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
-import { ActivityMapView, type SectionOverlay } from '@/features/maps/components/ActivityMapView';
-import type {
+import {
+  ActivityMapView,
+  type SectionOverlay,
   SectionCreationResult,
   SectionCreationError,
 } from '@/features/maps/components/ActivityMapView';
+import { ATTRIBUTION_CLEARANCE } from '@/features/maps/components/AttributionOverlay';
 import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
 import { ComponentErrorBoundary, DetailHero } from '@/shared/ui';
 import type { ActivityDetail, ActivityStreams } from '@/types';
@@ -18,7 +20,7 @@ import {
   formatElevation,
   formatDateTime,
 } from '@/shared/format/format';
-import { routeEngine } from 'veloqrs';
+import { engine } from 'veloqrs';
 import { colors, colorWithOpacity, opacity, spacing, typography } from '@/theme';
 
 interface LatLng {
@@ -33,7 +35,6 @@ interface ActivityHeaderProps {
   /** Activity streams - required for gradient-based line coloring on the map */
   streams?: ActivityStreams | null;
   isMetric: boolean;
-  isDark: boolean;
   debugEnabled: boolean;
   insetTop: number;
   mapHeight: number;
@@ -63,7 +64,6 @@ export const ActivityHeader = React.memo(function ActivityHeader({
   coordinates,
   streams,
   isMetric,
-  isDark,
   debugEnabled,
   insetTop,
   mapHeight,
@@ -84,6 +84,10 @@ export const ActivityHeader = React.memo(function ActivityHeader({
   highlightedSectionId,
   onSectionMarkerPress,
 }: ActivityHeaderProps) {
+  // The satellite credit wraps to two rows at phone width, so the reservation
+  // comes from what the pill measured. The constant is only the first guess.
+  const [attributionClearance, setAttributionClearance] = useState(ATTRIBUTION_CLEARANCE);
+
   return (
     <DetailHero
       height={mapHeight}
@@ -91,6 +95,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
       onBack={() => router.back()}
       backTestID="activity-detail-back"
       containerTestID="activity-detail-content"
+      attributionClearance={attributionClearance}
       overlay={
         <>
           <Pressable
@@ -98,7 +103,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
               debugEnabled
                 ? () => {
                     const doClone = (n: number) => {
-                      const created = routeEngine.debugCloneActivity(activityId, n);
+                      const created = engine.debugCloneActivity(activityId, n);
                       Alert.alert('Done', `Created ${created} clones`);
                     };
                     Alert.alert(
@@ -167,6 +172,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
           height={mapHeight}
           showStyleToggle={!sectionCreationMode}
           showAttribution={true}
+          onAttributionClearanceChange={setAttributionClearance}
           highlightIndex={highlightIndex}
           enableFullscreen={!sectionCreationMode}
           on3DModeChange={on3DModeChange}

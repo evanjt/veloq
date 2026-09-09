@@ -4,9 +4,8 @@ import { useTheme } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useQueryClient } from '@tanstack/react-query';
-import { colors, darkColors, spacing, typography } from '@/theme';
-import { getAthleteId } from '@/api';
-import { useAuthStore } from '@/shared/app/AuthStore';
+import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { getStoredCredentials, useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
@@ -127,8 +126,12 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
     for (const s of scopes.split(',')) {
       const [cat, perm] = s.trim().split(':');
       if (!cat || !perm) continue;
-      if (!map.has(cat)) map.set(cat, new Set());
-      map.get(cat)!.add(perm.toUpperCase());
+      let perms = map.get(cat);
+      if (!perms) {
+        perms = new Set();
+        map.set(cat, perms);
+      }
+      perms.add(perm.toUpperCase());
     }
     const result: { label: string; level: string }[] = [];
     for (const [cat, perms] of map) {
@@ -157,7 +160,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
             ? undefined
             : () =>
                 WebBrowser.openBrowserAsync(
-                  `https://intervals.icu/athlete/${getAthleteId()}/activities`
+                  `https://intervals.icu/athlete/${getStoredCredentials().athleteId ?? ''}/activities`
                 )
         }
         activeOpacity={isDemo ? 1 : 0.7}
@@ -275,7 +278,7 @@ const styles = StyleSheet.create({
   profilePhoto: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
@@ -289,7 +292,7 @@ const styles = StyleSheet.create({
   },
   profileName: {
     ...typography.cardTitle,
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     color: colors.textPrimary,
   },
   profileEmail: {

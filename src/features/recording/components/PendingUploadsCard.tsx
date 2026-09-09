@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, colorWithOpacity } from '@/theme';
+import { colors, darkColors, spacing, layout, colorWithOpacity, typography } from '@/theme';
 import { getUnuploadedCount } from '@/features/recording/lib/storage/recordingLibrary';
 
 /** Home banner shown while locally saved recordings are not yet on intervals.icu. */
@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
   },
   text: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
   },
 });

@@ -11,7 +11,16 @@
  *
  * Kept as a pure function so callers can memoize it off the worker list.
  */
-import { consoleBridgeScript, mapLibreHead } from './shared';
+import {
+  bundledAssetsScript,
+  consoleBridgeScript,
+  mapLibreHead,
+  vectorProtocolScript,
+} from './shared';
+import {
+  cacheEvictionScript,
+  DEFAULT_TILE_CACHE_BUDGET_MB,
+} from '@/features/maps/lib/tileCacheBudget';
 
 /**
  * Snapshot viewport height in CSS pixels. Mirrors the value in
@@ -21,12 +30,65 @@ import { consoleBridgeScript, mapLibreHead } from './shared';
 const SNAPSHOT_HEIGHT = 240;
 
 /**
+ * The page's animation frame loop, and the rule for when it runs.
+ *
+ * MapLibre paints when something asks it to, so a capture needs a frame in
+ * flight to capture. That is a reason to drive one while a request is being
+ * rendered and no reason at all to drive one between requests: the pool stays
+ * mounted for as long as the feed is focused, so an idle feed with every
+ * preview cached held two GL contexts at display refresh for nothing.
+ *
+ * Every request ends by posting its result, so wrapping the bridge is what
+ * stops the loop. That covers the hard timeout and the error paths without a
+ * stop call at each of them. A request superseded by a newer one aborts
+ * without posting, and the newer one's result stops the loop instead.
+ */
+export function heartbeatScript(): string {
+  return `
+    window._heartbeat = (function() {
+      var running = false;
+      function tick() {
+        if (!running) return;
+        requestAnimationFrame(tick);
+      }
+      return {
+        start: function() {
+          if (running) return;
+          running = true;
+          requestAnimationFrame(tick);
+        },
+        stop: function() { running = false; },
+        isRunning: function() { return running; }
+      };
+    })();
+
+    (function() {
+      var bridge = window.ReactNativeWebView;
+      if (!bridge) return;
+      var post = bridge.postMessage.bind(bridge);
+      bridge.postMessage = function(payload) {
+        try {
+          var type = JSON.parse(payload).type;
+          if (type === 'snapshot' || type === 'snapshotError') window._heartbeat.stop();
+        } catch (e) {
+          // A payload that is not our JSON is not a result. Leave the loop be.
+        }
+        return post(payload);
+      };
+    })();
+  `;
+}
+
+/**
  * Build the complete HTML string for a terrain snapshot worker WebView.
  *
  * The `workerId` is embedded directly into the page so postMessage
  * payloads can be routed back to the matching `WorkerState` on the JS side.
  */
-export function buildSnapshotWorkerHtml(workerId: number): string {
+export function buildSnapshotWorkerHtml(
+  workerId: number,
+  tileCacheBudgetMb: number = DEFAULT_TILE_CACHE_BUDGET_MB
+): string {
   return `${mapLibreHead({ title: 'Snapshot Worker', mapHeight: `${SNAPSHOT_HEIGHT}px` })}
 <body>
   <div id="map"></div>
@@ -114,58 +176,11 @@ export function buildSnapshotWorkerHtml(workerId: number): string {
       });
     });
 
-    // Cache vector tiles (protocol buffers) via Cache API.
-    var VECTOR_CACHE = 'veloq-vector-v1';
-    maplibregl.addProtocol('cached-vector', function(params) {
-      var realUrl = 'https://' + params.url.substring('cached-vector://'.length);
-      return caches.open(VECTOR_CACHE).then(function(cache) {
-        return cache.match(realUrl).then(function(cached) {
-          if (cached) return cached.arrayBuffer().then(function(d) { return { data: d }; });
-          return fetch(realUrl).then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(VECTOR_CACHE);
-            return r.arrayBuffer().then(function(d) { return { data: d }; });
-          });
-        });
-      });
-    });
+${vectorProtocolScript()}
 
-    // Cache eviction - FIFO, size-based. Checked every 50 inserts per cache.
-    var _insertCounts = {};
-    var CACHE_BUDGETS = {
-      'veloq-satellite-v1': 120 * 1024 * 1024,
-      'veloq-vector-v1': 50 * 1024 * 1024,
-      'veloq-terrain-dem-v1': 30 * 1024 * 1024,
-    };
+    ${bundledAssetsScript({ workerId: 'window._workerId' })}
 
-    function maybeEvict(cacheName) {
-      _insertCounts[cacheName] = (_insertCounts[cacheName] || 0) + 1;
-      if (_insertCounts[cacheName] % 50 !== 0) return;
-      var budget = CACHE_BUDGETS[cacheName];
-      if (!budget) return;
-      caches.open(cacheName).then(function(cache) {
-        cache.keys().then(function(requests) {
-          var sizes = requests.map(function(req) {
-            return cache.match(req).then(function(r) {
-              if (!r) return { req: req, size: 0 };
-              var cl = parseInt(r.headers.get('content-length') || '0', 10) || 0;
-              if (cl > 0) return { req: req, size: cl };
-              return r.arrayBuffer().then(function(buf) {
-                return { req: req, size: buf.byteLength };
-              });
-            });
-          });
-          Promise.all(sizes).then(function(entries) {
-            var total = entries.reduce(function(s, e) { return s + e.size; }, 0);
-            if (total <= budget) return;
-            for (var i = 0; i < entries.length && total > budget; i++) {
-              cache.delete(entries[i].req);
-              total -= entries[i].size;
-            }
-          });
-        });
-      });
-    }
+${cacheEvictionScript(tileCacheBudgetMb)}
 
     window._rn_log('Initializing MapLibre (worker ${workerId})...');
 
@@ -194,6 +209,10 @@ export function buildSnapshotWorkerHtml(workerId: number): string {
     });
 
     window._tileErrorCount = 0;
+    // Counted apart from the errors above. A 429 or a 503 is the server asking
+    // to be left alone, which is a different event from a decode failure and
+    // the pool answers it by waiting rather than by retrying (B418).
+    window._tileThrottleCount = 0;
 
     window.map.on('error', function(e) {
       var msg = e.error ? e.error.message : JSON.stringify(e);
@@ -205,6 +224,9 @@ export function buildSnapshotWorkerHtml(workerId: number): string {
       window._rn_log('Map error: ' + msg);
       if (e.sourceId || (e.error && (status >= 400 || /tile|source|fetch|network|load/i.test(msg)))) {
         window._tileErrorCount++;
+        if (status === 429 || status === 503 || /HTTP (429|503)/.test(msg)) {
+          window._tileThrottleCount++;
+        }
       }
     });
 
@@ -233,13 +255,7 @@ export function buildSnapshotWorkerHtml(workerId: number): string {
       }
     });
 
-    // rAF heartbeat - confirms rendering loop is alive
-    var _rafCount = 0;
-    function rafHeartbeat() {
-      _rafCount++;
-      requestAnimationFrame(rafHeartbeat);
-    }
-    requestAnimationFrame(rafHeartbeat);
+${heartbeatScript()}
   </script>
 </body>
 </html>`;

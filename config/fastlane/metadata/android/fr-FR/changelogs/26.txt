@@ -3,4 +3,4 @@ v0.3.7
 • Détection des sections repensée avec trois méthodes au choix : Couloir, Grille de densité et Graphe de flux
 • Chaque méthode possède ses propres curseurs et un aperçu en direct
 • Le bouton de réanalyse s'illumine quand les réglages changent
-• Correction des pages de section vides — activités correspondantes et historique réapparaissent
+• Correction des pages de section vides, activités correspondantes et historique réapparaissent

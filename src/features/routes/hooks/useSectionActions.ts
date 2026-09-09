@@ -15,12 +15,15 @@ import { Alert, Keyboard, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { getAllSectionDisplayNames } from '@/features/routes/hooks/useUnifiedSections';
+import { getEngine } from '@/shared/native/engine';
+import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { FrequentSection } from '@/types';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('SectionActions');
 
 interface UseSectionActionsArgs {
   /** Section id from the URL (may be undefined on first render). */
@@ -36,6 +39,8 @@ interface UseSectionActionsArgs {
    * Typically a setter that increments a refresh key counter.
    */
   onSectionRefresh: () => void;
+  /** Exclusions a caller already read, so this hook skips its own FFI call. */
+  preComputedExcludedActivityIds?: string[];
   /**
    * Refresh signal owned by the container. Re-reads excluded activity ids
    * from the engine whenever this value changes (so external mutations via
@@ -102,6 +107,7 @@ export function useSectionActions({
   isSectionDisabled,
   onSectionRefresh,
   sectionRefreshKey,
+  preComputedExcludedActivityIds,
 }: UseSectionActionsArgs): UseSectionActionsResult {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -111,16 +117,27 @@ export function useSectionActions({
   // --- name edit state ---
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
-  const [customName, setCustomName] = useState<string | null>(null);
+  const [customName, setCustomName] = useState<string | null>(section?.name ?? null);
+  const [nameShownFor, setNameShownFor] = useState(section?.name);
   const nameInputRef = useRef<TextInput>(null);
 
   // Sync custom name when the section's name changes (e.g. after initial load
   // or after rename invalidates the query cache).
-  useEffect(() => {
-    if (section?.name) {
-      setCustomName(section.name);
-    }
-  }, [section?.name]);
+  //
+  // A nameless section clears it rather than being skipped. A merge navigates
+  // to the survivor with `router.replace` on the same route pattern, so this
+  // hook is handed a new section without remounting, and skipping the empty
+  // case left the previous section's name drawn over a survivor the detector
+  // never named. An optimistic rename is not clobbered by this: it writes
+  // `customName` and leaves `section.name` alone, so the dependency does not
+  // change and this does not run.
+  // Taking it while rendering rather than in an effect is what keeps the
+  // previous section's name off the survivor: an effect adopts it one commit
+  // late, and that commit is a painted frame.
+  if (section?.name !== nameShownFor) {
+    setNameShownFor(section?.name);
+    setCustomName(section?.name ?? null);
+  }
 
   // --- reference selection state ---
   const [overrideReferenceId, setOverrideReferenceId] = useState<string | null>(null);
@@ -135,11 +152,15 @@ export function useSectionActions({
   // refresh (via `sectionRefreshKey` bump).
   useEffect(() => {
     if (!id) return;
-    const engine = getRouteEngine();
+    if (preComputedExcludedActivityIds) {
+      setExcludedActivityIds(new Set(preComputedExcludedActivityIds));
+      return;
+    }
+    const engine = getEngine();
     if (!engine) return;
     const ids = engine.getExcludedActivityIds(id);
     setExcludedActivityIds(new Set(ids));
-  }, [id, sectionRefreshKey]);
+  }, [id, sectionRefreshKey, preComputedExcludedActivityIds]);
 
   // --- name edit actions ---
   const handleStartEditing = useCallback(() => {
@@ -217,7 +238,7 @@ export function useSectionActions({
     (activityId: string) => {
       if (!id) return;
 
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return;
 
       // Check if this activity is already the reference
@@ -253,7 +274,7 @@ export function useSectionActions({
             text: t('common.confirm'),
             onPress: () => {
               if (__DEV__) {
-                console.log(
+                log.log(
                   '[SetReference] Attempting to set reference:',
                   'sectionId=',
                   id,
@@ -262,7 +283,7 @@ export function useSectionActions({
                 );
               }
               const success = engine.setSectionReference(id, activityId);
-              if (__DEV__) console.log('[SetReference] Result:', success);
+              if (__DEV__) log.log('[SetReference] Result:', success);
               if (success) {
                 // Update local state immediately for responsive UI
                 setOverrideReferenceId(activityId);
@@ -293,7 +314,7 @@ export function useSectionActions({
 
     if (isSectionDisabled) {
       // Restore
-      getRouteEngine()?.enableSection(id);
+      getEngine()?.enableSection(id);
     } else {
       // Remove with confirmation, navigate back after
       Alert.alert(t('sections.removeSection'), t('sections.removeSectionConfirm'), [
@@ -302,7 +323,7 @@ export function useSectionActions({
           text: t('common.remove'),
           style: 'destructive',
           onPress: () => {
-            getRouteEngine()?.disableSection(id);
+            getEngine()?.disableSection(id);
             router.back();
           },
         },
@@ -314,7 +335,7 @@ export function useSectionActions({
   const handleExcludeActivity = useCallback(
     (activityId: string) => {
       if (!id) return;
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return;
       engine.excludeActivityFromSection(id, activityId);
       setExcludedActivityIds((prev) => new Set([...prev, activityId]));
@@ -326,7 +347,7 @@ export function useSectionActions({
   const handleIncludeActivity = useCallback(
     (activityId: string) => {
       if (!id) return;
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return;
       engine.includeActivityInSection(id, activityId);
       setExcludedActivityIds((prev) => {
@@ -346,7 +367,7 @@ export function useSectionActions({
   // --- accept/pin ---
   const handleAcceptSection = useCallback(() => {
     if (!id || isCustomId) return;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return;
     engine.acceptSection(id);
     queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
@@ -355,9 +376,8 @@ export function useSectionActions({
 
   // --- rematch ---
   const handleRematchActivities = useCallback(() => {
-    if (!section?.sportType) return;
-    rescan(section.sportType);
-  }, [section?.sportType, rescan]);
+    rescan();
+  }, [rescan]);
 
   return {
     // name edit

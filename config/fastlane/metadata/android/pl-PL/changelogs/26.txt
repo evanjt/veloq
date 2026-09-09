@@ -3,4 +3,4 @@ v0.3.7
 • Przeprojektowane wykrywanie sekcji z trzema metodami do wyboru: Korytarz, Siatka gęstości i Graf przepływu
 • Każda metoda ma własne suwaki i podgląd na żywo
 • Przycisk ponownej analizy podświetla się przy zmianie ustawień
-• Naprawiono: puste strony sekcji — dopasowane aktywności i historia znów się pokazują
+• Naprawiono: puste strony sekcji, dopasowane aktywności i historia znów się pokazują

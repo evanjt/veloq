@@ -1,4 +1,4 @@
-# Map Visual Validation — cross-platform rendering proof
+# Map Visual Validation, cross-platform rendering proof
 #
 # Exercises every map context (regional, activity detail, section detail,
 # route detail) with HARD assertions on toggle presence and functionality.
@@ -19,7 +19,7 @@ tags:
 # PHASE 1: Ensure section detection has run (prerequisite for all section tests)
 # ============================================================================
 
-- openLink: "veloq://routes?tab=sections"
+- openLink: "veloq://insights?tab=sections"
 - runFlow:
     when:
       visible: "Open"
@@ -36,7 +36,7 @@ tags:
     timeout: 45000
 
 # ============================================================================
-# PHASE 2: Regional/Global Map — toggle every layer
+# PHASE 2: Regional/Global Map, toggle every layer
 # ============================================================================
 
 - runFlow:
@@ -47,11 +47,11 @@ tags:
       id: "map-screen"
     timeout: 30000
 
-# Activities toggle — HARD assert (always present in demo mode)
+# Activities toggle. HARD assert (always present in demo mode)
 - assertVisible:
     id: "map-toggle-activities"
 
-- takeScreenshot: "validation-regional-default"
+- takeScreenshot: "screenshots/validation-regional-default"
 
 # --- Sections toggle ---
 - extendedWaitUntil:
@@ -67,7 +67,7 @@ tags:
     id: "map-toggle-sections"
 - waitForAnimationToEnd:
     timeout: 2000
-- takeScreenshot: "validation-regional-sections-on"
+- takeScreenshot: "screenshots/validation-regional-sections-on"
 
 # Toggle sections OFF and back ON to verify round-trip
 - tapOn:
@@ -78,21 +78,21 @@ tags:
     id: "map-toggle-sections"
 - waitForAnimationToEnd:
     timeout: 2000
-- takeScreenshot: "validation-regional-sections-toggled"
+- takeScreenshot: "screenshots/validation-regional-sections-toggled"
 
 # --- Activities toggle ---
 - tapOn:
     id: "map-toggle-activities"
 - waitForAnimationToEnd:
     timeout: 1000
-- takeScreenshot: "validation-regional-activities-off"
+- takeScreenshot: "screenshots/validation-regional-activities-off"
 
 - tapOn:
     id: "map-toggle-activities"
 - waitForAnimationToEnd:
     timeout: 1000
 
-# --- Routes toggle (best-effort — may not exist in demo) ---
+# --- Routes toggle (best-effort, may not exist in demo) ---
 - extendedWaitUntil:
     visible:
       id: "map-toggle-routes"
@@ -108,7 +108,7 @@ tags:
           id: "map-toggle-routes"
       - waitForAnimationToEnd:
           timeout: 2000
-      - takeScreenshot: "validation-regional-routes-on"
+      - takeScreenshot: "screenshots/validation-regional-routes-on"
       - tapOn:
           id: "map-toggle-routes"
 
@@ -118,7 +118,7 @@ tags:
     optional: true
 - waitForAnimationToEnd:
     timeout: 2000
-- takeScreenshot: "validation-regional-fit-all"
+- takeScreenshot: "screenshots/validation-regional-fit-all"
 
 # --- Activity marker popup ---
 - tapOn:
@@ -136,7 +136,7 @@ tags:
       visible:
         id: "activity-popup"
     commands:
-      - takeScreenshot: "validation-regional-activity-popup"
+      - takeScreenshot: "screenshots/validation-regional-activity-popup"
       - tapOn:
           id: "activity-popup-close"
 
@@ -156,7 +156,7 @@ tags:
       visible:
         id: "section-popup"
     commands:
-      - takeScreenshot: "validation-regional-section-popup"
+      - takeScreenshot: "screenshots/validation-regional-section-popup"
       - tapOn:
           id: "section-popup-close"
           optional: true
@@ -166,7 +166,7 @@ tags:
     optional: true
 
 # ============================================================================
-# PHASE 3: Activity Detail Map — section overlays, 3D, gradient
+# PHASE 3: Activity Detail Map, section overlays, 3D, gradient
 # ============================================================================
 
 - openLink: "veloq://activity/demo-test-0"
@@ -181,7 +181,7 @@ tags:
       id: "activity-detail-content"
     timeout: 15000
 
-- takeScreenshot: "validation-activity-map-2d"
+- takeScreenshot: "screenshots/validation-activity-map-2d"
 
 # --- Style toggle (proves map controls rendered) ---
 - extendedWaitUntil:
@@ -199,7 +199,7 @@ tags:
           id: "activity-map-style-toggle"
       - waitForAnimationToEnd:
           timeout: 2000
-      - takeScreenshot: "validation-activity-map-style-switched"
+      - takeScreenshot: "screenshots/validation-activity-map-style-switched"
       - tapOn:
           id: "activity-map-style-toggle"
 
@@ -213,7 +213,7 @@ tags:
           id: "activity-map-gradient-toggle"
       - waitForAnimationToEnd:
           timeout: 2000
-      - takeScreenshot: "validation-activity-map-gradient-on"
+      - takeScreenshot: "screenshots/validation-activity-map-gradient-on"
       - tapOn:
           id: "activity-map-gradient-toggle"
 
@@ -229,7 +229,7 @@ tags:
           visible:
             id: "activity-detail-content"
           timeout: 15000
-      - takeScreenshot: "validation-activity-map-3d"
+      - takeScreenshot: "screenshots/validation-activity-map-3d"
       # Toggle back to 2D
       - tapOn:
           id: "activity-map-3d-toggle"
@@ -250,18 +250,18 @@ tags:
       visible:
         id: "activity-sections-list"
     commands:
-      - takeScreenshot: "validation-activity-sections-visible"
+      - takeScreenshot: "screenshots/validation-activity-sections-visible"
 
 - assertNotVisible:
     text: "NaN"
     optional: true
 
 # ============================================================================
-# PHASE 4: Section Detail Map — 2D, 3D, style toggle, fullscreen
+# PHASE 4: Section Detail Map, 2D, 3D, style toggle, fullscreen
 # ============================================================================
 
 # Navigate to section detail via sections list
-- openLink: "veloq://routes?tab=sections"
+- openLink: "veloq://insights?tab=sections"
 - runFlow:
     when:
       visible: "Open"
@@ -280,14 +280,14 @@ tags:
 # Scroll to ensure first row is visible, then tap
 - scrollUntilVisible:
     element:
-      id: "section-row-0"
+      id: "section-row-.*"
     direction: DOWN
     timeout: 10000
     speed: 40
     optional: true
 
 - tapOn:
-    id: "section-row-0"
+    id: "section-row-.*"
 
 - extendedWaitUntil:
     visible:
@@ -299,7 +299,7 @@ tags:
     visible:
       id: "section-map-container"
     timeout: 10000
-- takeScreenshot: "validation-section-map-2d"
+- takeScreenshot: "screenshots/validation-section-map-2d"
 
 # --- Style toggle ---
 - runFlow:
@@ -311,7 +311,7 @@ tags:
           id: "section-map-style-toggle"
       - waitForAnimationToEnd:
           timeout: 2000
-      - takeScreenshot: "validation-section-map-style-switched"
+      - takeScreenshot: "screenshots/validation-section-map-style-switched"
       - tapOn:
           id: "section-map-style-toggle"
 
@@ -327,7 +327,7 @@ tags:
           visible:
             id: "section-map-container"
           timeout: 15000
-      - takeScreenshot: "validation-section-map-3d"
+      - takeScreenshot: "screenshots/validation-section-map-3d"
       # Toggle back
       - tapOn:
           id: "section-map-3d-toggle"
@@ -347,7 +347,7 @@ tags:
             id: "map-fullscreen-close"
           timeout: 10000
           optional: true
-      - takeScreenshot: "validation-section-map-fullscreen"
+      - takeScreenshot: "screenshots/validation-section-map-fullscreen"
       - tapOn:
           id: "map-fullscreen-close"
           optional: true
@@ -358,11 +358,11 @@ tags:
     optional: true
 
 # ============================================================================
-# PHASE 5: Route Detail Map — route lines, traces, fullscreen
+# PHASE 5: Route Detail Map, route lines, traces, fullscreen
 # ============================================================================
 
 # Navigate to routes list
-- openLink: "veloq://routes?tab=routes"
+- openLink: "veloq://insights?tab=routes"
 - runFlow:
     when:
       visible: "Open"
@@ -400,12 +400,12 @@ tags:
     visible:
       id: "route-map-container"
     timeout: 10000
-- takeScreenshot: "validation-route-map"
+- takeScreenshot: "screenshots/validation-route-map"
 
 # Route detail stats
 - assertVisible:
     id: "route-detail-stats"
-- takeScreenshot: "validation-route-detail"
+- takeScreenshot: "screenshots/validation-route-detail"
 
 - assertNotVisible:
     text: "NaN"
@@ -415,4 +415,4 @@ tags:
 # FINAL: Summary screenshot
 # ============================================================================
 
-- takeScreenshot: "validation-map-complete"
+- takeScreenshot: "screenshots/validation-map-complete"

@@ -19,10 +19,11 @@ import {
   formatTSS,
   formatCalories,
 } from '@/shared/format/format';
-import { colors, darkColors, typography, spacing, shadows, layout } from '@/theme';
+import { colors, darkColors, typography, spacing, shadows, layout, brand, ink } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { ActivityMapPreview } from './ActivityMapPreview';
+import { ATTRIBUTION_CLEARANCE } from '@/features/maps/components/AttributionOverlay';
 import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
@@ -30,6 +31,9 @@ import { StrengthActivityCard, type StrengthCardData } from '@/features/strength
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useExerciseSets, useMuscleGroups } from '@/features/strength';
 import type { TerrainSnapshotWebViewRef } from '@/features/maps/components/TerrainSnapshotWebView';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('ActivityCard');
 
 function formatLocation(activity: Activity): string | null {
   if (!activity.locality) return null;
@@ -51,13 +55,13 @@ interface ActivityCardProps {
   /** Forces re-render when theme changes (enableFreeze suppresses useColorScheme updates) */
   colorScheme?: boolean;
   /** Section highlights for this activity (PRs, trends) from batch FFI query */
-  sectionHighlights?: Array<{
+  sectionHighlights?: {
     sectionName: string;
     isPr: boolean;
     trend: number; // -1=slower, 0=neutral, 1=faster vs preceding avg
     startIndex: number;
     endIndex: number;
-  }>;
+  }[];
   /** Route highlight for this activity (trend, PR) */
   routeHighlight?: {
     routeName: string;
@@ -69,7 +73,7 @@ interface ActivityCardProps {
 
 // White text theme (used on any dark/satellite map, or dark theme + light map)
 const WHITE_TEXT = {
-  text: '#FFFFFF',
+  text: ink.white,
   textMuted: 'rgba(255,255,255,0.85)',
   dot: 'rgba(255,255,255,0.5)',
   divider: 'rgba(255,255,255,0.15)',
@@ -133,13 +137,15 @@ export const ActivityCard = React.memo(
   }: ActivityCardProps) {
     // Log actual function body execution (not useEffect which is deferred)
     if (__DEV__ && (index ?? 0) < 3) {
-      console.log(`  🃏 ActivityCard[${index}] BODY executing (${activity.type})`);
+      log.log(`  🃏 ActivityCard[${index}] BODY executing (${activity.type})`);
     }
     const { t } = useTranslation();
     const { isDark } = useTheme();
     const isMetric = useMetricSystem();
     const [menuVisible, setMenuVisible] = useState(false);
     const [isPressed, setIsPressed] = useState(false);
+    const averageHeartRate = activity.average_heartrate || activity.icu_average_hr;
+    const averagePower = activity.average_watts || activity.icu_average_watts;
     const handlePressIn = useCallback(() => setIsPressed(true), []);
     const handlePressOut = useCallback(() => setIsPressed(false), []);
 
@@ -157,7 +163,7 @@ export const ActivityCard = React.memo(
     const scrollRef = useRef<ScrollView>(null);
     const hasFlashed = useRef(false);
 
-    const handleContentSizeChange = useCallback((contentWidth: number, _contentHeight: number) => {
+    const handleContentSizeChange = useCallback((_contentWidth: number, _contentHeight: number) => {
       if (!hasFlashed.current && scrollRef.current) {
         hasFlashed.current = true;
         setTimeout(() => scrollRef.current?.flashScrollIndicators(), 400);
@@ -171,6 +177,10 @@ export const ActivityCard = React.memo(
     const mapStyle = getStyleForActivity(activity.type, activity.id, activity.country);
     const theme = getGradientTheme(isDark, mapStyle);
     const hasGpsData = activity.stream_types?.includes('latlng');
+    // The preview draws the map credit in the same corner as the stat rows.
+    // Start from the single-line estimate so the first paint is already clear,
+    // then take the measured height once the pill has laid out.
+    const [attributionClearance, setAttributionClearance] = useState(ATTRIBUTION_CLEARANCE);
 
     // Extract PR section GPS track indices for gold highlighting on map preview
     const prSectionIndices = useMemo(() => {
@@ -207,28 +217,28 @@ export const ActivityCard = React.memo(
               </RNText>
             </View>
           )}
-          {!!(activity.average_heartrate || activity.icu_average_hr) && (
+          {averageHeartRate ? (
             <View
               style={styles.secondaryStat}
-              accessibilityLabel={`${t('activity.heartRate')}: ${formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)} ${t('units.bpm')}`}
+              accessibilityLabel={`${t('activity.heartRate')}: ${formatHeartRate(averageHeartRate)} ${t('units.bpm')}`}
             >
               <MaterialCommunityIcons name="heart-pulse" size={14} color={colors.error} />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
-                {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
+                {formatHeartRate(averageHeartRate)}
               </RNText>
             </View>
-          )}
-          {!!(activity.average_watts || activity.icu_average_watts) && (
+          ) : null}
+          {averagePower ? (
             <View
               style={styles.secondaryStat}
-              accessibilityLabel={`${t('activity.power')}: ${formatPower(activity.average_watts || activity.icu_average_watts!)} ${t('units.watts')}`}
+              accessibilityLabel={`${t('activity.power')}: ${formatPower(averagePower)} ${t('units.watts')}`}
             >
               <MaterialCommunityIcons name="lightning-bolt" size={14} color={colors.warning} />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
-                {formatPower(activity.average_watts || activity.icu_average_watts!)}
+                {formatPower(averagePower)}
               </RNText>
             </View>
-          )}
+          ) : null}
           {!!activity.calories && (
             <View
               style={styles.secondaryStat}
@@ -409,6 +419,7 @@ export const ActivityCard = React.memo(
               snapshotReady={snapshotReady}
               startupTrack={startupTrack}
               prSectionIndices={prSectionIndices}
+              onAttributionClearanceChange={setAttributionClearance}
             />
 
             {/* Pressable overlay for tap/long-press */}
@@ -470,22 +481,29 @@ export const ActivityCard = React.memo(
                       ]}
                     >
                       {routeHighlight.isPr ? (
-                        <MaterialCommunityIcons name="trophy" size={14} color="#18181B" />
-                      ) : (
+                        <MaterialCommunityIcons
+                          name="trophy"
+                          size={14}
+                          color={colors.textOnPrimary}
+                        />
+                      ) : routeHighlight.timeDeltaSeconds != null ? (
                         <RNText style={styles.routeTrendBadgeText}>
                           PR+
-                          {routeHighlight.timeDeltaSeconds! >= 60
-                            ? `${Math.floor(routeHighlight.timeDeltaSeconds! / 60)}:${String(routeHighlight.timeDeltaSeconds! % 60).padStart(2, '0')}`
+                          {routeHighlight.timeDeltaSeconds >= 60
+                            ? `${Math.floor(routeHighlight.timeDeltaSeconds / 60)}:${String(routeHighlight.timeDeltaSeconds % 60).padStart(2, '0')}`
                             : `${routeHighlight.timeDeltaSeconds}s`}
                         </RNText>
-                      )}
+                      ) : null}
                     </Pressable>
                   )}
               </View>
             </LinearGradient>
 
             {/* Bottom: all stats unified */}
-            <View style={styles.bottomSection}>
+            <View
+              testID="activity-card-bottom"
+              style={[styles.bottomSection, { paddingBottom: attributionClearance }]}
+            >
               <LinearGradient
                 colors={theme.bottom as [string, string, string]}
                 style={StyleSheet.absoluteFill}
@@ -553,8 +571,14 @@ export const ActivityCard = React.memo(
                                     isDark ? styles.prPillDark : styles.prPillLight,
                                   ]}
                                 >
-                                  <MaterialCommunityIcons name="trophy" size={12} color="#18181B" />
-                                  <RNText style={[styles.trendCount, { color: '#18181B' }]}>
+                                  <MaterialCommunityIcons
+                                    name="trophy"
+                                    size={12}
+                                    color={colors.textOnPrimary}
+                                  />
+                                  <RNText
+                                    style={[styles.trendCount, { color: colors.textOnPrimary }]}
+                                  >
                                     {prCount}
                                   </RNText>
                                 </View>
@@ -570,9 +594,9 @@ export const ActivityCard = React.memo(
                                   <MaterialCommunityIcons
                                     name="trending-up"
                                     size={13}
-                                    color="#FFFFFF"
+                                    color={ink.white}
                                   />
-                                  <RNText style={[styles.trendCount, { color: '#FFFFFF' }]}>
+                                  <RNText style={[styles.trendCount, { color: ink.white }]}>
                                     {improving}
                                   </RNText>
                                 </View>
@@ -588,9 +612,9 @@ export const ActivityCard = React.memo(
                                   <MaterialCommunityIcons
                                     name="trending-down"
                                     size={13}
-                                    color="#FFFFFF"
+                                    color={ink.white}
                                   />
-                                  <RNText style={[styles.trendCount, { color: '#FFFFFF' }]}>
+                                  <RNText style={[styles.trendCount, { color: ink.white }]}>
                                     {declining}
                                   </RNText>
                                 </View>
@@ -651,9 +675,7 @@ export const ActivityCard = React.memo(
       if (prev.snapshotReady !== next.snapshotReady) diffs.push('snapshotReady');
       if (prev.sectionHighlights !== next.sectionHighlights) diffs.push('sectionHighlights');
       if (prev.routeHighlight !== next.routeHighlight) diffs.push('routeHighlight');
-      console.log(
-        `    🔍 ActivityCard[${prev.index}] memo: re-render because: ${diffs.join(', ')}`
-      );
+      log.log(`    🔍 ActivityCard[${prev.index}] memo: re-render because: ${diffs.join(', ')}`);
     }
     return equal;
   }
@@ -705,7 +727,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -718,16 +740,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
     marginLeft: spacing.sm,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     paddingHorizontal: 6,
     paddingVertical: 3,
-    shadowColor: '#000',
+    shadowColor: colors.shadowBlack,
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 2,
     elevation: 2,
   },
   routeTrendBadgePr: {
-    backgroundColor: '#D4AF37',
+    backgroundColor: brand.gold,
   },
   routeTrendBadgeDelta: {
     backgroundColor: 'rgba(0,0,0,0.55)',
@@ -735,8 +757,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.2)',
   },
   routeTrendBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+    color: ink.white,
+    fontSize: typography.label.fontSize,
     fontWeight: '700',
   },
   overlayName: {
@@ -784,40 +806,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusSm,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderWidth: 1,
   },
   // PR pill - solid gold, high contrast
   prPillLight: {
-    backgroundColor: '#D4AF37',
-    borderColor: '#B8942F',
+    backgroundColor: brand.gold,
+    borderColor: brand.goldDark,
   },
   prPillDark: {
-    backgroundColor: '#D4AF37',
-    borderColor: '#E8C96E',
+    backgroundColor: brand.gold,
+    borderColor: brand.goldLight,
   },
   // Improving pill - solid green
   improvingPillLight: {
-    backgroundColor: '#22C55E',
-    borderColor: '#16A34A',
+    backgroundColor: colors.success,
+    borderColor: colors.successDark,
   },
   improvingPillDark: {
-    backgroundColor: '#22C55E',
-    borderColor: '#4ADE80',
+    backgroundColor: colors.success,
+    borderColor: colors.successLight,
   },
   // Declining pill - solid muted
   decliningPillLight: {
-    backgroundColor: '#A1A1AA',
-    borderColor: '#71717A',
+    backgroundColor: colors.textDisabled,
+    borderColor: colors.textMuted,
   },
   decliningPillDark: {
-    backgroundColor: '#52525B',
-    borderColor: '#71717A',
+    backgroundColor: colors.gray600,
+    borderColor: colors.textMuted,
   },
   trendCount: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '700',
     letterSpacing: -0.3,
   },
@@ -826,14 +848,14 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   primaryStatValue: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
     letterSpacing: -0.3,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   statDot: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     marginHorizontal: 6,
   },
@@ -905,7 +927,7 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   compactStatValue: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
     letterSpacing: -0.3,
   },

@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Animated,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
+import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
@@ -34,7 +34,6 @@ import { ActivityStatsCard } from '@/features/recording/components/ActivityStats
 import { SaveErrorBanner } from '@/features/recording/components/SaveErrorBanner';
 import type { ActivityType } from '@/types';
 
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const MAP_FRACTION = 0.45;
 
 export default function ReviewScreen() {
@@ -58,6 +57,7 @@ export default function ReviewScreen() {
   const startTime = useRecordingStore((s) => s.startTime);
   const stopTime = useRecordingStore((s) => s.stopTime);
   const pausedDuration = useRecordingStore((s) => s.pausedDuration);
+  const pauseIntervals = useRecordingStore((s) => s.pauseIntervals);
   const pairedEventId = useRecordingStore((s) => s.pairedEventId);
 
   const [notes, setNotes] = useState(params.notes ?? '');
@@ -72,9 +72,7 @@ export default function ReviewScreen() {
   const [showTypeModal, setShowTypeModal] = useState(false);
 
   const [trimStart, setTrimStart] = useState(0);
-  const [trimEnd, setTrimEnd] = useState(
-    (streams.latlng?.length ?? 0) > 0 ? streams.latlng!.length - 1 : 0
-  );
+  const [trimEnd, setTrimEnd] = useState(Math.max(0, (streams.latlng?.length ?? 0) - 1));
 
   const type = selectedType;
   const canTrim = !isManual && (streams.latlng?.length ?? 0) > 2;
@@ -86,11 +84,12 @@ export default function ReviewScreen() {
   }, []);
 
   // Summary, trim delta, and trimmed-stream accessor extracted to useActivitySummary
-  const { summary, trimDelta, getTrimmedStreams } = useActivitySummary({
+  const { summary, trimDelta, getTrimmedStreams, pausedSecondsInWindow } = useActivitySummary({
     streams,
     startTime,
     stopTime,
     pausedDuration,
+    pauseIntervals,
     trimStart,
     trimEnd,
     canTrim,
@@ -115,7 +114,7 @@ export default function ReviewScreen() {
     summary,
     notes,
     startTime,
-    pausedDuration,
+    pausedSecondsInWindow,
     laps,
     pairedEventId,
     getTrimmedStreams,
@@ -145,10 +144,22 @@ export default function ReviewScreen() {
   const border = isDark ? darkColors.border : colors.border;
   const activityColor = getActivityColor(type);
   const isProcessing = isUploading;
-  const mapHeight = hasGps ? SCREEN_HEIGHT * MAP_FRACTION : 0;
+  const { height: windowHeight } = useWindowDimensions();
+  const mapHeight = hasGps ? windowHeight * MAP_FRACTION : 0;
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
+      {/* A GPS recording opens on a map hero that runs under the status bar and
+          carries its own back control, so the native header is off there. The
+          non-GPS screen takes it, and loses it while an upload is in flight,
+          which is what the old header's disabled back button did. */}
+      <Stack.Screen
+        options={{
+          headerShown: !hasGps,
+          headerBackVisible: !isProcessing,
+          gestureEnabled: !isProcessing,
+        }}
+      />
       {/* Map hero (top portion) */}
       {hasGps && (
         <ReviewMapHero
@@ -164,28 +175,6 @@ export default function ReviewScreen() {
           onBack={handleBack}
           disabled={isProcessing}
         />
-      )}
-
-      {/* Header (only for non-GPS activities) */}
-      {!hasGps && (
-        <View style={[styles.header, { paddingTop: insets.top }]}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-            disabled={isProcessing}
-            accessibilityRole="button"
-            accessibilityLabel={t('common.back')}
-          >
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={24}
-              color={isProcessing ? textSecondary : textPrimary}
-            />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: textPrimary }]}>
-            {t('recording.reviewActivity', 'Review Activity')}
-          </Text>
-        </View>
       )}
 
       {/* Bottom sheet content */}
@@ -343,23 +332,6 @@ export default function ReviewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  // Non-GPS header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...typography.sectionTitle,
-    marginLeft: spacing.xs,
   },
   // Bottom content
   scrollContent: {

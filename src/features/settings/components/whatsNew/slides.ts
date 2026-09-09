@@ -59,7 +59,7 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       titleKey: 'whatsNew.v030.insightsTitle',
       bodyKey: 'whatsNew.v030.insightsBody',
       icon: 'lightbulb-outline',
-      showMeRoute: '/routes',
+      showMeRoute: '/insights',
       get Component() {
         return require('./InsightsSlide').InsightsSlide;
       },
@@ -68,7 +68,9 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       titleKey: 'whatsNew.v030.strengthTitle',
       bodyKey: 'whatsNew.v030.strengthBody',
       icon: 'arm-flex-outline',
-      showMeRoute: '/fitness',
+      // The strength sub-tab, where the body diagram this slide describes is
+      // drawn. Fitness carries no strength surface at all.
+      showMeRoute: '/insights?tab=strength',
       get Component() {
         return require('./StrengthSlide').StrengthSlide;
       },
@@ -88,6 +90,20 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       showMeRoute: '/backup-settings',
       get Component() {
         return require('./BackupSlide').BackupSlide;
+      },
+    },
+  ],
+  '0.4.0': [
+    {
+      titleKey: 'whatsNew.v040.sectionsTitle',
+      bodyKey: 'whatsNew.v040.sectionsBody',
+      icon: 'history',
+      // The sections sub-tab, not the screen's default one: the ledger, the
+      // revert, the pin and the retired list this slide describes are all
+      // behind it, and the bare route drops the athlete on insights.
+      showMeRoute: '/insights?tab=sections',
+      get Component() {
+        return require('./SectionChangeCardSlide').SectionChangeCardSlide;
       },
     },
   ],

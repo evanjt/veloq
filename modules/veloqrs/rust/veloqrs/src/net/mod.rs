@@ -10,8 +10,14 @@
 //! reads status.
 
 pub mod transport;
-pub use transport::{NetError, Transport};
+pub use transport::{FilePart, NetError, Transport};
 
 pub mod types;
 
 pub mod endpoints;
+
+pub mod elevation_backfill;
+
+/// The connectivity state TypeScript pushes, and the only thing in this crate
+/// that knows whether there is a network at all.
+pub mod connectivity;

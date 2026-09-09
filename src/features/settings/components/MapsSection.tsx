@@ -9,8 +9,10 @@ import { type MapStyleType } from '@/features/maps/components';
 import { MapStylePreviewPicker } from './MapStylePreviewPicker';
 import { clearTerrainPreviews } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { HeatmapRow } from './HeatmapRow';
 import { settingsStyles } from './settingsStyles';
 import type { ActivityType, Terrain3DMode } from '@/types';
+import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
 
 type FilterLabelKey =
   | 'filters.cycling'
@@ -29,11 +31,11 @@ const MAP_ACTIVITY_GROUPS: {
   labelKey: FilterLabelKey;
   types: ActivityType[];
 }[] = [
-  { key: 'cycling', labelKey: 'filters.cycling', types: ['Ride', 'VirtualRide'] },
-  { key: 'running', labelKey: 'filters.running', types: ['Run', 'TrailRun', 'VirtualRun'] },
+  { key: 'cycling', labelKey: 'filters.cycling', types: [...SPORT_FAMILIES.cycling] },
+  { key: 'running', labelKey: 'filters.running', types: [...SPORT_FAMILIES.running] },
   { key: 'hiking', labelKey: 'filters.hiking', types: ['Hike'] },
   { key: 'walking', labelKey: 'filters.walking', types: ['Walk'] },
-  { key: 'swimming', labelKey: 'filters.swimming', types: ['Swim', 'OpenWaterSwim'] },
+  { key: 'swimming', labelKey: 'filters.swimming', types: [...SPORT_FAMILIES.swimming] },
   {
     key: 'snow',
     labelKey: 'filters.snowSports',
@@ -73,7 +75,6 @@ interface MapsSectionProps {
 export function MapsSection({ embedded }: MapsSectionProps = {}) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const showOverrides = true;
   const {
     preferences: mapPreferences,
     setDefaultStyle,
@@ -176,6 +177,9 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
         value={mapPreferences.defaultStyle}
         onValueChange={handleDefaultMapStyleChange}
       />
+
+      {/* The heatmap is something the map draws, so it lives here. */}
+      <HeatmapRow />
 
       {/* Per-activity overrides */}
       <View style={[styles.actionRow, styles.actionRowBorder]}>
@@ -341,7 +345,7 @@ const styles = StyleSheet.create({
   },
   pillText: {
     ...typography.caption,
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
   },
   overrideDivider: {
     height: StyleSheet.hairlineWidth,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Linking, Pressable } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,23 +8,30 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ScreenSafeAreaView } from '@/shared/ui';
 import { replaceTo } from '@/shared/app/navigation';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { createSharedStyles } from '@/styles';
 import { clearAccountData } from '@/shared/storage';
+import { getEngine } from '@/shared/native/engine';
 import { useImportDatabaseBackup } from '@/features/settings/hooks/exportIndex';
 import {
   useAuthStore,
   INTERVALS_URLS,
+  accountChangeAction,
   confirmAccountChange,
   getCachedAthleteId,
+  UNNAMED_LIBRARY,
+  DEMO_ATHLETE_ID,
   useApiKeyLogin,
   useOAuthLogin,
   useBackupRestore,
+  useApiKeyPrefill,
+  useSessionExpiryNotice,
   LanguagePicker,
   OAuthLoginForm,
   ApiKeyLoginForm,
   BackupRestoreBanner,
+  SessionExpiredNotice,
 } from '@/features/auth';
 
 const VELOQ_URLS = {
@@ -36,8 +43,6 @@ export default function LoginScreen() {
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
   const enterDemoMode = useAuthStore((state) => state.enterDemoMode);
-  const sessionExpired = useAuthStore((state) => state.sessionExpired);
-  const clearSessionExpired = useAuthStore((state) => state.clearSessionExpired);
   const queryClient = useQueryClient();
   const resetSyncDateRange = useSyncDateRange((state) => state.reset);
   const { importDatabaseBackup, importing: isRestoring } = useImportDatabaseBackup();
@@ -52,27 +57,32 @@ export default function LoginScreen() {
 
   const [error, setError] = useState<string | null>(null);
 
-  const { handleApiKeyLogin, isApiKeyLoading } = useApiKeyLogin({ setError });
-  const { handleOAuthLogin, isLoading } = useOAuthLogin({ setError });
-
-  // Show session expired message if redirected here due to token expiry
-  useEffect(() => {
-    if (sessionExpired) {
-      const message =
-        sessionExpired === 'token_revoked' ? t('login.sessionRevoked') : t('login.sessionExpired');
+  // An expired session is not a failed login, so it never takes the red slot.
+  // The two do not stack either: whichever arrived last is the one on screen.
+  const [sessionNotice, dismissSessionNotice] = useSessionExpiryNotice();
+  const prefillApiKey = useApiKeyPrefill(sessionNotice);
+  const reportError = useCallback(
+    (message: string | null) => {
+      if (message) dismissSessionNotice();
       setError(message);
-      clearSessionExpired();
-    }
-  }, [sessionExpired, t, clearSessionExpired]);
+    },
+    [dismissSessionNotice]
+  );
+
+  const { handleApiKeyLogin, isApiKeyLoading } = useApiKeyLogin({ setError: reportError });
+  const { handleOAuthLogin, isLoading } = useOAuthLogin({ setError: reportError });
 
   const handleTryDemo = async () => {
     // Warn before destroying a real account's cached data. Engine holds at
     // most one account at a time, so leftover real-user data has to be
     // wiped before demo can populate. Same dialog as account-switch on login.
-    const cachedId = getCachedAthleteId();
-    if (cachedId) {
+    const cachedId = await getCachedAthleteId();
+    // A backup restored from this screen leaves a library no credential names,
+    // so the count is what stands between it and the demo fixtures.
+    const stored = getEngine()?.getActivityCount() ?? 0;
+    if (accountChangeAction(cachedId, DEMO_ATHLETE_ID, stored) === 'confirm-then-wipe') {
       const proceed = await confirmAccountChange({
-        cachedAthleteId: cachedId,
+        cachedAthleteId: cachedId ?? UNNAMED_LIBRARY,
         incomingKind: 'demo',
       });
       if (!proceed) return;
@@ -116,7 +126,9 @@ export default function LoginScreen() {
 
         {/* Main Login Section */}
         <View style={[styles.card, isDark && styles.cardDark]}>
-          {error && (
+          {sessionNotice && <SessionExpiredNotice notice={sessionNotice} />}
+
+          {error && !sessionNotice && (
             <View style={styles.errorContainer}>
               <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
               <Text style={styles.errorText} testID="login-error-text">
@@ -181,6 +193,7 @@ export default function LoginScreen() {
             isLoading={isApiKeyLoading}
             disabled={isLoading}
             onOpenDeveloperSettings={handleOpenDeveloperSettings}
+            prefillApiKey={prefillApiKey}
           />
         </View>
 
@@ -248,7 +261,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   title: {
-    fontSize: 32,
+    fontSize: typography.headlineNumber.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: spacing.xs,
@@ -263,7 +276,7 @@ const styles = StyleSheet.create({
     color: darkColors.textMuted,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: colors.textSecondary,
   },
   card: {
@@ -280,14 +293,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(244, 67, 54, 0.1)',
     padding: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     marginBottom: spacing.md,
     gap: spacing.sm,
   },
   errorText: {
     color: colors.error,
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -305,7 +318,7 @@ const styles = StyleSheet.create({
   dividerText: {
     marginHorizontal: spacing.md,
     color: colors.textSecondary,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
   },
   demoButton: {
     borderColor: colors.primary,
@@ -314,13 +327,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   newUserTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
   newUserText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.sm,
   },
@@ -334,7 +347,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   disclaimerText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
@@ -347,7 +360,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   intervalsLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
@@ -357,12 +370,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   linkText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.primary,
     textDecorationLine: 'underline',
   },
   linkTextSmall: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.primary,
     textDecorationLine: 'underline',
   },
@@ -377,7 +390,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   securityText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
 });

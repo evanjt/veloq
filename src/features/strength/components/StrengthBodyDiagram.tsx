@@ -7,15 +7,24 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, brand, strengthRamp } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  brand,
+  strengthRamp,
+  bodyDiagram,
+  typography,
+} from '@/theme';
 import type { MuscleVolume } from '@/types';
 
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
 
 const BODY_COLORS: readonly string[] = strengthRamp;
-const BODY_FILL_LIGHT = '#3f3f3f';
-const BODY_FILL_DARK = '#555555';
+const BODY_FILL_LIGHT = bodyDiagram.fillLight;
+const BODY_FILL_DARK = bodyDiagram.fillDark;
 
 interface StrengthBodyDiagramProps {
   bodyData: ExtendedBodyPart[];
@@ -129,7 +138,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   bodyTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     textAlign: 'center',
@@ -138,7 +147,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   bodySubtitle: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
   },
@@ -146,7 +155,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   bodyHint: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textDisabled,
     textAlign: 'center',
     marginBottom: spacing.xs,
@@ -165,10 +174,10 @@ const styles = StyleSheet.create({
   subtitleDot: {
     width: 7,
     height: 7,
-    borderRadius: 3.5,
+    borderRadius: layout.borderRadiusFull,
   },
   subtitleText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   subtitleTextDark: {
@@ -179,7 +188,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   scaleLabel: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 4,
@@ -189,12 +198,12 @@ const styles = StyleSheet.create({
   },
   scaleBar: {
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
   },
   scaleGradient: {
     flex: 1,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
   },
   scaleLabels: {
     flexDirection: 'row',
@@ -202,7 +211,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   scaleValue: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
   },
   scaleValueDark: {

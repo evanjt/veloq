@@ -11,8 +11,8 @@ import {
   View,
   StyleSheet,
   FlatList,
-  Platform,
   TouchableOpacity,
+  Platform,
   Alert,
   Animated,
   ActivityIndicator,
@@ -20,27 +20,29 @@ import {
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
+import { useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
+import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout } from '@/theme';
-import { useUnifiedSections } from '@/features/routes/hooks/useUnifiedSections';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { useSections, generateSectionName } from '@/features/routes/hooks/useSections';
+import { sortSections, type SectionsSortOption } from '@/features/routes/lib/sectionRanking';
 import { Shimmer } from '@/shared/ui';
 import { SectionRow } from './SectionRow';
-import { PotentialSectionCard } from './PotentialSectionCard';
 import { DataRangeFooter } from './DataRangeFooter';
 import { SectionsListHeader } from './SectionsListHeader';
 import { SectionsListFiltersBar } from './SectionsListFiltersBar';
 import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
-import { useSectionDismissals } from '@/features/routes/stores/SectionDismissalsStore';
 import { navigateTo } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import type { UnifiedSection, FrequentSection } from '@/types';
-import { decodeCoords, type SectionWithPolyline } from 'veloqrs';
-import { generateSectionName } from '@/features/routes/hooks/useUnifiedSections';
+import { getEngine } from '@/shared/native/engine';
+import type { FrequentSection } from '@/types';
+import { type SectionWithPolyline } from 'veloqrs';
+import { convertSectionWithPolylineToApp } from '@/features/routes/lib/sectionConversions';
 import { computeCenter, haversineDistance, type LatLng } from '@/shared/geo/distance';
 
 const log = debug.create('SectionsList');
@@ -50,11 +52,10 @@ interface SectionsListProps {
   sportType?: string;
   /** Pre-fetched data from parent to avoid duplicate FFI calls */
   prefetchedData?: {
-    sections: UnifiedSection[];
+    sections: FrequentSection[];
     count: number;
     autoCount: number;
     customCount: number;
-    potentialCount: number;
     disabledCount: number;
     isLoading: boolean;
     error: Error | null;
@@ -82,50 +83,7 @@ type HiddenFilters = {
   unaccepted: boolean;
 };
 
-export type SectionsSortOption = 'visits' | 'distance' | 'name' | 'nearby';
-
-/**
- * Convert batch SectionWithPolyline to FrequentSection for useUnifiedSections.
- * Pre-populates polylines so SectionRow doesn't need per-row FFI calls.
- */
-function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection {
-  const polyline = decodeCoords(s.encodedPolyline).map((p) => ({
-    lat: p.latitude,
-    lng: p.longitude,
-  }));
-  const center = s.bounds
-    ? computeCenter({
-        minLat: s.bounds.minLat,
-        maxLat: s.bounds.maxLat,
-        minLng: s.bounds.minLng,
-        maxLng: s.bounds.maxLng,
-      })
-    : undefined;
-  const section: FrequentSection = {
-    id: s.id,
-    sectionType: s.id.startsWith('custom_') ? 'custom' : 'auto',
-    sportType: s.sportType,
-    polyline,
-    activityIds: [],
-    routeIds: [],
-    visitCount: s.visitCount,
-    distanceMeters: s.distanceMeters,
-    confidence: s.confidence,
-    scale: s.scale ?? undefined,
-    name: s.name ?? undefined,
-    createdAt: new Date().toISOString(),
-    sportTypes: 'sportTypes' in s ? (s as { sportTypes: string[] }).sportTypes : undefined,
-    center,
-    isUserDefined: ((s as Record<string, unknown>).isUserDefined as boolean) ?? false,
-    disabled: ((s as Record<string, unknown>).disabled as boolean) ?? false,
-    supersededBy: ((s as Record<string, unknown>).supersededBy as string | null) ?? null,
-  };
-  // Generate display name using same logic as useFrequentSections
-  if (!section.name) {
-    section.name = generateSectionName(section);
-  }
-  return section;
-}
+export type { SectionsSortOption };
 
 function SectionRowSkeleton() {
   return (
@@ -141,14 +99,14 @@ function SectionRowSkeleton() {
 
 interface SectionListItemProps {
   index: number;
-  item: UnifiedSection;
+  item: FrequentSection;
   isDark: boolean;
   isDisabled: boolean;
   distanceFromUser?: number;
   onPress: (id: string) => void;
   onSwipeableOpen: (id: string) => void;
-  onDelete: (item: UnifiedSection) => void;
-  onToggleHide: (item: UnifiedSection) => void;
+  onDelete: (item: FrequentSection) => void;
+  onToggleHide: (item: FrequentSection) => void;
   swipeableRefs: React.MutableRefObject<Map<string, Swipeable | null>>;
   t: (key: string) => string;
 }
@@ -289,18 +247,31 @@ export const SectionsList = memo(function SectionsList({
   });
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Convert batch sections to FrequentSection[] for preloading into useUnifiedSections
+  // The list record already carries its polyline, so a row needs no call of
+  // its own. The centre is the list's proximity sort and the name fallback is
+  // its label: both are the screen's, not the record's.
   const preloadedEngineSections = useMemo(() => {
     if (!batchSections) return undefined;
-    return batchSections.map(batchSectionToFrequentSection);
+    return batchSections.map((record) => {
+      const section = convertSectionWithPolylineToApp(record);
+      section.center = record.bounds
+        ? computeCenter({
+            minLat: record.bounds.minLat,
+            maxLat: record.bounds.maxLat,
+            minLng: record.bounds.minLng,
+            maxLng: record.bounds.maxLng,
+          })
+        : undefined;
+      if (!section.name) section.name = generateSectionName(section);
+      return section;
+    });
   }, [batchSections]);
 
   // Only call hook if data not pre-fetched from parent
-  // When batch sections are available, skip engine FFI calls but keep custom/potential loading
-  const hookData = useUnifiedSections({
+  // When batch sections are available, skip engine FFI calls but keep custom loading
+  const hookData = useSections({
     sportType,
     includeCustom: true,
-    includePotentials: true,
     enabled: !prefetchedData,
     preloadedEngineSections,
   });
@@ -310,17 +281,16 @@ export const SectionsList = memo(function SectionsList({
   const {
     sections: unifiedSections,
     count: totalCount,
-    autoCount,
     customCount,
-    potentialCount,
     disabledCount,
     isLoading,
   } = data;
 
-  const { createSection, removeSection } = useCustomSections();
-  const { rescan, isScanning } = useSectionRescan();
+  const { removeSection } = useCustomSections();
+  const { rescan, isScanning, refusal: rescanRefusal } = useSectionRescan();
+  const detectionHold = useDetectionHold();
+  const elevationBackfill = useElevationBackfill();
 
-  const trueAutoCount = totalSectionCount != null ? totalSectionCount : autoCount;
   const trueDisabledCount = disabledCount;
 
   // Track open swipeable refs to close them when another opens
@@ -330,62 +300,49 @@ export const SectionsList = memo(function SectionsList({
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays();
 
-  // Separate regular sections from potential sections, apply filter, search, and sort
-  const { regularSections, potentialSections, unacceptedAutoCount, acceptedAutoCount } =
-    useMemo(() => {
-      const regular: UnifiedSection[] = [];
-      const potential: UnifiedSection[] = [];
-      let unaccepted = 0;
-      let accepted = 0;
-      const query = searchQuery.toLowerCase();
+  // Apply filter, search, and sort
+  const { regularSections, unacceptedAutoCount, acceptedAutoCount } = useMemo(() => {
+    const regular: FrequentSection[] = [];
+    let unaccepted = 0;
+    let accepted = 0;
+    const query = searchQuery.toLowerCase();
 
-      for (const section of unifiedSections) {
-        if (section.sectionType === 'potential') {
-          potential.push(section);
-        } else {
-          const isVisibleAuto =
-            section.sectionType === 'auto' && !section.disabled && !section.supersededBy;
-          if (isVisibleAuto && !section.isUserDefined) unaccepted++;
-          if (isVisibleAuto && section.isUserDefined) accepted++;
+    for (const section of unifiedSections) {
+      {
+        const isVisibleAuto =
+          section.sectionType === 'auto' && !section.disabled && !section.supersededBy;
+        if (isVisibleAuto && !section.isUserDefined) unaccepted++;
+        if (isVisibleAuto && section.isUserDefined) accepted++;
 
-          // Apply hide filters
-          const isCustom = section.sectionType === 'custom';
-          const isDisabledAuto =
-            section.sectionType === 'auto' && !!(section.disabled || section.supersededBy);
-          const isUnacceptedAuto = isVisibleAuto && !section.isUserDefined;
+        // Apply hide filters
+        const isCustom = section.sectionType === 'custom';
+        const isDisabledAuto =
+          section.sectionType === 'auto' && !!(section.disabled || section.supersededBy);
+        const isUnacceptedAuto = isVisibleAuto && !section.isUserDefined;
 
-          if (
-            (isCustom && hiddenFilters.custom) ||
-            (isVisibleAuto && hiddenFilters.auto) ||
-            (isDisabledAuto && hiddenFilters.disabled) ||
-            (isUnacceptedAuto && hiddenFilters.unaccepted)
-          ) {
-            continue;
-          }
-
-          if (query && !section.name?.toLowerCase().includes(query)) {
-            continue;
-          }
-
-          regular.push(section);
+        if (
+          (isCustom && hiddenFilters.custom) ||
+          (isVisibleAuto && hiddenFilters.auto) ||
+          (isDisabledAuto && hiddenFilters.disabled) ||
+          (isUnacceptedAuto && hiddenFilters.unaccepted)
+        ) {
+          continue;
         }
-      }
 
-      if (sortOption === 'visits') {
-        regular.sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0));
-      } else if (sortOption === 'distance') {
-        regular.sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
-      } else if (sortOption === 'name') {
-        regular.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
-      }
+        if (query && !section.name?.toLowerCase().includes(query)) {
+          continue;
+        }
 
-      return {
-        regularSections: regular,
-        potentialSections: potential,
-        unacceptedAutoCount: unaccepted,
-        acceptedAutoCount: accepted,
-      };
-    }, [unifiedSections, hiddenFilters, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
+        regular.push(section);
+      }
+    }
+
+    return {
+      regularSections: sortSections(regular, sortOption, !!sportType),
+      unacceptedAutoCount: unaccepted,
+      acceptedAutoCount: accepted,
+    };
+  }, [unifiedSections, hiddenFilters, searchQuery, sortOption, sportType]); // userLocation excluded: nearby sorting is Rust-side
 
   // Pre-compute distance from user for each section (used for display on every row)
   const distanceMap = useMemo(() => {
@@ -417,29 +374,10 @@ export const SectionsList = memo(function SectionsList({
     navigateTo(`/section/${id}`);
   }, []);
 
-  // Handle promoting a potential section to a custom section
-  const handlePromotePotential = useCallback(
-    async (section: UnifiedSection) => {
-      if (section.sectionType !== 'potential') return;
-      log.log('Promoting potential section:', section.id);
-      try {
-        await createSection({
-          startIndex: 0,
-          endIndex: section.polyline.length - 1,
-          sourceActivityId: section.activityIds[0] ?? 'unknown',
-          sportType: section.sportType,
-        });
-      } catch (error) {
-        log.error('Failed to promote section:', error);
-      }
-    },
-    [createSection]
-  );
-
   // Handle accepting all auto sections
   const [acceptAllResult, setAcceptAllResult] = useState<number | null>(null);
   useEffect(() => {
-    if (acceptAllResult === null) return;
+    if (acceptAllResult === null) return undefined;
     const timer = setTimeout(() => setAcceptAllResult(null), 3000);
     return () => clearTimeout(timer);
   }, [acceptAllResult]);
@@ -452,23 +390,13 @@ export const SectionsList = memo(function SectionsList({
         {
           text: t('common.confirm'),
           onPress: () => {
-            const count = getRouteEngine()?.acceptAllSections() ?? 0;
+            const count = getEngine()?.acceptAllSections() ?? 0;
             setAcceptAllResult(count);
           },
         },
       ]
     );
   }, [t, unacceptedAutoCount]);
-
-  // Handle dismissing a potential section
-  const dismiss = useSectionDismissals((s) => s.dismiss);
-  const handleDismissPotential = useCallback(
-    async (section: UnifiedSection) => {
-      log.log('Dismissing potential section:', section.id);
-      await dismiss(section.id);
-    },
-    [dismiss]
-  );
 
   const renderEmpty = () => {
     if (!isReady) {
@@ -516,9 +444,18 @@ export const SectionsList = memo(function SectionsList({
     );
   };
 
-  const sortChips: { key: SectionsSortOption; label: string; icon: string }[] = useMemo(
+  const sortChips: {
+    key: SectionsSortOption;
+    label: string;
+    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  }[] = useMemo(
     () => [
       { key: 'nearby', label: t('routes.sortNearby' as never) as string, icon: 'crosshairs-gps' },
+      {
+        key: 'signature',
+        label: t('routes.sortRelevance' as never) as string,
+        icon: 'star-four-points-outline',
+      },
       {
         key: 'visits',
         label: t('routes.sortMostVisited' as never) as string,
@@ -546,25 +483,6 @@ export const SectionsList = memo(function SectionsList({
 
   const displaySectionCount = totalSectionCount ?? totalCount;
 
-  const renderHeader = () => {
-    if (potentialSections.length === 0) return null;
-    return (
-      <View style={styles.suggestionsContainer}>
-        <Text style={[styles.suggestionsTitle, isDark && styles.textLight]}>
-          {t('routes.suggestions' as never)}
-        </Text>
-        {potentialSections.slice(0, 3).map((section) => (
-          <PotentialSectionCard
-            key={section.id}
-            section={section}
-            onPromote={() => handlePromotePotential(section)}
-            onDismiss={() => handleDismissPotential(section)}
-          />
-        ))}
-      </View>
-    );
-  };
-
   // Close any open swipeable when another opens
   const handleSwipeableOpen = useCallback((id: string) => {
     if (openSwipeableRef.current && openSwipeableRef.current !== id) {
@@ -576,19 +494,19 @@ export const SectionsList = memo(function SectionsList({
 
   // Handle remove/restore action for auto sections
   const handleToggleHide = useCallback(
-    (item: UnifiedSection) => {
+    (item: FrequentSection) => {
       const swipeable = swipeableRefs.current.get(item.id);
       swipeable?.close();
 
       if (item.disabled || item.supersededBy) {
-        getRouteEngine()?.enableSection(item.id);
+        getEngine()?.enableSection(item.id);
       } else {
         Alert.alert(t('sections.removeSection'), t('sections.removeSectionConfirm'), [
           { text: t('common.cancel'), style: 'cancel' },
           {
             text: t('common.remove'),
             style: 'destructive',
-            onPress: () => getRouteEngine()?.disableSection(item.id),
+            onPress: () => getEngine()?.disableSection(item.id),
           },
         ]);
       }
@@ -598,7 +516,7 @@ export const SectionsList = memo(function SectionsList({
 
   // Handle delete action for custom sections
   const handleDelete = useCallback(
-    (item: UnifiedSection) => {
+    (item: FrequentSection) => {
       const swipeable = swipeableRefs.current.get(item.id);
       swipeable?.close();
 
@@ -621,7 +539,7 @@ export const SectionsList = memo(function SectionsList({
   );
 
   const renderItem = useCallback(
-    ({ item, index }: { item: UnifiedSection; index: number }) => (
+    ({ item, index }: { item: FrequentSection; index: number }) => (
       <SectionListItem
         item={item}
         index={index}
@@ -656,6 +574,28 @@ export const SectionsList = memo(function SectionsList({
             <ActivityIndicator size="small" color={colors.primary} />
           </View>
         )}
+        <TouchableOpacity
+          testID="sections-retired-link"
+          style={styles.retiredLink}
+          onPress={() => router.push('/section-retired' as Href)}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="history" size={16} color={colors.textSecondary} />
+          <Text style={[styles.retiredLinkText, isDark && styles.textMuted]}>
+            {t('sectionHistory.seeRetired')}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          testID="sections-named-corridors-link"
+          style={styles.retiredLink}
+          onPress={() => router.push('/named-corridors' as Href)}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="tag-outline" size={16} color={colors.textSecondary} />
+          <Text style={[styles.retiredLinkText, isDark && styles.textMuted]}>
+            {t('namedCorridors.link')}
+          </Text>
+        </TouchableOpacity>
         <DataRangeFooter days={cacheDays} isDark={isDark} />
       </View>
     );
@@ -671,6 +611,9 @@ export const SectionsList = memo(function SectionsList({
           unacceptedAutoCount={unacceptedAutoCount}
           acceptAllResult={acceptAllResult}
           isScanning={isScanning}
+          detectionHold={detectionHold}
+          rescanRefusal={rescanRefusal}
+          elevationBackfill={elevationBackfill}
           onAcceptAll={handleAcceptAll}
           onRescan={handleRescan}
         />
@@ -694,7 +637,6 @@ export const SectionsList = memo(function SectionsList({
         data={regularSections}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        ListHeaderComponent={potentialSections.length > 0 ? renderHeader : null}
         ListEmptyComponent={renderEmpty}
         ListFooterComponent={renderFooter}
         contentContainerStyle={regularSections.length === 0 ? styles.emptyList : styles.list}
@@ -728,6 +670,17 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 0,
   },
+  retiredLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+  },
+  retiredLinkText: {
+    fontSize: typography.bodyCompact.fontSize,
+    color: colors.textSecondary,
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -736,14 +689,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl * 2,
   },
   emptyTitle: {
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginTop: spacing.md,
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.sm,
     textAlign: 'center',
@@ -767,7 +720,7 @@ const styles = StyleSheet.create({
   infoNoticeDark: {},
   infoText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textDisabled,
     lineHeight: 16,
   },
@@ -787,7 +740,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -795,7 +748,7 @@ const styles = StyleSheet.create({
     borderColor: darkColors.border,
   },
   sportFilterLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   sectionCounts: {
@@ -829,7 +782,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   countText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
   },
   countTextHidden: {
@@ -840,7 +793,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   suggestionsTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.sm,
@@ -867,7 +820,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   swipeActionText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textOnDark,
   },

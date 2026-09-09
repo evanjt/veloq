@@ -33,10 +33,12 @@ export interface ScoredInsight {
   score: number;
   breakdown: {
     base: number;
+    confidence: number;
     category: number;
     specificity: number;
     temporalSelf: number;
     signal: number;
+    ranking: number;
   };
 }
 
@@ -140,12 +142,29 @@ export function passesValence(insight: Insight): GateOutcome {
 
 /**
  * R5 - proximal specificity (Bandura & Schunk 1981). +10 if all three of
- * {concrete number, concrete place, recent date}; +5 for two; 0 otherwise.
+ * {concrete number, concrete place, a moment other than now}; +5 for two.
+ *
+ * Read off the strings the athlete sees rather than asserted by the generator.
+ * Eleven of fifteen emit sites used to assert a constant triple, and an
+ * assertion is a claim about copy that the copy can stop honouring: a locale
+ * that drops the number, or a title rewritten to lose the section name, left
+ * the claim standing and kept the points.
+ *
+ * The date stays structural, because "recent" is a property of the insight and
+ * not of its wording, and no regex reads a relative date across seventeen
+ * locales. It means the insight is about a moment other than the one it was
+ * computed in.
  */
 export function specificityScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CONFIG): number {
-  const s = insight.meta?.specificity;
-  if (!s) return 0;
-  const count = (s.hasNumber ? 1 : 0) + (s.hasPlace ? 1 : 0) + (s.hasDate ? 1 : 0);
+  const rendered = `${insight.title}\n${insight.subtitle ?? ''}\n${insight.body ?? ''}`;
+  const place = insight.meta?.placeName;
+  const source = insight.meta?.sourceTimestamp;
+
+  const hasNumber = /\d/.test(rendered);
+  const hasPlace = Boolean(place) && rendered.includes(place as string);
+  const hasDate = source != null && source !== insight.timestamp;
+
+  const count = (hasNumber ? 1 : 0) + (hasPlace ? 1 : 0) + (hasDate ? 1 : 0);
   if (count === 3) return cfg.scoring.specificityBonus.all3;
   if (count === 2) return cfg.scoring.specificityBonus.any2;
   return 0;
@@ -167,6 +186,50 @@ export function signalScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CON
 }
 
 /**
+ * R4 - how much population the claim stands on.
+ *
+ * A declared absence (`null`) and a computed confidence are not the same, and
+ * neither is a default. The old `?? 0.5` gave thirteen of fifteen emit sites a
+ * flat fifteen points for a confidence nobody computed, which ranked a
+ * generator that measured nothing above one that measured its own thinness.
+ * An absence claims no evidence weight and leaves the rank to priority and
+ * category, where the number it would have carried is not one anybody has.
+ */
+export function confidenceScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CONFIG): number {
+  const value = insight.confidence;
+  if (value == null || !Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value)) * cfg.scoring.confidenceWeight;
+}
+
+/**
+ * R9 - what the engine says the section behind this insight is worth.
+ *
+ * The four component scores are the engine's own, computed per section in
+ * `persistence/sections/ranking.rs`, and the sections tab's Relevance sort
+ * already ranks on their blend. This is that blend, read by the insight ranker
+ * so a section the engine rates highly can outrank one it does not.
+ *
+ * **Never read `relevance`.** It is exactly this blend of the other four, so a
+ * term taking it beside its own components counts every component twice.
+ *
+ * An insight with no section has no such score. It takes zero and its rank
+ * comes from the other terms, the same rule `confidence` follows: a declared
+ * absence is not a middle.
+ */
+export function mlScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CONFIG): number {
+  const r = insight.meta?.ranking;
+  if (!r) return 0;
+  const w = cfg.scoring.rankingWeights;
+  const blend =
+    w.recency * r.recency +
+    w.improvement * r.improvement +
+    w.anomaly * r.anomaly +
+    w.engagement * r.engagement;
+  if (!Number.isFinite(blend)) return 0;
+  return Math.min(1, Math.max(0, blend)) * cfg.scoring.rankingWeight;
+}
+
+/**
  * R7 - temporal-self framing bonus (Kappen 2018).
  */
 export function temporalSelfScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CONFIG): number {
@@ -183,23 +246,26 @@ export function scoreInsight(
   cfg: InsightsConfig = INSIGHTS_CONFIG
 ): ScoredInsight {
   const base = (6 - insight.priority) * 50;
-  const confidence = (insight.confidence ?? 0.5) * 30;
+  const confidence = confidenceScore(insight, cfg);
   const category = cfg.scoring.categoryBase[insight.category] ?? 0;
   const specificity = specificityScore(insight, cfg);
   const temporalSelf = temporalSelfScore(insight, cfg);
   const signal = signalScore(insight, cfg);
+  const ranking = mlScore(insight, cfg);
 
-  const total = base + confidence + category + specificity + temporalSelf + signal;
+  const total = base + confidence + category + specificity + temporalSelf + signal + ranking;
 
   return {
     insight,
     score: total,
     breakdown: {
-      base: base + confidence,
+      base,
+      confidence,
       category,
       specificity,
       temporalSelf,
       signal,
+      ranking,
     },
   };
 }
@@ -253,6 +319,9 @@ export function applyMixAndCap(
 
 function repetitionMinFor(category: InsightCategory, cfg: InsightsConfig): number | null {
   switch (category) {
+    // The category floor. The declining branch's higher floor is applied where
+    // the direction is known, in the generator, and a decline that reaches
+    // this gate has already cleared the larger of the two.
     case 'section_trend':
       return cfg.repetition.section_trend_min;
     case 'efficiency_trend':

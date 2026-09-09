@@ -9,7 +9,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activityUtils';
-import { colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing, typography, layout } from '@/theme';
 import { toActivityType } from '../types';
 
 export interface SportTypeOption {
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     borderWidth: 1,
     borderColor: colors.border,
     gap: spacing.xs,

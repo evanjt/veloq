@@ -5,22 +5,26 @@
  */
 import { useMemo } from 'react';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 
 /**
  * Returns the number of days of cached activity data.
  * Uses calendar days (includes both start and end date).
  *
+ * `preComputedActivityCount` lets a caller that already read the count as part
+ * of a screen bundle skip this hook's own FFI call.
+ *
  * @returns Number of days, or 90 as default when no data
  */
-export function useCacheDays(): number {
+export function useCacheDays(preComputedActivityCount?: number): number {
   const oldest = useSyncDateRange((s) => s.oldest);
   const newest = useSyncDateRange((s) => s.newest);
+  const trigger = useEngineSubscription(['activities']);
 
   return useMemo(() => {
     // Check if we have any activities in the engine
-    const engine = getRouteEngine();
-    const activityCount = engine?.getActivityCount() ?? 0;
+    const activityCount = preComputedActivityCount ?? getEngine()?.getActivityCount() ?? 0;
 
     if (activityCount === 0 || !oldest || !newest) {
       return 90; // Default when no data
@@ -47,5 +51,5 @@ export function useCacheDays(): number {
     const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
 
     return diffDays;
-  }, [oldest, newest]);
+  }, [oldest, newest, preComputedActivityCount, trigger]); // eslint-disable-line react-hooks/exhaustive-deps
 }

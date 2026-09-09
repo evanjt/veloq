@@ -37,7 +37,9 @@ import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
 import { queryKeys } from '@/shared/query/queryKeys';
+import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { TIME_RANGES } from '@/shared/app/constants';
+import { DEFAULT_PERIOD } from '@/shared/app/period';
 
 export default function HealthScreen() {
   const perfEnd = logScreenRender('HealthScreen');
@@ -48,7 +50,7 @@ export default function HealthScreen() {
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
 
   // Log render time (JS phase only)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     perfEnd();
   });
@@ -71,7 +73,7 @@ export default function HealthScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Wellness state
-  const [timeRange, setTimeRange] = useState<TimeRange>('1m');
+  const [timeRange, setTimeRange] = useState<TimeRange>(DEFAULT_PERIOD);
   const [smoothingWindow, setSmoothingWindow] = useState<SmoothingWindow>('auto');
   const [showSmoothingModal, setShowSmoothingModal] = useState(false);
 
@@ -79,7 +81,7 @@ export default function HealthScreen() {
   const [highlightDate, setHighlightDate] = useState<string | null>(null);
 
   // Fetch activities for calendar year comparison (current + previous year)
-  const { oldest, newest, currentYearStart } = useMemo(() => {
+  const { oldest, newest } = useMemo(() => {
     const n = new Date();
     return {
       oldest: formatLocalDate(new Date(n.getFullYear() - 1, 0, 1)),
@@ -96,7 +98,6 @@ export default function HealthScreen() {
   } = useActivities({
     oldest,
     newest,
-    includeStats: true,
     enabled: isAuthenticated,
   });
 
@@ -113,12 +114,12 @@ export default function HealthScreen() {
   const { data: summaryData, isLoading: summaryLoading } = useAthleteSummary(4);
 
   // Combined loading states
-  const isLoading = activitiesLoading || wellnessLoading;
   const isFetching = activitiesFetching || wellnessFetching;
 
   // Handle pull-to-refresh - invalidate all training-related queries
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
+    requestSyncRefresh();
     await Promise.all([
       refetchActivities(),
       refetchWellness(),
@@ -167,7 +168,7 @@ export default function HealthScreen() {
       <ScreenSafeAreaView style={shared.container} testID="training-screen">
         <View style={styles.header}>
           <View style={{ width: 48 }} />
-          <Text style={shared.headerTitle}>{t('healthScreen.title')}</Text>
+          <Text style={shared.screenTitle}>{t('healthScreen.title')}</Text>
           {/* Subtle loading indicator in header when fetching in background */}
           <View style={{ width: 48, alignItems: 'center' }}>
             {isFetching && !isRefreshing && (
@@ -221,7 +222,7 @@ export default function HealthScreen() {
                       timeRange === range.id && styles.timeRangeTextActive,
                     ]}
                   >
-                    {range.label}
+                    {t(range.labelKey as never)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -419,7 +420,7 @@ const styles = StyleSheet.create({
   timeRangeButton: {
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
   },
   timeRangeButtonDark: {
@@ -442,7 +443,7 @@ const styles = StyleSheet.create({
   smoothingButton: {
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
     justifyContent: 'center',
     alignItems: 'center',
@@ -498,7 +499,7 @@ const styles = StyleSheet.create({
   smoothingOption: {
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs + 2,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
   },
   smoothingOptionDark: {

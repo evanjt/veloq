@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
+import { brand, colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
 import type { DetectedBackup } from '@/features/auth/hooks';
 
 interface BackupRestoreBannerProps {
@@ -72,16 +72,16 @@ export const BackupRestoreBanner = React.memo(function BackupRestoreBanner({
 
 const styles = StyleSheet.create({
   banner: {
-    backgroundColor: 'rgba(252, 76, 2, 0.06)',
-    borderRadius: 12,
+    backgroundColor: colorWithOpacity(brand.tealLight, 0.06),
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(252, 76, 2, 0.15)',
+    borderColor: colorWithOpacity(brand.tealLight, 0.15),
   },
   bannerDark: {
-    backgroundColor: 'rgba(252, 76, 2, 0.1)',
-    borderColor: 'rgba(252, 76, 2, 0.2)',
+    backgroundColor: colorWithOpacity(brand.tealLight, 0.1),
+    borderColor: colorWithOpacity(brand.tealLight, 0.2),
   },
   header: {
     flexDirection: 'row',
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   detail: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.sm,
   },

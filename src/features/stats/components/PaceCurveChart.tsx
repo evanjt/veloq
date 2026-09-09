@@ -3,20 +3,17 @@ import { View, StyleSheet, Switch, TouchableOpacity } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { CartesianChart, Line } from 'victory-native';
-import { Circle, DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import {
-  useSharedValue,
-  useAnimatedReaction,
-  runOnJS,
-  useDerivedValue,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
-import { ChartCrosshair } from '@/shared/charts';
-import { CHART_CONFIG } from '@/constants';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  layout,
+  chartStyles,
+  switchTrackOff,
+} from '@/theme';
+import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { usePaceCurve } from '../hooks/usePaceCurve';
 import { useActivities } from '@/features/activity/hooks';
 import {
@@ -25,8 +22,8 @@ import {
   formatLocalDate,
   speedToSecsPerKm,
   formatPaceFromSecsPerKm,
+  formatDuration,
 } from '@/shared/format/format';
-import { formatDuration } from '@/shared/format/format';
 
 interface PaceCurveChartProps {
   sport?: string;
@@ -34,16 +31,15 @@ interface PaceCurveChartProps {
   height?: number;
 }
 
-const CHART_COLOR = '#4CAF50';
 const CS_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
 
-// Standard distance markers for x-axis (in meters)
-const X_AXIS_MARKERS = [
-  { meters: 400, label: '400m' },
-  { meters: 1000, label: '1km' },
-  { meters: 5000, label: '5km' },
-  { meters: 10000, label: '10km' },
-  { meters: 21097.5, label: '21km' },
+// Standard distance markers for the log x axis
+const X_LABELS: PlacedLabel[] = [
+  { value: Math.log10(400), label: '400m' },
+  { value: Math.log10(1000), label: '1km' },
+  { value: Math.log10(5000), label: '5km' },
+  { value: Math.log10(10000), label: '10km' },
+  { value: Math.log10(21097.5), label: '21km' },
 ];
 
 interface ChartPoint {
@@ -53,14 +49,12 @@ interface ChartPoint {
   time: number; // time in seconds to cover this distance
   paceSecsPerKm: number;
   activityId?: string; // Activity that achieved this best effort
-  [key: string]: unknown;
 }
-
-const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 0 } as const;
 
 export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
   const isMetric = useMetricSystem();
   const isRunning = sport === 'Run';
 
@@ -87,19 +81,8 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
 
   const [tooltipData, setTooltipData] = useState<ChartPoint | null>(null);
   const [persistedTooltip, setPersistedTooltip] = useState<ChartPoint | null>(null);
-  const [isActive, setIsActive] = useState(false);
-  // Track actual chart bounds from Victory Native for accurate axis label positioning
-  const [actualChartBounds, setActualChartBounds] = useState({
-    left: 0,
-    right: 0,
-  });
 
-  // Shared values for gesture tracking
-  const touchX = useSharedValue(-1);
-  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
-  const xDomainShared = useSharedValue<[number, number]>([0, 1]);
-  const xValuesShared = useSharedValue<number[]>([]);
-  const lastNotifiedIdx = useRef<number | null>(null);
+  const lastPointRef = useRef<ChartPoint | null>(null);
 
   // Build activity lookup map
   const activityMap = useMemo(() => {
@@ -198,130 +181,39 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     };
   }, [curve]);
 
-  // Sync xDomain and x values to shared values for worklet access
-  React.useEffect(() => {
-    xDomainShared.value = xDomain;
-    xValuesShared.value = chartData.map((d) => d.x);
-  }, [xDomain, chartData, xDomainShared, xValuesShared]);
-
-  // Calculate x-axis label positions based on actual chart bounds from Victory Native
-  const xAxisLabelPositions = useMemo(() => {
-    const chartAreaWidth = actualChartBounds.right - actualChartBounds.left;
-    if (chartAreaWidth <= 0 || chartData.length === 0) return [];
-
-    const [xMin, xMax] = xDomain;
-    const xRange = xMax - xMin;
-
-    return X_AXIS_MARKERS.map((marker) => {
-      const logDist = Math.log10(marker.meters);
-      const ratio = (logDist - xMin) / xRange;
-      // Only show if within the data range
-      if (ratio < -0.05 || ratio > 1.05) return null;
-      return {
-        label: marker.label,
-        // Position relative to chart bounds, not wrapper width
-        position: actualChartBounds.left + ratio * chartAreaWidth,
-      };
-    }).filter(Boolean) as { label: string; position: number }[];
-  }, [actualChartBounds, xDomain, chartData.length]);
-
-  // Derive selected index from touch position using log-scale x values
-  const selectedIdx = useDerivedValue(() => {
-    'worklet';
-    const xValues = xValuesShared.value;
-    const len = xValues.length;
-    const bounds = chartBoundsShared.value;
-    const chartWidthVal = bounds.right - bounds.left;
-    const [xMin, xMax] = xDomainShared.value;
-
-    if (touchX.value < 0 || chartWidthVal <= 0 || len === 0) return -1;
-
-    // Convert touch position to log-scale x value
-    const chartX = touchX.value - bounds.left;
-    const ratio = Math.max(0, Math.min(1, chartX / chartWidthVal));
-    const targetX = xMin + ratio * (xMax - xMin);
-
-    // Find the closest data point by x value (binary search would be better but this is simple)
-    let closestIdx = 0;
-    let closestDiff = Math.abs(xValues[0] - targetX);
-    for (let i = 1; i < len; i++) {
-      const diff = Math.abs(xValues[i] - targetX);
-      if (diff < closestDiff) {
-        closestDiff = diff;
-        closestIdx = i;
-      }
-    }
-
-    return closestIdx;
+  const handleSelect = useCallback((point: ChartPoint) => {
+    lastPointRef.current = point;
+    setTooltipData(point);
   }, []);
 
-  const updateTooltipOnJS = useCallback(
-    (idx: number) => {
-      if (idx < 0 || chartData.length === 0) {
-        if (lastNotifiedIdx.current !== null) {
-          // Persist the last selected point when scrub ends
-          if (tooltipData) {
-            setPersistedTooltip(tooltipData);
-          }
-          setTooltipData(null);
-          setIsActive(false);
-          lastNotifiedIdx.current = null;
-        }
-        return;
-      }
-
-      if (idx === lastNotifiedIdx.current) return;
-      lastNotifiedIdx.current = idx;
-
-      if (!isActive) {
-        setIsActive(true);
-        // Clear persisted when starting a new scrub
-        setPersistedTooltip(null);
-      }
-
-      const point = chartData[idx];
-      if (point) setTooltipData(point);
-    },
-    [chartData, isActive, tooltipData]
-  );
-
-  useAnimatedReaction(
-    () => selectedIdx.value,
-    (idx) => {
-      runOnJS(updateTooltipOnJS)(idx);
-    },
-    [updateTooltipOnJS]
-  );
-
-  const gesture = Gesture.Pan()
-    .onStart((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onUpdate((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onEnd(() => {
-      'worklet';
-      touchX.value = -1;
-    })
-    .minDistance(0)
-    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
-
-  const crosshairStyle = useAnimatedStyle(() => {
-    'worklet';
-    // Use touchX directly so crosshair always follows the finger exactly
-    if (touchX.value < 0) {
-      return { opacity: 0, transform: [{ translateX: 0 }] };
+  // The last scrubbed point stays on screen after release, so the reader can
+  // let go and still see what they landed on.
+  const handleInteractionChange = useCallback((active: boolean) => {
+    if (active) {
+      setPersistedTooltip(null);
+      return;
     }
-
-    // Clamp to chart bounds
-    const bounds = chartBoundsShared.value;
-    const xPos = Math.max(bounds.left, Math.min(bounds.right, touchX.value));
-
-    return { opacity: 1, transform: [{ translateX: xPos }] };
+    if (lastPointRef.current) setPersistedTooltip(lastPointRef.current);
+    setTooltipData(null);
   }, []);
+
+  const referenceLine = useMemo(
+    () => (criticalSpeedPace ? { value: criticalSpeedPace, color: CS_LINE_COLOR } : null),
+    [criticalSpeedPace]
+  );
+
+  // Display data - either selected point, persisted point, or latest (longest distance)
+  const displayData = tooltipData || persistedTooltip || chartData[chartData.length - 1];
+
+  // Get activity info for the selected point
+  const selectedActivity = displayData?.activityId ? activityMap.get(displayData.activityId) : null;
+
+  // Navigate to activity when tapped
+  const handleActivityTap = useCallback(() => {
+    if (displayData?.activityId) {
+      router.push(`/activity/${displayData.activityId}`);
+    }
+  }, [displayData]);
 
   if (isLoading) {
     return (
@@ -349,19 +241,6 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     );
   }
 
-  // Display data - either selected point, persisted point, or latest (longest distance)
-  const displayData = tooltipData || persistedTooltip || chartData[chartData.length - 1];
-
-  // Get activity info for the selected point
-  const selectedActivity = displayData?.activityId ? activityMap.get(displayData.activityId) : null;
-
-  // Navigate to activity when tapped
-  const handleActivityTap = useCallback(() => {
-    if (displayData?.activityId) {
-      router.push(`/activity/${displayData.activityId}`);
-    }
-  }, [displayData?.activityId]);
-
   return (
     <View style={[styles.container, { height }]}>
       {/* Header with title and GAP toggle */}
@@ -375,7 +254,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
               value={showGap}
               onValueChange={setShowGap}
               trackColor={{
-                false: isDark ? '#444' : '#DDD',
+                false: isDark ? switchTrackOff.dark : switchTrackOff.light,
                 true: colors.primary,
               }}
               thumbColor={
@@ -393,7 +272,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
           <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
             {t('activity.distance')}
           </Text>
-          <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
+          <Text style={[styles.valueNumber, { color: chartColors.paceCurve }]}>
             {formatDistance(displayData.distance, isMetric)}
           </Text>
         </View>
@@ -407,7 +286,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
           <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
             {t('metrics.pace')}
           </Text>
-          <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
+          <Text style={[styles.valueNumber, { color: chartColors.paceCurve }]}>
             {formatPaceFromSecsPerKm(displayData.paceSecsPerKm)}/km
           </Text>
         </View>
@@ -428,125 +307,18 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         </TouchableOpacity>
       )}
 
-      {/* Chart */}
-      <GestureDetector gesture={gesture}>
-        <View style={chartStyles.chartWrapper}>
-          <CartesianChart
-            data={chartData}
-            xKey="x"
-            yKeys={['y']}
-            domain={{ x: xDomain, y: yDomain }}
-            padding={CHART_PADDING}
-          >
-            {({ points, chartBounds }) => {
-              // Sync bounds for gesture and x-axis label positioning
-              if (
-                chartBounds.left !== chartBoundsShared.value.left ||
-                chartBounds.right !== chartBoundsShared.value.right
-              ) {
-                chartBoundsShared.value = {
-                  left: chartBounds.left,
-                  right: chartBounds.right,
-                };
-                // Also sync to React state for x-axis labels (defer to avoid setState during render)
-                if (
-                  chartBounds.left !== actualChartBounds.left ||
-                  chartBounds.right !== actualChartBounds.right
-                ) {
-                  queueMicrotask(() => {
-                    setActualChartBounds({
-                      left: chartBounds.left,
-                      right: chartBounds.right,
-                    });
-                  });
-                }
-              }
-
-              return (
-                <>
-                  {/* Critical Speed line */}
-                  {criticalSpeedPace &&
-                    criticalSpeedPace >= yDomain[0] &&
-                    criticalSpeedPace <= yDomain[1] && (
-                      <SkiaLine
-                        p1={{
-                          x: chartBounds.left,
-                          y:
-                            chartBounds.top +
-                            ((criticalSpeedPace - yDomain[0]) / (yDomain[1] - yDomain[0])) *
-                              (chartBounds.bottom - chartBounds.top),
-                        }}
-                        p2={{
-                          x: chartBounds.right,
-                          y:
-                            chartBounds.top +
-                            ((criticalSpeedPace - yDomain[0]) / (yDomain[1] - yDomain[0])) *
-                              (chartBounds.bottom - chartBounds.top),
-                        }}
-                        color={CS_LINE_COLOR}
-                        strokeWidth={1}
-                      >
-                        <DashPathEffect intervals={[6, 4]} />
-                      </SkiaLine>
-                    )}
-
-                  {/* Pace curve with casing */}
-                  <Line
-                    points={points.y}
-                    color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
-                    strokeWidth={2.5}
-                    curveType="natural"
-                  />
-                  <Line
-                    points={points.y}
-                    color={CHART_COLOR}
-                    strokeWidth={1.5}
-                    curveType="natural"
-                  />
-                </>
-              );
-            }}
-          </CartesianChart>
-
-          {/* Crosshair */}
-          <ChartCrosshair style={crosshairStyle} />
-
-          {/* X-axis labels - positioned based on log scale */}
-          <View style={styles.xAxisOverlay} pointerEvents="none">
-            {xAxisLabelPositions.map((item, idx) => (
-              <Text
-                key={idx}
-                style={[
-                  chartStyles.axisLabelCompact,
-                  isDark && chartStyles.axisLabelCompactDark,
-                  { position: 'absolute', left: item.position - 15 },
-                ]}
-              >
-                {item.label}
-              </Text>
-            ))}
-          </View>
-
-          {/* Y-axis labels - note: axis is inverted so top is fastest (yDomain[1]), bottom is slowest (yDomain[0]) */}
-          <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {formatPaceFromSecsPerKm(yDomain[1])}
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {formatPaceFromSecsPerKm((yDomain[0] + yDomain[1]) / 2)}
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {formatPaceFromSecsPerKm(yDomain[0])}
-            </Text>
-          </View>
-        </View>
-      </GestureDetector>
+      <CurveChart
+        data={chartData}
+        xDomain={xDomain}
+        yDomain={yDomain}
+        color={chartColors.paceCurve}
+        referenceLine={referenceLine}
+        xLabels={X_LABELS}
+        formatY={formatPaceFromSecsPerKm}
+        crosshairMode="finger"
+        onSelect={handleSelect}
+        onInteractionChange={handleInteractionChange}
+      />
 
       {/* Model info */}
       <View style={styles.footer}>
@@ -653,20 +425,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
-  },
-  xAxisOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: spacing.md,
-  },
-  yAxisOverlay: {
-    position: 'absolute',
-    top: spacing.xs,
-    bottom: 20,
-    left: spacing.xs,
-    justifyContent: 'space-between',
   },
   footer: {
     marginTop: spacing.xs,

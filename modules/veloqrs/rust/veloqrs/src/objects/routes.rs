@@ -27,32 +27,25 @@ impl RouteManager {
         with_engine(|e| e.get_group_by_id(&group_id).map(crate::FfiRouteGroup::from))
     }
 
-    fn get_summaries(&self) -> Result<Vec<crate::GroupSummary>, VeloqError> {
-        with_engine(|e| e.get_group_summaries())
-    }
-
-    fn get_summaries_with_count(&self) -> Result<crate::FfiGroupSummariesResult, VeloqError> {
-        with_engine(|e| crate::FfiGroupSummariesResult {
-            total_count: e.get_group_count(),
-            summaries: e.get_group_summaries(),
-        })
-    }
-
-    /// Filtered + sorted group summaries. Pushes the activity-count threshold
-    /// and sort key into Rust so the hook stops re-iterating in TS.
-    /// `sort_key` accepts "count" or "name"; anything else maps to "count".
-    fn get_filtered_summaries(
+    /// Group summaries with the total count beside them.
+    ///
+    /// `sort_key` accepts "count" and "name"; anything else, and `None`,
+    /// leaves the engine's own order.
+    fn get_summaries(
         &self,
-        min_activities: u32,
-        sort_key: String,
+        min_activities: Option<u32>,
+        sort_key: Option<String>,
     ) -> Result<crate::FfiGroupSummariesResult, VeloqError> {
         with_engine(|e| {
             let total_count = e.get_group_count();
             let mut summaries = e.get_group_summaries();
-            summaries.retain(|g| g.activity_count >= min_activities);
-            match sort_key.as_str() {
-                "name" => summaries.sort_by(|a, b| a.group_id.cmp(&b.group_id)),
-                _ => summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count)),
+            if let Some(min_activities) = min_activities {
+                summaries.retain(|g| g.activity_count >= min_activities);
+            }
+            match sort_key.as_deref() {
+                Some("name") => summaries.sort_by(|a, b| a.group_id.cmp(&b.group_id)),
+                Some("count") => summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count)),
+                _ => {}
             }
             crate::FfiGroupSummariesResult {
                 total_count,
@@ -61,16 +54,13 @@ impl RouteManager {
         })
     }
 
-    fn get_consensus_route(&self, group_id: String) -> Result<Vec<crate::FfiGpsPoint>, VeloqError> {
+    /// The group's representative line, coordinate-encoded. The engine already
+    /// holds `GpsPoint`s, so this encodes them rather than boxing one record
+    /// per point for a caller that unboxed them again.
+    fn get_consensus_route(&self, group_id: String) -> Result<Vec<u8>, VeloqError> {
         with_engine(|e| {
             e.get_consensus_route(&group_id)
-                .map(|points| {
-                    points
-                        .iter()
-                        .copied()
-                        .map(crate::FfiGpsPoint::from)
-                        .collect()
-                })
+                .map(|points| crate::coords::encode(&points))
                 .unwrap_or_default()
         })
     }
@@ -142,7 +132,7 @@ impl RouteManager {
                 .map_err(|e| VeloqError::Database { msg: e })?;
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [exclude_route_activity] Indicator recomputation failed: {}",
+                    "veloqrs: [exclude_route_activity] Indicator recomputation failed: {}",
                     err
                 );
             }
@@ -156,7 +146,7 @@ impl RouteManager {
                 .map_err(|e| VeloqError::Database { msg: e })?;
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [include_route_activity] Indicator recomputation failed: {}",
+                    "veloqrs: [include_route_activity] Indicator recomputation failed: {}",
                     err
                 );
             }
@@ -188,11 +178,99 @@ impl RouteManager {
         with_engine(|e| e.get_activity_route_highlights(&activity_ids))
     }
 
+    /// Everything the route detail screen paints with: engine counts, the
+    /// route and the group list it is ranked within, every attempt across
+    /// sports, the consensus polyline, names, exclusions and signatures.
+    fn get_detail_data(
+        &self,
+        group_id: String,
+        current_activity_id: Option<String>,
+        min_group_activities: u32,
+    ) -> Result<crate::FfiRouteDetailData, VeloqError> {
+        with_engine(|e| {
+            e.route_detail_data(
+                &group_id,
+                current_activity_id.as_deref(),
+                min_group_activities,
+            )
+        })
+    }
+
     fn set_representative(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.set_route_representative(&route_id, &activity_id)
                 .map_err(|e| VeloqError::Database { msg: e })?;
             Ok(())
         })?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_globals::{init_global_engine, serial_global_state};
+
+    #[test]
+    fn an_empty_library_answers_every_read_with_nothing() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("routes.db");
+        let routes = RouteManager::new();
+
+        assert!(routes.get_all().unwrap().is_empty());
+        assert!(routes.get_by_id("g1".into()).unwrap().is_none());
+        let summaries = routes.get_summaries(Some(2), Some("count".into())).unwrap();
+        assert_eq!(summaries.total_count, 0);
+        assert!(summaries.summaries.is_empty());
+        assert!(routes.get_consensus_route("g1".into()).unwrap().is_empty());
+        assert!(routes.get_all_names().unwrap().is_empty());
+        assert!(
+            routes
+                .get_excluded_activities("g1".into())
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_name_and_an_exclusion_are_stored_against_the_route_id() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("routes.db");
+        let routes = RouteManager::new();
+
+        routes.set_name("g1".into(), "Home loop".into()).unwrap();
+        let names = routes.get_all_names().unwrap();
+        assert_eq!(names.get("g1").map(String::as_str), Some("Home loop"));
+
+        // An exclusion is a flag on a match, so an activity the route never
+        // matched cannot be excluded from it.
+        routes.exclude_activity("g1".into(), "a1".into()).unwrap();
+        assert!(
+            routes
+                .get_excluded_activities("g1".into())
+                .unwrap()
+                .is_empty()
+        );
+
+        crate::with_persistent_engine(|e| {
+            e.db.execute(
+                "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction) \
+                 VALUES ('g1', 'a1', 0.9, 'same')",
+                [],
+            )
+            .unwrap();
+        })
+        .unwrap();
+        routes.exclude_activity("g1".into(), "a1".into()).unwrap();
+        assert_eq!(
+            routes.get_excluded_activities("g1".into()).unwrap(),
+            vec!["a1"]
+        );
+        routes.include_activity("g1".into(), "a1".into()).unwrap();
+        assert!(
+            routes
+                .get_excluded_activities("g1".into())
+                .unwrap()
+                .is_empty()
+        );
     }
 }

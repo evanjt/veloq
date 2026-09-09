@@ -1,6 +1,7 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { recordCrash } from '@/shared/debug/crashLog';
+import { errorScreen, layout, typography } from '@/theme';
 
 interface Props {
   children: ReactNode;
@@ -34,7 +35,9 @@ export class GlobalErrorBoundary extends Component<Props, State> {
         stack: error?.stack ? String(error.stack) : errorInfo?.componentStack || undefined,
         fatal: true,
       });
-    } catch {}
+    } catch {
+      // Recording the crash must never mask the crash itself.
+    }
     if (__DEV__) {
       console.error('[GlobalErrorBoundary] Uncaught error:', error, errorInfo);
     }
@@ -56,6 +59,8 @@ function GlobalErrorFallback({ error }: { error: Error | null }) {
       {__DEV__ && error?.message && <Text style={styles.devError}>{error.message}</Text>}
       {__DEV__ && (
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Reload"
           style={styles.reloadButton}
           onPress={() => {
             // DevSettings is only available in dev builds
@@ -73,7 +78,7 @@ function GlobalErrorFallback({ error }: { error: Error | null }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: errorScreen.bg,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
@@ -81,21 +86,21 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   title: {
-    color: '#FFFFFF',
-    fontSize: 22,
+    color: errorScreen.title,
+    fontSize: typography.sectionTitle.fontSize,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 12,
   },
   body: {
-    color: '#999999',
-    fontSize: 16,
+    color: errorScreen.detail,
+    fontSize: typography.body.fontSize,
     textAlign: 'center',
     lineHeight: 22,
   },
   devError: {
-    color: '#FF6B6B',
-    fontSize: 13,
+    color: errorScreen.message,
+    fontSize: typography.bodyCompact.fontSize,
     textAlign: 'center',
     marginTop: 24,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
@@ -104,13 +109,13 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingVertical: 12,
     paddingHorizontal: 32,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     borderWidth: 1,
-    borderColor: '#0D9488',
+    borderColor: errorScreen.action,
   },
   reloadText: {
-    color: '#0D9488',
-    fontSize: 16,
+    color: errorScreen.action,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
   },
 });

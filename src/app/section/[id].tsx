@@ -3,9 +3,8 @@
  * Shows a frequently-traveled section with all activities that traverse it.
  */
 
-import React, { useCallback, useEffect, useRef } from 'react';
-import { View, ScrollView, StatusBar, TouchableOpacity, InteractionManager } from 'react-native';
-import { Text } from 'react-native-paper';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, ScrollView, StatusBar, InteractionManager, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { logScreenRender } from '@/shared/debug/renderTimer';
@@ -15,7 +14,16 @@ import { useMergeSections } from '@/features/routes/hooks/useMergeSections';
 import { useNearbySections } from '@/features/routes/hooks/useNearbySections';
 import { useSectionActions } from '@/features/routes/hooks/useSectionActions';
 import { useSectionChartData } from '@/features/routes/hooks/useSectionChartData';
-import { useSectionPerformances } from '@/features/routes/hooks/useSectionPerformances';
+import {
+  useSectionTimeStreamSync,
+  toPerformanceView,
+  EMPTY_PERFORMANCE_VIEW,
+} from '@/features/routes/hooks/useSectionPerformances';
+import { RANGE_DAYS } from '@/features/routes/constants';
+import {
+  useSectionDetailData,
+  useSectionDetailPerformance,
+} from '@/features/routes/hooks/useSectionDetailData';
 import { useSectionDataRefresh } from '@/features/routes/hooks/useSectionDataRefresh';
 import { useSectionUIState } from '@/features/routes/hooks/useSectionUIState';
 import { useSectionActivityData } from '@/features/routes/hooks/useSectionActivityData';
@@ -25,36 +33,39 @@ import { useGpxExport } from '@/features/settings/hooks/exportIndex';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { useSectionTrim } from '@/features/routes/hooks/useSectionTrim';
+import { useSectionLedger } from '@/features/routes/hooks/useSectionLedger';
+import {
+  useSectionLaps,
+  hasPartialExclusion,
+  sectionHeartRate,
+} from '@/features/routes/hooks/useSectionLaps';
 import {
   DataRangeFooter,
   DetailFallback,
   SectionTrimOverlay,
   SportTypeSelector,
 } from '@/features/routes';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import { ScreenErrorBoundary } from '@/shared/ui';
+import { Button, ScreenErrorBoundary, useHeroMapHeight } from '@/shared/ui';
 import {
   SectionHeader,
   SectionActionRow,
   SectionContentArea,
+  SectionHistoryPanel,
+  SectionLapList,
   SectionDebugPanel,
   MergeConfirmDialog,
   MergeCandidatesModal,
 } from '@/features/routes/components/section';
-import {
-  MAP_HEIGHT_NORMAL,
-  MAP_HEIGHT_EDIT,
-} from '@/features/routes/components/section/SectionHeader';
 import { styles } from '@/features/routes/components/section/SectionDetail.styles';
-import {
-  getActivityIcon,
-  getActivityColor,
-  type MaterialIconName,
-} from '@/features/activity/lib/activityUtils';
+import { type MaterialIconName } from '@/features/activity/lib/activityUtils';
 import { colors } from '@/theme';
-import type { ActivityType, RoutePoint } from '@/types';
+import type { RoutePoint } from '@/types';
+
+/** Trimming needs room to place the handles, so the map grows past the hero fraction. */
+const EDIT_MAP_FRACTION = 0.6;
 
 export default function SectionDetailScreen() {
   // Performance timing
@@ -71,24 +82,33 @@ export default function SectionDetailScreen() {
   }>();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const mapHeight = useHeroMapHeight();
+  const editMapHeight = useHeroMapHeight(EDIT_MAP_FRACTION);
+
+  // Everything the screen can paint before its time streams land, in one call.
+  const [sectionRefreshTick, setSectionRefreshTick] = useState(0);
+  const bumpSectionRefresh = useCallback(() => setSectionRefreshTick((k) => k + 1), []);
+  const { data: detail } = useSectionDetailData(id, sectionRefreshTick);
 
   // Get cached date range from sync store (consolidated calculation)
-  const cacheDays = useCacheDays();
+  const cacheDays = useCacheDays(detail?.activityCount);
   const debugEnabled = useDebugStore((s) => s.enabled);
   const { getPageMetrics } = useFFITimer();
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
   // Nearby sections and merge candidates
-  const { nearby } = useNearbySections(id);
-  const { candidates: mergeCandidates, merge: mergeSections, isMerging } = useMergeSections(id);
+  const { nearby } = useNearbySections(detail?.nearby ?? []);
+  const {
+    candidates: mergeCandidates,
+    merge: mergeSections,
+    isMerging,
+  } = useMergeSections(detail?.mergeCandidates ?? []);
 
   const {
     highlightedActivityId,
     setHighlightedActivityId,
     highlightedActivityPoints,
     setHighlightedActivityPoints,
-    isScrubbing,
-    setIsScrubbing,
     mapReady,
     setMapReady,
     mergeTarget,
@@ -112,10 +132,60 @@ export default function SectionDetailScreen() {
   // Custom section IDs start with "custom_" (e.g., "custom_1767268142052_qyfoos8")
   const isCustomId = id?.startsWith('custom_');
 
-  const { section, sectionRefreshKey, handleTrimRefresh } = useSectionDataRefresh(id);
+  const { section, sectionRefreshKey, handleTrimRefresh } = useSectionDataRefresh(
+    id,
+    detail?.section
+  );
+
+  // Trims, renames and exclusions invalidate the bundle as well as the hook's
+  // own key, so both move together.
+  const handleSectionRefresh = useCallback(() => {
+    handleTrimRefresh();
+    bumpSectionRefresh();
+  }, [handleTrimRefresh, bumpSectionRefresh]);
 
   // Disabled state from section data
   const isSectionDisabled = !!(section?.disabled || section?.supersededBy);
+
+  // The ledger: stored versions, the pin, and every change with its context.
+  // The bundle carries the ledger flat, the hook takes it as one value.
+  const bundledLedger = useMemo(
+    () =>
+      detail
+        ? {
+            history: detail.history,
+            geometryVersions: detail.geometryVersions,
+            pinnedVersion: detail.pinnedVersion,
+          }
+        : undefined,
+    [detail]
+  );
+  const ledger = useSectionLedger(id, sectionRefreshKey, bundledLedger);
+  const [shownVersion, setShownVersion] = useState<number | null>(null);
+  const shadowTrack = useMemo<[number, number][] | undefined>(() => {
+    if (shownVersion == null) return undefined;
+    return ledger.versionPolyline(shownVersion).map((p) => [p.lat, p.lng]);
+  }, [shownVersion, ledger]);
+  const handleRevert = useCallback(
+    (version: number) => {
+      Alert.alert(t('sectionHistory.revert'), t('sectionHistory.revertConfirm', { version }), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('sectionHistory.revert'),
+          onPress: () => {
+            if (ledger.revert(version)) {
+              setShownVersion(null);
+              handleSectionRefresh();
+            }
+          },
+        },
+      ]);
+    },
+    [ledger, handleSectionRefresh, t]
+  );
+  const handleUnpin = useCallback(() => {
+    if (ledger.unpin()) handleSectionRefresh();
+  }, [ledger, handleSectionRefresh]);
 
   const {
     isTrimming,
@@ -136,7 +206,7 @@ export default function SectionDetailScreen() {
     toggleExpand,
     setTrimStart,
     setTrimEnd,
-  } = useSectionTrim(section, handleTrimRefresh);
+  } = useSectionTrim(section, handleSectionRefresh, detail?.hasOriginalBounds ?? false);
 
   // Section CRUD actions (rename, delete, toggle disable, exclude/include,
   // reference activity, rematch) - extracted into a hook for clarity.
@@ -166,8 +236,9 @@ export default function SectionDetailScreen() {
     isCustomId: !!isCustomId,
     section,
     isSectionDisabled,
-    onSectionRefresh: handleTrimRefresh,
+    onSectionRefresh: handleSectionRefresh,
     sectionRefreshKey,
+    preComputedExcludedActivityIds: detail?.excludedActivityIds,
   });
 
   const handleActivitySelect = useCallback(
@@ -178,25 +249,48 @@ export default function SectionDetailScreen() {
     [setHighlightedActivityId, setHighlightedActivityPoints]
   );
 
-  const handleScrubChange = useCallback(
-    (scrubbing: boolean) => {
-      setIsScrubbing(scrubbing);
-    },
-    [setIsScrubbing]
+  // Memoised so a rename keystroke, which re-renders this screen, hands the
+  // hook the same bundle wrapper rather than a fresh literal.
+  const preComputedActivityData = useMemo(
+    () => ({
+      activityMetrics: detail?.activityMetrics ?? [],
+      mapSignatures: detail?.mapSignatures ?? [],
+    }),
+    [detail]
   );
 
   const { allActivityTraces, sportTypeCounts, effectiveSportType, filteredActivities } =
-    useSectionActivityData(section, selectedSportType);
+    useSectionActivityData(section, selectedSportType, preComputedActivityData);
 
-  // Fetch actual section performance times from activity streams
-  // This loads in the background - we show estimated times first, then update when ready
+  // Section times come from activity streams, so wait for the gap the bundle
+  // reported to close before reading the records.
+  const portionActivityIds = useMemo(() => {
+    if (!section?.activityPortions) return [];
+    return Array.from(new Set(section.activityPortions.map((p) => p.activityId)));
+  }, [section]);
+  const { ready: streamsReady } = useSectionTimeStreamSync(
+    portionActivityIds,
+    detail?.missingTimeStreamIds
+  );
+
+  // Second call: everything that needs lap times.
+  const performance = useSectionDetailPerformance(
+    id,
+    RANGE_DAYS[sectionTimeRange],
+    effectiveSportType,
+    streamsReady
+  );
+
   const {
     records: performanceRecords,
     bestForwardRecord,
     bestReverseRecord,
     forwardStats,
     reverseStats,
-  } = useSectionPerformances(section, effectiveSportType);
+  } = useMemo(
+    () => (performance ? toPerformanceView(performance.performances) : EMPTY_PERFORMANCE_VIEW),
+    [performance]
+  );
 
   const { chartData } = useSectionChartData({
     section,
@@ -205,6 +299,7 @@ export default function SectionDetailScreen() {
     sectionWithTraces: null,
     sectionTimeRange,
     sportFilter: effectiveSportType,
+    preComputedChart: performance?.chartData ?? null,
   });
 
   const { calendarSummary, combinedChartData } = useSectionChartDataEnriched({
@@ -213,9 +308,36 @@ export default function SectionDetailScreen() {
     chartData,
     showExcluded,
     excludedActivityIds,
+    preComputedCalendarSummary: performance?.calendarSummary ?? null,
   });
 
-  const activityCount = sectionTimeRange === 'all' ? (section?.visitCount ?? 0) : chartData.length;
+  const traversalCount = sectionTimeRange === 'all' ? (section?.visitCount ?? 0) : chartData.length;
+
+  // Heart rate over the laps that carried a stream, excluded laps left out.
+  // The coverage travels with it: on the corpus only 3.2 per cent of laps carry
+  // one, so a bare mean would read as the whole section.
+  const avgHr = useMemo(() => sectionHeartRate(performanceRecords), [performanceRecords]);
+
+  // Per-lap exclusion, keyed the way the junction rows are.
+  const laps = useSectionLaps(id, sectionRefreshKey, detail?.excludedLaps);
+  const partlyExcluded = useMemo(
+    () => hasPartialExclusion(performanceRecords, laps.excludedLaps),
+    [performanceRecords, laps.excludedLaps]
+  );
+  const handleExcludeLap = useCallback(
+    (activityId: string, startIndex: number) => {
+      laps.excludeLap(activityId, startIndex);
+      handleSectionRefresh();
+    },
+    [laps, handleSectionRefresh]
+  );
+  const handleIncludeLap = useCallback(
+    (activityId: string, startIndex: number) => {
+      laps.includeLap(activityId, startIndex);
+      handleSectionRefresh();
+    },
+    [laps, handleSectionRefresh]
+  );
 
   const { nearbyPolylines, isRunning } = useSectionMapData(nearby, effectiveSportType, section);
 
@@ -230,7 +352,7 @@ export default function SectionDetailScreen() {
         isDark={isDark}
         insetTop={insets.top}
         onBack={() => router.back()}
-        loading={getRouteEngine() == null}
+        loading={getEngine() == null}
         notFoundMessage={t('sections.sectionNotFound')}
       />
     );
@@ -255,12 +377,12 @@ export default function SectionDetailScreen() {
           {/* Hero Map Section - expands when editing */}
           <SectionHeader
             section={section}
-            isDark={isDark}
             insetTop={insets.top}
-            mapHeight={isTrimming ? MAP_HEIGHT_EDIT : MAP_HEIGHT_NORMAL}
+            mapHeight={isTrimming ? editMapHeight : mapHeight}
             activityColor={activityColor}
             iconName={iconName}
-            activityCount={activityCount}
+            activityCount={traversalCount}
+            avgHr={avgHr}
             mapReady={mapReady}
             isTrimming={isTrimming}
             isExpandMode={isExpandMode}
@@ -271,11 +393,10 @@ export default function SectionDetailScreen() {
             editName={editName}
             customName={customName}
             nameInputRef={nameInputRef}
-            shadowTrack={undefined}
+            shadowTrack={shadowTrack}
             highlightedActivityId={highlightedActivityId}
             highlightedLapPoints={highlightedActivityPoints}
             allActivityTraces={allActivityTraces}
-            isScrubbing={isScrubbing}
             nearbyPolylines={nearbyPolylines}
             onNearbyPress={
               isTrimming ? undefined : (sectionId) => router.push(`/section/${sectionId}`)
@@ -300,6 +421,8 @@ export default function SectionDetailScreen() {
               handleToggleDisable={handleToggleDisable}
               handleRematchActivities={handleRematchActivities}
               handleAcceptSection={handleAcceptSection}
+              pinnedVersion={ledger.pinnedVersion}
+              partlyExcluded={partlyExcluded}
             />
           )}
 
@@ -313,7 +436,6 @@ export default function SectionDetailScreen() {
               originalDistance={section.distanceMeters}
               isSaving={isTrimSaving}
               canReset={canResetBounds}
-              initiallyExpanded={!canResetBounds}
               isExpandMode={isExpandMode}
               sectionStartInWindow={sectionStartInWindow}
               sectionEndInWindow={sectionEndInWindow}
@@ -343,6 +465,7 @@ export default function SectionDetailScreen() {
           {/* Content below hero - hidden during trim */}
           {!isTrimming && (
             <SectionContentArea
+              efficiencyTrend={detail ? (detail.efficiencyTrend ?? null) : undefined}
               isDark={isDark}
               section={section}
               isSectionDisabled={isSectionDisabled}
@@ -353,6 +476,7 @@ export default function SectionDetailScreen() {
               bestForwardRecord={computedBestForward}
               bestReverseRecord={computedBestReverse}
               calendarSummary={calendarSummary}
+              effectiveSportType={effectiveSportType}
               isRunning={isRunning}
               activityColor={activityColor}
               navActivityId={navActivityId}
@@ -361,7 +485,6 @@ export default function SectionDetailScreen() {
               excludedActivityIds={excludedActivityIds}
               sectionTimeRange={sectionTimeRange}
               onActivitySelect={handleActivitySelect}
-              onScrubChange={handleScrubChange}
               onExcludeActivity={handleExcludeActivity}
               onIncludeActivity={handleIncludeActivity}
               onSetAsReference={handleSetAsReference}
@@ -379,11 +502,41 @@ export default function SectionDetailScreen() {
           )}
 
           {!isTrimming && (
+            <SectionLapList
+              isDark={isDark}
+              records={performanceRecords}
+              excludedLaps={laps.excludedLaps}
+              onExcludeLap={handleExcludeLap}
+              onIncludeLap={handleIncludeLap}
+            />
+          )}
+
+          {!isTrimming && (
+            <SectionHistoryPanel
+              isDark={isDark}
+              history={ledger.history}
+              versions={ledger.versions}
+              pinnedVersion={ledger.pinnedVersion}
+              shownVersion={shownVersion}
+              onShowVersion={setShownVersion}
+              onRevert={handleRevert}
+              onUnpin={handleUnpin}
+            />
+          )}
+
+          {!isTrimming && (
             <View style={styles.listFooterContainer}>
               {section?.polyline?.length > 0 && (
-                <TouchableOpacity
+                <Button
                   testID="section-export-gpx"
-                  style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
+                  label={gpxExporting ? t('export.exporting') : t('export.gpx')}
+                  icon={
+                    <MaterialCommunityIcons
+                      name={gpxExporting ? 'progress-download' : 'download'}
+                      size={20}
+                      color={colors.textOnPrimary}
+                    />
+                  }
                   onPress={() =>
                     exportGpx({
                       name: section.name || 'Section',
@@ -395,17 +548,8 @@ export default function SectionDetailScreen() {
                     })
                   }
                   disabled={gpxExporting}
-                  activeOpacity={0.7}
-                >
-                  <MaterialCommunityIcons
-                    name={gpxExporting ? 'progress-download' : 'download'}
-                    size={20}
-                    color={colors.textOnPrimary}
-                  />
-                  <Text style={styles.exportGpxButtonText}>
-                    {gpxExporting ? t('export.exporting') : t('export.gpx')}
-                  </Text>
-                </TouchableOpacity>
+                  style={styles.exportGpxButton}
+                />
               )}
               <DataRangeFooter days={cacheDays} isDark={isDark} />
               {debugEnabled && section && (

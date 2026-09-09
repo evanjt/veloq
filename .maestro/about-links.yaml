@@ -22,14 +22,20 @@ tags:
       id: "about-screen"
     timeout: 10000
 
-- takeScreenshot: "about-screen-top"
+- takeScreenshot: "screenshots/about-screen-top"
 
 # Verify app info section is visible
 - assertVisible:
     id: "about-app-info"
 
-# Scroll down to intervals.icu links
-- scroll
+# Scroll down to intervals.icu links. The native header takes the top of the
+# screen since the chrome moved to the platform, so a fixed scroll count no
+# longer lands on a known row.
+- scrollUntilVisible:
+    element:
+      id: "about-link-api-terms"
+    direction: DOWN
+    centerElement: true
 
 # Verify intervals.icu link elements are visible
 - assertVisible:
@@ -41,7 +47,7 @@ tags:
 - assertVisible:
     id: "about-link-api-terms"
 
-- takeScreenshot: "about-screen-intervals-links"
+- takeScreenshot: "screenshots/about-screen-intervals-links"
 
 # Scroll down to Veloq links
 - scroll
@@ -63,12 +69,12 @@ tags:
     id: "about-link-source"
     optional: true
 
-- takeScreenshot: "about-screen-veloq-links"
+- takeScreenshot: "screenshots/about-screen-veloq-links"
 
 # Scroll to bottom for data attribution
 - scroll
 
-- takeScreenshot: "about-screen-bottom"
+- takeScreenshot: "screenshots/about-screen-bottom"
 
 # Tap third-party licenses to navigate
 - tapOn:
@@ -79,9 +85,9 @@ tags:
       id: "licenses-screen"
     timeout: 10000
 
-- takeScreenshot: "licenses-screen"
+- takeScreenshot: "screenshots/licenses-screen"
 
-# Navigate back to about (deep link — back button unreliable on iOS)
+# Navigate back to about (deep link, back button unreliable on iOS)
 - openLink: "veloq://about"
 - runFlow:
     when:
@@ -94,4 +100,4 @@ tags:
       id: "about-screen"
     timeout: 10000
 
-- takeScreenshot: "about-links-complete"
+- takeScreenshot: "screenshots/about-links-complete"

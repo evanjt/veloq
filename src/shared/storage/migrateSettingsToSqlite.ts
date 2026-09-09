@@ -7,7 +7,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { debug } from '@/shared/debug/debug';
 
 const SENTINEL_KEY = '__settings_migrated';
@@ -23,9 +23,7 @@ export const PREFERENCE_KEYS = [
   'veloq-hr-zones',
   'veloq-debug-mode',
   'veloq-disabled-sections',
-  'veloq-section-dismissals',
   'veloq-superseded-sections',
-  'veloq-potential-sections',
   'dashboard_preferences',
   'dashboard_summary_card',
   '@terrain_camera_overrides',
@@ -46,7 +44,7 @@ export const PREFERENCE_KEYS = [
  * Call after VeloqEngine.create() on app boot.
  */
 export async function migrateSettingsToSqlite(): Promise<void> {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return;
 
   // Check sentinel - skip if already migrated

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, typography, shadows } from '@/theme';
+import { colors, darkColors, typography, shadows, layout } from '@/theme';
 import { formatDuration } from '@/shared/format/format';
 
 interface ChartDistanceIndicatorProps {
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusSm,
     // Platform-optimized shadow
     ...shadows.pill,
   },

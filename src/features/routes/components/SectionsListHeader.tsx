@@ -1,11 +1,21 @@
 import React from 'react';
-import { View, TextInput, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import {
+  View,
+  TextInput,
+  TouchableOpacity,
+  Platform,
+  ActivityIndicator,
+  StyleSheet,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
-import { StyleSheet } from 'react-native';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { isElevationHold, type DetectionHold } from '@/features/routes/hooks/useDetectionHold';
+import { rescanRefusalKey } from '@/features/routes/lib/rescanRefusal';
+import type { StartOutcome } from 'veloqrs';
+import type { ElevationBackfillState } from '@/features/routes/hooks/useElevationBackfill';
 
 interface SectionsListHeaderProps {
   searchQuery: string;
@@ -14,6 +24,12 @@ interface SectionsListHeaderProps {
   unacceptedAutoCount: number;
   acceptAllResult: number | null;
   isScanning: boolean;
+  /** Why the engine is refusing to detect, or null when it is not. */
+  detectionHold: DetectionHold;
+  /** The elevation download this page reports for the length of the migration. */
+  elevationBackfill?: ElevationBackfillState;
+  /** How the engine answered the last rescan, when it refused it. */
+  rescanRefusal?: StartOutcome | null;
   onAcceptAll: () => void;
   onRescan: () => void;
 }
@@ -25,11 +41,31 @@ export function SectionsListHeader({
   unacceptedAutoCount,
   acceptAllResult,
   isScanning,
+  detectionHold,
+  elevationBackfill,
+  rescanRefusal = null,
   onAcceptAll,
   onRescan,
 }: SectionsListHeaderProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+
+  // A refusal the athlete asked for outranks the standing hold line: the hold
+  // says what is going on, the refusal answers the tap.
+  const refusalKey = rescanRefusalKey(rescanRefusal);
+
+  // A pass reports itself; at rest the durable count is what is owed. A null
+  // count is an engine that could not answer and must not read as finished.
+  const elevationLine = !elevationBackfill
+    ? null
+    : elevationBackfill.isRunning
+      ? t('settings.elevationBackfillProgress', {
+          completed: elevationBackfill.completed,
+          total: elevationBackfill.total,
+        })
+      : elevationBackfill.remaining !== null && elevationBackfill.remaining > 0
+        ? t('settings.elevationBackfillOutstanding', { count: elevationBackfill.remaining })
+        : null;
 
   return (
     <>
@@ -76,7 +112,7 @@ export function SectionsListHeader({
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
             >
               <MaterialCommunityIcons name="pin-outline" size={13} color={colors.primary} />
-              <Text style={{ fontSize: 12, color: colors.primary }}>
+              <Text style={{ fontSize: typography.caption.fontSize, color: colors.primary }}>
                 {t('sections.acceptAllSections')}
               </Text>
             </TouchableOpacity>
@@ -84,7 +120,7 @@ export function SectionsListHeader({
           {acceptAllResult !== null && (
             <Text
               style={{
-                fontSize: 11,
+                fontSize: typography.label.fontSize,
                 color: isDark ? darkColors.textSecondary : colors.textSecondary,
               }}
             >
@@ -93,7 +129,7 @@ export function SectionsListHeader({
           )}
           <TouchableOpacity
             onPress={onRescan}
-            disabled={isScanning}
+            disabled={isScanning || detectionHold !== null}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -112,6 +148,42 @@ export function SectionsListHeader({
           </TouchableOpacity>
         </View>
       </View>
+      {elevationLine !== null && (
+        <View style={styles.pausedRow} testID="elevation-backfill-row">
+          <MaterialCommunityIcons
+            name="elevation-rise"
+            size={13}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <Text style={[styles.pausedText, isDark && styles.pausedTextDark]}>{elevationLine}</Text>
+        </View>
+      )}
+      {refusalKey !== null && (
+        <View style={styles.pausedRow} testID="rescan-refused">
+          <MaterialCommunityIcons
+            name="information-outline"
+            size={13}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <Text style={[styles.pausedText, isDark && styles.pausedTextDark]}>{t(refusalKey)}</Text>
+        </View>
+      )}
+      {detectionHold !== null && (
+        <View style={styles.pausedRow} testID="detection-paused">
+          <MaterialCommunityIcons
+            name="pause-circle-outline"
+            size={13}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <Text style={[styles.pausedText, isDark && styles.pausedTextDark]}>
+            {detectionHold === 'elevation-paused'
+              ? t('sections.detectionHeldElevationPaused')
+              : isElevationHold(detectionHold)
+                ? t('sections.detectionPausedElevation')
+                : t('sections.detectionPaused')}
+          </Text>
+        </View>
+      )}
     </>
   );
 }
@@ -125,7 +197,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: Platform.OS === 'ios' ? 4 : 2,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     backgroundColor: colors.gray100,
   },
   searchContainerDark: {
@@ -133,7 +205,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textPrimary,
     paddingVertical: 0,
   },
@@ -148,11 +220,25 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   summaryText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   summaryTextDark: {
     color: darkColors.textPrimary,
+  },
+  pausedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
+  },
+  pausedText: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+  },
+  pausedTextDark: {
+    color: darkColors.textSecondary,
   },
 });

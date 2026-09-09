@@ -77,9 +77,10 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
     if (activity.stream_types?.includes('grade_smooth') && streams.altitude.length > 1) {
       const dist = activity.distance || 10000;
       const stepDist = dist / streams.altitude.length;
-      streams.grade_smooth = streams.altitude.map((alt, i) => {
+      const altitude = streams.altitude;
+      streams.grade_smooth = altitude.map((alt, i) => {
         if (i === 0) return 0;
-        const dAlt = alt - streams.altitude![i - 1];
+        const dAlt = alt - altitude[i - 1];
         const grade = (dAlt / stepDist) * 100;
         return Math.round(Math.max(-25, Math.min(25, grade)) * 10) / 10;
       });

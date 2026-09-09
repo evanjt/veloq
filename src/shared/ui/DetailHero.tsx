@@ -9,9 +9,10 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { colors, colorWithOpacity, opacity, spacing, typography } from '@/theme';
+import { colors, colorWithOpacity, opacity, spacing, typography, layout } from '@/theme';
 
 type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -27,6 +28,12 @@ export interface DetailHeroProps {
   rightActions?: React.ReactNode;
   /** Bottom info overlay content (HeroNameRow / HeroStatsRow or custom). */
   overlay?: React.ReactNode;
+  /**
+   * Extra bottom padding for the info overlay, so it clears a map attribution
+   * pill drawn in the same corner. Pass ATTRIBUTION_CLEARANCE when the hero's
+   * map shows attribution.
+   */
+  attributionClearance?: number;
   /** The map (or placeholder) filling the hero. */
   children: React.ReactNode;
 }
@@ -39,8 +46,11 @@ export function DetailHero({
   containerTestID,
   rightActions,
   overlay,
+  attributionClearance = 0,
   children,
 }: DetailHeroProps) {
+  const { t } = useTranslation();
+
   return (
     <View testID={containerTestID} style={[styles.heroSection, { height }]}>
       <View style={styles.mapContainer}>{children}</View>
@@ -51,9 +61,15 @@ export function DetailHero({
         pointerEvents="none"
       />
 
-      <View style={[styles.floatingHeader, { paddingTop: insetTop }]} pointerEvents="box-none">
+      <View
+        testID="detail-hero-header"
+        style={[styles.floatingHeader, { paddingTop: insetTop }]}
+        pointerEvents="box-none"
+      >
         <TouchableOpacity
           testID={backTestID}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
           style={styles.backButton}
           onPress={onBack}
           activeOpacity={0.7}
@@ -65,7 +81,11 @@ export function DetailHero({
       </View>
 
       {overlay != null && (
-        <View style={styles.infoOverlay} pointerEvents="box-none">
+        <View
+          testID="detail-hero-overlay"
+          style={[styles.infoOverlay, { paddingBottom: spacing.md + attributionClearance }]}
+          pointerEvents="box-none"
+        >
           {overlay}
         </View>
       )}
@@ -93,6 +113,8 @@ export interface HeroNameRowProps {
 }
 
 export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowProps) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.nameRow}>
       {icon && (
@@ -117,18 +139,27 @@ export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowPro
           />
           <TouchableOpacity
             testID={`${editable.testIDPrefix}-rename-save`}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.save')}
             onPress={editable.onSave}
             style={styles.editNameButton}
           >
             <MaterialCommunityIcons name="check" size={20} color={colors.success} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={editable.onCancel} style={styles.editNameButton}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t('common.cancel')}
+            onPress={editable.onCancel}
+            style={styles.editNameButton}
+          >
             <MaterialCommunityIcons name="close" size={20} color={colors.error} />
           </TouchableOpacity>
         </View>
       ) : editable ? (
         <TouchableOpacity
           testID={`${editable.testIDPrefix}-rename-button`}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.rename')}
           onPress={editable.onStartEdit}
           style={styles.nameEditTouchable}
           activeOpacity={0.7}
@@ -154,9 +185,9 @@ export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowPro
 
 export interface HeroStatsRowProps {
   /** Stat strings rendered with dot dividers; null/undefined entries are skipped. */
-  stats: Array<string | null | undefined>;
+  stats: (string | null | undefined)[];
   testID?: string;
-  statTestIDs?: Array<string | undefined>;
+  statTestIDs?: (string | undefined)[];
 }
 
 export function HeroStatsRow({ stats, testID, statTestIDs }: HeroStatsRowProps) {
@@ -211,7 +242,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: opacity.overlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
@@ -225,7 +256,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
     zIndex: 5,
   },
   nameRow: {
@@ -236,7 +266,7 @@ const styles = StyleSheet.create({
   typeIcon: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -263,7 +293,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: opacity.overlay.scrim,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     paddingHorizontal: spacing.sm,
     gap: spacing.xs,
   },
@@ -276,7 +306,7 @@ const styles = StyleSheet.create({
   },
   editNameButton: {
     padding: 6,
-    borderRadius: 6,
+    borderRadius: spacing.xsPlus,
     backgroundColor: opacity.overlayDark.heavy,
   },
   statsRow: {

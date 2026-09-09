@@ -29,6 +29,25 @@ async function ensureBackupDir(): Promise<string> {
   return dir;
 }
 
+/**
+ * Delete snapshots with no metadata beside them. `upload` cleans up after its
+ * own failure, but a kill between the copy and the meta write leaves one
+ * behind, and nothing else in the app can see it.
+ */
+async function sweepOrphans(dir: string): Promise<void> {
+  try {
+    const files = await FileSystem.readDirectoryAsync(dir);
+    for (const file of files) {
+      if (!file.endsWith('.veloqdb')) continue;
+      const metaInfo = await FileSystem.getInfoAsync(`${dir}${file}.meta.json`);
+      if (metaInfo.exists) continue;
+      await FileSystem.deleteAsync(`${dir}${file}`, { idempotent: true });
+    }
+  } catch {
+    // Best-effort, never block a backup on cleanup
+  }
+}
+
 export const localBackend: BackupBackend = {
   id: 'local',
   name: 'Local Storage',
@@ -65,6 +84,7 @@ export const localBackend: BackupBackend = {
 
   async upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<void> {
     const dir = await ensureBackupDir();
+    await sweepOrphans(dir);
 
     const filename = `veloq-${metadata.timestamp.replace(/[:.]/g, '-')}.veloqdb`;
     const destPath = `${dir}${filename}`;
@@ -72,9 +92,16 @@ export const localBackend: BackupBackend = {
     // Copy the backup file
     await FileSystem.copyAsync({ from: localPath, to: destPath });
 
-    // Write metadata alongside
-    const entry: BackupEntry = { ...metadata, id: filename };
-    await FileSystem.writeAsStringAsync(`${destPath}.meta.json`, JSON.stringify(entry, null, 2));
+    // Write metadata alongside. A snapshot with no meta is invisible to
+    // listBackups, so retention could never reclaim it, and these are hundreds
+    // of megabytes each.
+    try {
+      const entry: BackupEntry = { ...metadata, id: filename };
+      await FileSystem.writeAsStringAsync(`${destPath}.meta.json`, JSON.stringify(entry, null, 2));
+    } catch (error) {
+      await FileSystem.deleteAsync(destPath, { idempotent: true });
+      throw error;
+    }
   },
 
   async download(backupId: string, destPath: string): Promise<void> {

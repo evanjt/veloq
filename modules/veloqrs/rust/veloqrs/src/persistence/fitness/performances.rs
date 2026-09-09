@@ -11,9 +11,32 @@ use crate::{
 use rusqlite::params;
 use std::collections::HashMap;
 
-use super::super::PersistentRouteEngine;
+use super::super::PersistentEngine;
 
-impl PersistentRouteEngine {
+/// Attempts on a route and where one of them sits among them.
+/// The count is the performances carrying a moving time; the percentile is the
+/// share of those slower than `current_activity_id`, `None` when it is not one
+/// of them or is the only one.
+fn attempt_standing(
+    performances: &[RoutePerformance],
+    current_activity_id: Option<&str>,
+) -> (u32, Option<f64>) {
+    let timed: Vec<&RoutePerformance> = performances.iter().filter(|p| p.moving_time > 0).collect();
+    let count = timed.len() as u32;
+    if count < 2 {
+        return (count, None);
+    }
+    let current = current_activity_id
+        .and_then(|id| timed.iter().find(|p| p.activity_id == id))
+        .map(|p| p.moving_time);
+    let percentile = current.map(|moving_time| {
+        let slower = timed.iter().filter(|p| p.moving_time > moving_time).count();
+        slower as f64 * 100.0 / count as f64
+    });
+    (count, percentile)
+}
+
+impl PersistentEngine {
     /// Set time streams for activities from flat buffer.
     /// Time streams are cumulative seconds at each GPS point, used for section performance calculations.
     /// Persists to SQLite for offline access.
@@ -24,6 +47,24 @@ impl PersistentRouteEngine {
         offsets: &[u32],
     ) {
         let mut persisted_count = 0;
+        // Activities whose stream actually moved. The section evidence cache
+        // holds each cluster's last cut and the lift veto reads the stream
+        // when it has one, so a stream that lands after the cut has to take
+        // that cut with it. Nothing else does: the points did not change, so
+        // no cluster is marked dirty and the fold would reuse the cut verbatim.
+        //
+        // Eviction and not a bare `invalidate_evidence_cache`. Dropping the
+        // cache alone leaves every id in `processed_activities`, and a detect
+        // with no new ids and no dirty cluster short-circuits and re-emits the
+        // last batch, so the cut the veto made blind would stand anyway.
+        //
+        // Compared rather than assumed, because this is an exported call the
+        // sync reaches for whenever a screen wants lap times, and evicting on
+        // every write would cold-rebatch the pool on a routine sync. It costs
+        // nothing in the ingest path either way: streams are fetched in the
+        // same pass that added the activities, before any detect has marked
+        // them processed.
+        let mut moved: Vec<String> = Vec::new();
         for (i, activity_id) in activity_ids.iter().enumerate() {
             let start = offsets[i] as usize;
             let end = offsets
@@ -31,6 +72,10 @@ impl PersistentRouteEngine {
                 .map(|&o| o as usize)
                 .unwrap_or(all_times.len());
             let times = all_times[start..end].to_vec();
+
+            if self.load_time_stream(activity_id).as_deref() != Some(times.as_slice()) {
+                moved.push(activity_id.clone());
+            }
 
             // Persist to SQLite for offline access
             if self.store_time_stream(activity_id, &times).is_ok() {
@@ -41,10 +86,11 @@ impl PersistentRouteEngine {
             self.time_streams.put(activity_id.clone(), times);
         }
         log::debug!(
-            "tracematch: [PersistentEngine] Set time streams for {} activities ({} persisted to SQLite)",
+            "veloqrs: [PersistentEngine] Set time streams for {} activities ({} persisted to SQLite)",
             activity_ids.len(),
             persisted_count
         );
+        self.evict_processed_activity_ids(&moved);
         self.invalidate_perf_cache();
         // Backfill NULL lap_time/lap_pace rows that newly-arrived streams can now resolve.
         // Without this, the in-DB junction stays NULL until the next engine init / load_sections call.
@@ -69,14 +115,22 @@ impl PersistentRouteEngine {
         }
     }
 
-    /// Backfill NULL lap_time/lap_pace in section_activities from available time streams.
-    /// Called after sync when new time streams may have been loaded.
-    /// This fixes orphaned rows from migration or activities that were synced after section detection.
-    pub fn backfill_section_performance_cache(&mut self) {
+    /// Backfill NULL lap_time/lap_pace in section_activities from the time
+    /// streams the device holds. Returns how many portions were examined.
+    ///
+    /// Only a portion whose activity already has a stream is examined. A
+    /// portion without one cannot be resolved by this pass however often it
+    /// runs, and every launch calls this through `load_sections`, so the join
+    /// is what keeps a library's unstreamed portions from being reread for
+    /// the life of the install. `set_time_streams_flat` calls it again when a
+    /// stream lands, which is when the answer for those portions changes.
+    pub fn backfill_section_performance_cache(&mut self) -> usize {
         let null_portions: Vec<(String, String, u32, u32, f64)> = match self.db.prepare(
-            "SELECT section_id, activity_id, start_index, end_index, distance_meters
-             FROM section_activities
-             WHERE lap_time IS NULL AND excluded = 0",
+            "SELECT sa.section_id, sa.activity_id, sa.start_index, sa.end_index,
+                    sa.distance_meters
+             FROM section_activities sa
+             JOIN time_streams ts ON ts.activity_id = sa.activity_id
+             WHERE sa.lap_time IS NULL AND sa.excluded = 0",
         ) {
             Ok(mut stmt) => stmt
                 .query_map([], |row| {
@@ -91,15 +145,15 @@ impl PersistentRouteEngine {
                 .ok()
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
                 .unwrap_or_default(),
-            Err(_) => return,
+            Err(_) => return 0,
         };
 
         if null_portions.is_empty() {
-            return;
+            return 0;
         }
 
         log::info!(
-            "tracematch: [Backfill] Found {} section_activities with NULL lap_time, attempting backfill",
+            "veloqrs: [Backfill] Found {} section_activities with NULL lap_time, attempting backfill",
             null_portions.len()
         );
 
@@ -126,6 +180,10 @@ impl PersistentRouteEngine {
             }
         }
 
+        // One commit for the pass, not one per lap.
+        let Ok(tx) = self.db.unchecked_transaction() else {
+            return 0;
+        };
         let mut populated = 0u32;
         for (section_id, activity_id, start_idx, end_idx, distance) in &null_portions {
             let times = db_time_streams.get(activity_id).map(|v| v.as_slice());
@@ -133,7 +191,7 @@ impl PersistentRouteEngine {
                 times, *start_idx, *end_idx, *distance,
             );
             if let (Some(lap_time), Some(lap_pace)) = (lap_time, lap_pace) {
-                let _ = self.db.execute(
+                let _ = tx.execute(
                     "UPDATE section_activities SET lap_time = ?, lap_pace = ?
                      WHERE section_id = ? AND activity_id = ? AND start_index = ?",
                     params![lap_time, lap_pace, section_id, activity_id, start_idx],
@@ -141,14 +199,113 @@ impl PersistentRouteEngine {
                 populated += 1;
             }
         }
+        if tx.commit().is_err() {
+            return 0;
+        }
 
         if populated > 0 {
             log::info!(
-                "tracematch: [Backfill] Populated {}/{} NULL lap_time entries",
+                "veloqrs: [Backfill] Populated {}/{} NULL lap_time entries",
                 populated,
                 null_portions.len()
             );
         }
+        null_portions.len()
+    }
+
+    /// Fill `section_activities.coverage` for rows that have never been
+    /// measured.
+    ///
+    /// Coverage is the share of the section a traversal spans, taken as the
+    /// distance along the section line between the nearest points to the lap's
+    /// first and last fixes. It is the record rule's test, and it is measured
+    /// here rather than at the apply because the apply already holds the write
+    /// lock for the whole catalogue.
+    ///
+    /// Only a portion whose activity has a stored track is examined, so a
+    /// library's trackless portions are not reread for the life of the install.
+    /// Returns the number of rows it looked at.
+    pub fn backfill_section_coverage(&mut self) -> usize {
+        let unmeasured: Vec<(String, String, u32, u32)> = match self.db.prepare(
+            "SELECT sa.section_id, sa.activity_id, sa.start_index, sa.end_index
+             FROM section_activities sa
+             JOIN gps_tracks g ON g.activity_id = sa.activity_id
+             WHERE sa.coverage IS NULL AND sa.excluded = 0",
+        ) {
+            Ok(mut stmt) => stmt
+                .query_map([], |row| {
+                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+                })
+                .ok()
+                .map(|rows| rows.filter_map(|r| r.ok()).collect())
+                .unwrap_or_default(),
+            Err(_) => return 0,
+        };
+
+        if unmeasured.is_empty() {
+            return 0;
+        }
+
+        // Read the lines from the table rather than the in-memory catalogue: the
+        // backfill runs before the catalogue is loaded on a cold open.
+        let mut lines: HashMap<String, Vec<crate::GpsPoint>> = HashMap::new();
+        for (section_id, _, _, _) in &unmeasured {
+            if lines.contains_key(section_id) {
+                continue;
+            }
+            if let Ok(line) =
+                crate::persistence::sections::geometry::stored_line(&self.db, section_id)
+                && line.len() >= 2
+            {
+                lines.insert(section_id.clone(), line);
+            }
+        }
+
+        let ids: Vec<String> = unmeasured
+            .iter()
+            .map(|(_, activity_id, _, _)| activity_id.clone())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+        let tracks: HashMap<String, Vec<crate::GpsPoint>> = self
+            .tracks_batch(&ids)
+            .into_iter()
+            .filter_map(|(id, read)| match read {
+                crate::persistence::codec::TrackRead::Present(points) => Some((id, points)),
+                _ => None,
+            })
+            .collect();
+
+        let Ok(tx) = self.db.transaction() else {
+            return 0;
+        };
+        let mut measured = 0u32;
+        for (section_id, activity_id, start_index, end_index) in &unmeasured {
+            let (Some(line), Some(track)) = (lines.get(section_id), tracks.get(activity_id)) else {
+                continue;
+            };
+            let Some(coverage) = portion_coverage(line, track, *start_index, *end_index) else {
+                continue;
+            };
+            let _ = tx.execute(
+                "UPDATE section_activities SET coverage = ?
+                 WHERE section_id = ? AND activity_id = ? AND start_index = ?",
+                params![coverage, section_id, activity_id, start_index],
+            );
+            measured += 1;
+        }
+        if tx.commit().is_err() {
+            return 0;
+        }
+
+        if measured > 0 {
+            log::info!(
+                "veloqrs: [Backfill] Measured coverage on {}/{} portions",
+                measured,
+                unmeasured.len()
+            );
+        }
+        unmeasured.len()
     }
 
     /// Get section performances with accurate time calculations.
@@ -173,16 +330,16 @@ impl PersistentRouteEngine {
             Some(st) => format!("{}:{}", section_id, st),
             None => section_id.to_string(),
         };
-        if self.perf_cache_section_id.as_deref() == Some(&cache_key) {
-            if let Some(ref cached) = self.perf_cache_result {
-                log::info!(
-                    "[PERF] get_section_performances({}) -> cached in {:?}",
-                    cache_key,
-                    start.elapsed()
-                );
-                return cached.clone();
-            }
+        if let Some(cached) = self.perf_cache.get(&cache_key) {
+            let cached = cached.clone();
+            log::trace!(
+                "[PERF] get_section_performances({}) -> cached in {:?}",
+                cache_key,
+                start.elapsed()
+            );
+            return cached;
         }
+        self.note_performance_computation();
 
         // Find the section (in-memory for auto, fallback to DB for custom)
         let section = match self.sections.iter().find(|s| s.id == section_id) {
@@ -203,7 +360,7 @@ impl PersistentRouteEngine {
             },
         };
 
-        log::debug!(
+        log::trace!(
             "Section found. activity_portions count: {}",
             section.activity_portions.len()
         );
@@ -214,7 +371,7 @@ impl PersistentRouteEngine {
             match sport_type_filter {
                 Some(st) => (
                     "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
-                        sa.distance_meters, sa.lap_time, sa.lap_pace
+                        sa.distance_meters, sa.lap_time, sa.lap_pace, sa.avg_hr, sa.coverage
                  FROM section_activities sa
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
                  WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 0
@@ -227,7 +384,7 @@ impl PersistentRouteEngine {
                 ),
                 None => (
                     "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
-                        sa.distance_meters, sa.lap_time, sa.lap_pace
+                        sa.distance_meters, sa.lap_time, sa.lap_pace, sa.avg_hr, sa.coverage
                  FROM section_activities sa
                  WHERE sa.section_id = ? AND sa.excluded = 0
                  ORDER BY sa.activity_id, sa.start_index"
@@ -258,6 +415,8 @@ impl PersistentRouteEngine {
             distance_meters: f64,
             lap_time: Option<f64>,
             lap_pace: Option<f64>,
+            avg_hr: Option<f64>,
+            coverage: Option<f64>,
         }
 
         let params_refs: Vec<&dyn rusqlite::types::ToSql> =
@@ -271,6 +430,8 @@ impl PersistentRouteEngine {
                 distance_meters: row.get(4)?,
                 lap_time: row.get(5)?,
                 lap_pace: row.get(6)?,
+                avg_hr: row.get(7)?,
+                coverage: row.get(8)?,
             })
         }) {
             Ok(iter) => match iter.collect::<Result<Vec<_>, _>>() {
@@ -367,32 +528,24 @@ impl PersistentRouteEngine {
                         let (lap_time, lap_pace) = match (portion.lap_time, portion.lap_pace) {
                             (Some(t), Some(p)) => (t, p),
                             _ => {
-                                // Fall back to calculation if cache miss
-                                // This handles migration edge case or corrupt data
-                                // Time stream should already be loaded by pre-loading step above
-                                if let Some(times) = self.time_streams.peek(activity_id) {
-                                    let start_idx = portion.start_index as usize;
-                                    let end_idx = portion.end_index as usize;
-
-                                    if start_idx < times.len() && end_idx < times.len() {
-                                        let lap_time =
-                                            (times[end_idx] as f64 - times[start_idx] as f64).abs();
-                                        if lap_time > 0.0 {
-                                            let lap_pace = portion.distance_meters / lap_time;
-                                            (lap_time, lap_pace)
-                                        } else {
-                                            return None;
-                                        }
-                                    } else {
-                                        return None;
-                                    }
-                                } else {
+                                // Cache miss: a row a migration or a corrupt write left
+                                // unpopulated. The pre-loading step above has the stream.
+                                let Some(times) = self.time_streams.peek(activity_id) else {
                                     log::debug!(
                                         "No time stream available for {}, lap {} - skipping",
                                         activity_id,
                                         i
                                     );
                                     return None;
+                                };
+                                match super::super::sections::compute_lap_time_from_stream(
+                                    Some(times.as_slice()),
+                                    portion.start_index,
+                                    portion.end_index,
+                                    portion.distance_meters,
+                                ) {
+                                    (Some(t), Some(p)) => (t, p),
+                                    _ => return None,
                                 }
                             }
                         };
@@ -410,6 +563,8 @@ impl PersistentRouteEngine {
                             direction: portion.direction.clone(),
                             start_index: portion.start_index,
                             end_index: portion.end_index,
+                            avg_hr: portion.avg_hr,
+                            coverage: portion.coverage,
                         })
                     })
                     .collect();
@@ -419,24 +574,22 @@ impl PersistentRouteEngine {
                 }
 
                 let lap_count = laps.len() as u32;
-                // Find the lap with fastest pace (best performance) - but only
-                // among COMPLETE traversals. Partial-direction laps and laps
-                // covering less than 70% of the canonical section distance are
-                // excluded so a 200m partial overlap can't be reported as a PR
-                // for a 2km section.
+                // Only a complete traversal can be the best. A partial-direction
+                // lap covers a fragment by definition, and a lap that spans too
+                // little of the section is a fragment whatever its own length
+                // says: `covers_enough_for_record` is that one rule.
                 let canonical_distance_for_record = section.distance_meters;
-                let min_distance_for_record = if canonical_distance_for_record > 0.0 {
-                    canonical_distance_for_record * 0.7
-                } else {
-                    0.0
-                };
                 let best_lap = laps
                     .iter()
                     .filter(|lap| {
                         if lap.direction == "partial" {
                             return false;
                         }
-                        min_distance_for_record == 0.0 || lap.distance >= min_distance_for_record
+                        crate::persistence::records::covers_enough_for_record(
+                            lap.coverage,
+                            lap.distance,
+                            canonical_distance_for_record,
+                        )
                     })
                     .max_by(|a, b| {
                         a.pace
@@ -470,7 +623,7 @@ impl PersistentRouteEngine {
             })
             .collect();
 
-        log::debug!("Built {} performance records", records.len());
+        log::trace!("Built {} performance records", records.len());
 
         // Sort by date
         records.sort_by_key(|r| r.activity_date);
@@ -495,17 +648,12 @@ impl PersistentRouteEngine {
         //     fragment, not a full traversal. Including it produces
         //     impossibly fast PR times like "1:24" on a section that takes
         //     6 minutes.
-        //  2. Skip laps whose actual GPS distance is less than 70% of the
-        //     section's canonical distance - even when the matcher labels
-        //     them "same"/"reverse", a substantially short portion is still
-        //     an incomplete traversal and shouldn't count as a PR. The 0.7
-        //     threshold matches the matcher's own "complete enough" gate.
+        //  2. Skip laps that span too little of the section, which
+        //     `covers_enough_for_record` decides: measured coverage where the
+        //     backfill has reached the row, the old length ratio where it has
+        //     not. A lap labelled "same" that joins a third of the way along is
+        //     still an incomplete traversal.
         let canonical_distance = section.distance_meters;
-        let min_portion_distance = if canonical_distance > 0.0 {
-            canonical_distance * 0.7
-        } else {
-            0.0
-        };
 
         let mut best_fwd_speed = 0.0f64;
         let mut best_fwd_record_idx: Option<usize> = None;
@@ -527,13 +675,16 @@ impl PersistentRouteEngine {
                 if lap.direction == "partial" {
                     continue;
                 }
-                // Rule 2: actual GPS distance too short relative to section.
-                // Always allow when canonical distance is unknown (0).
-                if min_portion_distance > 0.0 && lap.distance < min_portion_distance {
+                // Rule 2: too little of the section covered.
+                if !crate::persistence::records::covers_enough_for_record(
+                    lap.coverage,
+                    lap.distance,
+                    canonical_distance,
+                ) {
                     continue;
                 }
 
-                let is_rev = lap.direction == "reverse" || lap.direction == "backward";
+                let is_rev = lap.direction == "reverse";
                 if is_rev {
                     rev_times.push(lap.time);
                     rev_last_date = Some(
@@ -616,7 +767,7 @@ impl PersistentRouteEngine {
             reverse_stats,
         };
 
-        log::info!(
+        log::trace!(
             "[PERF] get_section_performances({}) -> {} records in {:?}",
             section_id,
             result.records.len(),
@@ -624,8 +775,7 @@ impl PersistentRouteEngine {
         );
 
         // Cache for reuse by buckets/calendar (includes sport type filter in key)
-        self.perf_cache_section_id = Some(cache_key);
-        self.perf_cache_result = Some(result.clone());
+        self.perf_cache.put(cache_key, result.clone());
 
         result
     }
@@ -637,19 +787,6 @@ impl PersistentRouteEngine {
         &mut self,
         section_id: &str,
     ) -> Vec<SectionPerformanceRecord> {
-        // Find section sport type
-        let sport_type: String = match self.sections.iter().find(|s| s.id == section_id) {
-            Some(s) => s.sport_type.clone(),
-            None => match self.db.query_row(
-                "SELECT sport_type FROM sections WHERE id = ?",
-                params![section_id],
-                |row| row.get(0),
-            ) {
-                Ok(st) => st,
-                Err(_) => return Vec::new(),
-            },
-        };
-
         let section_distance: f64 = self
             .sections
             .iter()
@@ -665,12 +802,14 @@ impl PersistentRouteEngine {
                     .unwrap_or(0.0)
             });
 
+        // Every excluded traversal, whatever its sport. This lists what the
+        // user may restore, so a run excluded on ground labelled Ride must
+        // still appear.
         let mut stmt = match self.db.prepare(
             "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
                     sa.distance_meters, sa.lap_time, sa.lap_pace
              FROM section_activities sa
-             JOIN activity_metrics am ON sa.activity_id = am.activity_id
-             WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 1
+             WHERE sa.section_id = ? AND sa.excluded = 1
              ORDER BY sa.activity_id, sa.start_index",
         ) {
             Ok(s) => s,
@@ -685,9 +824,10 @@ impl PersistentRouteEngine {
             distance_meters: f64,
             lap_time: Option<f64>,
             lap_pace: Option<f64>,
+            avg_hr: Option<f64>,
         }
 
-        let portions: Vec<Portion> = match stmt.query_map(params![section_id, &sport_type], |row| {
+        let portions: Vec<Portion> = match stmt.query_map(params![section_id], |row| {
             Ok(Portion {
                 activity_id: row.get(0)?,
                 direction: row.get(1)?,
@@ -696,6 +836,7 @@ impl PersistentRouteEngine {
                 distance_meters: row.get(4)?,
                 lap_time: row.get(5)?,
                 lap_pace: row.get(6)?,
+                avg_hr: row.get(7)?,
             })
         }) {
             Ok(iter) => match iter.collect::<Result<Vec<_>, _>>() {
@@ -778,6 +919,8 @@ impl PersistentRouteEngine {
                             direction: p.direction.clone(),
                             start_index: p.start_index,
                             end_index: p.end_index,
+                            avg_hr: p.avg_hr,
+                            coverage: None,
                         })
                     })
                     .collect();
@@ -834,7 +977,7 @@ impl PersistentRouteEngine {
             Some(g) => g,
             None => {
                 log::debug!(
-                    "tracematch: get_route_performances: group {} not found",
+                    "veloqrs: get_route_performances: group {} not found",
                     route_group_id
                 );
                 return RoutePerformanceResult {
@@ -846,6 +989,8 @@ impl PersistentRouteEngine {
                     forward_stats: None,
                     reverse_stats: None,
                     current_rank: None,
+                    attempt_count: 0,
+                    percentile_rank: None,
                 };
             }
         };
@@ -853,7 +998,7 @@ impl PersistentRouteEngine {
         // Get match info for this route
         let match_info = self.activity_matches.get(route_group_id);
         log::debug!(
-            "tracematch: get_route_performances: group {} has {} activities, match_info: {}",
+            "veloqrs: get_route_performances: group {} has {} activities, match_info: {}",
             route_group_id,
             group.activity_ids.len(),
             match_info.map(|m| m.len()).unwrap_or(0)
@@ -909,7 +1054,7 @@ impl PersistentRouteEngine {
                     match_percentage,
                 });
 
-                // Collect metrics for inline return (Issue C optimization)
+                // Collect metrics for inline return
                 metrics_list.push(metrics.clone());
             }
         }
@@ -924,19 +1069,17 @@ impl PersistentRouteEngine {
             .min_by_key(|p| p.moving_time)
             .cloned();
 
-        // Find best forward (direction is "same" or "forward")
+        // Find best forward
         let best_forward = performances
             .iter()
-            .filter(|p| (p.direction == "same" || p.direction == "forward") && p.moving_time > 0)
+            .filter(|p| p.direction == "same" && p.moving_time > 0)
             .min_by_key(|p| p.moving_time)
             .cloned();
 
         // Find best reverse
         let best_reverse = performances
             .iter()
-            .filter(|p| {
-                (p.direction == "reverse" || p.direction == "backward") && p.moving_time > 0
-            })
+            .filter(|p| p.direction == "reverse" && p.moving_time > 0)
             .min_by_key(|p| p.moving_time)
             .cloned();
 
@@ -953,7 +1096,7 @@ impl PersistentRouteEngine {
         // Compute forward direction stats
         let forward_perfs: Vec<_> = performances
             .iter()
-            .filter(|p| p.direction == "same" || p.direction == "forward")
+            .filter(|p| p.direction == "same")
             .collect();
         let forward_stats = if forward_perfs.is_empty() {
             None
@@ -986,7 +1129,7 @@ impl PersistentRouteEngine {
         // Compute reverse direction stats
         let reverse_perfs: Vec<_> = performances
             .iter()
-            .filter(|p| p.direction == "reverse" || p.direction == "backward")
+            .filter(|p| p.direction == "reverse")
             .collect();
         let reverse_stats = if reverse_perfs.is_empty() {
             None
@@ -1016,6 +1159,8 @@ impl PersistentRouteEngine {
             })
         };
 
+        let (attempt_count, percentile_rank) = attempt_standing(&performances, current_activity_id);
+
         RoutePerformanceResult {
             performances,
             activity_metrics: metrics_list,
@@ -1025,6 +1170,8 @@ impl PersistentRouteEngine {
             forward_stats,
             reverse_stats,
             current_rank,
+            attempt_count,
+            percentile_rank,
         }
     }
 
@@ -1047,6 +1194,8 @@ impl PersistentRouteEngine {
                     forward_stats: None,
                     reverse_stats: None,
                     current_rank: None,
+                    attempt_count: 0,
+                    percentile_rank: None,
                 };
             }
         };
@@ -1062,6 +1211,8 @@ impl PersistentRouteEngine {
                 forward_stats: None,
                 reverse_stats: None,
                 current_rank: None,
+                attempt_count: 0,
+                percentile_rank: None,
             };
         }
 
@@ -1114,6 +1265,7 @@ impl PersistentRouteEngine {
         }
 
         performances.sort_by_key(|p| p.date);
+        let (attempt_count, _) = attempt_standing(&performances, None);
 
         RoutePerformanceResult {
             performances,
@@ -1124,6 +1276,228 @@ impl PersistentRouteEngine {
             forward_stats: None,
             reverse_stats: None,
             current_rank: None,
+            attempt_count,
+            percentile_rank: None,
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use rusqlite::params;
+
+    use super::super::super::PersistentEngine;
+    use super::super::super::commit_counter;
+    use super::attempt_standing;
+    use crate::RoutePerformance;
+    use tracematch::GpsPoint;
+
+    fn engine_with_null_laps(sections: usize) -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let coords: Vec<GpsPoint> = (0..8)
+            .map(|i| GpsPoint {
+                latitude: 46.2 + i as f64 * 0.001,
+                longitude: 7.3,
+                elevation: None,
+            })
+            .collect();
+        engine
+            .add_activity("a1".to_string(), coords, "Ride".to_string())
+            .unwrap();
+        engine
+            .store_time_stream("a1", &[0, 10, 20, 30, 40, 50, 60, 70])
+            .unwrap();
+        for s in 0..sections {
+            let sid = format!("s{s}");
+            engine
+                .db
+                .execute(
+                    "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                        distance_meters, is_user_defined, version, created_at,
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                     VALUES (?, 'auto', ?, 'Ride', '[]', 400.0, 0, 1, '2026-01-01T00:00:00Z',
+                        46.2, 46.21, 7.3, 7.31)",
+                    params![sid, format!("Section {s}")],
+                )
+                .unwrap();
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_activities (section_id, activity_id, direction,
+                        start_index, end_index, distance_meters)
+                     VALUES (?, 'a1', 'same', 1, 5, 400.0)",
+                    params![sid],
+                )
+                .unwrap();
+        }
+        engine
+    }
+
+    /// The lazy populate the section screen triggers had the same one-commit-
+    /// per-lap shape as the indicator backfill.
+    #[test]
+    fn populating_many_laps_is_one_commit() {
+        let mut engine = engine_with_null_laps(12);
+        let commits = commit_counter::watch(&engine);
+
+        assert_eq!(engine.backfill_section_performance_cache(), 12);
+
+        assert_eq!(commit_counter::count(&commits), 1);
+        let nulls: i64 = engine
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM section_activities WHERE lap_time IS NULL",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(nulls, 0);
+    }
+
+    #[test]
+    fn populating_nothing_commits_nothing() {
+        let mut engine = engine_with_null_laps(2);
+        engine.backfill_section_performance_cache();
+        let commits = commit_counter::watch(&engine);
+
+        assert_eq!(engine.backfill_section_performance_cache(), 0);
+
+        assert_eq!(commit_counter::count(&commits), 0);
+    }
+
+    fn perf(activity_id: &str, moving_time: u32) -> RoutePerformance {
+        RoutePerformance {
+            activity_id: activity_id.to_string(),
+            name: activity_id.to_string(),
+            date: 1_700_000_000,
+            speed: 1.0,
+            duration: moving_time,
+            moving_time,
+            distance: 1000.0,
+            elevation_gain: 0.0,
+            avg_hr: None,
+            avg_power: None,
+            is_current: false,
+            direction: "same".to_string(),
+            match_percentage: None,
+        }
+    }
+
+    fn four() -> Vec<RoutePerformance> {
+        vec![
+            perf("a", 300),
+            perf("b", 320),
+            perf("c", 340),
+            perf("d", 360),
+        ]
+    }
+
+    #[test]
+    fn test_attempt_standing_fastest_of_four() {
+        // 3 of the 4 are slower
+        assert_eq!(attempt_standing(&four(), Some("a")), (4, Some(75.0)));
+    }
+
+    #[test]
+    fn test_attempt_standing_slowest_of_four() {
+        assert_eq!(attempt_standing(&four(), Some("d")), (4, Some(0.0)));
+    }
+
+    #[test]
+    fn test_attempt_standing_lone_attempt() {
+        assert_eq!(attempt_standing(&[perf("a", 300)], Some("a")), (1, None));
+    }
+
+    #[test]
+    fn test_attempt_standing_ignores_zero_moving_time() {
+        let attempts = vec![perf("a", 300), perf("b", 0), perf("c", 340)];
+        assert_eq!(attempt_standing(&attempts, Some("a")), (2, Some(50.0)));
+    }
+
+    #[test]
+    fn test_attempt_standing_current_without_moving_time() {
+        let attempts = vec![perf("a", 300), perf("b", 0)];
+        assert_eq!(attempt_standing(&attempts, Some("b")), (1, None));
+    }
+
+    #[test]
+    fn test_attempt_standing_current_off_the_route() {
+        let attempts = vec![perf("a", 300), perf("b", 320)];
+        assert_eq!(attempt_standing(&attempts, Some("z")), (2, None));
+    }
+
+    #[test]
+    fn test_attempt_standing_without_a_current_activity() {
+        let attempts = vec![perf("a", 300), perf("b", 320)];
+        assert_eq!(attempt_standing(&attempts, None), (2, None));
+    }
+
+    #[test]
+    fn test_attempt_standing_empty_route() {
+        assert_eq!(attempt_standing(&[], Some("a")), (0, None));
+    }
+
+    #[test]
+    fn test_attempt_standing_ties_are_not_slower() {
+        let attempts = vec![perf("a", 300), perf("b", 300), perf("c", 400)];
+        let (count, percentile) = attempt_standing(&attempts, Some("a"));
+        assert_eq!(count, 3);
+        // 1 of 3 is slower, the tie is not
+        assert!((percentile.unwrap() - 33.3333).abs() < 0.001);
+    }
+}
+
+/// Where `point` falls along `line`, as a fraction of the line's length.
+fn progress_along(line: &[crate::GpsPoint], cumulative: &[f64], point: &crate::GpsPoint) -> f64 {
+    let mut best = (f64::INFINITY, 0.0);
+    for (i, p) in line.iter().enumerate() {
+        let d = crate::persistence::haversine_distance_meters(
+            p.latitude,
+            p.longitude,
+            point.latitude,
+            point.longitude,
+        );
+        if d < best.0 {
+            best = (d, cumulative[i]);
+        }
+    }
+    let total = cumulative.last().copied().unwrap_or(0.0);
+    if total <= 0.0 { 0.0 } else { best.1 / total }
+}
+
+/// The share of `line` a traversal spans, or `None` when the indices or the
+/// line cannot describe one. `end_index` is the half-open end every writer of
+/// `section_activities` stores.
+pub(crate) fn portion_coverage(
+    line: &[crate::GpsPoint],
+    track: &[crate::GpsPoint],
+    start_index: u32,
+    end_index: u32,
+) -> Option<f64> {
+    if line.len() < 2 || end_index == 0 {
+        return None;
+    }
+    let start = start_index as usize;
+    let end = (end_index as usize).min(track.len());
+    if end < start + 2 {
+        return None;
+    }
+    let mut cumulative = Vec::with_capacity(line.len());
+    let mut run = 0.0;
+    cumulative.push(0.0);
+    for w in line.windows(2) {
+        run += crate::persistence::haversine_distance_meters(
+            w[0].latitude,
+            w[0].longitude,
+            w[1].latitude,
+            w[1].longitude,
+        );
+        cumulative.push(run);
+    }
+    if run <= 0.0 {
+        return None;
+    }
+    let first = progress_along(line, &cumulative, &track[start]);
+    let last = progress_along(line, &cumulative, &track[end - 1]);
+    Some((last - first).abs().clamp(0.0, 1.0))
 }

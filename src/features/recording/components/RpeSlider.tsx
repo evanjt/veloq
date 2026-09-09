@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, rpeRamp, spacing, typography } from '@/theme';
+import { colors, darkColors, rpeRamp, spacing, typography, layout } from '@/theme';
 
 type RpeLabelKey = 'easy' | 'moderate' | 'hard' | 'veryHard' | 'max';
 
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   },
   rpeTrack: {
     height: 32,
-    borderRadius: 16,
+    borderRadius: layout.borderRadiusFull,
     position: 'relative',
     justifyContent: 'center',
   },
@@ -151,14 +151,14 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     opacity: 0.3,
   },
   rpeThumb: {
     position: 'absolute',
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: layout.borderRadiusFull,
     marginLeft: -14,
     top: 2,
   },
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   rpeScaleLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontVariant: ['tabular-nums'],
   },
 });

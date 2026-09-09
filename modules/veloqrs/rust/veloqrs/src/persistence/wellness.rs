@@ -6,7 +6,11 @@
 
 use rusqlite::{Result as SqlResult, params};
 
-use super::PersistentRouteEngine;
+use super::PersistentEngine;
+
+/// HRV has to move by this fraction between the two halves of the window
+/// before the trend is called, per Kiviniemi 2007.
+const HRV_TREND_DEADBAND: f64 = 0.02;
 
 /// One wellness record - shape used by upsert and range queries.
 #[derive(Debug, Clone)]
@@ -25,6 +29,29 @@ pub struct WellnessRow {
     pub stress: Option<i32>,
     pub mood: Option<i32>,
     pub motivation: Option<i32>,
+    /// The untyped intervals.icu body for this day. The typed columns above
+    /// are what Rust computes on; the UI reads fields beyond them.
+    pub raw: Option<String>,
+}
+
+/// Today in the athlete's own timezone, which is the day their wellness rows
+/// are stamped with.
+pub(crate) fn today_iso() -> String {
+    chrono::Local::now().date_naive().to_string()
+}
+
+/// `days` days after `date`, or `date` itself when it cannot be read.
+fn iso_days_after(date: &str, days: u32) -> String {
+    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .map(|d| (d + chrono::Duration::days(i64::from(days))).to_string())
+        .unwrap_or_else(|_| date.to_string())
+}
+
+/// `days` days before `date`, or `date` itself when it cannot be read.
+fn iso_days_before(date: &str, days: u32) -> String {
+    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .map(|d| (d - chrono::Duration::days(i64::from(days))).to_string())
+        .unwrap_or_else(|_| date.to_string())
 }
 
 /// Drop non-finite floats (NaN / +/-Inf) to NULL so corrupt API values never
@@ -33,7 +60,46 @@ fn finite(v: Option<f64>) -> Option<f64> {
     v.filter(|x| x.is_finite())
 }
 
-impl PersistentRouteEngine {
+/// Rebuild an intervals.icu wellness body from the typed columns, for rows
+/// stored before the `raw` column existed. Keys match the wire format the UI
+/// parses; absent values are omitted rather than sent as null, so optional
+/// fields stay `undefined` on the TypeScript side exactly as a real body.
+fn synthesize_body(row: &WellnessRow) -> String {
+    let mut obj = serde_json::Map::new();
+    obj.insert("id".to_string(), serde_json::Value::from(row.date.clone()));
+
+    let mut put_f64 = |key: &str, v: Option<f64>| {
+        if let Some(n) = finite(v).and_then(serde_json::Number::from_f64) {
+            obj.insert(key.to_string(), serde_json::Value::Number(n));
+        }
+    };
+    put_f64("ctl", row.ctl);
+    put_f64("atl", row.atl);
+    put_f64("rampRate", row.ramp_rate);
+    put_f64("hrv", row.hrv);
+    put_f64("restingHR", row.resting_hr);
+    put_f64("weight", row.weight);
+    put_f64("sleepScore", row.sleep_score);
+
+    if let Some(v) = row.sleep_secs {
+        obj.insert("sleepSecs".to_string(), serde_json::Value::from(v));
+    }
+    for (key, v) in [
+        ("soreness", row.soreness),
+        ("fatigue", row.fatigue),
+        ("stress", row.stress),
+        ("mood", row.mood),
+        ("motivation", row.motivation),
+    ] {
+        if let Some(n) = v {
+            obj.insert(key.to_string(), serde_json::Value::from(n));
+        }
+    }
+
+    serde_json::Value::Object(obj).to_string()
+}
+
+impl PersistentEngine {
     /// Upsert a batch of wellness rows in one transaction. Idempotent on
     /// `date`: re-syncing overwrites prior values.
     pub fn upsert_wellness(&mut self, rows: &[WellnessRow]) -> SqlResult<()> {
@@ -46,8 +112,8 @@ impl PersistentRouteEngine {
                 "INSERT INTO wellness (
                     date, ctl, atl, ramp_rate, hrv, resting_hr, weight,
                     sleep_secs, sleep_score, soreness, fatigue, stress,
-                    mood, motivation, updated_at
-                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'))
+                    mood, motivation, raw, updated_at
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'))
                  ON CONFLICT(date) DO UPDATE SET
                     ctl = excluded.ctl,
                     atl = excluded.atl,
@@ -62,6 +128,9 @@ impl PersistentRouteEngine {
                     stress = excluded.stress,
                     mood = excluded.mood,
                     motivation = excluded.motivation,
+                    -- A caller that only has typed values must not erase a
+                    -- body a previous sync stored.
+                    raw = COALESCE(excluded.raw, wellness.raw),
                     updated_at = excluded.updated_at",
             )?;
             for row in rows {
@@ -80,6 +149,7 @@ impl PersistentRouteEngine {
                     row.stress,
                     row.mood,
                     row.motivation,
+                    row.raw,
                 ])?;
             }
         }
@@ -87,16 +157,27 @@ impl PersistentRouteEngine {
     }
 
     /// Trailing N-day wellness rows, oldest first. `days` includes today.
+    ///
+    /// A day the athlete has no row for is a gap, not a shorter window: rows
+    /// exist only for the days intervals.icu has data for, so taking the last
+    /// N rows spans as much calendar time as the gaps require and every
+    /// caller reading position as date reads across them.
     pub fn get_wellness_window(&self, days: u32) -> SqlResult<Vec<WellnessRow>> {
+        self.get_wellness_window_to(days, &today_iso())
+    }
+
+    /// The same window ending on `today`, which the tests pin.
+    pub fn get_wellness_window_to(&self, days: u32, today: &str) -> SqlResult<Vec<WellnessRow>> {
+        let oldest = iso_days_before(today, days.saturating_sub(1));
         let mut stmt = self.db.prepare(
             "SELECT date, ctl, atl, ramp_rate, hrv, resting_hr, weight,
                     sleep_secs, sleep_score, soreness, fatigue, stress,
-                    mood, motivation
+                    mood, motivation, raw
              FROM wellness
-             ORDER BY date DESC
-             LIMIT ?",
+             WHERE date >= ? AND date <= ?
+             ORDER BY date ASC",
         )?;
-        let rows = stmt.query_map(params![days], |r| {
+        let rows = stmt.query_map(params![oldest, today], |r| {
             Ok(WellnessRow {
                 date: r.get(0)?,
                 ctl: r.get(1)?,
@@ -112,41 +193,90 @@ impl PersistentRouteEngine {
                 stress: r.get(11)?,
                 mood: r.get(12)?,
                 motivation: r.get(13)?,
+                raw: r.get(14)?,
             })
         })?;
-        let mut out: Vec<WellnessRow> = rows.collect::<SqlResult<Vec<_>>>()?;
-        out.reverse(); // oldest first so callers can render left-to-right
-        Ok(out)
+        rows.collect::<SqlResult<Vec<_>>>()
+    }
+
+    /// Untyped wellness bodies over an inclusive date window, oldest first.
+    ///
+    /// Rows synced before the body column existed have no `raw`, so they are
+    /// rebuilt from the typed columns. The reconstruction is lossy (it cannot
+    /// recover fields Rust never stored, like `vo2max` or `readiness`) but it
+    /// keeps the fitness charts populated on the first launch after upgrade,
+    /// including offline. Each day heals to a real body on its next sync.
+    pub fn get_wellness_bodies(&self, oldest: &str, newest: &str) -> SqlResult<Vec<String>> {
+        let mut stmt = self.db.prepare(
+            "SELECT date, ctl, atl, ramp_rate, hrv, resting_hr, weight,
+                    sleep_secs, sleep_score, soreness, fatigue, stress,
+                    mood, motivation, raw
+             FROM wellness
+             WHERE date >= ? AND date <= ?
+             ORDER BY date ASC",
+        )?;
+        let rows = stmt.query_map(params![oldest, newest], |r| {
+            Ok(WellnessRow {
+                date: r.get(0)?,
+                ctl: r.get(1)?,
+                atl: r.get(2)?,
+                ramp_rate: r.get(3)?,
+                hrv: r.get(4)?,
+                resting_hr: r.get(5)?,
+                weight: r.get(6)?,
+                sleep_secs: r.get(7)?,
+                sleep_score: r.get(8)?,
+                soreness: r.get(9)?,
+                fatigue: r.get(10)?,
+                stress: r.get(11)?,
+                mood: r.get(12)?,
+                motivation: r.get(13)?,
+                raw: r.get(14)?,
+            })
+        })?;
+        rows.map(|r| r.map(|row| row.raw.clone().unwrap_or_else(|| synthesize_body(&row))))
+            .collect()
     }
 
     /// Sparkline arrays for the summary card: fitness/fatigue/form/hrv/rhr
     /// over the trailing `days` window. Null/missing values are forward-filled
-    /// so sparkline renderers get continuous lines (matches prior TS behavior).
+    /// so sparkline renderers get continuous lines (matches prior TS behaviour).
     /// Returns `None` when no wellness data has been synced yet.
     pub fn get_wellness_sparklines(
         &self,
         days: u32,
     ) -> SqlResult<Option<crate::FfiWellnessSparklines>> {
-        let window = self.get_wellness_window(days)?;
+        self.get_wellness_sparklines_to(days, &today_iso())
+    }
+
+    /// The same sparklines ending on `today`, which the tests pin.
+    ///
+    /// One entry per calendar day from the athlete's first row in the window
+    /// to `today`, so a caller indexing by position reads a date: the last
+    /// entry is today, the one before it is yesterday, and seven back is a
+    /// week. A day with no row at all carries the last value forward, which is
+    /// what a line chart draws between two points anyway.
+    pub fn get_wellness_sparklines_to(
+        &self,
+        days: u32,
+        today: &str,
+    ) -> SqlResult<Option<crate::FfiWellnessSparklines>> {
+        let window = self.daily_wellness_window(days, today)?;
         if window.is_empty() {
             return Ok(None);
         }
 
-        let fitness: Vec<i32> = window
+        // A day with no row of its own holds the last value the athlete had,
+        // the same treatment `hrv` and `rhr` already got. Dropping it to zero
+        // draws a cliff where the athlete simply did not sync.
+        let ctl = forward_fill(window.iter().map(|w| w.ctl));
+        let atl = forward_fill(window.iter().map(|w| w.atl));
+        let fitness: Vec<i32> = ctl.iter().map(|v| v.round() as i32).collect();
+        let fatigue: Vec<i32> = atl.iter().map(|v| v.round() as i32).collect();
+        let form: Vec<i32> = ctl
             .iter()
-            .map(|w| w.ctl.unwrap_or(0.0).round() as i32)
-            .collect();
-        let fatigue: Vec<i32> = window
-            .iter()
-            .map(|w| w.atl.unwrap_or(0.0).round() as i32)
-            .collect();
-        let form: Vec<i32> = window
-            .iter()
-            .map(|w| {
-                let ctl = w.ctl.unwrap_or(0.0);
-                let atl = w.atl.unwrap_or(0.0);
-                (ctl - atl).round() as i32
-            })
+            .zip(&atl)
+            .map(|(c, a)| (c - a).round() as i32)
             .collect();
 
         let hrv = forward_fill_round(window.iter().map(|w| w.hrv));
@@ -161,49 +291,82 @@ impl PersistentRouteEngine {
         }))
     }
 
+    /// The window with a row for every calendar day it spans, starting at the
+    /// athlete's first row inside it. A day with no row of its own carries no
+    /// values, so the forward fill below stands in for it.
+    fn daily_wellness_window(&self, days: u32, today: &str) -> SqlResult<Vec<WellnessRow>> {
+        let rows = self.get_wellness_window_to(days, today)?;
+        let Some(first) = rows.first().map(|r| r.date.clone()) else {
+            return Ok(Vec::new());
+        };
+        let mut by_date: std::collections::HashMap<String, WellnessRow> =
+            rows.into_iter().map(|r| (r.date.clone(), r)).collect();
+
+        let mut out = Vec::new();
+        let mut date = first;
+        while date.as_str() <= today {
+            let next = iso_days_after(&date, 1);
+            let filled = by_date.remove(&date).unwrap_or_else(|| WellnessRow {
+                date: date.clone(),
+                ctl: None,
+                atl: None,
+                ramp_rate: None,
+                hrv: None,
+                resting_hr: None,
+                weight: None,
+                sleep_secs: None,
+                sleep_score: None,
+                soreness: None,
+                fatigue: None,
+                stress: None,
+                mood: None,
+                motivation: None,
+                raw: None,
+            });
+            out.push(filled);
+            if next == date {
+                break;
+            }
+            date = next;
+        }
+        Ok(out)
+    }
+
     /// HRV trend over the trailing window. Splits the window in half and
     /// compares averages; flags consecutive-day decline (Kiviniemi 2007
     /// guidance). Returns `None` when there are fewer than 5 valid HRV days.
     pub fn compute_hrv_trend(&self, days: u32) -> SqlResult<Option<crate::FfiHrvTrend>> {
-        let window = self.get_wellness_window(days)?;
+        self.compute_hrv_trend_to(days, &today_iso())
+    }
+
+    /// The same trend ending on `today`, which the tests pin.
+    pub fn compute_hrv_trend_to(
+        &self,
+        days: u32,
+        today: &str,
+    ) -> SqlResult<Option<crate::FfiHrvTrend>> {
+        let window = self.get_wellness_window_to(days, today)?;
+        // A decline is two days running, so the pair the flag reads has to be
+        // two days running. Rows either side of a gap are adjacent in the
+        // array and days apart on the calendar.
+        let last_two_adjacent = window
+            .iter()
+            .rev()
+            .filter(|w| w.hrv.is_some_and(|v| v > 0.0))
+            .take(2)
+            .map(|w| w.date.clone())
+            .collect::<Vec<_>>();
+        let consecutive = match last_two_adjacent.as_slice() {
+            [newer, older] => iso_days_before(newer, 1) == *older,
+            _ => false,
+        };
         let values: Vec<f64> = window
             .iter()
             .filter_map(|w| w.hrv)
             .filter(|v| *v > 0.0)
             .collect();
-        if values.len() < 5 {
+        let Some((label, avg)) = hrv_verdict(&values, consecutive) else {
             return Ok(None);
-        }
-
-        let avg = values.iter().sum::<f64>() / values.len() as f64;
-        if avg <= 0.0 {
-            return Ok(None);
-        }
-
-        let mid = values.len() / 2;
-        let first_half = &values[..mid];
-        let second_half = &values[mid..];
-        let first_avg = if first_half.is_empty() {
-            0.0
-        } else {
-            first_half.iter().sum::<f64>() / first_half.len() as f64
-        };
-        let second_avg = if second_half.is_empty() {
-            0.0
-        } else {
-            second_half.iter().sum::<f64>() / second_half.len() as f64
-        };
-
-        let last_two = &values[values.len().saturating_sub(2)..];
-        let consecutive_decline =
-            last_two.len() == 2 && last_two[0] > last_two[1] && last_two[1] < avg;
-
-        let label = if second_avg > first_avg * 1.02 {
-            "trendingUp"
-        } else if consecutive_decline || second_avg < first_avg * 0.98 {
-            "trendingDown"
-        } else {
-            "stable"
         };
 
         Ok(Some(crate::FfiHrvTrend {
@@ -217,7 +380,27 @@ impl PersistentRouteEngine {
 }
 
 /// Forward-fill an iterator of optional floats into rounded i32s. Returns
-/// an empty Vec when every value is None/zero (TS behavior).
+/// an empty Vec when every value is None/zero (TS behaviour).
+/// Each value, with a missing one holding the last real value before it.
+/// Empty when nothing in the series is real.
+fn forward_fill<I>(iter: I) -> Vec<f64>
+where
+    I: Iterator<Item = Option<f64>>,
+{
+    let raw: Vec<Option<f64>> = iter.collect();
+    let Some(mut last) = raw.iter().copied().find(|v| v.is_some()).flatten() else {
+        return Vec::new();
+    };
+    let mut out = Vec::with_capacity(raw.len());
+    for v in raw {
+        if let Some(val) = v {
+            last = val;
+        }
+        out.push(last);
+    }
+    out
+}
+
 fn forward_fill_round<I>(iter: I) -> Vec<i32>
 where
     I: Iterator<Item = Option<f64>>,
@@ -238,9 +421,118 @@ where
     out
 }
 
+/// The label and window average behind [`PersistentEngine::compute_hrv_trend`],
+/// split out from the read so the rule itself can be tested without a database.
+/// `None` when the window is too short to say anything.
+fn hrv_verdict(values: &[f64], last_two_are_consecutive_days: bool) -> Option<(&'static str, f64)> {
+    if values.len() < 5 {
+        return None;
+    }
+    let avg = values.iter().sum::<f64>() / values.len() as f64;
+    if avg <= 0.0 {
+        return None;
+    }
+
+    let mid = values.len() / 2;
+    let mean = |xs: &[f64]| {
+        if xs.is_empty() {
+            0.0
+        } else {
+            xs.iter().sum::<f64>() / xs.len() as f64
+        }
+    };
+    let first_avg = mean(&values[..mid]);
+    let second_avg = mean(&values[mid..]);
+
+    let last_two = &values[values.len().saturating_sub(2)..];
+    let consecutive_decline = last_two_are_consecutive_days
+        && last_two.len() == 2
+        && last_two[0] > last_two[1]
+        && last_two[1] < avg;
+
+    // Higher HRV is the better direction, so this reads as a value, not a
+    // time. A consecutive decline overrides a stable verdict: two days down
+    // and below the average is the signal the study leans on.
+    let verdict =
+        crate::trend::classify_value(first_avg, second_avg, HRV_TREND_DEADBAND).unwrap_or(0);
+    let label = if verdict > 0 {
+        "trendingUp"
+    } else if verdict < 0 || consecutive_decline {
+        "trendingDown"
+    } else {
+        "stable"
+    };
+    Some((label, avg))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_window_under_five_days_has_no_hrv_verdict() {
+        assert_eq!(hrv_verdict(&[50.0, 52.0], true), None);
+        assert_eq!(hrv_verdict(&[], true), None);
+    }
+
+    #[test]
+    fn a_window_averaging_zero_has_no_hrv_verdict() {
+        assert_eq!(hrv_verdict(&[0.0, 0.0, 0.0, 0.0, 0.0], true), None);
+    }
+
+    #[test]
+    fn a_rising_second_half_trends_up() {
+        assert_eq!(
+            hrv_verdict(&[40.0, 45.0, 50.0, 55.0, 60.0], true).map(|(l, _)| l),
+            Some("trendingUp")
+        );
+    }
+
+    #[test]
+    fn a_falling_second_half_trends_down() {
+        assert_eq!(
+            hrv_verdict(&[60.0, 55.0, 50.0, 45.0, 40.0], true).map(|(l, _)| l),
+            Some("trendingDown")
+        );
+    }
+
+    #[test]
+    fn a_flat_window_is_stable() {
+        let verdict = hrv_verdict(&[50.0, 50.0, 50.0, 50.0, 50.0], true);
+        assert_eq!(verdict.map(|(l, _)| l), Some("stable"));
+        assert_eq!(verdict.map(|(_, avg)| avg), Some(50.0));
+    }
+
+    #[test]
+    fn a_move_inside_the_deadband_is_stable() {
+        // Second half is 1 % above the first, under the 2 % deadband, and the
+        // last two days rise so the decline override cannot fire.
+        assert_eq!(
+            hrv_verdict(&[50.0, 50.0, 50.0, 50.0, 50.5], true).map(|(l, _)| l),
+            Some("stable")
+        );
+    }
+
+    #[test]
+    fn a_drop_across_a_gap_does_not_override_stable() {
+        // The same values, with the last two rows days apart rather than one.
+        // Two days running is the rule, so a pair that is not two days
+        // running cannot fire it.
+        assert_eq!(
+            hrv_verdict(&[50.0, 50.0, 50.0, 51.0, 49.0], false).map(|(l, _)| l),
+            Some("stable")
+        );
+    }
+
+    #[test]
+    fn two_days_down_and_below_average_overrides_stable() {
+        // Halves are within the deadband, but the window ends on a drop that
+        // sits under the window average.
+        assert_eq!(
+            hrv_verdict(&[50.0, 50.0, 50.0, 51.0, 49.0], true).map(|(l, _)| l),
+            Some("trendingDown")
+        );
+    }
 
     #[test]
     fn finite_drops_non_finite_floats() {

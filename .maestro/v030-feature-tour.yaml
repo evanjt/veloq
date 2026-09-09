@@ -2,7 +2,7 @@
 # Walks every major surface affected by the 0.2.2 → 0.3.0 work and takes a
 # screenshot at each checkpoint. Intended as a fast visual-regression baseline.
 #
-# Assertions are intentionally light — each screenshot is the primary artifact.
+# Assertions are intentionally light, each screenshot is the primary artifact.
 # This flow is the ground-truth "does the app even render the new surfaces"
 # check; narrower flows verify specific user stories.
 
@@ -21,23 +21,29 @@ tags:
     visible:
       id: "home-activity-list"
     timeout: 15000
-- takeScreenshot: "tour-01-feed-top"
+- takeScreenshot: "screenshots/tour-01-feed-top"
 
-# Sport filter chips
+# Sport filter chips sit in the header above the initial offset.
+- swipe:
+    start: 50%, 40%
+    end: 50%, 60%
+    duration: 800
+- extendedWaitUntil:
+    visible:
+      id: "home-filter-cycling"
+    timeout: 5000
 - assertVisible:
-    text: "Cycling"
-- assertVisible:
-    text: "Running"
+    id: "home-filter-running"
 
 # Scroll feed to see multiple cards
 - swipe:
     start: 50%, 75%
     end: 50%, 25%
     duration: 500
-- takeScreenshot: "tour-02-feed-scrolled"
+- takeScreenshot: "screenshots/tour-02-feed-scrolled"
 
 # ====================================================================
-# ACTIVITY DETAIL — Charts tab (default)
+# ACTIVITY DETAIL. Charts tab (default)
 # ====================================================================
 - openLink: "veloq://activity/demo-test-0"
 - runFlow:
@@ -49,10 +55,10 @@ tags:
     visible:
       id: "activity-detail-content"
     timeout: 15000
-- takeScreenshot: "tour-03-activity-charts-default"
+- takeScreenshot: "screenshots/tour-03-activity-charts-default"
 
 # ====================================================================
-# ACTIVITY DETAIL — Sections tab (encounters refactor)
+# ACTIVITY DETAIL. Sections tab (encounters refactor)
 # ====================================================================
 - tapOn:
     text: "Sections"
@@ -62,17 +68,17 @@ tags:
       id: "activity-sections-list"
     timeout: 10000
     optional: true
-- takeScreenshot: "tour-04-activity-sections-tab"
+- takeScreenshot: "screenshots/tour-04-activity-sections-tab"
 - assertNotVisible:
     text: "NaN"
 
 # ====================================================================
-# ACTIVITY DETAIL — Routes tab
+# ACTIVITY DETAIL. Routes tab
 # ====================================================================
 - tapOn:
     text: "Route"
     optional: true
-- takeScreenshot: "tour-05-activity-routes-tab"
+- takeScreenshot: "screenshots/tour-05-activity-routes-tab"
 
 # ====================================================================
 # SECTION DETAIL (tap first section in list)
@@ -83,18 +89,18 @@ tags:
 - tapOn:
     id: "section-inline-plot-0"
     optional: true
-- takeScreenshot: "tour-06-section-detail"
+- takeScreenshot: "screenshots/tour-06-section-detail"
 
 # Time-range pills (in chart header per US-D1). Labels: 1M, 3M, 6M, 1Y, All.
 - tapOn:
     text: "3M"
     optional: true
-- takeScreenshot: "tour-07-section-detail-3M"
+- takeScreenshot: "screenshots/tour-07-section-detail-3M"
 
 - tapOn:
     text: "All"
     optional: true
-- takeScreenshot: "tour-08-section-detail-all"
+- takeScreenshot: "screenshots/tour-08-section-detail-all"
 
 # Back to activity via deep-link (Maestro's `back` is unreliable on iOS)
 - openLink: "veloq://activity/demo-test-0"
@@ -117,7 +123,7 @@ tags:
     visible:
       id: "map-screen"
     timeout: 30000
-- takeScreenshot: "tour-09-regional-map-default"
+- takeScreenshot: "screenshots/tour-09-regional-map-default"
 
 - assertVisible:
     id: "map-toggle-heatmap"
@@ -130,7 +136,7 @@ tags:
     id: "map-toggle-heatmap"
 - waitForAnimationToEnd:
     timeout: 2000
-- takeScreenshot: "tour-10-regional-map-heatmap"
+- takeScreenshot: "screenshots/tour-10-regional-map-heatmap"
 
 - tapOn:
     id: "map-toggle-heatmap"
@@ -142,26 +148,26 @@ tags:
 # ====================================================================
 - runFlow:
     file: helpers/navigate-to-routes.yaml
-- takeScreenshot: "tour-11-insights-top"
+- takeScreenshot: "screenshots/tour-11-insights-top"
 
 # Switch to Routes sub-tab
 - tapOn:
     text: "Routes"
     optional: true
-- takeScreenshot: "tour-12-routes-list"
+- takeScreenshot: "screenshots/tour-12-routes-list"
 
 # Switch to Sections sub-tab
 - tapOn:
     text: "Sections"
     optional: true
-- takeScreenshot: "tour-13-sections-list"
+- takeScreenshot: "screenshots/tour-13-sections-list"
 
 # ====================================================================
 # FITNESS (CTL/ATL/TSB)
 # ====================================================================
 - runFlow:
     file: helpers/navigate-to-fitness.yaml
-- takeScreenshot: "tour-14-fitness"
+- takeScreenshot: "screenshots/tour-14-fitness"
 
 # ====================================================================
 # HEALTH / WELLNESS
@@ -169,14 +175,14 @@ tags:
 - tapOn:
     text: "Health"
     optional: true
-- takeScreenshot: "tour-15-health"
+- takeScreenshot: "screenshots/tour-15-health"
 
 # ====================================================================
-# SETTINGS — Storage stats and backup
+# SETTINGS. Storage stats and backup
 # ====================================================================
 - runFlow:
     file: helpers/navigate-to-settings.yaml
-- takeScreenshot: "tour-16-settings-top"
+- takeScreenshot: "screenshots/tour-16-settings-top"
 
 # Storage panel is on the cache-settings sub-screen
 - openLink: "veloq://cache-settings"
@@ -190,7 +196,7 @@ tags:
       id: "settings-storage-stats"
     timeout: 10000
     optional: true
-- takeScreenshot: "tour-17-cache-settings-storage"
+- takeScreenshot: "screenshots/tour-17-cache-settings-storage"
 - assertVisible:
     id: "settings-storage-stats"
     optional: true
@@ -213,7 +219,7 @@ tags:
     visible:
       id: "settings-version-text"
     timeout: 5000
-- takeScreenshot: "tour-18-settings-bottom"
+- takeScreenshot: "screenshots/tour-18-settings-bottom"
 - assertVisible:
     id: "settings-version-text"
 
@@ -224,4 +230,4 @@ tags:
     text: "NaN"
 - assertNotVisible:
     text: "undefined"
-- takeScreenshot: "tour-19-complete"
+- takeScreenshot: "screenshots/tour-19-complete"

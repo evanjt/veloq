@@ -1,0 +1,505 @@
+//! Assign-once route identity: the route half of the identity layer.
+//!
+//! A route group's `group_id` was the Union-Find ROOT of its member set, which
+//! the full and incremental grouping paths pick differently, so the first
+//! incremental resync re-keys a group to its MIN member, orphaning anything keyed
+//! to the old id (the representative via `existing_reps`, the name via
+//! `route_names`). This layer mirrors the section registry: it owns a stable id
+//! per route over time, carried forward by MEMBER overlap rather than
+//! re-derived from the churning root.
+//!
+//! Two deliberate differences from the section registry:
+//!
+//! - MATCH METRIC. A route IS its member set, so identity is carried by Jaccard of
+//!   `activity_ids` (local set math here, no geometry, no tracematch round-trip),
+//!   not ground coverage. Mutual-best pairing with total tie-breaks, so the plan
+//!   is a deterministic function of the two member-set families (no HashMap-order
+//!   leak into the persisted id).
+//! - ID SCHEME. Routes mint a DETERMINISTIC ordinal `r_<n>`, not the sections'
+//!   `s_<ts>__<rand>`. The route snapshot's signature is id-INCLUDED (a cold
+//!   group's representative is already the deterministic sorted-min member), so a
+//!   deterministic id makes the whole route catalogue byte-stable across two runs
+//!  , the double-run determinism routes are held to. A ts+rand id could not.
+//!   Minted in sorted-member order so the assignment does not depend on the
+//!   grouping HashMap's iteration order. Per-device ids need no global uniqueness;
+//!   reseed adopts existing ids and continues the counter past them.
+//!
+//! Scope is identity + keying only (no hysteresis debounce, a route has no
+//! non-monotone reform to damp). This layer only stops the `route_names` row
+//! being orphaned by keying it to the surviving stable id.
+
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+
+use rusqlite::{Connection, Result as SqlResult};
+
+use serde::{Deserialize, Serialize};
+
+use crate::persistence::PersistentEngine;
+use crate::persistence::codec;
+use tracematch::RouteGroup;
+
+/// `identity_state.key` for the route registry blob.
+pub(crate) const ROUTE_IDENTITY_KEY: &str = "route_identity";
+
+/// Version byte on the persisted route-registry blob. Bump on any
+/// serialisation-breaking change to [`RouteIdentity`]; an old byte then reseeds.
+pub(crate) const ROUTE_IDENTITY_BLOB_VERSION: u8 = 1;
+
+/// Per-route identity state: the seniority ordinal of each live stable id plus
+/// the monotonic counter that both mints `r_<n>` ids and stamps `first_seen`.
+/// Persisted as one blob, and reseeded from the DB groups when there is none.
+/// `#[serde(default)]` + the blob version tag keep an
+/// older persisted blob readable (or gracefully reseeding) across a field change.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub(crate) struct RouteIdentity {
+    /// Stable route id -> seniority ordinal (lower = more senior, wins a merge).
+    /// Holds exactly the currently-live ids; a dropped route's id is pruned (no
+    /// tombstone, routes carry no re-emergence machinery).
+    first_seen: BTreeMap<String, u64>,
+    /// Monotonic: the source of both a fresh `r_<n>` id and a fresh `first_seen`.
+    /// Only grows within a session; reseed lifts it past any adopted `r_<n>`.
+    ordinal: u64,
+}
+
+/// The highest ordinal already baked into an `r_<n>` group id, or 0. Both reseed
+/// (fresh adoption) and restore (crash-window reconcile) lift the mint counter
+/// past this so a later mint cannot collide with an id already persisted in
+/// `route_groups`, whose PK is `group_id`.
+fn max_adopted_route_ordinal(groups: &[RouteGroup]) -> u64 {
+    groups
+        .iter()
+        .filter_map(|g| g.group_id.strip_prefix("r_").and_then(|n| n.parse().ok()))
+        .max()
+        .unwrap_or(0)
+}
+
+/// Seed the registry from the groups already persisted, adopting each existing
+/// `group_id` as its stable id so an install keeps its route ids and simply stops
+/// re-deriving them, no migration. Seniority is assigned in sorted-id order (a
+/// deterministic proxy for age at adoption time); the mint counter is lifted past
+/// any adopted `r_<n>` so a later mint cannot collide.
+pub(crate) fn reseed_identity(groups: &[RouteGroup]) -> RouteIdentity {
+    let mut ids: Vec<String> = groups.iter().map(|g| g.group_id.clone()).collect();
+    ids.sort();
+
+    let mut ri = RouteIdentity::default();
+    for id in &ids {
+        ri.ordinal += 1;
+        ri.first_seen.insert(id.clone(), ri.ordinal);
+    }
+    ri.ordinal = ri.ordinal.max(max_adopted_route_ordinal(groups));
+    ri
+}
+
+/// The route registry as a version-tagged serde blob, or None on failure.
+pub(crate) fn identity_blob(state: &RouteIdentity) -> Option<Vec<u8>> {
+    codec::serialize(state)
+        .map(|body| codec::tag_blob(ROUTE_IDENTITY_BLOB_VERSION, body))
+        .ok()
+}
+
+/// Restore the registry from its persisted blob, or None when there is no blob,
+/// the version byte mismatches, or it fails to decode. An unreadable blob heals
+/// to a reseed by the caller, never to a failed load.
+pub(crate) fn restore_identity(conn: &Connection) -> Option<RouteIdentity> {
+    let bytes: Vec<u8> = conn
+        .query_row(
+            "SELECT blob FROM identity_state WHERE key = ?",
+            rusqlite::params![ROUTE_IDENTITY_KEY],
+            |row| row.get(0),
+        )
+        .ok()?;
+    let Some(body) = codec::untag_blob(ROUTE_IDENTITY_BLOB_VERSION, &bytes) else {
+        log::warn!("veloqrs: [restore_identity] blob version mismatch, reseeding");
+        return None;
+    };
+    match codec::deserialize::<RouteIdentity>(body) {
+        Ok(state) => Some(state),
+        Err(e) => {
+            log::warn!("veloqrs: [restore_identity] decode failed, reseeding: {e}");
+            None
+        }
+    }
+}
+
+/// The registry either writer needs before a regroup: the persisted blob when it
+/// reads, reconciled past the ids `groups` already holds, otherwise a reseed off
+/// those groups. The reconcile covers the crash window between the group commit
+/// and the registry write, where a stale blob's counter sits BELOW an `r_<n>`
+/// already live as a group PK and the next mint would collide with it.
+pub(crate) fn load_identity(conn: &Connection, groups: &[RouteGroup]) -> RouteIdentity {
+    match restore_identity(conn) {
+        Some(mut state) => {
+            let floor = max_adopted_route_ordinal(groups);
+            if state.ordinal < floor {
+                state.ordinal = floor;
+            }
+            state
+        }
+        None => reseed_identity(groups),
+    }
+}
+
+/// Persist the registry. The caller runs this inside the same transaction as the
+/// group write, so the registry commits atomically with the groups it describes.
+pub(crate) fn write_identity(conn: &Connection, state: &RouteIdentity) -> SqlResult<()> {
+    let Some(blob) = identity_blob(state) else {
+        return Ok(());
+    };
+    conn.execute(
+        "INSERT INTO identity_state (key, blob, updated_at)
+         VALUES (?, ?, datetime('now'))
+         ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
+        rusqlite::params![ROUTE_IDENTITY_KEY, blob],
+    )?;
+    Ok(())
+}
+
+impl PersistentEngine {
+    /// Test-only fingerprint of the route registry state (first_seen + ordinal),
+    /// for asserting a restart restores it exactly. Behind `synthetic`.
+    #[cfg(feature = "synthetic")]
+    pub fn route_identity_fingerprint(&self) -> Vec<u8> {
+        codec::serialize(&self.route_identity).unwrap_or_default()
+    }
+
+    /// The route registry as a version-tagged serde blob, or None on failure.
+    /// Written INSIDE the `save_groups` transaction so the registry commits
+    /// atomically with the groups it describes.
+    pub(crate) fn route_identity_blob(&self) -> Option<Vec<u8>> {
+        identity_blob(&self.route_identity)
+    }
+
+    /// Restore the route registry from its persisted blob. Returns false, so the
+    /// caller reseeds from the DB groups, when the blob is missing or unreadable.
+    pub(crate) fn route_identity_restore(&mut self) -> bool {
+        let Some(mut state) = restore_identity(&self.db) else {
+            return false;
+        };
+        let floor = max_adopted_route_ordinal(&self.groups);
+        if state.ordinal < floor {
+            state.ordinal = floor;
+        }
+        self.route_identity = state;
+        true
+    }
+
+    /// Seed the registry from the groups already loaded from the DB.
+    pub(crate) fn route_identity_reseed(&mut self) {
+        self.route_identity = reseed_identity(&self.groups);
+    }
+
+    /// Remap a freshly-grouped catalogue onto stable ids against `prior`, the
+    /// previous `self.groups`. See [`RouteIdentity::remap`].
+    pub(crate) fn route_identity_remap(
+        &mut self,
+        prior: Vec<RouteGroup>,
+        new_groups: Vec<RouteGroup>,
+    ) -> (Vec<RouteGroup>, HashMap<String, String>) {
+        self.route_identity.remap(prior, new_groups)
+    }
+}
+
+impl RouteIdentity {
+    /// Remap a freshly-grouped catalogue (`new_groups`, still carrying churning
+    /// UF-root ids and fresh min-member representatives) onto stable ids, matching
+    /// each group to a prior by member-set overlap. A carry inherits the prior's
+    /// stable id AND its representative (so a user's pick survives the regroup); a
+    /// group matching no prior mints a fresh deterministic id. `prior` is the
+    /// previously persisted groups, the source of the ids and reps being carried.
+    ///
+    /// Returns the remapped groups and the `old_group_id -> stable_id` map, so the
+    /// caller can re-key anything the grouping keyed by the old UF-root id, chiefly
+    /// `activity_matches`, whose per-member DIRECTION would otherwise be orphaned
+    /// (leaving route highlights to read a wrong forward/back split).
+    pub(crate) fn remap(
+        &mut self,
+        prior: Vec<RouteGroup>,
+        new_groups: Vec<RouteGroup>,
+    ) -> (Vec<RouteGroup>, HashMap<String, String>) {
+        let np = prior.len();
+        let nc = new_groups.len();
+        let prior_members: Vec<BTreeSet<String>> = prior
+            .iter()
+            .map(|g| g.activity_ids.iter().cloned().collect())
+            .collect();
+        let new_members: Vec<BTreeSet<String>> = new_groups
+            .iter()
+            .map(|g| g.activity_ids.iter().cloned().collect())
+            .collect();
+
+        // Jaccard overlap of every prior/candidate pair. Disjoint pairs score 0.
+        let mut jac = vec![vec![0.0_f64; nc]; np];
+        for i in 0..np {
+            for j in 0..nc {
+                let inter = prior_members[i].intersection(&new_members[j]).count();
+                if inter == 0 {
+                    continue;
+                }
+                let uni = prior_members[i].union(&new_members[j]).count();
+                jac[i][j] = inter as f64 / uni as f64;
+            }
+        }
+
+        // Each candidate nominates the SENIOR prior it best overlaps (merge rule):
+        // more overlap, then earlier first_seen, then more members, then smaller id.
+        let cand_pick: Vec<Option<usize>> = (0..nc)
+            .map(|j| {
+                let mut best: Option<usize> = None;
+                for i in 0..np {
+                    if jac[i][j] <= 0.0 {
+                        continue;
+                    }
+                    let take = match best {
+                        None => true,
+                        Some(b) => self.senior_prior_wins(jac[i][j], i, jac[b][j], b, &prior),
+                    };
+                    if take {
+                        best = Some(i);
+                    }
+                }
+                best
+            })
+            .collect();
+
+        // Each prior nominates the candidate it best overlaps (split rule): more
+        // overlap, then more members, then the smaller member set, then index.
+        let prior_pick: Vec<Option<usize>> = (0..np)
+            .map(|i| {
+                let mut best: Option<usize> = None;
+                for j in 0..nc {
+                    if jac[i][j] <= 0.0 {
+                        continue;
+                    }
+                    let take = match best {
+                        None => true,
+                        Some(b) => better_candidate(
+                            jac[i][j],
+                            &new_members[j],
+                            j,
+                            jac[i][b],
+                            &new_members[b],
+                            b,
+                        ),
+                    };
+                    if take {
+                        best = Some(j);
+                    }
+                }
+                best
+            })
+            .collect();
+
+        // A carry is confirmed only where the two nominations agree.
+        let mut carrier_of: Vec<Option<usize>> = vec![None; nc];
+        for (i, &pick) in prior_pick.iter().enumerate() {
+            if let Some(j) = pick {
+                if cand_pick[j] == Some(i) {
+                    carrier_of[j] = Some(i);
+                }
+            }
+        }
+
+        let mut out: Vec<Option<RouteGroup>> = vec![None; nc];
+        let mut new_first_seen: BTreeMap<String, u64> = BTreeMap::new();
+        let mut id_map: HashMap<String, String> = HashMap::with_capacity(nc);
+
+        // Carries first: inherit the prior's stable id, seniority, and rep.
+        for j in 0..nc {
+            let Some(i) = carrier_of[j] else { continue };
+            let stable_id = prior[i].group_id.clone();
+            let mut g = new_groups[j].clone();
+            g.representative_id = if new_members[j].contains(&prior[i].representative_id) {
+                prior[i].representative_id.clone()
+            } else {
+                g.representative_id
+            };
+            id_map.insert(g.group_id.clone(), stable_id.clone());
+            g.group_id = stable_id.clone();
+            let fs = self.first_seen.get(&stable_id).copied().unwrap_or_else(|| {
+                self.ordinal += 1;
+                self.ordinal
+            });
+            new_first_seen.insert(stable_id, fs);
+            out[j] = Some(g);
+        }
+
+        // Mints, in sorted-member order so the id assignment is independent of the
+        // grouping HashMap's iteration order.
+        let mut mint_order: Vec<usize> = (0..nc).filter(|&j| carrier_of[j].is_none()).collect();
+        mint_order.sort_by(|&a, &b| new_members[a].cmp(&new_members[b]));
+        for j in mint_order {
+            self.ordinal += 1;
+            let id = format!("r_{}", self.ordinal);
+            let mut g = new_groups[j].clone();
+            id_map.insert(g.group_id.clone(), id.clone());
+            g.group_id = id.clone();
+            new_first_seen.insert(id, self.ordinal);
+            out[j] = Some(g);
+        }
+
+        self.first_seen = new_first_seen;
+        (out.into_iter().flatten().collect(), id_map)
+    }
+
+    /// Whether prior `i` beats prior `b` for a candidate's merge nomination: more
+    /// overlap, then more senior (earlier first_seen), then more members, then a
+    /// smaller id. Total, so the nomination never depends on iteration order.
+    fn senior_prior_wins(
+        &self,
+        jac_i: f64,
+        i: usize,
+        jac_b: f64,
+        b: usize,
+        prior: &[RouteGroup],
+    ) -> bool {
+        match jac_i.total_cmp(&jac_b) {
+            std::cmp::Ordering::Greater => true,
+            std::cmp::Ordering::Less => false,
+            std::cmp::Ordering::Equal => {
+                let fi = self.first_seen.get(&prior[i].group_id).copied();
+                let fb = self.first_seen.get(&prior[b].group_id).copied();
+                match (fi, fb) {
+                    (Some(a), Some(c)) if a != c => a < c,
+                    _ => match prior[i]
+                        .activity_ids
+                        .len()
+                        .cmp(&prior[b].activity_ids.len())
+                    {
+                        std::cmp::Ordering::Greater => true,
+                        std::cmp::Ordering::Less => false,
+                        std::cmp::Ordering::Equal => prior[i].group_id < prior[b].group_id,
+                    },
+                }
+            }
+        }
+    }
+}
+
+/// Whether candidate `(jac_j, mj)` at index `j` beats `(jac_b, mb)` at index `b`
+/// for a prior's split nomination: more overlap, then more members, then the
+/// smaller member set (lexicographic), then a smaller index. Total.
+fn better_candidate(
+    jac_j: f64,
+    mj: &BTreeSet<String>,
+    j: usize,
+    jac_b: f64,
+    mb: &BTreeSet<String>,
+    b: usize,
+) -> bool {
+    match jac_j.total_cmp(&jac_b) {
+        std::cmp::Ordering::Greater => true,
+        std::cmp::Ordering::Less => false,
+        std::cmp::Ordering::Equal => match mj.len().cmp(&mb.len()) {
+            std::cmp::Ordering::Greater => true,
+            std::cmp::Ordering::Less => false,
+            std::cmp::Ordering::Equal => match mj.cmp(mb) {
+                std::cmp::Ordering::Less => true,
+                std::cmp::Ordering::Greater => false,
+                std::cmp::Ordering::Equal => j < b,
+            },
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence::PersistentEngine;
+
+    fn group(id: &str, members: &[&str]) -> RouteGroup {
+        RouteGroup {
+            group_id: id.to_string(),
+            representative_id: members[0].to_string(),
+            activity_ids: members.iter().map(|s| s.to_string()).collect(),
+            sport_type: "Ride".to_string(),
+            bounds: None,
+            custom_name: None,
+            best_time: None,
+            avg_time: None,
+            best_pace: None,
+            best_activity_id: None,
+        }
+    }
+
+    /// Crash between the group commit and the registry blob write: `route_groups`
+    /// holds `r_5` but the surviving blob's counter is still at a pre-crash 2.
+    /// Restore succeeds (skipping reseed's counter-lift), so without a reconcile
+    /// the next mint would re-issue `r_5` and collide with a live group PK.
+    #[test]
+    fn restore_reconciles_ordinal_past_saved_groups() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+
+        // A group `r_5` survived the crash (in memory here it stands for the
+        // committed route_groups row load() would have read before restore runs).
+        engine.groups = vec![group("r_5", &["a1", "a2"])];
+
+        // Persist a STALE blob: a pre-crash generation whose counter never learned
+        // about the r_5 mint.
+        engine.route_identity = RouteIdentity {
+            first_seen: [("r_2".to_string(), 2u64)].into_iter().collect(),
+            ordinal: 2,
+        };
+        let stale = engine.route_identity_blob().expect("blob serialises");
+        engine
+            .db
+            .execute(
+                "INSERT INTO identity_state (key, blob, updated_at)
+                 VALUES (?, ?, datetime('now'))
+                 ON CONFLICT(key) DO UPDATE SET blob = excluded.blob",
+                rusqlite::params![ROUTE_IDENTITY_KEY, stale],
+            )
+            .unwrap();
+        engine.route_identity = RouteIdentity::default();
+
+        assert!(
+            engine.route_identity_restore(),
+            "a stale blob still decodes"
+        );
+        assert_eq!(
+            engine.route_identity.ordinal, 5,
+            "restore must lift the counter past the saved r_5, not trust the stale 2"
+        );
+
+        // A brand-new disjoint group must mint past the reconciled floor, never
+        // re-issuing the live r_5.
+        let prior = engine.groups.clone();
+        let (remapped, _id_map) = engine.route_identity_remap(prior, vec![group("uf_x", &["b1"])]);
+        assert_eq!(remapped.len(), 1);
+        assert_ne!(
+            remapped[0].group_id, "r_5",
+            "a fresh mint must not collide with the live group id"
+        );
+        assert_eq!(remapped[0].group_id, "r_6");
+    }
+
+    /// A restored blob AHEAD of the loaded groups keeps its counter, the
+    /// reconcile only lifts, never rewinds, so live seniority is preserved.
+    #[test]
+    fn restore_keeps_counter_when_blob_leads_groups() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine.groups = vec![group("r_3", &["a1"])];
+        engine.route_identity = RouteIdentity {
+            first_seen: [("r_3".to_string(), 3u64)].into_iter().collect(),
+            ordinal: 9,
+        };
+        let blob = engine.route_identity_blob().expect("blob serialises");
+        engine
+            .db
+            .execute(
+                "INSERT INTO identity_state (key, blob, updated_at)
+                 VALUES (?, ?, datetime('now'))
+                 ON CONFLICT(key) DO UPDATE SET blob = excluded.blob",
+                rusqlite::params![ROUTE_IDENTITY_KEY, blob],
+            )
+            .unwrap();
+        engine.route_identity = RouteIdentity::default();
+
+        assert!(engine.route_identity_restore());
+        assert_eq!(
+            engine.route_identity.ordinal, 9,
+            "the counter must not rewind to the max adopted id when the blob leads"
+        );
+    }
+}

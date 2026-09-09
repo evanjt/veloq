@@ -3,4 +3,4 @@ v0.3.7
 • Neu gestaltete Abschnittserkennung mit drei Methoden zur Auswahl: Korridor, Dichteraster und Flussgraph
 • Jede Methode hat eigene Schieberegler und eine Live-Vorschau
 • Neu-analysieren-Button hebt sich hervor, wenn Einstellungen geändert werden
-• Behoben: leere Abschnittsseiten — abgeglichene Aktivitäten und Verlauf werden wieder angezeigt
+• Behoben: leere Abschnittsseiten, abgeglichene Aktivitäten und Verlauf werden wieder angezeigt

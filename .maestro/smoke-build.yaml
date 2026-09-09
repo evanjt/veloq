@@ -4,13 +4,13 @@
 #
 # Uses appId: com.veloq.app (production) because build.yml builds with
 # APP_VARIANT=production. Shared helpers use com.veloq.app.dev and are
-# designed for dev builds in e2e.yml — so setup is inlined here.
+# designed for dev builds in e2e.yml, so setup is inlined here.
 
 appId: com.veloq.app
 # Run ONLY by build.yml via `maestro test .maestro/smoke-build.yaml` (by file).
 # Tagged prod-smoke (which no dev pipeline selects) so the dev gate (tier0+tier1),
 # e2e.yml and the pack runs never launch this production-appId flow against the dev
-# build — com.veloq.app isn't installed there, so it would fail immediately.
+# build, com.veloq.app isn't installed there, so it would fail immediately.
 tags:
   - prod-smoke
 ---
@@ -87,13 +87,13 @@ tags:
     visible:
       id: "home-activity-list"
     timeout: 15000
-- takeScreenshot: "smoke-build-home"
+- takeScreenshot: "screenshots/smoke-build-home"
 
 # Navigate to map tab and verify it renders
 - runFlow:
     file: helpers/navigate-to-map.yaml
 
-- takeScreenshot: "smoke-build-before-map-check"
+- takeScreenshot: "screenshots/smoke-build-before-map-check"
 - extendedWaitUntil:
     visible:
       id: "map-screen"
@@ -104,7 +104,7 @@ tags:
     start: 50%, 50%
     end: 30%, 40%
     duration: 600
-- takeScreenshot: "smoke-build-map-interacted"
+- takeScreenshot: "screenshots/smoke-build-map-interacted"
 
 # Return to home and confirm navigation still works
 - openLink: "veloq://"
@@ -119,4 +119,4 @@ tags:
       id: "home-screen"
     timeout: 10000
 
-- takeScreenshot: "smoke-build-complete"
+- takeScreenshot: "screenshots/smoke-build-complete"

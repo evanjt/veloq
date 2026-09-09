@@ -3,15 +3,25 @@ import { View, StyleSheet, LayoutAnimation, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { getSportDisplayName } from '@/features/activity/lib/activityUtils';
-import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
+import { getSportDisplayName, getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { useSectionPerformances } from '@/features/routes/hooks/useSectionPerformances';
 import { navigateTo } from '@/shared/app/navigation';
-import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { Shimmer } from '@/shared/ui/Shimmer';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/shared/format/format';
-import { brand, colors, darkColors, spacing, shadows, opacity } from '@/theme';
+import {
+  brand,
+  colors,
+  darkColors,
+  spacing,
+  shadows,
+  opacity,
+  ink,
+  verdictColor,
+  layout,
+  typography,
+} from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 
 function getTrendIcon(trend?: number): string {
@@ -21,11 +31,14 @@ function getTrendIcon(trend?: number): string {
   return 'minus';
 }
 
-function getTrendColor(trend?: number, isDark?: boolean): string {
-  if (trend == null) return isDark ? darkColors.textSecondary : colors.textSecondary;
-  if (trend > 0) return colors.success;
-  if (trend < 0) return colors.warning;
-  return isDark ? darkColors.textSecondary : colors.textSecondary;
+// A section trend above zero is a faster time, so a decline is the negative
+// rung and not the caution one: nothing here is a warning about what comes
+// next, it is a judgement on what already happened.
+export function getTrendColor(trend: number | undefined, isDark: boolean): string {
+  if (trend == null) return verdictColor('neutral', isDark);
+  if (trend > 0) return verdictColor('positive', isDark);
+  if (trend < 0) return verdictColor('negative', isDark);
+  return verdictColor('neutral', isDark);
 }
 
 interface SectionTrendContentProps {
@@ -111,7 +124,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
             </Text>
             {section.hasRecentPR ? (
               <View style={styles.prChip}>
-                <MaterialCommunityIcons name="trophy" size={10} color="#FFFFFF" />
+                <MaterialCommunityIcons name="trophy" size={10} color={ink.white} />
               </View>
             ) : null}
           </View>
@@ -233,7 +246,7 @@ const styles = StyleSheet.create({
   },
   contextCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     gap: spacing.xs,
     marginBottom: spacing.xs,
@@ -242,7 +255,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   contextHeading: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -250,7 +263,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   contextBody: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
     color: colors.textPrimary,
   },
@@ -258,7 +271,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   contextMeta: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   contextMetaDark: {
@@ -266,7 +279,7 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',
@@ -300,7 +313,7 @@ const styles = StyleSheet.create({
   },
   sectionName: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -309,7 +322,7 @@ const styles = StyleSheet.create({
   },
   prChip: {
     backgroundColor: brand.gold,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     width: 18,
     height: 18,
     alignItems: 'center',
@@ -322,7 +335,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   bestTime: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -330,7 +343,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   traversals: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   traversalsDark: {
@@ -346,14 +359,14 @@ const styles = StyleSheet.create({
   },
   shimmerRow: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     padding: spacing.xs,
   },
   shimmerRowDark: {
     backgroundColor: opacity.overlayDark.light,
   },
   noEfforts: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     paddingVertical: spacing.xs,
   },
@@ -368,7 +381,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   legendText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   legendTextDark: {

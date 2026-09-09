@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Linking, Platform, View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -30,20 +30,19 @@ export function SupportCard() {
   const recordAction = useSupportStore((s) => s.recordAction);
   const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
 
-  const shouldShow = useSupportStore((s) => s.shouldShow);
-  const lastActionDate = useSupportStore((s) => s.lastActionDate);
-  const permanentlyDismissed = useSupportStore((s) => s.permanentlyDismissed);
-  const dismissCount = useSupportStore((s) => s.dismissCount);
-  const isLoaded = useSupportStore((s) => s.isLoaded);
+  // Asked through the selector rather than pulled apart into the four fields
+  // it reads: the store re-runs it on every change, which is what the four
+  // subscriptions were for.
+  const shouldShow = useSupportStore((s) => s.isLoaded && s.shouldShow());
   const [visible, setVisible] = useState(false);
   const [tipsExpanded, setTipsExpanded] = useState(false);
   const tipHeight = useSharedValue(0);
 
-  useEffect(() => {
-    if (isLoaded && shouldShow()) {
-      setVisible(true);
-    }
-  }, [lastActionDate, permanentlyDismissed, dismissCount, isLoaded, shouldShow]);
+  // The card appears as soon as the store says it should, decided while
+  // rendering so the home feed does not commit once without it and reflow.
+  if (!visible && shouldShow) {
+    setVisible(true);
+  }
 
   const tipAnimStyle = useAnimatedStyle(() => ({
     height: tipHeight.value,

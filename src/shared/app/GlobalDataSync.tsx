@@ -7,27 +7,18 @@
 import { useEffect, useMemo, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { useActivities, useActivityBoundsCache } from '@/features/activity/hooks';
-import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
+import { useActivities } from '@/features/activity/hooks';
 import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { useSectionHealthCheck } from '@/features/routes/hooks/useSectionHealthCheck';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { onSyncComplete } from '@/features/settings/lib/autobackup';
-import { intervalsApi } from '@/api';
-import {
-  getRouteEngine,
-  applyDetectionPresetForMethod,
-  getStrictnessFromValue,
-} from '@/shared/native/routeEngine';
-import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
+import { parsePaceCurveBody } from '@/features/stats/lib/curveBodies';
+import { getEngine } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { useEngineSync } from '@/shared/native/useEngineSync';
+import { useSyncAuthExpiry } from '@/shared/native/useSyncAuthExpiry';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import {
-  formatGpsSyncProgress,
-  formatBoundsSyncProgress,
-  formatTerrainSnapshotProgress,
-} from '@/features/routes/lib/syncProgressFormat';
+import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
 import {
   updateSyncNotification,
   dismissSyncNotification,
@@ -37,7 +28,6 @@ export function GlobalDataSync() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const { settings: routeSettings } = useRouteSettings();
 
   // Get sync date range from global store (can be extended by timeline sliders)
   const syncOldest = useSyncDateRange((s) => s.oldest);
@@ -46,66 +36,19 @@ export function GlobalDataSync() {
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
   const delayedUnlockExpansion = useSyncDateRange((s) => s.delayedUnlockExpansion);
 
-  // Startup alignment: invalidate activities on mount to force a fresh API fetch.
-  useEffect(() => {
-    if (isAuthenticated) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-      if (isInfiniteActivitiesStale(queryClient)) {
-        queryClient.resetQueries({
-          queryKey: queryKeys.activities.infinite.all,
-        });
-      } else {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.activities.infinite.all,
-        });
-      }
-      queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all });
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Log the user out when the Rust transport reports an expired OAuth session.
+  useSyncAuthExpiry();
 
-  // Single fetch with stats included - provides both GPS sync data and
-  // TSS/FTP metrics for the engine. Previously two separate fetches were made
-  // (one without stats, one with), doubling the API calls on every launch.
+  // Fill the engine-backed tables and wake their readers when the sync lands.
+  useEngineSync();
+
+  // The window every other reader shares. Rust's engine event is what wakes
+  // it, so nothing is invalidated here at mount.
   const { data: activities, isFetching } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
-    includeStats: true,
     enabled: isAuthenticated,
   });
-
-  // Update engine with enhanced metrics (TSS, FTP) when stats-enriched data arrives.
-  // The GPS sync stores basic metrics; this backfills the engine so period
-  // comparisons use TSS and FTP trend works.
-  const statsSeededRef = useRef(false);
-  useEffect(() => {
-    if (!activities?.length || statsSeededRef.current) return;
-    const engine = getRouteEngine();
-    if (!engine) return;
-
-    const enhanced = activities
-      .filter((a) => a.icu_training_load != null || a.icu_ftp != null)
-      .map(toActivityMetrics);
-
-    if (enhanced.length > 0) {
-      engine.setActivityMetrics(enhanced);
-      engine.triggerRefresh('activities');
-      statsSeededRef.current = true;
-    }
-  }, [activities]);
-
-  // Apply persisted detection strictness to the Rust engine on first mount.
-  const strictnessAppliedRef = useRef(false);
-  useEffect(() => {
-    if (strictnessAppliedRef.current) return;
-    const engine = getRouteEngine();
-    if (!engine) return;
-    const { detectionStrictness, detectionMethod } = routeSettings;
-    if (detectionStrictness !== 60) {
-      applyDetectionPresetForMethod(detectionMethod, getStrictnessFromValue(detectionStrictness));
-    }
-    strictnessAppliedRef.current = true;
-  }, [routeSettings]);
 
   // Update fetching state in store
   useEffect(() => {
@@ -132,6 +75,8 @@ export function GlobalDataSync() {
       queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.strength.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.athlete });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.sportSettings });
       queryClient.invalidateQueries({
         queryKey: queryKeys.charts.powerCurve.all,
       });
@@ -144,16 +89,22 @@ export function GlobalDataSync() {
       // pace_history is normally only populated when viewing the pace curve screen.
       // Seeding here ensures a baseline exists after first sync so pace milestones
       // can appear once critical speed changes.
-      (async () => {
-        try {
-          const engine = getRouteEngine();
-          if (!engine) return;
+      try {
+        const engine = getEngine();
+        if (engine) {
           const sportTypes = engine.getAvailableSportTypes?.() ?? [];
           const todayTs = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
 
           for (const sport of ['Run', 'Swim'] as const) {
             if (!sportTypes.includes(sport)) continue;
-            const curve = await intervalsApi.getPaceCurve({ sport, days: 42 });
+            const stored = engine.getPaceCurveBody(sport, 42, false);
+            if (!stored) {
+              // Not fetched yet. Ask for it; the next sync-complete pass seeds
+              // the snapshot, and the pace curve screen would anyway.
+              engine.syncPaceCurve(sport, 42, false);
+              continue;
+            }
+            const curve = parsePaceCurveBody(stored, sport);
             if (curve?.criticalSpeed && curve.criticalSpeed > 0) {
               engine.savePaceSnapshot(
                 sport,
@@ -164,10 +115,10 @@ export function GlobalDataSync() {
               );
             }
           }
-        } catch {
-          // best-effort - pace milestone will still work when user visits pace curve
         }
-      })();
+      } catch {
+        // best-effort - pace milestone will still work when user visits pace curve
+      }
     }
   }, [progress.status, queryClient]);
 
@@ -178,32 +129,13 @@ export function GlobalDataSync() {
     }
   }, [progress.status, isExpansionLocked, delayedUnlockExpansion]);
 
-  // Bounds sync progress
-  const { progress: boundsProgress } = useActivityBoundsCache();
-
-  // Terrain snapshot rendering progress
-  const terrainSnapshotProgress = useSyncDateRange((s) => s.terrainSnapshotProgress);
-
   // GPS sync display info
   const gpsDisplayInfo = useMemo(
     () => formatGpsSyncProgress(progress, isFetching && !isSyncing, t),
     [progress, isFetching, isSyncing, t]
   );
 
-  // Bounds sync display info
-  const boundsDisplayInfo = useMemo(
-    () => formatBoundsSyncProgress(boundsProgress, t),
-    [boundsProgress, t]
-  );
-
-  // Terrain snapshot display info
-  const terrainDisplayInfo = useMemo(
-    () => formatTerrainSnapshotProgress(terrainSnapshotProgress, t),
-    [terrainSnapshotProgress, t]
-  );
-
-  // Pick which info to show - GPS sync > bounds sync > terrain
-  const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo;
+  const displayInfo = gpsDisplayInfo;
 
   // Debounce sync notification: indeterminate states (like "Loading activities..."
   // during a background refetch) only post after 1.5s - if the fetch completes
