@@ -95,7 +95,10 @@ module.exports = {
     'expo/virtual/streams': '<rootDir>/config/jest.emptyModule.js',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|react-native-paper|@shopify/react-native-skia|d3-shape|d3-path)',
+    // `uuid` resolves its `.` export through the `node` condition to an ESM
+    // build, and `xcode` requires it, so a test that touches the iOS config
+    // plugins fails to parse rather than to assert.
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|react-native-paper|@shopify/react-native-skia|d3-shape|d3-path|uuid)',
   ],
   transform: {
     '\\.[jt]sx?$': babelTransform,
