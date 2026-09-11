@@ -240,6 +240,9 @@ struct Totals {
     never_offered: usize,
     same_direction_visits: usize,
     same_direction_matched: usize,
+    reverse_visits: usize,
+    reverse_matched: usize,
+    reverse_exits: usize,
 }
 
 #[test]
@@ -308,7 +311,18 @@ fn live_matching_against_the_batch_catalogue() {
         "the batch detector cut nothing to replay against"
     );
 
-    let config = LiveMatchConfig::default();
+    // Arming at either end, offered from either end, is what recovers the
+    // visits the batch matched the other way round. Off by default so the
+    // baseline is the start-keyed matcher as shipped.
+    let both_directions = std::env::var("VELOQ_REPLAY_BOTH_DIRECTIONS").as_deref() == Ok("1");
+    let config = LiveMatchConfig {
+        arm_both_directions: both_directions,
+        ..LiveMatchConfig::default()
+    };
+    println!(
+        "arm both directions {}",
+        if both_directions { "on" } else { "off" }
+    );
     // The corpus infers a sport from the file name, so the filter can drop a
     // section the batch detector cut from the same ride under a better label.
     // Off, the miss count separates a catalogue gap from a naming one.
@@ -339,12 +353,25 @@ fn live_matching_against_the_batch_catalogue() {
                 .unwrap_or(true);
             if due {
                 let started = Instant::now();
-                let near = engine.sections_near_point(
-                    fix.point.latitude,
-                    fix.point.longitude,
-                    sport_filter.then_some(activity.sport.as_str()),
-                    QUERY_RADIUS_METRES,
-                );
+                let near: Vec<veloqrs::FfiSectionNearPoint> = if both_directions {
+                    engine
+                        .sections_near_either_end(
+                            fix.point.latitude,
+                            fix.point.longitude,
+                            sport_filter.then_some(activity.sport.as_str()),
+                            QUERY_RADIUS_METRES,
+                        )
+                        .into_iter()
+                        .map(|near| near.section)
+                        .collect()
+                } else {
+                    engine.sections_near_point(
+                        fix.point.latitude,
+                        fix.point.longitude,
+                        sport_filter.then_some(activity.sport.as_str()),
+                        QUERY_RADIUS_METRES,
+                    )
+                };
                 totals.query_nanos += started.elapsed().as_nanos();
                 totals.query_calls += 1;
                 for section in &near {
@@ -371,8 +398,15 @@ fn live_matching_against_the_batch_catalogue() {
                         totals.entries += 1;
                         entered.insert(section_id);
                     }
-                    LiveSectionEvent::Exited { section_id, .. } => {
+                    LiveSectionEvent::Exited {
+                        section_id,
+                        reverse,
+                        ..
+                    } => {
                         totals.exits += 1;
+                        if reverse {
+                            totals.reverse_exits += 1;
+                        }
                         exited.insert(section_id);
                     }
                     LiveSectionEvent::Abandoned { section_id, .. } => {
@@ -387,11 +421,15 @@ fn live_matching_against_the_batch_catalogue() {
             let same = direction == "same";
             if same {
                 totals.same_direction_visits += 1;
+            } else {
+                totals.reverse_visits += 1;
             }
             if exited.contains(section_id) {
                 totals.matched += 1;
                 if same {
                     totals.same_direction_matched += 1;
+                } else {
+                    totals.reverse_matched += 1;
                 }
                 continue;
             }
@@ -446,6 +484,13 @@ fn live_matching_against_the_batch_catalogue() {
         totals.same_direction_visits,
         totals.same_direction_matched,
         rate(totals.same_direction_matched, totals.same_direction_visits)
+    );
+    println!(
+        "reverse visits        {}, matched {} ({:.1}%), reverse exits {}",
+        totals.reverse_visits,
+        totals.reverse_matched,
+        rate(totals.reverse_matched, totals.reverse_visits),
+        totals.reverse_exits
     );
     println!(
         "  entered, not closed {} ({:.1}% of misses)",

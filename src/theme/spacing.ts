@@ -18,6 +18,11 @@ export const spacing = {
   xs: 4,
   xsPlus: 6,
   sm: 8,
+  // The half-step between 8 and 16. The ladder doubled there and the app drew
+  // into the gap anyway, a 10 at 30 sites and a 12 at 29, so an off-ladder
+  // padding had nowhere to fold to. 12 matches layout.borderRadiusMd, so the
+  // two scales agree on the rung.
+  smPlus: 12,
   md: 16,
   lg: 24,
   xl: 32,

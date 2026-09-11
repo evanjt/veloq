@@ -11,7 +11,18 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { TREND_DEADBAND, trendArrow, trendDirection, trendOfMetric } from '@/shared/format/trend';
+import {
+  TREND_DEADBAND,
+  TREND_POLARITY,
+  trendArrow,
+  trendDirection,
+  trendGlyph,
+  trendIcon,
+  trendOfMetric,
+  trendVerdict,
+  verdictRung,
+  type TrendMetric,
+} from '@/shared/format/trend';
 
 describe('trendDirection', () => {
   it('reads a rise above the deadband as up', () => {
@@ -54,7 +65,82 @@ describe('trendArrow', () => {
   it('draws the arrow the card and the wellness stats share', () => {
     expect(trendArrow('up')).toBe('↑');
     expect(trendArrow('down')).toBe('↓');
-    expect(trendArrow('flat')).toBe('');
+  });
+
+  it('draws flat rather than nothing', () => {
+    expect(trendArrow('flat')).toBe('→');
+    expect(trendArrow('flat')).not.toBe('');
+  });
+});
+
+/**
+ * Scenario: a rising resting heart rate drew an up arrow, and a held FTP drew a
+ * red down icon, because every surface read the number's direction and judged
+ * it locally.
+ *
+ * Expected behaviour: one polarity table beside the deadbands, one verdict a
+ * surface reads instead of a direction, and a flat state that is always drawn.
+ */
+describe('trend polarity', () => {
+  it('has an entry for every metric with a deadband', () => {
+    for (const metric of Object.keys(TREND_DEADBAND) as TrendMetric[]) {
+      expect(['higher', 'lower', 'none']).toContain(TREND_POLARITY[metric]);
+    }
+    expect(Object.keys(TREND_POLARITY).sort()).toEqual(Object.keys(TREND_DEADBAND).sort());
+  });
+
+  it('reads a falling resting heart rate as improved and a rising one as declined', () => {
+    expect(trendVerdict('rhr', 'down')).toBe('improved');
+    expect(trendVerdict('rhr', 'up')).toBe('declined');
+  });
+
+  it('reads a rising FTP as improved and a slower pace as declined', () => {
+    expect(trendVerdict('ftp', 'up')).toBe('improved');
+    expect(trendVerdict('thresholdPace', 'up')).toBe('declined');
+    expect(trendVerdict('css', 'down')).toBe('improved');
+  });
+
+  it('gives weight, fatigue and form a direction and no judgement', () => {
+    // intervals.icu draws these as plain lines, so they move on the
+    // neutral rung with the bare direction glyph.
+    expect(trendVerdict('weight', 'down')).toBe('moved');
+    expect(trendVerdict('fatigue', 'up')).toBe('moved');
+    expect(trendVerdict('form', 'up')).toBe('moved');
+  });
+
+  it('is flat whichever way the metric points', () => {
+    expect(trendVerdict('rhr', 'flat')).toBe('flat');
+    expect(trendVerdict('weight', 'flat')).toBe('flat');
+  });
+});
+
+describe('trendGlyph and trendIcon', () => {
+  it('points up for an improvement even when the number fell', () => {
+    expect(trendGlyph('rhr', 'down')).toBe('↑');
+    expect(trendIcon('rhr', 'down')).toBe('trending-up');
+    expect(trendGlyph('rhr', 'up')).toBe('↓');
+    expect(trendIcon('rhr', 'up')).toBe('trending-down');
+  });
+
+  it('keeps the bare direction for a metric with no polarity', () => {
+    expect(trendGlyph('weight', 'down')).toBe('↓');
+    expect(trendIcon('weight', 'down')).toBe('trending-down');
+    expect(trendGlyph('fatigue', 'up')).toBe('↑');
+  });
+
+  it('always draws flat', () => {
+    expect(trendGlyph('ftp', 'flat')).toBe('→');
+    expect(trendIcon('ftp', 'flat')).toBe('minus');
+    expect(trendGlyph('weight', 'flat')).toBe('→');
+  });
+});
+
+describe('verdictRung', () => {
+  it('reaches the ladder without a mapping of its own', () => {
+    expect(verdictRung('improved')).toBe('positive');
+    expect(verdictRung('declined')).toBe('negative');
+    expect(verdictRung('flat')).toBe('neutral');
+    expect(verdictRung('moved')).toBe('neutral');
   });
 });
 

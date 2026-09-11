@@ -31,6 +31,9 @@ pub struct LiveMatchConfig {
     pub stalled_fixes: u32,
     /// Fraction of the line that must be covered for an exit to count.
     pub min_progress_ratio: f64,
+    /// Whether a fix arriving at the far end, heading back along the line,
+    /// arms the section ridden in reverse. Off, only the opening bearing arms.
+    pub arm_both_directions: bool,
 }
 
 impl Default for LiveMatchConfig {
@@ -43,6 +46,7 @@ impl Default for LiveMatchConfig {
             off_corridor_fixes: 5,
             stalled_fixes: 20,
             min_progress_ratio: 0.9,
+            arm_both_directions: false,
         }
     }
 }
@@ -69,11 +73,14 @@ pub enum LiveSectionEvent {
     Entered {
         section_id: String,
         seconds: f64,
+        /// The line was entered at its far end and is being ridden backwards.
+        reverse: bool,
     },
     Exited {
         section_id: String,
         seconds: f64,
         elapsed_seconds: f64,
+        reverse: bool,
     },
     Abandoned {
         section_id: String,
@@ -82,13 +89,38 @@ pub enum LiveSectionEvent {
     },
 }
 
-/// A section line the matcher watches for, with its along-line distances.
+/// One direction of a section line, with its along-line distances.
 #[derive(Debug, Clone)]
-pub struct LiveCandidate {
-    pub section_id: String,
+struct Line {
     points: Vec<GpsPoint>,
     cumulative: Vec<f64>,
     opening_bearing: Option<f64>,
+}
+
+impl Line {
+    fn new(points: Vec<GpsPoint>) -> Self {
+        let mut cumulative = Vec::with_capacity(points.len());
+        cumulative.push(0.0);
+        for pair in points.windows(2) {
+            let last = cumulative[cumulative.len() - 1];
+            cumulative.push(last + haversine_distance(&pair[0], &pair[1]));
+        }
+        let opening_bearing = opening_bearing(&points, &cumulative);
+        Self {
+            points,
+            cumulative,
+            opening_bearing,
+        }
+    }
+}
+
+/// A section line the matcher watches for, held both ways round so a ride
+/// arriving at the far end can be followed back along it.
+#[derive(Debug, Clone)]
+pub struct LiveCandidate {
+    pub section_id: String,
+    forward: Line,
+    reverse: Line,
 }
 
 impl LiveCandidate {
@@ -97,35 +129,42 @@ impl LiveCandidate {
         if points.len() < 2 {
             return None;
         }
-        let mut cumulative = Vec::with_capacity(points.len());
-        cumulative.push(0.0);
-        for pair in points.windows(2) {
-            let last = cumulative[cumulative.len() - 1];
-            cumulative.push(last + haversine_distance(&pair[0], &pair[1]));
-        }
-        let opening_bearing = opening_bearing(&points, &cumulative);
+        let mut reversed = points.clone();
+        reversed.reverse();
         Some(Self {
             section_id: section_id.into(),
-            points,
-            cumulative,
-            opening_bearing,
+            forward: Line::new(points),
+            reverse: Line::new(reversed),
         })
     }
 
+    fn line(&self, reverse: bool) -> &Line {
+        if reverse {
+            &self.reverse
+        } else {
+            &self.forward
+        }
+    }
+
     pub fn distance_meters(&self) -> f64 {
-        *self.cumulative.last().unwrap_or(&0.0)
+        *self.forward.cumulative.last().unwrap_or(&0.0)
     }
 
     pub fn start(&self) -> GpsPoint {
-        self.points[0]
+        self.forward.points[0]
     }
 
     pub fn points(&self) -> &[GpsPoint] {
-        &self.points
+        &self.forward.points
     }
 
     pub fn opening_bearing(&self) -> Option<f64> {
-        self.opening_bearing
+        self.forward.opening_bearing
+    }
+
+    /// The bearing a ride has when it enters at the far end, heading back.
+    pub fn closing_bearing(&self) -> Option<f64> {
+        self.reverse.opening_bearing
     }
 }
 
@@ -189,6 +228,7 @@ struct Armed {
     reached: usize,
     off_corridor: u32,
     stalled: u32,
+    reverse: bool,
 }
 
 /// The state machine, one instance per recording.
@@ -292,27 +332,41 @@ impl LiveSectionMatcher {
 
     fn arm(&mut self, index: usize, fix: Fix) -> Option<LiveSectionEvent> {
         let candidate = &self.candidates[index];
-        if haversine_distance(&fix.point, &candidate.start()) > self.config.entry_radius_meters {
+        let reverse = if self.arms(&candidate.forward, fix) {
+            false
+        } else if self.config.arm_both_directions && self.arms(&candidate.reverse, fix) {
+            true
+        } else {
             return None;
-        }
-        // A heading is only known once two fixes apart have arrived, and a
-        // section with no opening bearing is a degenerate line. Either way the
-        // gate cannot be applied, so it is not.
-        if let (Some(heading), Some(opening)) = (self.heading, candidate.opening_bearing)
-            && bearing_delta(heading, opening) > self.config.bearing_tolerance_degrees
-        {
-            return None;
-        }
+        };
         self.armed[index] = Some(Armed {
             entered_seconds: fix.seconds,
             reached: 0,
             off_corridor: 0,
             stalled: 0,
+            reverse,
         });
         Some(LiveSectionEvent::Entered {
             section_id: candidate.section_id.clone(),
             seconds: fix.seconds,
+            reverse,
         })
+    }
+
+    /// Whether `fix` is at this line's start and heading along it.
+    fn arms(&self, line: &Line, fix: Fix) -> bool {
+        if haversine_distance(&fix.point, &line.points[0]) > self.config.entry_radius_meters {
+            return false;
+        }
+        // A heading is only known once two fixes apart have arrived, and a
+        // line with no opening bearing is degenerate. Either way the gate
+        // cannot be applied, so it is not.
+        match (self.heading, line.opening_bearing) {
+            (Some(heading), Some(opening)) => {
+                bearing_delta(heading, opening) <= self.config.bearing_tolerance_degrees
+            }
+            _ => true,
+        }
     }
 
     fn advance(
@@ -323,7 +377,8 @@ impl LiveSectionMatcher {
         moving: bool,
     ) -> Option<LiveSectionEvent> {
         let candidate = &self.candidates[index];
-        let (best, distance) = nearest_on_window(candidate, &fix.point, armed.reached);
+        let line = candidate.line(armed.reverse);
+        let (best, distance) = nearest_on_window(line, &fix.point, armed.reached);
 
         if distance > self.config.corridor_meters {
             armed.off_corridor += 1;
@@ -356,8 +411,8 @@ impl LiveSectionMatcher {
         }
 
         let total = candidate.distance_meters();
-        let covered = candidate.cumulative[armed.reached];
-        let last = candidate.points[candidate.points.len() - 1];
+        let covered = line.cumulative[armed.reached];
+        let last = line.points[line.points.len() - 1];
         let closed = total > 0.0
             && covered / total >= self.config.min_progress_ratio
             && haversine_distance(&fix.point, &last) <= self.config.exit_radius_meters;
@@ -367,6 +422,7 @@ impl LiveSectionMatcher {
                 section_id: candidate.section_id.clone(),
                 seconds: fix.seconds,
                 elapsed_seconds: fix.seconds - armed.entered_seconds,
+                reverse: armed.reverse,
             });
         }
 
@@ -378,27 +434,27 @@ impl LiveSectionMatcher {
 /// Nearest vertex to `point` within a window either side of `reached`, with
 /// the perpendicular distance to the line there. Bounding the search is what
 /// keeps the per-fix cost independent of how long the section is.
-fn nearest_on_window(candidate: &LiveCandidate, point: &GpsPoint, reached: usize) -> (usize, f64) {
-    let anchor = candidate.cumulative[reached];
-    let first = candidate
+fn nearest_on_window(line: &Line, point: &GpsPoint, reached: usize) -> (usize, f64) {
+    let anchor = line.cumulative[reached];
+    let first = line
         .cumulative
         .iter()
         .position(|d| *d >= anchor - BACKWARD_WINDOW_METRES)
         .unwrap_or(0);
-    let last = candidate
+    let last = line
         .cumulative
         .iter()
         .rposition(|d| *d <= anchor + FORWARD_WINDOW_METRES)
-        .unwrap_or(candidate.points.len() - 1)
+        .unwrap_or(line.points.len() - 1)
         .max(first);
 
     let mut best = reached;
     let mut best_distance = f64::MAX;
     for i in first..=last {
-        let distance = if i + 1 < candidate.points.len() {
-            distance_to_segment(point, &candidate.points[i], &candidate.points[i + 1])
+        let distance = if i + 1 < line.points.len() {
+            distance_to_segment(point, &line.points[i], &line.points[i + 1])
         } else {
-            haversine_distance(point, &candidate.points[i])
+            haversine_distance(point, &line.points[i])
         };
         if distance < best_distance {
             best_distance = distance;
@@ -453,6 +509,7 @@ mod tests {
             Some(&LiveSectionEvent::Entered {
                 section_id: "s1".to_string(),
                 seconds: 0.0,
+                reverse: false,
             })
         );
         let exit = events.last().expect("an exit");
@@ -475,6 +532,75 @@ mod tests {
 
         // The reversed ride passes the start point, arriving from the far end.
         assert!(events.is_empty(), "unexpected events: {events:?}");
+    }
+
+    #[test]
+    fn test_matcher_follows_a_line_ridden_backwards_when_both_directions_arm() {
+        let points = line(-33.8, 151.2, 21, 10.0);
+        let mut reversed = points.clone();
+        reversed.reverse();
+        let candidate = LiveCandidate::new("s1", points).expect("line");
+        let config = LiveMatchConfig {
+            arm_both_directions: true,
+            ..LiveMatchConfig::default()
+        };
+        let mut backwards = LiveSectionMatcher::new(vec![candidate], config);
+        let events = replay(&mut backwards, &reversed);
+
+        // Riding the line backwards is the same ride as riding its reversed
+        // copy forwards, so the two exits must fall on the same fix.
+        let mut mirrored = matcher(reversed.clone());
+        let forward_exit = replay(&mut mirrored, &reversed)
+            .into_iter()
+            .find_map(|event| match event {
+                LiveSectionEvent::Exited {
+                    elapsed_seconds, ..
+                } => Some(elapsed_seconds),
+                _ => None,
+            })
+            .expect("the mirrored ride exits");
+
+        assert_eq!(
+            events.first(),
+            Some(&LiveSectionEvent::Entered {
+                section_id: "s1".to_string(),
+                seconds: 0.0,
+                reverse: true,
+            })
+        );
+        match events.last().expect("an exit") {
+            LiveSectionEvent::Exited {
+                elapsed_seconds,
+                reverse,
+                ..
+            } => {
+                assert_eq!(*elapsed_seconds, forward_exit);
+                assert!(*reverse);
+            }
+            other => panic!("expected an exit, got {other:?}"),
+        }
+        assert!(backwards.armed_ids().is_empty());
+    }
+
+    #[test]
+    fn test_a_forward_ride_still_arms_forward_when_both_directions_arm() {
+        let points = line(-33.8, 151.2, 21, 10.0);
+        let candidate = LiveCandidate::new("s1", points.clone()).expect("line");
+        let config = LiveMatchConfig {
+            arm_both_directions: true,
+            ..LiveMatchConfig::default()
+        };
+        let mut matcher = LiveSectionMatcher::new(vec![candidate], config);
+        let events = replay(&mut matcher, &points);
+
+        assert!(matches!(
+            events.first(),
+            Some(LiveSectionEvent::Entered { reverse: false, .. })
+        ));
+        assert!(matches!(
+            events.last(),
+            Some(LiveSectionEvent::Exited { reverse: false, .. })
+        ));
     }
 
     #[test]

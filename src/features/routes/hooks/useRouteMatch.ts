@@ -65,15 +65,13 @@ export function useRouteMatch(
     const idx = routeGroup.activityIds.indexOf(activityId);
     const rank = idx >= 0 ? idx + 1 : null;
 
-    // Generate a readable name if no custom name is set. Numbering is over the
-    // whole catalogue, matching what the engine mints: names carry no sport.
-    const groupIndex = groups.findIndex((g) => g.groupId === routeGroup.groupId) + 1;
-    const defaultName = `Route ${groupIndex}`;
-
-    // Convert to RouteGroup type
+    // Convert to RouteGroup type. A group with no name yet stays unnamed: the
+    // number is minted once by the engine, into `route_names`, on an ordering
+    // this list does not share, so a number invented here is a different one
+    // that the athlete then watches change. Rows render their own default.
     const typedGroup: RouteGroup = {
       id: routeGroup.groupId,
-      name: routeGroup.customName || defaultName,
+      name: routeGroup.customName ?? '',
       type: toActivityType(routeGroup.sportType),
       activityIds: routeGroup.activityIds,
       activityCount: routeGroup.activityIds.length,

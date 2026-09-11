@@ -111,28 +111,21 @@ export function useRoutePerformances(
     return null;
   }, [groups, routeGroupId, activityId]);
 
-  // Convert to RouteGroup type
-  // Get the index of this group in the full list (matching useRouteGroups naming convention)
-  const groupIndex = useMemo(() => {
-    if (!engineGroup) return 0;
-    // Use global index (not sport-filtered) to match useRouteGroups naming
-    return groups.findIndex((g) => g.groupId === engineGroup.groupId) + 1;
-  }, [groups, engineGroup]);
-
   const routeGroup = useMemo((): RouteGroup | null => {
     if (!engineGroup) return null;
-    // Use customName if set, otherwise generate name matching useRouteGroups convention
-    const defaultName = `Route ${groupIndex}`;
+    // Unnamed stays unnamed: the number belongs to whoever writes it durably,
+    // which is the engine, and it numbers on an ordering this list does not
+    // share.
     return {
       id: engineGroup.groupId,
-      name: engineGroup.customName || defaultName,
+      name: engineGroup.customName ?? '',
       type: toActivityType(engineGroup.sportType),
       activityIds: engineGroup.activityIds,
       activityCount: engineGroup.activityIds.length,
       firstDate: '',
       lastDate: '',
     };
-  }, [engineGroup, groupIndex]);
+  }, [engineGroup]);
 
   // The engine already picks the best run per direction, over its own population and its
   // own direction rules. Mapping its record keeps this card consistent with the rank and

@@ -37,7 +37,6 @@ interface MapPreferencesContextValue {
   setDefaultStyle: (style: MapStyleType) => Promise<void>;
   setGlobalMapStyle: (style: MapStyleType) => Promise<void>;
   getGlobalMapStyle: () => MapStyleType;
-  setActivityTypeStyle: (activityType: ActivityType, style: MapStyleType | null) => Promise<void>;
   setActivityGroupStyle: (
     activityTypes: ActivityType[],
     style: MapStyleType | null
@@ -243,28 +242,6 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     return preferences.globalMapStyle ?? preferences.defaultStyle;
   }, [preferences.globalMapStyle, preferences.defaultStyle]);
 
-  // Set activity type style - persist inside callback to fix React 18 batching issue
-  const setActivityTypeStyle = useCallback(
-    async (activityType: ActivityType, style: MapStyleType | null) => {
-      setPreferences((prev) => {
-        const newStyles = { ...prev.activityTypeStyles };
-        if (style === null) {
-          delete newStyles[activityType];
-        } else {
-          newStyles[activityType] = style;
-        }
-        const newPrefs = { ...prev, activityTypeStyles: newStyles };
-        savePreferences(newPrefs).catch((error) => {
-          if (__DEV__) {
-            console.warn('[MapPreferences] Failed to persist:', error);
-          }
-        });
-        return newPrefs;
-      });
-    },
-    [savePreferences]
-  );
-
   // Set style for a group of activity types (batch update) - persist inside callback
   const setActivityGroupStyle = useCallback(
     async (activityTypes: ActivityType[], style: MapStyleType | null) => {
@@ -445,7 +422,6 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
       setDefaultStyle,
       setGlobalMapStyle,
       getGlobalMapStyle,
-      setActivityTypeStyle,
       setActivityGroupStyle,
       getStyleForActivity,
       setTerrain3DMode,
@@ -463,7 +439,6 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
       setDefaultStyle,
       setGlobalMapStyle,
       getGlobalMapStyle,
-      setActivityTypeStyle,
       setActivityGroupStyle,
       getStyleForActivity,
       setTerrain3DMode,

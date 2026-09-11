@@ -19,6 +19,7 @@ mod named;
 mod naming;
 pub(crate) mod preview;
 mod proximity;
+pub use proximity::SectionNearEitherEnd;
 mod queries;
 mod ranking;
 pub(crate) mod track_pool;

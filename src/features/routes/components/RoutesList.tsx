@@ -21,18 +21,18 @@ import {
 import { useRouteProcessing } from '@/features/routes/hooks/useRouteProcessing';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
-import { decodeCoords, type GroupWithPolyline } from 'veloqrs';
+import type { GroupWithPolyline } from 'veloqrs';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { UI } from '@/shared/app/constants';
-import { computeCenter, haversineDistance, type LatLng } from '@/shared/geo/distance';
+import { haversineDistance, type LatLng } from '@/shared/geo/distance';
 import { Shimmer } from '@/shared/ui';
 import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
-import { toActivityType } from '@/features/routes/types';
+import { batchGroupToRouteGroup } from '@/features/routes/lib/batchGroupToRouteGroup';
 
 export type RoutesSortOption = 'activities' | 'distance' | 'name' | 'nearby';
 
@@ -134,45 +134,6 @@ const DiscoveredRoutesList = memo(
   }
 );
 
-/**
- * Convert batch GroupWithPolyline to RouteGroup with pre-loaded consensus points.
- * Avoids per-row useConsensusRoute FFI calls.
- */
-function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteGroup {
-  const sportType = group.sportType || 'Ride';
-  // Decode delta+varint encoded polyline to RoutePoint[]
-  // encodedPolyline after Rust rebuild; consensusPolyline on stale bindings
-  const polylineData =
-    (group as Record<string, unknown>).encodedPolyline ??
-    (group as Record<string, unknown>).consensusPolyline;
-  const consensusPoints = (
-    polylineData instanceof ArrayBuffer ? decodeCoords(polylineData) : []
-  ).map((p) => ({
-    lat: p.latitude,
-    lng: p.longitude,
-  }));
-  const center = group.bounds
-    ? computeCenter({
-        minLat: group.bounds.minLat,
-        maxLat: group.bounds.maxLat,
-        minLng: group.bounds.minLng,
-        maxLng: group.bounds.maxLng,
-      })
-    : undefined;
-  return {
-    id: group.groupId,
-    name: group.customName || `Route ${index + 1}`,
-    type: toActivityType(sportType),
-    activityCount: group.activityCount,
-    activityIds: [],
-    signature: null,
-    consensusPoints,
-    distance: group.distanceMeters > 0 ? group.distanceMeters : undefined,
-    sportTypes: group.sportTypes ?? [sportType],
-    center,
-  };
-}
-
 export const RoutesList = memo(function RoutesList({
   onRefresh,
   isRefreshing = false,
@@ -191,7 +152,7 @@ export const RoutesList = memo(function RoutesList({
 
   // Convert batch groups to RouteGroup format for RouteRow
   const allGroups = useMemo(() => {
-    return batchGroups.map((g, i) => batchGroupToRouteGroup(g, i));
+    return batchGroups.map(batchGroupToRouteGroup);
   }, [batchGroups]);
 
   // Filter groups by search query, then sort

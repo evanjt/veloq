@@ -1,9 +1,18 @@
 import type { WellnessData } from '@/types';
 
 import { baselineOnOrBefore } from './wellnessBaseline';
-import { trendArrow, trendOfMetric, type TrendMetric } from '@/shared/format/trend';
+import {
+  trendArrow,
+  trendOfMetric,
+  type TrendGlyph,
+  type TrendMetric,
+} from '@/shared/format/trend';
 
-export type Trend = '↑' | '↓' | '';
+/**
+ * The arrow beside a number, or undefined when there is nothing to compare it
+ * with. Flat is a glyph; unknown draws nothing, and the two are not the same.
+ */
+export type Trend = TrendGlyph | undefined;
 
 export interface WellnessStats {
   fitness: number;
@@ -21,6 +30,7 @@ export interface WellnessStats {
 const trainingLoad = (row: WellnessData) => row.ctl ?? row.ctlLoad;
 
 function trend(current: number | null, previous: number | null, metric: TrendMetric): Trend {
+  if (current == null || previous == null) return undefined;
   return trendArrow(trendOfMetric(metric, current, previous));
 }
 
@@ -56,7 +66,7 @@ export function computeWellnessStats(wellness: WellnessData[] | undefined): Well
     form,
     formTrend:
       prevFitness === null || prevFatigue === null
-        ? ''
+        ? undefined
         : trend(form, prevFitness - prevFatigue, 'form'),
     hrv,
     hrvTrend: trend(hrv, on(1, (row) => row.hrv)?.hrv ?? null, 'hrv'),

@@ -15,7 +15,12 @@ import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { colors } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
-import { trendArrow, trendOfMetric, type TrendMetric } from '@/shared/format/trend';
+import {
+  trendArrow,
+  trendOfMetric,
+  type TrendGlyph,
+  type TrendMetric,
+} from '@/shared/format/trend';
 
 /**
  * Supporting metric for SummaryCard display
@@ -24,7 +29,7 @@ interface SupportingMetric {
   label: string;
   value: string | number;
   color?: string;
-  trend?: '↑' | '↓' | '';
+  trend?: TrendGlyph;
   navigationTarget?: '/fitness' | '/training';
 }
 
@@ -42,7 +47,7 @@ export interface SummaryCardData {
   heroColor: string;
   heroZoneLabel?: string;
   heroZoneColor?: string;
-  heroTrend?: '↑' | '↓' | '';
+  heroTrend?: TrendGlyph;
 
   // Sparkline (fitness/form dual chart or HRV/RHR chart)
   fitnessData?: number[];
@@ -156,20 +161,20 @@ export function useSummaryCardData(
   const engineStats = useMemo(() => {
     const defaults = {
       weekHours: 0,
-      weekHoursTrend: '' as const,
+      weekHoursTrend: undefined as TrendGlyph | undefined,
       weekCount: 0,
-      weekCountTrend: '' as const,
+      weekCountTrend: undefined as TrendGlyph | undefined,
       ftp: null as number | null,
-      ftpTrend: '' as const,
-      thresholdPaceTrend: '' as const,
-      cssTrend: '' as const,
+      ftpTrend: undefined as TrendGlyph | undefined,
+      thresholdPaceTrend: undefined as TrendGlyph | undefined,
+      cssTrend: undefined as TrendGlyph | undefined,
     };
 
     const getTrend = (
       current: number | null,
       prev: number | null,
       metric: TrendMetric
-    ): '↑' | '↓' | '' => trendArrow(trendOfMetric(metric, current, prev));
+    ): TrendGlyph => trendArrow(trendOfMetric(metric, current, prev));
 
     // Use precomputed data from getStartupData if available
     let cardData = precomputedCardData;

@@ -1942,6 +1942,44 @@ pub(crate) fn is_corruption_error(e: &rusqlite::Error) -> bool {
     )
 }
 
+/// Whether the file at this path can be a SQLite database at all.
+///
+/// Every SQLite database opens with the 16 bytes `SQLite format 3\0`. Absent
+/// and zero-length are both new rather than broken: SQLite creates the file on
+/// open and writes the header on the first write, so a fresh install passes
+/// through here. Anything else with bytes in it and the wrong header is not a
+/// database, whatever a log beside it could rebuild.
+///
+/// The check exists because inferring corruption from a failed open stops
+/// working under WAL: SQLite rebuilds the schema out of a healthy log beside a
+/// ruined main file, the open succeeds, the load returns cleanly, and the
+/// athlete's library reads as zero activities with nothing said. Sixteen bytes
+/// cost nothing against a launch budget of 200 ms, and an unreadable file is
+/// treated as new rather than corrupt so a permissions failure still takes the
+/// open path that reports it.
+pub(crate) fn file_can_be_a_database(path: &str) -> bool {
+    use std::io::Read;
+    const HEADER: &[u8; 16] = b"SQLite format 3\0";
+
+    let mut file = match std::fs::File::open(path) {
+        Ok(f) => f,
+        Err(_) => return true,
+    };
+    let mut head = [0u8; 16];
+    let mut read = 0;
+    while read < head.len() {
+        match file.read(&mut head[read..]) {
+            Ok(0) => break,
+            Ok(n) => read += n,
+            Err(_) => return true,
+        }
+    }
+    if read == 0 {
+        return true;
+    }
+    read == head.len() && &head == HEADER
+}
+
 /// SQLite error codes for failures a later launch can plausibly succeed on
 /// (lock contention, a transient open failure). These must not trigger the
 /// quarantine failover, which would discard a healthy cache.
@@ -2036,6 +2074,24 @@ pub mod persistent_engine_ffi {
                     parent
                 );
             }
+        }
+
+        // Read the file before opening it. Under WAL a ruined main file beside
+        // an intact log opens cleanly and loads cleanly, and the library reads
+        // as zero activities, so the open cannot be the only thing that decides
+        // whether the file is a database.
+        if !file_can_be_a_database(&db_path) {
+            log::error!(
+                "veloqrs: [PersistentEngine] '{}' carries no SQLite header; quarantining it",
+                db_path
+            );
+            let engine = match reopen_after_quarantine(&db_path) {
+                Some(engine) => engine,
+                None => return record_init_outcome(FfiInitOutcome::StorageUnavailable),
+            };
+            let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
+            *guard = Some(engine);
+            return record_init_outcome(FfiInitOutcome::Opened);
         }
 
         let mut engine = match PersistentEngine::new(&db_path) {
@@ -2431,6 +2487,45 @@ mod tests {
         (0..50)
             .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278 + i as f64 * 0.0005))
             .collect()
+    }
+
+    /// Every SQLite database opens with `SQLite format 3\0`. Absent and empty
+    /// are both a fresh install, and a file with bytes and the wrong header is
+    /// not a database whatever a log beside it could rebuild from.
+    #[test]
+    fn a_file_with_no_sqlite_header_is_not_a_database() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("routes.db");
+        let as_str = path.to_string_lossy().into_owned();
+
+        assert!(file_can_be_a_database(&as_str), "absent is new, not broken");
+
+        std::fs::write(&path, b"").unwrap();
+        assert!(file_can_be_a_database(&as_str), "empty is new, not broken");
+
+        std::fs::write(&path, b"this is not a database").unwrap();
+        assert!(!file_can_be_a_database(&as_str));
+
+        std::fs::write(&path, b"SQLite").unwrap();
+        assert!(
+            !file_can_be_a_database(&as_str),
+            "a truncated header is not a header"
+        );
+
+        std::fs::write(&path, b"SQLite format 3\0and then some pages").unwrap();
+        assert!(file_can_be_a_database(&as_str));
+    }
+
+    #[test]
+    fn a_real_database_carries_the_header() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("routes.db");
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute_batch("CREATE TABLE t (id INTEGER PRIMARY KEY)")
+            .unwrap();
+        drop(conn);
+
+        assert!(file_can_be_a_database(&path.to_string_lossy()));
     }
 
     #[test]

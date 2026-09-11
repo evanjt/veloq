@@ -1,4 +1,4 @@
-//! Which sections start where the athlete is standing.
+//! Which sections start, or end, where the athlete is standing.
 //!
 //! `get_nearby_sections` is keyed on a section and answers what surrounds it.
 //! This is keyed on a coordinate and answers what a fix could be entering, so
@@ -60,6 +60,33 @@ pub(crate) fn degree_span(lat: f64, radius_meters: f64) -> (f64, f64) {
     (dlat, dlng)
 }
 
+/// A visible section whose bounding box covers the fix, resolved to its line.
+struct Candidate {
+    id: String,
+    name: Option<String>,
+    sport_type: String,
+    distance_meters: f64,
+    visit_count: u32,
+    line: LiveCandidate,
+}
+
+/// A section offered because one of its ends is near the fix.
+#[derive(Debug, Clone)]
+pub struct SectionNearEitherEnd {
+    pub section: crate::FfiSectionNearPoint,
+    /// Distance to whichever end admitted it, so the last point for a line
+    /// about to be ridden backwards.
+    pub nearer_end_distance_meters: f64,
+}
+
+impl std::ops::Deref for SectionNearEitherEnd {
+    type Target = crate::FfiSectionNearPoint;
+
+    fn deref(&self) -> &Self::Target {
+        &self.section
+    }
+}
+
 impl PersistentEngine {
     /// Sections whose line begins within `radius_meters` of the fix, nearest
     /// start first.
@@ -73,14 +100,77 @@ impl PersistentEngine {
         sport: Option<&str>,
         radius_meters: f64,
     ) -> Vec<crate::FfiSectionNearPoint> {
+        let fix = crate::GpsPoint::new(lat, lng);
+        let mut results: Vec<crate::FfiSectionNearPoint> = self
+            .candidates_in_box(lat, lng, sport, radius_meters)
+            .into_iter()
+            .filter_map(|candidate| {
+                let start_distance_meters = haversine_distance(&fix, &candidate.line.start());
+                (start_distance_meters <= radius_meters)
+                    .then(|| candidate.into_near_point(start_distance_meters))
+            })
+            .collect();
+
+        results.sort_by(|a, b| {
+            a.start_distance_meters
+                .partial_cmp(&b.start_distance_meters)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        results.truncate(NEAR_POINT_LIMIT);
+        results
+    }
+
+    /// Sections with either end within `radius_meters` of the fix, nearer end
+    /// first. A fix at a line's last point is about to ride it backwards, and
+    /// the start-keyed query above never offers it that line.
+    pub fn sections_near_either_end(
+        &self,
+        lat: f64,
+        lng: f64,
+        sport: Option<&str>,
+        radius_meters: f64,
+    ) -> Vec<SectionNearEitherEnd> {
+        let fix = crate::GpsPoint::new(lat, lng);
+        let mut results: Vec<SectionNearEitherEnd> = self
+            .candidates_in_box(lat, lng, sport, radius_meters)
+            .into_iter()
+            .filter_map(|candidate| {
+                let points = candidate.line.points();
+                let start_distance_meters = haversine_distance(&fix, &points[0]);
+                let end_distance_meters = haversine_distance(&fix, &points[points.len() - 1]);
+                let nearer_end_distance_meters = start_distance_meters.min(end_distance_meters);
+                (nearer_end_distance_meters <= radius_meters).then(|| SectionNearEitherEnd {
+                    section: candidate.into_near_point(start_distance_meters),
+                    nearer_end_distance_meters,
+                })
+            })
+            .collect();
+
+        results.sort_by(|a, b| {
+            a.nearer_end_distance_meters
+                .partial_cmp(&b.nearer_end_distance_meters)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        results.truncate(NEAR_POINT_LIMIT);
+        results
+    }
+
+    /// Every visible section whose bounding box covers the fix, with its line
+    /// resolved. The box is a prefilter and nothing more: a fix inside a long
+    /// section's box is usually nowhere near either end, so the callers decide
+    /// on the line.
+    fn candidates_in_box(
+        &self,
+        lat: f64,
+        lng: f64,
+        sport: Option<&str>,
+        radius_meters: f64,
+    ) -> Vec<Candidate> {
         if !lat.is_finite() || !lng.is_finite() || !(radius_meters > 0.0) {
             return vec![];
         }
         let (dlat, dlng) = degree_span(lat, radius_meters);
 
-        // The bounding box is a prefilter and nothing more. A fix inside a
-        // long section's box is usually nowhere near where that section
-        // starts, so the answer is decided on the resolved line below.
         let sql = format!(
             "SELECT id, name, sport_type, distance_meters, visit_count,
                     polyline_json, polyline_blob,
@@ -124,8 +214,7 @@ impl PersistentEngine {
             }
         };
 
-        let fix = crate::GpsPoint::new(lat, lng);
-        let mut results: Vec<crate::FfiSectionNearPoint> = Vec::new();
+        let mut candidates = Vec::new();
         for row in rows.flatten() {
             let (
                 id,
@@ -147,32 +236,34 @@ impl PersistentEngine {
             ) else {
                 continue;
             };
-            let Some(candidate) = LiveCandidate::new(id.clone(), points) else {
+            let Some(line) = LiveCandidate::new(id.clone(), points) else {
                 continue;
             };
-            let start_distance_meters = haversine_distance(&fix, &candidate.start());
-            if start_distance_meters > radius_meters {
-                continue;
-            }
-            results.push(crate::FfiSectionNearPoint {
+            candidates.push(Candidate {
                 id,
                 name,
                 sport_type,
                 distance_meters,
                 visit_count,
-                start_distance_meters,
-                entry_bearing_degrees: candidate.opening_bearing(),
-                encoded_polyline: crate::coords::encode(candidate.points()),
+                line,
             });
         }
+        candidates
+    }
+}
 
-        results.sort_by(|a, b| {
-            a.start_distance_meters
-                .partial_cmp(&b.start_distance_meters)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        results.truncate(NEAR_POINT_LIMIT);
-        results
+impl Candidate {
+    fn into_near_point(self, start_distance_meters: f64) -> crate::FfiSectionNearPoint {
+        crate::FfiSectionNearPoint {
+            id: self.id,
+            name: self.name,
+            sport_type: self.sport_type,
+            distance_meters: self.distance_meters,
+            visit_count: self.visit_count,
+            start_distance_meters,
+            entry_bearing_degrees: self.line.opening_bearing(),
+            encoded_polyline: crate::coords::encode(self.line.points()),
+        }
     }
 }
 

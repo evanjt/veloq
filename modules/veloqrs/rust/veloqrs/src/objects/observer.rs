@@ -310,13 +310,29 @@ mod tests {
         use std::sync::atomic::{AtomicU32, Ordering};
 
         /// Every method panics the way uniffi's dispatch does when the vtable
-        /// slot was never installed.
-        struct Exploding;
+        /// slot was never installed, and counts itself on the way out.
+        ///
+        /// The count is what the assertions compare against. `OBSERVER_PANICS`
+        /// is a process global and nothing stops a thread an earlier test left
+        /// running from reaching a `notify` while this observer is installed,
+        /// so a delta measured against a literal is a delta measured against
+        /// how busy the rest of the binary happened to be.
+        #[derive(Default)]
+        struct Exploding {
+            raised: AtomicU32,
+        }
+
+        impl Exploding {
+            fn raised(&self) -> u32 {
+                self.raised.load(Ordering::SeqCst)
+            }
+        }
 
         macro_rules! explode {
             ($($name:ident($($arg:ident: $ty:ty),*);)*) => {
                 $(fn $name(&self $(, _: $ty)*) {
                     $(let _ = stringify!($arg);)*
+                    self.raised.fetch_add(1, Ordering::SeqCst);
                     panic!("Foreign pointer not set.  This is likely a uniffi bug.");
                 })*
             };
@@ -352,7 +368,7 @@ mod tests {
         #[test]
         fn does_not_unwind_the_thread_that_announced() {
             let _guard = serial_global_state();
-            set_observer(Some(Arc::new(Exploding)));
+            set_observer(Some(Arc::new(Exploding::default())));
 
             let reached_the_next_line = AtomicU32::new(0);
             quietly(|| {
@@ -371,8 +387,9 @@ mod tests {
         #[test]
         fn is_counted_so_the_log_is_not_the_only_record() {
             let _guard = serial_global_state();
+            let exploding = Arc::new(Exploding::default());
             let before = observer_panics();
-            set_observer(Some(Arc::new(Exploding)));
+            set_observer(Some(exploding.clone()));
 
             quietly(|| {
                 notify(|o| o.sync_settled());
@@ -380,13 +397,54 @@ mod tests {
             });
 
             set_observer(None);
-            assert_eq!(observer_panics() - before, 2);
+            assert_eq!(exploding.raised(), 2, "the two announcements did not panic");
+            assert_eq!(
+                observer_panics() - before,
+                exploding.raised(),
+                "the counter and the panics it counts disagree"
+            );
+        }
+
+        /// The counter is a process global, so the guarantee is that it moves
+        /// once per foreign panic, not that it moves a fixed number of times
+        /// here. The guard serialises tests, not a worker an earlier one left
+        /// running, and such a worker announcing into the observer installed
+        /// here is a third panic nobody asked for. Against a literal that
+        /// arrives as somebody else's merge failing on a change that is fine,
+        /// which is what this reproduces: the two the test raises, and one from
+        /// a thread standing in for that worker.
+        #[test]
+        fn counts_a_stray_panic_rather_than_a_fixed_number() {
+            let _guard = serial_global_state();
+            let exploding = Arc::new(Exploding::default());
+            let before = observer_panics();
+            set_observer(Some(exploding.clone()));
+
+            quietly(|| {
+                notify(|o| o.sync_settled());
+                notify(|o| o.backfill_phase("fetching".into()));
+                std::thread::spawn(|| notify(|o| o.tiles_generated()))
+                    .join()
+                    .expect("notify caught the panic rather than unwinding the thread");
+            });
+
+            set_observer(None);
+            assert_eq!(
+                exploding.raised(),
+                3,
+                "the stray announcement did not reach the observer"
+            );
+            assert_eq!(
+                observer_panics() - before,
+                exploding.raised(),
+                "the counter and the panics it counts disagree"
+            );
         }
 
         #[test]
         fn leaves_the_registry_usable_for_the_next_observer() {
             let _guard = serial_global_state();
-            set_observer(Some(Arc::new(Exploding)));
+            set_observer(Some(Arc::new(Exploding::default())));
             quietly(|| notify(|o| o.sync_settled()));
 
             let good = Recorder::new();
@@ -405,7 +463,7 @@ mod tests {
             };
 
             let _guard = serial_global_state();
-            set_observer(Some(Arc::new(Exploding)));
+            set_observer(Some(Arc::new(Exploding::default())));
             quietly(|| {
                 set_phase(BACKFILL_PHASE_FETCHING);
                 set_phase(BACKFILL_PHASE_COMPLETE);

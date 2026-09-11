@@ -16,6 +16,7 @@ import { SummaryCardSparkline, type ScrubValues } from './SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
 import { debug } from '@/shared/debug/debug';
+import type { TrendGlyph } from '@/shared/format/trend';
 
 const log = debug.create('SummaryCard');
 
@@ -26,7 +27,7 @@ interface SupportingMetric {
   label: string;
   value: string | number;
   color?: string;
-  trend?: '↑' | '↓' | '';
+  trend?: TrendGlyph;
   navigationTarget?: '/fitness' | '/training';
 }
 
@@ -45,7 +46,7 @@ export interface SummaryCardProps {
   heroColor: string;
   heroZoneLabel?: string; // "Fresh", "Tired", etc.
   heroZoneColor?: string;
-  heroTrend?: '↑' | '↓' | '';
+  heroTrend?: TrendGlyph;
   onHeroPress?: () => void;
 
   // Sparkline data (30 days) - fitness line + fatigue line + form zone bar

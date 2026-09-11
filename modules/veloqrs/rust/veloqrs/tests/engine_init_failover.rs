@@ -133,6 +133,100 @@ fn transient_lock_does_not_quarantine() {
     assert_eq!(activity_count(&db_path), 1);
 }
 
+/// A ruined main file beside an intact log. Under WAL SQLite rebuilds the
+/// schema out of the log, so the open succeeds, `load()` returns cleanly and
+/// the library reads as zero activities: the quarantine never runs and nothing
+/// says anything. The mode is set here rather than relied on from the engine's
+/// default, because the guarantee is about the file and holds whichever journal
+/// the engine is configured for.
+///
+/// It passes on the rollback default too, where the open fails and the old
+/// inference quarantines for its own reasons. That is why it is worth holding:
+/// the header check is what keeps it green once the engine takes WAL, and this
+/// is the test that would otherwise have gone red then.
+#[test]
+fn init_quarantines_a_ruined_main_file_beside_an_intact_log() {
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+
+    assert!(persistent_engine_init(db_str.clone()));
+
+    // The connection stays open so the log stays beside the file: a checkpoint
+    // on close would fold it back in and delete it, which is not the state a
+    // half-written file is found in.
+    let live = rusqlite::Connection::open(&db_path).unwrap();
+    live.pragma_update(None, "journal_mode", "WAL").unwrap();
+    live.execute_batch("CREATE TABLE IF NOT EXISTS wal_probe (id INTEGER PRIMARY KEY)")
+        .unwrap();
+    live.execute_batch("INSERT INTO wal_probe (id) VALUES (1)")
+        .unwrap();
+    assert!(
+        Path::new(&format!("{}-wal", db_str)).exists(),
+        "the fixture needs a log beside the file"
+    );
+
+    fs::write(&db_path, b"not a database").unwrap();
+
+    let recovered = (0..20).any(|attempt| {
+        if attempt > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        persistent_engine_init(db_str.clone())
+    });
+    assert!(recovered, "init must recover from a ruined main file");
+
+    let quarantined = quarantine_files(tmp.path());
+    assert!(
+        quarantined
+            .iter()
+            .any(|n| n.starts_with("routes.db.corrupt-")),
+        "a file that is not a database must be renamed aside, got {:?}",
+        quarantined
+    );
+    // The old log went with the file. Under WAL the fresh database writes a log
+    // of its own straight away, so the question is not whether one exists but
+    // whether the old one was replayed into it: the probe table the fixture
+    // wrote lives only in that log.
+    assert!(
+        quarantined.iter().any(|n| n.ends_with("-wal")),
+        "the old log must be renamed aside with the file, got {:?}",
+        quarantined
+    );
+    let fresh = rusqlite::Connection::open(&db_path).unwrap();
+    let probe: i64 = fresh
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name = 'wal_probe'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        probe, 0,
+        "the quarantined log must not refill the fresh database"
+    );
+    drop(fresh);
+    drop(live);
+}
+
+/// Absent and empty are new, not corrupt: SQLite creates the file on open and
+/// writes the header on the first write, so a fresh install passes through.
+#[test]
+fn an_empty_file_is_a_fresh_install_and_not_a_corrupt_one() {
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+
+    fs::write(&db_path, b"").unwrap();
+    assert!(persistent_engine_init(db_str.clone()));
+    assert!(
+        quarantine_files(tmp.path()).is_empty(),
+        "an empty file is what a fresh install starts from"
+    );
+}
+
 #[test]
 fn init_survives_corrupt_database() {
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());

@@ -17,7 +17,7 @@ describe('the summary card arrows', () => {
     ]);
 
     expect(stats.weight).toBe(71);
-    expect(stats.weightTrend).toBe('');
+    expect(stats.weightTrend).toBeUndefined();
   });
 
   it('compares a weekly weigh-in against the previous one', () => {
@@ -36,8 +36,8 @@ describe('the summary card arrows', () => {
     ]);
 
     expect(stats.fitness).toBe(60);
-    expect(stats.fitnessTrend).toBe('');
-    expect(stats.formTrend).toBe('');
+    expect(stats.fitnessTrend).toBeUndefined();
+    expect(stats.formTrend).toBeUndefined();
   });
 
   it('reads a one-day gap as the day before', () => {
@@ -60,11 +60,11 @@ describe('the summary card arrows', () => {
       day('2026-08-29', { weight: 71.29 }),
     ]);
 
-    expect(inside.fitnessTrend).toBe('');
-    expect(inside.formTrend).toBe('');
-    expect(inside.hrvTrend).toBe('');
-    expect(inside.rhrTrend).toBe('');
-    expect(inside.weightTrend).toBe('');
+    expect(inside.fitnessTrend).toBe('→');
+    expect(inside.formTrend).toBe('→');
+    expect(inside.hrvTrend).toBe('→');
+    expect(inside.rhrTrend).toBe('→');
+    expect(inside.weightTrend).toBe('→');
 
     const outside = computeWellnessStats([
       day('2026-09-05', base),
@@ -86,15 +86,15 @@ describe('the summary card arrows', () => {
 
     expect(stats).toEqual({
       fitness: 60,
-      fitnessTrend: '',
+      fitnessTrend: undefined,
       form: 20,
-      formTrend: '',
+      formTrend: undefined,
       hrv: 70,
-      hrvTrend: '',
+      hrvTrend: undefined,
       rhr: 48,
-      rhrTrend: '',
+      rhrTrend: undefined,
       weight: 71,
-      weightTrend: '',
+      weightTrend: undefined,
     });
   });
 
@@ -111,7 +111,7 @@ describe('the summary card arrows', () => {
     ]);
 
     expect(stats.fitnessTrend).toBe('↑');
-    expect(stats.hrvTrend).toBe('');
+    expect(stats.hrvTrend).toBeUndefined();
     expect(stats.weightTrend).toBe('↓');
   });
 });
