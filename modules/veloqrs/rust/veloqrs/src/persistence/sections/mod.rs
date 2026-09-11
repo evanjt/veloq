@@ -876,15 +876,30 @@ impl PersistentEngine {
         min_visits: Option<u32>,
     ) -> Vec<&FrequentSection> {
         let min = min_visits.unwrap_or(0);
+        // A pin freezes a section's existence, so it is never dropped for want
+        // of support. It has to be read here rather than held in memory: a pin
+        // is dropped by every promotion mutation through `drop_section_pin`,
+        // which takes `&self` at nine call sites, so a cached set would be a
+        // second writer to keep in step. One indexed read of a table with a row
+        // per pin, on a call that already walks the whole catalogue, and only
+        // when a floor is asked for: with no floor there is nothing to exempt.
+        let pinned: HashSet<String> = if min == 0 {
+            HashSet::new()
+        } else {
+            self.pinned_section_ids().into_iter().collect()
+        };
         // Outings, not passes: laps show ground covered, not that the athlete
         // came back. Under a sport filter the floor counts that sport's
         // outings, so a road ridden weekly cannot admit itself to the Run list
-        // on one run.
+        // on one run. The pin exempts the floor and not the sport: a pin says
+        // this ground stays, not that a run travelled a ride's road.
+        let supported =
+            |s: &FrequentSection, outings: u32| outings >= min || pinned.contains(&s.id);
         self.sections
             .iter()
             .filter(|s| match sport_type {
-                Some(st) => self.covers_sport(s, st) && self.outings_in_sport(s, st) >= min,
-                None => Self::outings(s) >= min,
+                Some(st) => self.covers_sport(s, st) && supported(s, self.outings_in_sport(s, st)),
+                None => supported(s, Self::outings(s)),
             })
             .filter(|s| !self.superseded_ids.contains(&s.id))
             .collect()

@@ -16,11 +16,13 @@ export interface StripMark {
   height: number;
   /** Sport shares from the bottom up, largest first. Fractions sum to 1. */
   segments: { type: ActivityType; fraction: number }[];
+  /** The group trained but carries no load, so its height is the floor and its shares mean nothing. */
+  noLoad: boolean;
 }
 
 /** Below this many points per day the strip draws weeks. */
 export const DAY_SPACING_FLOOR = 3;
-/** A day that trained but carries no load still shows, at this height. */
+/** A day that trained but carries no load still shows, at this height, muted. */
 export const MIN_MARK_HEIGHT = 0.15;
 const MAX_MARK_WIDTH = 6;
 const MIN_MARK_WIDTH = 2;
@@ -53,6 +55,25 @@ function loadOf(days: StripDay[]): number {
 
 function hasActivities(days: StripDay[]): boolean {
   return days.some((d) => d.activities.length > 0);
+}
+
+/**
+ * What one mark fills, bottom-up. A group that carries load draws its sport
+ * shares. A group that trained without load has no share to draw and no height
+ * of its own, so it draws once in the muted neutral: at the floor in a sport's
+ * own colour it reads as a light session, and a whole window of them reads as
+ * steady light training, which is what B604 found.
+ */
+export function markFills(
+  mark: StripMark,
+  mutedColor: string,
+  colorOf: (type: ActivityType) => string
+): { color: string; fraction: number }[] {
+  if (mark.noLoad) return [{ color: mutedColor, fraction: 1 }];
+  return mark.segments.map((segment) => ({
+    color: colorOf(segment.type),
+    fraction: segment.fraction,
+  }));
 }
 
 /**
@@ -91,6 +112,7 @@ export function stripMarks(days: StripDay[], chartWidth: number): StripMark[] {
       width,
       height: Math.max(MIN_MARK_HEIGHT, scaled),
       segments: sportShares(group),
+      noLoad: loads[idx] <= 0,
     });
   });
   return marks;

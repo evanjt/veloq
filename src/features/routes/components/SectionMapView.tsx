@@ -53,6 +53,7 @@ import { decodeCoords } from 'veloqrs';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
 import { toActivityType } from '@/features/routes/types';
 import { useSectionMapLayers, type NearbyPolyline } from './useSectionMapLayers';
+import { SectionMapLegend } from './section/SectionMapLegend';
 import {
   buildSectionLayers,
   buildSectionSources,
@@ -584,6 +585,12 @@ export const SectionMapView = memo(function SectionMapView({
                 </TouchableOpacity>
               )}
             </View>
+          )}
+
+          {/* What the map is drawing, named. The dashed nearby lines and their
+              endpoint dots read as this activity's own coverage otherwise. */}
+          {interactive && nearbyPolylines && nearbyPolylines.length > 0 && (
+            <SectionMapLegend isDark={isDark} sectionColor={activityColor} />
           )}
 
           {/* Nearby section preview popup */}

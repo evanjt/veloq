@@ -9,6 +9,39 @@ use std::sync::Arc;
 
 use super::{GroupSummary, PersistentEngine, codec, get_route_word};
 
+/// The sport most of a group's members carry.
+///
+/// The set of sports on the summary answers "which sports have been here", and
+/// that is the answer the screens use. This is the single label the sort that
+/// numbers the routes still needs, so a tie settles alphabetically: two runs
+/// over the same library have to number the routes the same way.
+///
+/// A member with no metadata, or with an empty sport, votes for nothing. A
+/// group where nobody votes falls back to `Ride`, which is what the
+/// representative-shaped version did with a missing activity.
+fn dominant_sport(
+    activity_ids: &[String],
+    metadata: &HashMap<String, super::ActivityMetadata>,
+) -> String {
+    let mut counts: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
+    for id in activity_ids {
+        let Some(meta) = metadata.get(id) else {
+            continue;
+        };
+        if meta.sport_type.is_empty() {
+            continue;
+        }
+        *counts.entry(meta.sport_type.as_str()).or_default() += 1;
+    }
+    counts
+        .into_iter()
+        .max_by(|(a_sport, a_count), (b_sport, b_count)| {
+            a_count.cmp(b_count).then_with(|| b_sport.cmp(a_sport))
+        })
+        .map(|(sport, _)| sport.to_string())
+        .unwrap_or_else(|| "Ride".to_string())
+}
+
 impl PersistentEngine {
     // ========================================================================
     // Loading
@@ -635,18 +668,12 @@ impl PersistentEngine {
             total_matches
         );
 
-        // Populate sport_type for each group from the representative activity
+        // The scalar is the sport most of the group's members carry. It used to
+        // be the representative's, which is a choice of picture rather than a
+        // claim about the sport, so a loop ridden four times and walked once
+        // could be labelled `Walk` and sorted among the walks.
         for group in &mut self.groups {
-            if let Some(meta) = self.activity_metadata.get(&group.representative_id) {
-                group.sport_type = if meta.sport_type.is_empty() {
-                    "Ride".to_string() // Default for empty sport type
-                } else {
-                    meta.sport_type.clone()
-                };
-            } else {
-                // Representative activity not found - use default
-                group.sport_type = "Ride".to_string();
-            }
+            group.sport_type = dominant_sport(&group.activity_ids, &self.activity_metadata);
         }
 
         // Phase 4: Save to database

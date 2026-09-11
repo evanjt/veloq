@@ -2,9 +2,11 @@
  * Scenario: a route group holds activities of more than one sport, so the
  * screen offers a sport picker.
  *
- * Expected behaviour: the group's own sport is selected on the first frame.
- * It was written into state by an effect, so the picker committed once with
- * nothing selected before settling.
+ * Expected behaviour: the picker starts on the sport the group mostly is, on
+ * the first committed frame. It read the group's scalar `sportType`, which was
+ * whichever member happened to represent the group, so a route ridden four
+ * times and walked once could open on `Walk`. The scalar is no longer an
+ * answer to anything and the members are.
  */
 
 import React, { useEffect } from 'react';
@@ -53,13 +55,18 @@ describe('the sport picker on a cross-sport route group', () => {
     committed.length = 0;
   });
 
-  it("selects the group's own sport on the first committed frame", () => {
-    render(<Probe metrics={metricsOf(['Ride', 'Run'])} group={groupOf('Run')} />);
+  it('starts on the sport most of the group carries, on the first committed frame', () => {
+    render(<Probe metrics={metricsOf(['Ride', 'Ride', 'Ride', 'Run'])} group={groupOf('Run')} />);
+    expect(committed).toEqual(['Ride']);
+  });
+
+  it("ignores the group's scalar, which is whichever member represents it", () => {
+    render(<Probe metrics={metricsOf(['Run', 'Run', 'Run', 'Ride'])} group={groupOf('Ride')} />);
     expect(committed).toEqual(['Run']);
   });
 
-  it('falls back to the first sport when the group names none', () => {
-    render(<Probe metrics={metricsOf(['Ride', 'Run'])} group={groupOf(undefined)} />);
+  it('settles a tie alphabetically, so the picker opens the same way twice', () => {
+    render(<Probe metrics={metricsOf(['Run', 'Ride'])} group={groupOf(undefined)} />);
     expect(committed).toEqual(['Ride']);
   });
 
@@ -68,11 +75,11 @@ describe('the sport picker on a cross-sport route group', () => {
     expect(committed).toEqual([undefined]);
   });
 
-  it("keeps the athlete's own choice over the group's sport", () => {
-    render(<Probe metrics={metricsOf(['Ride', 'Run'])} group={groupOf('Run')} />);
+  it("keeps the athlete's own choice over the sport it started on", () => {
+    render(<Probe metrics={metricsOf(['Ride', 'Ride', 'Run'])} group={groupOf('Run')} />);
     committed.length = 0;
 
-    act(() => picker.choose?.('Ride'));
-    expect(committed).toEqual(['Ride']);
+    act(() => picker.choose?.('Run'));
+    expect(committed).toEqual(['Run']);
   });
 });

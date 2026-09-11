@@ -1092,6 +1092,8 @@
     "legendPr": "PR",
     "legendReverse": "Rückwärts",
     "legendThisActivity": "Diese Aktivität",
+    "legendThisSection": "Dieser Abschnitt",
+    "legendNearby": "Andere Abschnitte in der Nähe",
     "resetReference": "Referenz zurücksetzen",
     "resetReferenceConfirm": "Auf automatische Referenzauswahl zurücksetzen?\n\nDer Abschnitt wird erneut mit all deinen Aktivitäten abgeglichen. Dabei können Aktivitäten hinzugefügt oder entfernt werden.",
     "reverse": "Umgekehrt",

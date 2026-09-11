@@ -8,7 +8,12 @@
  * points, and nothing for a day that did nothing.
  */
 
-import { stripMarks, DAY_SPACING_FLOOR, MIN_MARK_HEIGHT } from '@/features/fitness/lib/stripMarks';
+import {
+  stripMarks,
+  markFills,
+  DAY_SPACING_FLOOR,
+  MIN_MARK_HEIGHT,
+} from '@/features/fitness/lib/stripMarks';
 import type { StripDay } from '@/features/fitness/lib/stripMarks';
 import type { ActivityType } from '@/types';
 
@@ -112,5 +117,81 @@ describe('stripMarks', () => {
         WIDTH
       )
     ).toEqual([]);
+  });
+});
+
+/**
+ * Scenario: an athlete whose device reports no training load. Every group's
+ * load is zero, so the clip is zero, every bar falls back to the floor and
+ * every sport present takes an equal invented share. The row then reads as
+ * steady light training in every window it can draw.
+ *
+ * Expected behaviour: a group that trained without load says so, and is never
+ * drawn as a load the athlete did not record.
+ */
+describe('a group that trained without load', () => {
+  const MUTED = '#muted';
+  const colorOf = (type: ActivityType) => `#${type}`;
+
+  it('is marked as carrying no load, in a window that has none at all', () => {
+    const marks = stripMarks(
+      days(10, () => [{ type: 'Ride', load: 0 }]),
+      WIDTH
+    );
+
+    expect(marks).toHaveLength(10);
+    expect(marks.every((m) => m.noLoad)).toBe(true);
+  });
+
+  it('is marked in a window where other groups do carry load', () => {
+    const marks = stripMarks(
+      [
+        day(0, [{ type: 'Ride', load: 60 }]),
+        day(1, [{ type: 'Walk', load: 0 }]),
+        day(2, [{ type: 'Run', load: 30 }]),
+      ],
+      WIDTH
+    );
+
+    expect(marks.map((m) => m.noLoad)).toEqual([false, true, false]);
+  });
+
+  it('draws once, in the muted neutral, rather than as a sport at the floor', () => {
+    const [mark] = stripMarks([day(0, [{ type: 'Walk', load: 0 }])], WIDTH);
+
+    expect(mark.height).toBe(MIN_MARK_HEIGHT);
+    expect(markFills(mark, MUTED, colorOf)).toEqual([{ color: MUTED, fraction: 1 }]);
+  });
+
+  it('does not invent a split across the sports it holds', () => {
+    const [mark] = stripMarks(
+      [
+        day(0, [
+          { type: 'Ride', load: 0 },
+          { type: 'Walk', load: 0 },
+        ]),
+      ],
+      WIDTH
+    );
+
+    expect(markFills(mark, MUTED, colorOf)).toHaveLength(1);
+  });
+
+  it('leaves a group that did carry load drawn by its sports', () => {
+    const [mark] = stripMarks(
+      [
+        day(0, [
+          { type: 'Ride', load: 30 },
+          { type: 'Run', load: 10 },
+        ]),
+      ],
+      WIDTH
+    );
+
+    expect(mark.noLoad).toBe(false);
+    expect(markFills(mark, MUTED, colorOf)).toEqual([
+      { color: '#Ride', fraction: 0.75 },
+      { color: '#Run', fraction: 0.25 },
+    ]);
   });
 });

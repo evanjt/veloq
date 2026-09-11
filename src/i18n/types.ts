@@ -1017,6 +1017,8 @@ export interface TranslationResource {
     legendPr: string;
     legendReverse: string;
     legendThisActivity: string;
+    legendThisSection: string;
+    legendNearby: string;
     best: string;
     reverse: string;
     scrubHint: string;

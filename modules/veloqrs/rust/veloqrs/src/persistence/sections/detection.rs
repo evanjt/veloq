@@ -894,6 +894,7 @@ impl PersistentEngine {
             let conn = match Connection::open(&db_path) {
                 Ok(c) => {
                     let _ = c.busy_timeout(std::time::Duration::from_secs(5));
+                    let _ = crate::persistence::apply_write_pragmas(&c);
                     c
                 }
                 Err(e) => {

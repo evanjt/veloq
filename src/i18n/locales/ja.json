@@ -1092,6 +1092,8 @@
     "legendPr": "PR",
     "legendReverse": "逆方向",
     "legendThisActivity": "このアクティビティ",
+    "legendThisSection": "このセクション",
+    "legendNearby": "近くの他のセクション",
     "resetReference": "基準をリセット",
     "resetReferenceConfirm": "自動基準選択にリセットしますか？\n\nこの区間はすべてのアクティビティと再照合されます。これにより、この区間のアクティビティが追加または削除される場合があります。",
     "reverse": "逆方向",

@@ -40,16 +40,30 @@ const SHARES: Record<TileCacheName, number> = {
   'veloq-ground-v1': 10 / 90,
 };
 
-/** What every install had before the setting existed. */
-export const DEFAULT_TILE_CACHE_BUDGET_MB = 200;
+/**
+ * One pool for the whole store. This is the number the athlete was always told
+ * the cache defaulted to; every install in fact ran at 200 MB, four times it.
+ */
+export const DEFAULT_TILE_CACHE_BUDGET_MB = 50;
 
-/** What the settings row offers. */
-export const TILE_CACHE_BUDGET_CHOICES_MB = [100, 200, 400, 800];
+/** What the settings row offers. The default is the first rung, not the middle. */
+export const TILE_CACHE_BUDGET_CHOICES_MB = [50, 100, 200, 400];
 
+/**
+ * The stored ceiling, snapped onto the ladder.
+ *
+ * An install carrying 800, which the ladder no longer offers, asked for as
+ * much room as it could get, so it comes down one rung rather than all the way
+ * to the default: dropping it to 50 would scrub 750 MB of tiles the athlete
+ * deliberately kept. Junk that was never a ceiling takes the default instead.
+ */
 export function clampTileCacheBudgetMb(value: unknown): number {
-  return typeof value === 'number' && TILE_CACHE_BUDGET_CHOICES_MB.includes(value)
-    ? value
-    : DEFAULT_TILE_CACHE_BUDGET_MB;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return DEFAULT_TILE_CACHE_BUDGET_MB;
+  }
+  const rungs = [...TILE_CACHE_BUDGET_CHOICES_MB].sort((a, b) => a - b);
+  const atOrBelow = rungs.filter((rung) => rung <= value);
+  return atOrBelow.length > 0 ? atOrBelow[atOrBelow.length - 1] : rungs[0];
 }
 
 /** Bytes each cache may hold at a given total. */

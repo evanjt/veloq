@@ -65,6 +65,10 @@ jest.mock('expo-file-system/legacy', () => ({
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
+jest.mock('@/shared/native/backupExclusion', () => ({
+  excludeFromBackup: jest.fn(() => true),
+}));
+
 const secureGet = SecureStore.getItemAsync as jest.Mock;
 
 function keychain(values: Record<string, string>): void {
@@ -195,6 +199,33 @@ describe('initializeApp', () => {
     expect(basemap.setPath).toHaveBeenCalledWith(expect.stringMatching(/basemap-tiles$/));
     const [path] = basemap.setPath.mock.calls[0] as [string];
     expect(path.startsWith('file://')).toBe(false);
+  });
+
+  it('keeps the tile tree out of the device backup, on the directory the store was handed', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
+
+    await initializeApp();
+
+    const basemap = jest.requireMock('veloqrs').basemapStore();
+    const [path] = basemap.setPath.mock.calls[0] as [string];
+    expect(excludeFromBackup).toHaveBeenCalledWith(path);
+    expect(basemap.setPath.mock.invocationCallOrder[0]).toBeLessThan(
+      excludeFromBackup.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('does not mark a directory the store refused', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    const basemap = jest.requireMock('veloqrs').basemapStore();
+    basemap.setPath.mockImplementationOnce(() => {
+      throw new Error('store closed');
+    });
+    const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
+
+    await initializeApp();
+
+    expect(excludeFromBackup).not.toHaveBeenCalled();
   });
 
   it('still resolves, with the first message, when an initialiser rejects', async () => {

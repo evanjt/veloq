@@ -1125,6 +1125,8 @@
     "legendPr": "PR",
     "legendReverse": "Reverse",
     "legendThisActivity": "This activity",
+    "legendThisSection": "This section",
+    "legendNearby": "Other sections nearby",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Reset to automatic reference selection?\n\nThe section will be re-matched against all your activities. This may add or remove activities from this section.",
     "reverse": "Reverse",

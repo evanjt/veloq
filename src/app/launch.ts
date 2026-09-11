@@ -19,6 +19,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { basemapStore } from 'veloqrs';
 
+import { excludeFromBackup } from '@/shared/native/backupExclusion';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { initializeI18n } from '@/i18n';
 
@@ -55,10 +56,17 @@ function openBasemapStore(): void {
   const docDir = FileSystem.documentDirectory;
   if (!docDir) return;
   const plain = docDir.startsWith('file://') ? docDir.slice(7) : docDir;
+  const path = `${plain}basemap-tiles`;
   try {
-    basemapStore().setPath(`${plain}basemap-tiles`);
+    basemapStore().setPath(path);
   } catch (reason) {
     console.warn('[launch] basemap tile store stayed closed:', errorMessage(reason));
+    return;
+  }
+  // Every launch, not once: the store creates the directory on first use and
+  // a cache clear makes a new one, and the attribute lives on the directory.
+  if (excludeFromBackup(path) === false) {
+    console.warn('[launch] basemap tile tree is not excluded from the device backup');
   }
 }
 

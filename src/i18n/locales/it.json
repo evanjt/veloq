@@ -1092,6 +1092,8 @@
     "legendPr": "PR",
     "legendReverse": "Inverso",
     "legendThisActivity": "Questa attività",
+    "legendThisSection": "Questa sezione",
+    "legendNearby": "Altre sezioni nelle vicinanze",
     "resetReference": "Reimposta riferimento",
     "resetReferenceConfirm": "Ripristinare la selezione automatica del riferimento?\n\nLa sezione verrà riconfrontata con tutte le tue attività. Questo potrebbe aggiungere o rimuovere attività da questa sezione.",
     "reverse": "Inverso",

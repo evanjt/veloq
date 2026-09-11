@@ -171,13 +171,19 @@ fn init_survives_corrupt_database() {
         "corrupt file must be renamed aside, got {:?}",
         generation_one
     );
-    // The stale wal must leave the live namespace. Whether quarantine renames
-    // it or SQLite deletes it during a racing open attempt is timing; what
-    // matters is that no stale sibling sits beside the fresh database.
-    assert!(
-        !Path::new(&format!("{}-wal", db_str)).exists(),
-        "stale wal must not survive beside the fresh database"
-    );
+    // The stale wal must leave the live namespace. Its absence is no longer the
+    // test: the fresh database is WAL and has a `-wal` of its own,
+    // so what matters is that the sibling sitting there is the new one and the
+    // garbage went aside with the file it belonged to. Whether quarantine
+    // renamed it or SQLite deleted it during a racing open attempt is timing.
+    let live_wal = format!("{}-wal", db_str);
+    if Path::new(&live_wal).exists() {
+        assert_ne!(
+            fs::read(&live_wal).unwrap(),
+            b"garbage wal",
+            "the stale wal survived beside the fresh database"
+        );
+    }
 
     // The fresh database is functional (schema created, zero activities).
     let conn = rusqlite::Connection::open(&db_path).unwrap();
@@ -191,7 +197,13 @@ fn init_survives_corrupt_database() {
     // instead of accumulating files.
     // Sleep so the epoch-seconds suffix differs from generation one.
     std::thread::sleep(std::time::Duration::from_millis(1100));
+    // The sidecars go with it. The live database is WAL and has a
+    // real `-wal` beside it, and SQLite recovers the file from that rather than
+    // declaring it unusable, so overwriting the main file alone is no longer a
+    // corrupt database at all: generation one stayed the only generation.
     fs::write(&db_path, b"corrupted again").unwrap();
+    let _ = fs::remove_file(format!("{}-wal", db_str));
+    let _ = fs::remove_file(format!("{}-shm", db_str));
     assert!(persistent_engine_init(db_str.clone()));
     let generation_two = quarantine_files(tmp.path());
     let db_generations: Vec<_> = generation_two

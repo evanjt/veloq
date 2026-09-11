@@ -1092,6 +1092,8 @@
     "legendPr": "PR",
     "legendReverse": "反向",
     "legendThisActivity": "此活动",
+    "legendThisSection": "本路段",
+    "legendNearby": "附近的其他路段",
     "resetReference": "重置参考",
     "resetReferenceConfirm": "重置为自动参考选择？\n\n该路段将与您的所有活动重新匹配。这可能会从该路段中添加或删除活动。",
     "reverse": "反向",

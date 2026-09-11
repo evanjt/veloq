@@ -496,14 +496,23 @@ export function takeQuarantineReport(): FfiQuarantineReport | undefined {
  * Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...].
  * Uses an R-tree on polylineB for O(n log m) instead of O(n*m).
  * Returns 0.0-1.0.
+ *
+ * An odd length is refused rather than trimmed. The pairing below is
+ * `chunks_exact(2)`, which drops a trailing value without a word, so a caller
+ * that flattened one point short got an answer over a line it did not send.
+ * Latitude-first order cannot be checked here at all: only an encoded input
+ * carries its own order.
  */
 export function computePolylineOverlap(
   coordsA: Array</*f64*/ number>,
   coordsB: Array</*f64*/ number>,
   thresholdMeters: /*f64*/ number,
-): /*f64*/ number {
+): /*f64*/ number /*throws*/ {
   return FfiConverterFloat64.lift(
-    uniffiCaller.rustCall(
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap(
           FfiConverterArrayFloat64.lower(coordsA),
@@ -20700,7 +20709,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap() !==
-    33353
+    47043
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_compute_polyline_overlap",

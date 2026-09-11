@@ -1092,6 +1092,8 @@
     "legendPr": "PR",
     "legendReverse": "Omgekeerd",
     "legendThisActivity": "Deze activiteit",
+    "legendThisSection": "Dit segment",
+    "legendNearby": "Andere segmenten in de buurt",
     "resetReference": "Referentie resetten",
     "resetReferenceConfirm": "Terugzetten naar automatische referentieselectie?\n\nDe sectie wordt opnieuw gematcht met al je activiteiten. Dit kan activiteiten toevoegen aan of verwijderen uit deze sectie.",
     "reverse": "Omgekeerd",

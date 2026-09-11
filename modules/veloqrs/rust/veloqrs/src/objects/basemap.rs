@@ -82,12 +82,11 @@ impl BasemapManager {
         store()?.clear_source(&source).map_err(tile_store_error)
     }
 
-    /// Bring one source under a byte budget, least recently read first and the
-    /// pinned pre-seed last.
-    fn evict_to(&self, source: String, budget_bytes: u64) -> Result<u32, VeloqError> {
-        store()?
-            .evict_to(&source, budget_bytes)
-            .map_err(tile_store_error)
+    /// Bring the whole tree under one byte budget, least recently read first
+    /// across every source and the pinned pre-seed last. One pool, because the
+    /// athlete sets one number.
+    fn evict_to(&self, budget_bytes: u64) -> Result<u32, VeloqError> {
+        store()?.evict_to(budget_bytes).map_err(tile_store_error)
     }
 }
 
@@ -131,17 +130,21 @@ mod tests {
         assert_eq!(manager.get_source_size("sat".into()), 3);
         assert_eq!(manager.get_cache_size(), 9);
 
-        assert_eq!(manager.evict_to("osm".into(), 2).unwrap(), 1);
+        // One budget over the whole tree. The other source's tile is the
+        // least recently read, so it goes even though this source is the one
+        // that is over.
+        assert_eq!(manager.evict_to(6).unwrap(), 1);
+        assert_eq!(manager.get_cache_size(), 6);
+        assert_eq!(manager.get_source_size("sat".into()), 0);
         assert_eq!(
             manager.get_tile("osm".into(), 3, 4, 2),
-            None,
-            "the unpinned tile goes first"
+            Some(vec![1, 2, 3, 4]),
+            "the re-read tile stays, whichever source is over"
         );
         assert_eq!(manager.get_tile("osm".into(), 3, 4, 3), Some(vec![5, 6]));
 
-        assert_eq!(manager.clear_source_tiles("sat".into()).unwrap(), 1);
-        assert_eq!(manager.get_source_size("sat".into()), 0);
-        assert_eq!(manager.clear_tiles().unwrap(), 1);
+        assert_eq!(manager.clear_source_tiles("osm".into()).unwrap(), 2);
+        assert_eq!(manager.get_source_size("osm".into()), 0);
         assert_eq!(manager.get_cache_size(), 0);
     }
 }

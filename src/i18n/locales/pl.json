@@ -1094,6 +1094,8 @@
     "legendPr": "PR",
     "legendReverse": "Wstecz",
     "legendThisActivity": "Ta aktywność",
+    "legendThisSection": "Ten odcinek",
+    "legendNearby": "Inne odcinki w pobliżu",
     "resetReference": "Resetuj odniesienie",
     "resetReferenceConfirm": "Przywrócić automatyczny wybór odniesienia?\n\nOdcinek zostanie ponownie dopasowany do wszystkich Twoich aktywności. Może to dodać lub usunąć aktywności z tego odcinka.",
     "reverse": "Odwrotna",

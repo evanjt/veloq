@@ -36,9 +36,8 @@ describe('the budget', () => {
   // The 50/30/10 proportions of the 120/50/30 MB that shipped, with satellite
   // gone and its share spread across the three that are still kept.
   it('defaults to the shipped proportions over the three kept caches', () => {
-    expect(DEFAULT_TILE_CACHE_BUDGET_MB).toBe(200);
     const budgets = tileCacheBudgets(DEFAULT_TILE_CACHE_BUDGET_MB);
-    const total = 200 * MB;
+    const total = DEFAULT_TILE_CACHE_BUDGET_MB * MB;
     expect(budgets['veloq-terrain-dem-v1']).toBe(Math.round((total * 30) / 90));
     expect(budgets['veloq-ground-v1']).toBe(Math.round((total * 10) / 90));
     // Vector takes the remainder, so the three sum to exactly the ceiling.
@@ -56,9 +55,26 @@ describe('the budget', () => {
   });
 
   it('falls back to the default rather than trusting stored junk', () => {
-    for (const junk of [undefined, null, 'lots', -50, 0, 12345, NaN]) {
+    for (const junk of [undefined, null, 'lots', -50, 0, NaN]) {
       expect(clampTileCacheBudgetMb(junk)).toBe(DEFAULT_TILE_CACHE_BUDGET_MB);
     }
+  });
+
+  // One pool for every source, and the athlete can raise it.
+  it('starts at the 50 MB the athlete was promised, and climbs from there', () => {
+    expect(DEFAULT_TILE_CACHE_BUDGET_MB).toBe(50);
+    expect(TILE_CACHE_BUDGET_CHOICES_MB).toEqual([50, 100, 200, 400]);
+    expect(clampTileCacheBudgetMb(undefined)).toBe(50);
+  });
+
+  // An install carrying the old 200 MB ceiling asked for 200 MB, so it keeps
+  // it. One carrying 800, which the ladder no longer offers, comes down to the
+  // nearest rung rather than all the way back to the default.
+  it('brings a stored ceiling down to the nearest rung, not back to the default', () => {
+    expect(clampTileCacheBudgetMb(200)).toBe(200);
+    expect(clampTileCacheBudgetMb(800)).toBe(400);
+    expect(clampTileCacheBudgetMb(150)).toBe(100);
+    expect(clampTileCacheBudgetMb(20)).toBe(50);
   });
 });
 
@@ -143,14 +159,14 @@ describe('the stored setting', () => {
   it('survives a restart and keeps the cache mode beside it', async () => {
     store['veloq-tile-cache'] = JSON.stringify({ cacheMode: 'ambient' });
     await useTileCacheSettings.getState().initialize();
-    await useTileCacheSettings.getState().setBudgetMb(800);
+    await useTileCacheSettings.getState().setBudgetMb(400);
 
     const written = JSON.parse(store['veloq-tile-cache']);
-    expect(written).toEqual({ cacheMode: 'ambient', budgetMb: 800 });
+    expect(written).toEqual({ cacheMode: 'ambient', budgetMb: 400 });
 
     useTileCacheSettings.setState({ budgetMb: DEFAULT_TILE_CACHE_BUDGET_MB });
     await useTileCacheSettings.getState().initialize();
-    expect(useTileCacheSettings.getState().budgetMb).toBe(800);
+    expect(useTileCacheSettings.getState().budgetMb).toBe(400);
   });
 
   it('tells the open pages the moment it changes', async () => {
@@ -161,8 +177,16 @@ describe('the stored setting', () => {
     expect(seen).toEqual([400]);
   });
 
-  it('ignores a stored value that is not one of the choices', async () => {
-    store['veloq-tile-cache'] = JSON.stringify({ budgetMb: 99999 });
+  // An install that had raised its ceiling asked for room, so it keeps as much
+  // of it as the ladder still offers rather than being scrubbed back to 50 MB.
+  it('brings a stored ceiling the ladder no longer offers down one rung', async () => {
+    store['veloq-tile-cache'] = JSON.stringify({ budgetMb: 800 });
+    await useTileCacheSettings.getState().initialize();
+    expect(useTileCacheSettings.getState().budgetMb).toBe(400);
+  });
+
+  it('takes the default for a stored value that was never a ceiling', async () => {
+    store['veloq-tile-cache'] = JSON.stringify({ budgetMb: 'lots' });
     await useTileCacheSettings.getState().initialize();
     expect(useTileCacheSettings.getState().budgetMb).toBe(DEFAULT_TILE_CACHE_BUDGET_MB);
   });

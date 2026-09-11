@@ -168,6 +168,13 @@ fn a_full_preview_run_leaves_the_database_byte_identical() {
 
     let hash_before = db_sha256(&path);
     let catalogue_before = catalogue_snapshot(&path);
+    // The database is WAL, so committed pages sit in the `-wal`
+    // until a checkpoint and the main file's hash alone no longer sees a write.
+    // The wal already holds this test's own setup, so its length before the
+    // preview is the baseline, not zero.
+    let wal_path = dir.path().join("routes.db-wal");
+    let wal_len = |p: &std::path::Path| std::fs::metadata(p).map(|m| m.len()).unwrap_or(0);
+    let wal_before = wal_len(&wal_path);
 
     let cfg = with_persistent_engine(|engine| engine.get_section_config()).expect("config");
     let mut ffi_cfg = FfiSectionConfig::from(&cfg);
@@ -229,12 +236,19 @@ fn a_full_preview_run_leaves_the_database_byte_identical() {
         catalogue_before,
         "a preview run changed the catalogue tables"
     );
-    for suffix in ["routes.db-wal", "routes.db-journal"] {
-        assert!(
-            !dir.path().join(suffix).exists(),
-            "a preview run left a {suffix} sidecar"
-        );
-    }
+    // A `-wal` beside the database is the engine's own, so its
+    // absence is no longer the test. What it gained during the run is: a
+    // preview that wrote anything would have put frames in it. A rollback
+    // journal must never appear at all under WAL.
+    assert!(
+        !dir.path().join("routes.db-journal").exists(),
+        "a preview run left a rollback journal"
+    );
+    assert_eq!(
+        wal_len(&wal_path),
+        wal_before,
+        "a preview run wrote frames into the wal"
+    );
 
     // The suspension guard released with the worker, so a real detect runs.
     assert!(

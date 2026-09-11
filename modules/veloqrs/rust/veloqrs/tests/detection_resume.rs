@@ -67,7 +67,18 @@ fn a_run_killed_after_its_first_checkpoint_resumes_where_it_stopped() {
 
     // The uninterrupted answer, from the same state on a twin engine.
     let twin_path = dir.path().join("twin.db");
+    // A database is three files, and the committed pages are in
+    // the `-wal` while the engine holds it open. Copying the main file alone
+    // gave the twin an empty catalogue, so the uninterrupted answer this
+    // compares against was nothing at all.
     std::fs::copy(&path, &twin_path).expect("copy db");
+    for suffix in ["-wal", "-shm"] {
+        let beside = dir.path().join(format!("lifecycle.db{suffix}"));
+        if beside.exists() {
+            std::fs::copy(&beside, dir.path().join(format!("twin.db{suffix}")))
+                .expect("copy sidecar");
+        }
+    }
     let expected = {
         let mut twin = PersistentEngine::new(twin_path.to_str().unwrap()).expect("twin");
         twin.load().expect("load twin");

@@ -532,10 +532,10 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'evict_to',
     camelName: 'evictTo',
     file: 'objects/basemap.rs',
-    line: 87,
-    paramCount: 2,
+    line: 88,
+    paramCount: 1,
     returnType: 'Result<u32, VeloqError>',
-    docs: 'Bring one source under a byte budget, least recently read first and the pinned pre-seed last.',
+    docs: 'Bring the whole tree under one byte budget, least recently read first across every source and the pinned pre-seed last. One pool, because the athlete sets one number.',
     object: 'BasemapManager',
   },
   {
@@ -2911,10 +2911,10 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 2370,
+    line: 2377,
     paramCount: 3,
-    returnType: 'f64',
-    docs: "Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB. Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...]. Uses an R-tree on polylineB for O(n log m) instead of O(n*m). Returns 0.0-1.0.",
+    returnType: 'Result<f64, VeloqError>',
+    docs: "Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB. Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...]. Uses an R-tree on polylineB for O(n log m) instead of O(n*m). Returns 0.0-1.0. An odd length is refused rather than trimmed. The pairing below is `chunks_exact(2)`, which drops a trailing value without a word, so a caller that flattened one point short got an answer over a line it did not send. Latitude-first order cannot be checked here at all: only an encoded input carries its own order.",
   },
 ];
 

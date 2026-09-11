@@ -24,6 +24,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, RwLock};
 
+use crate::objects::error::VeloqError;
 use crate::sections::SectionSummary;
 use crate::{
     ActivityMatchInfo, ActivityMetrics, Bounds, FrequentSection, GpsPoint, MatchConfig, RouteGroup,
@@ -1036,6 +1037,18 @@ struct PatternCacheKey {
     day: i64,
 }
 
+/// The pragmas a connection that writes has to set for itself.
+///
+/// `journal_mode` is a property of the database file, so one connection
+/// converts it for every other. `synchronous` is a property of the connection,
+/// and a background writer that skips it goes on paying the full fsync pair
+/// WAL was taken to avoid, on its own thread, invisibly. NORMAL under WAL
+/// risks losing the last commits to a power cut, never a corrupt file, which
+/// is the trade this database makes.
+pub(crate) fn apply_write_pragmas(conn: &Connection) -> SqlResult<()> {
+    conn.pragma_update(None, "synchronous", "NORMAL")
+}
+
 impl PersistentEngine {
     /// Invalidate the performance cache.
     /// Call after any mutation that affects sections, time streams, or activity metrics.
@@ -1131,6 +1144,12 @@ impl PersistentEngine {
         // connection's queries fail SQLITE_BUSY immediately, which surfaces
         // as intermittent empty reads in the app during sync.
         db.busy_timeout(std::time::Duration::from_secs(5))?;
+        // The mode belongs to the file, so converting it here converts it for
+        // every connection that opens it afterwards, this launch or any later
+        // one. An existing rollback database is converted in place on the open
+        // that follows the upgrade.
+        db.pragma_update_and_check(None, "journal_mode", "WAL", |_| Ok(()))?;
+        apply_write_pragmas(&db)?;
         Self::init_schema(&mut db)?;
 
         Ok(Self {
@@ -2366,16 +2385,37 @@ fn pad_lng_degrees(lat: f64, threshold_meters: f64) -> f64 {
 /// Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...].
 /// Uses an R-tree on polylineB for O(n log m) instead of O(n*m).
 /// Returns 0.0-1.0.
+///
+/// An odd length is refused rather than trimmed. The pairing below is
+/// `chunks_exact(2)`, which drops a trailing value without a word, so a caller
+/// that flattened one point short got an answer over a line it did not send.
+/// Latitude-first order cannot be checked here at all: only an encoded input
+/// carries its own order.
 #[uniffi::export]
 pub fn compute_polyline_overlap(
     coords_a: Vec<f64>,
     coords_b: Vec<f64>,
     threshold_meters: f64,
-) -> f64 {
-    match OverlapIndex::new(&coords_b) {
+) -> Result<f64, VeloqError> {
+    whole_points("coords_a", &coords_a)?;
+    whole_points("coords_b", &coords_b)?;
+    Ok(match OverlapIndex::new(&coords_b) {
         Some(index) => index.fraction_within(&coords_a, threshold_meters),
         None => 0.0,
+    })
+}
+
+/// Refuse a flat coordinate array that is not a whole number of points.
+fn whole_points(name: &str, coords: &[f64]) -> Result<(), VeloqError> {
+    if coords.len() % 2 != 0 {
+        return Err(VeloqError::ParseError {
+            msg: format!(
+                "{name} length {} is not an even count of lat/lng values",
+                coords.len()
+            ),
+        });
     }
+    Ok(())
 }
 
 // ============================================================================
@@ -3313,7 +3353,7 @@ mod polyline_overlap_latitude_tests {
             .flat_map(|i| vec![lat + i as f64 * 0.0005, 12.5 + offset_deg])
             .collect();
 
-        let overlap = compute_polyline_overlap(a, b, 50.0);
+        let overlap = compute_polyline_overlap(a, b, 50.0).unwrap();
         assert!(
             overlap > 0.9,
             "expected the lines to overlap at latitude {lat}, got {overlap}"
@@ -3329,7 +3369,7 @@ mod polyline_overlap_latitude_tests {
             .flat_map(|i| vec![i as f64 * 0.0005, offset_deg])
             .collect();
 
-        assert!(compute_polyline_overlap(a, b, 50.0) > 0.9);
+        assert!(compute_polyline_overlap(a, b, 50.0).unwrap() > 0.9);
     }
 
     #[test]
@@ -3341,7 +3381,59 @@ mod polyline_overlap_latitude_tests {
             .flat_map(|i| vec![55.9, 12.5 + i as f64 * 0.0005])
             .collect();
 
-        assert_eq!(compute_polyline_overlap(a, b, 50.0), 0.0);
+        assert_eq!(compute_polyline_overlap(a, b, 50.0).unwrap(), 0.0);
+    }
+}
+
+/// Scenario: a caller hands the engine a flat coordinate array that is not a
+/// whole number of points.
+///
+/// Expected behaviour: the call is refused. `chunks_exact(2)` drops an odd
+/// trailing value without a word, so the overlap was computed over one point
+/// fewer than the caller sent and the answer looked like a real one.
+#[cfg(test)]
+mod polyline_overlap_input_tests {
+    use super::compute_polyline_overlap;
+
+    fn line(points: usize) -> Vec<f64> {
+        (0..points)
+            .flat_map(|i| vec![55.7 + i as f64 * 0.0005, 12.5])
+            .collect()
+    }
+
+    #[test]
+    fn an_odd_first_line_is_refused() {
+        let mut a = line(20);
+        a.push(55.8);
+        let err = compute_polyline_overlap(a, line(20), 50.0).unwrap_err();
+        assert!(err.to_string().contains("coords_a"), "got {err}");
+        assert!(err.to_string().contains("41"), "got {err}");
+    }
+
+    #[test]
+    fn an_odd_second_line_is_refused() {
+        let mut b = line(20);
+        b.push(55.8);
+        let err = compute_polyline_overlap(line(20), b, 50.0).unwrap_err();
+        assert!(err.to_string().contains("coords_b"), "got {err}");
+    }
+
+    #[test]
+    fn an_empty_line_is_no_overlap_rather_than_an_error() {
+        assert_eq!(
+            compute_polyline_overlap(Vec::new(), line(20), 50.0).unwrap(),
+            0.0
+        );
+        assert_eq!(
+            compute_polyline_overlap(line(20), Vec::new(), 50.0).unwrap(),
+            0.0
+        );
+    }
+
+    #[test]
+    fn a_single_stray_value_is_refused_rather_than_read_as_empty() {
+        let err = compute_polyline_overlap(vec![55.7], line(20), 50.0).unwrap_err();
+        assert!(err.to_string().contains("coords_a"), "got {err}");
     }
 }
 
@@ -3420,5 +3512,29 @@ mod detection_progress_percent {
             progress.set_phase(phase, 0);
             assert_eq!(progress.get_percent(), 50, "'{phase}' is not a run phase");
         }
+    }
+}
+
+#[cfg(test)]
+mod write_pragma_tests {
+    /// `PRAGMA synchronous` reads back as an integer: 0 OFF, 1 NORMAL, 2 FULL.
+    /// The default is FULL, so a writer that never sets it pays two fsyncs a
+    /// commit on whichever thread asked.
+    #[test]
+    fn write_pragmas_put_a_connection_on_normal_synchronous() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        assert_eq!(
+            conn.query_row("PRAGMA synchronous", [], |r| r.get::<_, i32>(0))
+                .unwrap(),
+            2
+        );
+
+        super::apply_write_pragmas(&conn).unwrap();
+
+        assert_eq!(
+            conn.query_row("PRAGMA synchronous", [], |r| r.get::<_, i32>(0))
+                .unwrap(),
+            1
+        );
     }
 }

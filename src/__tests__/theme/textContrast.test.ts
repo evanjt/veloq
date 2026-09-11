@@ -76,10 +76,35 @@ describe('body text clears AA on every surface it is drawn on', () => {
     expect(contrastRatio(darkColors.textSecondary, ground)).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
+  /**
+   * `textMuted` was the same grey in both themes, so the token meant to be a
+   * shade darker on white and a shade lighter on black was neither: 4.34:1 on
+   * `backgroundAlt` and 3.24:1 on `surfaceCard`, read at 269 sites. It is body
+   * copy, a caption or a unit, not an inactive control, so the exemption
+   * `textDisabled` carries does not reach it (B605).
+   */
+  it.each(Object.keys(LIGHT_SURFACES))('light textMuted on %s', (surface) => {
+    const ground = LIGHT_SURFACES[surface as keyof typeof LIGHT_SURFACES];
+    expect(contrastRatio(colors.textMuted, ground)).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  it.each(Object.keys(DARK_SURFACES))('dark textMuted on %s', (surface) => {
+    const ground = DARK_SURFACES[surface as keyof typeof DARK_SURFACES];
+    expect(contrastRatio(darkColors.textMuted, ground)).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  it('draws the muted grey darker on white than on black, which one grey cannot', () => {
+    expect(relativeLuminance(colors.textMuted)).toBeLessThan(
+      relativeLuminance(darkColors.textMuted)
+    );
+  });
+
   it('holds the worst pair of the four with headroom, not on the line', () => {
     const worst = Math.min(
       ...Object.values(LIGHT_SURFACES).map((g) => contrastRatio(colors.textSecondary, g)),
-      ...Object.values(DARK_SURFACES).map((g) => contrastRatio(darkColors.textSecondary, g))
+      ...Object.values(DARK_SURFACES).map((g) => contrastRatio(darkColors.textSecondary, g)),
+      ...Object.values(LIGHT_SURFACES).map((g) => contrastRatio(colors.textMuted, g)),
+      ...Object.values(DARK_SURFACES).map((g) => contrastRatio(darkColors.textMuted, g))
     );
 
     expect(worst).toBeGreaterThan(AA_TEXT);

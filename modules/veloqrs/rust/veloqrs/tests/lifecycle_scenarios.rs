@@ -598,6 +598,95 @@ fn scenario_e_year_expansion_baseline() {
 }
 
 // ============================================================================
+// Ground diff, for comparing two catalogues that minted their own ids
+// ============================================================================
+
+/// What a section in one catalogue turned out to be in the other.
+///
+/// Section ids are minted per engine, so two catalogues built from the same
+/// corpus share none. The activities are the ground: both paths ingested the
+/// same rides under the same ids, so a section is identified by the set of
+/// activities that traverse it however it was numbered.
+#[derive(Debug, PartialEq, Eq)]
+enum Ground {
+    /// Some section of the other catalogue covers exactly these activities.
+    Same,
+    /// Every activity sits inside one section of the other catalogue, which
+    /// drew one section where this one drew several: a cut the other side
+    /// never made, or a fold this side never healed.
+    Inside(String),
+    /// The activities are spread over more than one section of the other, so
+    /// the two catalogues cut the same road in different places.
+    Across(usize),
+    /// No section of the other catalogue holds any of these activities. This
+    /// piece of road exists on one side only.
+    Alone,
+}
+
+fn ground_of(mine: &SectionFingerprint, other: &SectionSnapshot) -> Ground {
+    let mut covering = 0usize;
+    let mut container: Option<String> = None;
+    for (id, theirs) in &other.sections {
+        if theirs.activity_ids == mine.activity_ids {
+            return Ground::Same;
+        }
+        if !theirs.activity_ids.is_disjoint(&mine.activity_ids) {
+            covering += 1;
+            if mine.activity_ids.is_subset(&theirs.activity_ids) {
+                container = Some(id.clone());
+            }
+        }
+    }
+    match (covering, container) {
+        (0, _) => Ground::Alone,
+        (_, Some(id)) => Ground::Inside(id),
+        (n, None) => Ground::Across(n),
+    }
+}
+
+/// Name every section one catalogue holds that the other does not, by what it
+/// is over there. The counts alone say nine sections differ; this says what
+/// the nine are.
+fn print_ground_diff(label: &str, mine: &SectionSnapshot, other: &SectionSnapshot) {
+    let mut same = 0usize;
+    let mut inside = Vec::new();
+    let mut across = Vec::new();
+    let mut alone = Vec::new();
+
+    for (id, section) in &mine.sections {
+        let size = (section.activity_ids.len(), section.polyline_point_count);
+        match ground_of(section, other) {
+            Ground::Same => same += 1,
+            Ground::Inside(container) => inside.push((id, size, container)),
+            Ground::Across(n) => across.push((id, size, n)),
+            Ground::Alone => alone.push((id, size)),
+        }
+    }
+
+    println!(
+        "[lifecycle/{}] ground: {} identical, {} inside one of theirs, {} across several, {} on this side only",
+        label,
+        same,
+        inside.len(),
+        across.len(),
+        alone.len()
+    );
+    for (id, (visits, points), container) in &inside {
+        println!(
+            "[lifecycle/{label}]   inside: {id} over {visits} activities, {points} points, inside their {container}"
+        );
+    }
+    for (id, (visits, points), n) in &across {
+        println!(
+            "[lifecycle/{label}]   across: {id} over {visits} activities, {points} points, touching {n} of theirs"
+        );
+    }
+    for (id, (visits, points)) in &alone {
+        println!("[lifecycle/{label}]   alone: {id} over {visits} activities, {points} points");
+    }
+}
+
+// ============================================================================
 // Scenario F, full-rebuild convergence (incremental sequence vs single-shot)
 // ============================================================================
 
@@ -642,4 +731,9 @@ fn scenario_f_full_converges_to_incremental_baseline() {
         full_step.section_count,
         drift * 100.0
     );
+
+    // The counts say the two catalogues differ. These say what the difference
+    // is made of, which is what a gate on the drift has to be chosen against.
+    print_ground_diff("F_inc", &inc_step.snapshot, &full_step.snapshot);
+    print_ground_diff("F_full", &full_step.snapshot, &inc_step.snapshot);
 }

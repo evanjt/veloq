@@ -98,11 +98,14 @@ impl PersistentEngine {
                 // Compute polyline overlap
                 let candidate_polyline = self.get_section_polyline(&id);
                 let overlap = if candidate_polyline.len() >= 4 {
+                    // Both lines come off disk already paired, so the
+                    // even-length refusal on the FFI entry cannot fire here.
                     super::super::compute_polyline_overlap(
                         query_polyline.clone(),
                         candidate_polyline,
                         tracematch::sections::GROUND_TOL_M,
                     )
+                    .unwrap_or(0.0)
                 } else {
                     0.0
                 };

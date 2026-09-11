@@ -215,7 +215,12 @@ export const colors = {
   textPrimary: '#18181B',
   textSecondary: '#52525B',
   textDisabled: '#A1A1AA',
-  textMuted: '#71717A',
+  // One grey in both themes cleared 4.5:1 in neither, 4.34:1 light and 3.24:1
+  // dark. These are the zinc rungs either side, already in the file as
+  // verdict.neutral, at 6.95:1 and 6.10:1 on the worst ground each theme draws
+  // (B605). Muted copy is a caption or a unit, not an inactive control, so the
+  // exemption textDisabled carries does not reach it.
+  textMuted: '#52525B',
   textOnDark: '#FFFFFF',
   textOnPrimary: '#18181B', // Dark text on gold
   iconFaint: '#CCCCCC', // Faint chevrons / placeholder icons (dark counterpart: textMuted)
@@ -566,7 +571,7 @@ export const darkColors = {
   // Text
   textPrimary: '#FAFAFA',
   textSecondary: '#A1A1AA',
-  textMuted: '#71717A',
+  textMuted: '#A1A1AA',
   textDisabled: '#52525B',
 
   // Borders

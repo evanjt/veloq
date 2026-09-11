@@ -245,7 +245,7 @@ fn eviction_takes_the_least_recently_read_tile_first() {
     // The home area is read again, so it is no longer the oldest set.
     assert!(store.get(VECTOR, 5, 0, 0).is_some());
 
-    let removed = store.evict_to(VECTOR, 200).expect("evict");
+    let removed = store.evict_to(200).expect("evict");
 
     assert_eq!(removed, 1);
     assert_eq!(store.size_of(VECTOR), 200);
@@ -274,7 +274,7 @@ fn eviction_scrubs_every_opportunistic_tile_before_it_touches_the_pre_seed() {
         .expect("put c");
 
     // The pinned tile is the oldest by read order, so only pinning can save it.
-    let removed = store.evict_to(VECTOR, 100).expect("evict");
+    let removed = store.evict_to(100).expect("evict");
 
     assert_eq!(removed, 2);
     assert!(
@@ -298,7 +298,7 @@ fn the_budget_is_a_hard_cap_so_a_pinned_tile_goes_once_nothing_else_is_left() {
         .put(VECTOR, 5, 0, 2, "pbf", &bytes(100, 3), false)
         .expect("put c");
 
-    let removed = store.evict_to(VECTOR, 100).expect("evict");
+    let removed = store.evict_to(100).expect("evict");
 
     assert_eq!(removed, 2);
     assert_eq!(
@@ -321,7 +321,7 @@ fn the_budget_is_a_hard_cap_so_a_pinned_tile_goes_once_nothing_else_is_left() {
 }
 
 #[test]
-fn eviction_only_spends_the_budget_of_the_source_it_was_given() {
+fn the_budget_is_one_pool_over_every_source_rather_than_a_share_each() {
     let (store, _tmp) = store();
     store
         .put(VECTOR, 5, 0, 0, "pbf", &bytes(300, 1), false)
@@ -330,22 +330,94 @@ fn eviction_only_spends_the_budget_of_the_source_it_was_given() {
         .put(GROUND, 5, 0, 0, "jpg", &bytes(300, 2), false)
         .expect("put");
 
-    store.evict_to(VECTOR, 0).expect("evict");
+    store.evict_to(0).expect("evict");
 
+    assert_eq!(store.size(), 0, "one budget empties the whole tree");
     assert_eq!(store.size_of(VECTOR), 0);
-    assert_eq!(store.size_of(GROUND), 300, "satellite keeps its own budget");
+    assert_eq!(store.size_of(GROUND), 0);
+}
+
+#[test]
+fn one_pool_evicts_the_oldest_bytes_wherever_they_sit_and_spares_the_pre_seed() {
+    let (store, _tmp) = store();
+    // 60 units across three sources, the oldest read in the source that is
+    // otherwise quietest, so a per-source share would have spared it.
+    store
+        .put(VECTOR, 5, 0, 0, "pbf", &bytes(10, 1), true)
+        .expect("put pinned");
+    store
+        .put(GROUND, 5, 0, 0, "jpg", &bytes(10, 2), false)
+        .expect("put oldest");
+    store
+        .put(DEM, 5, 0, 0, "png", &bytes(25, 3), false)
+        .expect("put");
+    store
+        .put(VECTOR, 5, 0, 1, "pbf", &bytes(15, 4), false)
+        .expect("put");
+    assert_eq!(store.size(), 60);
+
+    // Everything but the lone ground tile is read again, so it is the oldest.
+    assert!(store.get(DEM, 5, 0, 0).is_some());
+    assert!(store.get(VECTOR, 5, 0, 1).is_some());
+
+    let removed = store.evict_to(50).expect("evict");
+
+    assert_eq!(removed, 1);
+    assert_eq!(store.size(), 50);
+    assert!(
+        store.get(GROUND, 5, 0, 0).is_none(),
+        "the least recently read tile goes, whichever source holds it"
+    );
+    assert!(
+        store.get(VECTOR, 5, 0, 0).is_some(),
+        "the pinned pre-seed is not touched while anything else is left"
+    );
+}
+
+#[test]
+fn a_read_orders_a_tile_against_reads_of_every_other_source() {
+    let (store, _tmp) = store();
+    // A busy source and a quiet one. The busy source has read its own tiles
+    // several times, so its own stamps are high; the quiet source has one tile
+    // and one read, so its own stamp is low. Ordered per source the quiet
+    // tile looks like the oldest thing in the tree. It is in fact the newest.
+    for y in 0..3u32 {
+        store
+            .put(VECTOR, 5, 0, y, "pbf", &bytes(100, 1), false)
+            .expect("put");
+    }
+    for y in 0..3u32 {
+        assert!(store.get(VECTOR, 5, 0, y).is_some());
+    }
+    store
+        .put(GROUND, 5, 0, 0, "jpg", &bytes(100, 2), false)
+        .expect("put");
+    assert!(
+        store.get(GROUND, 5, 0, 0).is_some(),
+        "the newest read of all"
+    );
+
+    store.evict_to(300).expect("evict");
+
+    assert!(
+        store.get(GROUND, 5, 0, 0).is_some(),
+        "the most recently read tile in the tree must not be the first to go"
+    );
+    assert_eq!(store.size_of(VECTOR), 200, "a vector tile went instead");
 }
 
 #[test]
 fn evicting_a_store_already_under_budget_removes_nothing() {
-    let (store, _tmp) = store();
-    store
-        .put(VECTOR, 5, 0, 0, "pbf", &bytes(100, 1), false)
+    let (held, _tmp) = store();
+    held.put(VECTOR, 5, 0, 0, "pbf", &bytes(100, 1), false)
         .expect("put");
 
-    assert_eq!(store.evict_to(VECTOR, 1_000).expect("evict"), 0);
-    assert_eq!(store.evict_to(DEM, 0).expect("evict an empty source"), 0);
-    assert_eq!(store.size_of(VECTOR), 100);
+    assert_eq!(held.evict_to(1_000).expect("evict"), 0);
+    assert_eq!(held.evict_to(100).expect("evict exactly on budget"), 0);
+    assert_eq!(held.size_of(VECTOR), 100);
+
+    let (empty, _empty_tmp) = store();
+    assert_eq!(empty.evict_to(0).expect("evict an empty tree"), 0);
 }
 
 // ============================================================================
@@ -428,7 +500,7 @@ fn a_truncated_index_is_rebuilt_from_the_tree_rather_than_read_as_empty() {
     );
     assert_eq!(reopened.get(VECTOR, 5, 0, 0), Some(bytes(100, 1)));
     assert_eq!(
-        reopened.evict_to(VECTOR, 0).expect("evict"),
+        reopened.evict_to(0).expect("evict"),
         2,
         "and are still evictable"
     );
@@ -495,7 +567,7 @@ fn the_read_order_survives_a_reopen() {
     }
 
     let reopened = TileStore::new(&root);
-    reopened.evict_to(VECTOR, 100).expect("evict");
+    reopened.evict_to(100).expect("evict");
 
     assert!(
         reopened.get(VECTOR, 5, 0, 0).is_some(),
@@ -779,7 +851,7 @@ fn a_read_still_stamps_the_entry_and_follows_the_bytes_it_got() {
     );
 
     // The tile just read is the most recent, so eviction takes the other one.
-    store.evict_to(GROUND, 8).expect("evict");
+    store.evict_to(8).expect("evict");
     assert_eq!(store.get(GROUND, 2, 0, 1), None);
     assert_eq!(store.get(GROUND, 2, 0, 0), Some(bytes(8, 1)));
 }

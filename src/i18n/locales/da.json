@@ -1092,6 +1092,8 @@
     "legendPr": "PR",
     "legendReverse": "Modsat",
     "legendThisActivity": "Denne aktivitet",
+    "legendThisSection": "Denne strækning",
+    "legendNearby": "Andre strækninger i nærheden",
     "resetReference": "Nulstil reference",
     "resetReferenceConfirm": "Nulstil til automatisk referencevalg?\n\nSektionen vil blive matchet igen mod alle dine aktiviteter. Dette kan tilføje eller fjerne aktiviteter fra denne sektion.",
     "reverse": "Omvendt",

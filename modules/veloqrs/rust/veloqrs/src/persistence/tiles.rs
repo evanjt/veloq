@@ -400,7 +400,10 @@ fn background_generate_tiles(
 
     // Open own SQLite connection (same pattern as section detection).
     let conn = match Connection::open(db_path) {
-        Ok(c) => c,
+        Ok(c) => {
+            let _ = crate::persistence::apply_write_pragmas(&c);
+            c
+        }
         Err(e) => {
             log::error!("[heatmap] Failed to open database: {}", e);
             return TileGeneration::default();

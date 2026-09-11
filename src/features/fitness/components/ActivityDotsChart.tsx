@@ -11,7 +11,7 @@ import { ChartCrosshair, useChartGestures } from '@/shared/charts';
 import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
 import { getActivityColor, sortByDateId } from '@/features/activity/lib/activityUtils';
 import type { Activity, ActivityType, WellnessData } from '@/types';
-import { stripMarks } from '../lib/stripMarks';
+import { stripMarks, markFills } from '../lib/stripMarks';
 
 // Simple emoji icons for activity types
 const ACTIVITY_EMOJIS: Record<string, string> = {
@@ -390,18 +390,19 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
                 {marks.map((mark) => {
                   const total = mark.height * height;
                   let top = height - total;
-                  return mark.segments.map((segment) => {
+                  const muted = isDark ? darkColors.textDisabled : colors.textDisabled;
+                  return markFills(mark, muted, getActivityColor).map((fill, n) => {
                     const y = top;
-                    const segmentHeight = segment.fraction * total;
-                    top += segmentHeight;
+                    const fillHeight = fill.fraction * total;
+                    top += fillHeight;
                     return (
                       <Rect
-                        key={`${mark.dates[0]}-${segment.type}`}
+                        key={`${mark.dates[0]}-${n}`}
                         x={mark.x}
                         y={y}
                         width={mark.width}
-                        height={segmentHeight}
-                        color={getActivityColor(segment.type)}
+                        height={fillHeight}
+                        color={fill.color}
                       />
                     );
                   });

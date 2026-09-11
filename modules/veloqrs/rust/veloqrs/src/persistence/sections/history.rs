@@ -113,6 +113,21 @@ pub struct SectionGeometryVersion {
     pub milestone: bool,
 }
 
+/// Open a quarantined database to read what can still be salvaged out of it.
+///
+/// Read-only first, which is what a file that may be corrupt deserves. But
+/// SQLite cannot open a WAL database read-only unless the `-shm` sidecar is
+/// already there, and a cleanly closed one has none: the mode is in the
+/// header and the sidecars are gone. Every database here is WAL, so
+/// read-only alone would have made salvage return nothing on exactly the
+/// files it exists for. The fallback opens read-write, which lets SQLite
+/// create the sidecar; nothing here writes to the file.
+fn open_quarantined(path: &str) -> Option<rusqlite::Connection> {
+    rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .or_else(|_| rusqlite::Connection::open(path))
+        .ok()
+}
+
 /// What one quarantine salvage carried into the fresh database, per table.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct SalvageCounts {
@@ -1103,10 +1118,7 @@ impl PersistentEngine {
     /// re-synced activity against the whole catalogue, custom sections
     /// included, so the members come back as the library does.
     pub fn salvage_ledger_from(&self, corrupt_path: &str) -> SalvageCounts {
-        let Ok(src) = rusqlite::Connection::open_with_flags(
-            corrupt_path,
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-        ) else {
+        let Some(src) = open_quarantined(corrupt_path) else {
             return SalvageCounts::default();
         };
         let history = salvage_rows(

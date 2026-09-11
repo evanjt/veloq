@@ -372,6 +372,10 @@ name = "detection_resume"
 required-features = ["synthetic"]
 
 [[test]]
+name = "group_dominant_sport"
+required-features = ["synthetic"]
+
+[[test]]
 name = "group_sport_icons_before_metrics"
 required-features = ["synthetic"]
 
