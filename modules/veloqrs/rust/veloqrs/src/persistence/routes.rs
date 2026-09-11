@@ -9,6 +9,22 @@ use std::sync::Arc;
 
 use super::{GroupSummary, PersistentEngine, codec, get_route_word};
 
+/// The order the route numbers are handed out in: most activities first, the
+/// id closing it so two groups tied on the count do not swap numbers between
+/// runs.
+///
+/// Sport is not a term. The numbering is global and not per sport, which the
+/// counter below already says, and the scalar this used to lead with was the
+/// representative activity's rather than the route's, so it decided the
+/// numbering of an athlete's whole list by which activity happened to be
+/// picked as the picture.
+fn mint_order(a: &tracematch::RouteGroup, b: &tracematch::RouteGroup) -> std::cmp::Ordering {
+    b.activity_ids
+        .len()
+        .cmp(&a.activity_ids.len())
+        .then_with(|| a.group_id.cmp(&b.group_id))
+}
+
 /// The sport most of a group's members carry.
 ///
 /// The set of sports on the summary answers "which sports have been here", and
@@ -1011,16 +1027,8 @@ impl PersistentEngine {
                 "INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)",
             )?;
 
-            // Sport, then most activities first. The id closes the ordering so
-            // two groups tied on both do not swap numbers between runs, matching
-            // the section-side comparator.
             let mut sorted_groups: Vec<&tracematch::RouteGroup> = self.groups.iter().collect();
-            sorted_groups.sort_by(|a, b| {
-                a.sport_type
-                    .cmp(&b.sport_type)
-                    .then_with(|| b.activity_ids.len().cmp(&a.activity_ids.len()))
-                    .then_with(|| a.group_id.cmp(&b.group_id))
-            });
+            sorted_groups.sort_by(|a, b| mint_order(a, b));
 
             // Track the next available number. Numbering is global, not per sport.
             let mut counter: u32 = 0;
@@ -1748,8 +1756,62 @@ impl PersistentEngine {
 mod tests {
     use rusqlite::params;
 
-    use super::PersistentEngine;
+    use super::{PersistentEngine, mint_order};
     use tracematch::GpsPoint;
+
+    /// Scenario: the order route numbers are handed out in. It led with the
+    /// group's scalar sport, which is the representative activity's, so which
+    /// activity happened to be the picture decided the numbering of the whole
+    /// list.
+    mod numbering_order {
+        use super::mint_order;
+        use std::cmp::Ordering;
+
+        fn group(id: &str, sport: &str, members: usize) -> tracematch::RouteGroup {
+            tracematch::RouteGroup {
+                group_id: id.to_string(),
+                representative_id: format!("{id}_0"),
+                activity_ids: (0..members).map(|i| format!("{id}_{i}")).collect(),
+                sport_type: sport.to_string(),
+                bounds: None,
+                custom_name: None,
+                best_time: None,
+                avg_time: None,
+                best_pace: None,
+                best_activity_id: None,
+            }
+        }
+
+        #[test]
+        fn the_bigger_group_is_numbered_first() {
+            assert_eq!(
+                mint_order(&group("g1", "Walk", 9), &group("g2", "Ride", 2)),
+                Ordering::Less
+            );
+        }
+
+        #[test]
+        fn sport_does_not_rank_a_group() {
+            assert_eq!(
+                mint_order(&group("g1", "Walk", 4), &group("g2", "Ride", 4)),
+                Ordering::Less,
+                "tied on members, the id settles it, not the alphabet of the sports"
+            );
+            assert_eq!(
+                mint_order(&group("g2", "Ride", 4), &group("g1", "Walk", 4)),
+                Ordering::Greater
+            );
+        }
+
+        #[test]
+        fn a_tie_settles_on_the_id_so_two_runs_number_the_same_way() {
+            let a = group("g1", "Ride", 4);
+            let b = group("g2", "Ride", 4);
+            assert_eq!(mint_order(&a, &b), Ordering::Less);
+            assert_eq!(mint_order(&b, &a), Ordering::Greater);
+            assert_eq!(mint_order(&a, &a), Ordering::Equal);
+        }
+    }
 
     /// Two sections over three activities, four routes, with one exclusion on
     /// each side of the join: `a3`'s pass through `s2` and `a2`'s match on `r4`.

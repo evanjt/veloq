@@ -49,7 +49,8 @@ describe('the summary card arrows', () => {
     expect(stats.fitnessTrend).toBe('↑');
     expect(stats.formTrend).toBe('↑');
     expect(stats.hrvTrend).toBe('↑');
-    expect(stats.rhrTrend).toBe('↓');
+    // Resting heart rate fell, which is an improvement, so the glyph points up.
+    expect(stats.rhrTrend).toBe('↑');
   });
 
   it('holds each deadband, and moves one step past it', () => {
@@ -75,7 +76,7 @@ describe('the summary card arrows', () => {
     expect(outside.fitnessTrend).toBe('↑');
     expect(outside.formTrend).toBe('↑');
     expect(outside.hrvTrend).toBe('↓');
-    expect(outside.rhrTrend).toBe('↓');
+    expect(outside.rhrTrend).toBe('↑');
     expect(outside.weightTrend).toBe('↓');
   });
 
@@ -114,4 +115,14 @@ describe('the summary card arrows', () => {
     expect(stats.hrvTrend).toBeUndefined();
     expect(stats.weightTrend).toBe('↓');
   });
+});
+
+it('points a rising resting heart rate down, on the judgement and not the number', () => {
+  const stats = computeWellnessStats([
+    day('2026-09-05', { ctl: 60, atl: 40, restingHR: 52 }),
+    day('2026-09-04', { ctl: 60, atl: 40, restingHR: 48 }),
+  ]);
+
+  expect(stats.rhr).toBe(52);
+  expect(stats.rhrTrend).toBe('↓');
 });

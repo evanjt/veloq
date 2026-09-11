@@ -19,6 +19,8 @@ use tracematch::GpsPoint;
 use tracematch::sections::{Tunables, shares_ground};
 use veloqrs::FfiSectionConfig;
 use veloqrs::objects::SectionPreview;
+use veloqrs::objects::start::FfiStartOutcome;
+use veloqrs::objects::start::FfiStartOutcome::Started;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -173,10 +175,11 @@ fn a_preview_over_a_component_matches_the_cold_batch_over_its_activities() {
 
     // Preview from a point inside only the first spot, live config unchanged.
     let preview = SectionPreview::new();
-    assert!(
+    assert_eq!(
         preview
             .start(5.01, 10.0, FfiSectionConfig::from(&cfg))
             .expect("start call"),
+        Started,
         "a preview over the chain must start"
     );
     let deadline = Instant::now() + Duration::from_secs(120);

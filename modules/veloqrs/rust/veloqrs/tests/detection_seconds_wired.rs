@@ -15,6 +15,7 @@ use tracematch::GpsPoint;
 use veloqrs::FfiSectionConfig;
 use veloqrs::PersistentEngine;
 use veloqrs::objects::SectionPreview;
+use veloqrs::objects::start::FfiStartOutcome;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -162,10 +163,11 @@ fn the_preview_sees_the_same_ground_as_the_detect() {
     let cfg = with_persistent_engine(|engine| engine.get_section_config()).expect("config");
     let preview = SectionPreview::new();
     let mid = offset(BASE, 0.0, 395.0);
-    assert!(
+    assert_eq!(
         preview
             .start(mid.0, mid.1, FfiSectionConfig::from(&cfg))
             .expect("start"),
+        FfiStartOutcome::Started,
         "the climb sits inside a component"
     );
 

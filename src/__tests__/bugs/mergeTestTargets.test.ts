@@ -140,6 +140,45 @@ describe('the commands a merge runs', () => {
     expect(command).toContain('--features synthetic');
   });
 
+  /// Scenario: a merge edits one of the two suites gated on `real-corpus`.
+  /// Named under `--features synthetic`, cargo refuses the whole command and
+  /// the merge is left staged in the shared checkout with `MERGE_HEAD` set,
+  /// for a reason that has nothing to do with the change.
+  describe('a suite gated on a feature the merge lane cannot supply', () => {
+    it('is left out of the command rather than naming it under the wrong feature', () => {
+      const [command] = mergeTestCommands(
+        mergeTestTargets([`${CRATE}/tests/corpus_preview_identity.rs`])
+      );
+
+      expect(command).toBeUndefined();
+    });
+
+    it('does not take the suites beside it down with it', () => {
+      const [command] = mergeTestCommands(
+        mergeTestTargets([
+          `${CRATE}/tests/corpus_migration.rs`,
+          `${CRATE}/tests/suite2_cache_coherence.rs`,
+        ])
+      );
+
+      expect(command).toContain('--test suite2_cache_coherence');
+      expect(command).not.toContain('corpus_migration');
+    });
+
+    it('reads the features from Cargo.toml rather than a second list of names', () => {
+      const manifest = readFileSync(join(ROOT, CRATE, 'Cargo.toml'), 'utf8');
+      const gated = Array.from(
+        manifest.matchAll(/\[\[test\]\]\s*\nname = "([^"]+)"\s*\nrequired-features = \[([^\]]*)\]/g)
+      ).filter(([, , features]) => !features.includes('synthetic'));
+
+      expect(gated.length).toBeGreaterThan(0);
+      for (const [, name] of gated) {
+        const [command] = mergeTestCommands(mergeTestTargets([`${CRATE}/tests/${name}.rs`]));
+        expect(command).toBeUndefined();
+      }
+    });
+  });
+
   // The hook runs the line through `eval`, and every tab screen lives under
   // `src/app/(tabs)/`, so an unquoted path is a merge that cannot land.
   it.each([

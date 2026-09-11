@@ -10,7 +10,8 @@ import { useTheme } from '@/shared/app';
 import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
 import { formatPaceCompact } from '@/shared/format/format';
 import { PERIOD_LABEL_KEYS } from '@/shared/app/period';
-import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, opacity, verdictColor } from '@/theme';
+import { trendIcon, trendVerdict, verdictRung, type TrendDirection } from '@/shared/format/trend';
 import { type TimeRange } from '@/features/wellness';
 import type { ZoneDistribution, eFTPPoint, ActivityStreams } from '@/types';
 
@@ -27,7 +28,7 @@ interface FitnessTrendSectionsProps {
   // eFTP trend (cycling)
   eftpHistory: eFTPPoint[] | undefined;
   currentFTP: number | null | undefined;
-  ftpTrend: 'up' | 'down' | 'stable' | null;
+  ftpTrend: TrendDirection | null;
   trendsExpanded: boolean;
   onTrendsToggle: (expanded: boolean) => void;
   // Running thresholds
@@ -140,11 +141,11 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                   <Text style={[styles.headerValue, { color: SPORT_COLORS.Cycling }]}>
                     {headerFtp}w
                   </Text>
-                  {ftpTrend && ftpTrend !== 'stable' && (
+                  {ftpTrend && (
                     <MaterialCommunityIcons
-                      name={ftpTrend === 'up' ? 'trending-up' : 'trending-down'}
+                      name={trendIcon('ftp', ftpTrend)}
                       size={16}
-                      color={ftpTrend === 'up' ? colors.success : colors.error}
+                      color={verdictColor(verdictRung(trendVerdict('ftp', ftpTrend)), isDark)}
                       style={styles.trendIcon}
                     />
                   )}

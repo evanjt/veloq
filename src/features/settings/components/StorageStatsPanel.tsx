@@ -1,13 +1,14 @@
-import React, { useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatFullDate, formatFileSize } from '@/shared/format/format';
 import { type TileCacheStats } from '@/features/maps/lib/terrainSnapshotEvents';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { TILE_CACHE_BUDGET_CHOICES_MB } from '@/features/maps/lib/tileCacheBudget';
 import { useTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
 import { mapCacheTotal } from '../lib/mapCacheTotal';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 
 import { StreamHistoryRow } from './StreamHistoryRow';
 
@@ -199,15 +200,24 @@ export function StorageStatsPanel({
   const budgetMb = useTileCacheSettings((state) => state.budgetMb);
   const setBudgetMb = useTileCacheSettings((state) => state.setBudgetMb);
 
-  // A cycle rather than a picker: four values, and the row already reads as one
-  // line beside the size it governs.
-  const cycleBudget = useCallback(() => {
-    const next =
-      TILE_CACHE_BUDGET_CHOICES_MB[
-        (TILE_CACHE_BUDGET_CHOICES_MB.indexOf(budgetMb) + 1) % TILE_CACHE_BUDGET_CHOICES_MB.length
-      ];
-    setBudgetMb(next);
-  }, [budgetMb, setBudgetMb]);
+  // A picker, not a cycle. Four rungs on a tap is a guessing game: reaching the
+  // top from the bottom means tapping past two values you did not want, and
+  // nothing on screen says what the rungs are until you have been through them.
+  const [pickingBudget, setPickingBudget] = useState(false);
+  const chooseBudget = useCallback(
+    (mb: number) => {
+      setBudgetMb(mb);
+      setPickingBudget(false);
+    },
+    [setBudgetMb, setPickingBudget]
+  );
+
+  // What the tiles hold against what they are allowed, which is the question
+  // the control is answering. A store that has not reported is a floor, not a
+  // zero, the same way the total above says so.
+  const budgetBytes = budgetMb * 1024 * 1024;
+  const usedBytes = tileCacheStats?.totalBytes ?? 0;
+  const usedShare = budgetBytes > 0 ? Math.min(1, usedBytes / budgetBytes) : 0;
 
   return (
     <>
@@ -322,22 +332,98 @@ export function StorageStatsPanel({
         </View>
       </View>
 
-      {/* The one control Q23 left: how much of the device the tiles may hold. */}
-      <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-        <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
-          {t('settings.tileCacheLimit')}
-        </Text>
-        <TouchableOpacity
-          testID="settings-tile-cache-limit"
-          onPress={cycleBudget}
-          style={styles.infoValueRow}
-          accessibilityRole="button"
-        >
-          <Text style={[styles.infoValue, styles.statLabelClickable]}>
-            {formatFileSize(budgetMb * 1024 * 1024)} ›
+      {/* The one storage control the athlete has: how much of the device the
+          tiles may hold, what raising it buys, and what it costs. */}
+      <View style={[styles.infoRow, styles.budgetRow, isDark && styles.infoRowDark]}>
+        <View style={styles.budgetHeader}>
+          <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+            {t('settings.tileCacheLimit')}
           </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            testID="settings-tile-cache-limit"
+            onPress={() => setPickingBudget(true)}
+            style={styles.infoValueRow}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.infoValue, styles.statLabelClickable]}>
+              {formatFileSize(budgetBytes)} ›
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <Text
+          testID="settings-tile-cache-subtitle"
+          style={[styles.budgetHint, isDark && styles.textMuted]}
+        >
+          {t('settings.tileCacheLimitHint')}
+        </Text>
+        <View style={[styles.budgetTrack, isDark && styles.budgetTrackDark]}>
+          <View style={[styles.budgetFill, { flex: usedShare }]} />
+          <View style={{ flex: 1 - usedShare }} />
+        </View>
+        <View style={styles.budgetFooter}>
+          <Text testID="settings-tile-cache-used" style={styles.budgetFooterText}>
+            {tileCacheStats
+              ? t('settings.tileCacheUsedOfBudget', {
+                  used: formatFileSize(usedBytes),
+                  budget: formatFileSize(budgetBytes),
+                })
+              : t('settings.tileCacheUsedOfBudgetAtLeast', {
+                  used: formatFileSize(usedBytes),
+                  budget: formatFileSize(budgetBytes),
+                })}
+          </Text>
+          {freeStorage !== null && (
+            <Text testID="settings-tile-cache-free" style={styles.budgetFooterText}>
+              {t('settings.tileCacheFree', { size: formatFileSize(freeStorage) })}
+            </Text>
+          )}
+        </View>
       </View>
+
+      <Modal
+        visible={pickingBudget}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickingBudget(false)}
+      >
+        <TouchableOpacity
+          testID="settings-tile-cache-picker"
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setPickingBudget(false)}
+        >
+          <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
+            <Text style={[styles.modalTitle, isDark && styles.textLight]}>
+              {t('settings.tileCacheLimit')}
+            </Text>
+            {TILE_CACHE_BUDGET_CHOICES_MB.map((mb) => {
+              const selected = mb === budgetMb;
+              return (
+                <TouchableOpacity
+                  key={mb}
+                  testID={`settings-tile-cache-choice-${mb}`}
+                  style={[styles.modalOption, selected && styles.modalOptionSelected]}
+                  onPress={() => chooseBudget(mb)}
+                  activeOpacity={0.6}
+                >
+                  <Text
+                    style={[
+                      styles.modalOptionText,
+                      isDark && styles.textLight,
+                      selected && { color: colors.primary },
+                    ]}
+                  >
+                    {formatFileSize(mb * 1024 * 1024)}
+                  </Text>
+                  {selected && (
+                    <MaterialCommunityIcons name="check" size={18} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Storage breakdown bar */}
       <StorageBreakdownBar
@@ -392,6 +478,80 @@ const styles = StyleSheet.create({
   },
   infoRowDark: {
     borderTopColor: darkColors.border,
+  },
+  // The budget row is the only one that stacks: a label and its value, then
+  // what raising it buys, then what it holds against what it may.
+  budgetRow: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: spacing.xs,
+  },
+  budgetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  budgetHint: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+  },
+  budgetTrack: {
+    flexDirection: 'row',
+    height: 6,
+    borderRadius: layout.borderRadiusFull,
+    overflow: 'hidden',
+    backgroundColor: colors.borderLight,
+  },
+  budgetTrackDark: {
+    backgroundColor: darkColors.border,
+  },
+  budgetFill: {
+    backgroundColor: colors.primary,
+  },
+  budgetFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  budgetFooterText: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: opacity.overlay.scrim,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadiusLg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  modalContentDark: {
+    backgroundColor: darkColors.surfaceElevated,
+  },
+  modalTitle: {
+    fontSize: typography.cardTitle.fontSize,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: layout.borderRadiusMd,
+    minHeight: layout.minTapTarget,
+  },
+  modalOptionSelected: {
+    backgroundColor: colors.backgroundAlt,
+  },
+  modalOptionText: {
+    fontSize: typography.body.fontSize,
+    color: colors.textPrimary,
   },
   infoLabel: {
     fontSize: typography.bodySmall.fontSize,

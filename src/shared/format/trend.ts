@@ -41,6 +41,9 @@ export const TREND_DEADBAND = {
   form: 2,
   weekHours: 0.5,
   weekCount: 1,
+  /** Kilometres, and load in the server's own points. */
+  weekDistance: 1,
+  weekTss: 5,
   ftp: 2,
   thresholdPace: 0.05,
   css: 0.05,
@@ -65,6 +68,9 @@ export const TREND_POLARITY: Record<TrendMetric, 'higher' | 'lower' | 'none'> = 
   form: 'none',
   weekHours: 'higher',
   weekCount: 'higher',
+  weekDistance: 'higher',
+  /** Load is fatigue's number, so it moves with no judgement, as fatigue does. */
+  weekTss: 'none',
   ftp: 'higher',
   thresholdPace: 'lower',
   css: 'lower',

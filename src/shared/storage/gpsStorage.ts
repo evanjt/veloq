@@ -12,7 +12,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { debug } from '@/shared/debug/debug';
 import { getEngine } from '@/shared/native/engine';
 import { clearTerrainPreviews } from '@/features/maps/lib/storage/terrainPreviewCache';
-import { forgetCachedAthleteId } from './cachedAthleteId';
+import { forgetCachedAthleteId, forgetStoredActivityCount } from './cachedAthleteId';
 
 const log = debug.create('GpsStorage');
 
@@ -211,6 +211,7 @@ export async function clearAccountData(queryClient: { clear: () => void }): Prom
     FileSystem.deleteAsync(ROUTE_NAMES_FILE, { idempotent: true }),
     clearTerrainPreviews(),
     forgetCachedAthleteId(),
+    forgetStoredActivityCount(),
   ]);
 
   log.log('Cleared all app caches');

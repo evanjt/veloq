@@ -86,7 +86,7 @@ function makeClient(over: Partial<PreviewClient> = {}) {
     }),
     getPreviewCentres: jest.fn(() => []),
     getPreviewCurrentSections: jest.fn((): PreviewSection[] => []),
-    startPreviewDetect: jest.fn(() => true),
+    startPreviewDetect: jest.fn(() => StartOutcome.Started),
     pollPreviewDetect: jest.fn((): PreviewPollStatus => 'running'),
     getPreviewProgress: jest.fn(() => null),
     takePreviewResult: jest.fn((): PreviewResult | null => null),
@@ -297,8 +297,8 @@ describe('usePreviewDetect', () => {
     expect(detaches).toBe(2);
   });
 
-  it('reads a refused start as a hold that lifts, not failure', () => {
-    const client = makeClient({ startPreviewDetect: jest.fn(() => false) });
+  it("passes the engine's own refusal through rather than one standing for four", () => {
+    const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.Held) });
     const { result } = renderHook(() => usePreviewDetect(client));
 
     let outcome = StartOutcome.Started;
@@ -308,6 +308,33 @@ describe('usePreviewDetect', () => {
 
     expect(outcome).toBe(StartOutcome.Held);
     expect(result.current.suspended).toBe(true);
+    expect(result.current.status).toBe('idle');
+  });
+
+  it('reads a run already in flight as busy, and still waiting', () => {
+    const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.Busy) });
+    const { result } = renderHook(() => usePreviewDetect(client));
+
+    let outcome = StartOutcome.Started;
+    act(() => {
+      outcome = result.current.start(10, 20, PARAMS);
+    });
+
+    expect(outcome).toBe(StartOutcome.Busy);
+    expect(result.current.suspended).toBe(true);
+  });
+
+  it('does not read a point nothing covers as something that will lift', () => {
+    const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.NotOwed) });
+    const { result } = renderHook(() => usePreviewDetect(client));
+
+    let outcome = StartOutcome.Started;
+    act(() => {
+      outcome = result.current.start(10, 20, PARAMS);
+    });
+
+    expect(outcome).toBe(StartOutcome.NotOwed);
+    expect(result.current.suspended).toBe(false);
     expect(result.current.status).toBe('idle');
   });
 

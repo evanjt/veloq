@@ -174,7 +174,6 @@ interface NativeModuleInterface {
   ): number;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_evict_to(
     ptr: bigint,
-    source: Uint8Array,
     budgetBytes: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
@@ -735,7 +734,7 @@ interface NativeModuleInterface {
     lng: number,
     config: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionpreview_take_result(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,

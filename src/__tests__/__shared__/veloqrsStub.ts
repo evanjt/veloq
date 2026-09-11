@@ -97,7 +97,7 @@ export const createPreviewClientStub = () => ({
   subscribe: jest.fn(() => () => {}),
   getPreviewCentres: jest.fn(() => []),
   getPreviewCurrentSections: jest.fn(() => []),
-  startPreviewDetect: jest.fn(() => false),
+  startPreviewDetect: jest.fn(() => StartOutcome.NotReady),
   pollPreviewDetect: jest.fn(() => 'idle'),
   getPreviewProgress: jest.fn(() => null),
   takePreviewResult: jest.fn(() => null),

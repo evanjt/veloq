@@ -220,7 +220,7 @@ uint32_t uniffi_veloqrs_fn_method_basemapmanager_clear_source_tiles(
 uint32_t uniffi_veloqrs_fn_method_basemapmanager_clear_tiles(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_method_basemapmanager_evict_to(
-    /*handle*/ uint64_t ptr, RustBuffer source, uint64_t budget_bytes,
+    /*handle*/ uint64_t ptr, uint64_t budget_bytes,
     RustCallStatus *uniffi_out_err);
 uint64_t uniffi_veloqrs_fn_method_basemapmanager_get_cache_size(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
@@ -492,7 +492,7 @@ RustBuffer uniffi_veloqrs_fn_method_sectionpreview_get_progress(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionpreview_poll(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
-int8_t uniffi_veloqrs_fn_method_sectionpreview_start(
+RustBuffer uniffi_veloqrs_fn_method_sectionpreview_start(
     /*handle*/ uint64_t ptr, double lat, double lng, RustBuffer config,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionpreview_take_result(
@@ -5004,7 +5004,7 @@ NativeVeloqrs::NativeVeloqrs(
           rt,
           jsi::PropNameID::forAscii(
               rt, "ubrn_uniffi_veloqrs_fn_method_basemapmanager_evict_to"),
-          3,
+          2,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_method_basemapmanager_evict_to(
@@ -13850,8 +13850,7 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_basemapmanager_evict_to(
   auto value = uniffi_veloqrs_fn_method_basemapmanager_evict_to(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[2]),
+      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -15673,7 +15672,7 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionpreview_start(
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionpreview_take_result(

@@ -2,7 +2,9 @@ import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import { useTheme } from '@/shared/app';
+import { useIsOnline } from '@/shared/app/NetworkContext';
+import { getNextStyle, offlineMapStyle, type MapStyleType } from '@/features/maps';
 import { MapSurface, type MapSurfaceRef } from '@/features/maps/components/MapSurface';
 import {
   boundsOfLngLat,
@@ -24,6 +26,27 @@ const OVERLAY_COLOR = brand.blue;
 
 /** Zoom held while the camera follows the current position. */
 const FOLLOW_ZOOM = 15;
+
+/**
+ * The basemap the athlete cycled to while riding, or null for the theme's.
+ *
+ * Module-scoped rather than component state, because a recording is not a
+ * screen visit: it runs for hours and the athlete leaves the tab and comes
+ * back. A choice that died with the component would have to be made again with
+ * gloves on, mid-ride. It is still not a preference: nothing is persisted, so a
+ * fresh launch opens on the theme's style again. Recording deliberately has no
+ * settings row of its own.
+ *
+ * The recording map does NOT read `preferences.defaultStyle`. That is the style
+ * chosen for browsing a finished ride, and satellite has no street names, no
+ * path casing and low contrast against a bright track in sunlight.
+ */
+let chosenStyle: MapStyleType | null = null;
+
+/** Forget the ride's basemap choice. For tests; nothing in the app calls it. */
+export function __resetRecordingMapStyle(): void {
+  chosenStyle = null;
+}
 
 /** Room around the finished track in review mode, in pixels. */
 const REVIEW_FIT_PADDING = { top: 40, right: 40, bottom: 60, left: 40 } as const;
@@ -51,7 +74,17 @@ function RecordingMapInner({
   onOpenRoutePicker,
   style,
 }: RecordingMapProps) {
-  const { preferences } = useMapPreferences();
+  const { isDark } = useTheme();
+  const isOnline = useIsOnline();
+  // Re-render on a cycle: the choice itself lives above the component so it
+  // survives the athlete leaving the tab, and this is only what redraws.
+  const [, bumpStyle] = useState(0);
+  const themeStyle: MapStyleType = isDark ? 'dark' : 'light';
+  const mapStyle: MapStyleType = offlineMapStyle(chosenStyle ?? themeStyle, isOnline, themeStyle);
+  const cycleStyle = useCallback(() => {
+    chosenStyle = getNextStyle(mapStyle);
+    bumpStyle((n) => n + 1);
+  }, [mapStyle]);
   const surfaceRef = useRef<MapSurfaceRef>(null);
   // Camera follows the current position until the user pans; the recenter
   // button restores following.
@@ -199,7 +232,7 @@ function RecordingMapInner({
     <View style={[styles.container, style]}>
       <MapSurface
         ref={surfaceRef}
-        mapStyle={preferences.defaultStyle}
+        mapStyle={mapStyle}
         initialCamera={initialCamera}
         sources={sources}
         layers={layers}
@@ -224,6 +257,15 @@ function RecordingMapInner({
               />
             </TouchableOpacity>
           )}
+          <TouchableOpacity
+            testID="recording-map-style"
+            style={styles.controlButton}
+            onPress={cycleStyle}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+          >
+            <MaterialCommunityIcons name="layers" size={20} color={darkColors.textPrimary} />
+          </TouchableOpacity>
           {!isFollowing && (
             <TouchableOpacity
               testID="recording-map-recenter"

@@ -349,6 +349,10 @@ export interface TranslationResource {
     mapCache: string;
     sizeAtLeast: string;
     tileCacheLimit: string;
+    tileCacheLimitHint: string;
+    tileCacheUsedOfBudget: string;
+    tileCacheUsedOfBudgetAtLeast: string;
+    tileCacheFree: string;
     dateRange: string;
     noData: string;
     lastSynced: string;

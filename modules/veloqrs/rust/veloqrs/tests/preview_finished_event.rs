@@ -19,6 +19,8 @@ use tracematch::GpsPoint;
 use veloqrs::FfiSectionConfig;
 use veloqrs::objects::SectionPreview;
 use veloqrs::objects::observer::{EngineObserver, set_observer};
+use veloqrs::objects::start::FfiStartOutcome;
+use veloqrs::objects::start::FfiStartOutcome::Started;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -161,7 +163,7 @@ fn a_completed_preview_announces_once_and_the_outcome_is_readable() {
     set_observer(Some(counter.clone()));
 
     let preview = SectionPreview::new();
-    assert!(preview.start(46.01, 7.0, cfg).expect("start"));
+    assert_eq!(preview.start(46.01, 7.0, cfg).expect("start"), Started);
     wait_for_finish(&counter, 1);
 
     // The first poll after the notice is terminal: the sender is gone by the
@@ -186,7 +188,7 @@ fn a_cancelled_preview_still_announces() {
     set_observer(Some(counter.clone()));
 
     let preview = SectionPreview::new();
-    assert!(preview.start(46.01, 7.0, cfg).expect("start"));
+    assert_eq!(preview.start(46.01, 7.0, cfg).expect("start"), Started);
     preview.cancel().expect("cancel");
     wait_for_finish(&counter, 1);
 
@@ -208,12 +210,18 @@ fn a_second_run_announces_again() {
     set_observer(Some(counter.clone()));
 
     let preview = SectionPreview::new();
-    assert!(preview.start(46.01, 7.0, cfg.clone()).expect("start"));
+    assert_eq!(
+        preview.start(46.01, 7.0, cfg.clone()).expect("start"),
+        Started
+    );
     wait_for_finish(&counter, 1);
     assert_eq!(preview.poll().expect("poll"), "complete");
     assert!(preview.take_result().expect("take").is_some());
 
-    assert!(preview.start(46.01, 7.0, cfg).expect("second start"));
+    assert_eq!(
+        preview.start(46.01, 7.0, cfg).expect("second start"),
+        Started
+    );
     wait_for_finish(&counter, 2);
     assert_eq!(
         preview.poll().expect("poll"),
@@ -232,7 +240,7 @@ fn a_run_with_no_observer_registered_still_finishes() {
     set_observer(None);
 
     let preview = SectionPreview::new();
-    assert!(preview.start(46.01, 7.0, cfg).expect("start"));
+    assert_eq!(preview.start(46.01, 7.0, cfg).expect("start"), Started);
     assert_eq!(wait_for_terminal(&preview), "complete");
     assert!(preview.take_result().expect("take").is_some());
 }
@@ -245,7 +253,7 @@ fn a_completed_preview_announces_every_phase_it_enters() {
     set_observer(Some(counter.clone()));
 
     let preview = SectionPreview::new();
-    assert!(preview.start(46.01, 7.0, cfg).expect("start"));
+    assert_eq!(preview.start(46.01, 7.0, cfg).expect("start"), Started);
     wait_for_finish(&counter, 1);
 
     assert_eq!(
@@ -267,7 +275,7 @@ fn every_announced_phase_is_readable_when_it_is_announced() {
     set_observer(Some(counter.clone()));
 
     let preview = SectionPreview::new();
-    assert!(preview.start(46.01, 7.0, cfg).expect("start"));
+    assert_eq!(preview.start(46.01, 7.0, cfg).expect("start"), Started);
     wait_for_finish(&counter, 1);
 
     let progress = preview.get_progress().expect("progress").expect("a run");

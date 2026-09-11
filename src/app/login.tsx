@@ -12,16 +12,14 @@ import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { createSharedStyles } from '@/styles';
 import { clearAccountData } from '@/shared/storage';
-import { getEngine } from '@/shared/native/engine';
 import { useImportDatabaseBackup } from '@/features/settings/hooks/exportIndex';
 import {
   useAuthStore,
   INTERVALS_URLS,
-  accountChangeAction,
+  demoEntryAction,
   confirmAccountChange,
   getCachedAthleteId,
   UNNAMED_LIBRARY,
-  DEMO_ATHLETE_ID,
   useApiKeyLogin,
   useOAuthLogin,
   useBackupRestore,
@@ -76,13 +74,13 @@ export default function LoginScreen() {
     // Warn before destroying a real account's cached data. Engine holds at
     // most one account at a time, so leftover real-user data has to be
     // wiped before demo can populate. Same dialog as account-switch on login.
-    const cachedId = await getCachedAthleteId();
     // A backup restored from this screen leaves a library no credential names,
-    // so the count is what stands between it and the demo fixtures.
-    const stored = getEngine()?.getActivityCount() ?? 0;
-    if (accountChangeAction(cachedId, DEMO_ATHLETE_ID, stored) === 'confirm-then-wipe') {
+    // so the count is what stands between it and the demo fixtures. The engine
+    // is closed here by design and a closed handle reports no activities, so
+    // the count comes from the library rather than from the handle.
+    if ((await demoEntryAction()) === 'confirm-then-wipe') {
       const proceed = await confirmAccountChange({
-        cachedAthleteId: cachedId ?? UNNAMED_LIBRARY,
+        cachedAthleteId: (await getCachedAthleteId()) ?? UNNAMED_LIBRARY,
         incomingKind: 'demo',
       });
       if (!proceed) return;

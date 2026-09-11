@@ -602,7 +602,7 @@ class EngineClient implements DelegateHost {
   getPreviewCurrentSections = (lat: number, lng: number): PreviewSection[] | null =>
     previewDelegates.getPreviewCurrentSections(this, lat, lng);
 
-  startPreviewDetect = (lat: number, lng: number, config: FfiSectionConfig): boolean =>
+  startPreviewDetect = (lat: number, lng: number, config: FfiSectionConfig): FfiStartOutcome =>
     previewDelegates.startPreviewDetect(this, lat, lng, config);
 
   pollPreviewDetect = (): PreviewPollStatus => previewDelegates.pollPreviewDetect(this);

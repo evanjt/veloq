@@ -17,6 +17,52 @@ const CRATE = 'modules/veloqrs/rust/veloqrs/';
 const RUST_TEST_DIR = `${CRATE}tests/`;
 const TRACEMATCH = 'modules/veloqrs/rust/tracematch';
 
+/**
+ * The one feature every command carries. It is additive and it is the lane CI
+ * runs, so naming it costs the suites that do not need it nothing.
+ */
+const MERGE_FEATURE = 'synthetic';
+
+/**
+ * Suites whose `required-features` this lane cannot supply, read from the
+ * manifest rather than written out here: a new `[[test]]` with a new feature
+ * has to drop out of the plan on its own, not break the gate until somebody
+ * adds it to a list.
+ *
+ * Today that is `real-corpus`, whose two suites need a corpus on disk that a
+ * merge cannot assume exists. Cargo refuses a `--test` naming a suite whose
+ * features are absent rather than skipping it, so one such name takes the
+ * whole command down and the merge is left staged for a reason that has
+ * nothing to do with the change. They are dropped, not run: do not add them
+ * back by passing `--features real-corpus`.
+ */
+function unrunnableSuites(): Set<string> {
+  const manifest = readManifest();
+  const stanzas = manifest.matchAll(
+    /\[\[test\]\]\s*\nname = "([^"]+)"\s*\nrequired-features = \[([^\]]*)\]/g
+  );
+  const unrunnable = new Set<string>();
+  for (const [, name, features] of stanzas) {
+    if (!features.includes(`"${MERGE_FEATURE}"`)) unrunnable.add(name);
+  }
+  return unrunnable;
+}
+
+/**
+ * Read once per process. The plan is built in one short-lived script, and the
+ * manifest is the source of truth for what cargo will accept.
+ */
+let manifestCache: string | null = null;
+function readManifest(): string {
+  if (manifestCache === null) {
+    // Resolved from this file rather than the working directory: the hook runs
+    // from the repository root, the tests run from wherever jest was started.
+    const path = require('node:path').join(__dirname, '../..', CRATE, 'Cargo.toml');
+    manifestCache = require('node:fs').readFileSync(path, 'utf8') as string;
+  }
+  return manifestCache;
+}
+
 export interface MergeTargets {
   /** `cargo test -p veloqrs --test <name>` for each. */
   rustTests: string[];
@@ -64,7 +110,12 @@ function isTypeScript(path: string): boolean {
 
 /** The suites to run for a set of changed paths. */
 export function mergeTestTargets(changed: string[]): MergeTargets {
-  const rustTests = [...new Set(changed.map(rustTestName).filter((n): n is string => n !== null))];
+  const unrunnable = unrunnableSuites();
+  const rustTests = [
+    ...new Set(
+      changed.map(rustTestName).filter((n): n is string => n !== null && !unrunnable.has(n))
+    ),
+  ];
   return {
     rustTests: rustTests.sort(),
     rustLib: changed.some(touchesRustSource),
@@ -92,10 +143,10 @@ function shellQuote(path: string): string {
 export function mergeTestCommands(targets: MergeTargets): string[] {
   const commands: string[] = [];
 
-  // Sixty suites carry `required-features = ["synthetic"]`, and cargo refuses
-  // a `--test` naming one without the feature rather than skipping it. The
-  // feature is additive and it is the lane CI runs, so every command has it.
-  const cargo: string[] = ['--features synthetic'];
+  // Sixty-one suites carry `required-features = ["synthetic"]`, and cargo
+  // refuses a `--test` naming one without the feature rather than skipping it.
+  // The ones this lane cannot supply are already out of `rustTests`.
+  const cargo: string[] = [`--features ${MERGE_FEATURE}`];
   if (targets.rustLib) cargo.push('--lib');
   for (const name of targets.rustTests) cargo.push(`--test ${name}`);
   if (cargo.length > 1) {

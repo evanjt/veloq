@@ -139,6 +139,7 @@ jest.mock('@/shared/storage', () => ({
     await AsyncStorage.setItem(key, value);
   }),
   removeSetting: jest.fn().mockResolvedValue(undefined),
+  rememberStoredActivityCount: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({

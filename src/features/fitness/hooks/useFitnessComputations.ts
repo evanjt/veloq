@@ -4,6 +4,7 @@ import { calculateDecoupling } from '@/features/stats';
 import { type PrimarySport } from '@/features/fitness/stores';
 import type { WellnessData, ZoneDistribution, eFTPPoint } from '@/types';
 import { getFormZone, type FormZone } from '../lib';
+import { trendOfMetric, type TrendDirection } from '@/shared/format/trend';
 
 interface DecouplingStreams {
   watts?: number[];
@@ -28,7 +29,7 @@ interface UseFitnessComputationsArgs {
 }
 
 interface FitnessComputations {
-  ftpTrend: 'stable' | 'up' | 'down' | null;
+  ftpTrend: TrendDirection | null;
   dominantZone: { name: string; percentage: number } | null;
   decouplingValue: { value: number; isGood: boolean } | null;
   currentValues: (FitnessChartValues & { date: string }) | null;
@@ -60,8 +61,7 @@ export function useFitnessComputations({
     if (!eftpHistory || eftpHistory.length < 2) return null;
     const current = eftpHistory[eftpHistory.length - 1].eftp;
     const previous = eftpHistory[eftpHistory.length - 2].eftp;
-    if (current === previous) return 'stable';
-    return current > previous ? 'up' : 'down';
+    return trendOfMetric('ftp', current, previous);
   }, [eftpHistory]);
 
   // Compute dominant zone for header display

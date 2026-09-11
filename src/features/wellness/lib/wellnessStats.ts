@@ -2,7 +2,7 @@ import type { WellnessData } from '@/types';
 
 import { baselineOnOrBefore } from './wellnessBaseline';
 import {
-  trendArrow,
+  trendGlyph,
   trendOfMetric,
   type TrendGlyph,
   type TrendMetric,
@@ -31,7 +31,7 @@ const trainingLoad = (row: WellnessData) => row.ctl ?? row.ctlLoad;
 
 function trend(current: number | null, previous: number | null, metric: TrendMetric): Trend {
   if (current == null || previous == null) return undefined;
-  return trendArrow(trendOfMetric(metric, current, previous));
+  return trendGlyph(metric, trendOfMetric(metric, current, previous));
 }
 
 /**

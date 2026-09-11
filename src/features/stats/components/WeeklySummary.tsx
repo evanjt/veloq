@@ -10,7 +10,8 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import type { ParseKeys, TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
+import { colors, darkColors, opacity, typography, spacing, layout, verdictColor } from '@/theme';
+import { weeklyTrend, type WeeklyStat } from '@/features/stats/lib/weeklyTrend';
 import { formatDistance, getMonday, getSunday, formatDurationHuman } from '@/shared/format/format';
 import type { Activity } from '@/types';
 
@@ -167,10 +168,25 @@ function computeStatsForPeriods(
   };
 }
 
-function pctChange(current: number, previous: number): string {
-  if (previous === 0) return '';
-  const pct = Math.round(Math.abs(((current - previous) / previous) * 100));
-  return ` ${pct}%`;
+function TrendCell({
+  stat,
+  current,
+  previous,
+  isDark,
+}: {
+  stat: WeeklyStat;
+  current: number;
+  previous: number;
+  isDark: boolean;
+}) {
+  const cell = weeklyTrend(stat, current, previous);
+  if (!cell) return null;
+  return (
+    <Text style={[styles.trendArrow, { color: verdictColor(cell.rung, isDark) }]}>
+      {cell.glyph}
+      {cell.pct && <RNText style={styles.trendPct}> {cell.pct}</RNText>}
+    </Text>
+  );
 }
 
 export function WeeklySummary({
@@ -338,24 +354,12 @@ export function WeeklySummary({
                 >
                   {currentStats.count}
                 </Text>
-                {previousStats.count > 0 && currentStats.count !== previousStats.count && (
-                  <Text
-                    style={[
-                      styles.trendArrow,
-                      {
-                        color:
-                          currentStats.count > previousStats.count
-                            ? colors.success
-                            : colors.warning,
-                      },
-                    ]}
-                  >
-                    {currentStats.count > previousStats.count ? '↑' : '↓'}
-                    <RNText style={styles.trendPct}>
-                      {pctChange(currentStats.count, previousStats.count)}
-                    </RNText>
-                  </Text>
-                )}
+                <TrendCell
+                  stat="count"
+                  current={currentStats.count}
+                  previous={previousStats.count}
+                  isDark={isDark}
+                />
               </View>
               <Text style={[styles.statLabel, isDark && styles.textDark]}>
                 {t('stats.activities')}
@@ -370,25 +374,12 @@ export function WeeklySummary({
                 >
                   {formatDurationHuman(currentStats.duration)}
                 </Text>
-                {previousStats.duration > 0 &&
-                  Math.abs(currentStats.duration - previousStats.duration) > 300 && (
-                    <Text
-                      style={[
-                        styles.trendArrow,
-                        {
-                          color:
-                            currentStats.duration > previousStats.duration
-                              ? colors.success
-                              : colors.warning,
-                        },
-                      ]}
-                    >
-                      {currentStats.duration > previousStats.duration ? '↑' : '↓'}
-                      <RNText style={styles.trendPct}>
-                        {pctChange(currentStats.duration, previousStats.duration)}
-                      </RNText>
-                    </Text>
-                  )}
+                <TrendCell
+                  stat="duration"
+                  current={currentStats.duration}
+                  previous={previousStats.duration}
+                  isDark={isDark}
+                />
               </View>
               <Text style={[styles.statLabel, isDark && styles.textDark]}>
                 {t('activity.duration')}
@@ -403,25 +394,12 @@ export function WeeklySummary({
                 >
                   {formatDistance(currentStats.distance, isMetric)}
                 </Text>
-                {previousStats.distance > 0 &&
-                  Math.abs(currentStats.distance - previousStats.distance) > 1000 && (
-                    <Text
-                      style={[
-                        styles.trendArrow,
-                        {
-                          color:
-                            currentStats.distance > previousStats.distance
-                              ? colors.success
-                              : colors.warning,
-                        },
-                      ]}
-                    >
-                      {currentStats.distance > previousStats.distance ? '↑' : '↓'}
-                      <RNText style={styles.trendPct}>
-                        {pctChange(currentStats.distance, previousStats.distance)}
-                      </RNText>
-                    </Text>
-                  )}
+                <TrendCell
+                  stat="distance"
+                  current={currentStats.distance}
+                  previous={previousStats.distance}
+                  isDark={isDark}
+                />
               </View>
               <Text style={[styles.statLabel, isDark && styles.textDark]}>
                 {t('activity.distance')}
@@ -436,22 +414,12 @@ export function WeeklySummary({
                 >
                   {currentStats.tss}
                 </Text>
-                {previousStats.tss > 0 && Math.abs(currentStats.tss - previousStats.tss) > 5 && (
-                  <Text
-                    style={[
-                      styles.trendArrow,
-                      {
-                        color:
-                          currentStats.tss > previousStats.tss ? colors.warning : colors.success,
-                      },
-                    ]}
-                  >
-                    {currentStats.tss > previousStats.tss ? '↑' : '↓'}
-                    <RNText style={styles.trendPct}>
-                      {pctChange(currentStats.tss, previousStats.tss)}
-                    </RNText>
-                  </Text>
-                )}
+                <TrendCell
+                  stat="tss"
+                  current={currentStats.tss}
+                  previous={previousStats.tss}
+                  isDark={isDark}
+                />
               </View>
               <Text style={[styles.statLabel, isDark && styles.textDark]}>
                 {t('stats.loadTss')}

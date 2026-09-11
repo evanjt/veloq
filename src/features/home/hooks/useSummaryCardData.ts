@@ -16,7 +16,7 @@ import { colors } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import {
-  trendArrow,
+  trendGlyph,
   trendOfMetric,
   type TrendGlyph,
   type TrendMetric,
@@ -174,7 +174,7 @@ export function useSummaryCardData(
       current: number | null,
       prev: number | null,
       metric: TrendMetric
-    ): TrendGlyph => trendArrow(trendOfMetric(metric, current, prev));
+    ): TrendGlyph => trendGlyph(metric, trendOfMetric(metric, current, prev));
 
     // Use precomputed data from getStartupData if available
     let cardData = precomputedCardData;

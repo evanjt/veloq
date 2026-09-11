@@ -11580,13 +11580,11 @@ export interface BasemapManagerLike {
    */
   clearTiles() /*throws*/ : /*u32*/ number;
   /**
-   * Bring one source under a byte budget, least recently read first and the
-   * pinned pre-seed last.
+   * Bring the whole tree under one byte budget, least recently read first
+   * across every source and the pinned pre-seed last. One pool, because the
+   * athlete sets one number.
    */
-  evictTo(
-    source: string,
-    budgetBytes: /*u64*/ bigint,
-  ) /*throws*/ : /*u32*/ number;
+  evictTo(budgetBytes: /*u64*/ bigint) /*throws*/ : /*u32*/ number;
   /**
    * Total bytes across every source, answered without a WebView.
    */
@@ -11717,13 +11715,11 @@ export class BasemapManager
   }
 
   /**
-   * Bring one source under a byte budget, least recently read first and the
-   * pinned pre-seed last.
+   * Bring the whole tree under one byte budget, least recently read first
+   * across every source and the pinned pre-seed last. One pool, because the
+   * athlete sets one number.
    */
-  evictTo(
-    source: string,
-    budgetBytes: /*u64*/ bigint,
-  ): /*u32*/ number /*throws*/ {
+  evictTo(budgetBytes: /*u64*/ bigint): /*u32*/ number /*throws*/ {
     return FfiConverterUInt32.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -11732,7 +11728,6 @@ export class BasemapManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_evict_to(
             uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(source),
             FfiConverterUInt64.lower(budgetBytes),
             callStatus,
           );
@@ -17165,15 +17160,28 @@ export interface SectionPreviewLike {
   /**
    * Resolve the whole geo component containing (lat, lng) and start the
    * pure preview detect over it. Only the five exposed fields of `config`
-   * overlay the engine's live config. Returns false when a preview or real
-   * detect is running, detection is suspended for a backfill, or no
-   * activity covers the point.
+   * overlay the engine's live config.
+   *
+   * The refusals are four opposite answers rather than one `false`.
+   * `Held` is a backfill holding detection, a real detect running, or the
+   * same component backing off after a failed attempt: all three lift on
+   * their own. `Busy` is a run already in flight, which ends. `NotOwed` is
+   * no activity covering the point, which no amount of asking changes.
+   * `NotReady` is the engine not being open yet, which is early rather
+   * than refused.
+   *
+   * The component, not the point, is the job: two taps a metre apart
+   * resolve to one component and so to one key. The five config fields are
+   * deliberately **not** in the key. The backoff exists to stop a
+   * re-rendering screen asking on every frame, and a slider is what that
+   * screen re-renders over, so keying on the config would free the backoff
+   * exactly when it is needed.
    */
   start(
     lat: /*f64*/ number,
     lng: /*f64*/ number,
     config: FfiSectionConfig,
-  ) /*throws*/ : boolean;
+  ) /*throws*/ : FfiStartOutcome;
   /**
    * The one JSON payload, once. None while running or after taken.
    */
@@ -17317,16 +17325,29 @@ export class SectionPreview
   /**
    * Resolve the whole geo component containing (lat, lng) and start the
    * pure preview detect over it. Only the five exposed fields of `config`
-   * overlay the engine's live config. Returns false when a preview or real
-   * detect is running, detection is suspended for a backfill, or no
-   * activity covers the point.
+   * overlay the engine's live config.
+   *
+   * The refusals are four opposite answers rather than one `false`.
+   * `Held` is a backfill holding detection, a real detect running, or the
+   * same component backing off after a failed attempt: all three lift on
+   * their own. `Busy` is a run already in flight, which ends. `NotOwed` is
+   * no activity covering the point, which no amount of asking changes.
+   * `NotReady` is the engine not being open yet, which is early rather
+   * than refused.
+   *
+   * The component, not the point, is the job: two taps a metre apart
+   * resolve to one component and so to one key. The five config fields are
+   * deliberately **not** in the key. The backoff exists to stop a
+   * re-rendering screen asking on every frame, and a slider is what that
+   * screen re-renders over, so keying on the config would free the backoff
+   * exactly when it is needed.
    */
   start(
     lat: /*f64*/ number,
     lng: /*f64*/ number,
     config: FfiSectionConfig,
-  ): boolean /*throws*/ {
-    return FfiConverterBool.lift(
+  ): FfiStartOutcome /*throws*/ {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
@@ -20893,7 +20914,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_evict_to() !==
-    44266
+    7350
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_basemapmanager_evict_to",
@@ -21669,7 +21690,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_start() !==
-    55443
+    51958
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionpreview_start",

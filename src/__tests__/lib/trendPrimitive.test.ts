@@ -108,6 +108,12 @@ describe('trend polarity', () => {
     expect(trendVerdict('form', 'up')).toBe('moved');
   });
 
+  it('covers the weekly summary and treats load like fatigue', () => {
+    expect(trendVerdict('weekDistance', 'up')).toBe('improved');
+    expect(trendVerdict('weekTss', 'up')).toBe('moved');
+    expect(trendVerdict('weekTss', 'down')).toBe('moved');
+  });
+
   it('is flat whichever way the metric points', () => {
     expect(trendVerdict('rhr', 'flat')).toBe('flat');
     expect(trendVerdict('weight', 'flat')).toBe('flat');

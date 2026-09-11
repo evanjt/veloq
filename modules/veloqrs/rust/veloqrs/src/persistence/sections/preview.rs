@@ -85,6 +85,56 @@ pub struct PreviewOverlay {
 /// Announces the end of a preview run to the observer, whatever the run's
 /// outcome. Dropped last on the worker thread, so the sender is already gone
 /// and a dead worker reads as disconnected rather than as still running.
+/// Holds the attempt-store lease a preview run was started under, and frees it
+/// however the run ends.
+///
+/// Released on drop, so a worker that panics, or a run nobody ever polls,
+/// frees the key rather than leaving it claimed until the next launch mints a
+/// generation. The default release is a failure: a run that reaches no
+/// terminal path did not do its job, and the backoff is what stops a screen
+/// asking again on every render.
+struct PreviewLease {
+    key: crate::persistence::attempts::JobKey,
+    release: crate::persistence::attempts::Release,
+}
+
+impl PreviewLease {
+    fn taken(key: crate::persistence::attempts::JobKey) -> Self {
+        Self {
+            key,
+            release: crate::persistence::attempts::Release::failed(
+                crate::objects::start::FfiStartOutcome::Failed,
+                Some("the preview did not return"),
+            ),
+        }
+    }
+
+    /// The run did what it was asked. A cancel counts: the athlete asked for
+    /// it, so backing the key off would punish the next tap.
+    fn done(&mut self) {
+        self.release = crate::persistence::attempts::Release::Done;
+    }
+}
+
+impl Drop for PreviewLease {
+    fn drop(&mut self) {
+        let release = std::mem::replace(
+            &mut self.release,
+            crate::persistence::attempts::Release::Done,
+        );
+        let at = crate::persistence::attempts::now_ms();
+        crate::persistence::with_persistent_engine(|engine| {
+            if let Err(e) = engine.release_job(&self.key, release, at) {
+                log::warn!(
+                    "veloqrs: [SectionPreview] could not release {}: {}",
+                    self.key.as_str(),
+                    e
+                );
+            }
+        });
+    }
+}
+
 struct PreviewFinished;
 
 impl Drop for PreviewFinished {
@@ -690,12 +740,49 @@ impl PersistentEngine {
     /// live catalogue scoped to the component. A detection-suspension guard
     /// rides with the worker so no real detect can overlap the run.
     ///
+    /// The activities in the geo component containing (lat, lng): the pool a
+    /// preview would run over, and so the identity of the job.
+    ///
+    /// Read before the run rather than inside it, because the attempt store's
+    /// key has to exist before anything is claimed. Two taps a metre apart
+    /// resolve to one component and are therefore one job, which is the whole
+    /// reason the key is not the raw coordinates.
+    ///
+    /// This walks the bounds a second time, since `preview_detect_background`
+    /// resolves the component again for itself. Both walks are over memory,
+    /// a bbox scan of the metadata map, and threading a resolved component
+    /// into the function whose job is to resolve one is the worse trade.
+    ///
+    /// None when no activity's padded box contains the point.
+    pub fn preview_component(&self, lat: f64, lng: f64) -> Option<Vec<String>> {
+        let boxes: Vec<(String, tracematch::Bounds)> = self
+            .activity_metadata
+            .values()
+            .map(|m| (m.id.clone(), m.bounds))
+            .collect();
+        let sport_map = self.sport_map();
+        cluster_for(
+            &boxes,
+            lat,
+            lng,
+            &sport_map,
+            Tunables::DEFAULT.cluster_gap_m,
+        )
+        .map(|(ids, _)| ids)
+    }
+
     /// Returns None when no activity's padded box contains the point.
+    ///
+    /// `key` is the attempt-store lease the caller already took. It is released
+    /// by the worker itself, on the thread that knows how the run ended, the
+    /// same shape `spawn_once` uses: a run whose poller walks away still frees
+    /// its key, and a panic in the worker counts as a failed attempt.
     pub fn preview_detect_background(
         &self,
         lat: f64,
         lng: f64,
         overlay: PreviewOverlay,
+        key: crate::persistence::attempts::JobKey,
     ) -> Option<SectionPreviewHandle> {
         let boxes: Vec<(String, tracematch::Bounds)> = self
             .activity_metadata
@@ -744,6 +831,12 @@ impl PersistentEngine {
         thread::spawn(move || {
             let _finish = PreviewFinished;
             let _suspend = suspend;
+            // The lease is freed on the thread that knows how the run ended,
+            // so a poller that walks away still frees it and a panic here is a
+            // failed attempt rather than a key nothing can claim again. It
+            // starts on failed and the terminal paths say otherwise, which is
+            // `spawn_once`'s shape.
+            let mut lease = PreviewLease::taken(key);
             // The caller set "loading" before the spawn, but under the engine
             // read lock and the preview slot lock. The notice blocks on
             // JavaScript, so it is made here, off both.
@@ -801,10 +894,12 @@ impl PersistentEngine {
                 &progress_worker,
                 &cancel_worker,
             ) else {
+                lease.done();
                 sender.send(PreviewOutcome::Cancelled).ok();
                 return;
             };
             if cancel_worker.load(Ordering::SeqCst) {
+                lease.done();
                 sender.send(PreviewOutcome::Cancelled).ok();
                 return;
             }
@@ -856,6 +951,7 @@ impl PersistentEngine {
             // Past this point the detect has already run to completion; a
             // cancel now discards the result rather than aborting work.
             if cancel_worker.load(Ordering::SeqCst) {
+                lease.done();
                 sender.send(PreviewOutcome::Cancelled).ok();
                 return;
             }
@@ -885,6 +981,7 @@ impl PersistentEngine {
             progress_worker.increment();
             match serde_json::to_string(&payload) {
                 Ok(json) => {
+                    lease.done();
                     sender.send(PreviewOutcome::Complete(json)).ok();
                 }
                 Err(e) => {

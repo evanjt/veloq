@@ -13,7 +13,7 @@ import { clearDatabaseSidecars, copyDatabaseSet } from './databaseSidecars';
 import { getEngine, getRouteDbPath, getNativeModule } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate } from '@/shared/format/format';
-import { setSetting } from '@/shared/storage';
+import { setSetting, rememberStoredActivityCount } from '@/shared/storage';
 import { runDatabaseBackup } from '@/features/settings/lib/runBackup';
 import { shareExistingFile } from '@/features/settings/lib/shareFile';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
@@ -410,6 +410,12 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
         });
         await clearDatabaseSidecars(backupPath);
       }
+
+      // The login screen cannot read this off a closed engine, and a restore
+      // taken from that screen is exactly where it has to be right. Best-effort:
+      // the database is already in place, so a mirror that will not write is a
+      // worse dialog later, never a failed restore now.
+      await rememberStoredActivityCount(activityCount).catch(() => {});
 
       return {
         success: true,

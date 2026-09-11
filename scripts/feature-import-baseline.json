@@ -23,7 +23,7 @@
   "~app -> insights": 4,
   "activity -> fitness": 4,
   "insights -> activity": 4,
-  "recording -> maps": 4,
+  "recording -> maps": 3,
   "settings -> home": 4,
   "activity -> home": 3,
   "home -> routes": 3,

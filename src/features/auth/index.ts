@@ -30,6 +30,8 @@ export {
   type AccountChangeKind,
 } from './lib/accountChange';
 
+export { demoEntryAction, resolveStoredActivityCount } from './lib/storedActivityCount';
+
 export {
   useApiKeyLogin,
   useOAuthLogin,

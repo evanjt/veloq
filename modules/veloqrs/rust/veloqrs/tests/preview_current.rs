@@ -19,6 +19,8 @@ use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::FfiSectionConfig;
 use veloqrs::objects::SectionPreview;
+use veloqrs::objects::start::FfiStartOutcome;
+use veloqrs::objects::start::FfiStartOutcome::Started;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -159,7 +161,7 @@ fn the_current_catalogue_is_the_one_a_run_diffs_against() {
     let cfg = with_persistent_engine(|engine| engine.get_section_config()).expect("config");
     let mut ffi_cfg = FfiSectionConfig::from(&cfg);
     ffi_cfg.min_activities = 2;
-    assert!(preview.start(46.01, 7.0, ffi_cfg).expect("start"));
+    assert_eq!(preview.start(46.01, 7.0, ffi_cfg).expect("start"), Started);
 
     let deadline = Instant::now() + Duration::from_secs(120);
     loop {

@@ -133,14 +133,15 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
       // reason. The screen clears it when the area changes, which is the one
       // case where the held diff is about somewhere else.
       setProgress(null);
-      const started = client.startPreviewDetect(lat, lng, { ...config, ...params });
-      if (!started) {
-        // The engine refuses only while a detect runs or the backfill holds
-        // detection, and both end, so this is the refusal worth asking about
-        // again rather than the one that never changes.
-        setSuspended(true);
+      const outcome = client.startPreviewDetect(lat, lng, { ...config, ...params });
+      if (outcome !== StartOutcome.Started) {
+        // The engine's own answer, rather than one refusal standing in for
+        // four. `Held` and `Busy` both end, so the screen says it is waiting.
+        // `NotOwed` is no activity covering the point, which no amount of
+        // asking changes, so it does not read as a hold.
+        setSuspended(outcome === StartOutcome.Held || outcome === StartOutcome.Busy);
         setStatus('idle');
-        return StartOutcome.Held;
+        return outcome;
       }
       setStatus('running');
       setLapsed(false);

@@ -8,12 +8,8 @@
  * demo fixture implements the same interface until then.
  */
 
-import { SectionPreview } from '../generated/veloqrs';
-import type {
-  FfiSectionConfig,
-  FfiStartOutcome,
-  SectionPreviewLike,
-} from '../generated/veloqrs';
+import { FfiStartOutcome, SectionPreview } from '../generated/veloqrs';
+import type { FfiSectionConfig, SectionPreviewLike } from '../generated/veloqrs';
 import type { SectionDetectionProgress } from '../conversions';
 import type { DelegateHost } from './host';
 
@@ -101,7 +97,7 @@ export interface PreviewClient {
   getPreviewCentres(limit: number): PreviewCentre[];
   /** Null when the read itself failed, as against an area holding nothing. */
   getPreviewCurrentSections(lat: number, lng: number): PreviewSection[] | null;
-  startPreviewDetect(lat: number, lng: number, config: FfiSectionConfig): boolean;
+  startPreviewDetect(lat: number, lng: number, config: FfiSectionConfig): FfiStartOutcome;
   pollPreviewDetect(): PreviewPollStatus;
   getPreviewProgress(): SectionDetectionProgress | null;
   takePreviewResult(): PreviewResult | null;
@@ -252,22 +248,26 @@ export function getPreviewCurrentSections(
 }
 
 /**
- * Start a sandboxed detect over the riding area containing (lat, lng). False
- * when a preview or real detect is running, or detection is suspended for the
- * elevation backfill.
+ * Start a sandboxed detect over the riding area containing (lat, lng).
+ *
+ * The refusals are four answers, not one `false`. `Busy` is a run already in
+ * flight, `Held` is a backfill holding detection, a real detect running, or
+ * the same area backing off after a failed attempt, and all of those end.
+ * `NotOwed` is no activity covering the point, which asking again never
+ * changes. `NotReady` is the engine not being open yet.
  */
 export function startPreviewDetect(
   host: DelegateHost,
   lat: number,
   lng: number,
   config: FfiSectionConfig
-): boolean {
-  if (!host.ready) return false;
+): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
   try {
     return host.timed('startPreviewDetect', () => previewObj().start(lat, lng, config));
   } catch (e) {
     console.error('[Engine] startPreviewDetect threw:', e);
-    return false;
+    return FfiStartOutcome.Failed;
   }
 }
 

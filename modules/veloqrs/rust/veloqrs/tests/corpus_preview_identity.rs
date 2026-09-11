@@ -24,6 +24,8 @@ use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::FfiSectionConfig;
 use veloqrs::objects::SectionPreview;
+use veloqrs::objects::start::FfiStartOutcome;
+use veloqrs::objects::start::FfiStartOutcome::Started;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -184,9 +186,10 @@ fn a_preview_on_the_live_config_proposes_the_catalogue_it_already_holds() {
     for centre in centres.iter().take(3) {
         // The sliders open on the live config, so this is Preview pressed with
         // nothing touched.
-        if !preview
+        if preview
             .start(centre.lat, centre.lng, FfiSectionConfig::from(&config))
             .expect("start call")
+            != Started
         {
             continue;
         }
