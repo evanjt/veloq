@@ -67,7 +67,7 @@ use crate::persistence::{
 };
 use rusqlite::{Result as SqlResult, params};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::time::Duration;
 use tracematch::GpsPoint;
 
@@ -93,6 +93,19 @@ const FETCH_CONCURRENCY: usize = 6;
 /// this count means a whole batch came back with nothing to work with, which
 /// no partial outage can produce.
 pub const MAX_CONSECUTIVE_FAILURES: usize = BATCH;
+
+/// Asks that settle nothing before a track is retired out of the queue.
+///
+/// An ask settles nothing when upstream answers about that one activity and
+/// the answer carries no altitude to store: a 4xx, a body that will not parse,
+/// or a whole-track ask that comes back empty. A connection that is gone is
+/// not one of these, it is counted separately and re-asked.
+///
+/// Three, because a pass runs about once per launch and the same answer three
+/// launches running is upstream's position rather than a bad afternoon. Left
+/// uncounted the row is re-offered by every pass for the life of the install,
+/// which holds section detection and vetoes the detector cutover with it.
+pub const ELEVATION_ATTEMPT_LIMIT: u32 = 3;
 
 /// How often the final-detect driver polls the worker it started.
 const DRIVER_POLL: Duration = Duration::from_millis(250);
@@ -460,6 +473,9 @@ pub struct BackfillOutcome {
     /// Tracks whose fetch failed. Their state is unchanged, so the next run
     /// retries them.
     pub failed: u32,
+    /// Tracks retired this pass: asked [`ELEVATION_ATTEMPT_LIMIT`] times,
+    /// never answered, and now out of the queue for good.
+    pub retired: u32,
     /// Detection runs this pass started. One when it elevated anything, zero
     /// otherwise.
     pub detects_started: u32,
@@ -510,7 +526,49 @@ impl PersistentEngine {
         )?;
         rows.collect()
     }
+}
 
+/// Where the next pass begins in the derived queue.
+///
+/// The queue is re-derived in the same order every pass, so a block of tracks
+/// the connection keeps refusing stops every pass in the same place and
+/// nothing behind it is ever asked. A pass that gave up therefore starts the
+/// next one past the block it gave up on. Process-local on purpose: the ladder
+/// asks again at most every half hour and a launch that re-reads from the
+/// newest track costs one pass, where a stored offset costs a column and a
+/// migration.
+static NEXT_START: AtomicUsize = AtomicUsize::new(0);
+
+/// Where the pass after this one starts, given where this one started and
+/// whether it gave up.
+///
+/// Only a give-up moves it. Every other ending leaves the rows untouched for a
+/// reason that is not about these tracks, an outage or a pause, and the next
+/// pass should ask in the order the athlete sees convert first.
+fn next_pass_start(start: usize, gave_up: bool, queue_len: usize) -> usize {
+    if !gave_up || queue_len == 0 {
+        return 0;
+    }
+    // Past the whole block that ended the walk, not one track past its first:
+    // a give-up means this many in a row answered with nothing to work with.
+    (start + MAX_CONSECUTIVE_FAILURES) % queue_len
+}
+
+/// The queue as this pass walks it: the derived order, rotated to `start`.
+///
+/// Every track is still walked exactly once, so a rotation costs nothing but
+/// the order, and the order only moves after a give-up.
+fn rotated(queue: &[(String, String)], start: usize) -> Vec<(String, String)> {
+    if queue.is_empty() {
+        return Vec::new();
+    }
+    let start = start % queue.len();
+    let mut walked = queue[start..].to_vec();
+    walked.extend_from_slice(&queue[..start]);
+    walked
+}
+
+impl PersistentEngine {
     /// How many tracks the backfill still has to ask about. Zero means a pass
     /// has nothing left to do, which is not the same as the library reading
     /// uniformly elevated.
@@ -682,6 +740,16 @@ fn run_in_slot(_slot: RunGuard, transport: &Transport, athlete_id: &str) -> Back
         }
     };
 
+    // A pass that gave up leaves its start past the block it gave up on, so
+    // the next one asks about the library behind it rather than stopping in
+    // the same place for ever.
+    let start = if queue.is_empty() {
+        0
+    } else {
+        NEXT_START.load(Ordering::Relaxed) % queue.len()
+    };
+    let queue = rotated(&queue, start);
+
     BACKFILL.total.store(queue.len() as u32, Ordering::Relaxed);
     BACKFILL.completed.store(0, Ordering::Relaxed);
     BACKFILL.failed.store(0, Ordering::Relaxed);
@@ -737,6 +805,15 @@ fn run_in_slot(_slot: RunGuard, transport: &Transport, athlete_id: &str) -> Back
         None => {}
     }
 
+    NEXT_START.store(
+        next_pass_start(
+            start,
+            matches!(stopped, Some(Stopped::NothingToWorkWith)),
+            queue.len(),
+        ),
+        Ordering::Relaxed,
+    );
+
     // An unreadable count is not a drained one: a pass that cannot see its own
     // queue ends partial, so the next launch asks again rather than the run
     // claiming a library it never checked.
@@ -768,9 +845,10 @@ fn run_in_slot(_slot: RunGuard, transport: &Transport, athlete_id: &str) -> Back
         BACKFILL.detects.fetch_add(1, Ordering::Relaxed);
     }
     log::info!(
-        "[Elevation] backfill finished: {} elevated, {} unavailable, {} failed, {} still to ask",
+        "[Elevation] backfill finished: {} elevated, {} unavailable, {} retired, {} failed, {} still to ask",
         outcome.elevated,
         outcome.unavailable,
+        outcome.retired,
         outcome.failed,
         remaining.map_or_else(|| "an unreadable number of".to_string(), |n| n.to_string())
     );
@@ -872,6 +950,7 @@ fn re_ask_with(
         outcome.elevated += round.outcome.elevated;
         outcome.unavailable += round.outcome.unavailable;
         outcome.failed += round.outcome.failed;
+        outcome.retired += round.outcome.retired;
         // A round that stopped part way never asked the rest, and they were
         // refused once already, so they stay owed rather than disappearing.
         refused = round.refused;
@@ -999,6 +1078,7 @@ fn drain_queue_with(
         refused.append(&mut plan.refused);
 
         outcome.elevated += store_batch(&plan.store, &plan.states) as u32;
+        outcome.retired += retire_batch(&plan.attempted);
         if count_progress {
             BACKFILL
                 .completed
@@ -1037,6 +1117,9 @@ struct Plan {
     states: Vec<(String, u8)>,
     /// Asked, and the connection refused. Worth asking again.
     refused: Vec<(String, String)>,
+    /// Asked, and the answer settled nothing. Counted against the track, so a
+    /// track upstream never answers for eventually leaves the queue.
+    attempted: Vec<String>,
 }
 
 impl Plan {
@@ -1078,6 +1161,7 @@ impl Plan {
                 log::info!("[Elevation] {} answered empty, left for the next run", id);
                 outcome.failed += 1;
                 BACKFILL.failed.fetch_add(1, Ordering::Relaxed);
+                self.attempted.push(id);
                 // Upstream replied, so the connection is fine.
                 true
             }
@@ -1091,6 +1175,7 @@ impl Plan {
                 } else {
                     log::info!("[Elevation] {} left for the next run: {}", id, e);
                     outcome.failed += 1;
+                    self.attempted.push(id);
                     true
                 }
             }
@@ -1152,6 +1237,40 @@ fn store_batch(to_store: &[(String, Vec<GpsPoint>, String)], states: &[(String, 
         stored
     })
     .unwrap_or(0)
+}
+
+/// Count this batch's unsettled asks against their tracks, and report how many
+/// that retired.
+///
+/// A retirement is not a failure and is not counted as one: the pass asked,
+/// upstream would not answer, and the row is now out of the queue rather than
+/// owed for ever. It still counts against `elevation_backfill_outstanding`,
+/// which answers the different question of whether the library reads
+/// uniformly.
+fn retire_batch(attempted: &[String]) -> u32 {
+    if attempted.is_empty() {
+        return 0;
+    }
+    let retired = with_persistent_engine(|engine| {
+        engine.record_elevation_attempts(attempted, ELEVATION_ATTEMPT_LIMIT)
+    });
+    match retired {
+        Some(Ok(n)) => {
+            if n > 0 {
+                log::info!(
+                    "[Elevation] {} tracks retired after {} asks upstream would not answer",
+                    n,
+                    ELEVATION_ATTEMPT_LIMIT
+                );
+            }
+            n as u32
+        }
+        Some(Err(e)) => {
+            log::warn!("[Elevation] asks not counted: {}", e);
+            0
+        }
+        None => 0,
+    }
 }
 
 /// The one cut a drained pass owes, handed to whoever owns it.
@@ -1651,6 +1770,99 @@ mod tests {
             connectivity::reset();
         }
 
+        /// Scenario: a block of tracks upstream answers 5xx for, every time,
+        /// sits at the head of a queue that is re-derived in the same order
+        /// on every pass.
+        ///
+        /// Expected behaviour: the pass after the one that gave up begins
+        /// past that block, so the rest of the library is asked about. The
+        /// derived order is total and stable, so without this every pass
+        /// stops on the same twenty tracks and nothing behind them is ever
+        /// fetched, which holds `elevation_backfill_remaining` above zero for
+        /// the life of the install and vetoes the detector cutover with it.
+        #[test]
+        fn a_refusing_head_does_not_hide_the_rest_of_the_queue() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+
+            let full = queue(3 * BATCH);
+            let blocked: std::collections::HashSet<String> =
+                full[..BATCH].iter().map(|(id, _)| id.clone()).collect();
+            let reply = |ids: &[String]| -> Vec<(String, Fetched)> {
+                ids.iter()
+                    .map(|id| {
+                        let answer = if blocked.contains(id) {
+                            Fetched::Failed(NetError::Http {
+                                status: 503,
+                                body: String::new(),
+                            })
+                        } else {
+                            Fetched::NoAltitude
+                        };
+                        (id.clone(), answer)
+                    })
+                    .collect()
+            };
+
+            let first = drain_queue_with(&rotated(&full, 0), true, |ids, _ask| reply(ids));
+            assert!(
+                matches!(first.stopped, Some(Stopped::NothingToWorkWith)),
+                "a whole batch with nothing to work with must end the walk"
+            );
+
+            let next = next_pass_start(0, true, full.len());
+            let mut asked: Vec<String> = Vec::new();
+            drain_queue_with(&rotated(&full, next), true, |ids, _ask| {
+                asked.extend_from_slice(ids);
+                reply(ids)
+            });
+
+            assert!(
+                asked.iter().any(|id| !blocked.contains(id)),
+                "the pass after a give-up must reach the tracks behind the block"
+            );
+        }
+
+        /// Only a give-up moves the start. An outage and a pause say nothing
+        /// about these tracks, so the next pass asks newest first again.
+        #[test]
+        fn only_a_give_up_moves_where_the_next_pass_starts() {
+            assert_eq!(next_pass_start(0, false, 3 * BATCH), 0);
+            assert_eq!(next_pass_start(2 * BATCH, false, 3 * BATCH), 0);
+            assert_eq!(next_pass_start(0, true, 3 * BATCH), BATCH);
+            assert_eq!(next_pass_start(BATCH, true, 3 * BATCH), 2 * BATCH);
+        }
+
+        /// A start that walks off the end wraps rather than asking nothing,
+        /// and an empty queue has nowhere to start.
+        #[test]
+        fn the_start_wraps_and_an_empty_queue_stays_at_zero() {
+            assert_eq!(next_pass_start(2 * BATCH, true, 3 * BATCH), 0);
+            assert_eq!(next_pass_start(0, true, 0), 0);
+            assert_eq!(
+                next_pass_start(0, true, BATCH / 2),
+                MAX_CONSECUTIVE_FAILURES % (BATCH / 2)
+            );
+        }
+
+        /// A rotation changes the order and nothing else: every track is
+        /// still walked exactly once.
+        #[test]
+        fn a_rotation_keeps_every_track_exactly_once() {
+            let full = queue(3 * BATCH);
+            for start in [0, 1, BATCH, 3 * BATCH - 1, 3 * BATCH, 7 * BATCH] {
+                let walked = rotated(&full, start);
+                assert_eq!(walked.len(), full.len(), "start {}", start);
+                let mut sorted = walked.clone();
+                sorted.sort();
+                let mut expected = full.clone();
+                expected.sort();
+                assert_eq!(sorted, expected, "start {}", start);
+                assert_eq!(walked[0], full[start % full.len()], "start {}", start);
+            }
+            assert!(rotated(&[], 3).is_empty());
+        }
+
         /// An offline nobody refreshed is a missed push, not a fact. Rust
         /// refusing work on a live connection is worse than never knowing, so
         /// the state expires and the walk goes back to trying.
@@ -2148,6 +2360,99 @@ mod tests {
     /// Scenario: the athlete pauses the download from Settings. The pass in
     /// flight ends at its next batch boundary, and nothing starts another in
     /// this process: not the launch trigger, not the ladder.
+    /// Scenario: an ask that settles nothing leaves the row where it is, so the
+    /// derived queue offers it again on the next pass. Which answers count
+    /// against the track is what decides whether the queue can ever end.
+    mod attempts {
+        use super::*;
+
+        fn sort_one(result: Fetched, ask: Ask) -> (Plan, BackfillOutcome) {
+            let sports = std::collections::HashMap::from([("a1", "Ride")]);
+            let mut plan = Plan::default();
+            let mut outcome = BackfillOutcome::default();
+            plan.sort("a1".to_string(), result, ask, &sports, &mut outcome);
+            (plan, outcome)
+        }
+
+        #[test]
+        fn an_answer_about_the_activity_counts_against_it() {
+            let _serial = serial_global_state();
+
+            let (plan, _) = sort_one(
+                Fetched::Failed(NetError::Http {
+                    status: 404,
+                    body: "no such activity".to_string(),
+                }),
+                Ask::Elevation,
+            );
+
+            assert_eq!(
+                plan.attempted,
+                vec!["a1".to_string()],
+                "upstream answered about this activity, so the ask is worth counting"
+            );
+            assert!(plan.refused.is_empty(), "a 404 is not worth asking again");
+        }
+
+        #[test]
+        fn a_whole_track_ask_that_comes_back_empty_counts_against_it() {
+            let _serial = serial_global_state();
+
+            let (plan, _) = sort_one(Fetched::Empty, Ask::Track);
+
+            assert_eq!(
+                plan.attempted,
+                vec!["a1".to_string()],
+                "the coordinates were asked for and none came back, which is the last ask there is"
+            );
+        }
+
+        #[test]
+        fn a_connection_that_is_gone_says_nothing_about_the_activity() {
+            let _serial = serial_global_state();
+
+            let (plan, _) = sort_one(
+                Fetched::Failed(NetError::Transport("connection reset".to_string())),
+                Ask::Elevation,
+            );
+
+            assert!(
+                plan.attempted.is_empty(),
+                "a track must never be retired for the network being down"
+            );
+            assert_eq!(plan.refused.len(), 1, "it is worth asking again instead");
+        }
+
+        #[test]
+        fn an_answer_that_settles_the_track_counts_nothing() {
+            let _serial = serial_global_state();
+
+            for (result, ask, what) in [
+                (
+                    Fetched::NoAltitude,
+                    Ask::Elevation,
+                    "upstream has no altitude",
+                ),
+                (
+                    Fetched::Altitudes(vec![1.0]),
+                    Ask::Elevation,
+                    "a series to splice",
+                ),
+                (
+                    Fetched::Empty,
+                    Ask::Elevation,
+                    "an empty elevation ask goes to the whole track",
+                ),
+            ] {
+                let (plan, _) = sort_one(result, ask);
+                assert!(
+                    plan.attempted.is_empty(),
+                    "{what} settles the row, so there is nothing to count"
+                );
+            }
+        }
+    }
+
     mod paused {
         use super::*;
         use crate::net::connectivity;

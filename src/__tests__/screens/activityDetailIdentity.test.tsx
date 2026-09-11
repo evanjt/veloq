@@ -51,6 +51,7 @@ jest.mock('@/shared/app/useCacheDays', () => ({ useCacheDays: () => 90 }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
 jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {} }));
 
+const capturedTabs: { current: { key: string; count?: number }[] } = { current: [] };
 jest.mock('@/shared/ui', () => {
   const { View } = require('react-native');
   return {
@@ -59,7 +60,16 @@ jest.mock('@/shared/ui', () => {
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     ErrorStatePreset: () => null,
     useHeroMapHeight: () => 300,
-    SwipeableTabs: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    SwipeableTabs: ({
+      children,
+      tabs,
+    }: {
+      children: React.ReactNode;
+      tabs: { key: string; count?: number }[];
+    }) => {
+      capturedTabs.current = tabs;
+      return <>{children}</>;
+    },
   };
 });
 
@@ -219,6 +229,7 @@ describe('activity detail screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     capturedSectionEncounters = [];
+    capturedTabs.current = [];
     capturedOnPointSelect = null;
     mockUseSectionOverlays.mockReset();
     mockUseSectionOverlays.mockImplementation(() => ({ sectionOverlays: [] }));
@@ -299,5 +310,55 @@ describe('activity detail screen', () => {
       (encounter) => `${encounter.sectionId}|${encounter.direction}`
     );
     expect(captureKeys).toEqual(['sec-65|same', 'sec-65|reverse']);
+  });
+
+  it('counts the Sections tab by section, so a both-ways crossing is one', async () => {
+    mockUseSectionEncounters.mockReturnValue({
+      encounters: [
+        {
+          sectionId: 'sec-65',
+          sectionName: 'Section 65',
+          direction: 'same',
+          distanceMeters: 1200,
+          lapTime: 140,
+          lapPace: 2.3,
+          isPr: false,
+          visitCount: 8,
+          historyTimes: [],
+          historyActivityIds: [],
+        },
+        {
+          sectionId: 'sec-65',
+          sectionName: 'Section 65',
+          direction: 'reverse',
+          distanceMeters: 900,
+          lapTime: 120,
+          lapPace: 2.1,
+          isPr: false,
+          visitCount: 5,
+          historyTimes: [],
+          historyActivityIds: [],
+        },
+        {
+          sectionId: 'sec-66',
+          sectionName: 'Section 66',
+          direction: 'same',
+          distanceMeters: 400,
+          lapTime: 60,
+          lapPace: 1.9,
+          isPr: false,
+          visitCount: 2,
+          historyTimes: [],
+          historyActivityIds: [],
+        },
+      ],
+      isLoading: false,
+    });
+
+    render(<ActivityDetailScreen />);
+    await act(async () => {});
+
+    const sectionsTab = capturedTabs.current.find((tab) => tab.key === 'sections');
+    expect(sectionsTab?.count).toBe(2);
   });
 });

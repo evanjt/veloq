@@ -125,6 +125,17 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   return <NetworkContext.Provider value={networkState}>{children}</NetworkContext.Provider>;
 }
 
+/**
+ * Connectivity for a surface that has to render whether or not a provider is
+ * above it. A map is mounted in previews, snapshots and tests with no app
+ * shell, and a missing provider must not be what stops it drawing, so the
+ * answer there is online, which is what every surface assumed before any of
+ * them asked.
+ */
+export function useIsOnline(): boolean {
+  return useContext(NetworkContext)?.isOnline ?? true;
+}
+
 export function useNetwork(): NetworkContextValue {
   const context = useContext(NetworkContext);
   if (!context) {

@@ -1,6 +1,9 @@
 import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { useTheme } from '@/shared/app';
+// Straight from the context, not the app barrel: a surface mounted with no
+// app shell still has to draw, and the barrel is what such a caller stubs.
+import { useIsOnline } from '@/shared/app/NetworkContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -27,6 +30,7 @@ import {
   TERRAIN_ATTRIBUTION,
   getCombinedSatelliteAttribution,
 } from './mapStyles';
+import { offlineMapStyle } from '@/features/maps/lib/offlineStyleFallback';
 
 /** Room left around fitted bounds, in pixels. Extra on top for the controls. */
 const DEFAULT_FIT_PADDING = { top: 80, right: 40, bottom: 40, left: 40 } as const;
@@ -99,7 +103,15 @@ export function BaseMapView({
   const insets = useSafeAreaInsets();
   const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
 
-  const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
+  const [chosenStyle, setChosenStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
+  // Satellite imagery is never kept on the device, so with the radio off the
+  // choice is honoured as the vector basemap and the imagery returns by itself
+  // when the connection does.
+  const isOnline = useIsOnline();
+  const mapStyle = useMemo(
+    () => offlineMapStyle(chosenStyle, isOnline, systemStyle),
+    [chosenStyle, isOnline, systemStyle]
+  );
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
   const [terrainUnavailable, setTerrainUnavailable] = useState(false);
@@ -164,7 +176,7 @@ export function BaseMapView({
   );
 
   const toggleStyle = useCallback(() => {
-    setMapStyle((current) => getNextStyle(current));
+    setChosenStyle((current) => getNextStyle(current));
   }, []);
 
   const toggle3D = useCallback(() => {

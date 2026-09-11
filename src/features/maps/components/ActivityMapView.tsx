@@ -562,12 +562,17 @@ export const ActivityMapView = memo(function ActivityMapView({
   const layers = useMemo(() => buildActivityLayers(layerInput), [layerInput]);
 
   const fullscreenSources = useMemo(
-    () => buildFullscreenSectionSources(consolidatedPortionsGeoJSON, fullscreenPRMarkersGeoJSON),
-    [consolidatedPortionsGeoJSON, fullscreenPRMarkersGeoJSON]
+    () =>
+      buildFullscreenSectionSources(
+        consolidatedPortionsGeoJSON,
+        fullscreenPRMarkersGeoJSON,
+        overlayGeoJSON
+      ),
+    [consolidatedPortionsGeoJSON, fullscreenPRMarkersGeoJSON, overlayGeoJSON]
   );
   const fullscreenLayers = useMemo(
-    () => buildFullscreenSectionLayers(!!sectionOverlaysGeoJSON),
-    [sectionOverlaysGeoJSON]
+    () => buildFullscreenSectionLayers(!!sectionOverlaysGeoJSON, overlayHasData),
+    [sectionOverlaysGeoJSON, overlayHasData]
   );
 
   const handleFullscreenPress = useCallback(

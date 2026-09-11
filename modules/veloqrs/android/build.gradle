@@ -141,6 +141,10 @@ dependencies {
   //noinspection GradleDynamicVersion
   implementation "com.facebook.react:react-native:+"
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+  // The map's tile interceptor extends the library's own client and manager,
+  // so this module compiles against them. The app autolinks the library, so
+  // compileOnly keeps a second copy out of this module's artifact.
+  compileOnly project(':react-native-webview')
 }
 
 if (isNewArchitectureEnabled()) {

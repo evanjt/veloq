@@ -24,6 +24,7 @@ export {
   statusBadge,
   verdict,
   verdictColor,
+  recording,
   amberBanner,
   redBanner,
   contributionRamp,

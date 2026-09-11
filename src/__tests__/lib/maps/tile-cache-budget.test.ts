@@ -33,15 +33,18 @@ jest.mock('@/shared/storage', () => ({
 }));
 
 describe('the budget', () => {
-  // 110/50/30/10, the 120/50/30 that shipped with the ground raster's 10 MB
-  // taken from satellite, which is the only share large enough to give it up.
-  it('defaults to the shipped split, with the ground raster carved off satellite', () => {
+  // The 50/30/10 proportions of the 120/50/30 MB that shipped, with satellite
+  // gone and its share spread across the three that are still kept.
+  it('defaults to the shipped proportions over the three kept caches', () => {
     expect(DEFAULT_TILE_CACHE_BUDGET_MB).toBe(200);
     const budgets = tileCacheBudgets(DEFAULT_TILE_CACHE_BUDGET_MB);
-    expect(budgets['veloq-satellite-v1']).toBe(110 * MB);
-    expect(budgets['veloq-vector-v1']).toBe(50 * MB);
-    expect(budgets['veloq-terrain-dem-v1']).toBe(30 * MB);
-    expect(budgets['veloq-ground-v1']).toBe(10 * MB);
+    const total = 200 * MB;
+    expect(budgets['veloq-terrain-dem-v1']).toBe(Math.round((total * 30) / 90));
+    expect(budgets['veloq-ground-v1']).toBe(Math.round((total * 10) / 90));
+    // Vector takes the remainder, so the three sum to exactly the ceiling.
+    expect(budgets['veloq-vector-v1']).toBe(
+      total - budgets['veloq-terrain-dem-v1'] - budgets['veloq-ground-v1']
+    );
   });
 
   it('scales every cache and always sums to the total', () => {

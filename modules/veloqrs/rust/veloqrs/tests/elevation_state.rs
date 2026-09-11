@@ -16,10 +16,12 @@ use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
+use veloqrs::net::elevation_backfill::ELEVATION_ATTEMPT_LIMIT;
 
 const UNKNOWN: u8 = 0;
 const FETCHED: u8 = 1;
 const UNAVAILABLE: u8 = 2;
+const UNREACHABLE: u8 = 3;
 
 fn flat_track(seed: f64) -> Vec<GpsPoint> {
     (0..8)
@@ -247,4 +249,221 @@ fn upgrading_from_v12_reaches_the_column_with_existing_rows_at_unknown() {
         blob,
         "the upgrade must not rewrite or truncate a stored track"
     );
+}
+
+/// Read the attempt count directly, so an assertion cannot be satisfied by a
+/// number the database never received.
+fn stored_attempts(path: &Path, id: &str) -> i64 {
+    let conn = Connection::open(path).expect("reopen database");
+    conn.query_row(
+        "SELECT elevation_attempts FROM gps_tracks WHERE activity_id = ?",
+        params![id],
+        |row| row.get(0),
+    )
+    .expect("read attempts")
+}
+
+fn queue_ids(engine: &PersistentEngine) -> Vec<String> {
+    engine
+        .tracks_missing_elevation()
+        .expect("queue")
+        .into_iter()
+        .map(|(id, _)| id)
+        .collect()
+}
+
+/// Scenario: upstream will not answer for one track, and answers the same way
+/// on every pass. Nothing writes provenance over the row, so the derived queue
+/// re-offers it for the life of the install and the backfill never reads zero.
+///
+/// Expected behaviour: the asks are counted, and the one that reaches the limit
+/// takes the track out of the queue without claiming anything about its ground.
+#[test]
+fn a_track_leaves_the_queue_once_it_has_been_asked_the_limit_of_times() {
+    let (_dir, path, engine) = seeded_engine(&["a1", "a2"]);
+
+    for asked in 1..ELEVATION_ATTEMPT_LIMIT {
+        let retired = engine
+            .record_elevation_attempts(&["a1".to_string()], ELEVATION_ATTEMPT_LIMIT)
+            .expect("count the ask");
+        assert_eq!(retired, 0, "{asked} asks is short of the limit");
+        assert_eq!(stored_attempts(&path, "a1"), i64::from(asked));
+        assert_eq!(queue_ids(&engine), vec!["a1", "a2"], "still owed");
+    }
+
+    let retired = engine
+        .record_elevation_attempts(&["a1".to_string()], ELEVATION_ATTEMPT_LIMIT)
+        .expect("count the last ask");
+
+    assert_eq!(
+        retired, 1,
+        "the ask that reaches the limit retires the track"
+    );
+    assert_eq!(
+        stored_states(&path),
+        vec![("a1".to_string(), 3), ("a2".to_string(), 0)]
+    );
+    assert_eq!(
+        queue_ids(&engine),
+        vec!["a2"],
+        "a retired track must leave the queue, or it holds detection for ever"
+    );
+
+    let counts = engine.elevation_state_counts().expect("counts");
+    assert_eq!(counts.unreachable, 1);
+    assert_eq!(counts.unknown, 1);
+    assert_eq!(
+        counts.not_fetched(),
+        2,
+        "retired is not elevated: the library still does not read uniformly"
+    );
+}
+
+#[test]
+fn a_retired_track_is_not_retired_twice() {
+    let (_dir, _path, engine) = seeded_engine(&["a1"]);
+
+    for _ in 0..ELEVATION_ATTEMPT_LIMIT {
+        engine
+            .record_elevation_attempts(&["a1".to_string()], ELEVATION_ATTEMPT_LIMIT)
+            .expect("count the ask");
+    }
+
+    assert_eq!(
+        engine
+            .record_elevation_attempts(&["a1".to_string()], ELEVATION_ATTEMPT_LIMIT)
+            .expect("count a later ask"),
+        0,
+        "the retirement is reported once, so a pass cannot count it again"
+    );
+}
+
+/// A track nothing could fetch yesterday can be fetched today. The count is
+/// about consecutive silence, so an answer that lands resets it and the track
+/// starts over if it ever returns to the queue.
+#[test]
+fn an_answer_that_lands_clears_the_asks_before_it() {
+    let (_dir, path, engine) = seeded_engine(&["a1"]);
+
+    engine
+        .record_elevation_attempts(&["a1".to_string()], ELEVATION_ATTEMPT_LIMIT)
+        .expect("count the ask");
+    assert_eq!(stored_attempts(&path, "a1"), 1);
+
+    engine
+        .record_elevation_state(&[("a1".to_string(), FETCHED)])
+        .expect("record fetched");
+    assert_eq!(
+        stored_attempts(&path, "a1"),
+        0,
+        "a track that answered owes nothing to the asks that failed before it"
+    );
+}
+
+#[test]
+fn an_ask_that_crosses_with_a_fetch_never_demotes_the_track() {
+    let (_dir, path, engine) = seeded_engine(&["a1"]);
+
+    engine
+        .record_elevation_state(&[("a1".to_string(), FETCHED)])
+        .expect("record fetched");
+    for _ in 0..ELEVATION_ATTEMPT_LIMIT {
+        engine
+            .record_elevation_attempts(&["a1".to_string()], ELEVATION_ATTEMPT_LIMIT)
+            .expect("count the ask");
+    }
+
+    assert_eq!(
+        stored_states(&path),
+        vec![("a1".to_string(), i64::from(FETCHED))],
+        "only a track still owed can be retired"
+    );
+}
+
+#[test]
+fn counting_an_ask_for_an_unknown_activity_creates_nothing() {
+    let (_dir, path, engine) = seeded_engine(&["a1"]);
+
+    engine
+        .record_elevation_attempts(&["ghost".to_string()], ELEVATION_ATTEMPT_LIMIT)
+        .expect("counting an absent id must not error");
+
+    assert_eq!(
+        stored_states(&path),
+        vec![("a1".to_string(), i64::from(UNKNOWN))],
+        "an id with no track row must not mint one"
+    );
+}
+
+/// The upgrade path, not the fresh one. A schema change whose upgrade is
+/// untested loses user data.
+#[test]
+fn upgrading_from_v12_reaches_the_attempts_column_at_zero() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("routes.db");
+
+    let conn = seed_at_version(&path, 12);
+    assert!(
+        !columns_of(&conn, "gps_tracks").contains(&"elevation_attempts".to_string()),
+        "the seed must predate the column, or the test proves nothing"
+    );
+    conn.execute(
+        "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+         VALUES ('legacy', 'Ride', 46.2, 46.3, 7.3, 7.4)",
+        [],
+    )
+    .expect("insert legacy activity");
+    let blob: Vec<u8> = (0..2000u32).map(|i| (i % 251) as u8).collect();
+    conn.execute(
+        "INSERT INTO gps_tracks (activity_id, track_data, point_count)
+         VALUES ('legacy', ?1, 500)",
+        params![blob],
+    )
+    .expect("insert legacy track");
+    drop(conn);
+
+    drop(engine_at(&path));
+
+    let conn = Connection::open(&path).expect("reopen upgraded");
+    assert!(
+        columns_of(&conn, "gps_tracks").contains(&"elevation_attempts".to_string()),
+        "the upgrade must add the column"
+    );
+    assert_eq!(
+        stored_attempts(&path, "legacy"),
+        0,
+        "a row that predates the column has been asked about no times"
+    );
+    assert_eq!(
+        conn.query_row(
+            "SELECT track_data FROM gps_tracks WHERE activity_id = 'legacy'",
+            [],
+            |r| r.get::<_, Vec<u8>>(0)
+        )
+        .expect("read legacy track_data"),
+        blob,
+        "the upgrade must not rewrite or truncate a stored track"
+    );
+}
+
+/// An install that already carries the retired state reads it back as its own
+/// count rather than folding it into "never asked". `UNREACHABLE` and
+/// `UNAVAILABLE` are different claims and the diagnostics have to keep them
+/// apart.
+#[test]
+fn the_counts_keep_retired_apart_from_unavailable() {
+    let (_dir, _path, engine) = seeded_engine(&["a1", "a2", "a3"]);
+
+    engine
+        .record_elevation_state(&[
+            ("a1".to_string(), UNAVAILABLE),
+            ("a2".to_string(), UNREACHABLE),
+        ])
+        .expect("record mixed");
+
+    let counts = engine.elevation_state_counts().expect("counts");
+    assert_eq!(counts.unavailable, 1);
+    assert_eq!(counts.unreachable, 1);
+    assert_eq!(counts.unknown, 1);
+    assert_eq!(counts.not_fetched(), 3);
 }

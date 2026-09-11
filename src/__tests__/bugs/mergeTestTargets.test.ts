@@ -162,7 +162,9 @@ describe('the commands a merge runs', () => {
 });
 
 describe('the merge hook', () => {
-  const hook = readFileSync(join(ROOT, '.husky', 'pre-merge-commit'), 'utf8');
+  const hook =
+    readFileSync(join(ROOT, '.husky', 'pre-merge-commit'), 'utf8') +
+    readFileSync(join(ROOT, 'scripts/merge-gates.sh'), 'utf8');
 
   it('runs the suites the merge touched', () => {
     expect(hook).toMatch(/check-merge-tests/);

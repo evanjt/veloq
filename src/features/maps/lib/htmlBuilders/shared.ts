@@ -187,20 +187,17 @@ ${cacheEvictionScript(options.tileCacheBudgetMb)}
       });
     });
 
-    var SATELLITE_CACHE = 'veloq-satellite-v1';
+    // Imagery is drawn and dropped. Offline the map falls back to the vector
+    // basemap, so a satellite tile kept here would only spend the pool that
+    // basemap needs, and imagery is the heaviest source there is. satHits
+    // stays at zero and is kept so the counters the page logs still line up.
     var satHits = 0, satMisses = 0;
     maplibregl.addProtocol('cached-satellite', function(params) {
       var realUrl = 'https://' + params.url.substring('cached-satellite://'.length);
-      return caches.open(SATELLITE_CACHE).then(function(cache) {
-        return cache.match(realUrl).then(function(cached) {
-          if (cached) { satHits++; return cached.blob().then(demBlobToImage); }
-          satMisses++;
-          return fetch(realUrl).then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(SATELLITE_CACHE);
-            return r.blob().then(demBlobToImage);
-          });
-        });
+      satMisses++;
+      return fetch(realUrl).then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.blob().then(demBlobToImage);
       });
     });
 

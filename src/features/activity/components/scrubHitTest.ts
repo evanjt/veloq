@@ -19,6 +19,13 @@ export interface ScrubHitTestParams {
   scrollOffset: number;
   /** Number of rows currently in the list. */
   rowCount: number;
+  /**
+   * Measured height of every row, in list order. A section crossed in both
+   * directions renders a taller card than one crossed once, so a single
+   * height sample cannot place the finger. Ignored until every row has
+   * reported, which is when the uniform sample is the better guess.
+   */
+  rowHeights?: readonly number[];
 }
 
 /**
@@ -28,10 +35,21 @@ export interface ScrubHitTestParams {
  * resolves to that row.
  */
 export function findRowIndexAtPageY(params: ScrubHitTestParams): number | null {
-  const { pageY, firstRowTopY, rowHeight, scrollOffset, rowCount } = params;
+  const { pageY, firstRowTopY, rowHeight, scrollOffset, rowCount, rowHeights } = params;
   if (rowHeight <= 0 || rowCount <= 0) return null;
   const relY = pageY - firstRowTopY + scrollOffset;
   if (relY < 0) return null;
+
+  if (rowHeights?.length === rowCount && rowHeights.every((h) => h > 0)) {
+    let top = 0;
+    for (let i = 0; i < rowCount; i++) {
+      const bottom = top + rowHeights[i];
+      if (relY < bottom) return i;
+      top = bottom;
+    }
+    return null;
+  }
+
   const idx = Math.floor(relY / rowHeight);
   if (idx >= rowCount) return null;
   return idx;

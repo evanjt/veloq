@@ -58,7 +58,6 @@ jobs:
               - 'expo-modules/**'
               - 'modules/**'
               - 'ios/**'
-              - 'patches/**'
               - '.github/workflows/build.yml'
               - '.github/actions/**'
 

@@ -13,7 +13,7 @@ use httpmock::prelude::*;
 use tempfile::TempDir;
 use veloqrs::basemap::{TileFetchError, TileFetcher, TileStore};
 
-const SATELLITE: &str = "satellite";
+const GROUND: &str = "ground";
 const VECTOR: &str = "vector";
 const DEM: &str = "terrain-dem";
 
@@ -36,17 +36,17 @@ fn a_stored_tile_reads_back_byte_for_byte() {
     let tile = bytes(64, 7);
 
     store
-        .put(SATELLITE, 12, 2048, 1362, "jpg", &tile, false)
+        .put(GROUND, 12, 2048, 1362, "jpg", &tile, false)
         .expect("put");
 
-    assert_eq!(store.get(SATELLITE, 12, 2048, 1362), Some(tile));
+    assert_eq!(store.get(GROUND, 12, 2048, 1362), Some(tile));
 }
 
 #[test]
 fn a_tile_that_was_never_stored_reads_as_absent() {
     let (store, _tmp) = store();
 
-    assert_eq!(store.get(SATELLITE, 12, 2048, 1362), None);
+    assert_eq!(store.get(GROUND, 12, 2048, 1362), None);
     assert_eq!(store.size(), 0, "an empty store costs nothing");
 }
 
@@ -54,7 +54,7 @@ fn a_tile_that_was_never_stored_reads_as_absent() {
 fn the_three_sources_share_one_tree_without_colliding() {
     let (store, _tmp) = store();
     store
-        .put(SATELLITE, 10, 1, 2, "jpg", &bytes(10, 1), false)
+        .put(GROUND, 10, 1, 2, "jpg", &bytes(10, 1), false)
         .expect("put");
     store
         .put(VECTOR, 10, 1, 2, "pbf", &bytes(20, 2), false)
@@ -63,11 +63,11 @@ fn the_three_sources_share_one_tree_without_colliding() {
         .put(DEM, 10, 1, 2, "png", &bytes(30, 3), false)
         .expect("put");
 
-    assert_eq!(store.get(SATELLITE, 10, 1, 2), Some(bytes(10, 1)));
+    assert_eq!(store.get(GROUND, 10, 1, 2), Some(bytes(10, 1)));
     assert_eq!(store.get(VECTOR, 10, 1, 2), Some(bytes(20, 2)));
     assert_eq!(store.get(DEM, 10, 1, 2), Some(bytes(30, 3)));
 
-    assert_eq!(store.size_of(SATELLITE), 10);
+    assert_eq!(store.size_of(GROUND), 10);
     assert_eq!(store.size_of(VECTOR), 20);
     assert_eq!(store.size_of(DEM), 30);
     assert_eq!(store.size(), 60, "the total is every source, not just one");
@@ -118,10 +118,10 @@ fn a_put_leaves_no_temporary_file_behind() {
 fn size_is_answerable_with_no_webview_and_no_network() {
     let (store, _tmp) = store();
     store
-        .put(SATELLITE, 8, 3, 4, "jpg", &bytes(1024, 1), false)
+        .put(GROUND, 8, 3, 4, "jpg", &bytes(1024, 1), false)
         .expect("put");
     store
-        .put(SATELLITE, 8, 3, 5, "jpg", &bytes(2048, 1), false)
+        .put(GROUND, 8, 3, 5, "jpg", &bytes(2048, 1), false)
         .expect("put");
 
     assert_eq!(store.size(), 3072);
@@ -131,10 +131,98 @@ fn size_is_answerable_with_no_webview_and_no_network() {
 fn size_of_a_source_that_holds_nothing_is_zero_not_an_error() {
     let (store, _tmp) = store();
     store
-        .put(SATELLITE, 8, 3, 4, "jpg", &bytes(16, 1), false)
+        .put(GROUND, 8, 3, 4, "jpg", &bytes(16, 1), false)
         .expect("put");
 
     assert_eq!(store.size_of(VECTOR), 0);
+}
+
+// ============================================================================
+// Satellite imagery is never kept
+// ============================================================================
+
+#[test]
+fn a_satellite_tile_is_served_but_never_written_to_the_tree() {
+    let (store, _tmp) = store();
+
+    store
+        .put(
+            "satellite-eox",
+            12,
+            2048,
+            1362,
+            "jpg",
+            &bytes(4096, 9),
+            false,
+        )
+        .expect("put reports success so a draw is never failed for it");
+
+    assert_eq!(store.get("satellite-eox", 12, 2048, 1362), None);
+    assert_eq!(
+        store.size(),
+        0,
+        "the pool the vector basemap needs is untouched"
+    );
+    assert_eq!(store.size_of("satellite-eox"), 0);
+}
+
+#[test]
+fn every_regional_satellite_source_is_refused_not_only_the_bare_name() {
+    let (store, _tmp) = store();
+
+    for source in [
+        "satellite",
+        "satellite-eox",
+        "satellite-swisstopo",
+        "satellite-ign",
+        "satellite-naip",
+        "satellite-luxembourg",
+    ] {
+        store
+            .put(source, 9, 1, 1, "jpg", &bytes(64, 1), false)
+            .expect("put");
+        assert_eq!(store.get(source, 9, 1, 1), None, "{} was kept", source);
+    }
+
+    assert_eq!(store.size(), 0);
+}
+
+#[test]
+fn a_refused_satellite_put_leaves_no_file_and_no_directory_behind() {
+    let (store, tmp) = store();
+
+    store
+        .put("satellite-eox", 3, 1, 2, "jpg", &bytes(32, 1), false)
+        .expect("put");
+
+    let root = tmp.path().join("basemap-tiles");
+    assert!(
+        !root.join("satellite-eox").exists(),
+        "a refused source must not leave a tree to enumerate"
+    );
+}
+
+#[test]
+fn a_source_whose_name_merely_contains_satellite_is_still_kept() {
+    let (store, _tmp) = store();
+
+    store
+        .put(
+            "vector-satellite-labels",
+            9,
+            1,
+            1,
+            "pbf",
+            &bytes(48, 4),
+            false,
+        )
+        .expect("put");
+
+    assert_eq!(
+        store.get("vector-satellite-labels", 9, 1, 1),
+        Some(bytes(48, 4)),
+        "the rule is the satellite source prefix, not the word anywhere in a name"
+    );
 }
 
 // ============================================================================
@@ -239,17 +327,13 @@ fn eviction_only_spends_the_budget_of_the_source_it_was_given() {
         .put(VECTOR, 5, 0, 0, "pbf", &bytes(300, 1), false)
         .expect("put");
     store
-        .put(SATELLITE, 5, 0, 0, "jpg", &bytes(300, 2), false)
+        .put(GROUND, 5, 0, 0, "jpg", &bytes(300, 2), false)
         .expect("put");
 
     store.evict_to(VECTOR, 0).expect("evict");
 
     assert_eq!(store.size_of(VECTOR), 0);
-    assert_eq!(
-        store.size_of(SATELLITE),
-        300,
-        "satellite keeps its own budget"
-    );
+    assert_eq!(store.size_of(GROUND), 300, "satellite keeps its own budget");
 }
 
 #[test]
@@ -275,7 +359,7 @@ fn clear_empties_every_source_including_the_pinned_pre_seed() {
         .put(VECTOR, 2, 0, 0, "pbf", &bytes(100, 1), true)
         .expect("put");
     store
-        .put(SATELLITE, 5, 0, 0, "jpg", &bytes(100, 2), false)
+        .put(GROUND, 5, 0, 0, "jpg", &bytes(100, 2), false)
         .expect("put");
 
     let removed = store.clear().expect("clear");
@@ -283,7 +367,7 @@ fn clear_empties_every_source_including_the_pinned_pre_seed() {
     assert_eq!(removed, 2);
     assert_eq!(store.size(), 0);
     assert!(store.get(VECTOR, 2, 0, 0).is_none());
-    assert!(store.get(SATELLITE, 5, 0, 0).is_none());
+    assert!(store.get(GROUND, 5, 0, 0).is_none());
 }
 
 #[test]
@@ -293,13 +377,13 @@ fn clearing_one_source_leaves_the_others_standing() {
         .put(VECTOR, 5, 0, 0, "pbf", &bytes(100, 1), false)
         .expect("put");
     store
-        .put(SATELLITE, 5, 0, 0, "jpg", &bytes(100, 2), false)
+        .put(GROUND, 5, 0, 0, "jpg", &bytes(100, 2), false)
         .expect("put");
 
     assert_eq!(store.clear_source(VECTOR).expect("clear"), 1);
 
     assert_eq!(store.size_of(VECTOR), 0);
-    assert_eq!(store.size_of(SATELLITE), 100);
+    assert_eq!(store.size_of(GROUND), 100);
 }
 
 #[test]
@@ -614,7 +698,7 @@ fn a_read_that_blocks_forever_does_not_block_another_source() {
     let (store, tmp) = store();
     let store = Arc::new(store);
     store
-        .put(SATELLITE, 1, 1, 1, "jpg", &bytes(32, 7), false)
+        .put(GROUND, 1, 1, 1, "jpg", &bytes(32, 7), false)
         .expect("put the tile that must stay readable");
     store
         .put(VECTOR, 1, 1, 1, "pbf", &bytes(32, 9), false)
@@ -646,7 +730,7 @@ fn a_read_that_blocks_forever_does_not_block_another_source() {
     let reader = Arc::clone(&store);
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(200));
-        let _ = tx.send(reader.get(SATELLITE, 1, 1, 1));
+        let _ = tx.send(reader.get(GROUND, 1, 1, 1));
     });
 
     let answered = rx
@@ -672,32 +756,32 @@ fn a_read_that_blocks_forever_does_not_block_another_source() {
 fn a_read_still_stamps_the_entry_and_follows_the_bytes_it_got() {
     let (store, tmp) = store();
     store
-        .put(SATELLITE, 2, 0, 0, "jpg", &bytes(64, 1), false)
+        .put(GROUND, 2, 0, 0, "jpg", &bytes(64, 1), false)
         .expect("put");
     store
-        .put(SATELLITE, 2, 0, 1, "jpg", &bytes(64, 2), false)
+        .put(GROUND, 2, 0, 1, "jpg", &bytes(64, 2), false)
         .expect("put");
 
     // Truncate one tile behind the store's back, then read it.
     let path = tmp
         .path()
         .join("basemap-tiles")
-        .join(SATELLITE)
+        .join(GROUND)
         .join("2")
         .join("0")
         .join("0.jpg");
     std::fs::write(&path, bytes(8, 1)).expect("truncate");
-    assert_eq!(store.get(SATELLITE, 2, 0, 0), Some(bytes(8, 1)));
+    assert_eq!(store.get(GROUND, 2, 0, 0), Some(bytes(8, 1)));
     assert_eq!(
-        store.size_of(SATELLITE),
+        store.size_of(GROUND),
         8 + 64,
         "the byte count follows what was read, not what the index remembered"
     );
 
     // The tile just read is the most recent, so eviction takes the other one.
-    store.evict_to(SATELLITE, 8).expect("evict");
-    assert_eq!(store.get(SATELLITE, 2, 0, 1), None);
-    assert_eq!(store.get(SATELLITE, 2, 0, 0), Some(bytes(8, 1)));
+    store.evict_to(GROUND, 8).expect("evict");
+    assert_eq!(store.get(GROUND, 2, 0, 1), None);
+    assert_eq!(store.get(GROUND, 2, 0, 0), Some(bytes(8, 1)));
 }
 
 /// The index outliving its file is still forgotten rather than answered.
@@ -705,18 +789,18 @@ fn a_read_still_stamps_the_entry_and_follows_the_bytes_it_got() {
 fn a_read_of_a_file_that_vanished_forgets_the_entry() {
     let (store, tmp) = store();
     store
-        .put(SATELLITE, 3, 0, 0, "jpg", &bytes(16, 4), false)
+        .put(GROUND, 3, 0, 0, "jpg", &bytes(16, 4), false)
         .expect("put");
     std::fs::remove_file(
         tmp.path()
             .join("basemap-tiles")
-            .join(SATELLITE)
+            .join(GROUND)
             .join("3")
             .join("0")
             .join("0.jpg"),
     )
     .expect("remove");
 
-    assert_eq!(store.get(SATELLITE, 3, 0, 0), None);
-    assert_eq!(store.size_of(SATELLITE), 0, "and stops counting its bytes");
+    assert_eq!(store.get(GROUND, 3, 0, 0), None);
+    assert_eq!(store.size_of(GROUND), 0, "and stops counting its bytes");
 }

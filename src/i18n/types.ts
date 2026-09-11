@@ -300,6 +300,12 @@ export interface TranslationResource {
     previewAreaSections: string;
     sectionMaxLength: string;
     sectionSameTraffic: string;
+    sectionParamPastClamp: string;
+    sectionParamRange: string;
+    sectionPresetDefault: string;
+    sectionPresetRelaxed: string;
+    sectionPresetStrict: string;
+    sectionPresets: string;
     previewRun: string;
     previewRunning: string;
     previewFailed: string;
@@ -335,7 +341,6 @@ export interface TranslationResource {
     streamHistoryReset: string;
     storageDatabase: string;
     storageHeatmap: string;
-    storageSatellite: string;
     storageTerrain: string;
     storageVector: string;
     storageGround: string;
@@ -1039,6 +1044,8 @@ export interface TranslationResource {
     detectionPaused: string;
     detectionPausedElevation: string;
     detectionHeldElevationPaused: string;
+    detectionHeldElevationWaiting_one: string;
+    detectionHeldElevationWaiting_other: string;
     rescanRefusedBusy: string;
     rescanRefusedHeld: string;
     rescanRefusedNotReady: string;

@@ -90,6 +90,13 @@ pub const ELEVATION_STATE_UNKNOWN: u8 = 0;
 pub const ELEVATION_STATE_FETCHED: u8 = 1;
 /// Elevation provenance a stored track can be in: `elevation_state` 2.
 pub const ELEVATION_STATE_UNAVAILABLE: u8 = 2;
+/// Elevation provenance a stored track can be in: `elevation_state` 3.
+///
+/// Distinct from `UNAVAILABLE` on purpose. That value is upstream answering
+/// that it holds no altitude for the ride, which the lift rescue reads as
+/// fact. This one is nobody ever getting an answer at all, so it makes no
+/// claim about the ground.
+pub const ELEVATION_STATE_UNREACHABLE: u8 = 3;
 
 /// How many stored tracks sit in each elevation provenance state.
 ///
@@ -104,13 +111,15 @@ pub struct ElevationStateCounts {
     pub fetched: u64,
     /// Asked, and upstream had no usable altitude series.
     pub unavailable: u64,
+    /// Asked until the backfill gave up, and upstream never answered.
+    pub unreachable: u64,
 }
 
 impl ElevationStateCounts {
     /// Tracks in a state other than `fetched`, ie. the size of the remaining
     /// backfill plus the activities that can never be filled.
     pub fn not_fetched(&self) -> u64 {
-        self.unknown + self.unavailable
+        self.unknown + self.unavailable + self.unreachable
     }
 }
 
@@ -939,7 +948,8 @@ impl PersistentEngine {
             .collect();
 
         self.db.execute(
-            "UPDATE gps_tracks SET track_data = ?, elevation_state = ? WHERE activity_id = ?",
+            "UPDATE gps_tracks SET track_data = ?, elevation_state = ?, elevation_attempts = 0 \
+             WHERE activity_id = ?",
             params![
                 codec::serialize_track_points(&spliced),
                 i64::from(crate::persistence::ELEVATION_STATE_FETCHED),
@@ -979,7 +989,8 @@ impl PersistentEngine {
                     .collect::<Vec<_>>()
                     .join(",");
                 let sql = format!(
-                    "UPDATE gps_tracks SET elevation_state = ? WHERE activity_id IN ({})",
+                    "UPDATE gps_tracks SET elevation_state = ?, elevation_attempts = 0 \
+                     WHERE activity_id IN ({})",
                     placeholders
                 );
                 let mut params_vec: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() + 1);
@@ -989,6 +1000,59 @@ impl PersistentEngine {
             }
         }
         Ok(())
+    }
+
+    /// Count one ask that settled nothing against each track, and retire the
+    /// ones that have now been asked `limit` times. Returns how many retired.
+    ///
+    /// The queue is derived from `elevation_state` on every call, so a row an
+    /// ask leaves untouched is re-offered by every pass for the life of the
+    /// install. One such row holds `elevation_backfill_remaining()` above zero,
+    /// which holds section detection and vetoes the detector cutover at every
+    /// launch. Counting the asks is what lets the queue end.
+    ///
+    /// The count is stored rather than held in the process: the passes are one
+    /// per launch, so a counter that resets with the process would never reach
+    /// any limit.
+    ///
+    /// Only a row still at `UNKNOWN` retires. A track that has since been
+    /// fetched is not demoted by an ask that crossed with it, and a retired
+    /// track is not retired twice.
+    pub fn record_elevation_attempts(&self, ids: &[String], limit: u32) -> SqlResult<u64> {
+        const CHUNK: usize = 500;
+        let mut retired = 0u64;
+        for chunk in ids.chunks(CHUNK) {
+            let placeholders = std::iter::repeat_n("?", chunk.len())
+                .collect::<Vec<_>>()
+                .join(",");
+            let ids_params: Vec<&dyn rusqlite::ToSql> =
+                chunk.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+
+            self.db.execute(
+                &format!(
+                    "UPDATE gps_tracks SET elevation_attempts = elevation_attempts + 1 \
+                     WHERE activity_id IN ({})",
+                    placeholders
+                ),
+                ids_params.as_slice(),
+            )?;
+
+            let limit = i64::from(limit);
+            let unreachable = i64::from(ELEVATION_STATE_UNREACHABLE);
+            let unknown = i64::from(ELEVATION_STATE_UNKNOWN);
+            let mut params_vec: Vec<&dyn rusqlite::ToSql> = vec![&unreachable, &unknown, &limit];
+            params_vec.extend(ids_params.iter().copied());
+            retired += self.db.execute(
+                &format!(
+                    "UPDATE gps_tracks SET elevation_state = ? \
+                     WHERE elevation_state = ? AND elevation_attempts >= ? \
+                       AND activity_id IN ({})",
+                    placeholders
+                ),
+                params_vec.as_slice(),
+            )? as u64;
+        }
+        Ok(retired)
     }
 
     /// How many stored tracks sit in each elevation provenance state. Any value
@@ -1007,6 +1071,7 @@ impl PersistentEngine {
             match u8::try_from(state).unwrap_or(ELEVATION_STATE_UNKNOWN) {
                 ELEVATION_STATE_FETCHED => counts.fetched += n,
                 ELEVATION_STATE_UNAVAILABLE => counts.unavailable += n,
+                ELEVATION_STATE_UNREACHABLE => counts.unreachable += n,
                 _ => counts.unknown += n,
             }
         }

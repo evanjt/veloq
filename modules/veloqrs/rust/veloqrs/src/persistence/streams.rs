@@ -24,7 +24,23 @@ pub const STREAM_RETENTION_DAYS_KEY: &str = "__stream_retention_days";
 
 /// Series that come out of the track and its time stream rather than out of
 /// this store. Writing them here would hold the same samples twice.
-const FROM_THE_TRACK: [&str; 4] = ["latlng", "altitude", "fixed_altitude", "time"];
+pub const FROM_THE_TRACK: [&str; 4] = ["latlng", "altitude", "fixed_altitude", "time"];
+
+/// The rows one activity's response becomes: each series the track does not
+/// already answer, packed with the quantised codec. An empty series is left
+/// out, because a row of nothing would report the activity as stocked.
+///
+/// This is the one place the packing rule lives, so a diagnostic that sizes
+/// the store measures exactly what the store writes.
+pub fn pack_activity_streams(raw: &[StreamDto]) -> Vec<(&str, Vec<u8>, usize)> {
+    raw.iter()
+        .filter(|s| !FROM_THE_TRACK.contains(&s.kind.as_str()) && !s.data.is_empty())
+        .map(|s| {
+            let blob = codec::encode_series(&s.data, codec::series_scale(&s.kind));
+            (s.kind.as_str(), blob, s.data.len())
+        })
+        .collect()
+}
 
 impl PersistentEngine {
     /// The retention window in days, or `None` for keep everything. An unset,
@@ -105,12 +121,7 @@ impl PersistentEngine {
         activity_id: &str,
         raw: &[StreamDto],
     ) -> SqlResult<()> {
-        for s in raw {
-            if FROM_THE_TRACK.contains(&s.kind.as_str()) || s.data.is_empty() {
-                continue;
-            }
-            let scale = codec::series_scale(&s.kind);
-            let blob = codec::encode_series(&s.data, scale);
+        for (kind, blob, samples) in pack_activity_streams(raw) {
             self.db.execute(
                 "INSERT INTO activity_streams (activity_id, kind, data, sample_count, updated_at)
                  VALUES (?, ?, ?, ?, strftime('%s', 'now'))
@@ -118,7 +129,7 @@ impl PersistentEngine {
                     data = excluded.data,
                     sample_count = excluded.sample_count,
                     updated_at = excluded.updated_at",
-                params![activity_id, s.kind, blob, s.data.len() as i64],
+                params![activity_id, kind, blob, samples as i64],
             )?;
         }
         // The prune runs on the way out, so an activity outside the window is

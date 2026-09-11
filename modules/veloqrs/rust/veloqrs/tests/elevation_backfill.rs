@@ -24,8 +24,8 @@ use veloqrs::governor::{AuthMethod, Governor, NoopPolicy};
 use veloqrs::net::Transport;
 use veloqrs::net::elevation_backfill::{
     BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, BACKFILL_PHASE_PARTIAL,
-    BACKFILL_PHASE_PAUSED, BackfillRun, MAX_CONSECUTIVE_FAILURES, backfill_progress,
-    backfill_retry_delays, detect_runs_started, elevation_backfill_paused,
+    BACKFILL_PHASE_PAUSED, BackfillRun, ELEVATION_ATTEMPT_LIMIT, MAX_CONSECUTIVE_FAILURES,
+    backfill_progress, backfill_retry_delays, detect_runs_started, elevation_backfill_paused,
     pause_elevation_backfill, reset_elevation_backfill_pause, run_elevation_backfill,
 };
 use veloqrs::objects::{SYNC_SERVICE, SyncState};
@@ -37,6 +37,7 @@ use veloqrs::persistence::{detection_suspended, with_persistent_engine};
 const UNKNOWN: u8 = 0;
 const FETCHED: u8 = 1;
 const UNAVAILABLE: u8 = 2;
+const UNREACHABLE: u8 = 3;
 
 static SERIAL: Mutex<()> = Mutex::new(());
 
@@ -1812,5 +1813,58 @@ fn a_paused_pass_ends_paused_without_the_final_recut_and_releases_detection() {
     );
 
     reset_elevation_backfill_pause();
+    drain_detection();
+}
+
+/// Scenario: upstream will not answer for one activity, and says so the same
+/// way every time. The row is left untouched by every pass, so the derived
+/// queue re-offers it for the life of the install,
+/// `getElevationBackfillRemaining()` never reaches zero, detection stays held
+/// and the detector cutover is vetoed at every launch. One activity is enough
+/// to do that to a whole library.
+///
+/// Expected behaviour: the refusals are counted against the track, and the
+/// pass that reaches the limit retires it. The queue drains, and the track
+/// still counts as not elevated, because nothing was ever fetched for it.
+#[test]
+fn a_track_upstream_will_not_answer_for_is_retired_and_leaves_the_queue() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a1"]);
+
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.path("/activity/a1/streams.json");
+        then.status(404).body("no such activity");
+    });
+
+    for pass in 1..ELEVATION_ATTEMPT_LIMIT {
+        let run = run_backfill(&fast_transport(server.base_url()));
+        assert!(
+            matches!(run, BackfillRun::Finished(_)),
+            "an answer about one activity does not fail the pass, got {run:?}"
+        );
+        assert_eq!(
+            queue_ids(),
+            vec!["a1"],
+            "ask {pass} of {ELEVATION_ATTEMPT_LIMIT} is not the last word"
+        );
+    }
+
+    let run = run_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {run:?}");
+    };
+
+    assert_eq!(outcome.retired, 1, "the pass reaching the limit retires it");
+    assert!(
+        queue_ids().is_empty(),
+        "a track nothing can fetch must leave the queue, or it holds detection for ever"
+    );
+    assert_eq!(state_of("a1"), UNREACHABLE);
+    assert_eq!(
+        outstanding(),
+        1,
+        "retired is not elevated: the library still does not read uniformly"
+    );
     drain_detection();
 }

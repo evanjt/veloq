@@ -25,6 +25,8 @@ import React, {
 import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 
+import { veloqWebViewNativeConfig } from '@/features/maps/lib/veloqWebView';
+
 import type { MapStyleType } from './mapStyles';
 import {
   saveTerrainPreview,
@@ -458,7 +460,6 @@ export const TerrainSnapshotWebView = forwardRef<
           tileCount: (data.tileCount as number) ?? 0,
           totalBytes: (data.totalBytes as number) ?? 0,
           terrain: (data.terrain as { tileCount: number; totalBytes: number }) ?? undefined,
-          satellite: (data.satellite as { tileCount: number; totalBytes: number }) ?? undefined,
           vector: (data.vector as { tileCount: number; totalBytes: number }) ?? undefined,
         });
       },
@@ -713,6 +714,7 @@ export const TerrainSnapshotWebView = forwardRef<
           originWhitelist={['*']}
           mixedContentMode="always"
           androidLayerType="hardware"
+          nativeConfig={veloqWebViewNativeConfig}
           onMessage={handleMessage}
           onRenderProcessGone={() => handleWorkerGone(worker)}
           onContentProcessDidTerminate={() => handleWorkerGone(worker)}

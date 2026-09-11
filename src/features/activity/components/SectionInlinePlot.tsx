@@ -28,9 +28,10 @@ import { formatDistance, formatDuration, formatPace, formatSwimPace } from '@/sh
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionSparkline } from '@/features/routes/components/section/SectionSparkline';
 import type { SectionEncounter } from 'veloqrs';
+import type { SectionEncounterGroup } from '@/features/activity/lib/groupSectionEncounters';
 
 interface SectionInlinePlotProps {
-  encounter: SectionEncounter;
+  group: SectionEncounterGroup;
   activityId: string;
   sportType?: string;
   index: number;
@@ -41,7 +42,7 @@ interface SectionInlinePlotProps {
   onSwipeableOpen: (sectionId: string) => void;
   /** Report the outer row's measured height so the parent can compute
    *  finger-Y → row-index arithmetically instead of querying per-row layouts. */
-  onRowHeight?: (height: number) => void;
+  onRowHeight?: (index: number, height: number) => void;
   /** Expose the first row's outer View ref to the parent. Only row 0 needs
    *  to be measured - subsequent rows' positions are pure arithmetic. */
   firstRowRef?: (ref: View | null) => void;
@@ -65,9 +66,65 @@ function formatLap(
   return formatDuration(lapTime);
 }
 
+/**
+ * Build sparkline points from one encounter's history.
+ *
+ * Show a window of up to 5 points centred on the current activity (2 before +
+ * current + 2 after), shifted to stay inside the history near either end. If
+ * the current activity isn't in the history, fall back to the last 5.
+ */
+function buildSparklineData(
+  encounter: SectionEncounter,
+  activityId: string
+): (PerformanceDataPoint & { x: number })[] | undefined {
+  const total = encounter.historyTimes.length;
+  if (total < 2) return undefined;
+
+  const WINDOW_SIZE = 5;
+  let startIdx = 0;
+  let endIdx = total;
+
+  if (total > WINDOW_SIZE) {
+    const currentIdx = encounter.historyActivityIds.indexOf(activityId);
+    if (currentIdx === -1) {
+      startIdx = total - WINDOW_SIZE;
+      endIdx = total;
+    } else {
+      const half = Math.floor(WINDOW_SIZE / 2);
+      startIdx = currentIdx - half;
+      endIdx = currentIdx + half + 1;
+      if (startIdx < 0) {
+        endIdx += -startIdx;
+        startIdx = 0;
+      }
+      if (endIdx > total) {
+        startIdx -= endIdx - total;
+        endIdx = total;
+      }
+      if (startIdx < 0) startIdx = 0;
+    }
+  }
+
+  const out: (PerformanceDataPoint & { x: number })[] = [];
+  for (let i = startIdx; i < endIdx; i++) {
+    const time = encounter.historyTimes[i];
+    out.push({
+      x: i - startIdx,
+      id: encounter.historyActivityIds[i] || '',
+      activityId: encounter.historyActivityIds[i] || '',
+      speed: time > 0 ? encounter.distanceMeters / time : 0,
+      date: new Date(),
+      activityName: '',
+      direction: encounter.direction as 'same' | 'reverse',
+      sectionTime: time,
+    });
+  }
+  return out;
+}
+
 export const SectionInlinePlot = memo(
   function SectionInlinePlot({
-    encounter,
+    group,
     activityId,
     sportType,
     index,
@@ -84,81 +141,23 @@ export const SectionInlinePlot = memo(
     const { t } = useTranslation();
 
     const handlePress = useCallback(() => {
-      onPress?.(encounter.sectionId);
-    }, [onPress, encounter.sectionId]);
+      onPress?.(group.sectionId);
+    }, [onPress, group.sectionId]);
 
-    // Color the row's index number using the same palette + hash as the map's
-    // section portions, so row N visually matches the color of section N on the map.
-    const numberColor = sectionPalette[sectionPaletteIndex(encounter.sectionId)];
+    // Colour the card's index number using the same palette + hash as the map's
+    // section portions, so card N matches the colour of its section on the map.
+    const numberColor = sectionPalette[sectionPaletteIndex(group.sectionId)];
 
-    // A single section can match in both directions, so `sectionId` alone
-    // isn't unique per row. Use the same composite key as FlatList's keyExtractor.
-    const swipeKey = `${encounter.sectionId}-${encounter.direction}`;
-    const displayName =
-      encounter.direction === 'reverse' ? `${encounter.sectionName} ↩` : encounter.sectionName;
-
-    // Build sparkline-compatible data from encounter history.
-    // Show a window of up to 5 points centered on the current activity
-    // (2 before + current + 2 after). If the current activity is near the
-    // start/end of the history, shift the window so 5 points still render.
-    // If the current activity isn't in the history, fall back to the last 5.
-    const sparklineData = useMemo((): (PerformanceDataPoint & { x: number })[] | undefined => {
-      const total = encounter.historyTimes.length;
-      if (total < 2) return undefined;
-
-      const WINDOW_SIZE = 5;
-      let startIdx = 0;
-      let endIdx = total;
-
-      if (total > WINDOW_SIZE) {
-        const currentIdx = encounter.historyActivityIds.indexOf(activityId);
-        if (currentIdx === -1) {
-          startIdx = total - WINDOW_SIZE;
-          endIdx = total;
-        } else {
-          const half = Math.floor(WINDOW_SIZE / 2);
-          startIdx = currentIdx - half;
-          endIdx = currentIdx + half + 1;
-          if (startIdx < 0) {
-            endIdx += -startIdx;
-            startIdx = 0;
-          }
-          if (endIdx > total) {
-            startIdx -= endIdx - total;
-            endIdx = total;
-          }
-          if (startIdx < 0) startIdx = 0;
-        }
-      }
-
-      const out: (PerformanceDataPoint & { x: number })[] = [];
-      for (let i = startIdx; i < endIdx; i++) {
-        const time = encounter.historyTimes[i];
-        out.push({
-          x: i - startIdx,
-          id: encounter.historyActivityIds[i] || '',
-          activityId: encounter.historyActivityIds[i] || '',
-          speed: time > 0 ? encounter.distanceMeters / time : 0,
-          date: new Date(),
-          activityName: '',
-          direction: encounter.direction as 'same' | 'reverse',
-          sectionTime: time,
-        });
-      }
-      return out;
-    }, [
-      encounter.historyTimes,
-      encounter.historyActivityIds,
-      encounter.distanceMeters,
-      encounter.direction,
-      activityId,
-    ]);
+    const sparklines = useMemo(
+      () => group.encounters.map((encounter) => buildSparklineData(encounter, activityId)),
+      [group.encounters, activityId]
+    );
 
     const handleLayout = useCallback(
       (e: LayoutChangeEvent) => {
-        onRowHeight?.(e.nativeEvent.layout.height);
+        onRowHeight?.(index, e.nativeEvent.layout.height);
       },
-      [onRowHeight]
+      [onRowHeight, index]
     );
 
     // Only row 0's ref is forwarded to the parent - it's the anchor point the
@@ -177,13 +176,13 @@ export const SectionInlinePlot = memo(
         <Swipeable
           ref={(ref) => {
             if (ref) {
-              swipeableRefs.current.set(swipeKey, ref);
+              swipeableRefs.current.set(group.sectionId, ref);
             } else {
-              swipeableRefs.current.delete(swipeKey);
+              swipeableRefs.current.delete(group.sectionId);
             }
           }}
           renderRightActions={renderRightActions}
-          onSwipeableOpen={() => onSwipeableOpen(swipeKey)}
+          onSwipeableOpen={() => onSwipeableOpen(group.sectionId)}
           overshootRight={false}
           friction={2}
         >
@@ -198,56 +197,85 @@ export const SectionInlinePlot = memo(
           >
             <View style={styles.header}>
               <Text style={[styles.numberLabel, { color: numberColor }]}>{index + 1}</Text>
-              <View style={styles.headerInfo}>
-                <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
-                  {displayName}
-                </Text>
-                <View style={styles.metaRow}>
-                  <RNText style={[styles.meta, isDark && styles.textMuted]}>
-                    {formatDistance(encounter.distanceMeters, isMetric)} · {encounter.visitCount}{' '}
-                    {t('routes.visits')}
-                    {encounter.lapTime > 0 && (
-                      <>
-                        <RNText style={[styles.meta, isDark && styles.textMuted]}> · </RNText>
-                        <RNText style={[styles.timeValue, isDark && styles.textLight]}>
-                          {formatLap(
-                            encounter.distanceMeters,
-                            encounter.lapTime,
-                            sportType,
-                            isMetric
-                          )}
-                        </RNText>
-                      </>
-                    )}
-                  </RNText>
-                  {encounter.isPr && (
-                    <MaterialCommunityIcons
-                      testID={`section-inline-trophy-${index}`}
-                      name="trophy"
-                      size={11}
-                      color={brand.gold}
-                      style={{ marginLeft: 2 }}
-                    />
-                  )}
-                </View>
-              </View>
-              {sparklineData && (
-                <View testID={`section-inline-sparkline-${index}`}>
-                  <SectionSparkline
-                    data={sparklineData}
-                    width={80}
-                    height={28}
-                    isDark={isDark}
-                    highlightActivityId={activityId}
-                  />
-                </View>
-              )}
+              <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
+                {group.sectionName}
+              </Text>
               <MaterialCommunityIcons
                 name="chevron-right"
                 size={20}
                 color={isDark ? darkColors.iconFaint : colors.iconFaint}
               />
             </View>
+            {group.encounters.map((encounter, dirIndex) => {
+              const isReverse = encounter.direction === 'reverse';
+              // A card crossed once forward is the common case and needs no
+              // marker. Anything else is labelled so the row says which way.
+              const showDirection = group.hasBothDirections || isReverse;
+              // The Maestro flows key on the card, so the first row keeps the
+              // bare testID and only the extra directions carry a suffix.
+              const suffix = dirIndex === 0 ? `${index}` : `${index}-${dirIndex}`;
+              const sparklineData = sparklines[dirIndex];
+              return (
+                <View
+                  key={`${encounter.direction}-${dirIndex}`}
+                  style={[
+                    styles.directionRow,
+                    dirIndex > 0 && styles.directionRowDivided,
+                    dirIndex > 0 && isDark && styles.directionRowDividedDark,
+                  ]}
+                >
+                  {showDirection && (
+                    <Text
+                      accessibilityLabel={t(isReverse ? 'sections.reverse' : 'sections.forward')}
+                      style={[styles.directionBadge, isDark && styles.textMuted]}
+                    >
+                      {isReverse ? '↩' : '→'}
+                    </Text>
+                  )}
+                  <View style={styles.directionInfo}>
+                    <View style={styles.metaRow}>
+                      <RNText style={[styles.meta, isDark && styles.textMuted]}>
+                        {formatDistance(encounter.distanceMeters, isMetric)} ·{' '}
+                        {encounter.visitCount} {t('routes.visits')}
+                        {encounter.lapTime > 0 && (
+                          <>
+                            <RNText style={[styles.meta, isDark && styles.textMuted]}> · </RNText>
+                            <RNText style={[styles.timeValue, isDark && styles.textLight]}>
+                              {formatLap(
+                                encounter.distanceMeters,
+                                encounter.lapTime,
+                                sportType,
+                                isMetric
+                              )}
+                            </RNText>
+                          </>
+                        )}
+                      </RNText>
+                      {encounter.isPr && (
+                        <MaterialCommunityIcons
+                          testID={`section-inline-trophy-${suffix}`}
+                          name="trophy"
+                          size={11}
+                          color={brand.gold}
+                          style={{ marginLeft: 2 }}
+                        />
+                      )}
+                    </View>
+                  </View>
+                  {sparklineData && (
+                    <View testID={`section-inline-sparkline-${suffix}`}>
+                      <SectionSparkline
+                        data={sparklineData}
+                        width={80}
+                        height={28}
+                        isDark={isDark}
+                        highlightActivityId={activityId}
+                      />
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </Pressable>
         </Swipeable>
       </View>
@@ -256,7 +284,8 @@ export const SectionInlinePlot = memo(
   (prev, next) => {
     return (
       prev.isHighlighted === next.isHighlighted &&
-      prev.encounter === next.encounter &&
+      prev.group === next.group &&
+      prev.index === next.index &&
       prev.isDark === next.isDark &&
       prev.activityId === next.activityId
     );
@@ -283,7 +312,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
   },
   numberLabel: {
     width: 26,
@@ -293,14 +323,35 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginRight: spacing.sm,
   },
-  headerInfo: {
-    flex: 1,
-  },
   name: {
+    flex: 1,
     fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 2,
+  },
+  directionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
+    paddingLeft: 26 + spacing.sm * 2,
+  },
+  directionRowDivided: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+    paddingTop: spacing.xs,
+  },
+  directionRowDividedDark: {
+    borderTopColor: darkColors.border,
+  },
+  directionBadge: {
+    width: 16,
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
+    marginRight: spacing.xs,
+  },
+  directionInfo: {
+    flex: 1,
   },
   metaRow: {
     flexDirection: 'row',

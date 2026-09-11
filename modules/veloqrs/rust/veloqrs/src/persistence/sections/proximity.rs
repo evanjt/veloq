@@ -19,6 +19,33 @@ const METRES_PER_DEGREE: f64 = 111_320.0;
 /// Most sections a single point query returns.
 const NEAR_POINT_LIMIT: usize = 20;
 
+/// The nearest the two lines come to each other, in metres, stopping as soon
+/// as a pair is within `stop_below` because the caller only asks whether they
+/// come closer than its radius.
+///
+/// Midpoint distance cannot answer that. A three-kilometre section running
+/// fifty metres alongside has a midpoint a kilometre and a half away, and a
+/// loop drawn around a section has a midpoint on top of it.
+pub(crate) fn nearest_approach_meters(
+    a: &[crate::GpsPoint],
+    b: &[crate::GpsPoint],
+    stop_below: f64,
+) -> f64 {
+    let mut nearest = f64::INFINITY;
+    for p in a {
+        for q in b {
+            let d = haversine_distance(p, q);
+            if d < nearest {
+                nearest = d;
+                if nearest <= stop_below {
+                    return nearest;
+                }
+            }
+        }
+    }
+    nearest
+}
+
 /// The bounding-box half-spans, in degrees, that cover `radius_meters` at
 /// `lat`. Above 89 degrees the longitude span is the whole world, which the
 /// prefilter expresses as 180 rather than dividing by a cosine near zero.
@@ -161,6 +188,37 @@ mod tests {
 
         let (_, dlng_60) = degree_span(60.0, 111_320.0);
         assert!((dlng_60 - 2.0).abs() < 1e-3, "got {dlng_60}");
+    }
+
+    fn line(points: &[(f64, f64)]) -> Vec<crate::GpsPoint> {
+        points
+            .iter()
+            .map(|(lat, lng)| crate::GpsPoint::new(*lat, *lng))
+            .collect()
+    }
+
+    #[test]
+    fn nearest_approach_is_the_closest_pair_not_the_closest_midpoints() {
+        // A short stub and a long line running 0.001 degrees north of it. The
+        // midpoints are a degree apart; the lines are never more than ~111 m.
+        let stub = line(&[(0.0, 0.0), (0.0, 0.001)]);
+        let alongside = line(&[(0.001, 0.0), (0.001, 1.0), (0.001, 2.0)]);
+        let d = nearest_approach_meters(&stub, &alongside, 0.0);
+        assert!(d > 100.0 && d < 120.0, "got {d}");
+    }
+
+    #[test]
+    fn nearest_approach_stops_as_soon_as_it_is_under_the_threshold() {
+        let a = line(&[(0.0, 0.0)]);
+        let b = line(&[(0.0, 0.0), (10.0, 10.0)]);
+        assert_eq!(nearest_approach_meters(&a, &b, 1.0), 0.0);
+    }
+
+    #[test]
+    fn nearest_approach_of_an_empty_line_is_infinite() {
+        let a = line(&[(0.0, 0.0)]);
+        assert!(nearest_approach_meters(&a, &[], 0.0).is_infinite());
+        assert!(nearest_approach_meters(&[], &a, 0.0).is_infinite());
     }
 
     #[test]

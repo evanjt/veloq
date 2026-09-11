@@ -38,7 +38,7 @@ mod activities;
 pub mod attempts;
 pub use activities::{
     DerivedClear, ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE, ELEVATION_STATE_UNKNOWN,
-    ElevationStateCounts, mint_local_activity_id,
+    ELEVATION_STATE_UNREACHABLE, ElevationStateCounts, mint_local_activity_id,
 };
 /// On-disk blob format. Public so diagnostics that open a database file
 /// directly decode it the same way the engine wrote it.

@@ -1,0 +1,28 @@
+#!/bin/sh
+set -e
+
+# git runs `pre-merge-commit` only for a merge that creates a commit. A branch
+# that merged the integration branch into itself first, which is how a branch
+# stays current, merges back as a fast-forward and git runs nothing at all: not
+# `pre-commit`, not `pre-merge-commit`, not `pre-push`, since nothing here is
+# pushed. Every whole-tree guard `B190`, `S27` and `B332` put in that hook is
+# skipped for the whole class, and it is the class worked in a worktree, whose
+# own commits ran no hooks either. `B396` is what it let through.
+#
+# This runs after the ref has moved, so it cannot refuse, and saying so is the
+# whole job. `reference-transaction` is the only hook that could refuse and
+# husky does not generate one, so a hand-written one is deleted by the next
+# `npm run prepare` and absent from a fresh worktree, which is the same hole
+# (S30, Q204).
+if git rev-parse -q --verify HEAD^2 >/dev/null 2>&1; then
+  exit 0
+fi
+
+echo "post-merge: that merge was a fast-forward, so no gate ran before it."
+if ./scripts/merge-gates.sh; then
+  echo "post-merge: the gates pass on the merged tree."
+  exit 0
+fi
+echo "post-merge: THE GATES FAIL ON THE MERGED TREE, and the ref has already moved." >&2
+echo "post-merge: fix it now, or git reset --hard ORIG_HEAD puts the branch back." >&2
+exit 1

@@ -54,18 +54,31 @@ export function SectionsListHeader({
   // says what is going on, the refusal answers the tap.
   const refusalKey = rescanRefusalKey(rescanRefusal);
 
+  // A queue nothing is working on ends on the network, so the hold line sizes
+  // it and says what lifts it. An engine that could not answer leaves the
+  // count null, and the unsized sentence stands rather than a bare number.
+  const waitingCount =
+    detectionHold === 'elevation-waiting' &&
+    elevationBackfill != null &&
+    elevationBackfill.remaining !== null &&
+    elevationBackfill.remaining > 0
+      ? elevationBackfill.remaining
+      : null;
+
   // A pass reports itself; at rest the durable count is what is owed. A null
   // count is an engine that could not answer and must not read as finished.
-  const elevationLine = !elevationBackfill
-    ? null
-    : elevationBackfill.isRunning
-      ? t('settings.elevationBackfillProgress', {
-          completed: elevationBackfill.completed,
-          total: elevationBackfill.total,
-        })
-      : elevationBackfill.remaining !== null && elevationBackfill.remaining > 0
-        ? t('settings.elevationBackfillOutstanding', { count: elevationBackfill.remaining })
-        : null;
+  // The hold line carries the count while it waits, so this row would repeat it.
+  const elevationLine =
+    !elevationBackfill || waitingCount !== null
+      ? null
+      : elevationBackfill.isRunning
+        ? t('settings.elevationBackfillProgress', {
+            completed: elevationBackfill.completed,
+            total: elevationBackfill.total,
+          })
+        : elevationBackfill.remaining !== null && elevationBackfill.remaining > 0
+          ? t('settings.elevationBackfillOutstanding', { count: elevationBackfill.remaining })
+          : null;
 
   return (
     <>
@@ -178,9 +191,11 @@ export function SectionsListHeader({
           <Text style={[styles.pausedText, isDark && styles.pausedTextDark]}>
             {detectionHold === 'elevation-paused'
               ? t('sections.detectionHeldElevationPaused')
-              : isElevationHold(detectionHold)
-                ? t('sections.detectionPausedElevation')
-                : t('sections.detectionPaused')}
+              : waitingCount !== null
+                ? t('sections.detectionHeldElevationWaiting', { count: waitingCount })
+                : isElevationHold(detectionHold)
+                  ? t('sections.detectionPausedElevation')
+                  : t('sections.detectionPaused')}
           </Text>
         </View>
       )}

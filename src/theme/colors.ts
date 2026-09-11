@@ -444,6 +444,19 @@ export function verdictColor(rung: VerdictRung, isDark: boolean): string {
   return isDark ? verdict[rung].dark : verdict[rung].light;
 }
 
+// Recording, which is its own meaning rather than an accent. The brand teal
+// is what every other action on the feed is painted in, so a record button
+// wearing it reads as one more of them. Red is the convention a record control
+// has carried since tape, and it is the one colour in this palette that is not
+// already spent on something else. Both tones carry the white glyph at AA text
+// and separate from the surface they float over at the graphical-object bar:
+// light 6.22:1 and 5.90:1, dark 4.83:1 and 4.02:1. Dark is the lighter tone,
+// the same way round as every other pair here.
+export const recording = {
+  light: '#C1121F',
+  dark: '#DC2626',
+} as const;
+
 // Sync-warning banner palette (root layout): amber surfaces with deep amber
 // text, one set per mode.
 export const amberBanner = {

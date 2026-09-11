@@ -35,7 +35,6 @@ const LOCALES_DIR = path.join(__dirname, '../../../i18n/locales');
 const SEGMENT_KEYS = [
   'storageDatabase',
   'storageHeatmap',
-  'storageSatellite',
   'storageTerrain',
   'storageVector',
   'storageGround',
@@ -59,10 +58,9 @@ function fullPanel() {
       terrainCacheSize={2_000_000}
       heatmapCacheSize={3_000_000}
       tileCacheStats={{
-        tileCount: 40,
-        totalBytes: 10_000_000,
+        tileCount: 30,
+        totalBytes: 6_000_000,
         terrain: { tileCount: 10, totalBytes: 1_000_000 },
-        satellite: { tileCount: 10, totalBytes: 4_000_000 },
         vector: { tileCount: 10, totalBytes: 3_000_000 },
         ground: { tileCount: 10, totalBytes: 2_000_000 },
       }}

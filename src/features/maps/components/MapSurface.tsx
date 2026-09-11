@@ -22,6 +22,8 @@ import React, {
 } from 'react';
 import { PixelRatio, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+
+import { veloqWebViewNativeConfig } from '@/features/maps/lib/veloqWebView';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -536,6 +538,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
           originWhitelist={['*']}
           mixedContentMode="always"
           androidLayerType="hardware"
+          nativeConfig={veloqWebViewNativeConfig}
           onMessage={handleMessage}
           onContentProcessDidTerminate={handleCrash}
           onRenderProcessGone={handleCrash}

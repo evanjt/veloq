@@ -109,7 +109,9 @@ it('passes when the merge stages nothing under src', () => {
 });
 
 describe('the merge hook is the caller', () => {
-  const hook = readFileSync(join(REPO, '.husky/pre-merge-commit'), 'utf8');
+  const hook =
+    readFileSync(join(REPO, '.husky/pre-merge-commit'), 'utf8') +
+    readFileSync(join(REPO, 'scripts/merge-gates.sh'), 'utf8');
 
   const commands = hook
     .split('\n')

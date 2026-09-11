@@ -1614,48 +1614,104 @@ impl PersistentEngine {
         compute_lap_time_from_stream(times.as_deref(), start_index, end_index, distance_meters)
     }
 
-    /// Get sections near a given section within a radius (meters).
-    /// Returns summaries with polyline data for map rendering.
+    /// Sections near a given section, measured between the two lines rather
+    /// than between their bounds-box midpoints, and limited to the query
+    /// section's sport family. Returns summaries with polyline data for map
+    /// rendering, nearest first.
     pub fn get_nearby_sections(
         &self,
         section_id: &str,
         radius_meters: f64,
     ) -> Vec<crate::FfiNearbySectionSummary> {
-        // Get the query section's center
-        let query_center: Option<(f64, f64)> = self
+        if !(radius_meters > 0.0) {
+            return vec![];
+        }
+
+        let query = self
             .db
             .query_row(
-                "SELECT (COALESCE(bounds_min_lat, 0) + COALESCE(bounds_max_lat, 0)) / 2.0,
-                        (COALESCE(bounds_min_lng, 0) + COALESCE(bounds_max_lng, 0)) / 2.0
+                "SELECT bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                        sport_type, polyline_json, polyline_blob,
+                        representative_activity_id, rep_start_index, rep_end_index
                  FROM sections WHERE id = ? AND bounds_min_lat IS NOT NULL",
                 rusqlite::params![section_id],
-                |row| Ok((row.get::<_, f64>(0)?, row.get::<_, f64>(1)?)),
+                |row| {
+                    Ok((
+                        row.get::<_, f64>(0)?,
+                        row.get::<_, f64>(1)?,
+                        row.get::<_, f64>(2)?,
+                        row.get::<_, f64>(3)?,
+                        row.get::<_, String>(4)?,
+                        row.get::<_, Option<String>>(5)?,
+                        row.get::<_, Option<Vec<u8>>>(6)?,
+                        row.get::<_, Option<String>>(7)?,
+                        row.get::<_, Option<u32>>(8)?,
+                        row.get::<_, Option<u32>>(9)?,
+                    ))
+                },
             )
             .ok();
 
-        let (center_lat, center_lng) = match query_center {
-            Some(c) => c,
-            None => return vec![],
+        let Some((
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+            sport_type,
+            query_json,
+            query_blob,
+            query_rep,
+            query_rep_start,
+            query_rep_end,
+        )) = query
+        else {
+            return vec![];
         };
 
-        // Query all sections with bounds (excluding query section, disabled, superseded)
-        let mut stmt = match self.db.prepare(
+        let Ok(query_points) = geometry::line(
+            &self.db,
+            query_blob.as_deref(),
+            query_json.as_deref(),
+            geometry::reference(query_rep.as_deref(), query_rep_start, query_rep_end),
+        ) else {
+            return vec![];
+        };
+        if query_points.is_empty() {
+            return vec![];
+        }
+
+        // The bounding box is a prefilter and nothing more: a box within the
+        // radius says only that the lines might come that close. The answer is
+        // decided on the resolved lines below.
+        let (dlat, dlng) = proximity::degree_span((min_lat + max_lat) / 2.0, radius_meters);
+        let family = crate::sport::sql_list(&crate::sport::family_of(&sport_type));
+        let sql = format!(
             "SELECT s.id, s.section_type, s.name, s.sport_type, s.distance_meters,
                     s.visit_count,
-                    (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0 as center_lat,
-                    (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0 as center_lng,
+                    (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0,
+                    (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0,
                     s.polyline_json, s.polyline_blob,
                     s.representative_activity_id, s.rep_start_index, s.rep_end_index
              FROM sections s
-             WHERE s.id != ? AND s.disabled = 0 AND s.superseded_by IS NULL
-               AND s.bounds_min_lat IS NOT NULL",
-        ) {
+             WHERE s.id != ?1 AND {}
+               AND s.sport_type IN ({family})
+               AND s.bounds_min_lat IS NOT NULL
+               AND s.bounds_min_lat <= ?3 + ?5 AND s.bounds_max_lat >= ?2 - ?5
+               AND s.bounds_min_lng <= ?6 + ?7 AND s.bounds_max_lng >= ?4 - ?7",
+            Self::VISIBLE_FILTER
+        );
+
+        let mut stmt = match self.db.prepare(&sql) {
             Ok(s) => s,
-            Err(_) => return vec![],
+            Err(e) => {
+                log::warn!("veloqrs: [sections] nearby query did not prepare: {e}");
+                return vec![];
+            }
         };
 
-        let rows = stmt
-            .query_map(rusqlite::params![section_id], |row| {
+        let rows = stmt.query_map(
+            rusqlite::params![section_id, min_lat, max_lat, min_lng, dlat, max_lng, dlng],
+            |row| {
                 Ok((
                     row.get::<_, String>(0)?,          // id
                     row.get::<_, String>(1)?,          // section_type
@@ -1671,62 +1727,74 @@ impl PersistentEngine {
                     row.get::<_, Option<u32>>(11)?,    // rep_start_index
                     row.get::<_, Option<u32>>(12)?,    // rep_end_index
                 ))
-            })
-            .ok();
-
-        let mut results: Vec<crate::FfiNearbySectionSummary> = Vec::new();
-
-        if let Some(rows) = rows {
-            for row in rows.flatten() {
-                let (
-                    id,
-                    section_type,
-                    name,
-                    sport_type,
-                    distance_meters,
-                    visit_count,
-                    lat,
-                    lng,
-                    polyline_json,
-                    polyline_blob,
-                    rep,
-                    rep_start,
-                    rep_end,
-                ) = row;
-                let dist = haversine_distance(center_lat, center_lng, lat, lng);
-                if dist > radius_meters {
-                    continue;
-                }
-
-                let encoded_polyline = geometry::line(
-                    &self.db,
-                    polyline_blob.as_deref(),
-                    polyline_json.as_deref(),
-                    geometry::reference(rep.as_deref(), rep_start, rep_end),
-                )
-                .map(|points| crate::coords::encode(&points))
-                .unwrap_or_default();
-
-                results.push(crate::FfiNearbySectionSummary {
-                    id,
-                    section_type,
-                    name,
-                    sport_type,
-                    distance_meters,
-                    visit_count,
-                    center_distance_meters: dist,
-                    encoded_polyline,
-                });
+            },
+        );
+        let rows = match rows {
+            Ok(rows) => rows,
+            Err(e) => {
+                log::warn!("veloqrs: [sections] nearby query did not run: {e}");
+                return vec![];
             }
+        };
+
+        let query_center_lat = (min_lat + max_lat) / 2.0;
+        let query_center_lng = (min_lng + max_lng) / 2.0;
+        let mut results: Vec<(f64, crate::FfiNearbySectionSummary)> = Vec::new();
+
+        for row in rows.flatten() {
+            let (
+                id,
+                section_type,
+                name,
+                sport_type,
+                distance_meters,
+                visit_count,
+                lat,
+                lng,
+                polyline_json,
+                polyline_blob,
+                rep,
+                rep_start,
+                rep_end,
+            ) = row;
+
+            let Ok(points) = geometry::line(
+                &self.db,
+                polyline_blob.as_deref(),
+                polyline_json.as_deref(),
+                geometry::reference(rep.as_deref(), rep_start, rep_end),
+            ) else {
+                continue;
+            };
+
+            let nearest = proximity::nearest_approach_meters(&query_points, &points, 0.0);
+            if nearest > radius_meters {
+                continue;
+            }
+
+            results.push((
+                nearest,
+                crate::FfiNearbySectionSummary {
+                    id,
+                    section_type,
+                    name,
+                    sport_type,
+                    distance_meters,
+                    visit_count,
+                    center_distance_meters: haversine_distance(
+                        query_center_lat,
+                        query_center_lng,
+                        lat,
+                        lng,
+                    ),
+                    encoded_polyline: crate::coords::encode(&points),
+                },
+            ));
         }
 
-        results.sort_by(|a, b| {
-            a.center_distance_meters
-                .partial_cmp(&b.center_distance_meters)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
         results.truncate(20);
-        results
+        results.into_iter().map(|(_, summary)| summary).collect()
     }
 
     pub(super) fn save_sections(&self) -> SqlResult<()> {

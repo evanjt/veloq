@@ -9,6 +9,8 @@ import React, {
 import { View, StyleSheet, PixelRatio } from 'react-native';
 import { WebView } from 'react-native-webview';
 
+import { veloqWebViewNativeConfig } from '@/features/maps/lib/veloqWebView';
+
 import { colors, darkColors, mapLayerColors } from '@/theme';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { useMap3DBridge } from '@/features/maps/hooks/useMap3DBridge';
@@ -690,6 +692,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           originWhitelist={['*']}
           mixedContentMode="always"
           androidLayerType="hardware"
+          nativeConfig={veloqWebViewNativeConfig}
           onMessage={handleMessage}
           onError={handleWebViewError}
           onContentProcessDidTerminate={handleWebViewCrash}

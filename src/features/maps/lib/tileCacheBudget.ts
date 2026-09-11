@@ -10,26 +10,34 @@
 
 /** The Cache API stores the map pages write to. */
 export const TILE_CACHE_NAMES = [
-  'veloq-satellite-v1',
   'veloq-vector-v1',
   'veloq-terrain-dem-v1',
   'veloq-ground-v1',
 ] as const;
 
+/**
+ * Satellite imagery used to have a cache of its own and the largest share of
+ * the budget. It is no longer kept: offline the map falls back to the vector
+ * basemap, so imagery the athlete cannot reach with the radio off would only
+ * spend the pool that basemap needs. The name survives so an install that
+ * still holds one can be told to drop it.
+ */
+export const LEGACY_SATELLITE_CACHE = 'veloq-satellite-v1';
+
 export type TileCacheName = (typeof TILE_CACHE_NAMES)[number];
 
 /**
- * The split between them, from the 120/50/30 MB that shipped, with the light
- * style's ground raster carved out of the satellite share. Satellite tiles are
- * images and dominate, vector tiles are small and cover far more ground per
- * byte, the DEM is only fetched for the 3D surfaces, and the ground raster
- * stops at zoom 6, so its whole pyramid is smaller than one city of satellite.
+ * The split between them, in the 50/30/10 proportions of the 120/50/30 MB that
+ * shipped, with satellite's old 110 MB redistributed across the three that are
+ * still kept. The stated total is what the store may hold, so the shares have
+ * to spend all of it or the setting overstates the ceiling by more than half.
+ * Vector tiles take most of it: they are small, they cover far more ground per
+ * byte, and offline they are now the only basemap there is.
  */
 const SHARES: Record<TileCacheName, number> = {
-  'veloq-satellite-v1': 0.55,
-  'veloq-vector-v1': 0.25,
-  'veloq-terrain-dem-v1': 0.15,
-  'veloq-ground-v1': 0.05,
+  'veloq-vector-v1': 50 / 90,
+  'veloq-terrain-dem-v1': 30 / 90,
+  'veloq-ground-v1': 10 / 90,
 };
 
 /** What every install had before the setting existed. */
@@ -47,11 +55,14 @@ export function clampTileCacheBudgetMb(value: unknown): number {
 /** Bytes each cache may hold at a given total. */
 export function tileCacheBudgets(totalMb: number): Record<TileCacheName, number> {
   const total = clampTileCacheBudgetMb(totalMb) * 1024 * 1024;
+  const terrain = Math.round(total * SHARES['veloq-terrain-dem-v1']);
+  const ground = Math.round(total * SHARES['veloq-ground-v1']);
   return {
-    'veloq-satellite-v1': Math.round(total * SHARES['veloq-satellite-v1']),
-    'veloq-vector-v1': Math.round(total * SHARES['veloq-vector-v1']),
-    'veloq-terrain-dem-v1': Math.round(total * SHARES['veloq-terrain-dem-v1']),
-    'veloq-ground-v1': Math.round(total * SHARES['veloq-ground-v1']),
+    // Vector takes the remainder rather than its own rounding, so three
+    // rounded shares still sum to exactly the ceiling the athlete was shown.
+    'veloq-vector-v1': total - terrain - ground,
+    'veloq-terrain-dem-v1': terrain,
+    'veloq-ground-v1': ground,
   };
 }
 
@@ -64,6 +75,12 @@ export function cacheEvictionScript(totalMb: number = DEFAULT_TILE_CACHE_BUDGET_
   const budgets = tileCacheBudgets(totalMb);
   const literal = TILE_CACHE_NAMES.map((name) => `      '${name}': ${budgets[name]},`).join('\n');
   return `
+    // An install from before imagery stopped being kept still holds a
+    // satellite cache, which nothing reads, nothing evicts and no budget
+    // bounds. Dropping it is idempotent and costs nothing once it is gone.
+    // A cleanup must never be what stops the map drawing, so it is guarded.
+    try { caches.delete('${LEGACY_SATELLITE_CACHE}'); } catch (e) {}
+
     // Cache eviction - FIFO, size-based. Checked every 50 inserts per cache.
     var _insertCounts = {};
     var CACHE_BUDGETS = {
@@ -168,21 +185,20 @@ export function tileCacheStatsScript(): string {
                 });
               }).catch(function() { return { name: name, tileCount: 0, totalBytes: 0 }; });
             })).then(function(results) {
-              var combined = { tileCount: 0, totalBytes: 0, terrain: null, satellite: null, vector: null, ground: null };
+              var combined = { tileCount: 0, totalBytes: 0, terrain: null, vector: null, ground: null };
               results.forEach(function(r) {
                 combined.tileCount += r.tileCount;
                 combined.totalBytes += r.totalBytes;
                 var bucket = { tileCount: r.tileCount, totalBytes: r.totalBytes };
                 if (r.name.indexOf('terrain') >= 0) combined.terrain = bucket;
-                else if (r.name.indexOf('satellite') >= 0) combined.satellite = bucket;
                 else if (r.name.indexOf('vector') >= 0) combined.vector = bucket;
                 else if (r.name.indexOf('ground') >= 0) combined.ground = bucket;
               });
               window.ReactNativeWebView.postMessage(JSON.stringify({
                 type: 'tileCacheStats', workerId: window._workerId,
                 tileCount: combined.tileCount, totalBytes: combined.totalBytes,
-                terrain: combined.terrain, satellite: combined.satellite,
-                vector: combined.vector, ground: combined.ground,
+                terrain: combined.terrain, vector: combined.vector,
+                ground: combined.ground,
               }));
             });
           })();

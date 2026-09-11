@@ -59,6 +59,19 @@ pub struct TileStore {
     sources: Mutex<HashMap<String, SourceIndex>>,
 }
 
+/// The source prefix satellite imagery is served under, one per region.
+const SATELLITE_PREFIX: &str = "satellite";
+
+/// Whether a source's tiles are kept on disk at all.
+///
+/// Satellite rasters are not. Offline the map falls back to the vector
+/// basemap, so imagery the athlete cannot reach with the radio off would only
+/// spend the pool the vector basemap needs, and it is the heaviest source
+/// there is: one city of imagery outweighs a country of vector tiles.
+pub fn is_kept_offline(source: &str) -> bool {
+    source != SATELLITE_PREFIX && !source.starts_with(&format!("{SATELLITE_PREFIX}-"))
+}
+
 impl TileStore {
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self {
@@ -80,6 +93,9 @@ impl TileStore {
     /// once on as many threads, so holding it across the file read made every
     /// one of them queue behind the slowest.
     pub fn get(&self, source: &str, z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
+        if !is_kept_offline(source) {
+            return None;
+        }
         let key = tile_key(z, x, y);
         let ext = {
             let mut sources = self.lock();
@@ -135,6 +151,9 @@ impl TileStore {
 
     /// Store a tile. `pinned` marks the pre-seeded offline base, which is
     /// evicted only once every opportunistic tile is gone.
+    ///
+    /// A satellite raster is drawn and dropped rather than kept, so this
+    /// reports success without writing anything. See [`is_kept_offline`].
     pub fn put(
         &self,
         source: &str,
@@ -145,6 +164,9 @@ impl TileStore {
         bytes: &[u8],
         pinned: bool,
     ) -> io::Result<()> {
+        if !is_kept_offline(source) {
+            return Ok(());
+        }
         let key = tile_key(z, x, y);
         let path = self.tile_path(source, z, x, y, ext);
         if let Some(parent) = path.parent() {

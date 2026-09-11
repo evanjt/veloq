@@ -335,6 +335,10 @@ path = "uniffi-bindgen.rs"
 name = "detection_audit"
 path = "examples/detection_audit.rs"
 
+[[example]]
+name = "stream_store_cost"
+path = "examples/stream_store_cost.rs"
+
 [[test]]
 name = "corpus_migration"
 required-features = ["real-corpus"]

@@ -21,7 +21,6 @@ function formatDateOrDash(dateStr: string | null): string {
 type SegmentKey =
   | 'settings.storageDatabase'
   | 'settings.storageHeatmap'
-  | 'settings.storageSatellite'
   | 'settings.storageTerrain'
   | 'settings.storageVector'
   | 'settings.storageGround'
@@ -65,13 +64,6 @@ function StorageBreakdownBar({
         labelKey: 'settings.storageHeatmap',
         bytes: heatmapCacheSize,
         color: colors.cautionOrange,
-      });
-    }
-    if (tileCacheStats?.satellite?.totalBytes) {
-      result.push({
-        labelKey: 'settings.storageSatellite',
-        bytes: tileCacheStats.satellite.totalBytes,
-        color: colors.chartPurple,
       });
     }
     if (tileCacheStats?.terrain?.totalBytes) {

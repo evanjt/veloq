@@ -112,3 +112,75 @@ describe('findRowIndexAtPageY', () => {
     });
   });
 });
+
+// Grouping forward and reverse traversals into one card made rows different
+// heights: a two-direction card is taller than a one-direction card. The
+// uniform `rowHeight` sample cannot resolve those, so the hit-test walks
+// measured per-row heights when it has them.
+describe('findRowIndexAtPageY with per-row heights', () => {
+  // row 0: 62 (one direction)   [261, 323)
+  // row 1: 94 (two directions)  [323, 417)
+  // row 2: 62 (one direction)   [417, 479)
+  const VARIED = {
+    firstRowTopY: 261,
+    rowHeight: 62,
+    scrollOffset: 0,
+    rowCount: 3,
+    rowHeights: [62, 94, 62],
+  } as const;
+
+  it('resolves each row against its own measured height', () => {
+    const cases: [number, number][] = [
+      [0, 261],
+      [0, 322],
+      [1, 323],
+      [1, 370],
+      [1, 416],
+      [2, 417],
+      [2, 478],
+    ];
+    for (const [expected, pageY] of cases) {
+      expect(findRowIndexAtPageY({ ...VARIED, pageY })).toBe(expected);
+    }
+  });
+
+  it('returns null past the end of the measured rows', () => {
+    expect(findRowIndexAtPageY({ ...VARIED, pageY: 479 })).toBeNull();
+    expect(findRowIndexAtPageY({ ...VARIED, pageY: 900 })).toBeNull();
+  });
+
+  it('returns null above the first row', () => {
+    expect(findRowIndexAtPageY({ ...VARIED, pageY: 260 })).toBeNull();
+  });
+
+  it('shifts with the scroll offset', () => {
+    // Middle of row 0 without scroll; scrolled by row 0's height it is row 1.
+    expect(findRowIndexAtPageY({ ...VARIED, pageY: 292 })).toBe(0);
+    expect(findRowIndexAtPageY({ ...VARIED, pageY: 292, scrollOffset: 62 })).toBe(1);
+    expect(findRowIndexAtPageY({ ...VARIED, pageY: 292, scrollOffset: 156 })).toBe(2);
+  });
+
+  it('falls back to the uniform height when a row has not been measured yet', () => {
+    // Row 1 has reported nothing, so every row uses the uniform sample.
+    expect(findRowIndexAtPageY({ ...VARIED, pageY: 370, rowHeights: [62, 0, 62] })).toBe(1);
+    expect(findRowIndexAtPageY({ ...VARIED, pageY: 400, rowHeights: [62, 0, 62] })).toBe(2);
+  });
+
+  it('falls back to the uniform height when the measurements are the wrong length', () => {
+    expect(findRowIndexAtPageY({ ...VARIED, pageY: 370, rowHeights: [62, 94] })).toBe(1);
+  });
+
+  it('never skips a row on a top-to-bottom sweep', () => {
+    const visited = new Set<number>();
+    let prev = -1;
+    for (let y = 261; y < 479; y += 2) {
+      const idx = findRowIndexAtPageY({ ...VARIED, pageY: y });
+      if (idx === null) continue;
+      expect(idx).toBeGreaterThanOrEqual(prev);
+      if (prev >= 0) expect(idx - prev).toBeLessThanOrEqual(1);
+      prev = idx;
+      visited.add(idx);
+    }
+    expect(visited).toEqual(new Set([0, 1, 2]));
+  });
+});

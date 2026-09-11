@@ -9,5 +9,6 @@ export {
   type HomeRadiusMapProps,
 } from './components/HomeRadiusMap';
 export type { LngLat } from './lib/coordinates';
+export { offlineMapStyle } from './lib/offlineStyleFallback';
 export { filterMapActivities, mapDistanceThresholds } from './lib/mapDistanceFilter';
 export type { MapDistanceFilter } from './lib/mapDistanceFilter';

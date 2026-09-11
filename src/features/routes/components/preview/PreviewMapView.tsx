@@ -15,6 +15,9 @@ import { useTranslation } from 'react-i18next';
 import { decodeCoords } from 'veloqrs';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
+// Straight from the context, not the app barrel: a surface mounted with no
+// app shell still has to draw, and the barrel is what such a caller stubs.
+import { useIsOnline } from '@/shared/app/NetworkContext';
 import {
   AttributionOverlay,
   MapSurface,
@@ -23,6 +26,7 @@ import {
   type MapSurfaceRef,
 } from '@/features/maps/components';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
+import { offlineMapStyle } from '@/features/maps';
 import {
   getNextStyle,
   getStyleIcon,
@@ -106,6 +110,7 @@ export function PreviewMapView({
 }: PreviewMapViewProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isOnline = useIsOnline();
   const surfaceRef = useRef<MapSurfaceRef>(null);
 
   // A finished run supersedes the live catalogue: its rows already carry the
@@ -264,7 +269,10 @@ export function PreviewMapView({
   // is this component's and dies with it: nothing here writes the global
   // preference, so the next visit opens on street again.
   const [chosenStyle, setChosenStyle] = useState<MapStyleType | null>(null);
-  const mapStyle: MapStyleType = chosenStyle ?? (isDark ? 'dark' : 'light');
+  const themeStyle: MapStyleType = isDark ? 'dark' : 'light';
+  // Imagery is never kept offline, so the satellite choice draws the vector
+  // basemap until the connection is back rather than a grey grid.
+  const mapStyle: MapStyleType = offlineMapStyle(chosenStyle ?? themeStyle, isOnline, themeStyle);
   const cycleStyle = useCallback(() => {
     setChosenStyle(getNextStyle(mapStyle));
   }, [mapStyle]);

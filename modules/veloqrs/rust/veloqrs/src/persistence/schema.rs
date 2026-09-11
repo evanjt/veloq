@@ -209,6 +209,7 @@ impl PersistentEngine {
         Self::backfill_custom_section_reference(conn)?;
         Self::ensure_wellness_raw_column(conn)?;
         Self::ensure_gps_track_elevation_state(conn)?;
+        Self::ensure_gps_track_elevation_attempts(conn)?;
         Self::ensure_section_elevation_columns(conn)?;
         Self::ensure_sections_polyline_nullable(conn)?;
         Self::ensure_section_geometry_baseline(conn, current_version);
@@ -372,6 +373,31 @@ impl PersistentEngine {
         {
             conn.execute(
                 "ALTER TABLE gps_tracks ADD COLUMN elevation_state INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Add `gps_tracks.elevation_attempts`, how many asks have settled nothing
+    /// for this track. Default 0, so a row stored before the column existed
+    /// starts its count from the next ask rather than from a number nobody
+    /// recorded.
+    ///
+    /// The count has to survive the process: the backfill runs about once per
+    /// launch, so a counter held in memory would never reach the limit that
+    /// retires a track, and the queue would stay above zero for ever.
+    ///
+    /// Lives in a hook rather than in a numbered migration for the same reason
+    /// [`Self::ensure_gps_track_elevation_state`] does: `ALTER TABLE ADD
+    /// COLUMN` is not idempotent and 017 reruns.
+    fn ensure_gps_track_elevation_attempts(conn: &Connection) -> SqlResult<()> {
+        if conn
+            .prepare("SELECT elevation_attempts FROM gps_tracks LIMIT 0")
+            .is_err()
+        {
+            conn.execute(
+                "ALTER TABLE gps_tracks ADD COLUMN elevation_attempts INTEGER NOT NULL DEFAULT 0",
                 [],
             )?;
         }

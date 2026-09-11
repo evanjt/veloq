@@ -26,7 +26,7 @@ mod jni;
 mod store;
 
 pub use fetch::{FILL_PACE, TileFetchError, TileFetcher};
-pub use store::TileStore;
+pub use store::{TileStore, is_kept_offline};
 
 use std::collections::HashMap;
 use std::path::PathBuf;

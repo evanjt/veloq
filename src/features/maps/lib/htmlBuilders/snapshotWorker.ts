@@ -158,21 +158,14 @@ export function buildSnapshotWorkerHtml(
       });
     });
 
-    // Cache satellite tiles via Cache API - same pattern as terrain DEM tiles.
-    var SATELLITE_CACHE = 'veloq-satellite-v1';
+    // Imagery is fetched through and dropped, not kept. The worker shares the
+    // device's caches with the interactive pages, so a snapshot render here
+    // would otherwise refill the satellite cache they stopped writing to.
     maplibregl.addProtocol('cached-satellite', function(params) {
       var realUrl = 'https://' + params.url.substring('cached-satellite://'.length);
-      return caches.open(SATELLITE_CACHE).then(function(cache) {
-        return cache.match(realUrl).then(function(cached) {
-          if (cached) {
-            return cached.blob().then(demBlobToImage);
-          }
-          return fetch(realUrl).then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(SATELLITE_CACHE);
-            return r.blob().then(demBlobToImage);
-          });
-        });
+      return fetch(realUrl).then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.blob().then(demBlobToImage);
       });
     });
 

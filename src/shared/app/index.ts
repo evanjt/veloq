@@ -28,7 +28,7 @@ export {
   type UnitPreference,
   type IntervalsUnitPreferences,
 } from './UnitPreferenceStore';
-export { NetworkProvider, useNetwork } from './NetworkContext';
+export { NetworkProvider, useNetwork, useIsOnline } from './NetworkContext';
 export { TopSafeAreaProvider, useTopSafeArea, useScreenSafeAreaEdges } from './TopSafeAreaContext';
 
 export { useTheme, type Theme, type ThemeColors } from './useTheme';

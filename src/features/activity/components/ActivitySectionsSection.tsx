@@ -23,6 +23,10 @@ import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { CHART_CONFIG } from '@/constants';
 import { getEngine } from '@/shared/native/engine';
 import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
+import {
+  groupSectionEncounters,
+  type SectionEncounterGroup,
+} from '@/features/activity/lib/groupSectionEncounters';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
 import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
@@ -95,6 +99,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     [encounters]
   );
 
+  // One card per section, however many directions the activity crossed it in.
+  const groups = useMemo(() => groupSectionEncounters(encounters), [encounters]);
+
   const filteredScanMatches = useMemo(
     () =>
       scanMatches.filter(
@@ -146,17 +153,13 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // Anchoring on the first row (rather than listTop + paddingTop) removes
   // off-by-one drift caused by parent transforms / safe-area insets / etc.
   const [isScrubbing, setIsScrubbing] = useState(false);
-  // rowKey (sectionId + direction) of the row currently under the finger.
-  // Kept separate from `highlightedSectionId` so two rows sharing a sectionId
-  // (same section matched in both directions) don't both highlight.
-  const [highlightedRowKey, setHighlightedRowKey] = useState<string | null>(null);
   const isScrubbingRef = useRef(false);
   isScrubbingRef.current = isScrubbing;
   // Shared value mirror of isScrubbing - gesture worklets run on the UI thread
   // where JS refs aren't visible, so we need a SharedValue they can read.
   const isScrubbingSV = useSharedValue(false);
 
-  const flatListRef = useRef<FlatList<SectionEncounter> | null>(null);
+  const flatListRef = useRef<FlatList<SectionEncounterGroup> | null>(null);
   const listContainerRef = useRef<View | null>(null);
   // Window-Y of the list container - only used for the auto-scroll edge
   // detection (am I near the top/bottom of the visible list area?).
@@ -169,15 +172,19 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // or differences between layout-event height and measureInWindow height.
   const firstRowRef = useRef<View | null>(null);
   const firstRowTopYRef = useRef(0);
-  // Height of a single row, captured from the first row's onLayout. All rows
-  // render at the same height (single-line name + single-line meta + fixed
-  // sparkline box), so one sample is enough.
+  // Every card's measured height, in list order. A section crossed both ways
+  // renders one row per direction, so cards are not all the same height. The
+  // first card's height is kept as a uniform fallback for the frames before
+  // every card has reported.
+  const rowHeightsRef = useRef<number[]>([]);
   const rowHeightRef = useRef(0);
   const autoScrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoScrollDirectionRef = useRef<0 | 1 | -1>(0);
 
-  const handleRowHeight = useCallback((height: number) => {
-    if (rowHeightRef.current === 0 && height > 0) {
+  const handleRowHeight = useCallback((index: number, height: number) => {
+    if (height <= 0) return;
+    rowHeightsRef.current[index] = height;
+    if (rowHeightRef.current === 0) {
       rowHeightRef.current = height;
     }
   }, []);
@@ -206,18 +213,19 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     listHeightRef.current = e.nativeEvent.layout.height;
   }, []);
 
-  // Map a finger window-Y to an encounter index using fixed-row arithmetic.
-  // Returns both the rowKey (for exact row highlight) and the sectionId
-  // (for upstream consumers that key off sectionId - e.g. the map).
+  // Map a finger window-Y to a card index by walking the measured card
+  // heights. A card is one section, so its id identifies the row to the
+  // upstream consumers that key off sectionId - the map among them.
   const nullMatchLoggedRef = useRef(false);
   const findRowAtPageY = useCallback(
-    (pageY: number): { rowKey: string; sectionId: string } | null => {
+    (pageY: number): { sectionId: string } | null => {
       const idx = findRowIndexAtPageY({
         pageY,
         firstRowTopY: firstRowTopYRef.current,
         rowHeight: rowHeightRef.current,
+        rowHeights: rowHeightsRef.current,
         scrollOffset: scrollOffsetRef.current,
-        rowCount: encounters.length,
+        rowCount: groups.length,
       });
       if (idx === null) {
         if (!nullMatchLoggedRef.current) {
@@ -226,10 +234,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         }
         return null;
       }
-      const item = encounters[idx];
-      return { rowKey: `${item.sectionId}-${item.direction}`, sectionId: item.sectionId };
+      return { sectionId: groups[idx].sectionId };
     },
-    [encounters]
+    [groups]
   );
 
   // Only log when the resolved row actually changes - keeps drag output readable.
@@ -243,9 +250,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     autoScrollDirectionRef.current = 0;
   }, []);
 
+  // A card is one section, so the section id identifies the row on its own.
   const applyRow = useCallback(
-    (row: { rowKey: string; sectionId: string } | null) => {
-      setHighlightedRowKey(row?.rowKey ?? null);
+    (row: { sectionId: string } | null) => {
       onHighlightedSectionIdChange(row?.sectionId ?? null);
     },
     [onHighlightedSectionIdChange]
@@ -275,10 +282,10 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   const handleScrubMove = useCallback(
     (pageY: number) => {
       const row = findRowAtPageY(pageY);
-      const rowKey = row?.rowKey ?? null;
-      if (rowKey !== lastLoggedRowRef.current) {
-        log.log('[scrub] move → row', rowKey, 'pageY=', Math.round(pageY));
-        lastLoggedRowRef.current = rowKey;
+      const sectionId = row?.sectionId ?? null;
+      if (sectionId !== lastLoggedRowRef.current) {
+        log.log('[scrub] move → row', sectionId, 'pageY=', Math.round(pageY));
+        lastLoggedRowRef.current = sectionId;
       }
       if (row) applyRow(row);
       const relY = pageY - listTopYRef.current;
@@ -302,11 +309,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
 
   useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
 
-  // When the encounters list changes (new activity, re-sort), drop the stale
-  // row-height sample so the next layout pass captures the current value.
+  // When the list changes (new activity, re-sort), drop the stale height
+  // samples so the next layout pass captures the current values.
   useEffect(() => {
     rowHeightRef.current = 0;
-  }, [encounters]);
+    rowHeightsRef.current = [];
+  }, [groups]);
 
   // Start scrub from a page-Y position (invoked from Pan onStart after activateAfterLongPress).
   const startScrubAt = useCallback(
@@ -382,7 +390,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // Render swipe actions for section cards
   const renderSectionSwipeActions = useCallback(
     (
-      item: SectionEncounter,
+      group: SectionEncounterGroup,
       _progress: Animated.AnimatedInterpolation<number>,
       dragX: Animated.AnimatedInterpolation<number>
     ) => {
@@ -396,7 +404,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         <Animated.View style={[styles.swipeAction, styles.disableSwipeAction, { opacity }]}>
           <RectButton
             style={styles.swipeActionButton}
-            onPress={() => handleToggleDisable(item.sectionId, false)}
+            onPress={() => handleToggleDisable(group.sectionId, false)}
           >
             <MaterialCommunityIcons name="eye-off" size={24} color={colors.textOnDark} />
             <Text style={styles.swipeActionText}>{t('common.hide')}</Text>
@@ -408,28 +416,18 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   );
 
   // FlatList key extractor
-  const keyExtractor = useCallback(
-    (item: SectionEncounter, index: number) => `${item.sectionId}-${item.direction}-${index}`,
-    []
-  );
+  const keyExtractor = useCallback((item: SectionEncounterGroup) => item.sectionId, []);
 
   // FlatList render item
   const renderEncounterItem = useCallback(
-    ({ item, index }: { item: SectionEncounter; index: number }) => {
-      const rowKey = `${item.sectionId}-${item.direction}`;
-      // When scrubbing we know the exact row under the finger (rowKey); fall
-      // back to sectionId comparison when the highlight comes from elsewhere
-      // (e.g. map interaction setting `highlightedSectionId`).
-      const isHighlighted = highlightedRowKey
-        ? rowKey === highlightedRowKey
-        : highlightedSectionId === item.sectionId;
+    ({ item, index }: { item: SectionEncounterGroup; index: number }) => {
       return (
         <SectionInlinePlot
-          encounter={item}
+          group={item}
           activityId={activityId}
           sportType={sportType}
           index={index}
-          isHighlighted={isHighlighted}
+          isHighlighted={highlightedSectionId === item.sectionId}
           isDark={isDark}
           isMetric={isMetric}
           onPress={handleSectionPress}
@@ -444,7 +442,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     [
       activityId,
       sportType,
-      highlightedRowKey,
       highlightedSectionId,
       isDark,
       isMetric,
@@ -640,13 +637,13 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       >
         <FlatList
           ref={flatListRef}
-          data={encounters}
+          data={groups}
           keyExtractor={keyExtractor}
           renderItem={renderEncounterItem}
           ListEmptyComponent={renderSectionsListEmpty}
           ListFooterComponent={renderSectionsListFooter}
           contentContainerStyle={
-            encounters.length === 0 ? styles.tabScrollContentEmpty : styles.tabScrollContent
+            groups.length === 0 ? styles.tabScrollContentEmpty : styles.tabScrollContent
           }
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"

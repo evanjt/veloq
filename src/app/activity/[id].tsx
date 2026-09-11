@@ -13,6 +13,7 @@ import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useActivity, useActivityStreams, useActivityIntervals } from '@/features/activity/hooks';
+import { groupSectionEncounters } from '@/features/activity';
 import { useSectionOverlays } from '@/features/activity/hooks/useSectionOverlays';
 import { useActivityDetailData } from '@/features/activity/hooks/useActivityDetailData';
 import { useActivityRematch } from '@/features/routes/hooks/useActivityRematch';
@@ -294,6 +295,9 @@ export default function ActivityDetailScreen() {
     });
   }, [encountersRaw, sectionOverlays, coordinates, id]);
 
+  // The Sections tab counts cards, and a section crossed both ways is one card.
+  const sectionCardCount = useMemo(() => groupSectionEncounters(encounters).length, [encounters]);
+
   // Tabs configuration
   const tabs = useMemo<SwipeableTab[]>(() => {
     const allTabs: SwipeableTab[] = [
@@ -334,7 +338,7 @@ export default function ActivityDetailScreen() {
           key: 'sections',
           label: t('activityDetail.tabs.sections'),
           icon: 'road-variant',
-          count: encounters.length,
+          count: sectionCardCount,
         }
       );
     }
@@ -345,7 +349,7 @@ export default function ActivityDetailScreen() {
     hasGpsData,
     isRouteMatchingOn,
     matchedRouteCount,
-    encounters.length,
+    sectionCardCount,
     routeHighlight,
   ]);
 

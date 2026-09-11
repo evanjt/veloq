@@ -48,16 +48,22 @@ export interface PreviewSection {
   pinned: boolean;
 }
 
+/**
+ * The engine takes whatever it is given here. The ranges the panel offers, and
+ * the points past which the detector stops distinguishing a value, are in
+ * `src/features/routes/lib/detectionParams.ts`, which is the one place they
+ * are written down: a second copy in this comment went stale by a factor of
+ * ten and nothing caught it.
+ */
 export interface PreviewParams {
-  /** Metres, 25-300 step 25. */
+  /** Metres. */
   proximityThreshold: number;
-  /** Metres, 50-2000 step 50. */
+  /** Metres. */
   minSectionLength: number;
-  /** Metres, 2000-20000 step 1000. */
+  /** Metres. */
   maxSectionLength: number;
-  /** 2-10 step 1. */
   minActivities: number;
-  /** 0.05-0.5 step 0.05, worded as route split sensitivity. */
+  /** Worded as route split sensitivity. */
   divergenceThreshold: number;
 }
 
