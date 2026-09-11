@@ -31,6 +31,12 @@ interface UseActivityStatsOptions {
   activity: Activity;
   wellness?: WellnessData | null;
   recentActivities?: Activity[];
+  /**
+   * The theme, for the card marks. Passed in rather than read from the app
+   * shell: this hook is data, and reaching the shell for a colour pulls the
+   * native module into every test that renders a stat.
+   */
+  isDark?: boolean;
 }
 
 interface UseActivityStatsResult {
@@ -44,8 +50,13 @@ export function useActivityStats({
   activity,
   wellness,
   recentActivities = [],
+  isDark = false,
 }: UseActivityStatsOptions): UseActivityStatsResult {
   const { t } = useTranslation();
+  // The card marks are icons and text on the card surface, so they take the
+  // theme's mark tone rather than the fill tone, which is 2.28:1 on white.
+  const green = isDark ? darkColors.successDeep : colors.successDeep;
+  const amber = isDark ? darkColors.warningAmber : colors.warningAmber;
 
   // Calculate averages from recent activities of same type (memoized)
   const { avgLoad, avgIntensity, avgHR } = useMemo(() => {
@@ -97,10 +108,10 @@ export function useActivityStats({
         intensity > 100
           ? colors.error
           : intensity > 85
-            ? '#F59E0B' // Amber-500
+            ? amber
             : intensity > 70
               ? colors.chartYellow
-              : colors.success;
+              : green;
 
       result.push({
         title: t('activity.stats.trainingLoad'),
@@ -226,7 +237,7 @@ export function useActivityStats({
         title: t('activity.stats.energy'),
         value: `${Math.round(activity.calories)}`,
         icon: 'fire',
-        color: darkColors.amberIcon,
+        color: amber,
         context: burnRate,
         explanation: t(METRIC_EXPLANATION_KEYS['Energy'] as never),
         details: [
@@ -276,7 +287,7 @@ export function useActivityStats({
         title: t('activity.stats.conditions'),
         value: `${Math.round(temp)}°`,
         icon: activity.has_weather ? 'weather-partly-cloudy' : 'thermometer',
-        color: isHot ? '#F59E0B' : isCold ? colors.secondary : colors.success, // Amber for hot
+        color: isHot ? amber : isCold ? colors.secondary : green,
         context: contextStr,
         explanation: t(METRIC_EXPLANATION_KEYS['Conditions'] as never),
         details: [
@@ -398,7 +409,7 @@ export function useActivityStats({
     }
 
     return result;
-  }, [activity, wellness, avgLoad, avgHR, t]);
+  }, [activity, wellness, avgLoad, avgHR, t, green, amber]);
 
   return { stats, avgLoad, avgIntensity, avgHR };
 }

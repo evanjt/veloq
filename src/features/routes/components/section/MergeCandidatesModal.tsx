@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   rowName: {
     fontSize: typography.body.fontSize,
     fontWeight: '500',
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   rowMeta: {
     fontSize: typography.caption.fontSize,

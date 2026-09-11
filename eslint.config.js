@@ -106,6 +106,18 @@ module.exports = [
           message:
             'Raw font size. Use typography.<role>.fontSize from src/theme, or add a role there.',
         },
+        {
+          // Zero is exempt: it is not a rung and never will be.
+          selector:
+            'Property[key.name=/^((padding|margin)(Top|Bottom|Left|Right|Horizontal|Vertical|Start|End)?|gap|rowGap|columnGap)$/] > Literal[raw=/^(?!0$)[0-9.]+$/]',
+          message:
+            'Raw spacing. Use a spacing.* token from src/theme: 2, 4, 6, 8, 12, 16, 24, 32 or 48.',
+        },
+        {
+          selector:
+            'Property[key.name=/^((padding|margin)(Top|Bottom|Left|Right|Horizontal|Vertical|Start|End)?|gap|rowGap|columnGap)$/] > UnaryExpression[operator="-"] > Literal[raw=/^[0-9.]+$/]',
+          message: 'Raw negative spacing. Use the negative of a spacing.* token from src/theme.',
+        },
       ],
     },
   },
@@ -220,10 +232,7 @@ module.exports = [
     // Render instrumentation. `PERF_DEBUG` is `__DEV__`, and what these measure
     // IS the render, so moving the clock read out of render is the same as
     // deleting the instrument.
-    files: [
-      'src/app/(tabs)/index.tsx',
-      'src/features/routes/hooks/useSectionChartDataEnriched.ts',
-    ],
+    files: ['src/app/(tabs)/index.tsx', 'src/features/routes/hooks/useSectionChartDataEnriched.ts'],
     rules: { 'react-hooks/purity': 'off' },
   },
   {

@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    paddingVertical: 12,
+    paddingVertical: spacing.smPlus,
     paddingHorizontal: spacing.sm,
   },
   tabText: {
@@ -325,8 +325,8 @@ const styles = StyleSheet.create({
   tabBadge: {
     backgroundColor: colors.gray200,
     borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xxs,
     minWidth: 22,
     alignItems: 'center',
   },

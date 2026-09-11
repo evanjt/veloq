@@ -38,7 +38,7 @@ export function RecordingPermissionSection() {
           <MaterialCommunityIcons
             name="shield-alert-outline"
             size={22}
-            color={isDark ? darkColors.warning : colors.warning}
+            color={isDark ? darkColors.warningAmber : colors.warningAmber}
           />
           <View style={styles.textContainer}>
             <Text style={[styles.statusText, isDark && settingsStyles.textLight]}>
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
   },
   statusText: {
     ...typography.body,

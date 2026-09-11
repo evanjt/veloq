@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, typography, spacing, layout } from '@/theme';
+import { colors, darkColors, typography, spacing, layout, verdictColor } from '@/theme';
 import { calculateDecoupling } from '../lib/decoupling';
 
 interface DecouplingChartProps {
@@ -61,7 +61,7 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
         <Text
           style={[
             styles.decouplingValue,
-            { color: analysis.isGood ? colors.success : colors.warning },
+            { color: verdictColor(analysis.isGood ? 'positive' : 'caution', isDark) },
           ]}
         >
           {analysis.decoupling.toFixed(1)}%
@@ -149,7 +149,7 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
             <Text
               style={[
                 styles.dataValue,
-                { color: analysis.isGood ? colors.primary : colors.warning },
+                { color: analysis.isGood ? colors.primary : verdictColor('caution', isDark) },
               ]}
             >
               {analysis.secondHalfEf.toFixed(2)}
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   statusBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
   },

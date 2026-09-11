@@ -187,12 +187,12 @@ const styles = StyleSheet.create({
   optionName: {
     fontSize: typography.body.fontSize,
     fontWeight: '500',
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   optionStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   optionStat: {
     fontSize: typography.bodySmall.fontSize,

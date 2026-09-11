@@ -2,7 +2,6 @@ import type { EfficiencyTrend } from 'veloqrs';
 
 import type { Insight } from '../types';
 import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor } from '../lib/config';
-import { insightIcon } from '@/theme';
 
 /**
  * Aerobic Efficiency Trend Insights
@@ -58,7 +57,7 @@ export function generateEfficiencyTrendInsights(
       category: 'efficiency_trend',
       priority: 1,
       icon: 'heart-pulse',
-      iconColor: insightIcon.positive,
+      iconTone: 'positive',
       title: t('insights.efficiencyTrend.title', { name: trend.sectionName }),
       subtitle: t('insights.efficiencyTrend.subtitle', {
         hrChange,

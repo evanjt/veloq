@@ -1,8 +1,8 @@
 import type { Insight, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { getEngine } from '@/shared/native/engine';
-import { insightIcon } from '@/theme';
 import { confidenceFrom } from '../lib/config';
+import type { InsightTone } from '@/theme';
 
 const HRV_WINDOW_DAYS = 7;
 
@@ -35,16 +35,18 @@ export function generateHrvTrendInsight(now: number, t: TFunc): Insight[] {
 
   const trendKey = trend.label; // "trendingUp" | "stable" | "trendingDown"
 
-  let trendColor: string;
+  let trendTone: InsightTone;
   let trendIcon: string;
   if (trendKey === 'trendingUp') {
-    trendColor = insightIcon.positive;
+    trendTone = 'positive';
     trendIcon = 'trending-up';
   } else if (trendKey === 'trendingDown') {
-    trendColor = insightIcon.caution;
+    // A fall in HRV is a judgement on what already happened, not a warning
+    // about what comes next, so it is the negative rung and not caution.
+    trendTone = 'negative';
     trendIcon = 'trending-down';
   } else {
-    trendColor = insightIcon.info;
+    trendTone = 'info';
     trendIcon = 'minus';
   }
 
@@ -56,7 +58,7 @@ export function generateHrvTrendInsight(now: number, t: TFunc): Insight[] {
       category: 'hrv_trend',
       priority: 2,
       icon: trendIcon,
-      iconColor: trendColor,
+      iconTone: trendTone,
       title: t(`insights.hrvTrend.${trendKey}`),
       body: t(`insights.hrvTrend.${trendKey}Body`, {
         avg: Math.round(trend.avg),

@@ -28,7 +28,11 @@ export function CacheManagementPanel({
       {routeMatchingEnabled && isRouteProcessing && (
         <>
           <TouchableOpacity style={styles.actionRow} onPress={onCancelRouteProcessing}>
-            <MaterialCommunityIcons name="pause-circle-outline" size={22} color={colors.warning} />
+            <MaterialCommunityIcons
+              name="pause-circle-outline"
+              size={22}
+              color={isDark ? darkColors.warningAmber : colors.warningAmber}
+            />
             <Text style={[styles.actionText, isDark && styles.textLight]}>
               {t('settings.pauseRouteProcessing')}
             </Text>

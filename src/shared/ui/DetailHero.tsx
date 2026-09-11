@@ -12,7 +12,15 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { colors, colorWithOpacity, opacity, spacing, typography, layout } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  opacity,
+  spacing,
+  typography,
+  layout,
+  darkColors,
+} from '@/theme';
 
 type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -144,7 +152,9 @@ export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowPro
             onPress={editable.onSave}
             style={styles.editNameButton}
           >
-            <MaterialCommunityIcons name="check" size={20} color={colors.success} />
+            {/* The button sits on a dark scrim over the hero image in both themes, so
+                the mark is the light tone rather than the light theme's. */}
+            <MaterialCommunityIcons name="check" size={20} color={darkColors.successDeep} />
           </TouchableOpacity>
           <TouchableOpacity
             accessibilityRole="button"
@@ -305,14 +315,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   editNameButton: {
-    padding: 6,
+    padding: spacing.xsPlus,
     borderRadius: spacing.xsPlus,
     backgroundColor: opacity.overlayDark.heavy,
   },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: spacing.xsPlus,
     flexWrap: 'wrap',
   },
   stat: {

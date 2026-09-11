@@ -319,7 +319,7 @@ export const SectionRow = memo(function SectionRow({
               name="pin"
               size={12}
               color={isDark ? darkColors.textMuted : colors.textDisabled}
-              style={{ marginLeft: 4 }}
+              style={{ marginLeft: spacing.xs }}
             />
           )}
           {section.sportTypes && section.sportTypes.length > 0 && (
@@ -330,7 +330,7 @@ export const SectionRow = memo(function SectionRow({
                   name={getActivityIcon(st)}
                   size={12}
                   color={getActivityColor(st as ActivityType)}
-                  style={{ marginLeft: 2 }}
+                  style={{ marginLeft: spacing.xxs }}
                 />
               ))}
             </View>
@@ -401,9 +401,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     marginHorizontal: spacing.md,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
     borderRadius: layout.borderRadiusMd,
-    padding: 6,
+    padding: spacing.xsPlus,
     ...shadows.pill,
   },
   containerDark: {
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
   sportIconsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   sectionName: {
     flexShrink: 1,
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: spacing.xxs,
     gap: spacing.sm,
   },
   metaText: {
@@ -462,8 +462,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: layout.borderRadius,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    gap: 2,
+    paddingVertical: spacing.xxs,
+    gap: spacing.xxs,
   },
   countText: {
     fontSize: typography.bodyCompact.fontSize,
@@ -479,12 +479,12 @@ const styles = StyleSheet.create({
   gainChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
   },
   proximityTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
   },
   proximityText: {
     fontSize: typography.micro.fontSize,
@@ -495,8 +495,8 @@ const styles = StyleSheet.create({
   },
   customTag: {
     backgroundColor: 'rgba(168, 85, 247, 0.12)',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,
   },
   customTagDark: {
@@ -513,10 +513,10 @@ const styles = StyleSheet.create({
   disabledTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs,
     backgroundColor: 'rgba(217, 119, 6, 0.12)',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,
   },
   disabledTagDark: {

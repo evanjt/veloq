@@ -14,10 +14,13 @@ import { queryKeys } from '@/shared/query/queryKeys';
 import { onSyncComplete } from '@/features/settings/lib/autobackup';
 import { parsePaceCurveBody } from '@/features/stats/lib/curveBodies';
 import { getEngine } from '@/shared/native/engine';
+import { SyncState } from 'veloqrs';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useEngineSync } from '@/shared/native/useEngineSync';
 import { useSyncAuthExpiry } from '@/shared/native/useSyncAuthExpiry';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { useSyncStatus } from '@/shared/native/useSyncStatus';
+import { PICKUP_DEADLINE_MS } from '@/shared/app/extendedFetch';
 import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
 import {
   updateSyncNotification,
@@ -32,7 +35,8 @@ export function GlobalDataSync() {
   // Get sync date range from global store (can be extended by timeline sliders)
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
-  const setFetchingExtended = useSyncDateRange((s) => s.setFetchingExtended);
+  const syncStateChanged = useSyncDateRange((s) => s.syncStateChanged);
+  const expirePickup = useSyncDateRange((s) => s.expirePickup);
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
   const delayedUnlockExpansion = useSyncDateRange((s) => s.delayedUnlockExpansion);
 
@@ -50,10 +54,21 @@ export function GlobalDataSync() {
     enabled: isAuthenticated,
   });
 
-  // Update fetching state in store
+  // The widened-range download is the engine holding its sync slot, so that is
+  // what the flag follows. It used to follow `isFetching` above, which is a
+  // SQLite read settling in milliseconds against a download taking seconds.
+  const syncStatus = useSyncStatus();
+  const isEngineSyncing = syncStatus?.state === SyncState.Syncing;
   useEffect(() => {
-    setFetchingExtended(isFetching);
-  }, [isFetching, setFetchingExtended]);
+    syncStateChanged(isEngineSyncing);
+  }, [isEngineSyncing, syncStateChanged]);
+
+  // A window the engine accepted but never reports the slot for ends in a
+  // named state, or the banner stays up for the rest of the session.
+  useEffect(() => {
+    const timer = setInterval(expirePickup, PICKUP_DEADLINE_MS);
+    return () => clearInterval(timer);
+  }, [expirePickup]);
 
   // Use the route data sync hook to automatically sync GPS data.
   // Always enabled - GPS tracks are needed for heatmap even when route matching is off.

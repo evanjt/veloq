@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable, Text } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, layout, typography } from '@/theme';
+import { colors, layout, typography, spacing } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { isolateNumeric } from '@/shared/format';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
@@ -177,21 +177,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'stretch',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   chip: {
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
   },
   chipWithValue: {
-    paddingVertical: 3,
+    paddingVertical: spacing.xs,
   },
   chipLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs,
   },
   chipLabel: {
     fontSize: typography.label.fontSize,
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   chipValueContainer: {
     alignSelf: 'stretch',
     alignItems: 'center',
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   chipValue: {
     fontSize: VALUE_FONT_SIZE,

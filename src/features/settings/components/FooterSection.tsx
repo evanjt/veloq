@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   toggleDescription: {
     ...typography.bodyCompact,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   versionText: {
     ...typography.caption,

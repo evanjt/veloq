@@ -620,12 +620,12 @@ const styles = StyleSheet.create({
   metricUnit: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
-    marginTop: -2,
+    marginTop: -spacing.xxs,
   },
   metricAvg: {
     fontSize: typography.pillLabel.fontSize - 1,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   periodLabel: {
     fontSize: typography.micro.fontSize,

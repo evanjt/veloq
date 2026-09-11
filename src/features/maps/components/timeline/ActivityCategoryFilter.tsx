@@ -134,11 +134,11 @@ const styles = StyleSheet.create({
   },
   filterScrollContent: {
     paddingHorizontal: spacing.xs,
-    gap: 6,
+    gap: spacing.xsPlus,
     flexDirection: 'row',
   },
   controlChip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.cardMargin,
     backgroundColor: colors.background,
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: layout.cardMargin,

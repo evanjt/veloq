@@ -2,6 +2,7 @@
  * Expected behaviour: the arrow beside each number compares against a day, not
  * against a row, and says nothing when no row stands close enough to that day.
  */
+import { trendVerdict, verdictRung } from '@/shared/format/trend';
 import { computeWellnessStats } from '@/features/wellness/lib/wellnessStats';
 import type { WellnessData } from '@/types';
 
@@ -125,4 +126,28 @@ it('points a rising resting heart rate down, on the judgement and not the number
 
   expect(stats.rhr).toBe(52);
   expect(stats.rhrTrend).toBe('↓');
+});
+
+/**
+ * Scenario: weight, fatigue and form have no better direction, and a verdict
+ * on them would colour a number that only has a zone.
+ *
+ * Expected behaviour: the bare direction glyph, and form's number stays on its
+ * zone rather than taking a colour from the move.
+ */
+describe('metrics with no polarity', () => {
+  it('draws the direction of weight and form and judges neither', () => {
+    const stats = computeWellnessStats([
+      day('2026-09-05', { ctl: 60, atl: 55, weight: 71.0 }),
+      day('2026-09-04', { ctl: 60, atl: 63 }),
+      day('2026-08-29', { weight: 71.5 }),
+    ]);
+
+    expect(stats.weightTrend).toBe('↓');
+    expect(stats.form).toBe(5);
+    expect(stats.formTrend).toBe('↑');
+    expect(trendVerdict('weight', 'down')).toBe('moved');
+    expect(trendVerdict('form', 'up')).toBe('moved');
+    expect(verdictRung(trendVerdict('fatigue', 'up'))).toBe('neutral');
+  });
 });

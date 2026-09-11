@@ -89,13 +89,13 @@ const attributionStyles = StyleSheet.create({
     // licence condition, so it is bounded and wrapped, never truncated.
     maxWidth: PILL_MAX_WIDTH,
     paddingBottom: PILL_INSET,
-    paddingRight: 6,
+    paddingRight: spacing.xsPlus,
     zIndex: 5,
   },
   attributionPill: {
     alignSelf: 'flex-end',
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 10,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: PILL_PADDING_VERTICAL,
     borderRadius: spacing.sm,
   },

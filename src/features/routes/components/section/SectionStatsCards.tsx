@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   },
   calendarMonthEntries: {
     flex: 1,
-    gap: 2,
+    gap: spacing.xxs,
   },
   calendarMonthEntryRow: {
     flexDirection: 'row',

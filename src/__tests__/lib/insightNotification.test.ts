@@ -17,7 +17,7 @@ function createInsight(
     priority,
     title: id,
     icon: 'star',
-    iconColor: '#000',
+    iconTone: 'neutral',
     timestamp: 0,
     isNew: true,
   };

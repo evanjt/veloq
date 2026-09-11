@@ -44,7 +44,7 @@ export function RecordingGate({
       <MaterialCommunityIcons
         name={signedOut ? 'account-lock-outline' : 'shield-lock-outline'}
         size={48}
-        color={colors.warning}
+        color={isDark ? darkColors.warningAmber : colors.warningAmber}
       />
       <Text style={[styles.title, { color: textPrimary }]}>
         {signedOut

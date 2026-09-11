@@ -1609,13 +1609,15 @@ pub struct FfiActivityDetailData {
     pub activity_count: u32,
     /// Total sections held by the engine
     pub section_count: u32,
-    /// Route groups meeting the caller's minimum, most attempts first
+    /// The route group this activity belongs to, if it meets the caller's
+    /// minimum. At most one: the screen asks which group holds this activity,
+    /// so the catalogue was what it searched rather than what it needed.
     pub route_groups: Vec<FfiRouteGroup>,
-    /// Route group total before the minimum-activity filter
-    pub total_route_group_count: u32,
     /// Visible sections this activity traverses, most-visited first
     pub matched_sections: Vec<FfiSection>,
-    /// Every visible custom section, matched or not
+    /// Visible custom sections naming this activity that `matched_sections`
+    /// does not already carry. Not the whole custom catalogue: the screen
+    /// filtered it to exactly this on the far side of the call.
     pub custom_sections: Vec<FfiSection>,
     /// One entry per (section, direction) this activity encountered
     pub encounters: Vec<FfiSectionEncounter>,

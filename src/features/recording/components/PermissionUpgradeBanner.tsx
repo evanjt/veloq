@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   content: {
-    gap: 4,
+    gap: spacing.xs,
   },
   row: {
     flexDirection: 'row',

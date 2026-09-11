@@ -7,7 +7,6 @@ import type {
 } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
-import { insightIcon } from '@/theme';
 import { formatDurationCompact } from '@/shared/format/format';
 
 export function generatePeriodComparisonInsights(
@@ -103,7 +102,7 @@ export function generatePeriodComparisonInsights(
         category: 'period_comparison',
         priority: 2,
         icon: 'trending-up',
-        iconColor: insightIcon.positive,
+        iconTone: 'positive',
         title: t(upKey, { percent }),
         body,
         navigationTarget: '/insights?tab=routes',
@@ -121,7 +120,7 @@ export function generatePeriodComparisonInsights(
         category: 'period_comparison',
         priority: 2,
         icon: 'trending-down',
-        iconColor: insightIcon.caution,
+        iconTone: 'negative',
         title: t(downKey, { percent }),
         body,
         navigationTarget: '/insights?tab=routes',
@@ -163,7 +162,7 @@ function generateLastWeekVsAverageInsight(
       category: 'period_comparison',
       priority: 2,
       icon: ratio > 0 ? 'trending-up' : 'trending-down',
-      iconColor: ratio > 0 ? insightIcon.positive : insightIcon.caution,
+      iconTone: ratio > 0 ? 'positive' : 'negative',
       title: t('insights.weeklyLoad.title', { percent, direction }),
       navigationTarget: '/insights?tab=routes',
       timestamp: now,

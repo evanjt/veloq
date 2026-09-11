@@ -14,6 +14,7 @@ import {
   insightCategoryColors,
   layout,
   typography,
+  insightToneColor,
 } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { Insight } from '@/types';
@@ -190,7 +191,7 @@ export const InsightListCard = React.memo(function InsightListCard({
         <MaterialCommunityIcons
           name={insight.icon as keyof typeof MaterialCommunityIcons.glyphMap}
           size={15}
-          color={insight.iconColor}
+          color={insightToneColor(insight.iconTone, isDark)}
         />
       </View>
       <View style={styles.textContainer}>
@@ -241,7 +242,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadiusSm,
     marginHorizontal: spacing.md,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
     overflow: 'hidden',
     ...shadows.card,
   },
@@ -262,11 +263,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.sm,
-    marginVertical: 5,
+    marginVertical: spacing.xs,
   },
   textContainer: {
     flex: 1,
-    marginLeft: 6,
+    marginLeft: spacing.xsPlus,
     marginRight: spacing.xs,
     justifyContent: 'center',
   },
@@ -293,7 +294,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   subtitleDark: {
     color: darkColors.textSecondary,
@@ -319,7 +320,7 @@ const styles = StyleSheet.create({
   metricContext: {
     fontSize: typography.micro.fontSize,
     fontWeight: '600',
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   chevron: {
     marginRight: spacing.sm,

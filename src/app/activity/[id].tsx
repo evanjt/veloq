@@ -214,16 +214,10 @@ export default function ActivityDetailScreen() {
     detail?.encounters ?? []
   );
 
-  // Filter custom sections that match this activity (still needed for map overlays)
-  const customMatchedSections = useMemo(() => {
-    if (!id) return [];
-    const engineSectionIds = new Set(engineSectionMatches.map((m) => m.section.id));
-    return sections.filter(
-      (section) =>
-        !engineSectionIds.has(section.id) &&
-        (section.sourceActivityId === id || section.activityIds?.includes(id))
-    );
-  }, [sections, id, engineSectionMatches]);
+  // The bundle already carries exactly these: the custom sections naming this
+  // activity that the engine's matches do not, filtered where the catalogue
+  // lives rather than after it has crossed the FFI.
+  const customMatchedSections = sections;
 
   // Section overlay computation (traces + map overlays)
   const { sectionOverlays } = useSectionOverlays(

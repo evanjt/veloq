@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { colors, darkColors, typography, layout } from '@/theme';
+import { colors, darkColors, typography, layout, spacing } from '@/theme';
 import type { SeriesInfo } from '@/features/stats';
 
 interface ChartYAxisLabelProps {
@@ -95,8 +95,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.textSecondary,
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    paddingHorizontal: 3,
-    paddingVertical: 1,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,
     overflow: 'hidden',
   },

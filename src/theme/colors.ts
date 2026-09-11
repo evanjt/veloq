@@ -230,10 +230,17 @@ export const colors = {
   warningAmber: '#92400E', // Amber warning text/icon on light amber surfaces
   amberIcon: '#D97706', // Amber icons/text on amber-tinted chips (dark counterpart: #FBBF24)
 
-  // Semantic
+  // Semantic. `success` and `warning` are fills: 2.28:1 and 2.15:1 on white,
+  // so neither can be the mark on a light surface, only the ground under one.
+  // `successDeep` is the green that can, at 5.02:1, and it is the value the
+  // verdict ladder's positive rung already uses. `warningAmber` above is the
+  // amber that can, at 7.09:1. Both have a counterpart in `darkColors`, and
+  // both need it: no single green clears 4.5:1 on white and on #18181B at
+  // once, so a mark reads the pair through `isDark` rather than one constant.
   success: '#22C55E',
   successLight: '#4ADE80',
   successDark: '#16A34A',
+  successDeep: '#15803D',
   error: '#EF4444',
   errorLight: '#F87171',
   errorDark: '#DC2626',
@@ -449,6 +456,27 @@ export function verdictColor(rung: VerdictRung, isDark: boolean): string {
   return isDark ? verdict[rung].dark : verdict[rung].light;
 }
 
+// A chip wants a translucent fill behind the rung's text, which the ladder has
+// no tone for. Rather than a second set of hues, which is the split this
+// replaces, the fill is the rung itself at the two alpha steps the strength
+// chips already used: 0x18 for a chip and 0x26 for the denser progression
+// card. The text on it stays `verdictColor`, so a chip is one hue at two
+// weights and the ladder still decides which hue.
+export function verdictFill(rung: VerdictRung, isDark: boolean, strong = false): string {
+  return `${verdictColor(rung, isDark)}${strong ? '26' : '18'}`;
+}
+
+// What an insight's icon is drawn from. A polarity is a ladder rung; `info`
+// and `opportunity` are categories rather than judgements, so the ladder has
+// no rung for them and they keep their own tones.
+export type InsightTone = VerdictRung | 'info' | 'opportunity';
+
+export function insightToneColor(tone: InsightTone, isDark: boolean): string {
+  if (tone === 'info') return insightIcon.info;
+  if (tone === 'opportunity') return insightIcon.opportunity;
+  return verdictColor(tone, isDark);
+}
+
 // Recording, which is its own meaning rather than an accent. The brand teal
 // is what every other action on the feed is painted in, so a record button
 // wearing it reads as one more of them. Red is the convention a record control
@@ -592,6 +620,10 @@ export const darkColors = {
 
   // Amber warning text/icon (counterpart to light warningAmber)
   warningAmber: '#FBBF24',
+
+  // Counterpart to light successDeep: on a near-black surface the mark has to
+  // be the light tone, not the dark one. 10.17:1 on #18181B.
+  successDeep: '#4ADE80',
 
   // Interactive states
   buttonSecondary: '#27272A',

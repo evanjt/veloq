@@ -11,6 +11,13 @@
 import { create } from 'zustand';
 import { formatLocalDate } from '@/shared/format/format';
 import { debug } from '@/shared/debug/debug';
+import {
+  ExtendedFetchState,
+  IDLE_EXTENDED_FETCH,
+  expirePickup as afterPickupDeadline,
+  syncStateChanged as afterSyncState,
+  windowAccepted as afterWindowAccepted,
+} from '@/shared/app/extendedFetch';
 
 const log = debug.create('SyncDateRangeStore');
 
@@ -33,8 +40,12 @@ interface SyncDateRangeState {
   oldest: string;
   /** Newest date to sync (YYYY-MM-DD) */
   newest: string;
-  /** Whether we're currently fetching extended data */
-  isFetchingExtended: boolean;
+  /**
+   * Where the widened-range download has got to. Follows the engine's sync
+   * slot, which is what actually runs the download, rather than the SQLite
+   * read behind the feed.
+   */
+  extendedFetch: ExtendedFetchState;
   /** Whether the range has expanded since last sync (triggers route re-optimization) */
   hasExpanded: boolean;
   /** GPS sync progress (shared across all screens) */
@@ -64,8 +75,12 @@ interface SyncDateRangeState {
   initializeRange: (oldest: string, newest: string) => void;
   /** Reset to default 90 days and lock expansion */
   reset: () => void;
-  /** Set fetching state */
-  setFetchingExtended: (fetching: boolean) => void;
+  /** The engine accepted a window download. */
+  windowAccepted: () => void;
+  /** The engine's sync status changed. */
+  syncStateChanged: (syncing: boolean) => void;
+  /** The pickup deadline ran out on a window the engine never reported. */
+  expirePickup: () => void;
   /** Mark expansion as processed (call after route re-optimization) */
   markExpansionProcessed: () => void;
   /** Update GPS sync progress (called from GlobalDataSync) */
@@ -117,7 +132,7 @@ let _unlockTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   ...getDefaultRange(),
-  isFetchingExtended: false,
+  extendedFetch: IDLE_EXTENDED_FETCH,
   hasExpanded: false,
   gpsSyncProgress: defaultGpsSyncProgress,
   terrainSnapshotProgress: defaultTerrainSnapshotProgress,
@@ -148,7 +163,6 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
       set({
         oldest: newOldest,
         newest: newNewest,
-        isFetchingExtended: true,
         hasExpanded: true,
         gpsSyncProgress: defaultGpsSyncProgress,
       });
@@ -185,15 +199,25 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
     }
     set({
       ...range,
-      isFetchingExtended: false,
+      extendedFetch: IDLE_EXTENDED_FETCH,
       hasExpanded: false,
       isExpansionLocked: true, // Lock expansion until initial sync completes
       syncGeneration: newGeneration, // Invalidate in-flight fetches
     });
   },
 
-  setFetchingExtended: (fetching: boolean) => {
-    set({ isFetchingExtended: fetching });
+  windowAccepted: () => {
+    set({ extendedFetch: afterWindowAccepted(get().extendedFetch, Date.now()) });
+  },
+
+  syncStateChanged: (syncing: boolean) => {
+    const next = afterSyncState(get().extendedFetch, syncing, Date.now());
+    if (next !== get().extendedFetch) set({ extendedFetch: next });
+  },
+
+  expirePickup: () => {
+    const next = afterPickupDeadline(get().extendedFetch, Date.now());
+    if (next !== get().extendedFetch) set({ extendedFetch: next });
   },
 
   markExpansionProcessed: () => {

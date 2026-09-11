@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   time: {
     ...typography.micro,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   timeDark: {
     color: darkColors.textSecondary,
@@ -195,6 +195,6 @@ const styles = StyleSheet.create({
   viewAllText: {
     ...typography.caption,
     fontWeight: '600',
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
 });

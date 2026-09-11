@@ -1,7 +1,7 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { recordCrash } from '@/shared/debug/crashLog';
-import { errorScreen, layout, typography } from '@/theme';
+import { errorScreen, layout, typography, spacing } from '@/theme';
 
 interface Props {
   children: ReactNode;
@@ -81,16 +81,16 @@ const styles = StyleSheet.create({
     backgroundColor: errorScreen.bg,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xl,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 40,
+    paddingBottom: spacing.xxl,
   },
   title: {
     color: errorScreen.title,
     fontSize: typography.sectionTitle.fontSize,
     fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.smPlus,
   },
   body: {
     color: errorScreen.detail,
@@ -102,13 +102,13 @@ const styles = StyleSheet.create({
     color: errorScreen.message,
     fontSize: typography.bodyCompact.fontSize,
     textAlign: 'center',
-    marginTop: 24,
+    marginTop: spacing.lg,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   reloadButton: {
-    marginTop: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 32,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.smPlus,
+    paddingHorizontal: spacing.xl,
     borderRadius: layout.borderRadiusSm,
     borderWidth: 1,
     borderColor: errorScreen.action,

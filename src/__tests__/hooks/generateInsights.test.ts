@@ -1230,7 +1230,7 @@ describe('consolidateInsights', () => {
       priority,
       title: id,
       icon: 'star',
-      iconColor: '#000',
+      iconTone: 'neutral',
       timestamp: options?.timestamp ?? 0,
       isNew: false,
       navigationTarget: options?.navigationTarget,

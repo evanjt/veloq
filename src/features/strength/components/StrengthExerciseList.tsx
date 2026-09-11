@@ -167,8 +167,8 @@ const styles = StyleSheet.create({
   exerciseCardItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    gap: 8,
+    paddingVertical: spacing.xsPlus,
+    gap: spacing.sm,
   },
   exerciseCardItemBorder: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -202,13 +202,13 @@ const styles = StyleSheet.create({
   exerciseCardMeta: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   exerciseCardMetaDark: {
     color: darkColors.textSecondary,
   },
   activityList: {
-    marginLeft: 14,
+    marginLeft: spacing.md,
     paddingLeft: spacing.sm,
     borderLeftWidth: 1,
     borderLeftColor: colors.divider,
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
     paddingHorizontal: spacing.xs,
   },
   activityRowLeft: {
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   activityDate: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   activityDateDark: {
     color: darkColors.textSecondary,

@@ -11,6 +11,7 @@
  */
 import { activityTypeColors, brand, colors, darkColors } from '@/theme/colors';
 import { layout } from '@/theme/spacing';
+import { spacing } from '@/theme';
 
 /** Flat, resolved colour set the native widget renders from. */
 export interface WidgetPalette {
@@ -117,8 +118,8 @@ export function widgetActivityTint(sportType: string): string {
 export const widgetLayout = {
   radius: layout.borderRadius, // 16
   radiusInner: layout.borderRadiusSm, // 8
-  padding: 16,
-  gap: 8,
+  padding: spacing.md,
+  gap: spacing.sm,
 } as const;
 
 /**

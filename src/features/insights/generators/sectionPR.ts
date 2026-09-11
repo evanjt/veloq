@@ -1,5 +1,4 @@
 import { formatDuration } from '@/shared/format/format';
-import { brand } from '@/theme/colors';
 import type { Insight, SectionPR, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom, maxPerCategoryFor } from '../lib/config';
@@ -25,7 +24,7 @@ export function generateSectionPRInsights(
         category: 'section_pr',
         priority: 1,
         icon: 'trophy-outline',
-        iconColor: brand.gold,
+        iconTone: 'record',
         title: t('insights.sectionPr', { name: pr.sectionName }),
         subtitle: t('insights.sectionPrSubtitle', {
           time: formatDuration(pr.bestTime),

@@ -17,6 +17,7 @@ import {
   insightIcon,
   layout,
   typography,
+  verdictColor,
 } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 
@@ -124,7 +125,7 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
                 style={[
                   styles.dataValue,
                   isDark && styles.dataValueDark,
-                  dp.context === 'good' && styles.dataValueGood,
+                  dp.context === 'good' && { color: verdictColor('positive', isDark) },
                 ]}
               >
                 {String(dp.value)}
@@ -243,9 +244,6 @@ const styles = StyleSheet.create({
   dataValueDark: {
     color: darkColors.textPrimary,
   },
-  dataValueGood: {
-    color: colors.success,
-  },
   sectionList: {
     gap: spacing.xs,
   },
@@ -278,7 +276,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   sportIcon: {
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   sectionName: {
     flex: 1,

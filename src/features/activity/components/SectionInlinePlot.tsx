@@ -257,7 +257,7 @@ export const SectionInlinePlot = memo(
                           name="trophy"
                           size={11}
                           color={brand.gold}
-                          style={{ marginLeft: 2 }}
+                          style={{ marginLeft: spacing.xxs }}
                         />
                       )}
                     </View>

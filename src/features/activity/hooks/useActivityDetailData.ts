@@ -25,7 +25,6 @@ export interface ActivityDetailBundle {
   /** Route groups above the requested minimum, most attempts first */
   routeGroups: RouteGroup[];
   /** Route group total before the minimum-activity filter */
-  totalRouteGroupCount: number;
   /** Visible sections this activity traverses */
   matchedSections: NativeSection[];
   /** Every visible custom section, matched or not */
@@ -74,7 +73,6 @@ function fetchActivityDetailData(activityId: string): ActivityDetailBundle | nul
       activityCount: result.activityCount,
       sectionCount: result.sectionCount,
       routeGroups: result.routeGroups,
-      totalRouteGroupCount: result.totalRouteGroupCount,
       matchedSections: result.matchedSections,
       customSections: result.customSections,
       encounters: result.encounters,

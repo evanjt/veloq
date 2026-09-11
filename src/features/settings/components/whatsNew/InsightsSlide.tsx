@@ -5,11 +5,19 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
-const INSIGHT_ITEMS = [
-  { icon: 'trophy-outline', label: 'Section PRs', color: colors.warning },
+const insightItems = (isDark: boolean) => [
+  {
+    icon: 'trophy-outline',
+    label: 'Section PRs',
+    color: isDark ? darkColors.warningAmber : colors.warningAmber,
+  },
   { icon: 'heart-pulse', label: 'Efficiency trends', color: colors.chartHrv },
   { icon: 'lightning-bolt', label: 'Fitness milestones', color: colors.walk },
-  { icon: 'trending-up', label: 'HRV trends', color: colors.success },
+  {
+    icon: 'trending-up',
+    label: 'HRV trends',
+    color: isDark ? darkColors.successDeep : colors.successDeep,
+  },
 ];
 
 export function InsightsSlide() {
@@ -19,7 +27,7 @@ export function InsightsSlide() {
 
   return (
     <View style={styles.container}>
-      {INSIGHT_ITEMS.map((item) => (
+      {insightItems(isDark).map((item) => (
         <View key={item.label} style={[styles.row, { backgroundColor: bgColor }]}>
           <MaterialCommunityIcons
             name={item.icon as keyof typeof MaterialCommunityIcons.glyphMap}
@@ -43,7 +51,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: layout.borderRadiusMd,
   },

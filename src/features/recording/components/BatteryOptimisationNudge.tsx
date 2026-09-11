@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, spacing, layout, typography } from '@/theme';
+import { colors, colorWithOpacity, spacing, layout, typography, darkColors } from '@/theme';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 
 /**
@@ -39,7 +39,7 @@ export function BatteryOptimisationNudge() {
       <MaterialCommunityIcons
         name="battery-alert-variant-outline"
         size={20}
-        color={colors.warning}
+        color={isDark ? darkColors.warningAmber : colors.warningAmber}
       />
       <View style={styles.body}>
         <Text style={[styles.text, { color: colors.amberIcon }]}>
@@ -49,7 +49,9 @@ export function BatteryOptimisationNudge() {
           )}
         </Text>
         <TouchableOpacity onPress={openBatterySettings} accessibilityRole="button">
-          <Text style={[styles.link, { color: colors.warning }]}>
+          <Text
+            style={[styles.link, { color: isDark ? darkColors.warningAmber : colors.warningAmber }]}
+          >
             {t('recording.batteryOptOpenSettings', 'Open battery settings')}
           </Text>
         </TouchableOpacity>
@@ -80,7 +82,7 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    gap: 2,
+    gap: spacing.xxs,
   },
   text: {
     fontSize: typography.bodyCompact.fontSize,

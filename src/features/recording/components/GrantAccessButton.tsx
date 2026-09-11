@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   },
   buttonSmall: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
     minHeight: 32,
   },
   label: {

@@ -11,7 +11,9 @@
  * enough that it can never be read as a polarity.
  */
 
-import { verdict, verdictColor, brand } from '@/theme';
+import { verdict, verdictColor, verdictFill, insightToneColor, insightIcon, brand } from '@/theme';
+import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
+import type { SectionTrendData } from '@/features/insights/types';
 import { getTrendStyle } from '@/features/routes/components/TodayBanner';
 import { getTrendColor } from '@/features/insights/components/content/SectionTrendContent';
 
@@ -147,5 +149,56 @@ describe('the two sites that drew a verdict from another palette', () => {
   it('gives a missing section trend the neutral rung', () => {
     expect(getTrendColor(undefined, false)).toBe(verdict.neutral.light);
     expect(getTrendColor(undefined, true)).toBe(verdict.neutral.dark);
+  });
+});
+
+describe('the surfaces that used to answer from their own palette', () => {
+  const sectionTrend = (trend: number): SectionTrendData => ({
+    sectionId: `s${trend}`,
+    sectionName: 'Col du Test',
+    trend,
+    medianRecentSecs: 600,
+    bestTimeSecs: 540,
+    traversalCount: 20,
+  });
+
+  it('draws a declining section trend as the negative rung, never as a caution', () => {
+    const tones = generateSectionTrendInsights(
+      [sectionTrend(1), sectionTrend(-1)],
+      new Set(),
+      Date.now(),
+      ((key: string) => key) as never
+    ).map((i) => i.iconTone);
+
+    expect(tones).toContain('positive');
+    expect(tones).toContain('negative');
+    expect(tones).not.toContain('caution');
+  });
+
+  it('gives a chip fill the same hue as its text, at a readable weight', () => {
+    for (const rung of POLARITY) {
+      for (const isDark of [false, true]) {
+        const text = verdictColor(rung, isDark);
+        expect(verdictFill(rung, isDark)).toBe(`${text}18`);
+        expect(verdictFill(rung, isDark, true)).toBe(`${text}26`);
+      }
+    }
+  });
+
+  it('resolves an insight tone through the ladder, and leaves the categories alone', () => {
+    for (const rung of POLARITY) {
+      expect(insightToneColor(rung, false)).toBe(verdictColor(rung, false));
+      expect(insightToneColor(rung, true)).toBe(verdictColor(rung, true));
+    }
+    expect(insightToneColor('info', false)).toBe(insightIcon.info);
+    expect(insightToneColor('opportunity', true)).toBe(insightIcon.opportunity);
+  });
+
+  // The pill is a solid with white text, which is the opposite of what the
+  // ladder's tones are sized for, so it takes the darker tone in both themes.
+  it('carries white text on the declining pill at AA', () => {
+    expect(contrastRatio(verdict.negative.light, '#FFFFFF')).toBeGreaterThanOrEqual(
+      MIN_SURFACE_CONTRAST
+    );
   });
 });

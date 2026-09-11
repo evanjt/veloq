@@ -269,18 +269,18 @@ export function HeatmapSlide() {
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     gap: spacing.sm,
   },
   labels: {
-    gap: 4,
+    gap: spacing.xs,
     alignSelf: 'stretch',
     paddingHorizontal: spacing.md,
   },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   dot: {
     width: 6,

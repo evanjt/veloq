@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
   },
   rowDescription: {
     ...typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   thresholdList: {
     marginTop: spacing.md,

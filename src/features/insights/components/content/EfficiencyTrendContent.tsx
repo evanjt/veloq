@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   hrLabel: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   hrLabelDark: {
     color: darkColors.textSecondary,

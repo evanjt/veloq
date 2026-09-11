@@ -34,7 +34,10 @@ rmp-serde = "1.1"
 postcard = { version = "1", features = ["alloc"] }
 
 # HTTP client
-reqwest = { version = "0.12", features = ["json", "rustls-tls", "multipart", "stream", "gzip"], default-features = false }
+# `http2` is a default and `default-features = false` drops it. Without it the
+# tile fetcher never offers h2 over ALPN, so a pan's two dozen misses each open
+# their own connection and pay their own TLS handshake (`I73`).
+reqwest = { version = "0.12", features = ["json", "rustls-tls", "multipart", "stream", "gzip", "http2"], default-features = false }
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "fs"] }
 tokio-util = { version = "0.7", features = ["io"] }
 futures = "0.3"

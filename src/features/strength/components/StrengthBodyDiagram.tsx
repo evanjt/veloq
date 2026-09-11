@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   bodyHeader: {
     alignItems: 'center',
     marginBottom: spacing.xs,
-    gap: 2,
+    gap: spacing.xxs,
   },
   bodyTitle: {
     fontSize: typography.body.fontSize,
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: spacing.xs,
     marginBottom: spacing.xs,
   },
   subtitleDot: {
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   scaleLabelDark: {
     color: darkColors.textSecondary,
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   scaleLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   scaleValue: {
     fontSize: typography.micro.fontSize,

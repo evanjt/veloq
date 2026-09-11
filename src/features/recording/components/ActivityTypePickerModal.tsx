@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     maxHeight: '60%',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    paddingBottom: 34,
+    paddingBottom: spacing.xl,
   },
   sheetRecording: {
     borderTopLeftRadius: layout.borderRadius,

@@ -422,12 +422,12 @@ const styles = StyleSheet.create({
   },
   chipRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
     paddingVertical: spacing.xs,
   },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
   },
   chipInactive: {
@@ -486,8 +486,8 @@ const styles = StyleSheet.create({
     top: -19,
     right: 0,
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderTopLeftRadius: spacing.sm,
     zIndex: 1,
   },

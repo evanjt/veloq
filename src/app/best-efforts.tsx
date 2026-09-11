@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     backgroundColor: opacity.overlay.light,
     borderRadius: layout.borderRadiusSm,
-    padding: 4,
+    padding: spacing.xs,
   },
   rangeToggleContainerDark: {
     backgroundColor: opacity.overlayDark.medium,
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   timeText: {
     ...typography.micro,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   timeTextDark: {
     color: darkColors.textSecondary,
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   activityDate: {
     ...typography.micro,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   activityDateDark: {
     color: darkColors.textSecondary,

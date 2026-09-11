@@ -5,7 +5,16 @@
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, colorWithOpacity, darkColors, opacity, typography, layout } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  opacity,
+  typography,
+  layout,
+  spacing,
+  verdictColor,
+} from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { DenseText } from '@/shared/ui/DenseText';
 
@@ -69,7 +78,7 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
           <DenseText
             style={[
               styles.comparisonText,
-              stat.comparison.isGood === true && styles.comparisonTextGood,
+              stat.comparison.isGood === true && { color: verdictColor('positive', isDark) },
               stat.comparison.isGood === false && styles.comparisonTextBad,
             ]}
           >
@@ -90,7 +99,7 @@ const styles = StyleSheet.create({
     width: '31%', // 3 columns with gaps
     backgroundColor: colors.background,
     borderRadius: layout.borderRadiusMd,
-    padding: 10,
+    padding: spacing.sm,
     position: 'relative',
   },
   statCardDark: {
@@ -106,10 +115,10 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: spacing.xsPlus,
   },
   statContent: {
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   statValue: {
     fontSize: typography.metricValue.fontSize,
@@ -126,10 +135,10 @@ const styles = StyleSheet.create({
   comparisonBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
     backgroundColor: opacity.overlay.light,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusSm,
     alignSelf: 'flex-start',
   },
@@ -143,9 +152,6 @@ const styles = StyleSheet.create({
     fontSize: typography.micro.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
-  },
-  comparisonTextGood: {
-    color: colors.success,
   },
   comparisonTextBad: {
     color: colors.error,

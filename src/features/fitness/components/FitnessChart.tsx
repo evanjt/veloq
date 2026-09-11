@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
   },
   markerText: {
     ...typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   valuesRow: {
     flexDirection: 'row',
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   valueLabel: {
     fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   valueNumber: {
     fontSize: typography.cardTitle.fontSize,
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: layout.borderRadiusFull,
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   legendText: {
     fontSize: typography.label.fontSize,

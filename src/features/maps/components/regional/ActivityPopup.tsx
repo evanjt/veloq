@@ -207,14 +207,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: spacing.xsPlus,
   },
   popupHeaderButtons: {
     flexDirection: 'row',
     gap: spacing.xs,
   },
   popupIconButton: {
-    padding: 4,
+    padding: spacing.xs,
   },
   popupInfo: {
     flex: 1,
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   popupDate: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   popupDateDark: {
     color: darkColors.textSecondary,
@@ -241,13 +241,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.md,
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
   },
   popupStatsDark: {},
   popupStat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   popupStatValue: {
     fontSize: typography.label.fontSize,
@@ -260,8 +260,8 @@ const styles = StyleSheet.create({
   viewDetailsInline: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xs,
   },
   viewDetailsText: {
     fontSize: typography.label.fontSize,

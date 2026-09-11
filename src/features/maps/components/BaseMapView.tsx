@@ -522,14 +522,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     alignItems: 'flex-end',
-    paddingBottom: 4,
-    paddingRight: 6,
+    paddingBottom: spacing.xs,
+    paddingRight: spacing.xsPlus,
     zIndex: 5,
   },
   attributionPill: {
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderRadius: spacing.sm,
   },
   attributionText: {

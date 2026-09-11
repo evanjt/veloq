@@ -233,7 +233,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                   style={[
                     styles.headerValue,
                     {
-                      color: decouplingValue.isGood ? colors.success : colors.warning,
+                      color: verdictColor(decouplingValue.isGood ? 'positive' : 'caution', isDark),
                     },
                   ]}
                 >
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   trendIcon: {
-    marginLeft: 2,
+    marginLeft: spacing.xxs,
     marginRight: spacing.sm,
   },
   zoneLoadingContainer: {

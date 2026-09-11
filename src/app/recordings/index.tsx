@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,17 +15,30 @@ import { useRecordingLibrary } from '@/features/recording/hooks/useRecordingLibr
 import { PermissionUpgradeBanner } from '@/features/recording/components/PermissionUpgradeBanner';
 import type { RecordingLibraryEntry, RecordingUploadStatus } from '@/types';
 
-const STATUS_META: Record<
+/**
+ * The status marks. A function of the theme rather than a constant: the
+ * success and blocked tones have to be the deep pair on white and the light
+ * pair on near-black, and no single value clears 4.5:1 on both grounds.
+ */
+const statusMeta = (
+  isDark: boolean
+): Record<
   RecordingUploadStatus,
   { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; color: string }
-> = {
+> => ({
   localOnly: { icon: 'cellphone', color: colors.textSecondary },
   pending: { icon: 'cloud-upload-outline', color: colors.secondary },
   uploading: { icon: 'cloud-upload', color: colors.secondary },
-  uploaded: { icon: 'cloud-check-outline', color: colors.success },
+  uploaded: {
+    icon: 'cloud-check-outline',
+    color: isDark ? darkColors.successDeep : colors.successDeep,
+  },
   failed: { icon: 'cloud-alert', color: colors.error },
-  permissionBlocked: { icon: 'shield-lock-outline', color: colors.warning },
-};
+  permissionBlocked: {
+    icon: 'shield-lock-outline',
+    color: isDark ? darkColors.warningAmber : colors.warningAmber,
+  },
+});
 
 export default function RecordingsLibraryScreen() {
   const { t } = useTranslation();
@@ -39,10 +52,11 @@ export default function RecordingsLibraryScreen() {
   const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
+  const meta = useMemo(() => statusMeta(isDark), [isDark]);
 
   const renderEntry = useCallback(
     ({ item }: { item: RecordingLibraryEntry }) => {
-      const status = STATUS_META[item.uploadStatus] ?? STATUS_META.localOnly;
+      const status = meta[item.uploadStatus] ?? meta.localOnly;
       const date = new Date(item.startTime);
       return (
         <TouchableOpacity
@@ -79,7 +93,7 @@ export default function RecordingsLibraryScreen() {
         </TouchableOpacity>
       );
     },
-    [surface, border, textPrimary, textSecondary, isMetric, t]
+    [meta, surface, border, textPrimary, textSecondary, isMetric, t]
   );
 
   return (
@@ -153,14 +167,14 @@ const styles = StyleSheet.create({
   },
   cardMeta: {
     ...typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   statusChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm,
   },
   statusText: {

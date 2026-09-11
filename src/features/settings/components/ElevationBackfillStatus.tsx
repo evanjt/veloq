@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   runningText: {
-    gap: 2,
+    gap: spacing.xxs,
   },
   line: {
     ...typography.bodySmall,

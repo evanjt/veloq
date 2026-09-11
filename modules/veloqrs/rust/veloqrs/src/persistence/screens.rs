@@ -251,32 +251,51 @@ impl super::PersistentEngine {
     ///
     /// `min_route_activities` filters the route groups the way the screen used
     /// to filter them after the fact.
+    ///
+    /// Both catalogues are narrowed to this activity before they cross the
+    /// FFI. The screen asks one question of the route groups, which one holds
+    /// this activity, and one of the custom sections, which of them name it,
+    /// so handing over the whole of either made the payload and the work grow
+    /// with the library on the mount path of every activity opened. The
+    /// answers are unchanged: the group is the one the screen's own search
+    /// would have found, and the custom list is the same filter it re-ran
+    /// against what it was already given.
     pub fn activity_detail_data(
         &mut self,
         activity_id: &str,
         min_route_activities: u32,
     ) -> crate::FfiActivityDetailData {
-        let all_groups = self.get_groups().to_vec();
-        let total_route_group_count = all_groups.len() as u32;
-        let mut route_groups: Vec<crate::FfiRouteGroup> = all_groups
-            .into_iter()
+        let route_groups: Vec<crate::FfiRouteGroup> = self
+            .get_groups()
+            .iter()
             .filter(|g| g.activity_ids.len() as u32 >= min_route_activities)
+            .find(|g| g.activity_ids.iter().any(|a| a == activity_id))
+            .cloned()
             .map(crate::FfiRouteGroup::from)
+            .into_iter()
             .collect();
-        route_groups.sort_by_key(|g| std::cmp::Reverse(g.activity_ids.len()));
 
         let matched = self.get_sections_for_activity(activity_id);
-        let custom = self.get_sections_by_type(Some(SectionType::Custom));
+        // The dedup the screen ran: a custom section this activity traverses is
+        // already in `matched_sections`, so sending it again sent it twice.
+        let matched_ids: std::collections::HashSet<&str> =
+            matched.iter().map(|s| s.id.as_str()).collect();
+        let custom: Vec<_> = self
+            .get_sections_by_type(Some(SectionType::Custom))
+            .into_iter()
+            .filter(|s| {
+                !matched_ids.contains(s.id.as_str())
+                    && (s.source_activity_id.as_deref() == Some(activity_id)
+                        || s.activity_ids.iter().any(|a| a == activity_id))
+            })
+            .collect();
 
         // Trace targets mirror what the screen drew: every matched section,
         // then the custom sections naming this activity that the match list
         // did not already cover.
         let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
         let mut targets: Vec<(String, Vec<crate::GpsPoint>)> = Vec::new();
-        for s in matched.iter().chain(custom.iter().filter(|s| {
-            s.source_activity_id.as_deref() == Some(activity_id)
-                || s.activity_ids.iter().any(|a| a == activity_id)
-        })) {
+        for s in matched.iter().chain(custom.iter()) {
             if seen.insert(s.id.as_str()) {
                 targets.push((s.id.clone(), s.polyline.clone()));
             }
@@ -323,7 +342,6 @@ impl super::PersistentEngine {
             activity_count: self.activity_count() as u32,
             section_count: self.get_section_count(),
             route_groups,
-            total_route_group_count,
             matched_sections: matched.into_iter().map(crate::FfiSection::from).collect(),
             custom_sections: custom.into_iter().map(crate::FfiSection::from).collect(),
             encounters: self.get_activity_section_encounters(activity_id),

@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
   },
   eventMeta: {
     ...typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   categorySection: {
     borderRadius: layout.borderRadius,

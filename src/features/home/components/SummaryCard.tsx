@@ -256,7 +256,7 @@ export const SummaryCard = React.memo(function SummaryCard({
               {heroZoneLabel && (
                 <View
                   testID="summary-card-form-zone"
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}
                 >
                   <View style={[styles.zoneDot, { backgroundColor: heroZoneColor || heroColor }]} />
                   <Text style={[styles.zoneLabel, { color: heroZoneColor || heroColor }]}>
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   },
   heroTrend: {
     fontSize: typography.cardTitle.fontSize,
-    marginLeft: 1,
+    marginLeft: spacing.xxs,
   },
   heroLabel: {
     fontSize: typography.bodySmall.fontSize,
@@ -503,12 +503,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
     flexWrap: 'wrap',
-    gap: 2,
+    gap: spacing.xxs,
   },
   supportingMetric: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
   },
   metricLabel: {
     fontSize: typography.caption.fontSize,
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
   },
   metricTrend: {
     fontSize: typography.micro.fontSize,
-    marginLeft: 1,
+    marginLeft: spacing.xxs,
   },
   metricDivider: {
     fontSize: typography.caption.fontSize,

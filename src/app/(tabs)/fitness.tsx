@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     width: spacing.sm,
     height: spacing.sm,
     borderRadius: spacing.xs,
-    marginTop: 5,
+    marginTop: spacing.xs,
     marginRight: spacing.xs,
   },
   infoText: {

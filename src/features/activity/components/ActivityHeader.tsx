@@ -236,12 +236,12 @@ const styles = StyleSheet.create({
   inlineStatDivider: {
     fontSize: typography.bodyCompact.fontSize,
     color: colorWithOpacity(colors.textOnDark, 0.5),
-    marginHorizontal: 6,
+    marginHorizontal: spacing.xsPlus,
   },
   locationText: {
     fontSize: typography.label.fontSize,
     color: colorWithOpacity(colors.textOnDark, 0.7),
-    marginTop: 2,
+    marginTop: spacing.xxs,
     textShadowColor: opacity.overlay.heavy,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,

@@ -91,7 +91,7 @@ export const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   nearbyPopupMeta: {
     fontSize: typography.caption.fontSize,

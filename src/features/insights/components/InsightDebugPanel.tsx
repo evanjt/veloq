@@ -148,6 +148,6 @@ const styles = StyleSheet.create({
   row: {
     fontFamily: 'monospace',
     fontSize: typography.label.fontSize,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
 });

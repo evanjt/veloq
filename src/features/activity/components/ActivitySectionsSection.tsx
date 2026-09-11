@@ -836,7 +836,7 @@ const styles = StyleSheet.create({
   scanMatchMeta: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   addMatchButton: {
     paddingVertical: spacing.xs,

@@ -256,12 +256,12 @@ const styles = StyleSheet.create({
   },
   variantChips: {
     flexDirection: 'row',
-    gap: 6,
+    gap: spacing.xsPlus,
     marginLeft: 'auto',
   },
   variantChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusMd,
     backgroundColor: colors.background,
     borderWidth: 1,

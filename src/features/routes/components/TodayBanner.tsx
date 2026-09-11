@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   workoutMeta: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   patternCard: {
     marginBottom: spacing.xs,
@@ -335,8 +335,8 @@ const styles = StyleSheet.create({
   prSummaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
   prSummaryText: {
     fontSize: typography.caption.fontSize,
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 3,
+    paddingVertical: spacing.xs,
   },
   sectionName: {
     fontSize: typography.bodyCompact.fontSize,
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
   prCelebration: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs,
   },
   prTextCelebration: {
     fontSize: typography.bodyCompact.fontSize,

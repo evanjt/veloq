@@ -6,7 +6,7 @@ import { Text } from 'react-native-paper';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
-import { colors, typography, spacing, layout, chartStyles } from '@/theme';
+import { colors, typography, spacing, layout, chartStyles, darkColors } from '@/theme';
 import type { eFTPPoint } from '@/types';
 import { formatMonth } from '@/shared/format/format';
 import { ChartCanvas, CurveArea, CurveLine, useChartColors } from '@/shared/charts';
@@ -99,7 +99,12 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
           <View style={styles.ftpRow}>
             <Text style={[styles.ftpValue, { color: chartColors.ftp }]}>{latestFTP}W</Text>
             <View style={[styles.changeBadge, isImproving ? styles.positive : styles.negative]}>
-              <Text style={styles.changeText}>
+              <Text
+                style={[
+                  styles.changeText,
+                  { color: isDark ? darkColors.successDeep : colors.successDeep },
+                ]}
+              >
                 {isImproving ? '▲' : '▼'} {Math.abs(ftpChange)}W
               </Text>
             </View>
@@ -211,7 +216,7 @@ const styles = StyleSheet.create({
   },
   changeBadge: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadius,
   },
   positive: {
@@ -223,12 +228,11 @@ const styles = StyleSheet.create({
   changeText: {
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
-    color: colors.success,
   },
   changeSubtext: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   xAxisOverlay: {
     position: 'absolute',

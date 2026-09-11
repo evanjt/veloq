@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   },
   resetButton: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
   resetText: {
     fontSize: typography.bodyCompact.fontSize,

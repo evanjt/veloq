@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   },
   chipDetail: {
     ...typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   tail: { width: spacing.xs },
   fade: {

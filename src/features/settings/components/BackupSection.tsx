@@ -404,7 +404,14 @@ export function BackupSection() {
                 </Text>
               </TouchableOpacity>
               {connectionResult === 'success' && (
-                <Text style={styles.connectionSuccess}>{t('backup.connectionSuccess')}</Text>
+                <Text
+                  style={[
+                    styles.connectionSuccess,
+                    { color: isDark ? darkColors.successDeep : colors.successDeep },
+                  ]}
+                >
+                  {t('backup.connectionSuccess')}
+                </Text>
               )}
               {connectionResult === 'error' && (
                 <Text style={styles.connectionError}>
@@ -487,7 +494,11 @@ export function BackupSection() {
 
         {/* Encryption warning */}
         <View style={[styles.warningRow, isDark && styles.warningRowDark]}>
-          <MaterialCommunityIcons name="shield-alert-outline" size={16} color={colors.warning} />
+          <MaterialCommunityIcons
+            name="shield-alert-outline"
+            size={16}
+            color={isDark ? darkColors.warningAmber : colors.warningAmber}
+          />
           <Text style={[styles.warningText, isDark && styles.textMuted]}>
             {t(
               'backup.notEncryptedWarning',
@@ -506,7 +517,13 @@ export function BackupSection() {
               {lastBackupText}
             </Text>
             {backupResult === 'success' && (
-              <Text testID="backup-success-message" style={styles.connectionSuccess}>
+              <Text
+                testID="backup-success-message"
+                style={[
+                  styles.connectionSuccess,
+                  { color: isDark ? darkColors.successDeep : colors.successDeep },
+                ]}
+              >
                 {t('backup.backupSuccessMessage')}
               </Text>
             )}
@@ -651,7 +668,7 @@ const styles = StyleSheet.create({
   subtitleText: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   statusRow: {
     flexDirection: 'row',
@@ -705,7 +722,7 @@ const styles = StyleSheet.create({
   backendValue: {
     fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   configBlock: {
     paddingHorizontal: spacing.md,
@@ -732,7 +749,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   testButton: {
     paddingHorizontal: spacing.md,
@@ -783,7 +800,6 @@ const styles = StyleSheet.create({
   },
   connectionSuccess: {
     fontSize: typography.bodyCompact.fontSize,
-    color: colors.success ?? colors.run,
     marginTop: spacing.xs,
   },
   connectionError: {

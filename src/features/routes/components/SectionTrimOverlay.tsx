@@ -462,9 +462,9 @@ const styles = StyleSheet.create({
   expandToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
     borderRadius: layout.borderRadiusMd,
     borderWidth: 1,
     borderColor: colors.border,
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   },
   stepGroup: {
     flexDirection: 'row',
-    gap: 2,
+    gap: spacing.xxs,
   },
   stepButton: {
     width: 30,
@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    paddingVertical: 12,
+    paddingVertical: spacing.smPlus,
     borderRadius: layout.borderRadiusSm,
   },
   actionBtnLight: {

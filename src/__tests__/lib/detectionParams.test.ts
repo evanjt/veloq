@@ -37,6 +37,31 @@ describe('the tested ranges', () => {
     expect(DETECTION_PARAM_RANGES.maxSectionLength.clamp).toBeUndefined();
     expect(DETECTION_PARAM_RANGES.minActivities.clamp).toBeUndefined();
   });
+
+  /**
+   * The file's own rule: a slider that reaches a value nothing acts on is a
+   * control that moves and does nothing. Proximity's slider started at 25 m,
+   * inherited from the panel this replaced, while the detector tells nothing
+   * apart below 100 m: a corpus sweep of 1,188 activities produced the same
+   * catalogue in every column at 10, 50 and 100 m, and the same again at 300,
+   * 450 and 600. Past a clamp is for typing, not for dragging.
+   */
+  it('never lets a slider reach past a clamp, which is what typing is for', () => {
+    for (const key of KEYS) {
+      const { min, max, clamp } = DETECTION_PARAM_RANGES[key];
+      if (!clamp) continue;
+      expect({ key, min }).toEqual({ key, min: Math.max(min, clamp.min) });
+      expect({ key, max }).toEqual({ key, max: Math.min(max, clamp.max) });
+    }
+  });
+
+  it('leaves every slider a range to move over', () => {
+    for (const key of KEYS) {
+      const { min, max, step } = DETECTION_PARAM_RANGES[key];
+      expect(max).toBeGreaterThan(min);
+      expect((max - min) / step).toBeGreaterThanOrEqual(4);
+    }
+  });
 });
 
 describe('a value past the clamp', () => {

@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useTheme } from '@/shared/app';
-import { colors, brand, ink, typography } from '@/theme';
+import { colors, brand, ink, typography, spacing } from '@/theme';
 import { clearDemoData } from '@/shared/storage';
 
 export function DemoBanner() {
@@ -77,8 +77,8 @@ export function DemoBanner() {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: brand.blue, // Brand blue for demo mode
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
   },
   containerDark: {
     backgroundColor: brand.blueDark, // Darker blue for dark mode
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   icon: {
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   text: {
     color: colors.textOnDark,
@@ -102,9 +102,9 @@ const styles = StyleSheet.create({
   subtext: {
     color: 'rgba(255, 255, 255, 0.85)',
     fontSize: typography.bodyCompact.fontSize,
-    marginLeft: 8,
+    marginLeft: spacing.sm,
   },
   chevron: {
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
 });

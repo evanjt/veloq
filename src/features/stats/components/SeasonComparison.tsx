@@ -7,7 +7,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { CHART_CONFIG } from '@/constants';
-import { chartStyles, colors, typography, spacing, layout } from '@/theme';
+import { chartStyles, colors, typography, spacing, layout, verdictColor } from '@/theme';
 import type { Activity } from '@/types';
 
 interface SeasonComparisonProps {
@@ -379,7 +379,7 @@ export function SeasonComparison({
                 style={[
                   styles.tooltipDiff,
                   {
-                    color: selectedMonthDiff >= 0 ? colors.success : colors.warning,
+                    color: verdictColor(selectedMonthDiff >= 0 ? 'positive' : 'negative', isDark),
                   },
                 ]}
               >
@@ -412,7 +412,7 @@ export function SeasonComparison({
               <Text
                 style={[
                   styles.summaryValue,
-                  { color: totals.diff >= 0 ? colors.success : colors.warning },
+                  { color: verdictColor(totals.diff >= 0 ? 'positive' : 'negative', isDark) },
                 ]}
               >
                 {totals.diff >= 0 ? '+' : ''}
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   legendLabel: {
     fontSize: typography.caption.fontSize,
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
   summaryItem: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   legendDot: {
     width: spacing.sm,
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   summaryValue: {
     fontSize: typography.bodySmall.fontSize,
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
   tooltipItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   tooltipValue: {
     fontSize: typography.bodySmall.fontSize,

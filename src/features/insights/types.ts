@@ -1,3 +1,5 @@
+import type { InsightTone } from '@/theme';
+
 export type InsightCategory =
   | 'section_pr'
   | 'section_trend'
@@ -123,7 +125,7 @@ export interface Insight {
   title: string;
   subtitle?: string;
   icon: string;
-  iconColor: string;
+  iconTone: InsightTone;
   body?: string;
   navigationTarget?: string;
   timestamp: number;

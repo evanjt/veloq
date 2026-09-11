@@ -159,18 +159,34 @@ fn activity_detail_matches_the_calls_it_replaces() {
     assert_eq!(bundled_matched, matched);
     assert!(matched.contains(&"auto1".to_string()));
 
-    let custom: Vec<String> = s
-        .engine
-        .get_sections_by_type(Some(veloqrs::sections::SectionType::Custom))
-        .into_iter()
-        .map(|sec| sec.id)
-        .collect();
+    // The bundle carries the custom sections that name this activity and are
+    // not already in `matched_sections`, not the whole custom catalogue. That
+    // is the filter the screen ran on the far side of the FFI call, and it is
+    // what stops the payload growing with the library.
     let bundled_custom: Vec<String> = bundle
         .custom_sections
         .iter()
         .map(|sec| sec.id.clone())
         .collect();
-    assert_eq!(bundled_custom, custom);
+    let expected_custom: Vec<String> = s
+        .engine
+        .get_sections_by_type(Some(veloqrs::sections::SectionType::Custom))
+        .into_iter()
+        .filter(|sec| {
+            sec.source_activity_id.as_deref() == Some("a1")
+                || sec.activity_ids.iter().any(|a| a == "a1")
+        })
+        .map(|sec| sec.id)
+        .filter(|id| !matched.contains(id))
+        .collect();
+    assert_eq!(bundled_custom, expected_custom);
+    assert!(
+        bundle.custom_sections.iter().all(|sec| {
+            sec.source_activity_id.as_deref() == Some("a1")
+                || sec.activity_ids.iter().any(|a| a == "a1")
+        }),
+        "a custom section that does not name this activity reached the screen"
+    );
 
     let encounters = s.engine.get_activity_section_encounters("a1");
     assert_eq!(bundle.encounters.len(), encounters.len());
@@ -253,8 +269,6 @@ fn activity_detail_route_groups_honour_the_minimum() {
     let mut s = populated();
     let bundle = s.engine.activity_detail_data("a1", 2);
 
-    let total = s.engine.get_groups().len() as u32;
-    assert_eq!(bundle.total_route_group_count, total);
     assert!(
         bundle
             .route_groups
@@ -262,15 +276,60 @@ fn activity_detail_route_groups_honour_the_minimum() {
             .all(|g| g.activity_ids.len() >= 2),
         "groups below the minimum must not be returned"
     );
+}
 
-    let counts: Vec<usize> = bundle
-        .route_groups
-        .iter()
-        .map(|g| g.activity_ids.len())
-        .collect();
+/// The screen asks one question of this list, which group holds this activity,
+/// so the catalogue is what it had to search rather than what it needed. A
+/// bundle that hands over the whole of it grows with the library on the mount
+/// path of every activity opened.
+#[test]
+fn activity_detail_carries_only_the_group_this_activity_is_in() {
+    let mut s = populated();
+    // A minimum of one, so every group in the fixture qualifies and the
+    // narrowing is what removes the ones this activity is not in.
+    let bundle = s.engine.activity_detail_data("a1", 1);
     assert!(
-        counts.windows(2).all(|w| w[0] >= w[1]),
-        "route groups must arrive sorted by attempt count"
+        s.engine.get_groups().len() > 1,
+        "the fixture has to hold a group this activity is not in"
+    );
+
+    assert!(
+        bundle.route_groups.len() <= 1,
+        "the bundle carried {} groups to paint one activity",
+        bundle.route_groups.len()
+    );
+    assert!(
+        bundle
+            .route_groups
+            .iter()
+            .all(|g| g.activity_ids.iter().any(|a| a == "a1")),
+        "a group this activity is not in reached the screen"
+    );
+
+    // What the screen reads off it has to be unchanged: the whole catalogue
+    // filtered and searched gives the same group as the bundle now hands over.
+    let mut expected: Vec<_> = s.engine.get_groups().to_vec();
+    expected.sort_by_key(|g| std::cmp::Reverse(g.activity_ids.len()));
+    let searched = expected
+        .iter()
+        .find(|g| g.activity_ids.iter().any(|a| a == "a1"));
+    assert_eq!(
+        bundle.route_groups.first().map(|g| g.group_id.clone()),
+        searched.map(|g| g.group_id.clone()),
+        "the narrowed bundle names a different group than the search it replaces"
+    );
+}
+
+/// An activity in no group at all, which is the case the narrowing could turn
+/// into a group picked by position rather than by membership.
+#[test]
+fn activity_detail_carries_no_group_for_an_activity_in_none() {
+    let mut s = populated();
+    let bundle = s.engine.activity_detail_data("a1", 1_000);
+
+    assert!(
+        bundle.route_groups.is_empty(),
+        "no group meets the minimum, so none may be returned"
     );
 }
 

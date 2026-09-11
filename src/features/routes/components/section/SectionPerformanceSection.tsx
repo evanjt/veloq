@@ -154,11 +154,11 @@ const styles = StyleSheet.create({
   },
   timeRangePills: {
     flexDirection: 'row',
-    gap: 2,
+    gap: spacing.xxs,
   },
   pill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusMd,
   },
   pillActive: {

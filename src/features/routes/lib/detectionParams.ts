@@ -36,9 +36,16 @@ interface ParamRange {
  * slider's range. `proximityThreshold`'s clamp bounds its effect on the
  * coverage grid. The other three have no clamp: the detector acts on whatever
  * it is given.
+ *
+ * Both clamps are now measured rather than read off the expression. Swept over
+ * 1,188 pooled activities, twice with identical counts, proximity 10, 50 and
+ * 100 m produce the same catalogue in every column, and so do 300, 450 and
+ * 600; divergence 0.01 and 0.05 are one value, and 0.5, 0.65 and 0.8 another.
+ * Proximity's slider floor was 25 m, inherited from the panel this replaced,
+ * so three of its twelve stops moved nothing.
  */
 export const DETECTION_PARAM_RANGES: Record<DetectionParamKey, ParamRange> = {
-  proximityThreshold: { min: 25, max: 300, step: 25, clamp: { min: 100, max: 300 } },
+  proximityThreshold: { min: 100, max: 300, step: 25, clamp: { min: 100, max: 300 } },
   minSectionLength: { min: 50, max: 2000, step: 50 },
   maxSectionLength: { min: 2000, max: 200000, step: 1000 },
   minActivities: { min: 2, max: 10, step: 1, integer: true },

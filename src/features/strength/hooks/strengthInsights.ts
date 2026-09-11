@@ -9,7 +9,6 @@ import type {
   StrengthProgressPoint,
   StrengthSummary,
 } from '../types';
-import { colors } from '@/theme';
 import { INSIGHTS_CONFIG, confidenceFrom } from '@/features/insights/lib/config';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
@@ -45,7 +44,7 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
     subtitle: `${pair.leftLabel} ${formatSetCount(pair.leftWeightedSets)} · ${pair.rightLabel} ${formatSetCount(pair.rightWeightedSets)}`,
     body,
     icon: 'scale-balance',
-    iconColor: pair.status === 'watch' ? colors.warning : colors.error,
+    iconTone: pair.status === 'watch' ? 'caution' : 'negative',
     navigationTarget: '/insights?tab=strength',
     timestamp: now,
     isNew: false,
@@ -154,7 +153,14 @@ function buildStrengthProgressionInsight(
           }),
     body,
     icon: progression.trend === 'up' ? 'arm-flex-outline' : 'dumbbell',
-    iconColor: progression.trend === 'up' ? colors.success : colors.warning,
+    // Flat is not a warning. It used to share amber with a fall, so a steady
+    // month read as a problem.
+    iconTone:
+      progression.trend === 'up'
+        ? 'positive'
+        : progression.trend === 'down'
+          ? 'negative'
+          : 'neutral',
     navigationTarget: '/insights?tab=strength',
     timestamp: now,
     isNew: false,
@@ -246,7 +252,7 @@ function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number, t: 
       groups: summary.muscleVolumes.length,
     }),
     icon: 'dumbbell',
-    iconColor: colors.gray500,
+    iconTone: 'neutral',
     navigationTarget: '/insights?tab=strength',
     timestamp: now,
     isNew: false,

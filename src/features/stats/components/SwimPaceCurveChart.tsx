@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   valueLabel: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
-    marginBottom: 1,
+    marginBottom: spacing.xxs,
   },
   valueNumber: {
     fontSize: typography.bodySmall.fontSize,
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: spacing.xs,
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   legendDash: {
     width: spacing.md,

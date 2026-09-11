@@ -150,7 +150,11 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
 
       <Text
         style={[
-          { fontSize: typography.caption.fontSize, marginTop: spacing.sm, marginBottom: 4 },
+          {
+            fontSize: typography.caption.fontSize,
+            marginTop: spacing.sm,
+            marginBottom: spacing.xs,
+          },
           { color: mutedColor },
         ]}
       >
@@ -514,7 +518,7 @@ const styles = StyleSheet.create({
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   statLabel: {
     fontSize: typography.bodyCompact.fontSize,
@@ -539,10 +543,10 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: 'row',
-    paddingBottom: 4,
+    paddingBottom: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   tableHeaderText: {
     fontSize: typography.label.fontSize,
@@ -552,10 +556,10 @@ const styles = StyleSheet.create({
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 3,
+    paddingVertical: spacing.xs,
     borderLeftWidth: 3,
-    paddingLeft: 6,
-    marginLeft: -2,
+    paddingLeft: spacing.xsPlus,
+    marginLeft: -spacing.xxs,
   },
   tableCell: {
     fontSize: typography.caption.fontSize,
@@ -569,7 +573,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   taskRunRow: {
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
   },
@@ -584,9 +588,9 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
     marginTop: spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
   },
   actionButtonText: {
     fontSize: typography.bodyCompact.fontSize,

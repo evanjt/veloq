@@ -274,14 +274,14 @@ const styles = StyleSheet.create({
     width: 120,
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
-    gap: 4,
-    paddingHorizontal: 4,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.xs,
     paddingTop: spacing.xl,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   legendDot: {
     width: 8,
@@ -302,12 +302,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(0,0,0,0.15)',
-    marginVertical: 4,
+    marginVertical: spacing.xs,
   },
   detailHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   detailDot: {
     width: 8,
@@ -335,13 +335,13 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   detailExItem: {
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     width: '100%',
   },
   detailExNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs,
     width: '100%',
   },
   detailExDot: {
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   detailExSub: {
     fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
-    paddingLeft: 8,
+    paddingLeft: spacing.sm,
   },
   detailExSubDark: {
     color: darkColors.textSecondary,

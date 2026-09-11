@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
   activityLoad: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   cancelButton: {
     marginTop: spacing.sm,

@@ -277,12 +277,12 @@ const styles = StyleSheet.create({
   kindRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   kindItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs,
   },
   kindLabel: {
     fontSize: typography.caption.fontSize,
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   forgetButton: {
     paddingHorizontal: spacing.sm,

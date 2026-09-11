@@ -10,7 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor } from '@/features/activity/lib/activityUtils';
 import { decodePolyline, LatLng } from '@/shared/geo/polyline';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
-import { colors } from '@/theme';
+import { colors, spacing } from '@/theme';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
 import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
@@ -665,7 +665,10 @@ export const ActivityMapView = memo(function ActivityMapView({
                 ref={surfaceRef}
                 mapStyle={mapStyle}
                 initialCamera={
-                  camera2DOnHide ?? { bounds: { sw: bounds.sw, ne: bounds.ne }, padding: 50 }
+                  camera2DOnHide ?? {
+                    bounds: { sw: bounds.sw, ne: bounds.ne },
+                    padding: spacing.xxl,
+                  }
                 }
                 sources={sources}
                 layers={layers}

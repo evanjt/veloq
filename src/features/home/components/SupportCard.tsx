@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'column',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
     paddingVertical: spacing.sm,
     backgroundColor: colors.background,
     borderRadius: layout.borderRadiusSm,

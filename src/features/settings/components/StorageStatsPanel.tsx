@@ -147,7 +147,13 @@ function StorageBreakdownBar({
             />
             <View style={[styles.deviceUsageBarFree, { backgroundColor: freeColor }]} />
           </View>
-          <Text style={[styles.storageLegendText, { marginTop: 2 }, isDark && styles.textMuted]}>
+          <Text
+            style={[
+              styles.storageLegendText,
+              { marginTop: spacing.xxs },
+              isDark && styles.textMuted,
+            ]}
+          >
             {formatFileSize(totalCacheBytes)} of {formatFileSize(totalDevice)} used
           </Text>
         </>
@@ -456,7 +462,7 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   statDivider: {
     width: 1,
@@ -465,7 +471,7 @@ const styles = StyleSheet.create({
   statLabelClickable: {
     fontSize: typography.caption.fontSize,
     color: colors.primary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   infoRow: {
     flexDirection: 'row',
@@ -569,7 +575,7 @@ const styles = StyleSheet.create({
   },
   clearInlineButton: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
   clearInlineText: {
     fontSize: typography.bodyCompact.fontSize,
@@ -620,7 +626,7 @@ const styles = StyleSheet.create({
   storageLegendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   storageLegendDot: {
     width: 8,

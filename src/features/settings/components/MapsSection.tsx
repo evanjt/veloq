@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   },
   pill: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm,
   },
   pillText: {

@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   gapToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   gapLabel: {
     fontSize: typography.caption.fontSize,
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   valueLabel: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
-    marginBottom: 1,
+    marginBottom: spacing.xxs,
   },
   valueNumber: {
     fontSize: typography.bodySmall.fontSize,
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   dateRange: {
     fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   modelStats: {
     fontSize: typography.micro.fontSize,

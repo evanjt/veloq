@@ -2,7 +2,6 @@ import type { Insight } from '../types';
 import { formatDuration, formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import { getEngine } from '@/shared/native/engine';
 import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor, minAgeDaysFor } from '../lib/config';
-import { insightIcon } from '@/theme';
 
 /**
  * Stale PR / Opportunity Detection
@@ -146,7 +145,7 @@ export function stalePROpportunityToInsight(
       gainPercent: opportunity.gainPercent,
     }),
     icon: 'lightning-bolt',
-    iconColor: insightIcon.opportunity,
+    iconTone: 'opportunity',
     body: t('insights.stalePr.body', {
       section: opportunity.sectionName,
       metric: metricLabel,
@@ -295,7 +294,7 @@ export function generateStalePRInsights(
       // well-visited section does not make the others' records solid.
       confidence: confidenceFrom('stale_pr', Math.min(...filtered.map((o) => o.traversalCount))),
       icon: 'lightning-bolt',
-      iconColor: insightIcon.opportunity,
+      iconTone: 'opportunity',
       title: t('insights.stalePr.groupTitle', { count: filtered.length }),
       subtitle: subtitleParts.join(', '),
       body:

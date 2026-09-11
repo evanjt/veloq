@@ -1,3 +1,4 @@
+import { IDLE_EXTENDED_FETCH, isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { useSyncDateRange, GpsSyncProgress } from '@/shared/app/SyncDateRangeStore';
 import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
 import type { TFunction } from 'i18next';
@@ -15,16 +16,19 @@ const idleProgress: GpsSyncProgress = {
 describe('useSyncDateRange', () => {
   beforeEach(() => {
     useSyncDateRange.setState({
-      isFetchingExtended: false,
+      extendedFetch: IDLE_EXTENDED_FETCH,
       gpsSyncProgress: idleProgress,
       isGpsSyncing: false,
     });
   });
 
-  it('sets isFetchingExtended synchronously on expandRange', () => {
+  it('reports the widened range running once the engine accepts the window', () => {
     const state = useSyncDateRange.getState();
     state.expandRange('2020-01-01', state.newest);
-    expect(useSyncDateRange.getState().isFetchingExtended).toBe(true);
+    expect(isExtendedFetchRunning(useSyncDateRange.getState().extendedFetch)).toBe(false);
+
+    useSyncDateRange.getState().windowAccepted();
+    expect(isExtendedFetchRunning(useSyncDateRange.getState().extendedFetch)).toBe(true);
   });
 });
 

@@ -19,7 +19,17 @@ import {
   formatTSS,
   formatCalories,
 } from '@/shared/format/format';
-import { colors, darkColors, typography, spacing, shadows, layout, brand, ink } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  shadows,
+  layout,
+  brand,
+  ink,
+  verdict,
+} from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { ActivityMapPreview } from './ActivityMapPreview';
@@ -233,7 +243,11 @@ export const ActivityCard = React.memo(
               style={styles.secondaryStat}
               accessibilityLabel={`${t('activity.power')}: ${formatPower(averagePower)} ${t('units.watts')}`}
             >
-              <MaterialCommunityIcons name="lightning-bolt" size={14} color={colors.warning} />
+              <MaterialCommunityIcons
+                name="lightning-bolt"
+                size={14}
+                color={isDark ? darkColors.warningAmber : colors.warningAmber}
+              />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatPower(averagePower)}
               </RNText>
@@ -244,7 +258,11 @@ export const ActivityCard = React.memo(
               style={styles.secondaryStat}
               accessibilityLabel={`${t('activity.calories')}: ${formatCalories(activity.calories)} ${t('units.kcal')}`}
             >
-              <MaterialCommunityIcons name="food-apple" size={14} color={colors.success} />
+              <MaterialCommunityIcons
+                name="food-apple"
+                size={14}
+                color={isDark ? darkColors.successDeep : colors.successDeep}
+              />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatCalories(activity.calories)}
               </RNText>
@@ -683,8 +701,8 @@ export const ActivityCard = React.memo(
 
 const styles = StyleSheet.create({
   cardWrapper: {
-    marginHorizontal: 12,
-    marginBottom: 12,
+    marginHorizontal: spacing.smPlus,
+    marginBottom: spacing.smPlus,
   },
   cardPressed: {
     transform: [{ scale: 0.98 }],
@@ -715,9 +733,9 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    paddingTop: 10,
-    paddingHorizontal: 12,
-    paddingBottom: 28,
+    paddingTop: spacing.smPlus,
+    paddingHorizontal: spacing.smPlus,
+    paddingBottom: spacing.lg,
     zIndex: 2,
   },
   overlayHeader: {
@@ -738,11 +756,11 @@ const styles = StyleSheet.create({
   routeTrendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
     marginLeft: spacing.sm,
     borderRadius: layout.borderRadiusMd,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xs,
     shadowColor: colors.shadowBlack,
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 2,
@@ -771,7 +789,7 @@ const styles = StyleSheet.create({
   overlayDateSubtitle: {
     fontSize: typography.caption.fontSize,
     fontWeight: '500',
-    marginTop: 1,
+    marginTop: spacing.xxs,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
@@ -786,29 +804,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingTop: 20,
-    paddingBottom: 2,
+    paddingHorizontal: spacing.smPlus,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxs,
   },
   rightColumn: {
     flexDirection: 'column',
     alignItems: 'flex-end',
-    gap: 2,
+    gap: spacing.xxs,
     marginLeft: spacing.sm,
     flexShrink: 1,
   },
   trendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   trendPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
     borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xxs,
     borderWidth: 1,
   },
   // PR pill - solid gold, high contrast
@@ -829,14 +847,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
     borderColor: colors.successLight,
   },
-  // Declining pill - solid muted
+  // Declining pill - the negative rung, the same verdict the section trend and
+  // the insight card draw. It was disabled-grey, so the same decline read as
+  // "off" here and as a judgement one card away. The light tone carries the
+  // pill in both themes, the way the improving pill carries one green in both:
+  // the ladder's dark rungs are sized for text on a surface, not for white
+  // text on a solid.
   decliningPillLight: {
-    backgroundColor: colors.textDisabled,
-    borderColor: colors.textMuted,
+    backgroundColor: verdict.negative.light,
+    borderColor: verdict.negative.dark,
   },
   decliningPillDark: {
-    backgroundColor: colors.gray600,
-    borderColor: colors.textMuted,
+    backgroundColor: verdict.negative.light,
+    borderColor: verdict.negative.dark,
   },
   trendCount: {
     fontSize: typography.bodyCompact.fontSize,
@@ -857,7 +880,7 @@ const styles = StyleSheet.create({
   statDot: {
     fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
-    marginHorizontal: 6,
+    marginHorizontal: spacing.xsPlus,
   },
   overlayLocation: {
     fontSize: typography.caption.fontSize,
@@ -868,29 +891,29 @@ const styles = StyleSheet.create({
   },
   dividerLine: {
     height: 1,
-    marginHorizontal: 12,
+    marginHorizontal: spacing.smPlus,
   },
   secondaryScroll: {
-    paddingTop: 2,
-    paddingBottom: 8,
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.sm,
   },
   secondaryStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 12,
+    paddingHorizontal: spacing.smPlus,
+    gap: spacing.smPlus,
   },
   secondaryStat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs,
   },
   secondaryStatValue: {
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
   },
   compactContent: {
-    padding: 12,
+    padding: spacing.smPlus,
   },
   compactHeader: {
     flexDirection: 'row',
@@ -911,20 +934,20 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   compactNoMapIcon: {
-    marginLeft: 6,
+    marginLeft: spacing.xsPlus,
     opacity: 0.5,
   },
   compactDateSubtitle: {
     fontSize: typography.caption.fontSize,
     fontWeight: '500',
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   compactPrimaryRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingTop: 6,
-    paddingBottom: 2,
+    paddingTop: spacing.xsPlus,
+    paddingBottom: spacing.xxs,
   },
   compactStatValue: {
     fontSize: typography.body.fontSize,

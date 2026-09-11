@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
   dualButtonDivider: {
     height: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    marginHorizontal: 8,
+    marginHorizontal: spacing.sm,
   },
   dualButtonDividerDark: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',

@@ -179,6 +179,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: typography.caption.fontSize,
     fontWeight: '400',
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
 });

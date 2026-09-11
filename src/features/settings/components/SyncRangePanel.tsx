@@ -8,6 +8,7 @@ import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { useActivityYearCounts } from '@/shared/app/useActivityYearCounts';
 import { formatLocalDate } from '@/shared/format/format';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { activitiesInRange, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
 import { settingsStyles } from './settingsStyles';
 import { brand, colors, colorWithOpacity, darkColors, spacing, typography, layout } from '@/theme';
@@ -22,7 +23,7 @@ export function SyncRangePanel() {
   const { data: yearCounts } = useActivityYearCounts();
 
   const syncOldest = useSyncDateRange((s) => s.oldest);
-  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
+  const isFetchingExtended = useSyncDateRange((s) => isExtendedFetchRunning(s.extendedFetch));
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
   const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
@@ -133,7 +134,7 @@ const styles = StyleSheet.create({
   toggleHint: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   sliderWrap: {
     paddingHorizontal: spacing.md,
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   progressBarFill: {
     height: '100%',

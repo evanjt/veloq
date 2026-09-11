@@ -26,6 +26,7 @@ import { useHasStrengthData } from '@/features/strength';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { colors, darkColors, spacing, amberBanner, layout, typography } from '@/theme';
@@ -177,7 +178,7 @@ export default function InsightsScreen() {
 
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
-  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
+  const isFetchingExtended = useSyncDateRange((s) => isExtendedFetchRunning(s.extendedFetch));
   const dataSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isDataSyncing = useSyncDateRange((s) => s.isGpsSyncing);
 
@@ -554,9 +555,9 @@ const styles = StyleSheet.create({
   disabledHint: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusMd,
     backgroundColor: 'rgba(245, 158, 11, 0.1)',
   },
@@ -612,7 +613,7 @@ const styles = StyleSheet.create({
   routeMessageBody: {
     fontSize: typography.caption.fontSize,
     color: amberBanner.light.text,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   routeMessageBodyDark: {
     color: amberBanner.dark.subtext,
@@ -647,6 +648,6 @@ const styles = StyleSheet.create({
     color: amberBanner.dark.text,
   },
   engineBannerClose: {
-    margin: -4,
+    margin: -spacing.xs,
   },
 });

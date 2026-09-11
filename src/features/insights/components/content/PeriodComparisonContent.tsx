@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   countLabel: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
     textAlign: 'center',
   },
   countLabelDark: {

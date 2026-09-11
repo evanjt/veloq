@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   statSubtext: {
     ...typography.micro,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   statSubtextDark: {
     color: darkColors.textSecondary,

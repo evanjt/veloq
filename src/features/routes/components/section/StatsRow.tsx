@@ -16,7 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { formatPace, formatSwimPace, formatDuration } from '@/shared/format/format';
-import { colors, colorWithOpacity, darkColors, typography, layout } from '@/theme';
+import { colors, colorWithOpacity, darkColors, typography, layout, spacing } from '@/theme';
 import type {
   DirectionBestRecord,
   DirectionSummaryStats,
@@ -98,13 +98,13 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.sm,
   },
   statsLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   statsDirection: {
     fontSize: typography.caption.fontSize,
@@ -112,10 +112,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   countBadge: {
-    paddingHorizontal: 5,
-    paddingVertical: 1,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusSm,
-    marginLeft: 2,
+    marginLeft: spacing.xxs,
   },
   countText: {
     fontSize: typography.micro.fontSize,
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   prBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs,
   },
   prTime: {
     fontSize: typography.caption.fontSize,

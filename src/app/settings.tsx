@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
   accountBadge: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   footerArea: {
     marginTop: spacing.lg,

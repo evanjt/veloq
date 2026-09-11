@@ -34,7 +34,7 @@ import {
   type TrendBandPoint,
 } from '@/features/routes/lib/scatterData';
 import { computeTimeAxisLabels, axisLabelsNeedDay } from '@/features/stats';
-import { colors, darkColors, layout, typography } from '@/theme';
+import { colors, darkColors, layout, typography, spacing } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type {
   DirectionBestRecord,
@@ -555,11 +555,11 @@ const styles = StyleSheet.create({
   eyeToggleRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingHorizontal: 12,
-    paddingBottom: 4,
+    paddingHorizontal: spacing.smPlus,
+    paddingBottom: spacing.xs,
   },
   eyeToggle: {
-    padding: 4,
+    padding: spacing.xs,
   },
   tapTarget: {
     ...StyleSheet.absoluteFill,
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: CHART_PADDING.left,
-    paddingBottom: 4,
+    paddingBottom: spacing.xs,
   },
   timeAxisLabel: {
     fontSize: typography.pillLabel.fontSize,

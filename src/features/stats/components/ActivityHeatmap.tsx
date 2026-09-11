@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     fontSize: typography.pillLabel.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 1,
+    marginBottom: spacing.xxs,
   },
   monthLabel: {
     fontSize: typography.pillLabel.fontSize,

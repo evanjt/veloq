@@ -240,14 +240,14 @@ const styles = StyleSheet.create({
   card: {
     width: 300,
     borderRadius: layout.borderRadius,
-    paddingVertical: 16,
+    paddingVertical: spacing.md,
     ...shadows.modal,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 14,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.sm,
   },
   title: {
@@ -257,24 +257,24 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   styleSection: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.smPlus,
   },
   sectionLabel: {
     fontSize: typography.caption.fontSize,
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
   styleRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 20,
+    gap: spacing.lg,
   },
   styleOption: {
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   styleCircle: {
     width: 48,
@@ -299,8 +299,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   toggleLabel: {
     fontSize: typography.bodyMedium.fontSize,
@@ -308,15 +308,15 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    marginHorizontal: 16,
-    marginVertical: 4,
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.xs,
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-    gap: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.smPlus,
+    gap: spacing.smPlus,
   },
   actionRowPressed: {
     opacity: 0.6,

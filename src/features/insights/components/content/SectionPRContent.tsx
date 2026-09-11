@@ -192,10 +192,10 @@ const styles = StyleSheet.create({
   sectionTitleRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   sportIcon: {
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   sectionTitle: {
     fontSize: typography.bodySmall.fontSize,
@@ -240,8 +240,8 @@ const styles = StyleSheet.create({
   contextChip: {
     backgroundColor: opacity.overlay.light,
     borderRadius: layout.borderRadiusMd,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
   },
   contextChipDark: {
     backgroundColor: opacity.overlayDark.medium,

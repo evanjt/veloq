@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontSize: typography.label.fontSize,
     color: 'rgba(255, 255, 255, 0.75)',
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   tipLabelDark: {
     color: 'rgba(255, 255, 255, 0.7)',

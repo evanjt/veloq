@@ -102,7 +102,7 @@ export const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   summaryValue: {
     fontSize: typography.body.fontSize,

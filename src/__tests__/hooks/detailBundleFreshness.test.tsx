@@ -30,7 +30,6 @@ function activityDetail(activityCount: number) {
     activityCount,
     sectionCount: 0,
     routeGroups: [],
-    totalRouteGroupCount: 0,
     matchedSections: [],
     customSections: [],
     encounters: [],

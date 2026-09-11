@@ -45,7 +45,15 @@ import { RecordingTitle } from '@/features/recording';
 import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { i18n } from '@/i18n';
-import { lightTheme, darkTheme, colors, darkColors, amberBanner, typography } from '@/theme';
+import {
+  lightTheme,
+  darkTheme,
+  colors,
+  darkColors,
+  amberBanner,
+  typography,
+  spacing,
+} from '@/theme';
 import {
   ShaderWarmup,
   OfflineBanner,
@@ -499,15 +507,15 @@ export default function RootLayout() {
                             colorScheme === 'dark'
                               ? amberBanner.dark.border
                               : amberBanner.light.border,
-                          paddingHorizontal: 16,
-                          paddingVertical: 10,
+                          paddingHorizontal: spacing.md,
+                          paddingVertical: spacing.sm,
                         }}
                       >
                         <View
                           style={{
                             flexDirection: 'row',
                             alignItems: 'center',
-                            gap: 8,
+                            gap: spacing.sm,
                           }}
                         >
                           <ActivityIndicator size="small" color={amberBanner.light.border} />
@@ -528,7 +536,7 @@ export default function RootLayout() {
                         {__DEV__ ? (
                           <Text
                             style={{
-                              marginTop: 4,
+                              marginTop: spacing.xs,
                               color:
                                 colorScheme === 'dark'
                                   ? amberBanner.dark.subtext

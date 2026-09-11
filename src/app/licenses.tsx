@@ -517,7 +517,7 @@ const styles = {
     ...typography.caption,
     backgroundColor: 'rgba(128, 128, 128, 0.2)',
     paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,
     overflow: 'hidden' as const,
   },
@@ -551,7 +551,7 @@ const styles = {
   },
   entryLicense: {
     ...typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   entryDescription: {
     ...typography.caption,

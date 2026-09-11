@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   },
   rowMeta: {
     fontSize: typography.caption.fontSize,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   emptyHint: {
     ...typography.bodySmall,

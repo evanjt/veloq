@@ -3,7 +3,16 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, statusBadge, layout, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  opacity,
+  verdictColor,
+  verdictFill,
+  layout,
+  typography,
+} from '@/theme';
 import type { Insight } from '@/types';
 
 interface FitnessMilestoneContentProps {
@@ -56,16 +65,19 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
           <View
             style={[
               styles.changeBadge,
-              { backgroundColor: isPositive ? statusBadge.good.bg : statusBadge.watch.bg },
+              { backgroundColor: verdictFill(isPositive ? 'positive' : 'negative', isDark) },
             ]}
           >
             <MaterialCommunityIcons
               name={isPositive ? 'arrow-up' : 'arrow-down'}
               size={16}
-              color={isPositive ? colors.success : colors.warning}
+              color={verdictColor(isPositive ? 'positive' : 'negative', isDark)}
             />
             <Text
-              style={[styles.changeText, { color: isPositive ? colors.success : colors.warning }]}
+              style={[
+                styles.changeText,
+                { color: verdictColor(isPositive ? 'positive' : 'negative', isDark) },
+              ]}
             >
               {changeStr} {changeUnit}
             </Text>
@@ -107,7 +119,7 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
               style={[
                 styles.timelineValue,
                 isDark && styles.timelineValueDark,
-                isPositive && styles.timelineValueGood,
+                isPositive && { color: verdictColor('positive', isDark) },
               ]}
             >
               {String(currentPoint.value)}
@@ -159,11 +171,11 @@ const styles = StyleSheet.create({
   changeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusMd,
     marginTop: spacing.xs,
-    gap: 4,
+    gap: spacing.xs,
   },
   changeText: {
     fontSize: typography.bodySmall.fontSize,
@@ -184,7 +196,7 @@ const styles = StyleSheet.create({
   timelineDotColumn: {
     width: 20,
     alignItems: 'center',
-    paddingTop: 4,
+    paddingTop: spacing.xs,
   },
   timelineDot: {
     width: 8,
@@ -200,7 +212,7 @@ const styles = StyleSheet.create({
     width: 2,
     flex: 1,
     minHeight: 20,
-    marginVertical: 2,
+    marginVertical: spacing.xxs,
   },
   timelineContent: {
     flex: 1,
@@ -210,7 +222,7 @@ const styles = StyleSheet.create({
   timelineLabel: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   timelineLabelDark: {
     color: darkColors.textSecondary,
@@ -223,14 +235,11 @@ const styles = StyleSheet.create({
   timelineValueDark: {
     color: darkColors.textPrimary,
   },
-  timelineValueGood: {
-    color: colors.success,
-  },
   contextCard: {
     backgroundColor: opacity.overlay.subtle,
     borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
-    gap: 4,
+    gap: spacing.xs,
   },
   contextCardDark: {
     backgroundColor: opacity.overlayDark.light,

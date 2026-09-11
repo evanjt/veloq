@@ -23,7 +23,7 @@ import {
   formatPerformanceDelta,
   formatShortDateWithYear,
 } from '@/shared/format/format';
-import { colors, darkColors, layout, typography } from '@/theme';
+import { colors, darkColors, layout, typography, spacing, verdictColor } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 
 /** Scatter chart point - adds the computed X coordinate to the base record. */
@@ -98,7 +98,7 @@ export function PerformanceTooltip({
                 name="trophy"
                 size={13}
                 color={colors.chartGold}
-                style={{ marginRight: 3 }}
+                style={{ marginRight: spacing.xs }}
               />
             )}
             <Text style={[styles.tooltipName, isDark && styles.textLight]} numberOfLines={1}>
@@ -124,7 +124,7 @@ export function PerformanceTooltip({
               <Text
                 style={[
                   styles.tooltipDelta,
-                  { color: delta.isFaster ? colors.success : colors.error },
+                  { color: verdictColor(delta.isFaster ? 'positive' : 'negative', isDark) },
                 ]}
               >
                 {' \u00b7 '}
@@ -219,8 +219,8 @@ export function PerformanceTooltip({
 const styles = StyleSheet.create({
   tooltipContainer: {
     minHeight: 52,
-    paddingHorizontal: 12,
-    paddingBottom: 10,
+    paddingHorizontal: spacing.smPlus,
+    paddingBottom: spacing.smPlus,
   },
   tooltipPlaceholder: {
     justifyContent: 'center',
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.background,
-    padding: 10,
+    padding: spacing.sm,
     borderRadius: layout.borderRadiusSm,
   },
   selectedTooltipDark: {
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   },
   tooltipLeft: {
     flex: 1,
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   tooltipNameRow: {
     flexDirection: 'row',
@@ -255,15 +255,15 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 1,
+    marginBottom: spacing.xxs,
     flex: 1,
   },
   lapBadge: {
     backgroundColor: colors.textMuted + '20',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   lapBadgeText: {
     fontSize: typography.micro.fontSize,
@@ -277,30 +277,30 @@ const styles = StyleSheet.create({
   tooltipMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   tooltipDate: {
     fontSize: typography.label.fontSize,
     color: colors.textMuted,
   },
   reverseBadge: {
-    padding: 1,
+    padding: spacing.xxs,
   },
   tooltipRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
   },
   referenceButton: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 2,
+    marginLeft: spacing.xxs,
   },
   excludeButton: {
-    padding: 2,
-    marginLeft: 4,
+    padding: spacing.xxs,
+    marginLeft: spacing.xs,
   },
   tooltipSpeed: {
     fontSize: typography.bodySmall.fontSize,

@@ -15,6 +15,7 @@ import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { Activity, ActivityDetail, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useReconnect, useSyncSettled } from '@/shared/app/useRetryTriggers';
 
 /**
@@ -64,6 +65,9 @@ function requestActivityWindow(oldest: string, newest: string): void {
   try {
     if (hasStarted(engine.syncActivitiesWindow(oldest, newest))) {
       requestedWindows.add(windowKey(oldest, newest));
+      // The download the surfaces name starts here and nowhere else, so this
+      // is where they are told it is running.
+      useSyncDateRange.getState().windowAccepted();
     }
   } catch {
     // A throw is a settled failure, so the key stays free for the next ask.

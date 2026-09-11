@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   },
   controlChip: {
     paddingHorizontal: layout.cardMargin,
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
     borderRadius: spacing.md,
     backgroundColor: colors.background,
     borderWidth: 1,
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
     paddingHorizontal: layout.cardMargin,
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
     borderRadius: spacing.md,
     borderWidth: 1,
     borderColor: 'transparent',

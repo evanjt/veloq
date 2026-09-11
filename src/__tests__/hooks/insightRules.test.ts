@@ -51,7 +51,7 @@ function makeInsight(overrides: Partial<Insight> = {}): Insight {
     priority: 2,
     title: 'Test insight',
     icon: 'trending-up',
-    iconColor: '#000',
+    iconTone: 'neutral',
     timestamp: NOW,
     isNew: false,
     ...overrides,

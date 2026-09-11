@@ -84,12 +84,12 @@ const styles = StyleSheet.create({
   },
   deviceContainer: {
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   deviceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   deviceText: {
     fontSize: typography.caption.fontSize,

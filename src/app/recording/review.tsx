@@ -250,8 +250,19 @@ export default function ReviewScreen() {
         {/* Queued success message */}
         {queuedMessage && (
           <View style={styles.queuedBanner}>
-            <MaterialCommunityIcons name="check-circle-outline" size={18} color={colors.success} />
-            <Text style={styles.queuedBannerText}>{queuedMessage}</Text>
+            <MaterialCommunityIcons
+              name="check-circle-outline"
+              size={18}
+              color={isDark ? darkColors.successDeep : colors.successDeep}
+            />
+            <Text
+              style={[
+                styles.queuedBannerText,
+                { color: isDark ? darkColors.successDeep : colors.successDeep },
+              ]}
+            >
+              {queuedMessage}
+            </Text>
           </View>
         )}
 
@@ -376,6 +387,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   // Banners
+  queuedBannerText: {
+    ...typography.caption,
+    flex: 1,
+  },
   queuedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -385,11 +400,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     marginTop: spacing.sm,
-  },
-  queuedBannerText: {
-    ...typography.caption,
-    color: colors.success,
-    flex: 1,
   },
   // Actions
   actions: {

@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   profileEmail: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   scopeContainer: {
     marginTop: spacing.xs,
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   scopeTitle: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   scopeRow: {
     flexDirection: 'row',

@@ -118,7 +118,7 @@ export function RoutePerformanceSection({
                     name="trophy"
                     size={11}
                     color={colors.chartGold}
-                    style={{ marginLeft: 2 }}
+                    style={{ marginLeft: spacing.xxs }}
                   />
                 )}
               </>
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   metaRow: {
     flexDirection: 'row',

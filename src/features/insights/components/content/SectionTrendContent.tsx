@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   sportIcon: {
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   sectionName: {
     flex: 1,
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     height: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   sectionMeta: {
     flexDirection: 'row',
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   chevronButton: {
-    padding: 4,
+    padding: spacing.xs,
   },
   expandedContent: {
     paddingHorizontal: spacing.sm,
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   legend: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
     paddingTop: spacing.xs,
     paddingHorizontal: spacing.xs,
   },

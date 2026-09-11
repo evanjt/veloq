@@ -122,7 +122,7 @@ export function SectionsListHeader({
               onPress={onAcceptAll}
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}
             >
               <MaterialCommunityIcons name="pin-outline" size={13} color={colors.primary} />
               <Text style={{ fontSize: typography.caption.fontSize, color: colors.primary }}>
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   summaryText: {
     fontSize: typography.bodyCompact.fontSize,

@@ -248,11 +248,11 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    paddingBottom: 4,
+    paddingBottom: spacing.xs,
   },
   setRow: {
     flexDirection: 'row',
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
   },
   setRowBorder: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     width: spacing.sm,
     height: spacing.sm,
     borderRadius: spacing.xs,
-    marginTop: 4,
+    marginTop: spacing.xs,
     marginRight: spacing.xs,
   },
   infoText: {

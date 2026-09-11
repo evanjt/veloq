@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   textLight: {
     color: colors.textOnDark,

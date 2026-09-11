@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   },
   rowText: {
     flex: 1,
-    gap: 2,
+    gap: spacing.xxs,
   },
   title: {
     ...typography.body,

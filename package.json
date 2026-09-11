@@ -84,11 +84,13 @@
     "lint:module-link": "node scripts/lint-module-link.mjs",
     "check:android-bundle": "node scripts/lint-android-bundle.mjs",
     "lint:window-dimensions": "node scripts/lint-window-dimensions.mjs",
+    "lint:verdict-palette": "node scripts/lint-verdict-palette.mjs",
+    "lint:mark-contrast": "node scripts/lint-mark-contrast.mjs",
     "coverage:rust": "node scripts/check-rust-coverage.mjs",
     "ffi:gate": "node scripts/ffi-timing-gate.mjs",
     "perf:coldstart": "node scripts/cold-start-scaling-harness.mjs",
     "audit": "npm run format:check && npm run audit:guards",
-    "audit:guards": "npm run check:expo && npm run check:android-prebuild && npm run ffi:check && npm run config:sports:check && npm run ffi:reach && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:render-engine-reads && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs && npm run lint:au-spelling && npm run lint:audit-ids && npm run lint:feature-imports && npm run lint:window-dimensions && npm run lint:module-link",
+    "audit:guards": "npm run check:expo && npm run check:android-prebuild && npm run ffi:check && npm run config:sports:check && npm run ffi:reach && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:render-engine-reads && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs && npm run lint:au-spelling && npm run lint:audit-ids && npm run lint:feature-imports && npm run lint:window-dimensions && npm run lint:verdict-palette && npm run lint:mark-contrast && npm run lint:module-link",
     "lint:cached": "npm run lint -- --cache"
   },
   "dependencies": {

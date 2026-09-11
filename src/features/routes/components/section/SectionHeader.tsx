@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.chart.sm,
     marginTop: spacing.chart.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
     paddingHorizontal: spacing.sm,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: opacity.overlay.scrim,

@@ -4,7 +4,7 @@ import { Canvas, Rect, Line as SkiaLine, Path, Skia, vec } from '@shopify/react-
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
-import { darkColors, colors, colorWithOpacity, typography } from '@/theme';
+import { darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
 import { getFormZone, FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
 import { getIntlLocale } from '@/shared/format/format';
 import { buildMonotoneSvg, useChartGestures } from '@/shared/charts';
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
   },
   labelColumn: {
     justifyContent: 'space-between',
-    paddingVertical: 1,
+    paddingVertical: spacing.xxs,
   },
   inlineLabel: {
     fontSize: typography.pillLabel.fontSize,

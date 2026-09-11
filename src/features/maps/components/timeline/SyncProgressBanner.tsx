@@ -16,8 +16,9 @@ import Animated, {
   cancelAnimation,
 } from 'react-native-reanimated';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
-import { colors, ink, typography } from '@/theme';
+import { colors, ink, typography, spacing } from '@/theme';
 
 interface SyncProgressBannerProps {
   /** Whether the banner is visible */
@@ -29,7 +30,7 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   // GPS sync progress from shared store
   const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
-  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
+  const isFetchingExtended = useSyncDateRange((s) => isExtendedFetchRunning(s.extendedFetch));
 
   const isProcessingRoutes =
     isGpsSyncing &&
@@ -137,9 +138,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
   },
   text: {
     color: colors.textOnDark,

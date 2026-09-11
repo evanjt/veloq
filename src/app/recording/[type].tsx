@@ -43,7 +43,7 @@ import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKe
 import { useSensorSession, useSensorIssue } from '@/features/sensors';
 import { useConsensusRoute } from '@/features/routes/hooks/useEngine';
 import { useRecordingHandlers } from '@/features/recording/hooks/useRecordingHandlers';
-import { colors } from '@/theme';
+import { colors, spacing } from '@/theme';
 import { styles } from '@/features/recording/RecordingScreen.styles';
 import type { ActivityType, DataFieldType } from '@/types';
 
@@ -271,7 +271,9 @@ export default function RecordingScreen() {
 
       {/* Controls, or the unlock track while locked */}
       {isLocked ? (
-        <View style={{ paddingTop: 8, paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }}>
+        <View
+          style={{ paddingTop: spacing.sm, paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }}
+        >
           <UnlockTrack onUnlock={unlock} />
         </View>
       ) : (

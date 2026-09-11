@@ -63,7 +63,7 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
             styles.typeText,
             isWork && !zoneColor && { color: colors.primary },
             isWork && zoneColor != null && { color: zoneColor },
-            isRecovery && { color: colors.success },
+            isRecovery && { color: isDark ? darkColors.successDeep : colors.successDeep },
           ]}
           numberOfLines={1}
         >
@@ -125,9 +125,9 @@ const styles = StyleSheet.create({
   intervalRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 7,
-    paddingHorizontal: 2,
-    gap: 6,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xxs,
+    gap: spacing.xsPlus,
   },
   intervalRowRecovery: {},
   intervalRowBorder: {
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 4,
+    gap: spacing.xs,
   },
   colStat: {
     fontSize: typography.caption.fontSize,

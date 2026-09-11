@@ -129,3 +129,20 @@ impl TileFetcher {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    /// A pan asks for two dozen tiles at once and every one of them can be a
+    /// miss. On HTTP/1.1 each opens its own connection and pays its own TLS
+    /// handshake; on HTTP/2 they share one. `reqwest` is pulled in with
+    /// `default-features = false` and `http2` is one of the defaults that
+    /// drops, which is how the tile client spent its first release unable to
+    /// negotiate it. Naming a builder method that exists only under the
+    /// feature fails the build if it is dropped again, which no runtime
+    /// assertion could do without a tile host to talk to.
+    #[test]
+    fn the_tile_client_can_negotiate_http2() {
+        let _: fn(reqwest::ClientBuilder) -> reqwest::ClientBuilder =
+            reqwest::ClientBuilder::http2_prior_knowledge;
+    }
+}

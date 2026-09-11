@@ -13,6 +13,7 @@ import {
   opacity,
   colorWithOpacity,
   layout,
+  insightToneColor,
 } from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
@@ -44,6 +45,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   }, [insight?.navigationTarget, onClose]);
 
   if (!insight) return null;
+  const toneColor = insightToneColor(insight.iconTone, isDark);
 
   // Content components for these categories already have embedded navigation
   // (e.g. tappable section names that go straight to the section detail page).
@@ -79,16 +81,9 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
           {/* Compact header row */}
           <View style={styles.headerRow}>
             <View
-              style={[
-                styles.iconCircle,
-                { backgroundColor: colorWithOpacity(insight.iconColor, 0.12) },
-              ]}
+              style={[styles.iconCircle, { backgroundColor: colorWithOpacity(toneColor, 0.12) }]}
             >
-              <MaterialCommunityIcons
-                name={insight.icon as never}
-                size={16}
-                color={insight.iconColor}
-              />
+              <MaterialCommunityIcons name={insight.icon as never} size={16} color={toneColor} />
             </View>
             <Text style={[styles.title, isDark && styles.titleDark]} numberOfLines={2}>
               {insight.title}

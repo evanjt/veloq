@@ -308,7 +308,12 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
               <Text style={[styles.paceText, { color: colors.primary }]}>{formattedPace}</Text>
             )}
             {avgMatchPercentage !== undefined && avgMatchPercentage > 0 && (
-              <Text style={[styles.matchPercent, { color: colors.success }]}>
+              <Text
+                style={[
+                  styles.matchPercent,
+                  { color: isDark ? darkColors.successDeep : colors.successDeep },
+                ]}
+              >
                 {Math.round(avgMatchPercentage)}% {t('routes.match')}
               </Text>
             )}
@@ -336,7 +341,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
               <MaterialCommunityIcons
                 name="checkbox-marked-circle-outline"
                 size={14}
-                color={colors.success}
+                color={isDark ? darkColors.successDeep : colors.successDeep}
               />
               <Text style={[styles.activityName, isDark && styles.textMuted]} numberOfLines={1}>
                 {name}
@@ -373,14 +378,14 @@ export const RouteRow = memo(RouteRowComponent, (prevProps, nextProps) => {
 const styles = StyleSheet.create({
   wrapper: {
     marginHorizontal: spacing.md,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadiusMd,
-    padding: 6,
+    padding: spacing.xsPlus,
     ...shadows.pill,
   },
   containerDark: {
@@ -422,12 +427,12 @@ const styles = StyleSheet.create({
   sportTypeIcons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: spacing.xxs,
     gap: spacing.sm,
   },
   metaText: {
@@ -437,7 +442,7 @@ const styles = StyleSheet.create({
   proximityTag: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    gap: 2,
+    gap: spacing.xxs,
   },
   proximityText: {
     fontSize: typography.micro.fontSize,
@@ -460,8 +465,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: layout.borderRadius,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    gap: 2,
+    paddingVertical: spacing.xxs,
+    gap: spacing.xxs,
   },
   countText: {
     fontSize: typography.bodyCompact.fontSize,
@@ -480,7 +485,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 10,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    marginTop: -2,
+    marginTop: -spacing.xxs,
   },
   expandedListDark: {
     backgroundColor: opacity.overlayDark.subtle,
@@ -489,7 +494,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
   activityName: {
     flex: 1,

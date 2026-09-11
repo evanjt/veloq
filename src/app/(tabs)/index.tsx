@@ -652,11 +652,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     paddingHorizontal: layout.screenPadding,
     paddingBottom: spacing.xs,
-    gap: 8,
+    gap: spacing.sm,
   },
   filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xsPlus,
     borderRadius: spacing.md,
     backgroundColor: opacity.overlay.light,
     borderWidth: 1,
@@ -718,7 +718,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: spacing.md,
-    gap: 8,
+    gap: spacing.sm,
   },
   footerText: {
     fontSize: typography.bodySmall.fontSize,

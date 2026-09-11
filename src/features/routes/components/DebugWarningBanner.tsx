@@ -56,14 +56,14 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
-    gap: 4,
+    gap: spacing.xs,
   },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    gap: spacing.sm,
+    paddingVertical: spacing.xsPlus,
+    paddingHorizontal: spacing.smPlus,
     borderRadius: spacing.xsPlus,
     borderLeftWidth: 3,
   },

@@ -26,10 +26,10 @@ export const styles = StyleSheet.create({
   actionPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
     borderRadius: layout.borderRadius,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   actionPillText: {
     fontSize: typography.caption.fontSize,
@@ -51,11 +51,11 @@ export const styles = StyleSheet.create({
   acceptChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
     borderWidth: 1,
-    gap: 4,
+    gap: spacing.xs,
   },
   acceptText: {
     fontSize: typography.bodyCompact.fontSize,
@@ -64,7 +64,7 @@ export const styles = StyleSheet.create({
   pinnedChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   pinnedText: {
     fontSize: typography.bodyCompact.fontSize,
@@ -122,11 +122,12 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.warning + '20',
     borderColor: colors.warning + '40',
   },
+  // The colour is the consumer's: amber has to be the deep tone on white and
+  // the light tone on near-black, and a stylesheet cannot read the theme.
   disabledBannerText: {
     flex: 1,
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
-    color: colors.warning,
   },
   mergeBanner: {
     flexDirection: 'row',

@@ -1,5 +1,6 @@
 import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 import { colors, darkColors, brand } from './colors';
+export type { VerdictRung, InsightTone } from './colors';
 
 export {
   colors,
@@ -24,6 +25,8 @@ export {
   statusBadge,
   verdict,
   verdictColor,
+  verdictFill,
+  insightToneColor,
   recording,
   amberBanner,
   redBanner,

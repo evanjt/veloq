@@ -12,9 +12,11 @@ import {
   opacity,
   layout,
   brand,
-  statusBadge,
+  verdictColor,
+  verdictFill,
   typography,
 } from '@/theme';
+import type { VerdictRung } from '@/theme';
 import type { StrengthBalancePair } from '@/types';
 
 import { formatSetCount, formatBalanceRatio } from '../lib/formatting';
@@ -24,6 +26,17 @@ interface StrengthBalanceViewProps {
   visibleBalancePairs: StrengthBalancePair[];
   featuredBalancePair: StrengthBalancePair | null;
   periodLabel: string;
+}
+
+/**
+ * A balance status is a verdict, so it draws from the one ladder rather than
+ * a palette of its own. `watch` is the caution rung, a warning about what
+ * comes next; `imbalanced` is a judgement already made, so it is negative.
+ */
+function balanceRung(status: string): VerdictRung {
+  if (status === 'balanced') return 'positive';
+  if (status === 'watch') return 'caution';
+  return 'negative';
 }
 
 export const StrengthBalanceView = React.memo(function StrengthBalanceView({
@@ -70,17 +83,15 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
           <View
             style={[
               styles.balanceHeroBadge,
-              featuredBalancePair.status === 'balanced'
-                ? styles.balanceHeroBadgeBalanced
-                : styles.balanceHeroBadgeAlert,
+              {
+                backgroundColor: verdictFill(balanceRung(featuredBalancePair.status), isDark, true),
+              },
             ]}
           >
             <Text
               style={[
                 styles.balanceHeroBadgeText,
-                featuredBalancePair.status === 'balanced'
-                  ? styles.balanceHeroBadgeTextBalanced
-                  : styles.balanceHeroBadgeTextAlert,
+                { color: verdictColor(balanceRung(featuredBalancePair.status), isDark) },
               ]}
             >
               {formatBalanceRatio(featuredBalancePair)}
@@ -120,21 +131,13 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
             <View
               style={[
                 styles.balanceStatusBadge,
-                pair.status === 'balanced'
-                  ? styles.balanceStatusBalanced
-                  : pair.status === 'watch'
-                    ? styles.balanceStatusWatch
-                    : styles.balanceStatusImbalanced,
+                { backgroundColor: verdictFill(balanceRung(pair.status), isDark) },
               ]}
             >
               <Text
                 style={[
                   styles.balanceStatusText,
-                  pair.status === 'balanced'
-                    ? styles.balanceStatusTextBalanced
-                    : pair.status === 'watch'
-                      ? styles.balanceStatusTextWatch
-                      : styles.balanceStatusTextImbalanced,
+                  { color: verdictColor(balanceRung(pair.status), isDark) },
                 ]}
               >
                 {pair.status === 'balanced'
@@ -248,32 +251,20 @@ const styles = StyleSheet.create({
   balanceSubtitle: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   balanceSubtitleDark: {
     color: darkColors.textSecondary,
   },
   balanceHeroBadge: {
     borderRadius: layout.borderRadiusMd,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  balanceHeroBadgeBalanced: {
-    backgroundColor: statusBadge.good.bg,
-  },
-  balanceHeroBadgeAlert: {
-    backgroundColor: statusBadge.alert.bg,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
   },
   balanceHeroBadgeText: {
     fontSize: typography.caption.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
-  },
-  balanceHeroBadgeTextBalanced: {
-    color: statusBadge.good.text,
-  },
-  balanceHeroBadgeTextAlert: {
-    color: statusBadge.watch.text,
   },
   balanceHeroText: {
     fontSize: typography.bodyCompact.fontSize,
@@ -312,31 +303,13 @@ const styles = StyleSheet.create({
   },
   balanceStatusBadge: {
     borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  balanceStatusBalanced: {
-    backgroundColor: statusBadge.good.bg,
-  },
-  balanceStatusWatch: {
-    backgroundColor: statusBadge.watch.bg,
-  },
-  balanceStatusImbalanced: {
-    backgroundColor: statusBadge.bad.bg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   balanceStatusText: {
     fontSize: typography.label.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
-  },
-  balanceStatusTextBalanced: {
-    color: statusBadge.good.text,
-  },
-  balanceStatusTextWatch: {
-    color: statusBadge.watch.text,
-  },
-  balanceStatusTextImbalanced: {
-    color: statusBadge.bad.text,
   },
   balanceValueRow: {
     flexDirection: 'row',
@@ -381,7 +354,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginTop: 6,
+    marginTop: spacing.xsPlus,
   },
   balanceRatioTextDark: {
     color: darkColors.textPrimary,
@@ -401,7 +374,7 @@ const styles = StyleSheet.create({
   balanceTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   modalBackdrop: {
     flex: 1,
@@ -441,7 +414,7 @@ const styles = StyleSheet.create({
   modalPair: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textPrimary,
-    paddingVertical: 1,
+    paddingVertical: spacing.xxs,
   },
   modalPairDark: {
     color: darkColors.textPrimary,
@@ -458,7 +431,7 @@ const styles = StyleSheet.create({
   modalCloseButton: {
     marginTop: spacing.sm,
     alignSelf: 'flex-end',
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
     paddingHorizontal: spacing.md,
     borderRadius: layout.borderRadiusSm,
     backgroundColor: opacity.overlay.subtle,

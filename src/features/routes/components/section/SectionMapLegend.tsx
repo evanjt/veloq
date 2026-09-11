@@ -51,9 +51,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: spacing.sm,
     top: spacing.sm,
-    gap: 4,
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
     borderRadius: layout.borderRadiusMd,
     backgroundColor: colors.surface,
     ...shadows.card,
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   lineSwatch: {
     width: 16,

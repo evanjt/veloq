@@ -6,7 +6,17 @@ import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, shadows, ink, layout, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  opacity,
+  shadows,
+  ink,
+  layout,
+  typography,
+  verdictColor,
+} from '@/theme';
 import { DataPointRow } from './DataPointRow';
 import { formatDuration } from '@/shared/format/format';
 import type { InsightSupportingData } from '@/types';
@@ -24,11 +34,14 @@ function getTrendIcon(trend?: number): string {
   return 'minus';
 }
 
+// A rise and a fall are the two polarity rungs. This used to answer a fall
+// with `colors.warning` while the sparkline below answered the same fall with
+// `colors.error`, so one panel drew one verdict in two colours.
 function getTrendColor(trend?: number, isDark?: boolean): string {
-  if (trend == null) return isDark ? darkColors.textSecondary : colors.textSecondary;
-  if (trend > 0) return colors.success;
-  if (trend < 0) return colors.warning;
-  return isDark ? darkColors.textSecondary : colors.textSecondary;
+  if (trend == null) return verdictColor('neutral', !!isDark);
+  if (trend > 0) return verdictColor('positive', !!isDark);
+  if (trend < 0) return verdictColor('negative', !!isDark);
+  return verdictColor('neutral', !!isDark);
 }
 
 function computeSparklineTrend(data: number[]): { direction: string; change: string } {
@@ -97,10 +110,10 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
   );
 
   const trendColor = useMemo(() => {
-    if (!sparklineTrend) return colors.success;
-    if (sparklineTrend.direction === 'trending-up') return colors.success;
-    if (sparklineTrend.direction === 'trending-down') return colors.error;
-    return isDark ? darkColors.textSecondary : colors.textSecondary;
+    if (!sparklineTrend) return verdictColor('positive', isDark);
+    if (sparklineTrend.direction === 'trending-up') return verdictColor('positive', isDark);
+    if (sparklineTrend.direction === 'trending-down') return verdictColor('negative', isDark);
+    return verdictColor('neutral', isDark);
   }, [sparklineTrend, isDark]);
 
   return (
@@ -129,8 +142,12 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
                 <Text
                   style={[
                     styles.sparklineChange,
-                    sparklineTrend.direction === 'trending-up' && styles.sparklinePositive,
-                    sparklineTrend.direction === 'trending-down' && styles.sparklineNegative,
+                    sparklineTrend.direction === 'trending-up' && {
+                      color: verdictColor('positive', isDark),
+                    },
+                    sparklineTrend.direction === 'trending-down' && {
+                      color: verdictColor('negative', isDark),
+                    },
                   ]}
                 >
                   {sparklineTrend.change}
@@ -191,19 +208,19 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
               size={16}
               color={
                 comparison.change.context === 'good'
-                  ? colors.success
+                  ? verdictColor('positive', isDark)
                   : comparison.change.context === 'concern'
-                    ? colors.error
-                    : isDark
-                      ? darkColors.textSecondary
-                      : colors.textSecondary
+                    ? verdictColor('negative', isDark)
+                    : verdictColor('neutral', isDark)
               }
             />
             <Text
               style={[
                 styles.comparisonChangeText,
-                comparison.change.context === 'good' && styles.changePositive,
-                comparison.change.context === 'concern' && styles.changeNegative,
+                comparison.change.context === 'good' && { color: verdictColor('positive', isDark) },
+                comparison.change.context === 'concern' && {
+                  color: verdictColor('negative', isDark),
+                },
               ]}
             >
               {String(comparison.change.value)}
@@ -335,12 +352,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
   },
-  sparklinePositive: {
-    color: colors.success,
-  },
-  sparklineNegative: {
-    color: colors.error,
-  },
   // Comparison
   comparisonCard: {
     borderRadius: layout.borderRadiusMd,
@@ -393,7 +404,7 @@ const styles = StyleSheet.create({
   comparisonLabel: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   comparisonLabelDark: {
     color: darkColors.textSecondary,
@@ -409,12 +420,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
-  },
-  changePositive: {
-    color: colors.success,
-  },
-  changeNegative: {
-    color: colors.error,
   },
   // Sections
   sectionsContainer: {

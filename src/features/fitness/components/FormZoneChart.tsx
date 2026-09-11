@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 2,
+    paddingHorizontal: spacing.xxs,
     borderRadius: spacing.xxs,
   },
   axisLabelDark: {
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: layout.borderRadiusFull,
-    marginRight: 3,
+    marginRight: spacing.xs,
   },
   zoneLabel: {
     fontSize: typography.pillLabel.fontSize,

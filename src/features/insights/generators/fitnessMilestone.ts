@@ -2,7 +2,7 @@ import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import type { Insight, FtpTrend, PaceTrend, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
-import { insightIcon } from '@/theme';
+import type { InsightTone } from '@/theme';
 
 const YEAR_2000_MS = 946_684_800_000;
 
@@ -32,7 +32,7 @@ function addPaceMilestoneInsight(
   options: {
     id: string;
     icon: string;
-    iconColor: string;
+    iconTone: InsightTone;
     paceUnit: string;
     changeUnit: string;
     formatValue: (speedMetersPerSecond: number) => string;
@@ -63,7 +63,7 @@ function addPaceMilestoneInsight(
       category: 'fitness_milestone',
       priority: 2,
       icon: options.icon as Insight['icon'],
-      iconColor: options.iconColor,
+      iconTone: options.iconTone,
       title: t('insights.paceImproved', {
         delta: `${deltaSecs}${options.changeUnit}`,
       }),
@@ -131,7 +131,7 @@ export function generateFitnessMilestoneInsights(
           category: 'fitness_milestone',
           priority: 2,
           icon: 'lightning-bolt',
-          iconColor: insightIcon.caution,
+          iconTone: 'positive',
           title: t('insights.ftpIncrease', {
             current: Math.round(ftp.latestFtp),
             change: delta,
@@ -176,7 +176,7 @@ export function generateFitnessMilestoneInsights(
   addPaceMilestoneInsight(insights, paceTrend ?? null, now, t, {
     id: 'fitness_milestone-pace',
     icon: 'run-fast',
-    iconColor: insightIcon.positive,
+    iconTone: 'positive',
     paceUnit: '/km',
     changeUnit: 's/km',
     formatValue: (speedMetersPerSecond) => formatPaceCompact(speedMetersPerSecond),
@@ -185,7 +185,7 @@ export function generateFitnessMilestoneInsights(
   addPaceMilestoneInsight(insights, swimPaceTrend ?? null, now, t, {
     id: 'fitness_milestone-swim-pace',
     icon: 'swim',
-    iconColor: insightIcon.info,
+    iconTone: 'info',
     paceUnit: '/100m',
     changeUnit: 's/100m',
     formatValue: (speedMetersPerSecond) => formatSwimPace(speedMetersPerSecond),

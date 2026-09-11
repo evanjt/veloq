@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   },
   heroCol: {
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   heroLabel: {
     fontSize: typography.bodyCompact.fontSize,
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   zoneBarContainer: {
-    gap: 4,
+    gap: spacing.xs,
   },
   zoneBar: {
     flexDirection: 'row',

@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: typography.caption.fontSize,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   value: {
     fontSize: typography.body.fontSize,

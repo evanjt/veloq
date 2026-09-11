@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   expandButton: {
     flexDirection: 'row',

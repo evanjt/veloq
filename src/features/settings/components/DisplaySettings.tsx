@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   variantChip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm + 4,
     backgroundColor: colors.background,
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   dialectLegendChip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm + 4,
     borderWidth: 1.5,

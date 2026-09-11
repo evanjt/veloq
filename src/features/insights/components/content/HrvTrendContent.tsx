@@ -7,7 +7,15 @@ import { Canvas, Path, LinearGradient, vec, Line as SkiaLine } from '@shopify/re
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  opacity,
+  layout,
+  typography,
+  insightToneColor,
+} from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { polylineSvgPath, useChartColors } from '@/shared/charts';
 import type { Insight } from '@/types';
@@ -82,7 +90,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
   const latestValue = typeof latestPoint?.value === 'number' ? latestPoint.value : null;
   const daysCount = typeof daysPoint?.value === 'number' ? daysPoint.value : sparklineData?.length;
 
-  const trendColor = insight.iconColor;
+  const trendColor = insightToneColor(insight.iconTone, isDark);
 
   const { linePath, areaPath, yMin, yMax, yTicks } = useMemo(() => {
     if (!sparklineData || sparklineData.length < 2 || chartWidth <= 0) {
@@ -254,7 +262,7 @@ const styles = StyleSheet.create({
   valueRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 4,
+    gap: spacing.xs,
   },
   hrvValue: {
     fontSize: typography.headlineNumber.fontSize,

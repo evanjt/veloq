@@ -176,8 +176,8 @@ const styles = StyleSheet.create({
     ...shadows.tealGlow,
   },
   actionGradient: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingVertical: spacing.smPlus,
+    paddingHorizontal: spacing.lg,
   },
   actionText: {
     color: colors.textOnDark,

@@ -120,7 +120,11 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             style={styles.secondaryStat}
             accessibilityLabel={`${t('activity.power')}: ${formatPower(averagePower)} ${t('units.watts')}`}
           >
-            <MaterialCommunityIcons name="lightning-bolt" size={14} color={colors.warning} />
+            <MaterialCommunityIcons
+              name="lightning-bolt"
+              size={14}
+              color={isDark ? darkColors.warningAmber : colors.warningAmber}
+            />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatPower(averagePower)}
             </RNText>
@@ -131,7 +135,11 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             style={styles.secondaryStat}
             accessibilityLabel={`${t('activity.calories')}: ${formatCalories(activity.calories)} ${t('units.kcal')}`}
           >
-            <MaterialCommunityIcons name="food-apple" size={14} color={colors.success} />
+            <MaterialCommunityIcons
+              name="food-apple"
+              size={14}
+              color={isDark ? darkColors.successDeep : colors.successDeep}
+            />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatCalories(activity.calories)}
             </RNText>
@@ -271,8 +279,8 @@ export const StrengthActivityCard = React.memo(StrengthActivityCardInner);
 
 const styles = StyleSheet.create({
   cardWrapper: {
-    marginHorizontal: 12,
-    marginBottom: 12,
+    marginHorizontal: spacing.smPlus,
+    marginBottom: spacing.smPlus,
   },
   cardPressed: {
     transform: [{ scale: 0.98 }],
@@ -303,14 +311,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: spacing.smPlus,
   },
   strengthBodies: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   strengthStats: {
-    gap: 10,
+    gap: spacing.sm,
   },
   strengthStatRow: {},
   strengthStatValue: {
@@ -337,9 +345,9 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    paddingTop: 10,
-    paddingHorizontal: 12,
-    paddingBottom: 28,
+    paddingTop: spacing.smPlus,
+    paddingHorizontal: spacing.smPlus,
+    paddingBottom: spacing.lg,
     zIndex: 2,
   },
   overlayHeader: {
@@ -367,28 +375,28 @@ const styles = StyleSheet.create({
   overlayDateSubtitle: {
     fontSize: typography.caption.fontSize,
     fontWeight: '500',
-    marginTop: 1,
+    marginTop: spacing.xxs,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   dividerLine: {
     height: 1,
-    marginHorizontal: 12,
+    marginHorizontal: spacing.smPlus,
   },
   secondaryScroll: {
-    paddingTop: 2,
-    paddingBottom: 8,
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.sm,
   },
   secondaryStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 12,
+    paddingHorizontal: spacing.smPlus,
+    gap: spacing.smPlus,
   },
   secondaryStat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs,
   },
   secondaryStatValue: {
     fontSize: typography.caption.fontSize,

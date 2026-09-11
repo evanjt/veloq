@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   comparisonLabel: {
     fontSize: typography.micro.fontSize,

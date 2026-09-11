@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   statLabel: {
     fontSize: typography.bodyCompact.fontSize,
@@ -548,16 +548,16 @@ const styles = StyleSheet.create({
   expandButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
     marginTop: spacing.xs,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   expandText: {
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   idList: {
-    marginTop: 4,
+    marginTop: spacing.xs,
     paddingLeft: spacing.sm,
   },
   idText: {
@@ -568,8 +568,8 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.background,
     borderRadius: layout.borderRadiusSm,
@@ -638,8 +638,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
+    gap: spacing.sm,
+    paddingVertical: spacing.smPlus,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.error,
     borderRadius: layout.borderRadiusSm,
