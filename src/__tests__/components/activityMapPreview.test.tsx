@@ -41,6 +41,7 @@ jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
 jest.mock('@/features/maps/lib/storage/terrainPreviewCache', () => ({
   hasTerrainPreview: (id: string, style: string, is3D: boolean) =>
     mockCached.has(mockKey(id, style, is3D)),
+  isTerrainPreviewDowngraded: () => false,
   getTerrainPreviewUri: (id: string, style: string, is3D: boolean) =>
     `file:///snapshots/${mockKey(id, style, is3D)}.jpg`,
   isPrioritySnapshot: () => false,

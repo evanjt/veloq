@@ -3,7 +3,7 @@
  * refresh.
  * Expected behaviour: the failure is retried once the queue goes idle, silently
  * and once. Pull-to-refresh is the only other way back, and a card that never
- * gets one shows the route line for good.
+ * gets one keeps the no-map mark for good.
  */
 
 import React from 'react';
@@ -112,7 +112,7 @@ describe('the snapshot pool retries a failure when the queue goes idle', () => {
     expect(rendered()).toEqual(['a1', 'a1', 'a1']);
   });
 
-  it('retries once and then leaves the card to the route line', () => {
+  it('retries once and then leaves the card with no map', () => {
     pool().requestSnapshot(request('a1'));
     for (let i = 1; i <= 4; i++) {
       post({ type: 'snapshotError', workerId: 0, activityId: 'a1', error: 'tiles', gen: i });

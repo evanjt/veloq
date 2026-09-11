@@ -62,7 +62,7 @@ jest.mock('@/features/activity/components/ActivityMapPreview', () => {
           initialAttribution="© swisstopo © IGN France © Sentinel-2 cloudless by EOX"
           onClearanceChange={onAttributionClearanceChange}
         />
-        {/* Stands in for the route-line fallback, which draws no basemap. */}
+        {/* Stands in for a preview with no basemap, which owes no credit. */}
         <Pressable
           testID="preview-drops-basemap"
           onPress={() => onAttributionClearanceChange?.(0)}
@@ -145,7 +145,7 @@ describe('the feed card clears the map attribution', () => {
     expect(bottomPaddingBottom()).toBeGreaterThanOrEqual(oneLine);
   });
 
-  it('takes the band back when the preview falls back to the route line', () => {
+  it('takes the band back when the preview draws no basemap', () => {
     renderCard();
     expect(bottomPaddingBottom()).toBeGreaterThan(0);
 

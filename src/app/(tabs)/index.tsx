@@ -47,8 +47,6 @@ import {
 import {
   initTerrainPreviewCache,
   consumePendingSnapshots,
-  signalSnapshotNeeded,
-  setPrioritySnapshotIds,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { initCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
@@ -105,11 +103,7 @@ export default function FeedScreen() {
     // Check for activities ingested by background notification task -
     // mount WebView workers immediately instead of waiting 500ms
     consumePendingSnapshots().then((pending) => {
-      if (pending.length > 0) {
-        setPrioritySnapshotIds(pending);
-        setSnapshotWebViewReady(true);
-        signalSnapshotNeeded();
-      }
+      if (pending.length > 0) setSnapshotWebViewReady(true);
     });
   }, []);
 

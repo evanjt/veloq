@@ -82,7 +82,7 @@ export async function initTerrainPreviewCache(): Promise<void> {
     }
 
     const files = await FileSystem.readDirectoryAsync(TERRAIN_DIR);
-    cachedKeys = files.filter((f) => f.endsWith('.jpg')).map((f) => f.replace('.jpg', ''));
+    cachedKeys = await orderByWriteTime(files.filter((f) => f.endsWith('.jpg')));
     initialized = true;
     for (const cb of cacheReadyListeners) cb();
   } catch {
@@ -90,6 +90,26 @@ export async function initTerrainPreviewCache(): Promise<void> {
     initialized = true;
     for (const cb of cacheReadyListeners) cb();
   }
+}
+
+/**
+ * The index is ordered by insertion, and eviction takes the front of it, so
+ * rebuilding it in directory order evicts whatever the filesystem happened to
+ * name first. That is not the oldest preview and can be the card on screen,
+ * which then re-renders and evicts its neighbour in turn. The write time is
+ * the only record of insertion order that survives a restart, since a filename
+ * is all this cache keeps on disk. A file whose time cannot be read sorts
+ * oldest, so it is evicted before a preview whose age is known.
+ */
+async function orderByWriteTime(files: string[]): Promise<string[]> {
+  const dated = await Promise.all(
+    files.map(async (f) => {
+      const info = await FileSystem.getInfoAsync(`${TERRAIN_DIR}${f}`);
+      const at = info.exists && 'modificationTime' in info ? info.modificationTime : undefined;
+      return { key: f.replace('.jpg', ''), at: at ?? 0 };
+    })
+  );
+  return dated.sort((a, b) => a.at - b.at).map((d) => d.key);
 }
 
 type CacheReadyListener = () => void;
@@ -198,9 +218,6 @@ export async function saveTerrainPreview(
   cachedKeys = cachedKeys.filter((k) => k !== key);
   cachedKeys.push(key);
 
-  // Fresh preview saved, so the activity no longer needs the priority slot
-  prioritySnapshotIds.delete(activityId);
-
   return filePath;
 }
 
@@ -285,45 +302,16 @@ export async function getTerrainPreviewCacheSize(): Promise<number> {
   }
 }
 
-const prioritySnapshotIds = new Set<string>();
-
-/**
- * Mark activity IDs as needing priority snapshot generation.
- * Called by the feed screen after consuming the pending queue.
- */
-export function setPrioritySnapshotIds(ids: string[]): void {
-  for (const id of ids) {
-    prioritySnapshotIds.add(id);
-  }
-}
-
-/**
- * Check whether an activity has priority snapshot status.
- */
-export function isPrioritySnapshot(activityId: string): boolean {
-  return prioritySnapshotIds.has(activityId);
-}
-
-/**
- * Clear priority status for an activity (called after snapshot is requested).
- */
-export function clearPrioritySnapshot(activityId: string): void {
-  prioritySnapshotIds.delete(activityId);
-}
-
 // ============================================================================
-// Demand-driven snapshot worker mounting
-// ============================================================================
-
-type SnapshotNeededListener = () => void;
-let snapshotNeededListener: SnapshotNeededListener | null = null;
-
-export function signalSnapshotNeeded(): void {
-  snapshotNeededListener?.();
-}
-
-// ============================================================================
-// Pending snapshot queue (background task → foreground generation)
+// Pending snapshot queue (background task -> foreground generation)
+//
+// All the list does is mount the render pool without waiting out its 500 ms
+// defer. It used to also fill a priority set and ring a listener, and neither
+// reached the queue: the set's only reader cleared it, and the listener was
+// declared and never assigned. Previews are rendered on demand and there is no
+// build-ahead pass, so there is no background job for the list to seed and the
+// set had nothing to become. The one priority the queue honours is an athlete
+// changing a single card's map.
 // ============================================================================
 
 const PENDING_SNAPSHOTS_KEY = 'veloq-pending-terrain-snapshots';

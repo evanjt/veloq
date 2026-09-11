@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Platform, Text as RNText } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useMetricSystem } from '@/shared/app';
@@ -191,15 +191,6 @@ export const ActivityCard = React.memo(
     // Start from the single-line estimate so the first paint is already clear,
     // then take the measured height once the pill has laid out.
     const [attributionClearance, setAttributionClearance] = useState(ATTRIBUTION_CLEARANCE);
-
-    // Extract PR section GPS track indices for gold highlighting on map preview
-    const prSectionIndices = useMemo(() => {
-      if (!sectionHighlights) return undefined;
-      const prs = sectionHighlights.filter((h) => h.isPr && h.startIndex < h.endIndex);
-      return prs.length > 0
-        ? prs.map((h) => ({ startIndex: h.startIndex, endIndex: h.endIndex }))
-        : undefined;
-    }, [sectionHighlights]);
 
     const compactTextColor = isDark ? darkColors.textPrimary : colors.textPrimary;
     const compactMutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -436,7 +427,6 @@ export const ActivityCard = React.memo(
               snapshotRef={snapshotRef}
               snapshotReady={snapshotReady}
               startupTrack={startupTrack}
-              prSectionIndices={prSectionIndices}
               onAttributionClearanceChange={setAttributionClearance}
             />
 

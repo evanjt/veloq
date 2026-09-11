@@ -39,6 +39,18 @@ export interface SnapshotRequest {
    * it goes to the head of the queue and survives an overflow (B416).
    */
   priority?: boolean;
+  /**
+   * The card already holds a stand-in for this render and is asking for the
+   * one it wanted. Capped per render identity, because a card holding a
+   * downgrade asks again every time it mounts.
+   */
+  upgrade?: boolean;
+  /**
+   * This flat render is standing in for a drape that could not be drawn, so it
+   * is saved under the drape's key as a downgrade rather than as a flat render
+   * the athlete chose.
+   */
+  standIn?: boolean;
   _retryAttempt?: number;
 }
 
