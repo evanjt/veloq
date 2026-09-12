@@ -496,6 +496,23 @@ pub enum BackfillRun {
 // The queue
 // ============================================================================
 
+/// The backfill queue, newest first. The order is what makes a scrolling
+/// athlete's newest activities convert first, and it is worth a sort.
+const ELEVATION_QUEUE_SQL: &str = "SELECT g.activity_id, a.sport_type
+               FROM gps_tracks g
+               JOIN activities a ON a.id = g.activity_id
+              WHERE g.elevation_state = ?1
+              ORDER BY a.start_date IS NULL, a.start_date DESC, g.activity_id";
+
+/// How long that queue is, without building it. Both launch triggers ask, and
+/// neither cares about the order, so counting must not pay for it. The join
+/// stays: a stored track whose activity row has gone is not in the queue, so a
+/// bare count over `gps_tracks` would answer a different question.
+const ELEVATION_REMAINING_SQL: &str = "SELECT COUNT(*)
+               FROM gps_tracks g
+               JOIN activities a ON a.id = g.activity_id
+              WHERE g.elevation_state = ?1";
+
 impl PersistentEngine {
     /// The backfill queue: every stored track upstream has not been asked
     /// about, with the sport its re-ingest has to preserve.
@@ -513,13 +530,7 @@ impl PersistentEngine {
     /// Newest first: a user scrolling their feed after an update sees the
     /// activities they care about most convert first.
     pub fn tracks_missing_elevation(&self) -> SqlResult<Vec<(String, String)>> {
-        let mut stmt = self.db.prepare(
-            "SELECT g.activity_id, a.sport_type
-               FROM gps_tracks g
-               JOIN activities a ON a.id = g.activity_id
-              WHERE g.elevation_state = ?1
-              ORDER BY a.start_date IS NULL, a.start_date DESC, g.activity_id",
-        )?;
+        let mut stmt = self.db.prepare(ELEVATION_QUEUE_SQL)?;
         let rows = stmt.query_map(
             params![i64::from(crate::persistence::ELEVATION_STATE_UNKNOWN)],
             |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
@@ -577,7 +588,13 @@ impl PersistentEngine {
     /// triggers treat a zero as the definitive "nothing left", one of them by
     /// stamping the app version, and a locked database at launch is ordinary.
     pub fn elevation_backfill_remaining(&self) -> SqlResult<u64> {
-        self.tracks_missing_elevation().map(|q| q.len() as u64)
+        self.db
+            .query_row(
+                ELEVATION_REMAINING_SQL,
+                params![i64::from(crate::persistence::ELEVATION_STATE_UNKNOWN)],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|n| n.max(0) as u64)
     }
 
     /// One track's elevation provenance, or `None` when no track is stored.
@@ -1637,6 +1654,152 @@ mod tests {
             .unwrap_or_else(|e| e.into_inner()) = None;
 
         assert!(matches!(answer, Err(crate::VeloqError::Database { .. })));
+    }
+
+    /// The count is asked twice per launch, by both triggers, so it must not
+    /// pay for the queue's order. A plan that sorts is a plan that materialised
+    /// every row to do it.
+    #[test]
+    fn counting_the_queue_neither_sorts_nor_scans_activities_twice() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("plan.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+
+        let plan = query_plan(&engine, ELEVATION_REMAINING_SQL);
+
+        assert!(
+            !plan.contains("TEMP B-TREE"),
+            "counting must not sort, the plan was: {plan}"
+        );
+    }
+
+    /// The queue's own read still sorts, and should: the order is what makes a
+    /// scrolling athlete's newest activities convert first.
+    #[test]
+    fn reading_the_queue_still_takes_its_order() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("plan.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+
+        let plan = query_plan(&engine, ELEVATION_QUEUE_SQL);
+
+        assert!(plan.contains("TEMP B-TREE"), "the plan was: {plan}");
+    }
+
+    /// The count and the queue answer the same question, so they have to agree.
+    /// The join cannot make them disagree: `gps_tracks.activity_id` is a
+    /// foreign key onto `activities`, enforced, so a stored track with no
+    /// activity row does not exist to be dropped. That is why the count keeps
+    /// the join rather than reading `gps_tracks` alone: it costs a primary-key
+    /// lookup per row and holds the contract that a missing `activities` table
+    /// is an error rather than a zero.
+    #[test]
+    fn the_count_agrees_with_the_queue() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("agree.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+        seed_track(
+            &engine,
+            "one",
+            true,
+            crate::persistence::ELEVATION_STATE_UNKNOWN,
+        );
+        seed_track(
+            &engine,
+            "two",
+            true,
+            crate::persistence::ELEVATION_STATE_UNKNOWN,
+        );
+
+        let queue = engine.tracks_missing_elevation().expect("queue reads");
+
+        assert_eq!(queue.len(), 2);
+        assert_eq!(engine.elevation_backfill_remaining().ok(), Some(2));
+    }
+
+    #[test]
+    fn a_track_cannot_outlive_its_activity_row() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("orphan.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+
+        let orphan = engine.db.execute(
+            "INSERT INTO gps_tracks (activity_id, track_data, point_count, elevation_state)
+             VALUES ('orphan', X'00', 0, 0)",
+            [],
+        );
+
+        assert!(orphan.is_err(), "the foreign key is enforced");
+    }
+
+    /// Only `UNKNOWN` is in the queue. A state upstream has already answered
+    /// for must not be counted, or no pass over such a library could end.
+    #[test]
+    fn the_count_holds_only_the_tracks_still_to_ask_about() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("states.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+        seed_track(
+            &engine,
+            "unknown",
+            true,
+            crate::persistence::ELEVATION_STATE_UNKNOWN,
+        );
+        seed_track(
+            &engine,
+            "unavailable",
+            true,
+            crate::persistence::ELEVATION_STATE_UNAVAILABLE,
+        );
+
+        assert_eq!(engine.elevation_backfill_remaining().ok(), Some(1));
+        assert_eq!(
+            engine
+                .tracks_missing_elevation()
+                .expect("queue reads")
+                .len(),
+            1
+        );
+    }
+
+    /// `EXPLAIN QUERY PLAN` for a statement, joined into one line.
+    fn query_plan(engine: &PersistentEngine, sql: &str) -> String {
+        let mut stmt = engine
+            .db
+            .prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
+            .expect("the statement prepares");
+        let rows = stmt
+            .query_map(
+                params![i64::from(crate::persistence::ELEVATION_STATE_UNKNOWN)],
+                |row| row.get::<_, String>(3),
+            )
+            .expect("the plan reads")
+            .collect::<SqlResult<Vec<String>>>()
+            .expect("every plan row reads");
+        rows.join(" | ")
+    }
+
+    /// One stored track, with or without the activity row the queue joins to.
+    fn seed_track(engine: &PersistentEngine, id: &str, with_activity: bool, state: u8) {
+        if with_activity {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activities
+                        (id, sport_type, min_lat, max_lat, min_lng, max_lng, start_date)
+                     VALUES (?1, 'Ride', 0, 0, 0, 0, 1)",
+                    params![id],
+                )
+                .expect("activity row inserts");
+        }
+        engine
+            .db
+            .execute(
+                "INSERT INTO gps_tracks (activity_id, track_data, point_count, elevation_state)
+                 VALUES (?1, X'00', 0, ?2)",
+                params![id, i64::from(state)],
+            )
+            .expect("track row inserts");
     }
 
     /// A drained queue still has to read as drained, or the backfill would

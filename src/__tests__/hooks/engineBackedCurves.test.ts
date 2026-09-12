@@ -121,6 +121,18 @@ describe('usePaceCurve', () => {
     await waitFor(() => expect(engine.syncPaceCurve).toHaveBeenCalledWith('Run', 42, true));
   });
 
+  it('asks Rust for nothing while it is disabled', async () => {
+    // The fitness screen holds a Run and a Swim curve for its threshold
+    // readouts, and only the sport in view renders one. A disabled curve that
+    // still fetched cost a download and a `curve_bodies` row per time range.
+    renderHook(() => usePaceCurve({ sport: 'Swim', days: 42, enabled: false }), { wrapper });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(engine.syncPaceCurve).not.toHaveBeenCalled();
+    expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
+  });
+
   it('snapshots critical speed once the curve is stored', async () => {
     engine.getPaceCurveBody.mockReturnValue(
       JSON.stringify({

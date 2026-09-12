@@ -513,6 +513,23 @@ impl super::PersistentEngine {
         }
     }
 
+    /// One card's preview track, from the cached signature.
+    ///
+    /// The same line [`startup_data`] hands the first cards, so a card further
+    /// down the feed draws from a hundred points rather than reading and
+    /// boxing the four thousand of the stored track. `None` for an activity
+    /// with no signature or an empty one: there is nothing to draw.
+    pub fn preview_track(&mut self, activity_id: &str) -> Option<crate::FfiPreviewTrack> {
+        let sig = self.get_signature(activity_id)?;
+        if sig.points.is_empty() {
+            return None;
+        }
+        Some(crate::FfiPreviewTrack {
+            activity_id: activity_id.to_string(),
+            encoded_coords: crate::coords::encode(&sig.points),
+        })
+    }
+
     /// The feed's first paint: the summary card and the preview tracks.
     ///
     /// Both are cheap, so this can run before the screen has anything to show.
@@ -536,16 +553,7 @@ impl super::PersistentEngine {
 
         let preview_tracks = preview_activity_ids
             .iter()
-            .filter_map(|id| {
-                let sig = self.get_signature(id)?;
-                if sig.points.is_empty() {
-                    return None;
-                }
-                Some(crate::FfiPreviewTrack {
-                    activity_id: id.clone(),
-                    encoded_coords: crate::coords::encode(&sig.points),
-                })
-            })
+            .filter_map(|id| self.preview_track(id))
             .collect();
 
         crate::FfiStartupData {
@@ -663,6 +671,8 @@ impl super::PersistentEngine {
                     distance: metrics.distance,
                     duration: metrics.moving_time,
                     bounds: meta.bounds.into(),
+                    start_lat: meta.start_point.map(|(lat, _)| lat),
+                    start_lng: meta.start_point.map(|(_, lng)| lng),
                 })
             })
             .collect()

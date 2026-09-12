@@ -65,6 +65,10 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
 // that count is computed from belongs to useRunningJobCount's own tests.
 jest.mock('@/features/settings', () => ({
   useRunningJobCount: () => 0,
+  // The hook reads on focus; here the read itself is what the subtitle is
+  // being tested against, so it stands in as the read.
+  useLastBackupTimestamp: () =>
+    jest.requireMock('@/features/settings/lib/autobackup').getLastBackupTimestamp(),
 }));
 
 jest.mock('@/features/settings/components', () => ({

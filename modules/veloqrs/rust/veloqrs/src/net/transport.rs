@@ -26,7 +26,7 @@ const MAX_RETRIES: u32 = 3;
 /// whole-request budget that stops it retrying into a wait nobody will sit
 /// through, while backfill, which no one is watching, keeps the long ceiling
 /// and the full retry budget.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LaneTimeouts {
     /// TCP connect ceiling, shared by both lanes. Without it a handshake that
     /// never completes burns a whole attempt.
@@ -123,6 +123,39 @@ pub struct Transport {
     timeouts: LaneTimeouts,
 }
 
+/// One client for the whole process, so a spawned job reuses the connection the
+/// last one opened.
+///
+/// A transport used to be built per job and each built its own client, so the
+/// pool settings below did nothing across jobs: the pool went with the
+/// transport and every on-demand fetch paid a TCP connect and a TLS handshake,
+/// 100 to 300 ms on mobile, before the request a screen was waiting on. The
+/// credential is not the client's, so one pool serves every athlete and every
+/// lane; the governor is shared the same way.
+///
+/// `Client` is a handle, so the clone is the same pool rather than a copy of it.
+static SHARED_CLIENT: std::sync::OnceLock<Result<Client, String>> = std::sync::OnceLock::new();
+
+fn shared_client() -> Result<Client, String> {
+    SHARED_CLIENT
+        .get_or_init(|| build_client(LaneTimeouts::default()))
+        .clone()
+}
+
+fn build_client(timeouts: LaneTimeouts) -> Result<Client, String> {
+    Client::builder()
+        // Sends `Accept-Encoding: gzip` and decodes the body transparently.
+        .gzip(true)
+        .pool_max_idle_per_host(16)
+        .pool_idle_timeout(Duration::from_secs(60))
+        .tcp_keepalive(Duration::from_secs(30))
+        .connect_timeout(timeouts.connect)
+        // The floor for a request that names no lane ceiling of its own.
+        .timeout(timeouts.backfill)
+        .build()
+        .map_err(|e| format!("failed to build HTTP client: {}", e))
+}
+
 impl Transport {
     /// Build a transport on the shared process governor.
     pub fn new(base_url: impl Into<String>, auth: AuthMethod<'_>) -> Result<Self, String> {
@@ -140,23 +173,21 @@ impl Transport {
     }
 
     /// Build a transport with explicit lane timeouts.
+    ///
+    /// The client is shared for the default timeouts, which is every caller in
+    /// the app: only tests pass their own, and those build one of their own so
+    /// a test's short ceilings never reach a real request.
     pub fn with_timeouts(
         base_url: impl Into<String>,
         auth: AuthMethod<'_>,
         governor: Arc<Governor>,
         timeouts: LaneTimeouts,
     ) -> Result<Self, String> {
-        let client = Client::builder()
-            // Sends `Accept-Encoding: gzip` and decodes the body transparently.
-            .gzip(true)
-            .pool_max_idle_per_host(16)
-            .pool_idle_timeout(Duration::from_secs(60))
-            .tcp_keepalive(Duration::from_secs(30))
-            .connect_timeout(timeouts.connect)
-            // The floor for a request that names no lane ceiling of its own.
-            .timeout(timeouts.backfill)
-            .build()
-            .map_err(|e| format!("failed to build HTTP client: {}", e))?;
+        let client = if timeouts == LaneTimeouts::default() {
+            shared_client()?
+        } else {
+            build_client(timeouts)?
+        };
         Ok(Self {
             client,
             base_url: base_url.into(),

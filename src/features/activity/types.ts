@@ -653,6 +653,14 @@ export interface ActivityBoundsItem {
   duration: number; // seconds
   /** Full GPS track - stored during sync for instant route matching */
   latlngs?: [number, number][];
+  /**
+   * Where the ride began, from the engine's own signature record. The map
+   * marker belongs here rather than at the centre of the bounding box, and
+   * having it on the first read is what stops every marker being uploaded once
+   * on its bounds centre and again once the signatures finish loading.
+   * Absent for an activity the engine holds no signature for.
+   */
+  startPoint?: [number, number];
 }
 
 export interface ActivityMapData {

@@ -164,7 +164,10 @@ function RecordingMapInner({
     () => ({
       'route-overlay': { kind: 'geojson', data: overlayRoute },
       'excluded-route': { kind: 'geojson', data: excludedRoute },
-      'recording-route': { kind: 'geojson', data: activeRoute },
+      // The live line only ever gains points at its end, so the surface ships
+      // the fix rather than the ride. A trim moves the ends and falls back to
+      // the whole line on its own.
+      'recording-route': { kind: 'geojson', data: activeRoute, growing: true },
       'current-position': { kind: 'geojson', data: position },
     }),
     [overlayRoute, excludedRoute, activeRoute, position]

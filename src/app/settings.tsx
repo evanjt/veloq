@@ -12,7 +12,7 @@ import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext'
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useRecordingPreferences } from '@/features/recording';
 import { useSensorStore } from '@/features/sensors';
-import { useRunningJobCount } from '@/features/settings';
+import { useRunningJobCount, useLastBackupTimestamp } from '@/features/settings';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useLanguageStore, getAvailableLanguages } from '@/shared/app/LanguageStore';
@@ -21,7 +21,6 @@ import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatFileSize } from '@/shared/format/format';
 import { getAppStorageSize } from '@/shared/storage/gpsStorage';
-import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { SettingsNavRow } from '@/features/settings/components/SettingsNavRow';
 import { RecordingPermissionSection } from '@/features/settings/components/RecordingPermissionSection';
@@ -209,7 +208,7 @@ export default function SettingsScreen() {
   const notificationsEnabled = useNotificationPreferences((s) => s.enabled);
 
   // Subtitle: Backup
-  const lastBackupTimestamp = getLastBackupTimestamp();
+  const lastBackupTimestamp = useLastBackupTimestamp();
   const lastBackupText = lastBackupTimestamp
     ? new Date(lastBackupTimestamp).toLocaleDateString()
     : t('backup.lastBackupNever');

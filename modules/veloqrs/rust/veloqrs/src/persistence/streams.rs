@@ -301,6 +301,42 @@ mod tests {
         (dir, engine)
     }
 
+    /// Scenario: the retention prune runs on the way out of every stream write,
+    /// inside the per-activity write hold, and its subquery selects on
+    /// `activities.start_date`.
+    ///
+    /// Expected behaviour: that selection is served by an index. Without one
+    /// SQLite scans the whole `activities` table once per stored activity, so a
+    /// 500-activity sync into a 5,000-activity library scans 2.5 million rows
+    /// it does not need, all of it holding the lock every screen read waits on.
+    #[test]
+    fn the_retention_prune_does_not_scan_every_activity() {
+        let (_dir, engine) = engine();
+
+        let plan: Vec<String> = engine
+            .db
+            .prepare(
+                "EXPLAIN QUERY PLAN
+                 SELECT id FROM activities
+                 WHERE start_date IS NOT NULL
+                   AND start_date < strftime('%s', 'now') - ? * 86400",
+            )
+            .unwrap()
+            .query_map(params![90i64], |r| r.get::<_, String>(3))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+
+        assert!(
+            plan.iter().any(|step| step.contains("start_date")),
+            "the prune reads start_date without an index on it: {plan:?}"
+        );
+        assert!(
+            !plan.iter().any(|step| step.starts_with("SCAN activities")),
+            "the prune scans the whole activities table: {plan:?}"
+        );
+    }
+
     // Scenario: the window was set against the raw JSON size and the codec packs
     // it about ten times smaller, so ninety days was throwing away the per-sample
     // series route matching is the reason for keeping.

@@ -10,7 +10,7 @@ use super::{PersistentEngine, codec, sections};
 /// App-level schema version for post-migration Rust hooks.
 /// Independent of rusqlite_migration's PRAGMA user_version (currently 17).
 /// Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 29;
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 31;
 
 /// Marks the refusal to open a database a later build wrote, so the init
 /// failover can tell it apart from corruption and leave the file alone.
@@ -124,6 +124,8 @@ impl PersistentEngine {
             include_str!("../migrations/027_recording_athlete.sql"),
             include_str!("../migrations/028_attempt_store.sql"),
             include_str!("../migrations/029_stream_backfill.sql"),
+            include_str!("../migrations/030_activity_metrics_date_index.sql"),
+            include_str!("../migrations/031_activity_start_date_index.sql"),
         ]
     }
 

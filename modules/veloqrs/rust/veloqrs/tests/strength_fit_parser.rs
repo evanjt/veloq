@@ -11,7 +11,7 @@
 use std::path::PathBuf;
 use tempfile::TempDir;
 use veloqrs::fit::{FitExerciseSet, parse_fit_strength_sets};
-use veloqrs::{FitOutcome, PersistentEngine};
+use veloqrs::{ActivityMetrics, FitOutcome, PersistentEngine};
 
 #[test]
 fn parse_empty_bytes_reports_empty_error() {
@@ -150,4 +150,99 @@ fn only_a_recorded_outcome_leaves_the_retry_queue() {
         !engine.is_fit_processed("failed_download").expect("pending"),
         "a failed download must not read as processed"
     );
+}
+
+fn strength_metrics(engine: &mut PersistentEngine, ids: &[(&str, &str)]) {
+    let metrics = ids
+        .iter()
+        .enumerate()
+        .map(|(i, (id, sport))| ActivityMetrics {
+            activity_id: (*id).to_string(),
+            name: (*id).to_string(),
+            date: 1_700_000_000 + i as i64 * 86_400,
+            distance: 0.0,
+            moving_time: 3600,
+            elapsed_time: 3600,
+            elevation_gain: 0.0,
+            avg_hr: None,
+            avg_power: None,
+            sport_type: (*sport).to_string(),
+            training_load: None,
+            ftp: None,
+            power_zone_times: None,
+            hr_zone_times: None,
+        })
+        .collect();
+    engine.set_activity_metrics(metrics).expect("metrics");
+}
+
+/// Scenario: the caller built the candidate list by filtering a whole-library
+/// parsed array in JavaScript for `type === 'WeightTraining'`, which is one of
+/// the three uses keeping that array alive, and shipped every id across the FFI
+/// to be filtered again.
+///
+/// Expected behaviour: an empty list asks the engine for the queue itself. The
+/// sport is already a column, so the filter belongs in the SQL beside the one
+/// on `fit_file_status`.
+#[test]
+fn an_empty_list_asks_for_every_unprocessed_strength_activity() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db = dir.path().join("fit_all.db");
+    let mut engine = PersistentEngine::new(db.to_str().unwrap()).expect("engine");
+
+    strength_metrics(
+        &mut engine,
+        &[
+            ("lifted_pending", "WeightTraining"),
+            ("lifted_settled", "WeightTraining"),
+            ("rode", "Ride"),
+        ],
+    );
+    engine
+        .mark_fit_outcome("lifted_settled", FitOutcome::Parsed)
+        .expect("mark parsed");
+
+    let queue = engine
+        .get_unprocessed_strength_ids(&[])
+        .expect("unprocessed");
+    assert_eq!(
+        queue,
+        vec!["lifted_pending".to_string()],
+        "only the strength activity with no recorded outcome is owed a FIT"
+    );
+}
+
+#[test]
+fn an_empty_library_asks_for_nothing() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db = dir.path().join("fit_none.db");
+    let engine = PersistentEngine::new(db.to_str().unwrap()).expect("engine");
+    assert!(
+        engine
+            .get_unprocessed_strength_ids(&[])
+            .expect("unprocessed")
+            .is_empty()
+    );
+}
+
+/// A named list still means exactly that list, so a caller that has the ids to
+/// hand is unaffected.
+#[test]
+fn a_named_list_is_still_filtered_to_that_list_alone() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db = dir.path().join("fit_named.db");
+    let mut engine = PersistentEngine::new(db.to_str().unwrap()).expect("engine");
+
+    strength_metrics(
+        &mut engine,
+        &[
+            ("lifted_a", "WeightTraining"),
+            ("lifted_b", "WeightTraining"),
+        ],
+    );
+
+    let queue = engine
+        .get_unprocessed_strength_ids(&["lifted_b".to_string()])
+        .expect("unprocessed");
+    assert_eq!(queue, vec!["lifted_b".to_string()]);
 }

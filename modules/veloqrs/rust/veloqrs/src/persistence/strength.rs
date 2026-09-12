@@ -134,10 +134,18 @@ impl PersistentEngine {
         Ok(count > 0)
     }
 
-    /// Get activity IDs from the input list that have NOT been FIT-processed yet.
+    /// Activity ids owed a FIT download: strength activities with no recorded
+    /// outcome yet.
+    ///
+    /// An empty list means the whole library. The caller used to build the list
+    /// by filtering a whole-library parsed array in JavaScript for
+    /// `type === 'WeightTraining'` and ship every id back over the FFI to be
+    /// filtered again, and that filter was one of the three uses keeping the
+    /// parsed array alive. The sport is a column here, so both filters belong
+    /// in the one statement.
     pub fn get_unprocessed_strength_ids(&self, activity_ids: &[String]) -> SqlResult<Vec<String>> {
         if activity_ids.is_empty() {
-            return Ok(Vec::new());
+            return self.unprocessed_strength_queue();
         }
 
         let processed: std::collections::HashSet<String> = {
@@ -162,6 +170,18 @@ impl PersistentEngine {
             .filter(|id| !processed.contains(id.as_str()))
             .cloned()
             .collect())
+    }
+
+    /// Every strength activity with no recorded FIT outcome, oldest first.
+    fn unprocessed_strength_queue(&self) -> SqlResult<Vec<String>> {
+        let mut stmt = self.db.prepare(
+            "SELECT m.activity_id FROM activity_metrics m
+             LEFT JOIN fit_file_status f ON f.activity_id = m.activity_id
+             WHERE m.sport_type = 'WeightTraining' AND f.activity_id IS NULL
+             ORDER BY m.date",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
     }
 
     /// Get all exercise sets for WeightTraining activities within a date range.

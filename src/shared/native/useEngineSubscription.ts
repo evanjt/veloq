@@ -11,7 +11,14 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useEngineReady } from './useEngineReady';
 
-export type EngineEvent = 'activities' | 'groups' | 'sections';
+/**
+ * The channels this hook forwards to `engine.subscribe`. It is a narrower list
+ * than `EngineClient`'s own, spelled here rather than imported, so a consumer
+ * does not take the static native binding chain for a string literal.
+ * `detectionApplied` is on it because a detection run renames, splits and
+ * retires sections, and nothing else announces that it finished.
+ */
+export type EngineEvent = 'activities' | 'groups' | 'sections' | 'detectionApplied';
 
 /**
  * Returns a trigger value that changes when any subscribed event fires.

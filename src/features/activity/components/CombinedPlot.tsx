@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useCallback } from 'react';
+import React, { useMemo, useRef, useCallback } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import {
@@ -33,7 +33,11 @@ import {
 } from '@/features/stats';
 import { ChartXAxisLabel } from './ChartXAxisLabel';
 import { ChartYAxisLabel } from './ChartYAxisLabel';
-import { ChartDistanceIndicator } from './ChartDistanceIndicator';
+import {
+  ChartDistanceIndicator,
+  type ChartDistanceIndicatorHandle,
+} from './ChartDistanceIndicator';
+import { useSeriesAccessors } from './useSeriesAccessors';
 
 export type { ChartMetricValue };
 
@@ -58,14 +62,6 @@ interface CombinedPlotProps {
   activityType?: ActivityType;
   /** Called with per-series values when scrubbing or averages when idle */
   onMetricsChange?: (metrics: ChartMetricValue[], isScrubbing: boolean) => void;
-}
-
-interface MetricValue {
-  id: ChartTypeId;
-  label: string;
-  value: string;
-  unit: string;
-  color: string;
 }
 
 const CHART_PADDING = { top: 2, bottom: 20 } as const;
@@ -98,10 +94,9 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Store Victory Native's actual rendered x-coordinates for smooth crosshair
   const pointXCoordsShared = useSharedValue<number[]>([]);
 
-  // React state for metrics panel (bridges to JS only for text updates)
-  const [, setMetricValues] = useState<MetricValue[]>([]);
-  const [currentX, setCurrentX] = useState<number | null>(null);
-  const [isActive, setIsActive] = useState(false);
+  // The scrub position lives in the pill that draws it. Held here it rendered
+  // the chart root per index, and the root is what rebuilds every Skia path.
+  const indicator = useRef<ChartDistanceIndicatorHandle>(null);
 
   const onPointSelectRef = useRef(onPointSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
@@ -120,6 +115,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       buildChartData(streams, selectedCharts, chartConfigs, isMetric, previewMetricId, xAxisMode),
     [streams, selectedCharts, chartConfigs, isMetric, previewMetricId, xAxisMode]
   );
+
+  const series = useSeriesAccessors(seriesInfo);
 
   // Sync x-values to shared value for UI thread access
   React.useEffect(() => {
@@ -171,9 +168,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     (idx: number) => {
       if (idx < 0 || chartData.length === 0 || seriesInfo.length === 0) {
         if (lastNotifiedIdx.current !== null) {
-          setIsActive(false);
           isActiveRef.current = false;
-          setCurrentX(null);
+          indicator.current?.setScrub(null);
           lastNotifiedIdx.current = null;
           if (onPointSelectRef.current) onPointSelectRef.current(null);
           if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
@@ -190,7 +186,6 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       lastNotifiedIdx.current = idx;
 
       if (!isActiveRef.current) {
-        setIsActive(true);
         isActiveRef.current = true;
         if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
         // Haptic feedback on interaction start
@@ -224,8 +219,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         };
       });
 
-      setMetricValues(values);
-      setCurrentX(chartData[idx]?.x ?? 0);
+      indicator.current?.setScrub(chartData[idx]?.x ?? 0);
 
       // Emit scrub values for selected series + averages for unselected
       if (onMetricsChangeRef.current) {
@@ -364,10 +358,6 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       </View>
     );
   }
-
-  const series = Object.fromEntries(
-    seriesInfo.map((s) => [s.id, (d: Record<string, number>) => d[s.id]])
-  ) as Record<string, (d: Record<string, number>) => number>;
 
   return (
     <ChartErrorBoundary height={height} label="Activity Chart">
@@ -569,9 +559,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
 
             {/* X-axis indicator - overlaid on bottom right of chart */}
             <ChartDistanceIndicator
+              ref={indicator}
               xAxisMode={xAxisMode}
-              currentX={currentX}
-              isActive={isActive}
               maxX={maxX}
               xUnit={xUnit}
               isDark={isDark}

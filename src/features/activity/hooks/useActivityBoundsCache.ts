@@ -110,8 +110,11 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
         setEngineDateRange({ oldest: null, newest: null });
         return;
       }
-      setActivityCount(eng.getActivityCount());
+      // One read, not two. `getStats` already carries the activity count
+      // beside the date range, and both waits are on the engine's write lock,
+      // which a sync write holds when the event that woke this fires.
       const stats = eng.getStats();
+      setActivityCount(stats?.activityCount ?? 0);
       if (stats?.oldestDate && stats?.newestDate) {
         setEngineDateRange({
           oldest: formatLocalDate(new Date(Number(stats.oldestDate) * 1000)),

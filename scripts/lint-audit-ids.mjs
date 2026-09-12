@@ -23,6 +23,18 @@ const KEY = '(?:SB|B|F|X|U|D|C|R|S|Q|I)\\d+';
 const AUDIT_ID = new RegExp('`' + KEY + '`');
 const LABELLED_ID = new RegExp('^\\s*(?:\/\/+!?|\\*|\/\\*+)\\s*' + KEY + '\\s*:');
 
+// Standard identifiers that happen to read as a key and a number. Backticking is
+// what a standard's own name gets in a comment, so the backtick rule on its own
+// cannot tell one from an id copied out of the register. `S256` is RFC 7636's
+// code challenge method and there is no item S256; rewording it to "the hashed
+// challenge method" to satisfy this guard lost the term a reader would search
+// for, which is the outcome the paragraph above calls worse than the gap.
+//
+// Exact matches only, so the key they sit on stays closed: `S25` and `S2560` are
+// still reported.
+const STANDARD_IDS = ['S256'];
+const STANDARD = new RegExp('`(?:' + STANDARD_IDS.join('|') + ')`', 'g');
+
 // `cwd` does not decide which repository git reads. The pre-commit hook exports
 // GIT_DIR and GIT_INDEX_FILE, and those win, so a guard pointed at a fixture
 // with --root would list the repository's own files instead. Drop them.
@@ -69,7 +81,10 @@ for (const file of sources()) {
   }
   text.split('\n').forEach((line, i) => {
     if (!COMMENT.test(line)) return;
-    if (!AUDIT_ID.test(line) && !LABELLED_ID.test(line)) return;
+    // Scrubbed, not skipped: a line may carry a standard identifier and a real
+    // id, and only the second is the thing this guard is for.
+    const scrubbed = line.replace(STANDARD, '``');
+    if (!AUDIT_ID.test(scrubbed) && !LABELLED_ID.test(scrubbed)) return;
     failures.push(`${file}:${i + 1}  ${line.trim()}`);
   });
 }

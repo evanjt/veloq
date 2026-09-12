@@ -26,6 +26,7 @@ import {
   type FfiEfficiencyTrend,
   type FfiEfficiencyPoint,
   type FfiPeriodStats,
+  type FfiMonthlyStats,
   type FfiSummaryCardData,
   type FfiFtpTrend,
   type FfiPaceTrend,
@@ -140,6 +141,7 @@ export type EfficiencyTrend = FfiEfficiencyTrend;
 export type EfficiencyPoint = FfiEfficiencyPoint;
 // Aggregate query types
 export type PeriodStats = FfiPeriodStats;
+export type MonthlyStats = FfiMonthlyStats;
 export type SummaryCardData = FfiSummaryCardData;
 export type FtpTrend = FfiFtpTrend;
 export type PaceTrend = FfiPaceTrend;

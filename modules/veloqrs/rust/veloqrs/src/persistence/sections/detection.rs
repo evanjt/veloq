@@ -7,6 +7,29 @@ use crate::{FrequentSection, GpsPoint, SectionEvidenceCache};
 /// How often a running fold checkpoints its progress at most; the last
 /// cluster always does.
 const CHECKPOINT_EVERY: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Whether this fold step has earned a checkpoint.
+///
+/// A checkpoint costs about 5 KB and 0.07 ms per activity to encode, so a
+/// 1,000-activity library pays about 75 ms a write. What it records is the
+/// clusters that are cut, so between two of them the bytes are the same and the
+/// clock alone earns nothing: `done` has to have advanced. The last cluster
+/// always earns one, whatever the clock says, because it is the one a killed
+/// run most wants to resume from.
+fn checkpoint_due(
+    done: usize,
+    total: usize,
+    last_done: usize,
+    since_last: std::time::Duration,
+) -> bool {
+    if done <= last_done {
+        return false;
+    }
+    if done >= total {
+        return true;
+    }
+    since_last >= CHECKPOINT_EVERY
+}
 use rusqlite::{Connection, Result as SqlResult, params};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -17,8 +40,8 @@ use tracematch::{Bounds, MatchConfig, RouteGroup, RouteSignature};
 
 use super::super::route_identity::{RouteIdentity, load_identity, write_identity};
 use super::super::{
-    CacheUpdate, PersistentEngine, SectionDetectionHandle, SectionDetectionProgress,
-    load_groups_from_db,
+    CacheUpdate, CheckpointSlot, PersistentEngine, SectionDetectionHandle,
+    SectionDetectionProgress, load_groups_from_db,
 };
 
 /// A stored track that did not decode, named so it can be excluded from a
@@ -616,6 +639,7 @@ impl PersistentEngine {
             receiver: rx,
             final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
+            checkpoint: Arc::new(CheckpointSlot::default()),
             progress,
             worker_applied: None,
             // No worker to ask, so the flag is here to satisfy the shape.
@@ -715,6 +739,11 @@ impl PersistentEngine {
         // the short-circuit, so the caller's `take_cache` returns None and the
         // engine cache is untouched.
         let (cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
+        // Mid-fold checkpoints go here rather than down the channel, so a run
+        // nobody polls holds one copy of the catalogue and not one per two
+        // seconds of fold.
+        let checkpoint_slot = Arc::new(CheckpointSlot::default());
+        let worker_checkpoint = Arc::clone(&checkpoint_slot);
         // Present only for a self-applying run, and set once its own apply
         // has landed. The poll reads it to tell a result it must save from a
         // run that has already saved itself.
@@ -856,6 +885,7 @@ impl PersistentEngine {
                 receiver: rx,
                 final_update: std::sync::Mutex::new(None),
                 cache_receiver: cache_rx,
+                checkpoint: Arc::new(CheckpointSlot::default()),
                 progress,
                 worker_applied,
                 // The echo is one write and already under way; there is no
@@ -1166,19 +1196,19 @@ impl PersistentEngine {
                 // persists the newest one, so a killed run resumes from
                 // there instead of from the last completed detect.
                 let mut last_checkpoint = std::time::Instant::now();
+                let mut last_done = 0usize;
                 let mut observe = |done: usize, total: usize, cache: &SectionEvidenceCache| {
-                    if done < total && last_checkpoint.elapsed() < CHECKPOINT_EVERY {
+                    if !checkpoint_due(done, total, last_done, last_checkpoint.elapsed()) {
                         return;
                     }
                     last_checkpoint = std::time::Instant::now();
-                    cache_tx
-                        .send(CacheUpdate {
-                            cache: cache.checkpoint(),
-                            folded_ids: folded_after.clone(),
-                            checkpoint: true,
-                            boundaries: Vec::new(),
-                        })
-                        .ok();
+                    last_done = done;
+                    worker_checkpoint.put(CacheUpdate {
+                        cache: cache.checkpoint(),
+                        folded_ids: folded_after.clone(),
+                        checkpoint: true,
+                        boundaries: Vec::new(),
+                    });
                 };
                 let fold = tracematch::detect_sections_incremental_observed(
                     &mut cache,
@@ -1255,6 +1285,7 @@ impl PersistentEngine {
             receiver: rx,
             final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
+            checkpoint: checkpoint_slot,
             progress,
             worker_applied,
             cancel,
@@ -1474,6 +1505,55 @@ impl PersistentEngine {
 /// what it says.
 const EVIDENCE_CACHE_BLOB_VERSION: u8 = 1;
 
+/// One encoded `evidence_cache` row, ready to write.
+pub struct EvidenceRow {
+    pub digest: String,
+    pub folded_blob: Vec<u8>,
+    pub cache_blob: Vec<u8>,
+}
+
+/// Encode the cache and its folded-id shadow. No engine, so a caller holding
+/// the checkpoint can pay the encode on its own thread.
+///
+/// This is the expensive half: roughly 5 KB and 0.07 ms per activity, so about
+/// 75 ms at 1,000 activities and 375 ms at 5,000. Run inside the engine lock it
+/// was that long a hold every two seconds for the length of a detect, and every
+/// screen read arriving during one waited it out.
+pub fn encode_evidence_row(
+    cache: &SectionEvidenceCache,
+    folded_ids: &HashSet<String>,
+    digest: String,
+) -> Option<EvidenceRow> {
+    let folded: Vec<String> = {
+        let mut ids: Vec<String> = folded_ids.iter().cloned().collect();
+        ids.sort();
+        ids
+    };
+
+    // Named fields: the cache carries `GpsPoint`s, whose skipped elevation
+    // would shorten a positional encoding and misalign everything after it.
+    let cache_blob = match codec::serialize_named(cache) {
+        Ok(bytes) => codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, bytes),
+        Err(e) => {
+            log::warn!("veloqrs: evidence cache not encodable, staying cold: {e}");
+            return None;
+        }
+    };
+    let folded_blob = match codec::serialize_gps_composite(&folded) {
+        Ok(bytes) => codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, bytes),
+        Err(e) => {
+            log::warn!("veloqrs: folded ids not encodable, staying cold: {e}");
+            return None;
+        }
+    };
+
+    Some(EvidenceRow {
+        digest,
+        folded_blob,
+        cache_blob,
+    })
+}
+
 impl PersistentEngine {
     /// Write the evidence cache and its folded-id shadow beside the config
     /// digest they were folded under.
@@ -1523,29 +1603,21 @@ impl PersistentEngine {
         folded_ids: &HashSet<String>,
     ) {
         let digest = super::section_config_digest(&self.section_config);
-        let folded: Vec<String> = {
-            let mut ids: Vec<String> = folded_ids.iter().cloned().collect();
-            ids.sort();
-            ids
-        };
+        if let Some(row) = encode_evidence_row(cache, folded_ids, digest) {
+            self.write_evidence_row(&row);
+        }
+    }
 
-        // Named fields: the cache carries `GpsPoint`s, whose skipped elevation
-        // would shorten a positional encoding and misalign everything after it.
-        let cache_blob = match codec::serialize_named(cache) {
-            Ok(bytes) => codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, bytes),
-            Err(e) => {
-                log::warn!("veloqrs: evidence cache not encodable, staying cold: {e}");
-                return;
-            }
-        };
-        let folded_blob = match codec::serialize_gps_composite(&folded) {
-            Ok(bytes) => codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, bytes),
-            Err(e) => {
-                log::warn!("veloqrs: folded ids not encodable, staying cold: {e}");
-                return;
-            }
-        };
+    /// The digest the cache would be filed under right now.
+    ///
+    /// Exposed so a caller can read it under a short lock, encode the blob off
+    /// the lock, and come back only for the write.
+    pub fn evidence_config_digest(&self) -> String {
+        super::section_config_digest(&self.section_config)
+    }
 
+    /// Write an already-encoded row. The lock is held for the `INSERT` alone.
+    pub fn write_evidence_row(&mut self, row: &EvidenceRow) {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
@@ -1559,7 +1631,7 @@ impl PersistentEngine {
                  folded_ids = excluded.folded_ids,
                  cache = excluded.cache,
                  updated_at = excluded.updated_at",
-            params![digest, folded_blob, cache_blob, now],
+            params![row.digest, row.folded_blob, row.cache_blob, now],
         ) {
             log::warn!("veloqrs: evidence cache not written, staying cold: {e}");
         }
@@ -1655,6 +1727,73 @@ fn drop_reason(is_user_defined: bool, portions: usize, any_pooled: bool) -> Opti
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Scenario: a rescan started from TypeScript sends a checkpoint every two
+    /// seconds and nothing drains it, so the catalogue and the whole folded-id
+    /// set pile up in an unbounded channel for the length of the run. A cold
+    /// `force_redetect` at 550 activities takes 8.5 minutes, which is 250 of
+    /// them.
+    ///
+    /// Expected behaviour: the worker keeps the newest checkpoint and nothing
+    /// else, whether or not anyone is polling.
+    #[test]
+    fn an_undrained_run_holds_one_checkpoint_not_a_run_of_them() {
+        let slot = CheckpointSlot::default();
+
+        for i in 0..50 {
+            slot.put(CacheUpdate {
+                cache: SectionEvidenceCache::new(),
+                folded_ids: HashSet::from([format!("a{i}")]),
+                checkpoint: true,
+                boundaries: Vec::new(),
+            });
+        }
+
+        let held = slot.take().expect("the newest checkpoint is still there");
+        assert_eq!(
+            held.folded_ids,
+            HashSet::from(["a49".to_string()]),
+            "the newest wins: an older one describes less of the fold"
+        );
+        assert!(
+            slot.take().is_none(),
+            "and it is the only one, so memory does not grow with the run"
+        );
+    }
+
+    /// A checkpoint costs about 5 KB and 0.07 ms per activity to encode, so a
+    /// 1,000-activity library pays 75 ms a write. The content only moves when a
+    /// cluster finishes, so a clock that fires between two of them re-encodes
+    /// bytes nobody needs.
+    #[test]
+    fn the_clock_alone_does_not_earn_a_checkpoint() {
+        let elapsed = CHECKPOINT_EVERY;
+        let none = std::time::Duration::ZERO;
+
+        assert!(
+            checkpoint_due(3, 10, 2, elapsed),
+            "a cluster finished and the throttle has passed"
+        );
+        assert!(
+            !checkpoint_due(3, 10, 3, elapsed),
+            "the clock fired between two clusters, so the bytes are the same"
+        );
+        assert!(
+            !checkpoint_due(3, 10, 2, none),
+            "a cluster finished but the throttle has not passed"
+        );
+    }
+
+    /// The last cluster always checkpoints, whatever the clock says: it is the
+    /// one a killed run most wants to resume from.
+    #[test]
+    fn the_last_cluster_checkpoints_whatever_the_clock_says() {
+        assert!(checkpoint_due(10, 10, 9, std::time::Duration::ZERO));
+        assert!(
+            !checkpoint_due(10, 10, 10, std::time::Duration::ZERO),
+            "unless it has already been sent, which would be the same bytes twice"
+        );
+    }
 
     /// Both causes leave a section with no junction rows, and one message for
     /// both sent an empty-portion detector bug to whoever was looking at pool

@@ -22,9 +22,11 @@ import type {
   FfiMuscleGroup,
   FfiStrengthSummary,
   FfiGpsPoint,
+  FfiPreviewTrack,
   FfiMapScreenData,
   FfiRouteGroup,
   FfiSection,
+  FfiMapSection,
   FfiNamedCorridor,
   FfiSectionDetailData,
   FfiSectionPerformanceData,
@@ -716,6 +718,10 @@ class EngineClient implements DelegateHost {
   getSectionsFiltered = (sportType?: string, minVisits?: number): FfiSection[] =>
     sectionDelegates.getSectionsFiltered(this, sportType, minVisits);
 
+  /** Six fields and the encoded line, for the regional map's section overlay. */
+  getMapSections = (sportType?: string, minVisits?: number): FfiMapSection[] =>
+    sectionDelegates.getMapSections(this, sportType, minVisits);
+
   getSectionsForActivity = (activityId: string): FfiSection[] =>
     sectionDelegates.getSectionsForActivity(this, activityId);
 
@@ -784,6 +790,13 @@ class EngineClient implements DelegateHost {
 
   getGpsTrack = (activityId: string): FfiGpsPoint[] =>
     activityDelegates.getGpsTrack(this, activityId);
+
+  /**
+   * One feed card's preview line, from the cached signature. Coordinate
+   * encoded, so put `encodedCoords` through `decodeCoords`.
+   */
+  getPreviewTrack = (activityId: string): FfiPreviewTrack | undefined =>
+    activityDelegates.getPreviewTrack(this, activityId);
 
   /** Coordinate-encoded; put it through `decodeCoords`. */
   getConsensusRoute = (groupId: string): ArrayBuffer =>
@@ -1006,6 +1019,12 @@ class EngineClient implements DelegateHost {
 
   getActivityHeatmap = (startDate: string, endDate: string): HeatmapDay[] =>
     fitnessDelegates.getActivityHeatmap(this, startDate, endDate);
+
+  getPeriodStats = (startTs: number, endTs: number) =>
+    fitnessDelegates.getPeriodStats(this, startTs, endTs);
+
+  getMonthlyStats = (startTs: number, endTs: number) =>
+    fitnessDelegates.getMonthlyStats(this, startTs, endTs);
 
   // ==========================================================================
   // Heatmap Tiles (Raster tile generation for map overlay)
@@ -1351,6 +1370,10 @@ class EngineClient implements DelegateHost {
     return gen().getDownloadProgress();
   }
 
+  getFetchRunProgress(run: bigint): DownloadProgressResult {
+    return gen().getFetchRunProgress(run);
+  }
+
   removeActivity = (activityId: string): activityDelegates.RemoveActivityResult =>
     activityDelegates.removeActivity(this, activityId);
 
@@ -1394,6 +1417,7 @@ class EngineClient implements DelegateHost {
   getMuscleGroups = (activityId: string): FfiMuscleGroup[] =>
     strengthDelegates.getMuscleGroups(this, activityId);
 
+  /** An empty list asks for every strength activity still owed a FIT. */
   getUnprocessedStrengthIds = (activityIds: string[]): string[] =>
     strengthDelegates.getUnprocessedStrengthIds(this, activityIds);
 
@@ -1526,6 +1550,18 @@ class EngineClient implements DelegateHost {
 
   private deliver(event: string, payload?: EnginePayload): void {
     this.listeners.get(event)?.forEach((cb) => cb(payload));
+  }
+
+  /**
+   * Announce a body this process wrote, the way Rust announces one it stored.
+   *
+   * Demo mode seeds the same tables a live sync writes, through the same engine
+   * writers, but the writes are FFI calls and nothing announces them. A reader
+   * that follows a body's kind rather than the coarse `activities` channel would
+   * otherwise never hear about a seeded table.
+   */
+  announceBodyStored(kind: string, activityId = ''): void {
+    queueMicrotask(() => this.deliver('bodyStored', { kind, activityId }));
   }
 
   triggerRefresh(event: 'groups' | 'sections' | 'activities' | 'syncReset'): void {

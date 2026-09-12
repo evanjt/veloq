@@ -119,7 +119,12 @@ describe('FFI Binding Validation', () => {
       // elevation ones do, and beside them: the pass is a detached thread
       // holding a process-global slot, and its start, stop and progress are
       // all reads of that slot rather than of a handle.
-      expect(STANDALONE_EXPORTS.length).toBe(26);
+      //
+      // `get_fetch_run_progress` is standalone beside the global read it
+      // narrows: the download queue is process state in `http`, not engine
+      // state, and a caller polling its own run must not queue behind the
+      // engine lock to do it.
+      expect(STANDALONE_EXPORTS.length).toBe(27);
     });
 
     it('should include the known standalone FFI functions', () => {
@@ -136,6 +141,9 @@ describe('FFI Binding Validation', () => {
       // an engine method would be the wrong home and would queue behind the
       // lock the cancel exists to stop taking.
       expect(names.has('cancel_fetch_and_store')).toBe(true);
+      // A caller queued behind a 500-activity sync used to poll the global
+      // flag and watch someone else's numbers long after its own had landed.
+      expect(names.has('get_fetch_run_progress')).toBe(true);
       expect(names.has('compute_polyline_overlap')).toBe(true);
       // Deleted with the synthetic detection illustration, its only caller.
       // Named here so a re-add has to answer for itself rather than ride in

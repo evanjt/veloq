@@ -1,6 +1,6 @@
 import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo } from 'react';
-import { readActivityBody } from '@/features/activity/lib/engineActivityBody';
+import { hasDetailBody, readActivityBody } from '@/features/activity/lib/engineActivityBody';
 import {
   DETAIL_STREAM_TYPES,
   readStreams,
@@ -14,7 +14,7 @@ import { hasStarted } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
-import type { Activity, ActivityDetail, IntervalsDTO } from '@/types';
+import type { Activity, ActivityDetail, ActivityStreams, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useReconnect, useSyncSettled } from '@/shared/app/useRetryTriggers';
@@ -234,11 +234,7 @@ export function useInfiniteActivities() {
 export function useActivity(id: string) {
   const queryKey = queryKeys.activities.detail(id);
 
-  // The list sync stores a lighter body for every activity. Opening one asks
-  // for the full detail, which replaces that row in place.
-  useEngineBody(false, () => getEngine()?.syncActivityDetail(id), queryKey, !!id);
-
-  return useQuery<ActivityDetail | null>({
+  const query = useQuery<ActivityDetail | null>({
     queryKey,
     queryFn: () => {
       const stored = readActivityBody(id);
@@ -252,17 +248,35 @@ export function useActivity(id: string) {
     gcTime: CACHE.SHORT,
     enabled: !!id,
   });
+
+  // The list sync stores a lighter body for every activity. Opening one asks
+  // for the full detail, which replaces that row in place. Presence comes from
+  // the query's own result rather than a second read: the row existing is not
+  // proof the detail landed, so it is read for the one field only the detail
+  // endpoint returns.
+  useEngineBody(
+    hasDetailBody(query.data),
+    () => getEngine()?.syncActivityDetail(id),
+    queryKey,
+    // `undefined` is the query not having run, which is not the same as
+    // nothing being stored, and asking then would fire before the read.
+    !!id && query.data !== undefined
+  );
+
+  return query;
 }
 
 export function useActivityStreams(id: string) {
   const queryKey = queryKeys.activities.streams(id);
 
-  const stored = id ? readStreams(id, DETAIL_STREAM_TYPES) : null;
-  useEngineBody(stored !== null, () => requestStreams(id, DETAIL_STREAM_TYPES), queryKey, !!id);
-
-  return useQuery({
+  // The query is the only reader of the stored body, the shape
+  // `useActivityIntervals` uses below. A probe in the render body ran the
+  // whole read again on every re-render, which during a chart scrub is a
+  // `JSON.parse` of 100-500 KB and a SQLite write per frame, for a boolean
+  // the query's own result already carries.
+  const query = useQuery<ActivityStreams | null>({
     queryKey,
-    queryFn: () => readStreams(id, DETAIL_STREAM_TYPES) ?? {},
+    queryFn: () => readStreams(id, DETAIL_STREAM_TYPES),
     // Streams NEVER change - infinite staleTime prevents refetching
     staleTime: Infinity,
     // Streams are the largest payloads (100-500KB each), so they go on the
@@ -271,7 +285,20 @@ export function useActivityStreams(id: string) {
     gcTime: CACHE.SHORT,
     enabled: !!id,
   });
+  useEngineBody(
+    query.data != null,
+    () => requestStreams(id, DETAIL_STREAM_TYPES),
+    queryKey,
+    // `undefined` is the query not having run, which is not the same as
+    // nothing being stored, and asking then would fire before the read.
+    !!id && query.data !== undefined
+  );
+
+  return { ...query, data: query.data ?? EMPTY_STREAMS };
 }
+
+/** Rendered as "no streams" rather than an error while the fetch is in flight. */
+const EMPTY_STREAMS = {} as ActivityStreams;
 
 export function useActivityIntervals(id: string) {
   const queryKey = queryKeys.activities.intervals(id);

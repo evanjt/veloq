@@ -53,6 +53,22 @@ const DEFAULT_STALL_MS = 120_000;
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
+ * A `read` that answers for one run alone.
+ *
+ * The engine's global read reports the queue head's counters and active for any
+ * non-empty queue, so a caller queued behind a 500-activity sync kept polling
+ * long after its own activity had landed, watching someone else's numbers. The
+ * run id comes back from `startFetchAndStore`, so every caller already has the
+ * one thing that separates them.
+ */
+export function runProgressReader(
+  run: bigint,
+  readRun: (run: bigint) => DownloadProgressRead
+): () => DownloadProgressRead {
+  return () => readRun(run);
+}
+
+/**
  * Polls until the download settles, the caller goes away, or the counters stop
  * moving for `stallMs`. A stall is reported rather than thrown: the result the
  * engine holds is read the same way afterwards, and it is null when nothing

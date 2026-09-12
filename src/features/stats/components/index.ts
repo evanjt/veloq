@@ -5,5 +5,6 @@ export { ZoneDistributionChart } from './ZoneDistributionChart';
 export { FTPTrendChart } from './FTPTrendChart';
 export { WeeklySummary } from './WeeklySummary';
 export { ActivityHeatmap } from './ActivityHeatmap';
+export type { ActivityHeatmapHandle } from './ActivityHeatmap';
 export { SeasonComparison } from './SeasonComparison';
 export { DecouplingChart } from './DecouplingChart';

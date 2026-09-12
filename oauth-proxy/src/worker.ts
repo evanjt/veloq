@@ -18,6 +18,7 @@
 
 import { secretsMatch } from "./secrets";
 import { authoriseDevice, intervalsAthleteResolver } from "./deviceAuth";
+import { isValidVerifier, newOpaqueToken, verifierMatches } from "./pkce";
 
 interface Env {
   INTERVALS_CLIENT_ID: string;
@@ -51,6 +52,9 @@ const INTERVALS_TOKEN_URL = "https://intervals.icu/api/oauth/token";
 const APP_SCHEME = "veloq";
 /** State parameter TTL in seconds (5 minutes - OAuth code expires in 2 min) */
 const STATE_TTL_SECONDS = 300;
+// A code is redeemed by the app the moment the deep link arrives, so the
+// window it is worth anything in is the redirect itself.
+const EXCHANGE_CODE_TTL_SECONDS = 120;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -77,6 +81,11 @@ export default {
       // OAuth callback
       if (path === "/oauth/callback" && request.method === "GET") {
         return handleOAuthCallback(url, env);
+      }
+
+      // Redeem the one-time code the callback redirected with
+      if (path === "/oauth/token" && request.method === "POST") {
+        return handleTokenExchange(request, env);
       }
 
       // --- Push notification endpoints (additive, backwards-compatible) ---
@@ -162,7 +171,10 @@ async function handleRegisterState(
   }
 
   try {
-    const body = (await request.json()) as { state?: string };
+    const body = (await request.json()) as {
+      state?: string;
+      code_challenge?: string;
+    };
     const state = body.state;
 
     if (!state || typeof state !== "string" || state.length < 32) {
@@ -175,8 +187,18 @@ async function handleRegisterState(
       );
     }
 
-    // Store state in KV with TTL
-    await env.OAUTH_STATES.put(state, "valid", {
+    // The challenge arrives here, over HTTPS, before the browser opens. That is
+    // what makes it a proof: the app is the only party that has ever held the
+    // verifier behind it, so the code the redirect carries is redeemable by the
+    // app alone. An older build sends no challenge and gets the pre-PKCE
+    // redirect, which is the only reason this field is optional.
+    const challenge = body.code_challenge;
+    const stored =
+      typeof challenge === "string" && challenge.length > 0
+        ? JSON.stringify({ challenge })
+        : "valid";
+
+    await env.OAUTH_STATES.put(state, stored, {
       expirationTtl: STATE_TTL_SECONDS,
     });
 
@@ -231,6 +253,8 @@ async function handleOAuthCallback(url: URL, env: Env): Promise<Response> {
   // Delete state after validation (single use)
   await env.OAUTH_STATES.delete(state);
 
+  const challenge = challengeFromStoredState(storedState);
+
   // Exchange code for token
   const formData = new URLSearchParams({
     client_id: env.INTERVALS_CLIENT_ID,
@@ -260,15 +284,188 @@ async function handleOAuthCallback(url: URL, env: Env): Promise<Response> {
     return redirectToAppWithError("invalid_response");
   }
 
-  // Redirect to app with token (include state for client-side CSRF validation)
-  return redirectToAppWithToken(tokenData, state);
+  // Redirect to app with the one-time code (include state for client-side CSRF
+  // validation). An older build registered no challenge and cannot redeem a
+  // code, so it still gets the token in the URL.
+  if (!challenge) {
+    return redirectToAppWithLegacyToken(tokenData, state);
+  }
+
+  const exchangeCode = newOpaqueToken();
+  await env.OAUTH_STATES.put(
+    exchangeKey(exchangeCode),
+    JSON.stringify({ challenge, token: tokenData }),
+    { expirationTtl: EXCHANGE_CODE_TTL_SECONDS }
+  );
+  return redirectToAppWithCode(exchangeCode, state);
 }
 
 /**
- * Redirect to app with successful token
- * Uses HTML page with JavaScript redirect since 302 redirects don't work for custom URL schemes
+ * The challenge the app registered with its state, or null when it registered
+ * none. Pre-PKCE builds stored the literal "valid".
  */
-function redirectToAppWithToken(token: IntervalsTokenResponse, state: string): Response {
+function challengeFromStoredState(storedState: string): string | null {
+  if (storedState === "valid") return null;
+  try {
+    const parsed = JSON.parse(storedState) as { challenge?: unknown };
+    return typeof parsed.challenge === "string" && parsed.challenge.length > 0
+      ? parsed.challenge
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Where a pending exchange lives. Namespaced so it cannot be read as a state. */
+function exchangeKey(code: string): string {
+  return `exchange:${code}`;
+}
+
+/**
+ * Redeem a one-time code for the token it stands for.
+ *
+ * The code alone is not enough and that is the whole point: whoever presents it
+ * has to produce the verifier the challenge was made from, and only the app that
+ * started the flow has ever held it. The entry is deleted before the token goes
+ * out, so a code works once whatever happens next.
+ */
+async function handleTokenExchange(request: Request, env: Env): Promise<Response> {
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  if (!(await checkRateLimit(ip, env))) {
+    return new Response(JSON.stringify({ error: "Too many requests" }), {
+      status: 429,
+      headers: {
+        "Content-Type": "application/json",
+        "Retry-After": String(RATE_LIMIT_WINDOW_SECONDS),
+      },
+    });
+  }
+
+  let body: { code?: unknown; code_verifier?: unknown };
+  try {
+    body = (await request.json()) as typeof body;
+  } catch {
+    return exchangeRefused("invalid_request");
+  }
+
+  const code = body.code;
+  if (typeof code !== "string" || code.length === 0) {
+    return exchangeRefused("invalid_request");
+  }
+  if (!isValidVerifier(body.code_verifier)) {
+    return exchangeRefused("invalid_request");
+  }
+
+  const pending = await env.OAUTH_STATES.get(exchangeKey(code));
+  if (!pending) {
+    return exchangeRefused("invalid_grant");
+  }
+
+  let parsed: { challenge?: unknown; token?: IntervalsTokenResponse };
+  try {
+    parsed = JSON.parse(pending) as typeof parsed;
+  } catch {
+    await env.OAUTH_STATES.delete(exchangeKey(code));
+    return exchangeRefused("invalid_grant");
+  }
+
+  // Single use, and spent before the answer is known: a wrong verifier must not
+  // leave the code standing for another attempt.
+  await env.OAUTH_STATES.delete(exchangeKey(code));
+
+  if (!(await verifierMatches(body.code_verifier, parsed.challenge))) {
+    console.error("Code exchange verifier did not match the challenge");
+    return exchangeRefused("invalid_grant");
+  }
+
+  const token = parsed.token;
+  if (!token?.access_token || !token.athlete?.id) {
+    return exchangeRefused("invalid_grant");
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      access_token: token.access_token,
+      token_type: token.token_type,
+      scope: token.scope,
+      athlete_id: token.athlete.id,
+      athlete_name: token.athlete.name,
+    }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        // A bearer token is never worth holding anywhere on the way back.
+        "Cache-Control": "no-store",
+      },
+    }
+  );
+}
+
+/**
+ * One wording for every refusal. Saying which part was wrong tells a caller
+ * working through stolen codes whether the code or the verifier was the miss.
+ */
+function exchangeRefused(error: string): Response {
+  return new Response(JSON.stringify({ error }), {
+    status: 400,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+  });
+}
+
+/**
+ * Hand the browser back to the app.
+ *
+ * A 302 to a custom scheme does not open the app, so this is an HTML page that
+ * navigates to it instead. All three redirects go through here, so there is one
+ * copy of that page rather than three.
+ */
+function appRedirect(params: URLSearchParams): Response {
+  const redirectUrl = `${APP_SCHEME}://oauth/callback?${params.toString()}`;
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Redirecting to Veloq...</title>
+  <meta http-equiv="refresh" content="0;url=${redirectUrl}">
+</head>
+<body>
+  <p>Redirecting to Veloq...</p>
+  <p>If you are not redirected automatically, <a href="${redirectUrl}">tap here</a>.</p>
+  <script>window.location.href = "${redirectUrl}";</script>
+</body>
+</html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+}
+
+/**
+ * Redirect to the app with the one-time code.
+ *
+ * Nothing here is worth intercepting. Android's `singleTask` launch mode hands
+ * this URL to any installed app that registers the `veloq` scheme, and before
+ * the code existed that meant handing over the bearer token on every sign-in.
+ */
+function redirectToAppWithCode(code: string, state: string): Response {
+  return appRedirect(
+    new URLSearchParams({ success: "true", code: code, state: state })
+  );
+}
+
+/**
+ * The pre-PKCE redirect, for a build that registered no challenge and so has
+ * nothing to redeem a code with. It puts the token in the URL, which is the
+ * defect itself, and it is reachable only for those builds. Delete it once no
+ * supported version still asks for it.
+ */
+function redirectToAppWithLegacyToken(
+  token: IntervalsTokenResponse,
+  state: string
+): Response {
   const params = new URLSearchParams({
     success: "true",
     access_token: token.access_token,
@@ -279,61 +476,17 @@ function redirectToAppWithToken(token: IntervalsTokenResponse, state: string): R
     state: state,
   });
 
-  const redirectUrl = `${APP_SCHEME}://oauth/callback?${params.toString()}`;
-
-  // Return HTML page that redirects to the app
-  // 302 redirects don't work for custom URL schemes (veloq://)
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Redirecting to Veloq...</title>
-  <meta http-equiv="refresh" content="0;url=${redirectUrl}">
-</head>
-<body>
-  <p>Redirecting to Veloq...</p>
-  <p>If you are not redirected automatically, <a href="${redirectUrl}">tap here</a>.</p>
-  <script>window.location.href = "${redirectUrl}";</script>
-</body>
-</html>`;
-
-  return new Response(html, {
-    status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-  });
+  return appRedirect(params);
 }
 
-/**
- * Redirect to app with error
- * Uses HTML page with JavaScript redirect since 302 redirects don't work for custom URL schemes
- */
+/** Redirect to the app with the reason the flow did not complete. */
 function redirectToAppWithError(error: string): Response {
   const params = new URLSearchParams({
     success: "false",
     error: error,
   });
 
-  const redirectUrl = `${APP_SCHEME}://oauth/callback?${params.toString()}`;
-
-  // Return HTML page that redirects to the app
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Redirecting to Veloq...</title>
-  <meta http-equiv="refresh" content="0;url=${redirectUrl}">
-</head>
-<body>
-  <p>Redirecting to Veloq...</p>
-  <p>If you are not redirected automatically, <a href="${redirectUrl}">tap here</a>.</p>
-  <script>window.location.href = "${redirectUrl}";</script>
-</body>
-</html>`;
-
-  return new Response(html, {
-    status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-  });
+  return appRedirect(params);
 }
 
 // ---------------------------------------------------------------------------

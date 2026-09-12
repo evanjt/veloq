@@ -45,7 +45,7 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
           return false;
         }
 
-        const tokenResponse = handleOAuthCallback(result.url);
+        const tokenResponse = await handleOAuthCallback(result.url);
         await useAuthStore
           .getState()
           .setOAuthCredentials(

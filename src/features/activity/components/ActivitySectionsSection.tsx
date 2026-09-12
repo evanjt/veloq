@@ -22,7 +22,7 @@ import { DataRangeFooter } from '@/features/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { CHART_CONFIG } from '@/constants';
 import { getEngine } from '@/shared/native/engine';
-import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
+import { useSectionDisplayNames } from '@/features/routes/hooks/useSectionDisplayNames';
 import {
   groupSectionEncounters,
   type SectionEncounterGroup,
@@ -434,7 +434,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           onSwipeableOpen={handleSwipeableOpen}
           onRowHeight={handleRowHeight}
           firstRowRef={handleFirstRowRef}
-          renderRightActions={(progress, dragX) => renderSectionSwipeActions(item, progress, dragX)}
+          renderRightActions={renderSectionSwipeActions}
           swipeableRefs={swipeableRefs}
         />
       );
@@ -501,7 +501,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
 
   // Render a single scan match result row
   // Look up proper display names for scan results (same names shown in the app)
-  const sectionDisplayNames = useMemo(() => getAllSectionDisplayNames(), [scanMatches]);
+  const sectionDisplayNames = useSectionDisplayNames();
 
   const renderScanMatch = useCallback(
     (match: FfiSectionMatch) => {

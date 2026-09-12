@@ -20,9 +20,18 @@ import type { TimeRange } from '@/shared/app/timeRange';
 
 export type { TimeRange };
 
-/** Refetch the wellness queries whenever the engine reports a change. */
+/**
+ * Refetch the wellness queries when wellness lands, and not before.
+ *
+ * This followed the `activities` channel, because nothing announced wellness at
+ * all. That channel fires per synced page, measured five times in the first
+ * 4.5 s of a launch, while wellness is written once, so all three consumers
+ * re-read and re-parsed their whole window four times over for no change.
+ * `sync_wellness` now announces through `store_body`, so the kind is what to
+ * follow.
+ */
 function useWellnessInvalidation(): void {
-  useEngineChannel('activities', queryKeys.wellness.all);
+  useEngineChannel('bodyStored', queryKeys.wellness.all, 'wellness');
 }
 
 export function timeRangeToDays(range: TimeRange): number {

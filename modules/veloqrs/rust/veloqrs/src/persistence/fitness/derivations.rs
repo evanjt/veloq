@@ -24,6 +24,37 @@ fn cycling_eftp(raw: &str) -> Option<u16> {
     (eftp.is_finite() && eftp > 0.0).then(|| eftp.round() as u16)
 }
 
+/// The days the FTP trend reads, from a newest-first stream of stored bodies.
+///
+/// It pulls until it holds the newest day carrying a cycling estimate and the
+/// newest one at least `lookback` days older, then stops. The whole table used
+/// to be parsed for those two: wellness is upserted 365 days a sync and the
+/// only delete is the full wipe, so it grows a year per year of use.
+///
+/// A day with no cycling entry is skipped and never counts as the newest, so a
+/// month off the bike is read through rather than reported as no trend. An
+/// account that has never ridden reads to the end, which is the price of
+/// knowing there is nothing.
+///
+/// Returned oldest first, which is the order the trend reads them in.
+fn trend_days(rows: impl Iterator<Item = (String, String)>, lookback: i64) -> Vec<(String, u16)> {
+    let mut days: Vec<(String, u16)> = Vec::new();
+    let mut cutoff: Option<String> = None;
+    for (date, raw) in rows {
+        let Some(ftp) = cycling_eftp(&raw) else {
+            continue;
+        };
+        let cutoff = cutoff.get_or_insert_with(|| day_offset(&date, -lookback));
+        let old_enough = date.as_str() <= cutoff.as_str();
+        days.push((date, ftp));
+        if old_enough {
+            break;
+        }
+    }
+    days.reverse();
+    days
+}
+
 /// A `YYYY-MM-DD` day shifted by whole days, in the same shape.
 fn day_offset(date: &str, days: i64) -> String {
     match chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d") {
@@ -71,6 +102,49 @@ impl PersistentEngine {
                 total_distance: 0.0,
                 total_tss: 0.0,
             })
+    }
+
+    /// A window's totals grouped by calendar month, oldest first.
+    ///
+    /// Only months carrying an activity are returned. The caller plots a fixed
+    /// twelve bars and reads a missing month as zero, which is what it means:
+    /// returning a row of zeroes for every quiet month would be the same
+    /// answer with more rows.
+    ///
+    /// The month is taken in local time, because that is what the athlete's
+    /// year looks like to them. `date` is stored as UTC midnight of the
+    /// activity's own local day (`sync.rs` builds it from
+    /// `start_date_local`), so `'unixepoch'` with no `'localtime'` is what
+    /// keeps a January 1st activity in January.
+    pub fn get_monthly_stats(&self, start_ts: i64, end_ts: i64) -> Vec<crate::FfiMonthlyStats> {
+        let mut stmt = match self.db.prepare(
+            "SELECT CAST(strftime('%Y', date, 'unixepoch') AS INTEGER),
+                    CAST(strftime('%m', date, 'unixepoch') AS INTEGER),
+                    COUNT(*), COALESCE(SUM(moving_time), 0),
+                    COALESCE(SUM(distance), 0), COALESCE(SUM(training_load), 0)
+             FROM activity_metrics
+             WHERE date BETWEEN ?1 AND ?2
+             GROUP BY 1, 2
+             ORDER BY 1, 2",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        stmt.query_map(params![start_ts, end_ts], |row| {
+            Ok(crate::FfiMonthlyStats {
+                year: row.get(0)?,
+                month: row.get::<_, u32>(1)?,
+                stats: crate::FfiPeriodStats {
+                    count: row.get::<_, i64>(2)? as u32,
+                    total_duration: row.get(3)?,
+                    total_distance: row.get(4)?,
+                    total_tss: row.get(5)?,
+                },
+            })
+        })
+        .and_then(|rows| rows.collect())
+        .unwrap_or_default()
     }
 
     /// A window's load day by day, with how evenly it was spread, or `None`
@@ -262,21 +336,21 @@ impl PersistentEngine {
         }
     }
 
-    /// Every stored day that carries a cycling estimate, oldest first.
+    /// The stored days the trend needs, oldest first.
+    ///
+    /// Newest first out of SQLite so [`trend_days`] can stop at the day it
+    /// compares against, rather than materialising and parsing every body in
+    /// a table that grows a year per year of use.
     fn daily_cycling_ftp(&self, today: &str) -> rusqlite::Result<Vec<(String, u16)>> {
         let mut stmt = self.db.prepare(
             "SELECT date, raw FROM wellness
              WHERE raw IS NOT NULL AND date <= ?
-             ORDER BY date ASC",
+             ORDER BY date DESC",
         )?;
-        let rows = stmt
-            .query_map(params![today], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })?
-            .flatten()
-            .filter_map(|(date, raw)| cycling_eftp(&raw).map(|ftp| (date, ftp)))
-            .collect();
-        Ok(rows)
+        let rows = stmt.query_map(params![today], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?;
+        Ok(trend_days(rows.flatten(), Self::FTP_LOOKBACK_DAYS))
     }
 
     pub fn save_pace_snapshot(
@@ -1158,6 +1232,111 @@ mod tests {
         engine
     }
 
+    /// A metric on a given UTC day, with the three fields the season chart sums.
+    fn on_day(id: &str, day: &str, moving_time: u32, distance: f64, load: f64) -> ActivityMetrics {
+        let date = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d")
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap()
+            .and_utc()
+            .timestamp();
+        ActivityMetrics {
+            date,
+            distance,
+            moving_time,
+            training_load: Some(load),
+            ..metric(id, "Ride", None)
+        }
+    }
+
+    // Scenario: the season chart plots two calendar years month by month. It
+    // summed a parsed array of every body in the window to do it, so the cost
+    // scaled with the library rather than with the 24 bars it draws.
+    #[test]
+    fn monthly_stats_group_by_calendar_month() {
+        let engine = engine_with(vec![
+            on_day("a", "2025-01-05", 3_600, 40_000.0, 50.0),
+            on_day("b", "2025-01-20", 1_800, 20_000.0, 25.0),
+            on_day("c", "2025-03-01", 7_200, 80_000.0, 100.0),
+        ]);
+
+        let months = engine.get_monthly_stats(day_ts("2025-01-01"), day_ts("2025-12-31"));
+
+        assert_eq!(months.len(), 2, "only months with activities are returned");
+        assert_eq!(months[0].year, 2025);
+        assert_eq!(months[0].month, 1);
+        assert_eq!(months[0].stats.count, 2);
+        assert_eq!(months[0].stats.total_duration, 5_400);
+        assert_eq!(months[0].stats.total_distance, 60_000.0);
+        assert_eq!(months[0].stats.total_tss, 75.0);
+        assert_eq!(months[1].month, 3);
+        assert_eq!(months[1].stats.count, 1);
+    }
+
+    #[test]
+    fn monthly_stats_are_oldest_first_across_a_year_boundary() {
+        let engine = engine_with(vec![
+            on_day("a", "2025-12-20", 3_600, 40_000.0, 50.0),
+            on_day("b", "2026-01-10", 3_600, 40_000.0, 50.0),
+            on_day("c", "2026-02-10", 3_600, 40_000.0, 50.0),
+        ]);
+
+        let months = engine.get_monthly_stats(day_ts("2025-01-01"), day_ts("2026-12-31"));
+
+        let order: Vec<(i32, u32)> = months.iter().map(|m| (m.year, m.month)).collect();
+        assert_eq!(order, vec![(2025, 12), (2026, 1), (2026, 2)]);
+    }
+
+    #[test]
+    fn monthly_stats_exclude_what_falls_outside_the_window() {
+        let engine = engine_with(vec![
+            on_day("before", "2024-12-31", 3_600, 40_000.0, 50.0),
+            on_day("inside", "2025-06-15", 3_600, 40_000.0, 50.0),
+            on_day("after", "2026-01-01", 3_600, 40_000.0, 50.0),
+        ]);
+
+        let months = engine.get_monthly_stats(day_ts("2025-01-01"), day_ts("2025-12-31"));
+
+        assert_eq!(months.len(), 1);
+        assert_eq!(months[0].month, 6);
+    }
+
+    #[test]
+    fn monthly_stats_are_empty_rather_than_absent_for_a_window_with_nothing_in_it() {
+        let engine = engine_with(vec![on_day("a", "2025-01-05", 3_600, 40_000.0, 50.0)]);
+
+        assert!(
+            engine
+                .get_monthly_stats(day_ts("2020-01-01"), day_ts("2020-12-31"))
+                .is_empty()
+        );
+    }
+
+    // A null training load is no load, not a month with no total: the chart
+    // plots every month of the year and a missing one reads as a gap.
+    #[test]
+    fn monthly_stats_count_an_activity_with_no_training_load() {
+        let mut no_load = on_day("a", "2025-01-05", 3_600, 40_000.0, 0.0);
+        no_load.training_load = None;
+        let engine = engine_with(vec![no_load]);
+
+        let months = engine.get_monthly_stats(day_ts("2025-01-01"), day_ts("2025-12-31"));
+
+        assert_eq!(months.len(), 1);
+        assert_eq!(months[0].stats.count, 1);
+        assert_eq!(months[0].stats.total_tss, 0.0);
+        assert_eq!(months[0].stats.total_duration, 3_600);
+    }
+
+    fn day_ts(day: &str) -> i64 {
+        chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d")
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc()
+            .timestamp()
+    }
+
     // Scenario: the zone chart asked for `Ride` and the aggregate matched the
     // string exactly, so a gravel or e-bike ride's zone seconds never reached
     // the chart the athlete filtered to cycling.
@@ -1199,6 +1378,98 @@ mod tests {
             0.0
         );
         assert!(engine.get_zone_distribution("Ride", "cadence").is_empty());
+    }
+
+    /// Scenario: three years of wellness on the device. The table is upserted
+    /// 365 days a sync and nothing ever prunes it.
+    ///
+    /// Expected behaviour: the trend reads back only as far as the day it
+    /// compares against. Every body pulled past that is a JSON parse for an
+    /// answer already known.
+    mod trend_days {
+        use super::super::trend_days;
+        use std::cell::Cell;
+
+        fn body(eftp: f64) -> String {
+            serde_json::json!({ "sportInfo": [{"type": "Ride", "eftp": eftp}] }).to_string()
+        }
+
+        /// `n` days ending at 2026-09-05, newest first.
+        fn newest_first(n: usize) -> Vec<(String, String)> {
+            let end = chrono::NaiveDate::parse_from_str("2026-09-05", "%Y-%m-%d").unwrap();
+            (0..n)
+                .map(|i| {
+                    let date = end - chrono::Duration::days(i as i64);
+                    (date.format("%Y-%m-%d").to_string(), body(200.0 + i as f64))
+                })
+                .collect()
+        }
+
+        /// Counts what the reader actually pulled off the statement.
+        fn pulled(rows: Vec<(String, String)>) -> (Vec<(String, u16)>, usize) {
+            let count = Cell::new(0usize);
+            let days = trend_days(rows.into_iter().inspect(|_| count.set(count.get() + 1)), 30);
+            (days, count.get())
+        }
+
+        #[test]
+        fn stops_at_the_day_it_compares_against() {
+            let (days, read) = pulled(newest_first(1_100));
+
+            assert_eq!(read, 31, "reads the newest day and thirty days back");
+            assert_eq!(days.len(), 31);
+            assert_eq!(days.last().unwrap().1, 200, "newest day last");
+            assert_eq!(days.first().unwrap().1, 230, "the day compared against");
+        }
+
+        #[test]
+        fn reads_what_there_is_when_the_history_is_shorter_than_the_window() {
+            let (days, read) = pulled(newest_first(5));
+
+            assert_eq!(read, 5);
+            assert_eq!(days.len(), 5);
+        }
+
+        #[test]
+        fn skips_a_day_with_no_cycling_entry_without_counting_it_as_the_latest() {
+            let mut rows = newest_first(40);
+            rows[0].1 =
+                serde_json::json!({ "sportInfo": [{"type": "Run", "eftp": 300.0}] }).to_string();
+
+            let (days, _) = pulled(rows);
+
+            assert_eq!(days.last().unwrap().0, "2026-09-04");
+        }
+
+        #[test]
+        fn keeps_reading_past_a_gap_to_find_a_day_old_enough() {
+            // A month off the bike, then a season of riding before it.
+            let mut rows = newest_first(200);
+            for row in rows.iter_mut().take(60).skip(1) {
+                row.1 = serde_json::json!({ "sportInfo": [] }).to_string();
+            }
+
+            let (days, _) = pulled(rows);
+
+            assert_eq!(days.last().unwrap().0, "2026-09-05");
+            assert!(
+                days.first().unwrap().0.as_str() <= "2026-08-06",
+                "the day compared against is at least thirty days older"
+            );
+        }
+
+        #[test]
+        fn reads_the_whole_stream_when_no_day_carries_an_estimate() {
+            let rows: Vec<(String, String)> = newest_first(10)
+                .into_iter()
+                .map(|(d, _)| (d, "not json at all".to_string()))
+                .collect();
+
+            let (days, read) = pulled(rows);
+
+            assert!(days.is_empty());
+            assert_eq!(read, 10);
+        }
     }
 
     /// Every sport in the cycling family carries the same threshold, and a

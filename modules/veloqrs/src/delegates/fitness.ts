@@ -11,6 +11,7 @@ import type {
   FfiInsightsData,
   FfiInsightsParams,
   FfiPaceTrend,
+  FfiMonthlyStats,
   FfiPeriodStats,
   FfiStalePrOpportunity,
   FfiStartupData,
@@ -155,6 +156,42 @@ export function savePaceSnapshot(
 export function getAvailableSportTypes(host: DelegateHost): string[] {
   if (!host.ready) return [];
   return host.timed('getAvailableSportTypes', () => host.engine.fitness().getAvailableSportTypes());
+}
+
+/**
+ * Aggregated totals for one window: count, duration, distance, TSS.
+ *
+ * `activity_metrics` covers exactly what `activity_bodies` covers, since the
+ * sync writes both from the same page, so this answers any window the screens
+ * hold rather than only the GPS sync range.
+ */
+export function getPeriodStats(
+  host: DelegateHost,
+  startTs: number,
+  endTs: number
+): FfiPeriodStats | null {
+  if (!host.ready) return null;
+  return host.timed('getPeriodStats', () =>
+    host.engine.fitness().getPeriodStats(BigInt(startTs), BigInt(endTs))
+  );
+}
+
+/**
+ * A window's totals grouped by calendar month, oldest first.
+ *
+ * Months with no activity are absent rather than zero: a caller drawing a fixed
+ * twelve bars fills the gaps itself, and rows of zeroes would be the same answer
+ * with more rows.
+ */
+export function getMonthlyStats(
+  host: DelegateHost,
+  startTs: number,
+  endTs: number
+): FfiMonthlyStats[] {
+  if (!host.ready) return [];
+  return host.timed('getMonthlyStats', () =>
+    host.engine.fitness().getMonthlyStats(BigInt(startTs), BigInt(endTs))
+  );
 }
 
 export function getActivityHeatmap(

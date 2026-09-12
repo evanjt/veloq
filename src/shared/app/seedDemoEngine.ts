@@ -67,6 +67,9 @@ export function seedDemoEngine(): void {
           raw: JSON.stringify(w),
         }))
       );
+      // Rust announces a wellness write by kind; a seeded one has to say so
+      // too, or the wellness screens never hear the fixtures landed.
+      engine.announceBodyStored?.('wellness');
     }
 
     const activities = fixtures.activities as unknown as Activity[];

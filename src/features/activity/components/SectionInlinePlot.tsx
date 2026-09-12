@@ -46,7 +46,13 @@ interface SectionInlinePlotProps {
   /** Expose the first row's outer View ref to the parent. Only row 0 needs
    *  to be measured - subsequent rows' positions are pure arithmetic. */
   firstRowRef?: (ref: View | null) => void;
+  /**
+   * The swipe actions for this row. It takes the group rather than closing over
+   * it, so the list passes one function for every row and the memo above holds
+   * through a scrub that only moved the highlight.
+   */
   renderRightActions: (
+    group: SectionEncounterGroup,
     progress: Animated.AnimatedInterpolation<number>,
     dragX: Animated.AnimatedInterpolation<number>
   ) => React.ReactNode;
@@ -144,6 +150,14 @@ export const SectionInlinePlot = memo(
       onPress?.(group.sectionId);
     }, [onPress, group.sectionId]);
 
+    const swipeActions = useCallback(
+      (
+        progress: Animated.AnimatedInterpolation<number>,
+        dragX: Animated.AnimatedInterpolation<number>
+      ) => renderRightActions(group, progress, dragX),
+      [renderRightActions, group]
+    );
+
     // Colour the card's index number using the same palette + hash as the map's
     // section portions, so card N matches the colour of its section on the map.
     const numberColor = sectionPalette[sectionPaletteIndex(group.sectionId)];
@@ -181,7 +195,7 @@ export const SectionInlinePlot = memo(
               swipeableRefs.current.delete(group.sectionId);
             }
           }}
-          renderRightActions={renderRightActions}
+          renderRightActions={swipeActions}
           onSwipeableOpen={() => onSwipeableOpen(group.sectionId)}
           overshootRight={false}
           friction={2}

@@ -2,7 +2,7 @@ import type { FeatureCollection } from 'geojson';
 
 import { TROPHY_ICON_BASE64 as TROPHY_BASE64 } from '@/features/maps/lib/mapIcons';
 
-interface UpdateLayersParams {
+export interface UpdateLayersParams {
   routesGeoJSON?: FeatureCollection;
   sectionsGeoJSON?: FeatureCollection;
   tracesGeoJSON?: FeatureCollection;
@@ -12,26 +12,40 @@ interface UpdateLayersParams {
   highlightedSectionId?: string | null;
 }
 
+/** Every collection the page holds, in the order the script applies them. */
+export const LAYER_KEYS = [
+  'routesGeoJSON',
+  'sectionsGeoJSON',
+  'tracesGeoJSON',
+  'sectionMarkersGeoJSON',
+  'pointMarkersGeoJSON',
+  'sectionBoundariesGeoJSON',
+  'highlightedSectionId',
+] as const;
+
+export type LayerKey = (typeof LAYER_KEYS)[number];
+
 // Builds the injected JS that adds or updates the 3D map's GeoJSON layers
 // without reloading the WebView. Retries while the style finishes loading.
-export function buildUpdateLayersScript({
-  routesGeoJSON,
-  sectionsGeoJSON,
-  tracesGeoJSON,
-  sectionMarkersGeoJSON,
-  pointMarkersGeoJSON,
-  sectionBoundariesGeoJSON,
-  highlightedSectionId,
-}: UpdateLayersParams): string {
-  const routesJSON = routesGeoJSON ? JSON.stringify(routesGeoJSON) : 'null';
-  const sectionsJSON = sectionsGeoJSON ? JSON.stringify(sectionsGeoJSON) : 'null';
-  const tracesJSON = tracesGeoJSON ? JSON.stringify(tracesGeoJSON) : 'null';
-  const sectionMarkersJSON = sectionMarkersGeoJSON ? JSON.stringify(sectionMarkersGeoJSON) : 'null';
-  const pointMarkersJSON = pointMarkersGeoJSON ? JSON.stringify(pointMarkersGeoJSON) : 'null';
-  const boundariesJSON = sectionBoundariesGeoJSON
-    ? JSON.stringify(sectionBoundariesGeoJSON)
-    : 'null';
-  const highlightIdJSON = highlightedSectionId ? JSON.stringify(highlightedSectionId) : 'null';
+//
+// A key the caller leaves out is emitted as `undefined`, which the page reads
+// as "unchanged, leave that layer alone". A key present but empty is `null`
+// and still hides its layer, so omitting is not the same as clearing: a
+// highlight change must not re-inject every section polyline.
+export function buildUpdateLayersScript(params: UpdateLayersParams): string {
+  const literal = (key: keyof UpdateLayersParams): string => {
+    if (!(key in params)) return 'undefined';
+    const value = params[key];
+    return value ? JSON.stringify(value) : 'null';
+  };
+
+  const routesJSON = literal('routesGeoJSON');
+  const sectionsJSON = literal('sectionsGeoJSON');
+  const tracesJSON = literal('tracesGeoJSON');
+  const sectionMarkersJSON = literal('sectionMarkersGeoJSON');
+  const pointMarkersJSON = literal('pointMarkersGeoJSON');
+  const boundariesJSON = literal('sectionBoundariesGeoJSON');
+  const highlightIdJSON = literal('highlightedSectionId');
 
   return `
         (function() {
@@ -64,6 +78,7 @@ export function buildUpdateLayersScript({
 
             // Helper to safely add or update a layer
             function updateLayer(sourceId, layerId, data, layerConfig) {
+              if (data === undefined) return;
               const sourceExists = !!window.map.getSource(sourceId);
               const hasData = data && data.features && data.features.length > 0;
 
@@ -86,6 +101,7 @@ export function buildUpdateLayersScript({
 
             // Helper to add layer with outline for visibility on all map styles
             function addLayerWithOutline(sourceId, layerId, data, lineColor, lineWidth, lineOpacity) {
+              if (data === undefined) return;
               const sourceExists = !!window.map.getSource(sourceId);
               const hasData = data && data.features && data.features.length > 0;
               const outlineId = layerId + '-outline';
@@ -158,7 +174,7 @@ export function buildUpdateLayersScript({
             // Apply highlight state by re-setting paint props (addLayerWithOutline only
             // calls setData on subsequent calls, so paint updates go through here).
             try {
-              if (window.map.getLayer('traces-layer')) {
+              if (highlightedSectionId !== undefined && window.map.getLayer('traces-layer')) {
                 var tracesColor = highlightedSectionId
                   ? ['case',
                       ['==', ['get', 'id'], highlightedSectionId], '#00E5FF',
@@ -182,7 +198,7 @@ export function buildUpdateLayersScript({
 
             // Section boundary ticks - perpendicular marks at each portion's start/end.
             // Drawn above traces so boundaries are visible through any overlap.
-            try {
+            if (sectionBoundariesData !== undefined) try {
               var boundariesSrcExists = !!window.map.getSource('section-boundaries-source');
               var hasBoundaries = sectionBoundariesData && sectionBoundariesData.features && sectionBoundariesData.features.length > 0;
               if (boundariesSrcExists) {
@@ -218,6 +234,7 @@ export function buildUpdateLayersScript({
             var hasMarkers = sectionMarkersData && sectionMarkersData.features && sectionMarkersData.features.length > 0;
 
             function addMarkerLayers() {
+              if (sectionMarkersData === undefined) return;
               try {
                 if (!hasMarkers) {
                   ['section-marker-circle-3d','section-marker-border-3d','section-marker-text-3d','section-marker-pr-shadow-3d','section-marker-pr-icon-3d'].forEach(function(id) {
@@ -323,7 +340,7 @@ export function buildUpdateLayersScript({
             // intentionally skip MapLibre supercluster here to keep the
             // implementation simple; the marker count on global is in the
             // hundreds and renders fine as raw points.
-            try {
+            if (pointMarkersData !== undefined) try {
               var pointSourceExists = !!window.map.getSource('activity-points-source');
               var hasPoints = pointMarkersData && pointMarkersData.features && pointMarkersData.features.length > 0;
               if (pointSourceExists) {
@@ -365,6 +382,32 @@ export function buildUpdateLayersScript({
           }
 
           addOrUpdateLayers();
+        })();
+        true;
+  `;
+}
+
+/**
+ * Swap the drawn route on a 3D page that is already up, and frame it.
+ *
+ * The alternative is rebuilding the page, which reboots maplibre and refetches
+ * every DEM and hillshade tile one bridge call at a time.
+ */
+export function buildSetRouteScript(
+  coordinates: [number, number][],
+  /** MapLibre corners, `[lng, lat]` each, as `getBoundsFromPoints` returns. */
+  bounds?: { ne: [number, number]; sw: [number, number] } | null
+): string {
+  const coordsJSON = JSON.stringify(coordinates);
+  const fit =
+    bounds && coordinates.length > 0
+      ? `window.map.fitBounds([${JSON.stringify(bounds.sw)}, ${JSON.stringify(bounds.ne)}], { padding: 60, duration: 600 });`
+      : '';
+  return `
+        (function() {
+          if (!window.map || !window._veloq3d || !window._veloq3d.setRoute) return;
+          window._veloq3d.setRoute(${coordsJSON});
+          ${fit}
         })();
         true;
   `;

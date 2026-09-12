@@ -12,9 +12,10 @@ import { ComponentErrorBoundary } from '@/shared/ui';
 import { type MapStyleType, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
 import { MapSurface, type MapCameraState, type MapSurfaceRef } from './MapSurface';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
-import type { ActivityBoundsItem, FrequentSection } from '@/types';
+import type { ActivityBoundsItem } from '@/types';
 import {
-  useEngineSections,
+  useMapSections,
+  useSectionDetail,
   useEngineSectionCount,
   useRouteSignatures,
 } from '@/features/routes/hooks';
@@ -100,7 +101,10 @@ export function RegionalMapView({
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
-  const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
+  // The overlay carries six fields per section. The popup wants the whole
+  // record, so it is read for the one section that was tapped.
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+  const { section: selectedSection } = useSectionDetail(selectedSectionId);
   const [spider, setSpider] = useState<SpiderState | null>(null);
   const surfaceRef = useRef<MapSurfaceRef>(null);
 
@@ -124,14 +128,14 @@ export function RegionalMapView({
   // longer depends on this load - it reads sectionCount - so gating here can't
   // deadlock the button. The auto-toggle flips showSections on when zoomed in,
   // which triggers the load on demand.
-  const { sections } = useEngineSections({
+  const { sections } = useMapSections({
     minVisits: 1,
     enabled: showSections,
   });
 
   // Camera, bounds, and pre-computed activity centers
   const { activityCenters, mapCenter, currentZoomRef, currentCenterRef, markUserInteracted } =
-    useRegionalMapCamera({ activities, routeSignatures, surfaceRef });
+    useRegionalMapCamera({ activities, surfaceRef });
 
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const clusterOverlayRef = useRef<ClusterCountOverlayRef>(null);
@@ -262,10 +266,9 @@ export function RegionalMapView({
     handleFitAll,
   } = useMapHandlers({
     activities,
-    sections,
     selected,
     setSelected,
-    setSelectedSection,
+    setSelectedSectionId,
     showActivities,
     setShowActivities,
     showSections,
@@ -324,7 +327,7 @@ export function RegionalMapView({
     if (spider) setSpider(null);
   }
   if (!showSections && selectedSection) {
-    setSelectedSection(null);
+    setSelectedSectionId(null);
   }
 
   const toggleStyle = () => {
@@ -336,15 +339,9 @@ export function RegionalMapView({
   };
 
   // Handle 3D section click - receives section ID string, looks up section to select
-  const handle3DSectionClick = useCallback(
-    (sectionId: string) => {
-      const section = sections.find((s) => s.id === sectionId);
-      if (section) {
-        setSelectedSection(section);
-      }
-    },
-    [sections]
-  );
+  const handle3DSectionClick = useCallback((sectionId: string) => {
+    setSelectedSectionId(sectionId);
+  }, []);
 
   // Selected activity ID for MapLibre expressions (cheap to pass, doesn't trigger GeoJSON rebuild)
   const selectedActivityId = selected?.activity.id ?? null;
@@ -591,9 +588,9 @@ export function RegionalMapView({
         <SectionPopup
           section={selectedSection}
           bottom={insets.bottom + 250}
-          onClose={() => setSelectedSection(null)}
+          onClose={() => setSelectedSectionId(null)}
           onViewDetails={() => {
-            setSelectedSection(null);
+            setSelectedSectionId(null);
             router.push(`/section/${selectedSection.id}`);
           }}
         />

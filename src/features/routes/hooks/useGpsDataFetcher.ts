@@ -13,7 +13,7 @@ import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/engine';
 import {
   engine,
-  getDownloadProgress,
+  getFetchRunProgress,
   cancelFetchAndStore,
   startFetchAndStore,
   takeFetchAndStoreResult,
@@ -35,7 +35,11 @@ import {
   type DetectionEngine,
 } from '@/features/routes/lib/detectionRun';
 import { fetchWithRetry, type FetchPass } from '@/features/routes/lib/gpsFetchRetry';
-import { abandonDownload, pollDownloadProgress } from '@/features/routes/lib/gpsDownloadPoll';
+import {
+  abandonDownload,
+  pollDownloadProgress,
+  runProgressReader,
+} from '@/features/routes/lib/gpsDownloadPoll';
 
 const log = debug.create('GpsDataFetcher');
 
@@ -457,15 +461,18 @@ export function useGpsDataFetcher() {
           sportTypes.filter((s) => pending.has(s.activityId))
         );
 
-        // Poll download progress every 100ms. Rust fetches each activity's map
-        // and then its time stream, and only clears `active` once both are done,
-        // so one counter covers the whole download. The poll carries its own
-        // deadline: a fetch thread that unwinds leaves the flag true, and this
-        // loop is the only consumer of it.
+        // Poll this run's own progress every 100ms. Rust fetches each
+        // activity's map and then its time stream, and only clears `active`
+        // once both are done, so one counter covers the whole download. Per run
+        // rather than global: a tap queued behind a 500-activity sync used to
+        // keep polling long after its own activity had landed, watching
+        // someone else's numbers. The poll carries its own deadline too: a
+        // fetch thread that unwinds leaves the flag true, and this loop is the
+        // only consumer of it.
         // When route matching is on: download = 0-50%, detection = 50-75%, tiles = 75-100%.
         // When off: download = 0-100%.
         const outcome = await pollDownloadProgress({
-          read: getDownloadProgress,
+          read: runProgressReader(run, getFetchRunProgress),
           isActive: () => isMountedRef.current && !abortSignal.aborted,
           onProgress: (progress) => {
             const completed = Math.min(stored + progress.completed, activityIds.length);

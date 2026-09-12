@@ -12,8 +12,8 @@ set -e
 # a whole-tree total and each branch only ever counted its own files. The other
 # is a suite: a reader changed on one side against a test written on the other
 # merges clean and fails after, twice now, both times in Rust. So the suites
-# the merge touched run here, and only those: this holds the build lock, so a
-# full run would serialise every other session behind it.
+# the merge touched run here, and only those, because a full run is two minutes
+# and every worktree merges through this one checkout.
 #
 # The whole-tree guards are the third thing, and the one that gated nothing
 # until B332. A worktree runs no hooks, so a branch commit made in one never
@@ -25,11 +25,22 @@ set -e
 # prepare`, so the branch commits a merge carries were never offered to it. The
 # staged-file gate cannot stand in here either: a merge stages nothing of its
 # own, so it would find no files and pass. The crate is the question at a merge.
-# rustfmt only parses, so this is seconds against the tens this already spends,
-# which matters because it holds the build lock. Scoped to veloqrs because that
-# is what this repository's Rust CI builds; tracematch is a submodule and gates
-# itself.
+# rustfmt only parses, so this is seconds against the tens this already spends.
+# Scoped to veloqrs because that is what this repository's Rust CI builds;
+# tracematch is a submodule and gates itself.
+#
+# The fifth thing is the typecheck, and it is here because nowhere else has it.
+# `tsc` is skippable at `run-gates.sh`, eleven of thirteen worktrees run no
+# `pre-commit` to skip it in, and the documented fallback is a CI workflow that
+# fires on a push to main, which nothing here is: the window was 187 commits
+# deep when this was found. So a type error outside `--onlyChanged`'s blast
+# radius had no gate at all. It runs in the main checkout, which is the only
+# tree where `tsc` resolves `veloqrs` to the module a bundle would ship, and it
+# is incremental (`tsconfig.json` sets `incremental` and `tsBuildInfoFile`), so
+# it is seconds warm. It goes before the suites so a merge fails on the cheap
+# check.
 npm run lint
+npx tsc --noEmit
 # The format half of `npm run audit`, scoped to the merge. `format:check` globs
 # the working tree, and every worktree merges into this one checkout, so one
 # session's unformatted file failed every merge anyone attempted, on a file the

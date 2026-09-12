@@ -1281,10 +1281,13 @@ async fn sync_wellness(transport: &Transport, athlete_id: &str) -> Result<(), Ne
         })
         .collect();
 
-    crate::persistence::with_persistent_engine_blocking(move |engine| {
-        if let Err(e) = engine.upsert_wellness(&rows) {
-            log::warn!("[Sync] wellness upsert failed: {}", e);
-        }
+    // Through `store_body` for the announcement: nothing else says wellness
+    // landed, so the three screens that read it were woken by the `activities`
+    // channel, which fires per synced page while wellness is written once. The
+    // activity id is empty because wellness is a day and not an activity; the
+    // kind is what a reader filters on.
+    store_body("wellness", String::new(), move |engine| {
+        engine.upsert_wellness(&rows)
     })
     .await;
     Ok(())
@@ -2471,6 +2474,71 @@ mod tests {
         ))
         .expect("default sync");
         mock.assert();
+    }
+
+    /// Scenario: nothing announced wellness, so the three screens that read it
+    /// were woken by the `activities` channel instead. That channel fires per
+    /// synced page, measured five times in the first 4.5 s of a launch, and
+    /// wellness is written once, so each of them re-read and re-parsed its whole
+    /// window four times for nothing. A `1y` range is 365 bodies.
+    ///
+    /// Expected behaviour: one announcement, after the write, naming wellness.
+    #[test]
+    fn a_wellness_sync_announces_itself_once() {
+        let _guard = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/wellness");
+            then.status(200)
+                .json_body(json!([{"id": "2026-03-01", "ctl": 50.0, "atl": 40.0}]));
+        });
+        let recorder = crate::objects::observer::recorder::Recorder::new();
+        crate::objects::observer::set_observer(Some(recorder.clone()));
+
+        crate::runtime::block_on(sync_wellness(&transport_to(server.base_url()), "i1"))
+            .expect("wellness sync");
+
+        crate::objects::observer::set_observer(None);
+        assert_eq!(
+            recorder
+                .events()
+                .iter()
+                .filter(|e| e.starts_with("body_stored:wellness"))
+                .count(),
+            1,
+            "one announcement per sync, the events were: {:?}",
+            recorder.events()
+        );
+    }
+
+    /// A page the server answered with nothing stored nothing, so there is
+    /// nothing to wake a reader for. An announcement on an empty page would
+    /// re-read every range for no change, which is the cost being removed.
+    #[test]
+    fn an_empty_wellness_page_announces_nothing() {
+        let _guard = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/wellness");
+            then.status(200).json_body(json!([]));
+        });
+        let recorder = crate::objects::observer::recorder::Recorder::new();
+        crate::objects::observer::set_observer(Some(recorder.clone()));
+
+        crate::runtime::block_on(sync_wellness(&transport_to(server.base_url()), "i1"))
+            .expect("wellness sync");
+
+        crate::objects::observer::set_observer(None);
+        assert!(
+            !recorder
+                .events()
+                .iter()
+                .any(|e| e.starts_with("body_stored:wellness")),
+            "the events were: {:?}",
+            recorder.events()
+        );
     }
 
     #[test]

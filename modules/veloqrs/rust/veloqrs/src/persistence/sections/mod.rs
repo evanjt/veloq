@@ -1554,6 +1554,75 @@ impl PersistentEngine {
         results
     }
 
+    /// Sections as the regional map draws them: the summary fields it labels and
+    /// colours with, and the line, in one pass.
+    ///
+    /// The map's own read used to be `get_sections_filtered`, which carries the
+    /// activity ids, one portion record per traversal and the point density for
+    /// every section, all of it discarded after six fields were read. The
+    /// polylines come from the batch query rather than one call per section.
+    ///
+    /// One difference from that read, and it is deliberate: this answers from
+    /// the `sections` table rather than the in-memory catalogue. The table is
+    /// the record and the catalogue is a cache of it, and `VISIBLE_FILTER`
+    /// excludes the disabled and superseded rows the other read excluded by
+    /// holding a set of ids.
+    pub fn get_map_sections(
+        &self,
+        sport_type: Option<&str>,
+        min_visits: Option<u32>,
+    ) -> Vec<crate::FfiMapSection> {
+        let mut summaries = match sport_type {
+            Some(sport) => self.get_section_summaries_for_sport(sport),
+            None => self.get_section_summaries(),
+        };
+        // Outings, not passes, and a pin exempts the floor: the same rule
+        // `get_sections_filtered` applies, so the map's overlay does not change
+        // which sections it shows. With no floor there is nothing to exempt, so
+        // the pin table is only read when one is asked for.
+        if let Some(min_visits) = min_visits {
+            let pinned: std::collections::HashSet<String> = if min_visits == 0 {
+                std::collections::HashSet::new()
+            } else {
+                self.pinned_section_ids().into_iter().collect()
+            };
+            summaries.retain(|s| s.activity_count >= min_visits || pinned.contains(&s.id));
+        }
+        if summaries.is_empty() {
+            return Vec::new();
+        }
+
+        let ids: Vec<&str> = summaries.iter().map(|s| s.id.as_str()).collect();
+        let mut polylines = self.get_section_polylines_batch(&ids);
+        let names = self.named_overlay_cached_names();
+
+        summaries
+            .into_iter()
+            .filter_map(|summary| {
+                // A section whose line will not decode has nothing to draw, and
+                // the map skipped it anyway once it counted the points.
+                let encoded_polyline = polylines.remove(&summary.id)?;
+                if encoded_polyline.is_empty() {
+                    return None;
+                }
+                let name = summary
+                    .name
+                    .clone()
+                    .or_else(|| names.get(&summary.id).cloned());
+                Some(crate::FfiMapSection {
+                    id: summary.id,
+                    name,
+                    sport_type: summary.sport_type,
+                    visit_count: summary.visit_count,
+                    distance_meters: summary.distance_meters,
+                    klass: summary.klass,
+                    max_grade_percent: summary.max_grade_percent,
+                    encoded_polyline,
+                })
+            })
+            .collect()
+    }
+
     /// Insert a single section_activities row for a manually matched activity.
     pub fn insert_section_activity(
         &self,

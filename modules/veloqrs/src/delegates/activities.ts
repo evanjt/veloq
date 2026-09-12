@@ -13,6 +13,7 @@ import type {
   FfiActivityMetrics,
   FfiActivityRouteHighlight,
   FfiGpsPoint,
+  FfiPreviewTrack,
 } from '../generated/veloqrs';
 import { validateId } from '../conversions';
 import type { DelegateHost } from './host';
@@ -63,6 +64,19 @@ export function getGpsTrack(host: DelegateHost, activityId: string): FfiGpsPoint
   if (!host.ready) return [];
   validateId(activityId, 'activity ID');
   return host.timed('getGpsTrack', () => host.engine.activities().getGpsTrack(activityId));
+}
+
+/**
+ * One feed card's preview line, coordinate-encoded. Put it through
+ * `decodeCoords`. Undefined when the activity has no signature to draw.
+ */
+export function getPreviewTrack(
+  host: DelegateHost,
+  activityId: string
+): FfiPreviewTrack | undefined {
+  if (!host.ready) return undefined;
+  validateId(activityId, 'activity ID');
+  return host.timed('getPreviewTrack', () => host.engine.activities().getPreviewTrack(activityId));
 }
 
 /**

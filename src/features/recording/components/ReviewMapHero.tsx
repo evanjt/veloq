@@ -12,9 +12,17 @@ interface ReviewMapHeroProps {
   canTrim: boolean;
   trimStart: number;
   trimEnd: number;
+  /**
+   * The trim the map draws. Re-slicing both halves of the track and shipping
+   * them to the WebView is too much for a gesture frame, so the map follows
+   * the released handle while the slider and the summary follow the finger.
+   */
+  mapTrimStart: number;
+  mapTrimEnd: number;
   totalDuration: number;
   totalPoints: number;
   onTrimChange: (startIdx: number, endIdx: number) => void;
+  onTrimCommit: (startIdx: number, endIdx: number) => void;
   onBack: () => void;
   disabled?: boolean;
 }
@@ -26,9 +34,12 @@ function ReviewMapHeroInner({
   canTrim,
   trimStart,
   trimEnd,
+  mapTrimStart,
+  mapTrimEnd,
   totalDuration,
   totalPoints,
   onTrimChange,
+  onTrimCommit,
   onBack,
   disabled,
 }: ReviewMapHeroProps) {
@@ -38,8 +49,8 @@ function ReviewMapHeroInner({
         coordinates={coordinates}
         currentLocation={null}
         fitBounds
-        trimStart={canTrim ? trimStart : undefined}
-        trimEnd={canTrim ? trimEnd : undefined}
+        trimStart={canTrim ? mapTrimStart : undefined}
+        trimEnd={canTrim ? mapTrimEnd : undefined}
         style={styles.map}
       />
 
@@ -61,6 +72,7 @@ function ReviewMapHeroInner({
             startIdx={trimStart}
             endIdx={trimEnd}
             onTrimChange={onTrimChange}
+            onTrimCommit={onTrimCommit}
           />
         </View>
       )}

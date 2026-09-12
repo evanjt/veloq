@@ -12,6 +12,7 @@ import type {
   FfiCalendarSummary,
   FfiEfficiencyTrend,
   FfiSection,
+  FfiMapSection,
   FfiNamedCorridor,
   FfiRankedSection,
   FfiSectionDetailData,
@@ -46,6 +47,25 @@ export function getSectionsFiltered(
   // forward optional args as-is, do NOT coalesce to null.
   return host.timed('getSectionsFiltered', () =>
     host.engine.sections().getSections({ sportType, minVisits })
+  );
+}
+
+/**
+ * Sections as the regional map draws them: six fields and the encoded line.
+ *
+ * `getSectionsFiltered` carries the activity ids, one portion record per
+ * traversal and the point density per section, and the map reads none of it.
+ */
+export function getMapSections(
+  host: DelegateHost,
+  sportType?: string,
+  minVisits?: number
+): FfiMapSection[] {
+  if (!host.ready) return [];
+  // FfiConverterOptional* accepts undefined for "absent" but throws on null -
+  // forward optional args as-is, do NOT coalesce to null.
+  return host.timed('getMapSections', () =>
+    host.engine.sections().getMapSections(sportType, minVisits)
   );
 }
 

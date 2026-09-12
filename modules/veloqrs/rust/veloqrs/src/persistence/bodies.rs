@@ -156,6 +156,17 @@ const RECONSTRUCTABLE: [&str; 4] = ["altitude", "fixed_altitude", "latlng", "tim
 /// history.
 const MAX_STREAM_BODY_BYTES: i64 = 8 * 1024 * 1024;
 
+/// How stale a cache hit's stamp has to be before the read moves it to the
+/// front of the eviction order.
+///
+/// The stamp is what makes the ceiling an LRU, but stamping on every hit makes
+/// a read an autocommit write: it needs the engine's write lock and rewrites
+/// `idx_stream_bodies_updated`, on the activity-open path and once a scrub
+/// frame. An hour is coarse enough that a screen reading the same
+/// body repeatedly writes once, and fine enough that the eviction order still
+/// reflects which activities the athlete actually opens.
+const STREAM_BODY_TOUCH_SECS: i64 = 3600;
+
 impl PersistentEngine {
     /// Store a stream payload for an activity and series selection.
     ///
@@ -389,27 +400,42 @@ impl PersistentEngine {
     /// activity the athlete keeps opening outlives one fetched once and never
     /// looked at again. Without the stamp the order is write order, so the
     /// activity on screen is evicted while a stale neighbour survives.
+    ///
+    /// The stamp is only rewritten once the stored one is
+    /// `STREAM_BODY_TOUCH_SECS` old, because the write is what costs: stamping
+    /// every hit made a read need the engine's write lock and rewrite
+    /// `idx_stream_bodies_updated`, once per activity open and once a scrub
+    /// frame.
     pub fn get_stream_body(&self, activity_id: &str, types: &str) -> SqlResult<Option<String>> {
-        let hit: Option<String> = self
+        // The stamp comes back with the payload, so deciding whether to touch
+        // costs nothing beyond the read that was happening anyway.
+        let hit: Option<(String, Option<i64>)> = self
             .db
             .query_row(
-                "SELECT raw FROM stream_bodies WHERE activity_id = ? AND types = ?",
+                "SELECT raw, updated_at FROM stream_bodies WHERE activity_id = ? AND types = ?",
                 params![activity_id, types],
-                |row| row.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .map(Some)
             .or_else(|e| match e {
                 rusqlite::Error::QueryReturnedNoRows => Ok(None),
                 other => Err(other),
             })?;
-        if hit.is_some() {
+        let Some((raw, stamped)) = hit else {
+            return Ok(None);
+        };
+        // A row with no stamp cannot be ordered, so it is touched to give it
+        // one rather than left to sort as the oldest thing in the cache.
+        let stale =
+            stamped.is_none_or(|at| chrono::Utc::now().timestamp() - at >= STREAM_BODY_TOUCH_SECS);
+        if stale {
             self.db.execute(
                 "UPDATE stream_bodies SET updated_at = strftime('%s', 'now')
                  WHERE activity_id = ? AND types = ?",
                 params![activity_id, types],
             )?;
         }
-        Ok(hit)
+        Ok(Some(raw))
     }
 }
 
@@ -423,6 +449,80 @@ mod tests {
         let path = dir.path().join("routes.db");
         let engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
         (dir, engine)
+    }
+
+    /// The stamp for one cached body, or None when the row is not there.
+    fn stamp_of(engine: &PersistentEngine, activity_id: &str, types: &str) -> Option<i64> {
+        engine
+            .db
+            .query_row(
+                "SELECT updated_at FROM stream_bodies WHERE activity_id = ? AND types = ?",
+                params![activity_id, types],
+                |r| r.get(0),
+            )
+            .ok()
+    }
+
+    /// Scenario: the activity screen reads a cached stream body, once a scrub
+    /// frame.
+    ///
+    /// Expected behaviour: a read of a body already stamped inside the touch
+    /// interval writes nothing. Stamping on every hit turns a read that could
+    /// run on the read lock into an autocommit write that serialises with the
+    /// sync, and rewrites `idx_stream_bodies_updated` with it.
+    #[test]
+    fn a_freshly_stamped_body_is_not_restamped_on_every_read() {
+        let (_dir, engine) = engine();
+        engine.set_stream_body("a1", "time", "body").unwrap();
+
+        // A few minutes back, so it is well inside the interval but not the
+        // same second `strftime('%s','now')` would write. Comparing against a
+        // stamp taken this second proves nothing: the restamp lands on the
+        // value it started from and the assertion holds either way.
+        let fresh = chrono::Utc::now().timestamp() - 300;
+        engine
+            .db
+            .execute(
+                "UPDATE stream_bodies SET updated_at = ? WHERE activity_id = ? AND types = ?",
+                params![fresh, "a1", "time"],
+            )
+            .unwrap();
+
+        assert_eq!(
+            engine.get_stream_body("a1", "time").unwrap().as_deref(),
+            Some("body")
+        );
+
+        assert_eq!(
+            stamp_of(&engine, "a1", "time"),
+            Some(fresh),
+            "the read restamped a body that was already inside the interval"
+        );
+    }
+
+    /// Expected behaviour: the stamp is still what orders the eviction, so a
+    /// read of a body older than the interval does move it to the front. The
+    /// point of the interval is to stop the write, not to stop the LRU.
+    #[test]
+    fn a_stale_body_is_restamped_so_it_outlives_an_untouched_neighbour() {
+        let (_dir, engine) = engine();
+        engine.set_stream_body("a1", "time", "body").unwrap();
+        let stale = chrono::Utc::now().timestamp() - STREAM_BODY_TOUCH_SECS - 60;
+        engine
+            .db
+            .execute(
+                "UPDATE stream_bodies SET updated_at = ? WHERE activity_id = ? AND types = ?",
+                params![stale, "a1", "time"],
+            )
+            .unwrap();
+
+        engine.get_stream_body("a1", "time").unwrap();
+
+        let now = stamp_of(&engine, "a1", "time").expect("the body survived the read");
+        assert!(
+            now > stale,
+            "a body outside the interval was not moved to the front: {now} is not past {stale}"
+        );
     }
 
     #[test]

@@ -73,6 +73,11 @@ export default function ReviewScreen() {
 
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(Math.max(0, (streams.latlng?.length ?? 0) - 1));
+  // What the map draws. It follows the released handle, not the finger.
+  const [mapTrim, setMapTrim] = useState<[number, number]>([
+    0,
+    Math.max(0, (streams.latlng?.length ?? 0) - 1),
+  ]);
 
   const type = selectedType;
   const canTrim = !isManual && (streams.latlng?.length ?? 0) > 2;
@@ -81,6 +86,10 @@ export default function ReviewScreen() {
   const handleTrimChange = useCallback((startIdx: number, endIdx: number) => {
     setTrimStart(startIdx);
     setTrimEnd(endIdx);
+  }, []);
+
+  const handleTrimCommit = useCallback((startIdx: number, endIdx: number) => {
+    setMapTrim([startIdx, endIdx]);
   }, []);
 
   // Summary, trim delta, and trimmed-stream accessor extracted to useActivitySummary
@@ -169,9 +178,12 @@ export default function ReviewScreen() {
           canTrim={canTrim}
           trimStart={trimStart}
           trimEnd={trimEnd}
+          mapTrimStart={mapTrim[0]}
+          mapTrimEnd={mapTrim[1]}
           totalDuration={summary.duration}
           totalPoints={streams.latlng.length}
           onTrimChange={handleTrimChange}
+          onTrimCommit={handleTrimCommit}
           onBack={handleBack}
           disabled={isProcessing}
         />

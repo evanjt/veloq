@@ -8,61 +8,66 @@ import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { CHART_CONFIG } from '@/constants';
 import { chartStyles, colors, typography, spacing, layout, verdictColor } from '@/theme';
-import type { Activity } from '@/types';
+import {
+  localDayEnd,
+  localDayStart,
+  useMonthlyStats,
+  type MonthTotals,
+} from '@/features/stats/hooks/useEngineStats';
 
 interface SeasonComparisonProps {
   /** Height of the chart */
   height?: number;
-  /** Activities from current year */
-  currentYearActivities?: Activity[];
-  /** Activities from previous year */
-  previousYearActivities?: Activity[];
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// Aggregate activities by month from the activity array.
-// Engine SQL is not used here because activity_metrics only covers the GPS sync window (~90 days),
-// while SeasonComparison needs a full year of data from the API.
-function aggregateByMonth(
-  activities: Activity[] | undefined,
+/**
+ * One year's twelve bars, from the engine's monthly aggregate.
+ *
+ * A month with no activity is absent from the aggregate rather than zero, so
+ * the twelve slots are filled here: the chart draws every month of the year and
+ * a missing one is a gap, not a shorter axis.
+ */
+function monthBars(
+  months: MonthTotals[],
+  year: number,
   metric: 'hours' | 'distance' | 'tss'
 ): number[] {
-  const monthlyTotals = new Array(12).fill(0);
-  if (!activities) return monthlyTotals;
-
-  for (const activity of activities) {
-    const date = new Date(activity.start_date_local);
-    const month = date.getMonth();
-
-    switch (metric) {
-      case 'hours':
-        monthlyTotals[month] += (activity.moving_time || 0) / 3600;
-        break;
-      case 'distance':
-        monthlyTotals[month] += (activity.distance || 0) / 1000;
-        break;
-      case 'tss':
-        monthlyTotals[month] += activity.icu_training_load || 0;
-        break;
-    }
+  const bars = new Array(12).fill(0);
+  for (const row of months) {
+    if (row.year !== year) continue;
+    const value =
+      metric === 'hours'
+        ? row.duration / 3600
+        : metric === 'distance'
+          ? row.distance / 1000
+          : row.tss;
+    bars[row.month - 1] = Math.round(value * 10) / 10;
   }
-
-  return monthlyTotals.map((v) => Math.round(v * 10) / 10);
+  return bars;
 }
 
 const BAR_WIDTH = 8;
 const BAR_GAP = 2;
 const BAR_RADIUS = 4; // spacing.xs
 
-export function SeasonComparison({
-  height = 200,
-  currentYearActivities,
-  previousYearActivities,
-}: SeasonComparisonProps) {
+export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
+
+  // The two calendar years the chart draws, and no more: the totals come from
+  // the engine's own GROUP BY rather than from a parsed year of bodies.
+  const { currentYear, startTs, endTs } = useMemo(() => {
+    const now = new Date();
+    return {
+      currentYear: now.getFullYear(),
+      startTs: localDayStart(new Date(now.getFullYear() - 1, 0, 1)),
+      endTs: localDayEnd(now),
+    };
+  }, []);
+  const months = useMonthlyStats(startTs, endTs);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [measuredWidth, setMeasuredWidth] = useState(0);
   const chartWidthRef = useRef(0);
@@ -118,21 +123,19 @@ export function SeasonComparison({
     [selectMonthFromX, clearSelection]
   );
 
-  // Show empty state if no activities
-  const hasData =
-    (currentYearActivities && currentYearActivities.length > 0) ||
-    (previousYearActivities && previousYearActivities.length > 0);
+  // Show empty state when neither year has an activity in it.
+  const hasData = months.length > 0;
 
   const data = useMemo(() => {
-    const currentTotals = aggregateByMonth(currentYearActivities, metric);
-    const previousTotals = aggregateByMonth(previousYearActivities, metric);
+    const currentTotals = monthBars(months, currentYear, metric);
+    const previousTotals = monthBars(months, currentYear - 1, metric);
 
     return MONTHS.map((month, idx) => ({
       month,
       current: currentTotals[idx],
       previous: previousTotals[idx],
     }));
-  }, [currentYearActivities, previousYearActivities, metric]);
+  }, [months, currentYear, metric]);
 
   const maxValue = useMemo(() => {
     return Math.max(...data.flatMap((d) => [d.current, d.previous]));

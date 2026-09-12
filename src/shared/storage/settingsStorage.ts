@@ -7,6 +7,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getEngine } from '@/shared/native/engine';
+import { SETTINGS_MIGRATED_KEY } from './migrateSettingsToSqlite';
 
 /**
  * Writes issued before the current tick ends, in the order their keys were
@@ -47,9 +48,28 @@ export async function getSetting(key: string): Promise<string | null> {
   if (engine) {
     const value = engine.getSetting(key);
     if (value !== undefined) return value;
+    if (sqliteHoldsEverything(engine)) return null;
   }
   // Fallback to AsyncStorage (pre-migration or engine not ready)
   return AsyncStorage.getItem(key);
+}
+
+/**
+ * True once the one-time migration has copied every preference into SQLite.
+ * After that an absent key is absent, and asking AsyncStorage is an async
+ * bridge round trip that can never find anything. A launch restores
+ * seventeen stores and most of their keys have never been written, so that
+ * is most of them, on every launch, forever.
+ *
+ * Only the true answer is remembered. A false one is this session's migration
+ * not having finished yet, which it can do at any moment.
+ */
+let migrationSeen = false;
+
+function sqliteHoldsEverything(engine: NonNullable<ReturnType<typeof getEngine>>): boolean {
+  if (migrationSeen) return true;
+  migrationSeen = engine.getSetting(SETTINGS_MIGRATED_KEY) !== undefined;
+  return migrationSeen;
 }
 
 /**

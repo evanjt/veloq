@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
+import { useSectionDisplayNames } from '@/features/routes/hooks/useSectionDisplayNames';
 import { isPaceSport } from '@/features/activity/lib/activityUtils';
 import type { ActivityType, FrequentSection } from '@/types';
 import type { NearbySectionSummary } from 'veloqrs';
@@ -9,10 +9,11 @@ export function useSectionMapData(
   effectiveSportType: string | undefined,
   section: FrequentSection | null
 ) {
+  const displayNames = useSectionDisplayNames();
+
   // Prepare nearby polylines for map overlay (includes metadata for preview popup)
   const nearbyPolylines = useMemo(() => {
     if (!nearby || nearby.length === 0) return undefined;
-    const displayNames = getAllSectionDisplayNames();
     return nearby.map((n) => ({
       id: n.id,
       name: displayNames[n.id] || n.name,
@@ -21,7 +22,7 @@ export function useSectionMapData(
       visitCount: n.visitCount,
       encodedPolyline: n.encodedPolyline,
     }));
-  }, [nearby]);
+  }, [nearby, displayNames]);
 
   const isRunning = effectiveSportType
     ? isPaceSport(effectiveSportType as ActivityType)

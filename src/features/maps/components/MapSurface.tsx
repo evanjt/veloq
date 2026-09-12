@@ -56,6 +56,7 @@ import {
   buildSetStyleScript,
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import { buildReleaseMapScript } from '@/features/maps/lib/htmlBuilders/shared';
+import { createSurfacePatcher } from '@/features/maps/lib/mapSurfacePatch';
 import { registerReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
 import type {
   MapCameraSpec,
@@ -219,11 +220,8 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   const failedRef = useRef(false);
   const [unavailable, setUnavailable] = useState(false);
 
-  // Last spec actually sent, so a re-render only ships what moved.
-  const sentSourcesRef = useRef<Record<string, string>>({});
-  const sentLayersRef = useRef<string>('');
-  const sentMarkersRef = useRef<string>('');
-  const sentImagesRef = useRef<string>('');
+  // What the page has been told, so a re-render only ships what moved.
+  const patcherRef = useRef(createSurfacePatcher());
 
   const pendingRef = useRef(new Map<string, PendingResolver>());
   const requestSeqRef = useRef(0);
@@ -283,48 +281,16 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     // until the page says it is ready and send the whole spec then.
     if (!readyRef.current) return;
 
-    const changedSources: Record<string, MapSourceSpec | null> = {};
-    let hasSourceChange = false;
+    const { patch } = patcherRef.current.next({
+      sources,
+      layers,
+      markers,
+      images,
+      interactiveLayers,
+    });
+    if (!patch) return;
 
-    for (const [id, spec] of Object.entries(sources)) {
-      const serialised = JSON.stringify(spec);
-      if (sentSourcesRef.current[id] !== serialised) {
-        changedSources[id] = spec;
-        sentSourcesRef.current[id] = serialised;
-        hasSourceChange = true;
-      }
-    }
-    for (const id of Object.keys(sentSourcesRef.current)) {
-      if (!(id in sources)) {
-        changedSources[id] = null;
-        delete sentSourcesRef.current[id];
-        hasSourceChange = true;
-      }
-    }
-
-    const layersJSON = JSON.stringify(layers);
-    const layersChanged = layersJSON !== sentLayersRef.current;
-    sentLayersRef.current = layersJSON;
-
-    const markersJSON = JSON.stringify(markers ?? []);
-    const markersChanged = markersJSON !== sentMarkersRef.current;
-    sentMarkersRef.current = markersJSON;
-
-    const imagesJSON = JSON.stringify(images ?? []);
-    const imagesChanged = imagesJSON !== sentImagesRef.current;
-    sentImagesRef.current = imagesJSON;
-
-    if (!hasSourceChange && !layersChanged && !markersChanged && !imagesChanged) return;
-
-    inject(
-      buildApplyScript({
-        ...(imagesChanged || images ? { images: images ?? [] } : {}),
-        ...(hasSourceChange ? { sources: changedSources } : {}),
-        ...(layersChanged ? { layers } : {}),
-        ...(markersChanged ? { markers: markers ?? [] } : {}),
-        ...(interactiveLayers ? { interactiveLayers } : {}),
-      })
-    );
+    inject(buildApplyScript(patch));
   }, [sources, layers, markers, images, interactiveLayers, inject]);
 
   // The bridge handlers are built once, so they reach the current patch sender
@@ -369,10 +335,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
         readyRef.current = true;
         failedRef.current = false;
         setUnavailable(false);
-        sentSourcesRef.current = {};
-        sentLayersRef.current = '';
-        sentMarkersRef.current = '';
-        sentImagesRef.current = '';
+        patcherRef.current.forget();
         sendPatchRef.current();
         callbacksRef.current.onMapReady?.();
       },
@@ -512,10 +475,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   // A crashed render process comes back empty, so everything has to resend.
   const handleCrash = useCallback(() => {
     readyRef.current = false;
-    sentSourcesRef.current = {};
-    sentLayersRef.current = '';
-    sentMarkersRef.current = '';
-    sentImagesRef.current = '';
+    patcherRef.current.forget();
     webViewRef.current?.reload();
   }, []);
 

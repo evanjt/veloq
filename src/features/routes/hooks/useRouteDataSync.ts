@@ -172,38 +172,35 @@ export function useRouteDataSync(
           }
         }
 
-        // Batch-fetch FIT files for WeightTraining activities not yet processed
-        if (!isDemoModeRef.current) {
-          const strengthIds = activitiesToSync
-            .filter((a) => a.type === 'WeightTraining')
-            .map((a) => a.id);
-
-          if (
-            strengthIds.length > 0 &&
-            typeof nativeModule.engine.getUnprocessedStrengthIds === 'function'
-          ) {
-            const unprocessed = nativeModule.engine.getUnprocessedStrengthIds(strengthIds);
-            if (unprocessed.length > 0) {
+        // Batch-fetch FIT files for WeightTraining activities not yet processed.
+        // The empty list asks the engine for its own queue: the sport is a
+        // column there, so filtering a whole-library parsed array here for
+        // `WeightTraining` only sent the engine ids it can select itself.
+        if (
+          !isDemoModeRef.current &&
+          typeof nativeModule.engine.getUnprocessedStrengthIds === 'function'
+        ) {
+          const unprocessed = nativeModule.engine.getUnprocessedStrengthIds([]);
+          if (unprocessed.length > 0) {
+            if (__DEV__) {
+              log.log(
+                `[RouteDataSync] Fetching FIT files for ${unprocessed.length} strength activities`
+              );
+            }
+            try {
+              // Fire and forget: the downloads run on a Rust thread and the
+              // sets are read back from SQLite when a strength screen asks.
+              const outcome = nativeModule.engine.batchFetchExerciseSets(unprocessed);
               if (__DEV__) {
                 log.log(
-                  `[RouteDataSync] Fetching FIT files for ${unprocessed.length} strength activities`
+                  `[RouteDataSync] FIT batch for ${unprocessed.length} activities: ${
+                    hasStarted(outcome) ? 'started' : `refused (${outcome})`
+                  }`
                 );
               }
-              try {
-                // Fire and forget: the downloads run on a Rust thread and the
-                // sets are read back from SQLite when a strength screen asks.
-                const outcome = nativeModule.engine.batchFetchExerciseSets(unprocessed);
-                if (__DEV__) {
-                  log.log(
-                    `[RouteDataSync] FIT batch for ${unprocessed.length} activities: ${
-                      hasStarted(outcome) ? 'started' : `refused (${outcome})`
-                    }`
-                  );
-                }
-              } catch (err) {
-                if (__DEV__) {
-                  console.error('[RouteDataSync] FIT batch fetch error:', err);
-                }
+            } catch (err) {
+              if (__DEV__) {
+                console.error('[RouteDataSync] FIT batch fetch error:', err);
               }
             }
           }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useImperativeHandle, useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,11 +7,7 @@ import { formatDuration } from '@/shared/format/format';
 
 interface ChartDistanceIndicatorProps {
   xAxisMode: 'distance' | 'time';
-  /** Live scrub value along the x-axis (distance in display units, or time in seconds). */
-  currentX: number | null;
-  /** Whether the user is currently scrubbing - drives display of currentX vs maxX. */
-  isActive: boolean;
-  /** Maximum x-axis value, used as the default display when not scrubbing. */
+  /** Maximum x-axis value, shown whenever no scrub is in flight. */
   maxX: number;
   /** Distance unit label (`km` or `mi`). Empty string for time mode. */
   xUnit: string;
@@ -20,66 +16,85 @@ interface ChartDistanceIndicatorProps {
   onXAxisModeToggle?: () => void;
 }
 
+/** How the chart pushes a scrub position into the pill. */
+export interface ChartDistanceIndicatorHandle {
+  /**
+   * The live scrub position, or null when the gesture ends. Zero is a
+   * position, so the absent one has to be null rather than falsy.
+   */
+  setScrub: (x: number | null) => void;
+}
+
 /**
  * Bottom-right pill that shows the current x-axis value (distance or time).
  *
  * Tappable when {@link canToggleXAxis} is true and a toggle callback is
  * provided - the activity has both distance and time streams, so the user
  * can swap between modes. Otherwise renders as a static display.
+ *
+ * The scrub value is state of this component's own, pushed in through the
+ * handle rather than passed as a prop. Held at the chart root it re-rendered
+ * the whole chart on every index the gesture crossed, and the pill is the only
+ * thing that draws it.
  */
-export const ChartDistanceIndicator = React.memo(function ChartDistanceIndicator({
-  xAxisMode,
-  currentX,
-  isActive,
-  maxX,
-  xUnit,
-  isDark,
-  canToggleXAxis,
-  onXAxisModeToggle,
-}: ChartDistanceIndicatorProps) {
-  const displayValue =
-    xAxisMode === 'time'
-      ? formatDuration(isActive && currentX !== null ? currentX : maxX)
-      : isActive && currentX !== null
-        ? `${currentX.toFixed(2)} ${xUnit}`
-        : `${maxX.toFixed(1)} ${xUnit}`;
+export const ChartDistanceIndicator = React.memo(
+  React.forwardRef<ChartDistanceIndicatorHandle, ChartDistanceIndicatorProps>(
+    function ChartDistanceIndicator(
+      { xAxisMode, maxX, xUnit, isDark, canToggleXAxis, onXAxisModeToggle },
+      ref
+    ) {
+      const [scrub, setScrub] = useState<number | null>(null);
+      useImperativeHandle(ref, () => ({ setScrub }), []);
 
-  if (canToggleXAxis && onXAxisModeToggle) {
-    return (
-      <TouchableOpacity
-        style={[
-          styles.distanceIndicator,
-          styles.distanceIndicatorTappable,
-          isDark && styles.distanceIndicatorDark,
-          isDark && styles.distanceIndicatorTappableDark,
-        ]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          onXAxisModeToggle();
-        }}
-        activeOpacity={0.7}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Text style={[styles.distanceText, isDark && styles.distanceTextDark]}>{displayValue}</Text>
-        <MaterialCommunityIcons
-          name="swap-horizontal"
-          size={12}
-          color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          style={styles.swapIcon}
-        />
-      </TouchableOpacity>
-    );
-  }
+      const displayValue =
+        xAxisMode === 'time'
+          ? formatDuration(scrub ?? maxX)
+          : scrub !== null
+            ? `${scrub.toFixed(2)} ${xUnit}`
+            : `${maxX.toFixed(1)} ${xUnit}`;
 
-  return (
-    <View
-      style={[styles.distanceIndicator, isDark && styles.distanceIndicatorDark]}
-      pointerEvents="none"
-    >
-      <Text style={[styles.distanceText, isDark && styles.distanceTextDark]}>{displayValue}</Text>
-    </View>
-  );
-});
+      if (canToggleXAxis && onXAxisModeToggle) {
+        return (
+          <TouchableOpacity
+            style={[
+              styles.distanceIndicator,
+              styles.distanceIndicatorTappable,
+              isDark && styles.distanceIndicatorDark,
+              isDark && styles.distanceIndicatorTappableDark,
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onXAxisModeToggle();
+            }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={[styles.distanceText, isDark && styles.distanceTextDark]}>
+              {displayValue}
+            </Text>
+            <MaterialCommunityIcons
+              name="swap-horizontal"
+              size={12}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              style={styles.swapIcon}
+            />
+          </TouchableOpacity>
+        );
+      }
+
+      return (
+        <View
+          style={[styles.distanceIndicator, isDark && styles.distanceIndicatorDark]}
+          pointerEvents="none"
+        >
+          <Text style={[styles.distanceText, isDark && styles.distanceTextDark]}>
+            {displayValue}
+          </Text>
+        </View>
+      );
+    }
+  )
+);
 
 const styles = StyleSheet.create({
   distanceIndicator: {

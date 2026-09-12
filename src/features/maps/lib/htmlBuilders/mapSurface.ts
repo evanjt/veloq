@@ -44,6 +44,12 @@ export interface MapGeoJSONSourceSpec {
   /** Needed by gradient lines, which address the line by `line-progress`. */
   lineMetrics?: boolean;
   tolerance?: number;
+  /**
+   * A single LineString that normally grows at its end, such as a recording
+   * in progress. The surface then ships the new points alone instead of the
+   * whole line. A line that changes any other way is still sent whole.
+   */
+  growing?: boolean;
 }
 
 /** A raster tile source, used by the heatmap overlay. */
@@ -218,6 +224,27 @@ function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       });
     }
 
+    // Points added to the end of a line the page already holds. The cached
+    // spec is grown too, so a style swap rehydrates the whole line and not
+    // just the tail.
+    function _applyAppends(appends) {
+      var map = window.map;
+      Object.keys(appends).forEach(function(id) {
+        try {
+          var spec = window._veloq.sources[id];
+          var data = spec && spec.data;
+          var feature = data && (data.type === 'FeatureCollection' ? data.features[0] : data);
+          var line = feature && feature.geometry;
+          var source = map.getSource(id);
+          if (!line || line.type !== 'LineString' || !source) return;
+          appends[id].forEach(function(point) { line.coordinates.push(point); });
+          source.setData(data);
+        } catch (e) {
+          window._rn_log('append ' + id + ': ' + e.message);
+        }
+      });
+    }
+
     function _sameValue(a, b) {
       if (a === b) return true;
       return JSON.stringify(a) === JSON.stringify(b);
@@ -369,6 +396,9 @@ function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       if (patch.images) { window._veloq.images = patch.images; }
       _applyImages(patch.images || window._veloq.images, function() {
         if (patch.sources) _applySources(patch.sources);
+        // After the sources, so a line sent whole this patch is not appended
+        // to twice, and before the layers, which may filter on its length.
+        if (patch.appends) _applyAppends(patch.appends);
         if (patch.layers) _applyLayers(patch.layers);
         if (patch.markers !== undefined) _applyMarkers(patch.markers);
         if (patch.interactiveLayers) {
@@ -779,6 +809,8 @@ ${surfaceRuntimeScript(config)}
 /** Apply a spec patch. Sources omitted from the patch keep their current data. */
 export function buildApplyScript(patch: {
   sources?: Record<string, MapSourceSpec | null>;
+  /** Points to add to the end of a growing line already on the page. */
+  appends?: Record<string, GeoJSON.Position[]>;
   layers?: MapLayerSpec[];
   markers?: MapMarkerSpec[];
   images?: MapImageSpec[];

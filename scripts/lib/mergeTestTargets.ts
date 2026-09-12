@@ -8,9 +8,9 @@
  * would have sat green through them.
  *
  * The whole suite is not the answer either. Every worktree merges into one
- * checkout under a build lock, and the hook runs inside the merge, so a
- * three-and-a-half minute suite serialises every other session behind it.
- * These are the targets the merge actually touched.
+ * checkout, and the hook runs inside the merge, holding the merge lock, so a
+ * three-and-a-half minute suite serialises every other session's merge behind
+ * it. These are the targets the merge actually touched.
  */
 
 const CRATE = 'modules/veloqrs/rust/veloqrs/';

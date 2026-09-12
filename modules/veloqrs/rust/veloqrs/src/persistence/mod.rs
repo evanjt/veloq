@@ -145,6 +145,15 @@ pub struct ActivityMetadata {
     pub id: String,
     pub sport_type: String,
     pub bounds: Bounds,
+    /// Where the ride began, from the signature's own stored start point.
+    ///
+    /// The map draws a marker per activity and wants the start, not the middle
+    /// of the bounding box. Holding it here is what lets the map screen answer
+    /// with it: the page used to place every marker on its bounds centre, then
+    /// move all of them once the signatures finished loading, which is two
+    /// uploads and two cluster indexes per mount. `None` for an activity with
+    /// no signature yet, where the bounds centre is still the best guess.
+    pub start_point: Option<(f64, f64)>,
 }
 
 /// Bounds wrapper for R-tree spatial indexing.
@@ -197,6 +206,11 @@ pub struct MapActivityComplete {
     pub sport_type: String,
     /// Bounding box for map display
     pub bounds: crate::FfiBounds,
+    /// Where the ride began, for the marker. `None` leaves the caller the
+    /// bounds centre, which is where every marker used to start out before the
+    /// signatures finished loading and moved it.
+    pub start_lat: Option<f64>,
+    pub start_lng: Option<f64>,
     /// Start date as Unix timestamp (seconds since epoch)
     pub date: i64,
     /// Activity name
@@ -326,6 +340,30 @@ pub struct CacheUpdate {
     pub boundaries: Vec<tracematch::BoundaryRecord>,
 }
 
+/// The newest mid-fold checkpoint, and only the newest.
+///
+/// A checkpoint is a clone of the whole catalogue plus the folded-id set of the
+/// entire pool. Sent down the result channel they queued one every two seconds
+/// for the length of a run nobody polls, which on a cold `force_redetect` is
+/// hundreds of copies held until the apply frees the lot. Only the newest is
+/// ever wanted: an older one describes less of the same fold. So the worker
+/// overwrites rather than appends, and the memory is one checkpoint whether or
+/// not anything is polling.
+#[derive(Default)]
+pub struct CheckpointSlot(std::sync::Mutex<Option<CacheUpdate>>);
+
+impl CheckpointSlot {
+    /// Replace whatever is held. Never blocks the fold for a reader.
+    pub fn put(&self, update: CacheUpdate) {
+        *self.0.lock().unwrap_or_else(|e| e.into_inner()) = Some(update);
+    }
+
+    /// Take the held checkpoint, leaving the slot empty.
+    pub fn take(&self) -> Option<CacheUpdate> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner()).take()
+    }
+}
+
 /// Handle for background section detection.
 
 pub struct SectionDetectionHandle {
@@ -339,6 +377,9 @@ pub struct SectionDetectionHandle {
     /// short-circuit never send here, so `take_cache` returns None and the
     /// caller leaves the engine cache untouched.
     cache_receiver: mpsc::Receiver<CacheUpdate>,
+    /// The newest mid-fold checkpoint. Off the channel on purpose: a run the
+    /// follower never polls would otherwise queue one every two seconds.
+    checkpoint: Arc<CheckpointSlot>,
     /// Shared progress state
     pub progress: SectionDetectionProgress,
     /// Set by a self-applying worker once its own apply has landed. Present
@@ -447,19 +488,19 @@ impl SectionDetectionHandle {
         None
     }
 
-    /// The newest checkpoint the worker has sent since the last drain, or
-    /// None. A final update met on the way is kept for [`take_cache`].
+    /// The newest checkpoint the worker has left, or None. The slot holds one,
+    /// so this is a take rather than a drain and the channel is untouched.
     pub fn take_checkpoint(&self) -> Option<CacheUpdate> {
-        let mut latest = None;
-        while let Ok(u) = self.cache_receiver.try_recv() {
-            if u.checkpoint {
-                latest = Some(u);
-            } else {
-                *self.final_update.lock().unwrap_or_else(|e| e.into_inner()) = Some(u);
-                break;
-            }
-        }
-        latest
+        self.checkpoint.take()
+    }
+
+    /// The slot this run writes its checkpoints into.
+    ///
+    /// Handed out so a follower can hold on to the one run it started and tell
+    /// it from whatever occupies the slot later, which no id on the handle
+    /// would do any better.
+    pub fn checkpoint_slot(&self) -> Arc<CheckpointSlot> {
+        Arc::clone(&self.checkpoint)
     }
 
     /// Block for the section result AND collect the evidence-cache update in one
@@ -475,7 +516,7 @@ impl SectionDetectionHandle {
     /// makes the next detect compute `pool - folded = {}` and reload the whole
     /// pool anyway, and loses every fork attribution, since a checkpoint
     /// carries no `boundaries`. So drain to the first non-checkpoint update,
-    /// and fall back to the newest checkpoint only when the run ended without
+    /// and fall back to the checkpoint slot only when the run ended without
     /// one.
     pub fn recv_with_cache(
         self,
@@ -489,16 +530,17 @@ impl SectionDetectionHandle {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .take();
-        let cache = stashed.or_else(|| {
-            let mut newest_checkpoint = None;
-            loop {
-                match self.cache_receiver.try_recv() {
-                    Ok(u) if u.checkpoint => newest_checkpoint = Some(u),
-                    Ok(u) => return Some(u),
-                    Err(_) => return newest_checkpoint,
+        let cache = stashed
+            .or_else(|| {
+                loop {
+                    match self.cache_receiver.try_recv() {
+                        Ok(u) if u.checkpoint => continue,
+                        Ok(u) => return Some(u),
+                        Err(_) => return None,
+                    }
                 }
-            }
-        });
+            })
+            .or_else(|| self.checkpoint.take());
         (main, cache)
     }
 }
@@ -661,6 +703,7 @@ impl SectionDetectionHandle {
             receiver: rx,
             final_update: Mutex::new(None),
             cache_receiver: cache_rx,
+            checkpoint: Arc::new(CheckpointSlot::default()),
             progress: SectionDetectionProgress::new(),
             worker_applied: Some(Arc::new(AtomicBool::new(false))),
             cancel: Arc::new(AtomicBool::new(false)),
@@ -762,6 +805,7 @@ mod worker_poll_tests {
             receiver: rx,
             final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
+            checkpoint: Arc::new(CheckpointSlot::default()),
             progress: SectionDetectionProgress::new(),
             worker_applied: None,
             cancel: Arc::new(AtomicBool::new(false)),
@@ -780,6 +824,7 @@ mod worker_poll_tests {
             receiver: rx,
             final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
+            checkpoint: Arc::new(CheckpointSlot::default()),
             progress: SectionDetectionProgress::new(),
             worker_applied: None,
             cancel: Arc::new(AtomicBool::new(false)),
@@ -1566,6 +1611,7 @@ impl PersistentEngine {
                     id: clone_id,
                     sport_type: source_meta.sport_type.clone(),
                     bounds: source_meta.bounds,
+                    start_point: source_meta.start_point,
                 },
             );
 

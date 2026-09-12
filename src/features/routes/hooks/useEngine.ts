@@ -142,6 +142,71 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
   }, [trigger, sportType, minVisits, enabled]);
 }
 
+/** What the regional map draws one section with. */
+export interface MapSection {
+  id: string;
+  name: string;
+  sportType: string;
+  visitCount: number;
+  distanceMeters: number;
+  polyline: { lat: number; lng: number }[];
+}
+
+interface UseMapSectionsResult {
+  sections: MapSection[];
+  totalCount: number;
+}
+
+/**
+ * Sections for the regional map's overlay.
+ *
+ * Six fields and a line, against `useEngineSections`, which took the whole
+ * record: the activity ids, one `activity_portions` entry per traversal and the
+ * point density for every section, converted each portion here and then read
+ * none of it. The label is still built in JavaScript because it is built from
+ * the athlete's own units, which Rust does not hold.
+ */
+export function useMapSections(options: UseEngineSectionsOptions = {}): UseMapSectionsResult {
+  const { sportType, minVisits = 1, enabled = true } = options;
+  const trigger = useEngineSubscription(['sections']);
+
+  return useMemo(() => {
+    if (!enabled) return { sections: [], totalCount: 0 };
+    try {
+      const engine = getEngine();
+      if (!engine) return { sections: [], totalCount: 0 };
+
+      const sections: MapSection[] = engine.getMapSections(sportType, minVisits).map((native) => ({
+        id: native.id,
+        name: generateSectionName({
+          id: native.id,
+          name: native.name ?? undefined,
+          sportType: native.sportType,
+          distanceMeters: native.distanceMeters,
+          klass: native.klass ?? undefined,
+          maxGradePercent: native.maxGradePercent ?? undefined,
+        }),
+        sportType: native.sportType,
+        visitCount: native.visitCount,
+        distanceMeters: native.distanceMeters,
+        polyline: decodeCoords(native.encodedPolyline).map((p) => ({
+          lat: p.latitude,
+          lng: p.longitude,
+        })),
+      }));
+
+      return { sections, totalCount: sections.length };
+    } catch (e) {
+      if (__DEV__) {
+        console.warn('[useMapSections] threw', e);
+      }
+      return { sections: [], totalCount: 0 };
+    }
+    // `trigger` is the invalidation, not an input: it counts `sections` events
+    // and nothing in the body reads it.
+  }, [trigger, sportType, minVisits, enabled]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 /**
  * Total section count without loading any polylines or summaries. Cheap SQL
  * COUNT via `getSectionCount()`. Use this to drive UI that only needs to know

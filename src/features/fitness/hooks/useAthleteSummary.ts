@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate, getMonday, getSunday, getIntlLocale } from '@/shared/format/format';
@@ -124,14 +125,17 @@ function readWeeklySummaries(currentMonday: Date, weeksBack: number): AthleteSum
 export function useAthleteSummary(weeksBack: number = 8) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  // Calculate date range: start from weeksBack weeks ago, end at end of current week
-  const today = new Date();
-  const currentMonday = getMonday(today);
-  const startDate = new Date(currentMonday);
-  startDate.setDate(startDate.getDate() - weeksBack * 7);
-
-  // End at Sunday of current week
-  const endDate = getSunday(today);
+  // The range moves once a day, not once a render. Keyed on the day rather than
+  // on a `Date`, which is a new object every render and so memoises nothing.
+  const todayKey = formatLocalDate(new Date());
+  const { currentMonday, startDate, endDate } = useMemo(() => {
+    const today = new Date();
+    const monday = getMonday(today);
+    const start = new Date(monday);
+    start.setDate(start.getDate() - weeksBack * 7);
+    return { currentMonday: monday, startDate: start, endDate: getSunday(today) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayKey, weeksBack]);
 
   useEngineChannel('activities', queryKeys.athleteSummary.all);
 
@@ -148,30 +152,36 @@ export function useAthleteSummary(weeksBack: number = 8) {
     placeholderData: keepPreviousData,
   });
 
-  // Process the data to extract current and previous week
-  const data: WeeklySummaryData = {
-    currentWeek: null,
-    previousWeek: null,
-    currentWeekNumber: getISOWeekNumber(today),
-    currentWeekRange: formatWeekRange(currentMonday),
-    currentWeekMonday: currentMonday,
-    allWeeks: query.data || [],
-  };
+  // One object per set of weeks, not one per render. Built in the render body it
+  // was a new reference every time, so `WeeklySummary`'s memo recomputed on
+  // every scrub tick, `formatWeekRange` ran two `toLocaleString` calls with it,
+  // and the non-week ranges walked the whole activity array again.
+  const data = useMemo<WeeklySummaryData>(() => {
+    const built: WeeklySummaryData = {
+      currentWeek: null,
+      previousWeek: null,
+      currentWeekNumber: getISOWeekNumber(currentMonday),
+      currentWeekRange: formatWeekRange(currentMonday),
+      currentWeekMonday: currentMonday,
+      allWeeks: query.data || [],
+    };
 
-  if (query.data && query.data.length > 0) {
-    const currentWeekStr = formatLocalDate(currentMonday);
-    const prevMonday = new Date(currentMonday);
-    prevMonday.setDate(prevMonday.getDate() - 7);
-    const prevWeekStr = formatLocalDate(prevMonday);
+    if (query.data && query.data.length > 0) {
+      const currentWeekStr = formatLocalDate(currentMonday);
+      const prevMonday = new Date(currentMonday);
+      prevMonday.setDate(prevMonday.getDate() - 7);
+      const prevWeekStr = formatLocalDate(prevMonday);
 
-    for (const week of query.data) {
-      if (week.date === currentWeekStr) {
-        data.currentWeek = week;
-      } else if (week.date === prevWeekStr) {
-        data.previousWeek = week;
+      for (const week of query.data) {
+        if (week.date === currentWeekStr) {
+          built.currentWeek = week;
+        } else if (week.date === prevWeekStr) {
+          built.previousWeek = week;
+        }
       }
     }
-  }
+    return built;
+  }, [query.data, currentMonday]);
 
   return {
     ...query,

@@ -9,15 +9,15 @@
  */
 
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
-import { normalizeBounds, getBoundsCenter } from '@/shared/geo/polyline';
+import { normalizeBounds } from '@/shared/geo/polyline';
+import { startCenterFor } from '../../lib/markerCentre';
 import type { ActivityBoundsItem } from '@/types';
-import type { RouteSignature } from '@/features/routes/hooks';
 import type { MapSurfaceRef } from '@/features/maps/components/MapSurface';
 import { REGIONAL_FIT_PADDING } from './regionalCamera';
+import { densestClusterIndices } from '../../lib/densestCluster';
 
 interface UseRegionalMapCameraOptions {
   activities: ActivityBoundsItem[];
-  routeSignatures: Record<string, RouteSignature>;
   surfaceRef: React.RefObject<MapSurfaceRef | null>;
 }
 
@@ -42,7 +42,6 @@ interface BoundsData {
 
 export function useRegionalMapCamera({
   activities,
-  routeSignatures,
   surfaceRef,
 }: UseRegionalMapCameraOptions): UseRegionalMapCameraResult {
   // Refs for zoom/center avoid re-renders during map gestures.
@@ -54,28 +53,20 @@ export function useRegionalMapCamera({
   // ===========================================
   // 120HZ OPTIMIZATION: Pre-compute and cache activity start positions
   // ===========================================
-  // Uses first point from RouteSignature when available (start of GPS track)
-  // Falls back to first latlng point, then bounds center for activities without GPS data
+  // The start point rides in on the map screen read, so this no longer depends
+  // on the signatures load. It used to: every marker was uploaded once on its
+  // bounds centre and again when the signatures arrived and moved it, which is
+  // two N-point uploads and two Supercluster index builds per mount.
   // This avoids calling getBoundsCenter() (which does format detection) during render
   const activityCenters = useMemo(() => {
     const centers: Record<string, [number, number]> = {};
 
     for (const activity of activities) {
-      // Try to use start point from RouteSignature (first GPS point)
-      const signature = routeSignatures[activity.id];
-      if (signature?.points?.length > 0) {
-        centers[activity.id] = [signature.points[0].lng, signature.points[0].lat];
-      } else if (activity.latlngs && activity.latlngs.length > 0) {
-        // Fallback: use first latlng from cached GPS data (latlngs is [lat, lng] order)
-        centers[activity.id] = [activity.latlngs[0][1], activity.latlngs[0][0]];
-      } else {
-        // Last resort: compute from bounds center
-        centers[activity.id] = getBoundsCenter(activity.bounds);
-      }
+      centers[activity.id] = startCenterFor(activity);
     }
 
     return centers;
-  }, [activities, routeSignatures]);
+  }, [activities]);
 
   const initialBoundsRef = useRef<BoundsData | null>(null);
 
@@ -105,36 +96,12 @@ export function useRegionalMapCamera({
         });
       }
 
-      // Find the densest cluster: for each activity, count how many others are
-      // within ~200km (~2 degrees). The activity with the most neighbours defines
-      // the cluster center, and the cluster includes all activities within range.
-      const CLUSTER_RADIUS_DEG = 2;
-      let bestIdx = 0;
-      let bestCount = 0;
-      for (let i = 0; i < centers.length; i++) {
-        let count = 0;
-        for (let j = 0; j < centers.length; j++) {
-          const dLat = Math.abs(centers[i].lat - centers[j].lat);
-          const dLng = Math.abs(centers[i].lng - centers[j].lng);
-          if (dLat <= CLUSTER_RADIUS_DEG && dLng <= CLUSTER_RADIUS_DEG) {
-            count++;
-          }
-        }
-        if (count > bestCount) {
-          bestCount = count;
-          bestIdx = i;
-        }
-      }
-
-      // Collect all activities in the winning cluster
-      const clusterActivities: ActivityBoundsItem[] = [];
-      for (let j = 0; j < centers.length; j++) {
-        const dLat = Math.abs(centers[bestIdx].lat - centers[j].lat);
-        const dLng = Math.abs(centers[bestIdx].lng - centers[j].lng);
-        if (dLat <= CLUSTER_RADIUS_DEG && dLng <= CLUSTER_RADIUS_DEG) {
-          clusterActivities.push(activityList[j]);
-        }
-      }
+      // Where most of the activities are, found by binning rather than by
+      // comparing every activity with every other. That pairwise pass was 240k
+      // iterations at 490 activities and ran again on every filter chip tap.
+      const clusterActivities: ActivityBoundsItem[] = densestClusterIndices(centers).map(
+        (i) => activityList[i]
+      );
 
       // Compute bounds from the cluster (or all activities if they're all in one cluster)
       let minLat = Infinity,

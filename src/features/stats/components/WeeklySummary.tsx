@@ -13,13 +13,16 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, typography, spacing, layout, verdictColor } from '@/theme';
 import { weeklyTrend, type WeeklyStat } from '@/features/stats/lib/weeklyTrend';
 import { formatDistance, getMonday, getSunday, formatDurationHuman } from '@/shared/format/format';
-import type { Activity } from '@/types';
+import {
+  localDayEnd,
+  localDayStart,
+  usePeriodStats,
+  type PeriodTotals,
+} from '@/features/stats/hooks/useEngineStats';
 
 type TimeRange = 'week' | 'month' | '3m' | '6m' | 'year';
 
 interface WeeklySummaryProps {
-  /** All activities (component will filter based on selected time range) */
-  activities?: Activity[];
   /** Pre-fetched athlete summary data (lifted from parent for data call visibility) */
   summaryData?: WeeklySummaryData;
   /** Whether summary data is loading */
@@ -112,59 +115,13 @@ function getDateRanges(range: TimeRange): DateRanges {
   return DATE_RANGES[range](now, today);
 }
 
-// Compute period stats from the activity array (JS iteration).
-// Engine SQL is not used here because activity_metrics only covers the GPS sync window (~90 days),
-// while time ranges like 6m/year need full historical data from the API.
-function computeStatsForPeriods(
-  _activities: Activity[] | undefined,
-  currentStart: Date,
-  currentEnd: Date,
-  previousStart: Date,
-  previousEnd: Date
-) {
-  const activities = _activities ?? [];
-  const currentStartTs = currentStart.getTime();
-  const currentEndTs = currentEnd.getTime() + 86400000 - 1;
-  const previousStartTs = previousStart.getTime();
-  const previousEndTs = previousEnd.getTime() + 86400000 - 1;
-
-  let cCount = 0,
-    cDuration = 0,
-    cDistance = 0,
-    cTss = 0;
-  let pCount = 0,
-    pDuration = 0,
-    pDistance = 0,
-    pTss = 0;
-
-  for (const a of activities) {
-    const ts = new Date(a.start_date_local).getTime();
-    if (ts >= currentStartTs && ts <= currentEndTs) {
-      cCount++;
-      cDuration += a.moving_time || 0;
-      cDistance += a.distance || 0;
-      cTss += a.icu_training_load || 0;
-    } else if (ts >= previousStartTs && ts <= previousEndTs) {
-      pCount++;
-      pDuration += a.moving_time || 0;
-      pDistance += a.distance || 0;
-      pTss += a.icu_training_load || 0;
-    }
-  }
-
+/** The engine's totals, with TSS rounded as the cells display it. */
+function rounded(totals: PeriodTotals) {
   return {
-    currentStats: {
-      count: cCount,
-      duration: cDuration,
-      distance: cDistance,
-      tss: Math.round(cTss),
-    },
-    previousStats: {
-      count: pCount,
-      duration: pDuration,
-      distance: pDistance,
-      tss: Math.round(pTss),
-    },
+    count: totals.count,
+    duration: totals.duration,
+    distance: totals.distance,
+    tss: Math.round(totals.tss),
   };
 }
 
@@ -190,7 +147,6 @@ function TrendCell({
 }
 
 export function WeeklySummary({
-  activities,
   summaryData: externalSummaryData,
   summaryLoading: externalSummaryLoading,
 }: WeeklySummaryProps) {
@@ -205,6 +161,23 @@ export function WeeklySummary({
   const { data: internalSummaryData, isLoading: internalSummaryLoading } = useAthleteSummary(4);
   const summaryData = externalSummaryData ?? internalSummaryData;
   const isLoadingSummary = externalSummaryLoading ?? internalSummaryLoading;
+
+  // The two windows the selected range compares, as the epoch seconds the
+  // engine stores. The calendar week takes the athlete-summary endpoint when it
+  // has one, because that is what intervals.icu's own week is, so the reads are
+  // turned off rather than run and discarded.
+  const ranges = useMemo(() => getDateRanges(timeRange), [timeRange]);
+  const readsEngine = !(timeRange === 'week' && !!summaryData);
+  const current = usePeriodStats(
+    localDayStart(ranges.currentStart),
+    localDayEnd(ranges.currentEnd),
+    readsEngine
+  );
+  const previous = usePeriodStats(
+    localDayStart(ranges.previousStart),
+    localDayEnd(ranges.previousEnd),
+    readsEngine
+  );
 
   // Compute stats based on time range
   const { currentStats, previousStats, labels } = useMemo(() => {
@@ -235,36 +208,18 @@ export function WeeklySummary({
       };
     }
 
-    // For other time ranges, use client-side calculation
-    if (!activities || activities.length === 0) {
-      return {
-        currentStats: { count: 0, duration: 0, distance: 0, tss: 0 },
-        previousStats: { count: 0, duration: 0, distance: 0, tss: 0 },
-        labels: getTimeRangeLabel(timeRange, t, weekNum, weekRangeStr),
-      };
-    }
-
-    const ranges = getDateRanges(timeRange);
-    const stats = computeStatsForPeriods(
-      activities,
-      ranges.currentStart,
-      ranges.currentEnd,
-      ranges.previousStart,
-      ranges.previousEnd
-    );
-
     return {
-      ...stats,
+      currentStats: rounded(current.totals),
+      previousStats: rounded(previous.totals),
       labels: getTimeRangeLabel(timeRange, t, weekNum, weekRangeStr),
     };
-  }, [activities, timeRange, summaryData, t]);
+  }, [current.totals, previous.totals, timeRange, summaryData, t]);
 
-  // Show loading state: for 'week' the summary endpoint is authoritative.
-  // For other ranges, only block the render while activities is still
-  // undefined (first fetch); once it arrives (even as []) let the empty-
-  // state branch handle it rather than spinning indefinitely.
-  const isLoading =
-    timeRange === 'week' ? isLoadingSummary : activities === undefined && isLoadingSummary;
+  // Show loading state: for 'week' the summary endpoint is authoritative. For
+  // other ranges it is the engine read, which settles in a tick; once it has,
+  // the empty-state branch handles a period with nothing in it rather than
+  // spinning indefinitely.
+  const isLoading = timeRange === 'week' ? isLoadingSummary : current.isPending;
 
   // Show empty state if no activities in current period
   if (!isLoading && currentStats.count === 0) {

@@ -54,6 +54,13 @@ export const queryKeys = {
     byDate: (date: string | undefined) => ['wellness', 'date', date] as const,
   },
 
+  stats: {
+    all: ['engine-stats'] as const,
+    monthly: (startTs: number, endTs: number) =>
+      ['engine-stats', 'monthly', startTs, endTs] as const,
+    period: (startTs: number, endTs: number) => ['engine-stats', 'period', startTs, endTs] as const,
+  },
+
   athleteSummary: {
     all: ['athlete-summary'] as const,
     byRange: (startDate: string, endDate: string) =>

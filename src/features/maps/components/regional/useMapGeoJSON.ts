@@ -11,9 +11,9 @@ import { useMemo } from 'react';
 import type { TFunction } from 'i18next';
 
 import { convertLatLngTuples } from '@/shared/geo/polyline';
-import type { ActivityBoundsItem, FrequentSection, ActivityType } from '@/types';
+import type { ActivityBoundsItem, ActivityType } from '@/types';
 import { getSectionStyle, getRouteStyle } from '@/features/routes/constants';
-import type { RouteSignature } from '@/features/routes/hooks';
+import type { MapSection, RouteSignature } from '@/features/routes/hooks';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
 import type { SelectedActivity } from './ActivityPopup';
 import { EMPTY_FEATURE_COLLECTION } from '../../lib/coordinates';
@@ -56,7 +56,8 @@ interface UseMapGeoJSONOptions {
   visibleActivities: ActivityBoundsItem[];
   activityCenters: Record<string, [number, number]>;
   routeSignatures: Record<string, RouteSignature>;
-  sections: FrequentSection[];
+  /** Six fields and a line: everything the overlay draws, and nothing else. */
+  sections: MapSection[];
   routeGroups: RouteGroupMinimal[];
   showRoutes: boolean;
   userLocation: [number, number] | null;

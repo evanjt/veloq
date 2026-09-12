@@ -17,11 +17,15 @@ import { useMap3DBridge } from '@/features/maps/hooks/useMap3DBridge';
 import { HIGHLIGHT_THROTTLE_MS } from '@/features/maps/lib/mapBudgets';
 import {
   buildMap3DHtml,
+  buildSetRouteScript,
   buildUpdateLayersScript,
+  LAYER_KEYS,
   resolveStyleExpression,
   TERRAIN_STYLE_OPTIONS,
 } from '@/features/maps/lib/htmlBuilders';
+import type { LayerKey, UpdateLayersParams } from '@/features/maps/lib/htmlBuilders';
 import { buildReleaseMapScript } from '@/features/maps/lib/htmlBuilders/shared';
+import { diffSpec, type SentSpec } from '@/features/maps/lib/mapSurfacePatch';
 import { registerReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
 import type { MapStyleType } from './mapStyles';
 import { TERRAIN_3D_CONFIG } from './mapStyles';
@@ -216,23 +220,48 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       highlightedSectionId,
     ]);
 
+    // What the page holds, so an update ships only the collections that moved.
+    // Cleared wherever the page stops being ready, since a reloaded or
+    // restyled page holds nothing and has to be given everything again.
+    const sentLayersRef = useRef<Partial<Record<LayerKey, SentSpec<unknown>>>>({});
+    const forgetLayers = useCallback(() => {
+      sentLayersRef.current = {};
+    }, []);
+
     // Update GeoJSON layers dynamically without reloading WebView
     // Reads from refs to avoid stale closure issues
     // Uses retry mechanism to handle style loading race conditions
     const updateLayers = useCallback(() => {
       if (!webViewRef.current || !mapReadyRef.current) return;
 
-      webViewRef.current.injectJavaScript(
-        buildUpdateLayersScript({
-          routesGeoJSON: routesGeoJSONRef.current,
-          sectionsGeoJSON: sectionsGeoJSONRef.current,
-          tracesGeoJSON: tracesGeoJSONRef.current,
-          sectionMarkersGeoJSON: sectionMarkersGeoJSONRef.current,
-          pointMarkersGeoJSON: pointMarkersGeoJSONRef.current,
-          sectionBoundariesGeoJSON: sectionBoundariesGeoJSONRef.current,
-          highlightedSectionId: highlightedSectionIdRef.current,
-        })
-      );
+      const collections: UpdateLayersParams = {
+        routesGeoJSON: routesGeoJSONRef.current,
+        sectionsGeoJSON: sectionsGeoJSONRef.current,
+        tracesGeoJSON: tracesGeoJSONRef.current,
+        sectionMarkersGeoJSON: sectionMarkersGeoJSONRef.current,
+        pointMarkersGeoJSON: pointMarkersGeoJSONRef.current,
+        sectionBoundariesGeoJSON: sectionBoundariesGeoJSONRef.current,
+        highlightedSectionId: highlightedSectionIdRef.current,
+      };
+
+      // Only what moved. A highlight change used to re-inject every section
+      // polyline and every point marker into the page, because the script
+      // carried all seven collections whichever one changed.
+      const patch: UpdateLayersParams = {};
+      let changed = false;
+      for (const key of LAYER_KEYS) {
+        const value = collections[key];
+        const diff = diffSpec(sentLayersRef.current[key], value);
+        sentLayersRef.current[key] = diff.sent;
+        if (!diff.changed) continue;
+        // The key is present once it is in the patch, which is what the page
+        // reads as "this one changed".
+        Object.assign(patch, { [key]: value });
+        changed = true;
+      }
+      if (!changed) return;
+
+      webViewRef.current.injectJavaScript(buildUpdateLayersScript(patch));
     }, []);
 
     // Handle messages from WebView - dispatch via the shared 3D bridge.
@@ -426,9 +455,11 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         true;
       `);
 
+      // A setStyle wipes every source, so the page holds nothing to patch.
+      forgetLayers();
       // After style change, re-apply GeoJSON overlay layers once the new style settles
       setTimeout(() => updateLayers(), 500);
-    }, [mapStyle, routeColor, terrainExaggeration, updateLayers, showHeatmap]);
+    }, [mapStyle, routeColor, terrainExaggeration, forgetLayers, updateLayers, showHeatmap]);
 
     // Expose reset method to parent
     useImperativeHandle(
@@ -595,14 +626,16 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     // loaded. A main frame that never arrives has to be reported from here.
     const handleWebViewError = useCallback(() => {
       mapReadyRef.current = false;
+      forgetLayers();
       onMapFailed?.('webview load error');
-    }, [onMapFailed]);
+    }, [forgetLayers, onMapFailed]);
 
     // Reload WebView on crash (iOS content process termination / Android render process gone)
     const handleWebViewCrash = useCallback(() => {
       mapReadyRef.current = false;
+      forgetLayers();
       webViewRef.current?.reload();
-    }, []);
+    }, [forgetLayers]);
 
     // A released page holds no map until the reload, so the layer updates are
     // silenced the same way a crash silences them.
@@ -611,11 +644,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         registerReleasableSurface({
           release: () => {
             mapReadyRef.current = false;
+            forgetLayers();
             webViewRef.current?.injectJavaScript(buildReleaseMapScript());
           },
           rebuild: handleWebViewCrash,
         }),
-      [handleWebViewCrash]
+      [forgetLayers, handleWebViewCrash]
     );
 
     // Calculate bounds from coordinates using utility
@@ -630,6 +664,20 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       return getBoundsFromPoints(points, 0.1);
     }, [coordinates]);
 
+    // Only the route the page was built with. A later one is injected, so the
+    // page is not rebuilt to draw it.
+    const builtCoordinatesRef = useRef(coordinates);
+    const builtBoundsRef = useRef(bounds);
+    builtBoundsRef.current = bounds;
+
+    // Swap the drawn route on the page that is already up.
+    useEffect(() => {
+      if (coordinates === builtCoordinatesRef.current) return;
+      builtCoordinatesRef.current = coordinates;
+      if (!webViewRef.current || !mapReadyRef.current) return;
+      webViewRef.current.injectJavaScript(buildSetRouteScript(coordinates, bounds));
+    }, [coordinates, bounds]);
+
     // Use initial center/zoom when no coordinates provided
 
     // Generate the HTML for the WebView
@@ -638,6 +686,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const html = useMemo(() => {
       // Reset map ready state when HTML regenerates
       mapReadyRef.current = false;
+      // A rebuilt page holds nothing, so the next update sends everything.
+      sentLayersRef.current = {};
 
       // Use saved camera position if available (from previous style change),
       // then fall back to initialCamera override (from parent), then to initial props.
@@ -648,8 +698,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       const pitch = savedCamera ? savedCamera.pitch : initialPitch;
 
       return buildMap3DHtml({
-        coordinates,
-        bounds,
+        coordinates: builtCoordinatesRef.current,
+        bounds: builtBoundsRef.current,
         centerOverride,
         zoom,
         bearing,
@@ -670,9 +720,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       });
       // `mapStyle` is read above and deliberately not a dependency: it is
       // applied by setStyle() injection, and listing it here would regenerate
-      // the whole HTML on every style change.
+      // the whole HTML on every style change. `coordinates` and `bounds` come
+      // from refs for the same reason: a rebuilt page reboots maplibre and
+      // refetches every DEM and hillshade tile, so a new selection goes in
+      // through `buildSetRouteScript` instead.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [coordinates, bounds, routeColor, initialPitch, terrainExaggeration, showHeatmap]);
+    }, [routeColor, initialPitch, terrainExaggeration, showHeatmap]);
 
     return (
       <View style={styles.container}>

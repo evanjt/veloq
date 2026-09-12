@@ -57,6 +57,7 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
 let mockJobs: { id: string; state: string }[] = [{ id: 'sync', state: 'idle' }];
 jest.mock('@/features/settings', () => ({
   useRunningJobCount: () => mockJobs.filter((job) => job.state === 'running').length,
+  useLastBackupTimestamp: () => null,
 }));
 
 jest.mock('@/features/settings/components', () => ({

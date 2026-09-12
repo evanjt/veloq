@@ -181,6 +181,9 @@ RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_ids(
 RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_missing_time_streams(
     /*handle*/ uint64_t ptr, RustBuffer activity_ids,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_preview_track(
+    /*handle*/ uint64_t ptr, RustBuffer activity_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_stream_body(
     /*handle*/ uint64_t ptr, RustBuffer activity_id, RustBuffer types,
     RustCallStatus *uniffi_out_err);
@@ -376,8 +379,14 @@ RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_interval_body(
     /*handle*/ uint64_t ptr, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_monthly_stats(
+    /*handle*/ uint64_t ptr, int64_t start_ts, int64_t end_ts,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve_body(
     /*handle*/ uint64_t ptr, RustBuffer sport, int64_t days, int8_t gap,
+    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats(
+    /*handle*/ uint64_t ptr, int64_t start_ts, int64_t end_ts,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_power_curve_body(
     /*handle*/ uint64_t ptr, RustBuffer sport, int64_t days,
@@ -695,6 +704,9 @@ RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_history(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_lineages(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_map_sections(
+    /*handle*/ uint64_t ptr, RustBuffer sport_type, RustBuffer min_visits,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_near_point(
@@ -950,6 +962,9 @@ RustBuffer uniffi_veloqrs_fn_func_get_elevation_backfill_progress(
 uint32_t uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
     RustCallStatus *uniffi_out_err);
 RustBuffer
+uniffi_veloqrs_fn_func_get_fetch_run_progress(uint64_t run,
+                                              RustCallStatus *uniffi_out_err);
+RustBuffer
 uniffi_veloqrs_fn_func_get_network_push(RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_get_stream_backfill_progress(
     RustCallStatus *uniffi_out_err);
@@ -1113,6 +1128,7 @@ uint16_t uniffi_veloqrs_checksum_func_get_cutover_progress();
 uint16_t uniffi_veloqrs_checksum_func_get_download_progress();
 uint16_t uniffi_veloqrs_checksum_func_get_elevation_backfill_progress();
 uint16_t uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining();
+uint16_t uniffi_veloqrs_checksum_func_get_fetch_run_progress();
 uint16_t uniffi_veloqrs_checksum_func_get_network_push();
 uint16_t uniffi_veloqrs_checksum_func_get_stream_backfill_progress();
 uint16_t uniffi_veloqrs_checksum_func_get_stream_backfill_remaining();
@@ -1142,6 +1158,7 @@ uint16_t uniffi_veloqrs_checksum_method_activitymanager_get_highlights_bundle();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_get_ids();
 uint16_t
 uniffi_veloqrs_checksum_method_activitymanager_get_missing_time_streams();
+uint16_t uniffi_veloqrs_checksum_method_activitymanager_get_preview_track();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_get_stream_body();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_mint_local_id();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_record_upload();
@@ -1224,7 +1241,9 @@ uint16_t
 uniffi_veloqrs_checksum_method_fitnessmanager_get_calendar_event_bodies();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_interval_body();
+uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_monthly_stats();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve_body();
+uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve_body();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data();
@@ -1338,6 +1357,7 @@ uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_version_coords();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_history();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_lineages();
+uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_map_sections();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_near_point();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_performances();
@@ -4830,6 +4850,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_fn_method_activitymanager_get_missing_time_streams(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_fn_method_activitymanager_get_preview_track"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "activitymanager_get_preview_track"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_activitymanager_get_preview_track(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_activitymanager_get_stream_body"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -5837,6 +5869,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_interval_body(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_monthly_stats"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_monthly_stats"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_monthly_stats(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve_body"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -5847,6 +5892,19 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve_body(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_power_curve_body"] =
@@ -7311,6 +7369,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_lineages(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_map_sections"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_map_sections"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_map_sections(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -8517,6 +8588,17 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_func_get_fetch_run_progress"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_func_get_fetch_run_progress"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_func_get_fetch_run_progress(
+                rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_func_get_network_push"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -9335,6 +9417,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_func_get_fetch_run_progress"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_func_get_fetch_run_progress"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_func_get_fetch_run_progress(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_func_get_network_push"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -9667,6 +9761,18 @@ NativeVeloqrs::NativeVeloqrs(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_veloqrs_checksum_method_activitymanager_get_missing_time_streams(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_preview_"
+        "track"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "activitymanager_get_preview_track"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_activitymanager_get_preview_track(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_stream_body"] =
@@ -10554,6 +10660,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_interval_body(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_monthly_"
+        "stats"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "fitnessmanager_get_monthly_stats"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_monthly_stats(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve_"
         "body"] = jsi::Function::createFromHostFunction(
       rt,
@@ -10566,6 +10684,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve_body(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "fitnessmanager_get_period_stats"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve_"
         "body"] = jsi::Function::createFromHostFunction(
       rt,
@@ -11796,6 +11926,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_lineages(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_map_sections"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "sectionmanager_get_map_sections"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_map_sections(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_named_"
@@ -13707,6 +13849,22 @@ jsi::Value NativeVeloqrs::
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_get_preview_track(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_activitymanager_get_preview_track(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_get_stream_body(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -15019,6 +15177,22 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_interval_body(
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_monthly_stats(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_monthly_stats(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve_body(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -15030,6 +15204,22 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve_body(
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]),
       uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[3]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]), &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -16969,6 +17159,23 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_lineages(
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_map_sections(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_map_sections(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -18513,6 +18720,19 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
 
   return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_fetch_run_progress(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_get_fetch_run_progress(
+      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_network_push(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -19328,6 +19548,14 @@ jsi::Value NativeVeloqrs::
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_get_fetch_run_progress(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_func_get_fetch_run_progress();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_get_network_push(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -19548,6 +19776,15 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_activitymanager_get_missing_time_streams();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_activitymanager_get_preview_track(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_activitymanager_get_preview_track();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -20155,11 +20392,28 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_monthly_stats(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_fitnessmanager_get_monthly_stats();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve_body(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve_body();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -21008,6 +21262,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_lineages(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_sectionmanager_get_lineages();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_map_sections(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_sectionmanager_get_map_sections();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

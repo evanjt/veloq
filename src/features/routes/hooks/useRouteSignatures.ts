@@ -4,6 +4,16 @@ import { getEngine } from '@/shared/native/engine';
 import { useEngineReady } from '@/shared/native/useEngineReady';
 import { decodeCoords } from 'veloqrs';
 
+import { createCoalescer } from '@/shared/async/coalesceRefresh';
+
+/**
+ * How long a burst of `activities` events is allowed to collect before the
+ * second rebuild. A GPS backfill announces once per batch, and each rebuild
+ * reads and decodes every row, so this is the difference between two passes
+ * over the table and one per batch.
+ */
+const REFRESH_WINDOW_MS = 400;
+
 export interface RouteSignature {
   points: { lat: number; lng: number }[];
   center: { lat: number; lng: number };
@@ -16,7 +26,10 @@ export interface RouteSignature {
  * (~100 points each via Douglas-Peucker) instead of individual getGpsTrack() calls
  * (~5,000 points each). This reduces memory from ~250MB to ~5MB for 1,000 activities.
  *
- * PERFORMANCE: Defers loading until after animations complete to avoid blocking UI.
+ * PERFORMANCE: Defers loading until after animations complete to avoid blocking
+ * UI, and coalesces `activities` events so a sync burst costs two rebuilds
+ * rather than one per event. Each rebuild reads every `signatures` row, decodes
+ * the blob in Rust, re-encodes it for the bridge and decodes it again here.
  *
  * @param enabled - Whether to load signatures (default: true). Set to false when the
  *   map tab is not focused to release memory.
@@ -82,11 +95,18 @@ export function useRouteSignatures(enabled = true): Record<string, RouteSignatur
       buildSignatures();
     });
 
-    unsubscribe = engine.subscribe('activities', buildSignatures);
+    // Every rebuild reads the whole table, so a burst is coalesced rather than
+    // answered event by event.
+    const coalescer = createCoalescer(buildSignatures, REFRESH_WINDOW_MS, (fn, ms) => {
+      const timer = setTimeout(fn, ms);
+      return () => clearTimeout(timer);
+    });
+    unsubscribe = engine.subscribe('activities', coalescer.request);
 
     return () => {
       isMountedRef.current = false;
       task?.cancel();
+      coalescer.cancel();
       unsubscribe?.();
     };
   }, [buildSignatures, enabled, engine]);

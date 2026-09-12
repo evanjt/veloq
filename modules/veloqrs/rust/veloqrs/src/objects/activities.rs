@@ -232,6 +232,19 @@ impl ActivityManager {
         })
     }
 
+    /// One feed card's preview line, from the cached signature.
+    ///
+    /// The same thing `get_startup_data` hands the first cards. A card that
+    /// asks for `get_gps_track` instead pays a full decode of the stored blob
+    /// and one boxed record per point, for a thumbnail that draws at about a
+    /// hundred.
+    fn get_preview_track(
+        &self,
+        activity_id: String,
+    ) -> Result<Option<crate::FfiPreviewTrack>, VeloqError> {
+        with_engine(|e| e.preview_track(&activity_id))
+    }
+
     /// A key for a ride this device recorded and no server has named. The key
     /// never moves: `record_upload` writes the server's id beside it.
     fn mint_local_id(&self) -> String {

@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { useNamedCorridors, type NamedCorridor } from '@/features/routes/hooks/useNamedCorridors';
-import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
+import { useSectionDisplayNames } from '@/features/routes/hooks/useSectionDisplayNames';
 import { ledgerDate } from '@/features/routes/lib/sectionLedger';
 import { projectRouteToBox } from '@/shared/geo/routePreview';
 import { getIntlLocale } from '@/shared/format/format';
@@ -54,7 +54,7 @@ export default function NamedCorridorsScreen() {
   const locale = getIntlLocale();
   const { corridors, remove } = useNamedCorridors();
 
-  const sectionNames = useMemo(() => getAllSectionDisplayNames(), []);
+  const sectionNames = useSectionDisplayNames();
 
   const confirmRemove = (corridor: NamedCorridor) => {
     Alert.alert(

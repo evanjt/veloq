@@ -338,13 +338,101 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
         crate::persistence::WorkerPoll::Running => {
             if let Some(checkpoint) = handle_guard.as_ref().and_then(|h| h.take_checkpoint()) {
                 drop(handle_guard);
-                with_engine(|e| {
-                    e.persist_evidence_checkpoint(&checkpoint);
-                    Ok(())
-                })??;
+                persist_checkpoint(checkpoint);
             }
             Ok(DetectionPoll::Running)
         }
+    }
+}
+
+/// Persist the checkpoints of a run started from TypeScript.
+///
+/// The conditioning path has had a driver since it was written; `start` and
+/// `force_redetect` had none, and TypeScript's follower reads the engine once
+/// at start and once on `detectionApplied`, never on the clock. So
+/// `persist_evidence_checkpoint` never ran on the one path that most needs it:
+/// a `force_redetect` clears the processed set and the evidence cache, so it is
+/// a cold rebatch of minutes that resumed from nothing when the OS killed it.
+///
+/// It writes checkpoints and nothing else. It deliberately does not go through
+/// `poll_detection_once`, which is what applies a finished run and publishes
+/// its outcome: the follower that asked for this run is the one that settles
+/// it, and a second poller would take that completion out from under it.
+///
+/// It follows the run it was spawned for and no other, by holding that run's
+/// own checkpoint slot: a handle in the shared slot whose slot is a different
+/// one is somebody else's run, and this thread is done.
+fn spawn_checkpoint_driver() {
+    const DRIVER_POLL: Duration = Duration::from_millis(250);
+
+    let Some(slot) = SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .map(|h| h.checkpoint_slot())
+    else {
+        return;
+    };
+
+    // Counted before the thread starts, so a caller that asks straight after
+    // the start does not race the spawn and read no driver at all.
+    let counted = SlotDriver::started();
+    std::thread::spawn(move || {
+        let _counted = counted;
+        let started = std::time::Instant::now();
+        loop {
+            std::thread::sleep(DRIVER_POLL);
+            if !still_running(&slot) {
+                return;
+            }
+            if let Some(checkpoint) = slot.take() {
+                persist_checkpoint(checkpoint);
+            }
+            if started.elapsed() > SLOT_WAIT_LIMIT {
+                log::warn!(
+                    "veloqrs: [DetectionManager] checkpoint driver gave up after {:?}",
+                    started.elapsed()
+                );
+                return;
+            }
+        }
+    });
+}
+
+/// Whether the run that owns `slot` still holds the shared handle.
+fn still_running(slot: &Arc<crate::persistence::CheckpointSlot>) -> bool {
+    SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .is_some_and(|h| Arc::ptr_eq(&h.checkpoint_slot(), slot))
+}
+
+/// Write one checkpoint, paying the encode off the engine lock.
+///
+/// The encode is the expensive half, about 75 ms at 1,000 activities. Run under
+/// the lock it was that long a hold every two seconds for the length of the
+/// detect, and every screen read arriving inside one waited it out. So the lock
+/// is taken twice and briefly instead: once for the digest, once for the write.
+fn persist_checkpoint(checkpoint: crate::persistence::CacheUpdate) {
+    if checkpoint.folded_ids.is_empty() {
+        return;
+    }
+    let digest =
+        match with_engine(|e| -> Result<String, VeloqError> { Ok(e.evidence_config_digest()) }) {
+            Ok(Ok(d)) => d,
+            _ => return,
+        };
+    let row = crate::persistence::sections::detection::encode_evidence_row(
+        &checkpoint.cache,
+        &checkpoint.folded_ids,
+        digest,
+    );
+    if let Some(row) = row {
+        let _ = with_engine(|e| -> Result<(), VeloqError> {
+            e.write_evidence_row(&row);
+            Ok(())
+        });
     }
 }
 
@@ -458,6 +546,8 @@ impl DetectionManager {
         // started has not, so the previous outcome stops being the answer the
         // moment this one takes the slot.
         record_outcome(OUTCOME_IDLE);
+        drop(handle_guard);
+        spawn_checkpoint_driver();
         info!("veloqrs: [DetectionManager] Section detection started");
         Ok(FfiStartOutcome::Started)
     }
@@ -589,6 +679,8 @@ impl DetectionManager {
 
         *handle_guard = Some(handle);
         record_outcome(OUTCOME_IDLE);
+        drop(handle_guard);
+        spawn_checkpoint_driver();
         info!("veloqrs: [DetectionManager] Forced full section re-detection started");
         Ok(FfiStartOutcome::Started)
     }
@@ -1191,6 +1283,90 @@ mod tests {
             "and the wait does not return until it is gone"
         );
         driver.join().expect("the driver ends");
+    }
+
+    /// Scenario: a rescan started from TypeScript parked a checkpoint every two
+    /// seconds and nothing drained or persisted it. The follower reads the
+    /// engine once at start and once on `detectionApplied`, never on the clock,
+    /// so `persist_evidence_checkpoint` never ran on the path that most needs
+    /// it: a `force_redetect` clears the processed set and the evidence cache,
+    /// so it is a cold rebatch of minutes that resumed from nothing.
+    ///
+    /// Expected behaviour: both start paths leave a follower behind that writes
+    /// the checkpoints.
+    #[test]
+    fn a_rescan_started_from_typescript_leaves_a_checkpoint_follower() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        wait_for_slot_drivers();
+
+        let manager = DetectionManager::new();
+        assert!(manager.start().expect("start").started());
+
+        assert!(
+            slot_drivers() >= 1,
+            "the run is followed, so its checkpoints reach the database"
+        );
+
+        manager.cancel();
+        drain_detection();
+        wait_for_slot_drivers();
+    }
+
+    /// The follower writes checkpoints and never applies. A second poller would
+    /// take the completion the follower that asked for the run is waiting on,
+    /// which is the bug the background-jobs screen already caused once.
+    #[test]
+    fn the_checkpoint_follower_never_settles_the_run() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        wait_for_slot_drivers();
+
+        let manager = DetectionManager::new();
+        assert!(manager.start().expect("start").started());
+        // Longer than the follower's own 250 ms tick, so it has polled if it
+        // ever will.
+        std::thread::sleep(Duration::from_millis(600));
+
+        assert_eq!(
+            manager.last_outcome(),
+            "idle",
+            "the follower publishes no outcome, so the run is still the caller's to settle"
+        );
+
+        manager.cancel();
+        drain_detection();
+        wait_for_slot_drivers();
+    }
+
+    /// A checkpoint from a run that has already left the slot belongs to
+    /// nobody: the follower holds its own run's slot and stops when the shared
+    /// handle is somebody else's.
+    #[test]
+    fn a_follower_stops_when_its_own_run_leaves_the_slot() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        wait_for_slot_drivers();
+
+        let mine = Arc::new(crate::persistence::CheckpointSlot::default());
+        assert!(
+            !still_running(&mine),
+            "an empty slot is not this run still going"
+        );
+
+        let manager = DetectionManager::new();
+        assert!(manager.start().expect("start").started());
+        assert!(
+            !still_running(&mine),
+            "and neither is somebody else's run holding it"
+        );
+
+        manager.cancel();
+        drain_detection();
+        wait_for_slot_drivers();
     }
 
     /// A driver that panics still leaves the count where it found it, or the

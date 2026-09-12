@@ -6,6 +6,14 @@
 
 use crate::init_logging;
 use log::info;
+
+/// How many leftover time streams are asked for at once.
+///
+/// Only activities outside the stream retention window reach here: a widened
+/// fetch carries `time` with the track and stores it there. The governor paces
+/// the requests either way, so this bounds the memory a chunk holds rather
+/// than the rate.
+const TIME_STREAM_CONCURRENCY: usize = 25;
 use std::time::Instant;
 use tracematch::GpsPoint;
 
@@ -54,6 +62,23 @@ pub fn cancel_fetch_and_store() -> bool {
 #[uniffi::export]
 pub fn get_download_progress() -> DownloadProgressResult {
     let (completed, total, active) = crate::http::get_download_progress();
+    DownloadProgressResult {
+        completed,
+        total,
+        active,
+    }
+}
+
+/// Progress for one fetch run, by the id `start_fetch_and_store` returned.
+///
+/// `get_download_progress` answers for the queue head and reports active for
+/// any non-empty queue, so a caller whose own run has already finished kept
+/// reading active for as long as somebody else's held the slot, and its screen
+/// sat on a bar counting someone else's activities. A run that has left the
+/// queue reads inactive here, whatever is still downloading.
+#[uniffi::export]
+pub fn get_fetch_run_progress(run: u64) -> DownloadProgressResult {
+    let (completed, total, active) = crate::http::run_download_progress(run);
     DownloadProgressResult {
         completed,
         total,
@@ -211,6 +236,7 @@ fn store_downloaded_track(
     coords: Vec<GpsPoint>,
     sport: String,
     streams: &[crate::net::types::StreamDto],
+    times: &[u32],
 ) -> (bool, u32) {
     let elevation_state = elevation_state_of(&coords);
 
@@ -240,6 +266,15 @@ fn store_downloaded_track(
             {
                 log::warn!("[Streams] {} stored without its series: {}", activity_id, e);
             }
+            // The wide response already carried `time` in this same index
+            // space. Dropping it left every activity just stored named by
+            // `get_activities_missing_time_streams`, and the pass behind this
+            // one fetched the heaviest series in the response a second time,
+            // one activity at a time. Empty for a narrow fetch, which carries
+            // no `time` at all and still owes that pass.
+            if !times.is_empty() {
+                engine.set_time_streams_flat(&[activity_id.to_string()], times, &[0]);
+            }
         }
         let portions = if ok {
             engine.attach_stored_activity(activity_id).1
@@ -252,6 +287,12 @@ fn store_downloaded_track(
 
     if stored {
         crate::objects::observer::notify(|o| o.gps_track_stored(activity_id.to_string()));
+        // Announced with the write lock released, the same reason the track is.
+        if !times.is_empty() {
+            crate::objects::observer::notify(|o| {
+                o.time_streams_stored(vec![activity_id.to_string()])
+            });
+        }
     }
 
     (stored, attached_portions)
@@ -426,6 +467,7 @@ pub fn start_fetch_and_store(
                                 coords,
                                 sport,
                                 &result.streams,
+                                &result.times,
                             );
                             total_attached_portions += attached_portions;
 
@@ -474,35 +516,54 @@ pub fn start_fetch_and_store(
                 engine.get_activities_missing_time_streams(&synced_ids)
             })
             .unwrap_or_default();
-            for activity_id in missing {
+            // A chunk at a time, fetched together rather than one after the
+            // other. Serially this was one round trip per activity on the tail
+            // of the sync, after the concurrent batch had already finished.
+            // The chunk is what bounds the memory: a two-hour ride at 1 Hz is
+            // about 29 KB of `u32`, so a whole 500-activity pass held in one
+            // go would be tens of megabytes for no reason.
+            for chunk in missing.chunks(TIME_STREAM_CONCURRENCY) {
                 if crate::http::download_cancelled(run) {
                     info!("[RUST: start_fetch_and_store] Cancelled before the remaining streams");
                     break;
                 }
-                match crate::runtime::block_on(crate::net::endpoints::fetch_time_stream(
-                    fetcher.transport(),
-                    &activity_id,
-                    crate::governor::Lane::Backfill,
-                )) {
-                    Ok(times) if !times.is_empty() => {
-                        let stored = crate::persistence::with_persistent_engine(|engine| {
-                            engine.set_time_streams_flat(&[activity_id.clone()], &times, &[0]);
-                        });
-                        // Announced with the engine lock released, and only
-                        // when the write landed.
-                        if stored.is_some() {
-                            crate::objects::observer::notify(|o| {
-                                o.time_streams_stored(vec![activity_id.clone()])
-                            });
-                        } else {
-                            crate::objects::sync::discarded("time_stream", &activity_id);
+                let fetched = crate::runtime::block_on(async {
+                    let requests = chunk.iter().map(|activity_id| {
+                        let transport = fetcher.transport().clone();
+                        async move {
+                            let result = crate::net::endpoints::fetch_time_stream(
+                                &transport,
+                                activity_id,
+                                crate::governor::Lane::Backfill,
+                            )
+                            .await;
+                            (activity_id.clone(), result)
                         }
+                    });
+                    futures::future::join_all(requests).await
+                });
+                for (activity_id, result) in fetched {
+                    match result {
+                        Ok(times) if !times.is_empty() => {
+                            let stored = crate::persistence::with_persistent_engine(|engine| {
+                                engine.set_time_streams_flat(&[activity_id.clone()], &times, &[0]);
+                            });
+                            // Announced with the engine lock released, and only
+                            // when the write landed.
+                            if stored.is_some() {
+                                crate::objects::observer::notify(|o| {
+                                    o.time_streams_stored(vec![activity_id.clone()])
+                                });
+                            } else {
+                                crate::objects::sync::discarded("time_stream", &activity_id);
+                            }
+                        }
+                        Ok(_) => {}
+                        Err(e) => info!(
+                            "[RUST: start_fetch_and_store] Time stream {} failed: {}",
+                            activity_id, e
+                        ),
                     }
-                    Ok(_) => {}
-                    Err(e) => info!(
-                        "[RUST: start_fetch_and_store] Time stream {} failed: {}",
-                        activity_id, e
-                    ),
                 }
             }
 
@@ -1019,7 +1080,7 @@ mod tests {
         set_observer(Some(recorder.clone()));
 
         let (stored, _portions) =
-            store_downloaded_track("a1", downloaded_track(0.0), "Ride".into(), &[]);
+            store_downloaded_track("a1", downloaded_track(0.0), "Ride".into(), &[], &[]);
         set_observer(None);
 
         assert!(stored, "the fixture track must store");
@@ -1030,6 +1091,47 @@ mod tests {
         );
     }
 
+    /// Scenario: a wide fetch carries `time` beside `latlng`, and the store
+    /// loop dropped it. `get_activities_missing_time_streams` then named every
+    /// activity just stored, and each was fetched again, serially, for the
+    /// heaviest series in the response.
+    #[test]
+    fn a_widened_track_stores_its_time_series_with_the_points() {
+        let _serial = serial_global_state();
+        let _tmp = init_global_engine("gps_times.db");
+
+        let times: Vec<u32> = (0..8).map(|i| i * 10).collect();
+        let (stored, _portions) =
+            store_downloaded_track("a1", downloaded_track(0.0), "Ride".into(), &[], &times);
+
+        assert!(stored, "the fixture track must store");
+        let missing = crate::persistence::with_persistent_engine(|engine| {
+            engine.get_activities_missing_time_streams(&["a1".to_string()])
+        })
+        .expect("the engine is open");
+        assert!(
+            missing.is_empty(),
+            "the second pass must find nothing to fetch again, it found {:?}",
+            missing
+        );
+    }
+
+    /// A narrow fetch carries no `time`, so the second pass is still what
+    /// fills it and must still see the activity.
+    #[test]
+    fn a_narrow_track_still_owes_its_time_series() {
+        let _serial = serial_global_state();
+        let _tmp = init_global_engine("gps_no_times.db");
+
+        store_downloaded_track("a1", downloaded_track(0.0), "Ride".into(), &[], &[]);
+
+        let missing = crate::persistence::with_persistent_engine(|engine| {
+            engine.get_activities_missing_time_streams(&["a1".to_string()])
+        })
+        .expect("the engine is open");
+        assert_eq!(missing, vec!["a1".to_string()]);
+    }
+
     #[test]
     fn a_re_ingested_track_is_announced_again() {
         let _serial = serial_global_state();
@@ -1037,8 +1139,8 @@ mod tests {
         let recorder = TrackRecorder::new();
         set_observer(Some(recorder.clone()));
 
-        store_downloaded_track("a1", downloaded_track(0.0), "Ride".into(), &[]);
-        store_downloaded_track("a1", downloaded_track(0.5), "Ride".into(), &[]);
+        store_downloaded_track("a1", downloaded_track(0.0), "Ride".into(), &[], &[]);
+        store_downloaded_track("a1", downloaded_track(0.5), "Ride".into(), &[], &[]);
         set_observer(None);
 
         let ids: Vec<String> = recorder.seen().into_iter().map(|(id, _, _)| id).collect();

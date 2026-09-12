@@ -87,6 +87,13 @@ export function useEngineMapActivities({
       date: new Date(Number(a.date) * 1000).toISOString(),
       distance: a.distance,
       duration: a.duration,
+      startPoint:
+        a.startLat !== null &&
+        a.startLat !== undefined &&
+        a.startLng !== null &&
+        a.startLng !== undefined
+          ? ([a.startLat, a.startLng] as [number, number])
+          : undefined,
     }));
 
     return {

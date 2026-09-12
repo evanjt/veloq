@@ -195,6 +195,10 @@ pub struct ActivityMapResult {
     /// space. Empty unless the fetch was widened, which only happens for an
     /// activity inside the retention window.
     pub streams: Vec<StreamDto>,
+    /// Cumulative seconds at each stored point, in that same index space.
+    /// Empty unless the fetch was widened: `TRACK_STREAM_TYPES` does not ask
+    /// for `time`, so a narrow fetch still owes the second pass.
+    pub times: Vec<u32>,
     pub success: bool,
     pub error: Option<String>,
 }
@@ -435,6 +439,7 @@ impl ActivityFetcher {
             elevations: None,
             body_bytes: 0,
             streams: Vec::new(),
+            times: Vec::new(),
             success: false,
             error: Some(error),
         };
@@ -516,12 +521,23 @@ impl ActivityFetcher {
             elevations.is_some()
         );
 
+        // Taken from the same parse as the coordinates, so it needs no second
+        // request and is already in the track's index space. `max(0) as u32`
+        // matches what `fetch_time_stream` returns, which is what the second
+        // pass would have stored.
+        let times: Vec<u32> = if wide && parsed.time.len() == point_count {
+            parsed.time.iter().map(|v| (*v).max(0) as u32).collect()
+        } else {
+            Vec::new()
+        };
+
         ActivityMapResult {
             activity_id: activity_id.to_string(),
             latlngs: Some(parsed.latlng),
             elevations,
             body_bytes: body_size as u32,
             streams,
+            times,
             success: true,
             error: None,
         }

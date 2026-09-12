@@ -15,7 +15,7 @@
 // we actually use so the test doesn't have to bring in the whole RN stack.
 import { renderHook } from '@testing-library/react-native';
 import { useMapGeoJSON } from '@/features/maps/components/regional/useMapGeoJSON';
-import type { FrequentSection } from '@/types';
+import type { MapSection } from '@/features/routes/hooks';
 
 jest.mock('@/features/maps/components/ActivityTypeFilter', () => ({
   getActivityTypeConfig: () => ({ color: '#3B82F6', icon: 'bike', label: 'Ride' }),
@@ -27,7 +27,11 @@ const t = ((key: string, opts?: { number?: string }) =>
   typeof useMapGeoJSON
 >[0]['t'];
 
-function makeSection(overrides: Partial<FrequentSection> = {}): FrequentSection {
+/**
+ * The overlay's own record: six fields and a line. It used to be built from the
+ * whole `FrequentSection`, which is what the map used to read.
+ */
+function makeSection(overrides: Partial<MapSection> = {}): MapSection {
   return {
     id: 'sec-1',
     name: 'Test Loop',
@@ -39,25 +43,11 @@ function makeSection(overrides: Partial<FrequentSection> = {}): FrequentSection 
     ],
     visitCount: 3,
     distanceMeters: 1500,
-    representativeActivityId: 'act-1',
-    activityIds: ['act-1', 'act-2', 'act-3'],
-    activityPortions: [],
-    routeIds: [],
-    confidence: 0.9,
-    observationCount: 3,
-    averageSpread: 5,
-    pointDensity: [],
-    stability: 0.9,
-    version: 1,
-    updatedAt: '2026-01-01T00:00:00Z',
-    createdAt: '2026-01-01T00:00:00Z',
-    isUserDefined: false,
-    sectionType: 'auto',
     ...overrides,
-  } as unknown as FrequentSection;
+  };
 }
 
-function buildArgs(sections: FrequentSection[]): Parameters<typeof useMapGeoJSON>[0] {
+function buildArgs(sections: MapSection[]): Parameters<typeof useMapGeoJSON>[0] {
   return {
     allActivities: [],
     visibleActivities: [],

@@ -355,6 +355,62 @@ fn map_screen_matches_the_calls_it_replaces() {
     assert_eq!(bundle.activities.len(), 2);
 }
 
+/// The marker wants the start of the ride, and the page used to place every
+/// marker on its bounds centre and then move all of them once the signatures
+/// finished loading. Carrying the start here is what removes the second upload.
+#[test]
+fn map_screen_carries_the_start_point_for_each_marker() {
+    let s = populated();
+    let bundle = s
+        .engine
+        .map_screen_data(1_600_000_000, 1_800_000_000, Vec::new());
+
+    assert_eq!(bundle.activities.len(), 2);
+    for activity in &bundle.activities {
+        let lat = activity
+            .start_lat
+            .unwrap_or_else(|| panic!("{} has no start latitude", activity.activity_id));
+        let lng = activity
+            .start_lng
+            .unwrap_or_else(|| panic!("{} has no start longitude", activity.activity_id));
+        // `line(46.2, 7.35, 60)` starts where it says it does.
+        assert!((lat - 46.2).abs() < 1e-6, "start latitude was {lat}");
+        assert!((lng - 7.35).abs() < 1e-6, "start longitude was {lng}");
+        // The fixture runs due east, so longitude is the axis on which the start
+        // and the bounding box centre differ. Without this the test would pass
+        // just as well against the centre it is meant to replace.
+        let centre_lng = (activity.bounds.min_lng + activity.bounds.max_lng) / 2.0;
+        assert!(
+            (lng - centre_lng).abs() > 1e-9,
+            "the start must not be the bounds centre, or the test proves nothing"
+        );
+    }
+}
+
+/// An activity with no signature yet has no start to give, and says so rather
+/// than answering with a coordinate nothing measured.
+#[test]
+fn map_screen_leaves_the_start_absent_when_there_is_no_signature() {
+    let mut s = setup();
+    s.engine
+        .add_activity("no_gps".to_string(), Vec::new(), "Ride".to_string())
+        .ok();
+    s.engine
+        .set_activity_metrics_extended(vec![metrics("no_gps", 1_700_000_000)])
+        .expect("set metrics");
+
+    for activity in s
+        .engine
+        .map_screen_data(1_600_000_000, 1_800_000_000, Vec::new())
+        .activities
+    {
+        if activity.activity_id == "no_gps" {
+            assert!(activity.start_lat.is_none());
+            assert!(activity.start_lng.is_none());
+        }
+    }
+}
+
 #[test]
 fn map_screen_honours_the_sport_filter() {
     let s = populated();
@@ -372,6 +428,97 @@ fn map_screen_honours_the_sport_filter() {
     assert!(runs.activities.is_empty());
     // The unfiltered total is still reported so the chips can show it.
     assert_eq!(runs.activity_count, 2);
+}
+
+// ============================================================================
+// Map sections
+// ============================================================================
+
+/// The regional map reads six fields and draws a line. Its old read carried the
+/// activity ids, one portion record per traversal and the point density for
+/// every section, and threw all of it away.
+#[test]
+fn map_sections_carry_the_line_and_the_six_fields_the_map_draws_with() {
+    let s = populated();
+
+    let sections = s.engine.get_map_sections(None, None);
+
+    assert_eq!(sections.len(), 2, "both fixture sections are visible");
+    for section in &sections {
+        assert!(!section.id.is_empty());
+        assert!(!section.sport_type.is_empty());
+        assert!(section.distance_meters >= 0.0);
+        assert!(
+            !section.encoded_polyline.is_empty(),
+            "{} came back with no line to draw",
+            section.id
+        );
+    }
+    // The custom section's own name is carried rather than looked up again.
+    assert!(
+        sections
+            .iter()
+            .any(|x| x.name.as_deref() == Some("My Portion")),
+        "the named section kept its name"
+    );
+}
+
+#[test]
+fn map_sections_honour_the_sport_and_visit_filters() {
+    let s = populated();
+
+    assert_eq!(s.engine.get_map_sections(Some("Ride"), None).len(), 2);
+    assert!(s.engine.get_map_sections(Some("Run"), None).is_empty());
+    // Both fixture sections are traversed fewer than a hundred times.
+    assert!(s.engine.get_map_sections(None, Some(100)).is_empty());
+}
+
+/// The light read answers from the `sections` table, so its fields are compared
+/// against the summaries read of that same table. `get_sections_filtered`, the
+/// call the map used to make, answers from the in-memory catalogue, which these
+/// fixtures never populate: they are written through a parallel connection.
+#[test]
+fn map_sections_agree_with_the_summaries_of_the_same_rows() {
+    let s = populated();
+
+    let light = s.engine.get_map_sections(None, None);
+    let summaries = s.engine.get_section_summaries();
+
+    assert_eq!(light.len(), summaries.len());
+    for section in &light {
+        let same = summaries
+            .iter()
+            .find(|x| x.id == section.id)
+            .unwrap_or_else(|| panic!("{} is missing from the summaries", section.id));
+        assert_eq!(section.sport_type, same.sport_type);
+        assert_eq!(section.visit_count, same.visit_count);
+        assert_eq!(section.klass, same.klass);
+        assert_eq!(section.max_grade_percent, same.max_grade_percent);
+        assert!((section.distance_meters - same.distance_meters).abs() < 1e-9);
+    }
+}
+
+/// The floor counts outings and a pin exempts it, which is the rule
+/// `get_sections_filtered` applies. Counting traversals instead would admit a
+/// road ridden ten times in one outing to a list with a floor of two.
+#[test]
+fn map_sections_count_outings_for_the_floor_not_passes() {
+    let s = populated();
+
+    // `cust1` is traversed once by a1; `auto1` by a1 and a2.
+    let two_outings = s.engine.get_map_sections(None, Some(2));
+
+    assert!(two_outings.iter().any(|x| x.id == "auto1"));
+    assert!(
+        !two_outings.iter().any(|x| x.id == "cust1"),
+        "one outing cannot meet a floor of two"
+    );
+}
+
+#[test]
+fn map_sections_are_nothing_at_all_for_an_empty_catalogue() {
+    let s = setup();
+    assert!(s.engine.get_map_sections(None, None).is_empty());
 }
 
 // ============================================================================
@@ -1222,4 +1369,61 @@ fn activity_detail_is_empty_for_an_unknown_activity() {
     // Engine-wide counts are unaffected by the activity being unknown.
     assert_eq!(bundle.activity_count, 2);
     assert_eq!(bundle.section_count, 2);
+}
+
+/// Scenario: a feed card past the first five needs its preview track. It used
+/// to ask for the full-resolution GPS track, one boxed record per point, and
+/// decode the whole blob each time.
+///
+/// Expected behaviour: one card gets exactly what the startup bundle would
+/// have given it, from the same cached signature.
+#[test]
+fn one_preview_track_matches_the_one_the_startup_bundle_carries() {
+    let mut s = populated();
+    let p = insights_params();
+    let ids = vec!["a1".to_string()];
+
+    let bundle = s.engine.startup_data(
+        p.current_start,
+        p.current_end,
+        p.prev_start,
+        p.prev_end,
+        &ids,
+    );
+    let bundled = bundle.preview_tracks.first().expect("a1 has a signature");
+
+    let alone = s.engine.preview_track("a1").expect("a1 has a signature");
+
+    assert_eq!(alone.activity_id, bundled.activity_id);
+    assert_eq!(alone.encoded_coords, bundled.encoded_coords);
+}
+
+/// A preview track is the signature, not the stored track, so it is the
+/// simplified line and never the four thousand points behind it.
+#[test]
+fn a_preview_track_is_the_signature_rather_than_the_whole_ride() {
+    let mut s = populated();
+
+    let track = s.engine.preview_track("a1").expect("a1 has a signature");
+    let points = veloqrs::coords::decode(&track.encoded_coords).len();
+    let signature = s
+        .engine
+        .get_signature("a1")
+        .expect("signature")
+        .points
+        .len();
+    let stored = s.engine.get_gps_track("a1").map(|t| t.len()).unwrap_or(0);
+
+    assert_eq!(points, signature);
+    assert!(
+        points <= stored,
+        "a signature is never longer than its track"
+    );
+}
+
+#[test]
+fn an_activity_with_no_signature_has_no_preview_track() {
+    let mut s = populated();
+
+    assert!(s.engine.preview_track("nope").is_none());
 }

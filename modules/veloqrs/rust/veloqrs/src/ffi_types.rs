@@ -232,6 +232,17 @@ pub struct FfiPeriodStats {
     pub total_tss: f64,
 }
 
+/// One calendar month's totals, for the season chart's month bars.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMonthlyStats {
+    /// Calendar year, in the athlete's own timezone.
+    pub year: i32,
+    /// Calendar month, 1 to 12.
+    pub month: u32,
+    /// The same four totals `get_period_stats` gives a window.
+    pub stats: FfiPeriodStats,
+}
+
 /// Cycling FTP trend, read from the athlete's configured FTP setting as it
 /// stood on each activity (`icu_ftp`), not from a modelled estimate. It moves
 /// only when the setting is edited. The per-activity estimate
@@ -1071,6 +1082,32 @@ pub struct FfiGroupWithPolyline {
 
 /// Section summary with embedded polyline for the Routes screen.
 /// Avoids N separate getSectionPolyline() calls.
+/// A section as the regional map draws it: a line, a colour key and a label.
+///
+/// The map used to take the whole `FfiSection` for this, which clones
+/// `activity_ids`, one `activity_portions` record per traversal and the point
+/// density per section, then converted every portion in JavaScript and threw all
+/// of it away. These are the six fields the map actually reads.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiMapSection {
+    pub id: String,
+    /// The live name when the section has one, so the caller needs no overlay read.
+    pub name: Option<String>,
+    pub sport_type: String,
+    /// Traversals, one per pass.
+    pub visit_count: u32,
+    pub distance_meters: f64,
+    /// climb, descent, rolling, flat or loop; None when nothing says. With the
+    /// grade below, this is what the auto-generated label is built from, so the
+    /// map's names do not change when it stops taking the whole record.
+    pub klass: Option<String>,
+    /// Steepest grade (%) held over 300 m of the slice.
+    pub max_grade_percent: Option<f64>,
+    /// Delta+varint encoded coordinates, as every other track leaves the engine.
+    pub encoded_polyline: Vec<u8>,
+}
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiSectionWithPolyline {
     pub id: String,

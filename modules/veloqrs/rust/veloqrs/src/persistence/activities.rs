@@ -198,6 +198,28 @@ const ACTIVITY_KEYED_TABLES: &[&str] = &[
     "ftp_history",
 ];
 
+/// The bounds a heatmap tile sweep is owed for: the activities new to the
+/// catalogue and the ones whose track changed.
+///
+/// The batch already draws this line for the processed set, where a verbatim
+/// re-ingest is not a mutation and has to stay idempotent. The tile sweep did
+/// not ask, so an unchanged activity had the full rectangle of its bounds
+/// walked at every zoom, tiles that were still correct deleted, and the whole
+/// set marked dirty for a redraw nothing needed. A routine sync is mostly
+/// unchanged activities.
+fn bounds_needing_tile_sweep(
+    stored: &[(String, Bounds)],
+    known_before: &std::collections::HashSet<String>,
+    mutated_ids: &[String],
+) -> Vec<Bounds> {
+    let mutated: std::collections::HashSet<&str> = mutated_ids.iter().map(String::as_str).collect();
+    stored
+        .iter()
+        .filter(|(id, _)| !known_before.contains(id.as_str()) || mutated.contains(id.as_str()))
+        .map(|(_, bounds)| *bounds)
+        .collect()
+}
+
 impl PersistentEngine {
     // ========================================================================
     // Loading
@@ -207,9 +229,14 @@ impl PersistentEngine {
     pub(super) fn load_metadata(&mut self) -> SqlResult<()> {
         self.activity_metadata.clear();
 
-        let mut stmt = self
-            .db
-            .prepare("SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng FROM activities")?;
+        // The start point rides along on the same pass. It lives in `signatures`,
+        // which is a left join rather than a second query: an activity with no
+        // signature yet still has to load, with `None` for its start.
+        let mut stmt = self.db.prepare(
+            "SELECT a.id, a.sport_type, a.min_lat, a.max_lat, a.min_lng, a.max_lng,
+                    s.start_point_lat, s.start_point_lng
+             FROM activities a LEFT JOIN signatures s ON s.activity_id = a.id",
+        )?;
 
         let rows: Vec<SqlResult<ActivityBoundsEntry>> = stmt
             .query_map([], |row| {
@@ -221,6 +248,8 @@ impl PersistentEngine {
                     min_lng: row.get(4)?,
                     max_lng: row.get(5)?,
                 };
+                let start_lat: Option<f64> = row.get(6)?;
+                let start_lng: Option<f64> = row.get(7)?;
 
                 self.activity_metadata.insert(
                     id.clone(),
@@ -228,6 +257,7 @@ impl PersistentEngine {
                         id: id.clone(),
                         sport_type,
                         bounds,
+                        start_point: start_lat.zip(start_lng),
                     },
                 );
 
@@ -387,9 +417,17 @@ impl PersistentEngine {
             .map(|(id, _, _)| id.clone())
             .collect();
 
+        // Read before the loop inserts into the map, or every activity reads
+        // as already known and nothing would ever be swept.
+        let known_before: std::collections::HashSet<String> = activities
+            .iter()
+            .filter(|(id, _, _)| self.activity_metadata.contains_key(id))
+            .map(|(id, _, _)| id.clone())
+            .collect();
+
         self.db.execute_batch("BEGIN IMMEDIATE")?;
 
-        let mut all_bounds: Vec<Bounds> = Vec::with_capacity(activities.len());
+        let mut stored_bounds: Vec<(String, Bounds)> = Vec::with_capacity(activities.len());
 
         for (id, coords, sport_type) in &activities {
             let bounds = Bounds::from_points(coords).unwrap_or(Bounds {
@@ -414,10 +452,16 @@ impl PersistentEngine {
                     id: id.clone(),
                     sport_type: sport_type.clone(),
                     bounds,
+                    // Straight from the signature just stored, so a freshly
+                    // synced activity's marker lands on its start without
+                    // waiting for the next load.
+                    start_point: signature
+                        .as_ref()
+                        .map(|sig| (sig.start_point.latitude, sig.start_point.longitude)),
                 },
             );
 
-            all_bounds.push(bounds);
+            stored_bounds.push((id.clone(), bounds));
         }
 
         self.db.execute_batch("COMMIT")?;
@@ -434,13 +478,16 @@ impl PersistentEngine {
         self.groups_dirty = true;
         self.sections_dirty = true;
 
-        if let Some(tiles_path) = self.heatmap_tiles_path.clone() {
+        let bounds_to_clear =
+            bounds_needing_tile_sweep(&stored_bounds, &known_before, &mutated_ids);
+        if let Some(tiles_path) = self.heatmap_tiles_path.clone()
+            && !bounds_to_clear.is_empty()
+        {
             // Tile invalidation deletes PNGs on disk - slow filesystem I/O. Run it
             // on a detached thread so it does not happen while the engine write
             // lock is held (that would convoy every foreground read). The sweep
             // needs only the path and bounds, never `self`.
-            let bounds_to_clear = all_bounds;
-            let activity_count = activities.len();
+            let activity_count = bounds_to_clear.len();
             let cancel = crate::persistence::CancelToken::new();
             if let Ok(mut guard) =
                 crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL.lock()
@@ -1994,6 +2041,73 @@ mod tests {
     use super::super::commit_counter;
     use super::*;
     use std::collections::HashSet;
+
+    fn bounds_at(lat: f64) -> Bounds {
+        Bounds {
+            min_lat: lat,
+            max_lat: lat + 0.1,
+            min_lng: 7.0,
+            max_lng: 7.1,
+        }
+    }
+
+    /// Scenario: a sync re-ingests activities it already holds, which is most
+    /// of what a sync does, and `add_activities_batch` sweeps the heatmap tiles
+    /// covering every bound it stored.
+    ///
+    /// Expected behaviour: only the activities whose ground actually moved owe
+    /// a sweep. The batch already decides this for the processed set, and the
+    /// comment there says a verbatim re-ingest "is NOT a mutation and must stay
+    /// idempotent". The tile sweep did not ask: it walked the full rectangle of
+    /// every stored activity at every zoom, deleting tiles that were correct,
+    /// and then marked the whole set dirty for a redraw nobody needed.
+    #[test]
+    fn only_new_and_mutated_activities_owe_a_tile_sweep() {
+        let stored = vec![
+            ("fresh".to_string(), bounds_at(46.0)),
+            ("changed".to_string(), bounds_at(47.0)),
+            ("same".to_string(), bounds_at(48.0)),
+        ];
+        let known: HashSet<String> = ["changed".to_string(), "same".to_string()].into();
+        let mutated = vec!["changed".to_string()];
+
+        let owed = bounds_needing_tile_sweep(&stored, &known, &mutated);
+
+        assert_eq!(
+            owed,
+            vec![bounds_at(46.0), bounds_at(47.0)],
+            "the unchanged re-ingest was swept"
+        );
+    }
+
+    /// Expected behaviour: a batch of nothing but verbatim re-ingests owes no
+    /// sweep at all, so no thread is spawned and the tile set is not marked
+    /// dirty. That is the case a routine sync is mostly made of.
+    #[test]
+    fn a_batch_of_verbatim_re_ingests_owes_no_sweep() {
+        let stored = vec![
+            ("a".to_string(), bounds_at(46.0)),
+            ("b".to_string(), bounds_at(47.0)),
+        ];
+        let known: HashSet<String> = ["a".to_string(), "b".to_string()].into();
+
+        assert!(bounds_needing_tile_sweep(&stored, &known, &[]).is_empty());
+    }
+
+    /// Expected behaviour: a first sync, where the catalogue is empty, still
+    /// sweeps everything. The narrowing must not read as "never sweep".
+    #[test]
+    fn a_first_sync_sweeps_every_activity_it_stored() {
+        let stored = vec![
+            ("a".to_string(), bounds_at(46.0)),
+            ("b".to_string(), bounds_at(47.0)),
+        ];
+
+        assert_eq!(
+            bounds_needing_tile_sweep(&stored, &HashSet::new(), &[]).len(),
+            2
+        );
+    }
 
     fn engine_with_activity_in_sections(sections: usize) -> PersistentEngine {
         let mut engine = PersistentEngine::in_memory().unwrap();

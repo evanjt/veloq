@@ -51,8 +51,20 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
   );
   const runSettings = getSettingsForSport(sportSettings, 'Run');
 
-  const { data: runPaceCurve } = usePaceCurve({ sport: 'Run', days });
-  const { data: swimPaceCurve } = usePaceCurve({ sport: 'Swim', days });
+  // Only the sport in view renders a threshold from these, so only that one is
+  // worth a download and a `curve_bodies` row. Both were on by default, which
+  // cost a cyclist up to ten curves a session, one per time range, each with a
+  // pace snapshot write behind it.
+  const { data: runPaceCurve } = usePaceCurve({
+    sport: 'Run',
+    days,
+    enabled: sportMode === 'Running',
+  });
+  const { data: swimPaceCurve } = usePaceCurve({
+    sport: 'Swim',
+    days,
+    enabled: sportMode === 'Swimming',
+  });
 
   const {
     efforts: bestsEfforts,

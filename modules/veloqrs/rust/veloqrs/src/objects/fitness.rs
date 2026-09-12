@@ -226,6 +226,25 @@ impl FitnessManager {
         })
     }
 
+    /// Aggregated totals for one date window: count, duration, distance, TSS.
+    fn get_period_stats(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+    ) -> Result<crate::FfiPeriodStats, VeloqError> {
+        with_engine(|e| e.get_period_stats(start_ts, end_ts))
+    }
+
+    /// A window's totals grouped by calendar month, oldest first. Months with
+    /// no activity are absent rather than zero.
+    fn get_monthly_stats(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+    ) -> Result<Vec<crate::FfiMonthlyStats>, VeloqError> {
+        with_engine(|e| e.get_monthly_stats(start_ts, end_ts))
+    }
+
     /// A week's load day by day, with how evenly it was spread, or none when
     /// the week has too few training days for the spread to mean anything.
     fn get_week_load_shape(

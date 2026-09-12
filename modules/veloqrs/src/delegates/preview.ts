@@ -35,8 +35,8 @@ export interface PreviewSection {
   /** Live user name when matched. */
   name: string | null;
   sport: string;
-  /** Base64 of coords::encode bytes; decode via atob then decodeCoords. */
-  polylineBase64: string;
+  /** `coords::encode` bytes, ready for `decodeCoords`. */
+  polyline: ArrayBuffer;
   visits: number;
   distanceM: number;
   elevationGainM: number | null;
@@ -166,6 +166,26 @@ export function parsePreviewResult(json: string): PreviewResult | null {
   };
 }
 
+const EMPTY_POLYLINE = new ArrayBuffer(0);
+
+/**
+ * The engine's JSON carries the polyline base64-encoded, because JSON has no
+ * bytes. It is decoded here so the map draws from the same `ArrayBuffer` every
+ * other track in the app arrives as, rather than running its own `atob` and
+ * byte loop per section on every centre change and every run result.
+ */
+function decodeBase64(value: string): ArrayBuffer {
+  if (!value) return EMPTY_POLYLINE;
+  try {
+    const binary = atob(value);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  } catch {
+    return EMPTY_POLYLINE;
+  }
+}
+
 /** Map one snake_case section row to the camelCase shape. */
 function toPreviewSection(s: RawPreviewSection): PreviewSection {
   return {
@@ -174,7 +194,7 @@ function toPreviewSection(s: RawPreviewSection): PreviewSection {
     status: s.status,
     name: s.name,
     sport: s.sport,
-    polylineBase64: s.polyline,
+    polyline: decodeBase64(s.polyline),
     visits: s.visits,
     distanceM: s.distance_m,
     elevationGainM: s.elevation_gain_m,

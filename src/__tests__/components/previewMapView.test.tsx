@@ -49,7 +49,7 @@ function section(id: string, over: Partial<PreviewSection> = {}): PreviewSection
     status: 'unchanged',
     name: `Section ${id}`,
     sport: 'Ride',
-    polylineBase64: 'AAAA',
+    polyline: new ArrayBuffer(0),
     visits: 7,
     distanceM: 4200,
     elevationGainM: 88,

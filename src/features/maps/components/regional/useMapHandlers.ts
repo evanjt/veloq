@@ -15,7 +15,7 @@ import { saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import { startFetchAndStore } from 'veloqrs';
 import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import { getEngine } from '@/shared/native/engine';
-import type { ActivityBoundsItem, FrequentSection } from '@/types';
+import type { ActivityBoundsItem } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
 import type { Map3DWebViewRef } from '../Map3DWebView';
 import type { MapCameraState, MapPressEvent, MapSurfaceRef } from '../MapSurface';
@@ -43,10 +43,9 @@ export interface SpiderState {
 
 interface UseMapHandlersOptions {
   activities: ActivityBoundsItem[];
-  sections: FrequentSection[];
   selected: SelectedActivity | null;
   setSelected: (value: SelectedActivity | null) => void;
-  setSelectedSection: (value: FrequentSection | null) => void;
+  setSelectedSectionId: (value: string | null) => void;
   showActivities: boolean;
   setShowActivities: (value: boolean | ((prev: boolean) => boolean)) => void;
   showSections: boolean;
@@ -91,10 +90,9 @@ interface UseMapHandlersResult {
 
 export function useMapHandlers({
   activities,
-  sections,
   selected,
   setSelected,
-  setSelectedSection,
+  setSelectedSectionId,
   setShowActivities,
   setShowSections,
   setShowRoutes,
@@ -262,9 +260,10 @@ export function useMapHandlers({
       }
 
       if (feature.layerId === SECTIONS_LINE_LAYER_ID) {
+        // The overlay carries six fields per section, so the popup's own record
+        // is read here, for the one section that was tapped.
         const sectionId = feature.properties?.id;
-        const section = sections.find((s) => s.id === sectionId);
-        if (section) setSelectedSection(section);
+        if (typeof sectionId === 'string') setSelectedSectionId(sectionId);
         return;
       }
 
@@ -316,7 +315,7 @@ export function useMapHandlers({
         if (activity) handleMarkerTap(activity);
       }
     },
-    [activities, sections, handleMarkerTap, setSelected, setSelectedSection, setSpider, surfaceRef]
+    [activities, handleMarkerTap, setSelected, setSelectedSectionId, setSpider, surfaceRef]
   );
 
   // Ref for spider dismissal during gestures (avoids adding setSpider to hot path deps)
@@ -487,11 +486,11 @@ export function useMapHandlers({
     setShowSections((current) => {
       if (current) {
         // We're hiding sections, clear selection
-        setSelectedSection(null);
+        setSelectedSectionId(null);
       }
       return !current;
     });
-  }, [setShowSections, setSelectedSection]);
+  }, [setShowSections, setSelectedSectionId]);
 
   // Toggle routes visibility - clear selection when hiding
   const toggleRoutes = useCallback(() => {

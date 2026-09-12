@@ -19,8 +19,8 @@ jest.mock('@/features/routes/hooks/useNamedCorridors', () => ({
   useNamedCorridors: jest.fn(),
 }));
 
-jest.mock('@/features/routes/lib/sectionDisplayNames', () => ({
-  getAllSectionDisplayNames: () => ({ 'sec-1': 'Section 4' }),
+jest.mock('@/features/routes/hooks/useSectionDisplayNames', () => ({
+  useSectionDisplayNames: () => ({ 'sec-1': 'Section 4' }),
 }));
 
 const mockPush = jest.fn();

@@ -53,18 +53,10 @@ import {
 /** Zoom assumed before the surface reports one, matching the camera fallback. */
 const DEFAULT_ATTRIBUTION_ZOOM = 11;
 
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
-}
-
-function decodePolyline(base64: string): LngLat[] {
+/** The delegate hands the bytes over already decoded. */
+function decodePolyline(polyline: ArrayBuffer): LngLat[] {
   try {
-    return decodeCoords(base64ToArrayBuffer(base64)).map(
-      (p) => [p.longitude, p.latitude] as LngLat
-    );
+    return decodeCoords(polyline).map((p) => [p.longitude, p.latitude] as LngLat);
   } catch {
     return [];
   }
@@ -120,7 +112,7 @@ export function PreviewMapView({
   const decoded = useMemo(() => {
     const byId = new Map<string, LngLat[]>();
     for (const section of sections) {
-      byId.set(section.id, decodePolyline(section.polylineBase64));
+      byId.set(section.id, decodePolyline(section.polyline));
     }
     return byId;
   }, [sections]);

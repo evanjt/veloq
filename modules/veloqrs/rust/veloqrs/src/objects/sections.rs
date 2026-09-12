@@ -139,6 +139,14 @@ impl SectionManager {
         })
     }
 
+    fn get_map_sections(
+        &self,
+        sport_type: Option<String>,
+        min_visits: Option<u32>,
+    ) -> Result<Vec<crate::FfiMapSection>, VeloqError> {
+        with_engine_read(|e| e.get_map_sections(sport_type.as_deref(), min_visits))
+    }
+
     /// The section's line, coordinate-encoded like every other track that
     /// leaves the engine. It used to box a record per point and its one caller
     /// unboxed them again, which is the cost the encoding exists to avoid.

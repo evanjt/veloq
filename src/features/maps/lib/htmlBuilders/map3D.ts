@@ -173,6 +173,18 @@ ${consoleBridgeScript()}
 
     const coordinates = ${coordsJSON};
     window._routeCoords = coordinates;
+
+    // The two point features the start and end dots are drawn from.
+    function _startEndOf(line) {
+      if (!line || line.length === 0) return { type: 'FeatureCollection', features: [] };
+      return {
+        type: 'FeatureCollection',
+        features: [
+          { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: line[0] } },
+          { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: line[line.length - 1] } },
+        ],
+      };
+    }
     const bounds = ${boundsJSON};
     const center = ${centerJSON};
     const savedZoom = ${zoom};
@@ -306,17 +318,22 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
         }, _hillshadeBefore);
       }
 
-      // Add route if coordinates exist
-      if (coordinates.length > 0) {
+      // The route layers are always mounted, empty and hidden when there is no
+      // route. Keying the page on the selected activity's coordinates instead
+      // rebuilt the whole terrain page on every tap, which reboots maplibre
+      // and refetches every DEM and hillshade tile. window._veloq3d.setRoute
+      // below is how a later selection arrives.
+      var hasRoute = coordinates.length > 0;
+      {
         map.addSource('route', {
           type: 'geojson',
           data: {
-            type: 'Feature',
-            properties: {},
-            geometry: {
-              type: 'LineString',
-              coordinates: coordinates,
-            },
+            type: 'FeatureCollection',
+            features: hasRoute ? [{
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'LineString', coordinates: coordinates },
+            }] : [],
           },
           tolerance: 0,
         });
@@ -329,6 +346,7 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
           layout: {
             'line-join': 'round',
             'line-cap': 'round',
+            visibility: hasRoute ? 'visible' : 'none',
           },
           paint: {
             'line-color': '#FFFFFF',
@@ -345,6 +363,7 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
           layout: {
             'line-join': 'round',
             'line-cap': 'round',
+            visibility: hasRoute ? 'visible' : 'none',
           },
           paint: {
             'line-color': '${routeColor}',
@@ -353,23 +372,16 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
         });
 
         // Start/end circle markers
-        var startPt = coordinates[0];
-        var endPt = coordinates[coordinates.length - 1];
         map.addSource('start-end-markers', {
           type: 'geojson',
-          data: {
-            type: 'FeatureCollection',
-            features: [
-              { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: startPt } },
-              { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: endPt } },
-            ],
-          },
+          data: _startEndOf(coordinates),
         });
         // White border ring
         map.addLayer({
           id: 'start-end-border',
           type: 'circle',
           source: 'start-end-markers',
+          layout: { visibility: hasRoute ? 'visible' : 'none' },
           paint: {
             'circle-radius': 7,
             'circle-color': '#FFFFFF',
@@ -380,12 +392,37 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
           id: 'start-end-fill',
           type: 'circle',
           source: 'start-end-markers',
+          layout: { visibility: hasRoute ? 'visible' : 'none' },
           paint: {
             'circle-radius': 5,
             'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'],
           },
         });
       }
+
+      // Swap the drawn route without rebuilding the page. Injected from React
+      // Native when the selected activity changes.
+      window._veloq3d = window._veloq3d || {};
+      window._veloq3d.setRoute = function(next) {
+        try {
+          var on = next && next.length > 0;
+          window._routeCoords = next || [];
+          map.getSource('route').setData({
+            type: 'FeatureCollection',
+            features: on ? [{
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'LineString', coordinates: next },
+            }] : [],
+          });
+          map.getSource('start-end-markers').setData(_startEndOf(next || []));
+          ['route-outline', 'route-line', 'start-end-border', 'start-end-fill'].forEach(function(id) {
+            if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+          });
+        } catch (e) {
+          window._rn_log('setRoute failed: ' + e.message);
+        }
+      };
 
       // Create highlight marker as map layers (not DOM marker - immune to terrain occlusion)
       map.addSource('highlight-point', {

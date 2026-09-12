@@ -9,6 +9,7 @@ export {
   SeasonComparison,
   DecouplingChart,
 } from './components';
+export type { ActivityHeatmapHandle } from './components';
 
 export {
   usePaceCurve,

@@ -209,6 +209,14 @@ export default function ActivityDetailScreen() {
     isRematching,
   } = useActivityRematch();
 
+  // Stable, so the sections tab's memo holds. As inline literals they were a
+  // new function per render of this screen, which a scrub re-renders per index.
+  const handleScan = useCallback(() => scanForSections(id), [scanForSections, id]);
+  const handleRematch = useCallback(
+    (sectionId: string) => rematchSection(id, sectionId),
+    [rematchSection, id]
+  );
+
   // Section encounters for the sections tab (one entry per section+direction)
   const { encounters: encountersRaw, isLoading: encountersLoading } = useSectionEncounters(
     detail?.encounters ?? []
@@ -695,8 +703,8 @@ export default function ActivityDetailScreen() {
             scanMatches={scanMatches}
             isScanning={isRematching}
             isSectionsLoading={encountersLoading || !interactive}
-            onScan={() => scanForSections(id)}
-            onRematch={(sectionId) => rematchSection(id, sectionId)}
+            onScan={handleScan}
+            onRematch={handleRematch}
           />
         )}
       </SwipeableTabs>

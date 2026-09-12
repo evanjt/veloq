@@ -69,6 +69,7 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
 // that count is computed from belongs to useRunningJobCount's own tests.
 jest.mock('@/features/settings', () => ({
   useRunningJobCount: () => 0,
+  useLastBackupTimestamp: () => null,
 }));
 
 jest.mock('@/features/settings/components', () => ({
