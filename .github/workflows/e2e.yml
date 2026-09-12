@@ -32,7 +32,7 @@ jobs:
       JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
       GRADLE_OPTS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -44,7 +44,7 @@ jobs:
 
       - name: Cache dev APK
         id: apk-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: android/app/build/outputs/apk/release/app-release.apk
           key: android-dev-apk-v1-${{ steps.hash.outputs.source_hash }}
@@ -53,7 +53,7 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit == 'true'
         run: echo "Using cached dev APK (hash ${{ steps.hash.outputs.source_hash }})"
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         if: steps.apk-cache.outputs.cache-hit != 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -79,7 +79,7 @@ jobs:
       - name: Cache Rust Android libraries
         id: rust-android-cache
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: modules/veloqrs/android/src/main/jniLibs
           key: rust-android-2arch-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
@@ -135,7 +135,7 @@ jobs:
             -PreactNativeArchitectures=arm64-v8a,x86_64 \
             --no-daemon
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android-dev-apk
           path: android/app/build/outputs/apk/release/app-release.apk
@@ -150,7 +150,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -162,7 +162,7 @@ jobs:
 
       - name: Cache dev simulator app
         id: app-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts/ios-dev-simulator.zip
           key: ios-dev-sim-v1-${{ steps.hash.outputs.source_hash }}
@@ -176,7 +176,7 @@ jobs:
         with:
           xcode-version: '26.2'
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         if: steps.app-cache.outputs.cache-hit != 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -262,7 +262,7 @@ jobs:
           cd "$(dirname "$APP_PATH")"
           zip -yr "$OLDPWD/artifacts/ios-dev-simulator.zip" VeloqDev.app
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ios-dev-simulator
           path: artifacts/ios-dev-simulator.zip
@@ -280,7 +280,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Enable KVM
         run: |
@@ -346,7 +346,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: screenshots-android
           path: screenshots-flat/
@@ -354,7 +354,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: maestro-android-report
           path: maestro-report.xml
@@ -362,7 +362,7 @@ jobs:
 
       - name: Upload diagnostic logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-logcat
           path: |
@@ -393,7 +393,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download iOS app
         uses: actions/download-artifact@v8
@@ -464,7 +464,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: screenshots-ios
           path: screenshots-flat/
@@ -472,7 +472,7 @@ jobs:
 
       - name: Upload diagnostic logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-sim-logs
           path: |
@@ -482,7 +482,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: maestro-ios-report
           path: maestro-report.xml
