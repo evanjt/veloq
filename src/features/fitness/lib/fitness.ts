@@ -1,3 +1,4 @@
+import { i18n } from '@/i18n';
 import type { WellnessData } from '@/types';
 import { colors } from '@/theme/colors';
 import { tsbFromLoads } from '@/shared/math';
@@ -41,13 +42,14 @@ export const FORM_ZONE_COLORS: Record<FormZone, string> = {
   transition: colors.formTransition,
 };
 
-export const FORM_ZONE_LABELS: Record<FormZone, string> = {
-  highRisk: 'High Risk',
-  optimal: 'Optimal',
-  greyZone: 'Grey Zone',
-  fresh: 'Fresh',
-  transition: 'Transition',
-};
+/**
+ * The zone's name in the athlete's language. The widget already read these
+ * keys while the screens read an English map beside them, so one device drew
+ * the same zone under two names.
+ */
+export function formZoneLabel(zone: FormZone): string {
+  return i18n.t(`formZones.${zone}`);
+}
 
 /**
  * Zone boundaries (TSB values) for chart rendering

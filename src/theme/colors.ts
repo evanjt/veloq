@@ -312,6 +312,13 @@ export const colors = {
   chartPowerCurve: brand.blue, // Power curve line
   chartPaceCurve: '#4CAF50', // Green - pace curve line
   chartSwimCurve: '#2196F3', // Blue - swim pace curve line
+  // The grey rule a curve chart draws its threshold on: FTP, critical speed and
+  // critical swim speed each mark one, and none of them is a theme colour.
+  chartGuideLine: '#969696',
+  // The previous season's bars, drawn behind this season's. Cornflower rather
+  // than the chart blue, so the two seasons are told apart by hue and not only
+  // by opacity.
+  chartPreviousSeason: '#4682DC',
 
   // Neutral chart overlays
   chartGridFaint: 'rgba(0, 0, 0, 0.06)', // Axis gridlines on an insight card
@@ -654,6 +661,8 @@ export const darkColors = {
   chartSleep: '#C084FC', // Purple-400
   chartSleepScore: '#818CF8', // Indigo-400
   chartWeight: '#94A3B8', // Slate-400
+  chartGuideLine: '#969696',
+  chartPreviousSeason: '#6495ED', // Lighter cornflower, to carry on a dark ground
 
   // Neutral chart overlays for dark mode
   chartGridFaint: 'rgba(255, 255, 255, 0.06)',

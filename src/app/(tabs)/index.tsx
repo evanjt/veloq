@@ -21,6 +21,7 @@ import {
   ComponentErrorBoundary,
   ActivityCardSkeleton,
   TAB_BAR_SAFE_PADDING,
+  canDrawProfilePhoto,
 } from '@/shared/ui';
 import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { isNetworkError } from '@/shared/errors/errorHandler';
@@ -82,6 +83,8 @@ export default function FeedScreen() {
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
+  // A stored URL stays truthy after the image fails, so presence is not enough.
+  const [profileImageFailed, setProfileImageFailed] = useState(false);
 
   // Basemap snapshot WebView pool - every card gets a snapshot (3D or flat),
   // so the pool always mounts; deferred so initial renders settle first
@@ -383,11 +386,12 @@ export default function FeedScreen() {
                 accessibilityLabel={t('navigation.settings')}
                 style={[styles.headerProfile, isDark && styles.headerProfileDark]}
               >
-                {profileUrl ? (
+                {canDrawProfilePhoto(profileUrl, profileImageFailed) ? (
                   <Image
                     source={{ uri: profileUrl }}
                     style={StyleSheet.absoluteFill}
                     resizeMode="cover"
+                    onError={() => setProfileImageFailed(true)}
                   />
                 ) : (
                   <MaterialCommunityIcons
@@ -451,6 +455,7 @@ export default function FeedScreen() {
       summaryCard.enabled,
       navigateToSettings,
       profileUrl,
+      profileImageFailed,
     ]
   );
 

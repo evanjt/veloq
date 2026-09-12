@@ -170,6 +170,26 @@ export function formatDurationOrNull(seconds: number | null): string | null {
 }
 
 /**
+ * Split a duration in seconds into `M:SS`.
+ *
+ * The one minute/second split on the TypeScript side. Rounding the seconds on
+ * their own can produce 60, which has to carry into the minutes: three pace
+ * formatters did that and the swim pace curve's own copy did not, so its axis
+ * drew "1:60".
+ */
+export function formatMinSec(totalSeconds: number): string {
+  let minutes = Math.floor(totalSeconds / 60);
+  let seconds = Math.round(totalSeconds % 60);
+
+  if (seconds === 60) {
+    minutes += 1;
+    seconds = 0;
+  }
+
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/**
  * Format pace as minutes per kilometer (metric) or per mile (imperial).
  *
  * Shows running/cycling pace in MM:SS /km or /mi format.
@@ -197,17 +217,8 @@ export function formatPace(metersPerSecond: number, isMetric = true): string {
   // reject both Infinity and the non-physical range.
   if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return '--:--';
 
-  let minutes = Math.floor(totalSeconds / 60);
-  let seconds = Math.round(totalSeconds % 60);
-
-  // Handle rounding edge case: if seconds rounds to 60, roll over to next minute
-  if (seconds === 60) {
-    minutes += 1;
-    seconds = 0;
-  }
-
   const unit = isMetric ? '/km' : '/mi';
-  return `${minutes}:${seconds.toString().padStart(2, '0')} ${unit}`;
+  return `${formatMinSec(totalSeconds)} ${unit}`;
 }
 
 /**
@@ -223,16 +234,7 @@ export function formatPaceFromSecsPerKm(secondsPerKm: number): string {
   if (!Number.isFinite(secondsPerKm) || secondsPerKm <= 0 || secondsPerKm > MAX_PACE_SECONDS)
     return '--:--';
 
-  let minutes = Math.floor(secondsPerKm / 60);
-  let seconds = Math.round(secondsPerKm % 60);
-
-  // Handle rounding edge case: if seconds rounds to 60, roll over to next minute
-  if (seconds === 60) {
-    minutes += 1;
-    seconds = 0;
-  }
-
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  return formatMinSec(secondsPerKm);
 }
 
 /**
@@ -251,16 +253,7 @@ export function formatPaceCompact(metersPerSecond: number, isMetric = true): str
   const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
   if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return '--:--';
 
-  let minutes = Math.floor(totalSeconds / 60);
-  let seconds = Math.round(totalSeconds % 60);
-
-  // Handle rounding edge case: if seconds rounds to 60, roll over to next minute
-  if (seconds === 60) {
-    minutes += 1;
-    seconds = 0;
-  }
-
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  return formatMinSec(totalSeconds);
 }
 
 /**
@@ -280,9 +273,7 @@ export function formatSwimPace(metersPerSecond: number, isMetric = true): string
   const totalSeconds = Math.round(distance / metersPerSecond);
   if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return '--:--';
 
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  return formatMinSec(totalSeconds);
 }
 
 /**

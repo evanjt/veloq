@@ -61,6 +61,7 @@ const upload = jest.fn(
 const testBackend: BackupBackend = {
   id: 'test-inflight',
   name: 'Test In Flight',
+  isRemote: false,
   isAvailable: async () => true,
   listBackups: async () => [],
   upload: () => upload(),

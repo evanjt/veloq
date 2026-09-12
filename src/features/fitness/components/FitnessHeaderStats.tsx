@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { formatShortDateWithWeekday } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { FORM_ZONE_COLORS, FORM_ZONE_LABELS, type FormZone } from '../lib';
+import { FORM_ZONE_COLORS, formZoneLabel, type FormZone } from '../lib';
 
 interface FitnessDisplayValues {
   fitness: number;
@@ -31,7 +31,7 @@ interface FitnessHeaderStatsProps {
  *
  * The Form column dynamically tints its value and subtext with the form-zone
  * color (`FORM_ZONE_COLORS[formZone]`) and swaps the subtext label between the
- * TSB fallback and the zone's localized label (`FORM_ZONE_LABELS[formZone]`).
+ * TSB fallback and the zone's localized label (`formZoneLabel(formZone)`).
  */
 export const FitnessHeaderStats = React.memo(function FitnessHeaderStats({
   displayDate,
@@ -95,7 +95,7 @@ export const FitnessHeaderStats = React.memo(function FitnessHeaderStats({
               },
             ]}
           >
-            {formZone ? FORM_ZONE_LABELS[formZone] : t('fitnessScreen.tsb')}
+            {formZone ? formZoneLabel(formZone) : t('fitnessScreen.tsb')}
           </Text>
         </View>
       </View>

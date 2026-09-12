@@ -25,6 +25,7 @@ const prefs: NotificationPreferences = {
   enabled: true,
   privacyAccepted: true,
   pendingUnregister: false,
+  pendingUnregisterAthleteId: null,
   categories: { sectionPr: true, fitnessMilestone: true },
 };
 

@@ -64,13 +64,20 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   const heightFraction = useSharedValue(0);
   const indeterminateOffset = useSharedValue(0);
 
-  // Update shared values reactively
-  heightFraction.value = withTiming(shouldShow ? 1 : 0, { duration: 200 });
-  if (displayInfo) {
-    // Use a longer duration for the progress bar so it smoothly interpolates
-    // between reported values instead of jumping (600ms matches ~4 poll cycles).
-    progressValue.value = withTiming(displayInfo.percent / 100, { duration: 600 });
-  }
+  // In an effect, not the render body. A write there restarts both animations
+  // on every render the timeline causes, and on the renders React throws away,
+  // so the ease starts again from wherever it had got to.
+  const percent = displayInfo?.percent ?? null;
+  useEffect(() => {
+    heightFraction.value = withTiming(shouldShow ? 1 : 0, { duration: 200 });
+  }, [shouldShow, heightFraction]);
+
+  useEffect(() => {
+    if (percent === null) return;
+    // A longer duration for the progress bar so it interpolates between
+    // reported values instead of jumping (600ms is about four poll cycles).
+    progressValue.value = withTiming(percent / 100, { duration: 600 });
+  }, [percent, progressValue]);
 
   // Indeterminate animation
   const isIndeterminate = displayInfo?.indeterminate ?? false;

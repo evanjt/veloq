@@ -111,6 +111,16 @@ impl RecordingManager {
         with_engine(|e| e.hold_recording_for_auth(&id, &error).map_err(db))?
     }
 
+    /// The transport failed before the server was reached. The ride keeps its
+    /// attempts for the same reason a 401 does, and is stamped so the backoff
+    /// still holds it back.
+    fn hold_for_network(&self, id: String, error: String, now_ms: i64) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.hold_recording_for_network(&id, &error, now_ms)
+                .map_err(db)
+        })?
+    }
+
     /// An athlete signed in: stop auto-uploading every ride that is not
     /// theirs, unstamped ones included. Returns how many were held.
     fn hold_other_athletes(&self, athlete_id: String) -> Result<u32, VeloqError> {

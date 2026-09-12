@@ -134,8 +134,20 @@ describe('NetworkContext', () => {
   });
 
   describe('offline transition (debounced 3s)', () => {
+    /**
+     * The debounce is for a hiccup between two known states, so every case
+     * here starts from a reading that confirmed online. A drop reported before
+     * any reading has come back is the cold boot, and it applies at once.
+     */
+    function confirmOnline() {
+      act(() => {
+        getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
+      });
+    }
+
     it('does NOT flip offline immediately', () => {
       const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      confirmOnline();
       act(() => {
         getMock().listener!({
           isConnected: false,
@@ -149,6 +161,7 @@ describe('NetworkContext', () => {
 
     it('flips offline after 3s when offline state persists', () => {
       const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      confirmOnline();
       act(() => {
         getMock().listener!({
           isConnected: false,
@@ -165,6 +178,7 @@ describe('NetworkContext', () => {
 
     it('cancels debounce when network comes back online before 3s', () => {
       const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      confirmOnline();
 
       // First: go offline
       act(() => {
@@ -285,6 +299,10 @@ describe('NetworkContext', () => {
 
     it('cancels pending offline debounce on unmount', () => {
       const { result, unmount } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      // A drop is only debounced once a reading has confirmed online.
+      act(() => {
+        getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
+      });
       act(() => {
         getMock().listener!({
           isConnected: false,
@@ -396,6 +414,9 @@ describe('NetworkContext', () => {
     it('pushes offline only after the 3s debounce, not on the raw edge', () => {
       renderHook(() => useNetwork(), { wrapper: wrapperFor });
       act(() => {
+        getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
+      });
+      act(() => {
         getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
       });
       expect(mockSetNetworkOnline).not.toHaveBeenCalledWith(false);
@@ -408,6 +429,9 @@ describe('NetworkContext', () => {
 
     it('does not push offline when the network comes back inside the debounce', () => {
       renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      act(() => {
+        getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
+      });
       act(() => {
         getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
         jest.advanceTimersByTime(1500);
@@ -475,5 +499,84 @@ describe('NetworkContext', () => {
       );
       consoleErr.mockRestore();
     });
+  });
+});
+
+/**
+ * Scenario: a cold boot in aeroplane mode. The provider seeds online because
+ * nothing has answered yet, and the first reading that comes back says
+ * offline.
+ *
+ * Expected behaviour: that first reading applies at once. The 3 s debounce is
+ * there to stop the banner flashing on a hiccup between two known states, and
+ * a seed that no reading has confirmed is not a state to debounce away from.
+ * Without this, every mount effect in those three seconds takes the online
+ * branch and latches on it.
+ */
+describe('the first reading after a cold boot', () => {
+  beforeEach(() => {
+    const mock = getMock();
+    mock.listener = null;
+    mock.remove.mockClear();
+    mock.getNetworkStateAsync.mockReset();
+    mock.getNetworkStateAsync.mockImplementation(() => new Promise(() => {}));
+    (require('expo-network').addNetworkStateListener as jest.Mock).mockClear();
+    mockSetNetworkOnline.mockClear();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('goes offline at once rather than after the debounce', () => {
+    const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+
+    act(() => {
+      getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
+    });
+
+    expect(result.current.isOnline).toBe(false);
+    expect(onlineManager.isOnline()).toBe(false);
+    expect(mockSetNetworkOnline).toHaveBeenCalledWith(false);
+  });
+
+  it('still debounces a drop once a reading has confirmed online', () => {
+    const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+
+    act(() => {
+      getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
+    });
+    act(() => {
+      getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
+    });
+
+    expect(result.current.isOnline).toBe(true);
+
+    act(() => {
+      jest.advanceTimersByTime(3000);
+    });
+
+    expect(result.current.isOnline).toBe(false);
+  });
+
+  it('debounces a drop that follows a confirmed offline, coming back online between', () => {
+    const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+
+    act(() => {
+      getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
+    });
+    act(() => {
+      getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
+    });
+    act(() => {
+      getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
+    });
+
+    expect(result.current.isOnline).toBe(true);
+    act(() => {
+      jest.advanceTimersByTime(3000);
+    });
+    expect(result.current.isOnline).toBe(false);
   });
 });

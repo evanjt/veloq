@@ -181,6 +181,22 @@ export function holdRecordingForAuth(host: DelegateHost, id: string, error: stri
 }
 
 /**
+ * The transport failed before intervals.icu was reached. The ride keeps its
+ * attempt count, since a request that never arrived says nothing about it, and
+ * is stamped so the ordinary backoff still holds it back.
+ */
+export function holdRecordingForNetwork(
+  host: DelegateHost,
+  id: string,
+  error: string,
+  nowMs: number
+): void {
+  host.write('holdRecordingForNetwork', () =>
+    host.engine.recordings().holdForNetwork(id, error, BigInt(Math.trunc(nowMs)))
+  );
+}
+
+/**
  * An athlete signed in: stop auto-uploading every ride that is not theirs, an
  * unstamped one included.
  *

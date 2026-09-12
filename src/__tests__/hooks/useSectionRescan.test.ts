@@ -38,7 +38,7 @@ function engineWith(overrides: Record<string, unknown> = {}) {
       total: 10,
       percent: 30,
     })),
-    getFilteredSectionSummaries: jest.fn(() => ({ totalCount: 7 })),
+    getSectionCount: jest.fn(() => 7),
     startSectionDetection: jest.fn(() => StartOutcome.Started),
     forceRedetectSections: jest.fn(() => StartOutcome.Started),
     ...overrides,
@@ -422,5 +422,57 @@ describe('a rescan that is never told it ended', () => {
     });
 
     expect(engine.getSectionDetectionProgress.mock.calls.length).toBe(readsAtUnmount);
+  });
+});
+
+/**
+ * Scenario: the before and after counts around a rescan are read from the
+ * engine on every tap.
+ *
+ * Expected behaviour: they come from the SQL count, not from loading every
+ * section summary to read a total off the result.
+ */
+describe('counting sections around a rescan', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    for (const key of Object.keys(listeners)) delete listeners[key];
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('reads the count without loading any summaries', () => {
+    const getSectionCount = jest.fn(() => 7);
+    const getFilteredSectionSummaries = jest.fn(() => ({ totalCount: 7 }));
+    const engine = engineWith({ getSectionCount, getFilteredSectionSummaries });
+    mockedGetEngine.mockReturnValue(engine as never);
+
+    const { result } = renderHook(() => useSectionRescan());
+
+    act(() => {
+      result.current.rescan();
+    });
+
+    expect(getSectionCount).toHaveBeenCalled();
+    expect(getFilteredSectionSummaries).not.toHaveBeenCalled();
+  });
+
+  it('reports zero rather than throwing when the count fails', () => {
+    const engine = engineWith({
+      getSectionCount: jest.fn(() => {
+        throw new Error('engine is gone');
+      }),
+    });
+    mockedGetEngine.mockReturnValue(engine as never);
+
+    const { result } = renderHook(() => useSectionRescan());
+
+    expect(() =>
+      act(() => {
+        result.current.rescan();
+      })
+    ).not.toThrow();
   });
 });

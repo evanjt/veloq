@@ -17,7 +17,15 @@ import { Text } from 'react-native-paper';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Circle, Path, Skia } from '@shopify/react-native-skia';
-import { ChartCanvas, bandSvgPath, polylineSvgPath, useChartGestures } from '@/shared/charts';
+import {
+  ChartCanvas,
+  bandSvgPath,
+  chartBoundsFor,
+  polylineSvgPath,
+  useChartGestures,
+  xForValue,
+  yForValue,
+} from '@/shared/charts';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { isPaceSport, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
@@ -31,6 +39,7 @@ import {
 import {
   splitAndPositionChartData,
   buildTrendWithBand,
+  nearestScatterPointIndex,
   type TrendBandPoint,
 } from '@/features/routes/lib/scatterData';
 import { computeTimeAxisLabels, axisLabelsNeedDay } from '@/features/stats';
@@ -156,6 +165,12 @@ export function SectionScatterChart({
   const yMax = useTimeAxis ? minTime : maxSpeed;
   const yDomain = useMemo<[number, number]>(() => [yMin, yMax], [yMin, yMax]);
 
+  /** The value each point is drawn at, and the one a tap is resolved against. */
+  const yOf = useCallback(
+    (p: PerformanceDataPoint) => (useTimeAxis ? p.sectionTime : p.speed),
+    [useTimeAxis]
+  );
+
   // Compute Gaussian kernel trend lines with confidence bands for all point counts (≥2)
   const { forwardTrend, reverseTrend } = useMemo(
     () => ({
@@ -184,31 +199,46 @@ export function SectionScatterChart({
     return allPoints.map((point) => effectivePadding.left + point.x * contentWidth);
   }, [allPoints, effectivePadding, chartWidth]);
 
+  // The tap has to resolve against the axis the chart drew, so the points go
+  // in on the same accessor and domain the dots are placed with.
+  const tapPoints = useMemo(() => allPoints.map((p) => ({ x: p.x, y: yOf(p) })), [allPoints, yOf]);
+
+  // Trend and band paths are pixels, so they only move when the box or the
+  // domain does. Rebuilding them inside the render prop re-parsed four SVG
+  // strings on every scrub tick.
+  const trendPaths = useMemo(() => {
+    const bounds = chartBoundsFor(chartWidth, effectiveHeight, effectivePadding);
+    const xFor = (value: number) => xForValue(value, X_DOMAIN, bounds);
+    const yFor = (value: number) => yForValue(value, yDomain, bounds);
+    const build = (trend: TrendBandPoint[] | null) => {
+      if (!trend || trend.length < 2) return { line: null, band: null };
+      const linePts = trend.map((p) => ({ x: xFor(p.x), y: yFor(p.y) }));
+      // Band: upper edge forward, then lower edge backward (closed shape)
+      const upperPts = trend.map((p) => ({ x: xFor(p.x), y: yFor(p.upper) }));
+      const lowerPts = trend.map((p) => ({ x: xFor(p.x), y: yFor(p.lower) }));
+      return {
+        line: Skia.Path.MakeFromSVGString(polylineSvgPath(linePts)),
+        band: Skia.Path.MakeFromSVGString(bandSvgPath(upperPts, lowerPts)),
+      };
+    };
+    return { fwd: build(forwardTrend), rev: build(reverseTrend) };
+  }, [forwardTrend, reverseTrend, chartWidth, effectiveHeight, effectivePadding, yDomain]);
+
   // Taps match on 2D distance so an outlier high above the trend is reachable.
   const resolveTapIndex = useCallback(
     (x: number, y: number) => {
-      if (allPoints.length === 0) return -1;
       const contentWidth = chartWidth - effectivePadding.left - effectivePadding.right;
       const contentHeight = effectiveHeight - effectivePadding.top - effectivePadding.bottom;
-      const normalisedX = Math.max(0, Math.min(1, (x - effectivePadding.left) / contentWidth));
-      const normalisedY = Math.max(0, Math.min(1, (y - effectivePadding.top) / contentHeight));
-      const speedRange = maxSpeed - minSpeed || 1;
-
-      let closestIdx = 0;
-      let closestDist = Infinity;
-      for (let i = 0; i < allPoints.length; i++) {
-        const dx = allPoints[i].x - normalisedX;
-        // Top of the chart is the fastest, so invert before comparing.
-        const dy = 1 - (allPoints[i].speed - minSpeed) / speedRange - normalisedY;
-        const dist = dx * dx + dy * dy;
-        if (dist < closestDist) {
-          closestDist = dist;
-          closestIdx = i;
-        }
-      }
-      return closestIdx;
+      return nearestScatterPointIndex(
+        tapPoints,
+        {
+          x: Math.max(0, Math.min(1, (x - effectivePadding.left) / contentWidth)),
+          y: Math.max(0, Math.min(1, (y - effectivePadding.top) / contentHeight)),
+        },
+        yDomain
+      );
     },
-    [allPoints, effectivePadding, effectiveHeight, minSpeed, maxSpeed, chartWidth]
+    [tapPoints, effectivePadding, effectiveHeight, chartWidth, yDomain]
   );
 
   const { gesture, crosshairStyle, syncBounds, syncXCoords } = useChartGestures<
@@ -277,23 +307,6 @@ export function SectionScatterChart({
             grid={5}
           >
             {({ xFor, yFor }) => {
-              const yOf = (p: PerformanceDataPoint) => (useTimeAxis ? p.sectionTime : p.speed);
-              // Build trend + band paths using chart coordinate system
-              const buildPaths = (trend: TrendBandPoint[] | null) => {
-                if (!trend || trend.length < 2) return { line: null, band: null };
-                const linePts = trend.map((p) => ({ x: xFor(p.x), y: yFor(p.y) }));
-                // Band: upper edge forward, then lower edge backward (closed shape)
-                const upperPts = trend.map((p) => ({ x: xFor(p.x), y: yFor(p.upper) }));
-                const lowerPts = trend.map((p) => ({ x: xFor(p.x), y: yFor(p.lower) }));
-                return {
-                  line: Skia.Path.MakeFromSVGString(polylineSvgPath(linePts)),
-                  band: Skia.Path.MakeFromSVGString(bandSvgPath(upperPts, lowerPts)),
-                };
-              };
-
-              const fwd = buildPaths(forwardTrend);
-              const rev = buildPaths(reverseTrend);
-
               // Track which allPoints index maps to forward/reverse
               let fwdIdx = 0;
               let revIdx = 0;
@@ -301,30 +314,35 @@ export function SectionScatterChart({
               return (
                 <>
                   {/* Confidence bands (drawn first, behind everything) */}
-                  {fwd.band && (
-                    <Path path={fwd.band} color={activityColor} style="fill" opacity={0.08} />
-                  )}
-                  {rev.band && (
+                  {trendPaths.fwd.band && (
                     <Path
-                      path={rev.band}
+                      path={trendPaths.fwd.band}
+                      color={activityColor}
+                      style="fill"
+                      opacity={0.08}
+                    />
+                  )}
+                  {trendPaths.rev.band && (
+                    <Path
+                      path={trendPaths.rev.band}
                       color={colors.reverseDirection}
                       style="fill"
                       opacity={0.08}
                     />
                   )}
                   {/* Trend lines */}
-                  {fwd.line && (
+                  {trendPaths.fwd.line && (
                     <Path
-                      path={fwd.line}
+                      path={trendPaths.fwd.line}
                       color={activityColor}
                       style="stroke"
                       strokeWidth={2}
                       opacity={0.6}
                     />
                   )}
-                  {rev.line && (
+                  {trendPaths.rev.line && (
                     <Path
-                      path={rev.line}
+                      path={trendPaths.rev.line}
                       color={colors.reverseDirection}
                       style="stroke"
                       strokeWidth={2}

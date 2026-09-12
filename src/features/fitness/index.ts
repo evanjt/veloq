@@ -30,7 +30,7 @@ export {
   calculateTSB,
   getFormZone,
   FORM_ZONE_COLORS,
-  FORM_ZONE_LABELS,
+  formZoneLabel,
   FORM_ZONE_BOUNDARIES,
   type FormZone,
 } from './lib';

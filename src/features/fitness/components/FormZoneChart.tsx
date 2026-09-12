@@ -8,7 +8,16 @@ import { useTranslation } from 'react-i18next';
 import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
-import { colors, darkColors, typography, spacing, chartStyles, layout } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  chartStyles,
+  layout,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import {
   ChartCanvas,
   ChartCrosshair,
@@ -20,7 +29,7 @@ import {
   calculateTSB,
   getFormZone,
   FORM_ZONE_COLORS,
-  FORM_ZONE_LABELS,
+  formZoneLabel,
   FORM_ZONE_BOUNDARIES,
   type FormZone,
 } from '@/features/fitness/lib/fitness';
@@ -168,7 +177,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
             {displayData.form}
           </Text>
           <Text style={[styles.zoneText, { color: FORM_ZONE_COLORS[formZone] }]}>
-            {FORM_ZONE_LABELS[formZone]}
+            {formZoneLabel(formZone)}
           </Text>
         </View>
       </View>
@@ -244,7 +253,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
           <View key={zone} style={styles.zoneLegendItem}>
             <View style={[styles.zoneDot, { backgroundColor: FORM_ZONE_COLORS[zone] }]} />
             <Text style={[styles.zoneLabel, isDark && chartStyles.textDark]}>
-              {FORM_ZONE_LABELS[zone]}
+              {formZoneLabel(zone)}
             </Text>
           </View>
         ))}
@@ -320,7 +329,7 @@ const styles = StyleSheet.create({
   axisLabel: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: colorWithOpacity(ink.white, 0.7),
     paddingHorizontal: spacing.xxs,
     borderRadius: spacing.xxs,
   },

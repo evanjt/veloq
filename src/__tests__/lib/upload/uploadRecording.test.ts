@@ -19,6 +19,7 @@ import {
   markRecordingRejected,
   markRecordingPermissionBlocked,
   holdRecordingForAuth,
+  holdRecordingForNetwork,
   discardRecordingFit,
   readRecordingFit,
 } from '@/features/recording/lib/storage/recordingLibrary';
@@ -39,6 +40,7 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   markRecordingRejected: jest.fn().mockResolvedValue(undefined),
   markRecordingPermissionBlocked: jest.fn().mockResolvedValue(undefined),
   holdRecordingForAuth: jest.fn().mockResolvedValue(undefined),
+  holdRecordingForNetwork: jest.fn().mockResolvedValue(undefined),
   discardRecordingFit: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -164,7 +166,7 @@ describe('uploadRecording', () => {
     expect(markRecordingRejected).not.toHaveBeenCalled();
   });
 
-  it('queues a network failure for a later attempt', async () => {
+  it("holds a network failure without spending one of the ride's attempts", async () => {
     mockUpload.mockRejectedValue(
       refused(CallKind.Network, undefined, undefined, 'transport error: connection reset')
     );
@@ -175,10 +177,25 @@ describe('uploadRecording', () => {
       outcome: 'network',
       errorDetail: 'transport error: connection reset',
     });
-    expect(markRecordingUploadFailed).toHaveBeenCalledWith(
+    expect(holdRecordingForNetwork).toHaveBeenCalledWith(
       'rec-1',
       'transport error: connection reset'
     );
+    // The ceiling is what parks a ride as `failed`, and a request that never
+    // reached intervals.icu must not move it. Five cold launches out of signal
+    // used to be enough.
+    expect(markRecordingUploadFailed).not.toHaveBeenCalled();
+    expect(markRecordingRejected).not.toHaveBeenCalled();
+  });
+
+  it('still spends an attempt when the server itself failed', async () => {
+    mockUpload.mockRejectedValue(refused(CallKind.Http, 503, 'upstream unavailable'));
+
+    const result = await uploadRecording(ENTRY);
+
+    expect(result).toEqual({ outcome: 'retriable', errorDetail: 'upstream unavailable' });
+    expect(markRecordingUploadFailed).toHaveBeenCalledWith('rec-1', 'upstream unavailable');
+    expect(holdRecordingForNetwork).not.toHaveBeenCalled();
   });
 
   it('surfaces the server message on a hard rejection', async () => {

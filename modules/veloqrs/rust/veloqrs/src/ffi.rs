@@ -570,7 +570,12 @@ pub fn start_fetch_and_store(
                 });
                 for (activity_id, result) in fetched {
                     match result {
-                        Ok(times) if !times.is_empty() => {
+                        // An empty answer is stored as a zero-length row, the
+                        // same as the backfill lane does. This request asked
+                        // for one activity's `time` and upstream said there is
+                        // none, so the row records that the question was put
+                        // and the activity leaves the missing list for good.
+                        Ok(times) => {
                             let stored = crate::persistence::with_persistent_engine(|engine| {
                                 engine.set_time_streams_flat(&[activity_id.clone()], &times, &[0]);
                             });
@@ -584,7 +589,6 @@ pub fn start_fetch_and_store(
                                 crate::objects::sync::discarded("time_stream", &activity_id);
                             }
                         }
-                        Ok(_) => {}
                         Err(e) => info!(
                             "[RUST: start_fetch_and_store] Time stream {} failed: {}",
                             activity_id, e

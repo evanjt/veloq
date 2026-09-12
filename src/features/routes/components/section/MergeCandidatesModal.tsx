@@ -12,7 +12,16 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import type { MergeCandidate } from 'veloqrs';
-import { colors, darkColors, spacing, typography, layout, shadows } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  typography,
+  layout,
+  shadows,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 
 interface MergeCandidatesModalProps {
   visible: boolean;
@@ -93,7 +102,7 @@ export const MergeCandidatesModal = memo(function MergeCandidatesModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,

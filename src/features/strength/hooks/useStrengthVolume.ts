@@ -9,6 +9,7 @@ import { queryKeys } from '@/shared/query/queryKeys';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 
+import { strengthTabState, type StrengthTabState } from '../lib/strengthTabState';
 import { buildStrengthProgression } from '../lib/analysis';
 import { demoStrengthSets } from '../demo';
 import type {
@@ -290,10 +291,10 @@ export function useActivitiesForExercise(
 }
 
 /**
- * Check if any strength training data exists in the engine.
- * Memoized to avoid redundant FFI calls on every render.
+ * Whether the Strength tab is shown, and whether it has anything to draw yet.
+ * Memoised to avoid redundant FFI calls on every render.
  */
-export function useHasStrengthData(): boolean {
+export function useStrengthTabState(): StrengthTabState {
   const [engineVersion, setEngineVersion] = useState(0);
   const engine = useEngineReady();
 
@@ -314,15 +315,21 @@ export function useHasStrengthData(): boolean {
   }, [engine]);
 
   return useMemo(() => {
-    if (!engine || typeof engine.hasStrengthData !== 'function') return false;
+    if (!engine || typeof engine.hasStrengthData !== 'function') return 'hidden';
     // Seed demo fixtures before the first hasStrengthData check, otherwise
     // the Strength tab never appears (and useStrengthVolume - which also
     // seeds - never mounts).
     ensureDemoStrengthSeeded();
     try {
-      return engine.hasStrengthData();
+      // The empty list asks the engine for its own queue: every strength
+      // activity with no recorded FIT outcome.
+      const unfetchedCount =
+        typeof engine.getUnprocessedStrengthIds === 'function'
+          ? engine.getUnprocessedStrengthIds([]).length
+          : 0;
+      return strengthTabState({ hasSets: engine.hasStrengthData(), unfetchedCount });
     } catch {
-      return false;
+      return 'hidden';
     }
   }, [engine, engineVersion]);
 }

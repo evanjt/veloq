@@ -46,6 +46,7 @@ import {
   clearTileCachesScript,
   tileCacheStatsScript,
 } from '@/features/maps/lib/tileCacheBudget';
+import { pickStatsWorker } from '@/features/maps/lib/tileCacheStatsWorker';
 import {
   buildSnapshotWorkerHtml,
   buildBundledAssetReplyScript,
@@ -172,6 +173,11 @@ interface WorkerState {
   webViewRef: { current: WebView | null };
   processingRef: { current: boolean };
   mapReadyRef: { current: boolean };
+  /**
+   * The page has loaded, so `caches` and `window._workerId` exist. Reached long
+   * before `mapReadyRef`, and offline it is reached when that one never is.
+   */
+  documentReadyRef: { current: boolean };
   generationRef: { current: number };
   timeoutRef: { current: ReturnType<typeof setTimeout> | null };
   currentRequestRef: { current: SnapshotRequest | null };
@@ -199,6 +205,7 @@ export const TerrainSnapshotWebView = forwardRef<
       webViewRef: { current: null },
       processingRef: { current: false },
       mapReadyRef: { current: false },
+      documentReadyRef: { current: false },
       generationRef: { current: 0 },
       timeoutRef: { current: null },
       currentRequestRef: { current: null },
@@ -360,6 +367,7 @@ export const TerrainSnapshotWebView = forwardRef<
       console.warn(`[TerrainSnapshot:${worker.id}] WebView process gone - reloading`);
     }
     worker.mapReadyRef.current = false;
+    worker.documentReadyRef.current = false;
     worker.processingRef.current = false;
     if (worker.timeoutRef.current) {
       clearTimeout(worker.timeoutRef.current);
@@ -773,10 +781,14 @@ export const TerrainSnapshotWebView = forwardRef<
   // Listen for tile cache stats requests from settings
   useEffect(() => {
     return onTileCacheStatsRequest(() => {
-      // Query worker 0 if its map is ready
-      const worker = workers[0];
-      if (!worker?.mapReadyRef.current || !worker.webViewRef.current) return;
-      worker.webViewRef.current.injectJavaScript(tileCacheStatsScript());
+      const worker = pickStatsWorker(
+        workers.map((w) => ({
+          worker: w,
+          documentReady: w.documentReadyRef.current,
+          hasView: w.webViewRef.current !== null,
+        }))
+      );
+      worker?.worker.webViewRef.current?.injectJavaScript(tileCacheStatsScript());
     });
   }, [workers]);
 
@@ -794,6 +806,7 @@ export const TerrainSnapshotWebView = forwardRef<
     }
     for (const worker of workers) {
       worker.mapReadyRef.current = false;
+      worker.documentReadyRef.current = false;
       worker.processingRef.current = false;
       if (worker.timeoutRef.current) {
         clearTimeout(worker.timeoutRef.current);
@@ -946,6 +959,9 @@ export const TerrainSnapshotWebView = forwardRef<
           androidLayerType="hardware"
           nativeConfig={veloqWebViewNativeConfig}
           onMessage={handleMessage}
+          onLoadEnd={() => {
+            worker.documentReadyRef.current = true;
+          }}
           onRenderProcessGone={() => handleWorkerGone(worker)}
           onContentProcessDidTerminate={() => handleWorkerGone(worker)}
         />

@@ -40,6 +40,12 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   // Debounce timer for going-offline transitions (3s delay prevents OfflineBanner flashing)
   const offlineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Whether any reading has come back yet. `isOnline` above is a seed, not an
+  // answer, so the first reading is not a transition and is not debounced: a
+  // cold boot in aeroplane mode otherwise reads as online for three seconds
+  // and every mount effect in that window latches on the online branch.
+  const hasReadingRef = useRef(false);
+
   useEffect(() => {
     // Cancellation flag to prevent state updates after unmount
     // and to coordinate between listener and fallback fetch
@@ -63,6 +69,11 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         // `refetchOnReconnect` never fires.
         onlineManager.setOnline(true);
         pushToEngine(true);
+      } else if (!hasReadingRef.current) {
+        // The first reading is the answer the seed was standing in for.
+        setNetworkState({ isOnline: false });
+        onlineManager.setOnline(false);
+        pushToEngine(false);
       } else {
         // Going offline: debounce by 3s to avoid flashing during brief hiccups
         offlineTimerRef.current = setTimeout(() => {
@@ -72,6 +83,8 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
           pushToEngine(false);
         }, 3000);
       }
+
+      hasReadingRef.current = true;
     };
 
     // Subscribe to network state updates

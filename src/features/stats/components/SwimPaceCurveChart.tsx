@@ -4,9 +4,9 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CurveChart, useChartColors } from '@/shared/charts';
-import { colors, typography, spacing, chartStyles, layout } from '@/theme';
-import { usePaceCurve, paceToMinPer100m } from '../hooks/usePaceCurve';
-import { formatDistance } from '@/shared/format/format';
+import { colors, typography, spacing, chartStyles, layout, colorWithOpacity } from '@/theme';
+import { usePaceCurve } from '../hooks/usePaceCurve';
+import { formatDistance, formatMinSec, formatSwimPace } from '@/shared/format/format';
 
 interface SwimPaceCurveChartProps {
   /** Number of days to include (default 365) */
@@ -14,22 +14,13 @@ interface SwimPaceCurveChartProps {
   height?: number;
 }
 
-const CSS_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
+const CSS_LINE_COLOR = colorWithOpacity(colors.chartGuideLine, 0.6);
 const X_LABELS = ['100m', '200m', '400m', '800m', '1.5K'];
 
-// Format seconds per 100m as m:ss
-function formatSecsPer100m(secs: number): string {
-  return `${Math.floor(secs / 60)}:${Math.round(secs % 60)
-    .toString()
-    .padStart(2, '0')}`;
-}
-
-// Format pace as min:sec per 100m
-function formatPace100m(metersPerSecond: number): string {
-  if (metersPerSecond <= 0 || !isFinite(metersPerSecond)) return '--:--';
-  const { minutes, seconds } = paceToMinPer100m(metersPerSecond);
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
+// Metric on purpose, whatever the unit setting says: the X labels are metric
+// distances and the suffix below is a literal /100m, so a per-100 yd pace here
+// would disagree with the axis it is plotted against.
+const formatPace100m = (metersPerSecond: number) => formatSwimPace(metersPerSecond, true);
 
 // Format time as mm:ss or h:mm:ss
 function formatTime(totalSeconds: number): string {
@@ -219,7 +210,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
         color={chartColors.swimCurve}
         referenceLine={referenceLine}
         xLabels={X_LABELS}
-        formatY={formatSecsPer100m}
+        formatY={formatMinSec}
         crosshairMode="finger"
         onSelect={setTooltipData}
         onInteractionChange={handleInteractionChange}
@@ -230,7 +221,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: CSS_LINE_COLOR }]} />
           <Text style={[styles.legendText, isDark && chartStyles.textDark]}>
-            CSS {formatSecsPer100m(cssPace)}/100m
+            CSS {formatMinSec(cssPace)}/100m
           </Text>
         </View>
       )}

@@ -6,7 +6,7 @@ import Animated from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
 import { darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
 import { getFormZone, FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
-import { getIntlLocale } from '@/shared/format/format';
+import { scrubDateLabel } from '../lib/scrubDateLabel';
 import { buildMonotoneSvg, useChartGestures } from '@/shared/charts';
 
 const PLOT_TOP = 2;
@@ -97,13 +97,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     const form = formRef.current;
     const cb = onScrubRef.current;
     if (!cb || index < 0 || index >= fitness.length) return;
-    const daysAgo = fitness.length - 1 - index;
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    const dateLabel = date.toLocaleDateString(getIntlLocale(), {
-      month: 'short',
-      day: 'numeric',
-    });
+    const dateLabel = scrubDateLabel(fitness.length - 1 - index);
     cb({
       fitness: fitness[index],
       fatigue: fatigue ? fatigue[index] : fitness[index],

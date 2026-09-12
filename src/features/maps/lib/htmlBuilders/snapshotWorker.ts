@@ -143,12 +143,13 @@ export function buildSnapshotWorkerHtml(
       return caches.open(TERRAIN_CACHE).then(function(cache) {
         return cache.match(realUrl).then(function(cached) {
           if (cached) {
+            _veloqTouch(cache, realUrl, cached.clone());
             return cached.blob().then(demBlobToImage);
           }
           return fetchWithRetry(realUrl, 2, 300).then(function(r) {
             window._rn_log('DEM fetch ' + r.status + ': ' + realUrl.split('/').slice(-3).join('/'));
             if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(TERRAIN_CACHE);
+            _veloqPut(cache, realUrl, r.clone()); maybeEvict(TERRAIN_CACHE);
             return r.blob().then(demBlobToImage);
           });
         });

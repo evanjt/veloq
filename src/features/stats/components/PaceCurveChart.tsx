@@ -12,6 +12,7 @@ import {
   layout,
   chartStyles,
   switchTrackOff,
+  colorWithOpacity,
 } from '@/theme';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { usePaceCurve } from '../hooks/usePaceCurve';
@@ -31,7 +32,7 @@ interface PaceCurveChartProps {
   height?: number;
 }
 
-const CS_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
+const CS_LINE_COLOR = colorWithOpacity(colors.chartGuideLine, 0.6);
 
 // Standard distance markers for the log x axis
 const X_LABELS: PlacedLabel[] = [
@@ -392,16 +393,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activityPill: {
-    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    backgroundColor: colorWithOpacity(colors.chartPaceCurve, 0.15),
     paddingHorizontal: layout.borderRadius,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
     borderWidth: 1,
-    borderColor: 'rgba(76, 175, 80, 0.3)',
+    borderColor: colorWithOpacity(colors.chartPaceCurve, 0.3),
   },
   activityPillDark: {
-    backgroundColor: 'rgba(76, 175, 80, 0.2)',
-    borderColor: 'rgba(76, 175, 80, 0.4)',
+    backgroundColor: colorWithOpacity(colors.chartPaceCurve, 0.2),
+    borderColor: colorWithOpacity(colors.chartPaceCurve, 0.4),
   },
   activityLabel: {
     fontSize: typography.caption.fontSize,

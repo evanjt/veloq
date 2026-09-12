@@ -10,6 +10,7 @@ import { colors, typography, spacing, layout, chartStyles, darkColors } from '@/
 import type { eFTPPoint } from '@/types';
 import { formatMonth } from '@/shared/format/format';
 import { ChartCanvas, CurveArea, CurveLine, useChartColors } from '@/shared/charts';
+import { ftpChangeOverDays } from '../lib/ftpTrend';
 
 interface FTPTrendChartProps {
   /** eFTP history data points */
@@ -23,6 +24,9 @@ interface FtpPoint {
   y: number;
   date: string;
 }
+
+/** What "from 3 months ago" under the card means, in days. */
+const TREND_WINDOW_DAYS = 90;
 
 const CHART_PADDING = { top: 8 } as const;
 const SERIES = { y: (d: FtpPoint) => d.y };
@@ -55,10 +59,11 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
     }
 
     const values = chartData.map((d) => d.y);
-    const latest = values[values.length - 1];
-    const threeMonthsAgo = values.length > 3 ? values[values.length - 4] : values[0];
-    const change = latest - threeMonthsAgo;
-    const percent = threeMonthsAgo > 0 ? (change / threeMonthsAgo) * 100 : 0;
+    const { baseline, latest, change } = ftpChangeOverDays(
+      chartData.map((d) => ({ date: d.date, eftp: d.y })),
+      TREND_WINDOW_DAYS
+    );
+    const percent = baseline > 0 ? (change / baseline) * 100 : 0;
 
     return {
       minFTP: Math.min(...values) - 10,

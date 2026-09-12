@@ -812,6 +812,13 @@ interface NativeModuleInterface {
     error: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_recordingmanager_hold_for_network(
+    ptr: bigint,
+    id: Uint8Array,
+    error: Uint8Array,
+    nowMs: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_hold_other_athletes(
     ptr: bigint,
     athleteId: Uint8Array,
@@ -2001,6 +2008,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_demote_pending_to_local_only(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_get_recording(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_hold_for_auth(): number;
+  ubrn_uniffi_veloqrs_checksum_method_recordingmanager_hold_for_network(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_hold_other_athletes(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_list_recordings(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_permission_blocked(): number;

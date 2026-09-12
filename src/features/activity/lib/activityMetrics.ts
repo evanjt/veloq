@@ -18,6 +18,19 @@ import { startDateLocalToEpochSeconds } from '@/shared/time/startDate';
  * @param activity - Activity to convert
  * @returns ActivityMetrics object for Rust engine
  */
+/**
+ * Whether an activity is worth a row in `activity_metrics`.
+ *
+ * The date is the only hard requirement: it is what every read keys on, and an
+ * activity with no local start date has none. Duration is not a requirement.
+ * A strength session recorded with zero moving time still has its FIT
+ * downloaded and its sets written, and every strength aggregate INNER JOINs
+ * this table, so skipping the row leaves those sets with no read path.
+ */
+export function hasMetricsRow(activity: Activity): boolean {
+  return Boolean(activity.start_date_local);
+}
+
 export function toActivityMetrics(activity: Activity): ActivityMetrics {
   const powerZoneTimes = activity.icu_zone_times
     ? activity.icu_zone_times.map((z) => z.secs)

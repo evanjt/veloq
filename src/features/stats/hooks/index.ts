@@ -5,7 +5,6 @@ export {
   getPaceAtDistance,
   getIndexAtDistance,
   getTimeAtDistance,
-  paceToMinPer100m,
 } from './usePaceCurve';
 export {
   usePowerCurve,

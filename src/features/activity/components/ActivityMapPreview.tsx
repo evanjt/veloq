@@ -6,6 +6,7 @@ import { getActivityColor } from '@/features/activity/lib/activityUtils';
 import { getMapLibreBounds } from '@/shared/geo/polyline';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { StaticCompassArrow } from '@/shared/ui';
+import { useIsOnline } from '@/shared/app/NetworkContext';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import { isWithinPreviewRange, onPreviewRangeChange } from '../lib/previewRange';
 import {
@@ -143,10 +144,17 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   );
 
   // The snapshot pipeline gave up on this activity: every rung of the failover
-  // ladder is exhausted, or it is offline. Distinguished from pending because
-  // the two cards are different, a spinner against the "nothing to draw" mark,
-  // and a spinner that will never resolve is dishonest.
+  // ladder is exhausted. Distinguished from pending because the two cards are
+  // different, a spinner against the "nothing to draw" mark, and a spinner
+  // that will never resolve is dishonest.
   const [snapshotFailed, setSnapshotFailed] = useState(false);
+
+  // Every rung of the ladder needs the network, so offline there is nothing to
+  // wait for. Without this the card spins until a terminal failure arrives,
+  // which is the 15 s watchdog when idle and the 45 s per-card timer while the
+  // athlete keeps scrolling. Read each render rather than latched at mount, so
+  // the network coming back puts the card back on the spinner it belongs on.
+  const isOnline = useIsOnline();
 
   // Reset image when map style or 3D preference changes
   useEffect(() => {
@@ -345,7 +353,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // Snapshot pending. A card waits on the spinner however long the queue takes:
   // only the pipeline saying it gave up moves it off, so a slow render is never
   // dressed up as a failed one.
-  if (!snapshotFailed) {
+  if (!snapshotFailed && isOnline) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '10' }]}>
         <ActivityIndicator size="small" color={activityColor} />
@@ -353,9 +361,10 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     );
   }
 
-  // Every rung of the ladder is exhausted. The card has a track and cannot draw
-  // it, which is the same thing as having no track to draw, so it takes the
-  // settled mark for that rather than a spinner nothing will ever resolve.
+  // Every rung of the ladder is exhausted, or offline and out of reach. The
+  // card has a track and cannot draw it, which is the same thing as having no
+  // track to draw, so it takes the settled mark for that rather than a spinner
+  // nothing will ever resolve.
   return (
     <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
       <MaterialCommunityIcons name="map-marker-off" size={32} color={activityColor} />

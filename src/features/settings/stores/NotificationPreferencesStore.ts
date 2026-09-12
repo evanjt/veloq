@@ -10,6 +10,12 @@ export interface NotificationPreferences {
   privacyAccepted: boolean;
   /** Unregister request failed (e.g. offline) - retry on next app open */
   pendingUnregister: boolean;
+  /**
+   * The athlete the pending unregister is for. Held here because a sign-out
+   * deletes the credential the retry used to read, which left the token
+   * registered for ever and the athlete still receiving pushes.
+   */
+  pendingUnregisterAthleteId: string | null;
   /** Per-category toggles */
   categories: {
     sectionPr: boolean;
@@ -21,6 +27,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   enabled: false,
   privacyAccepted: false,
   pendingUnregister: false,
+  pendingUnregisterAthleteId: null,
   categories: {
     sectionPr: true,
     fitnessMilestone: true,
@@ -57,6 +64,7 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
           enabled: parsed.enabled ?? false,
           privacyAccepted: parsed.privacyAccepted ?? false,
           pendingUnregister: parsed.pendingUnregister ?? false,
+          pendingUnregisterAthleteId: parsed.pendingUnregisterAthleteId ?? null,
           categories: { ...DEFAULT_PREFERENCES.categories, ...parsed.categories },
           isLoaded: true,
         });
@@ -70,32 +78,39 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
 
   setEnabled: (enabled: boolean) => {
     const state = get();
+    let athleteId: string | null = null;
+    try {
+      const { useAuthStore } = require('@/shared/app/AuthStore');
+      athleteId = useAuthStore.getState().athleteId ?? null;
+    } catch {
+      // Push token registration is best-effort
+    }
+
     const updated: NotificationPreferences = {
       enabled,
       privacyAccepted: state.privacyAccepted,
-      pendingUnregister: enabled ? false : true,
+      pendingUnregister: !enabled,
+      pendingUnregisterAthleteId: enabled ? null : athleteId,
       categories: state.categories,
     };
-    set({ enabled, pendingUnregister: enabled ? false : true });
+    set({
+      enabled,
+      pendingUnregister: updated.pendingUnregister,
+      pendingUnregisterAthleteId: updated.pendingUnregisterAthleteId,
+    });
     persist(updated);
 
     // Register/unregister push token with server
+    if (!athleteId) return;
     try {
-      const { useAuthStore } = require('@/shared/app/AuthStore');
-      const { athleteId } = useAuthStore.getState();
-      if (athleteId) {
-        if (enabled) {
-          const { registerPushToken } = require('@/features/settings/lib/pushTokenRegistration');
-          registerPushToken(athleteId);
-        } else {
-          const { unregisterPushToken } = require('@/features/settings/lib/pushTokenRegistration');
-          unregisterPushToken(athleteId).then((success: boolean) => {
-            if (success) {
-              set({ pendingUnregister: false });
-              persist({ ...get(), pendingUnregister: false });
-            }
-          });
-        }
+      if (enabled) {
+        const { registerPushToken } = require('@/features/settings/lib/pushTokenRegistration');
+        registerPushToken(athleteId);
+      } else {
+        const { unregisterPushToken } = require('@/features/settings/lib/pushTokenRegistration');
+        unregisterPushToken(athleteId).then((success: boolean) => {
+          if (success) get().clearPendingUnregister();
+        });
       }
     } catch {
       // Push token registration is best-effort
@@ -108,6 +123,7 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
       enabled: state.enabled,
       privacyAccepted: true,
       pendingUnregister: state.pendingUnregister,
+      pendingUnregisterAthleteId: state.pendingUnregisterAthleteId,
       categories: state.categories,
     };
     set({ privacyAccepted: true });
@@ -121,6 +137,7 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
       enabled: state.enabled,
       privacyAccepted: state.privacyAccepted,
       pendingUnregister: state.pendingUnregister,
+      pendingUnregisterAthleteId: state.pendingUnregisterAthleteId,
       categories,
     };
     set({ categories });
@@ -129,8 +146,8 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
 
   clearPendingUnregister: () => {
     const state = get();
-    set({ pendingUnregister: false });
-    persist({ ...state, pendingUnregister: false });
+    set({ pendingUnregister: false, pendingUnregisterAthleteId: null });
+    persist({ ...state, pendingUnregister: false, pendingUnregisterAthleteId: null });
   },
 
   reset: () => {
@@ -145,8 +162,27 @@ export function getNotificationPreferences(): NotificationPreferences {
     enabled: state.enabled,
     privacyAccepted: state.privacyAccepted,
     pendingUnregister: state.pendingUnregister,
+    pendingUnregisterAthleteId: state.pendingUnregisterAthleteId,
     categories: state.categories,
   };
+}
+
+/**
+ * The athlete a pending unregister should be retried for, or null when there
+ * is nothing to retry. Prefers the id recorded with the request, since a
+ * sign-out between the request and the retry deletes the signed-in one; falls
+ * back to it for a request recorded before the id was persisted.
+ */
+export function resolvePendingUnregisterAthleteId(): string | null {
+  const prefs = getNotificationPreferences();
+  if (prefs.enabled || !prefs.pendingUnregister) return null;
+  if (prefs.pendingUnregisterAthleteId) return prefs.pendingUnregisterAthleteId;
+  try {
+    const { useAuthStore } = require('@/shared/app/AuthStore');
+    return useAuthStore.getState().athleteId ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Retry a failed unregister request (called on app open) */

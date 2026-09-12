@@ -81,6 +81,14 @@ const mockActivity = {
   polyline: null,
 };
 
+// One array for the life of the test, because the real hook memoises on its
+// sources and a fresh literal per render would fail the identity assertions
+// below for a reason that has nothing to do with what they check.
+const mockCoordinates = [
+  { latitude: 1, longitude: 2 },
+  { latitude: 3, longitude: 4 },
+];
+
 jest.mock('@/features/activity/hooks', () => ({
   useActivity: () => ({ data: mockActivity, isLoading: false, error: null, refetch: jest.fn() }),
   useActivityStreams: () => ({
@@ -93,6 +101,7 @@ jest.mock('@/features/activity/hooks', () => ({
     isLoading: false,
   }),
   useActivityIntervals: () => ({ data: undefined }),
+  useDetailCoordinates: () => mockCoordinates,
 }));
 
 const mockDetail = {

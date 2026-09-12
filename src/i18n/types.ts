@@ -416,6 +416,7 @@ export interface TranslationResource {
     clearReload: string;
     disconnectTitle: string;
     disconnectMessage: string;
+    disconnectOffline: string;
     disconnect: string;
     failedToClear: string;
     failedToDisconnect: string;
@@ -673,9 +674,23 @@ export interface TranslationResource {
   };
 
   strength: {
+    setColumn: string;
+    repsColumn: string;
+    weightColumn: string;
+    timeColumn: string;
+    totalLabel: string;
+    setsLabel: string;
+    durationLabel: string;
+    muscleSource: string;
+    bodyTypeFromProfile: string;
+    bodyTypeDefault: string;
+    male: string;
+    female: string;
     snapshot: string;
     noWorkouts: string;
     noWorkoutsHint: string;
+    notDownloaded: string;
+    notDownloadedHint: string;
     sets: string;
     muscleGroupVolume: string;
     relativeWeightedSets: string;
@@ -914,6 +929,13 @@ export interface TranslationResource {
   };
 
   routes: {
+    patternSentence: string;
+    patternRun: string;
+    patternRide: string;
+    targetPower: string;
+    targetHr: string;
+    targetPace: string;
+    sectionDefaultName: string;
     searchSections: string;
     searchRoutes: string;
     sortActivities: string;

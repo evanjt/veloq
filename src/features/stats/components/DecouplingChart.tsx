@@ -3,7 +3,16 @@ import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, typography, spacing, layout, verdictColor } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  layout,
+  verdictColor,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import { calculateDecoupling } from '../lib/decoupling';
 
 interface DecouplingChartProps {
@@ -216,7 +225,7 @@ const styles = StyleSheet.create({
   halfSection: {
     flex: 1,
     padding: spacing.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    backgroundColor: colorWithOpacity(ink.black, 0.02),
     borderRadius: layout.borderRadiusSm,
   },
   firstHalf: {
@@ -254,10 +263,10 @@ const styles = StyleSheet.create({
   dividerLine: {
     width: 1,
     height: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: colorWithOpacity(ink.black, 0.1),
   },
   dividerLineDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: colorWithOpacity(ink.white, 0.1),
   },
   arrow: {
     fontSize: typography.body.fontSize,

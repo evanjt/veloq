@@ -2115,12 +2115,22 @@ impl PersistentEngine {
         // July export 587 of 733 activities are that shape. Counting those as
         // missing is what puts them back in front of the sync, which refetches
         // them through the backfill lane and recomputes the rows.
+        //
+        // A zero-count row is exempt, because it is an answer rather than a
+        // disagreement: the only writer of one is the stream fetch recording
+        // that upstream has no `time` for this activity. Without the exemption
+        // that row reads as a length mismatch against its track and the
+        // activity is offered again on every pass for the life of the install.
+        // No released 0.3.x row can be zero-length, since what it stored was
+        // the raw series of an activity that had one.
         let placeholders: Vec<&str> = not_in_memory.iter().map(|_| "?").collect();
         let query = format!(
             "SELECT ts.activity_id FROM time_streams ts
              LEFT JOIN gps_tracks g ON g.activity_id = ts.activity_id
              WHERE ts.activity_id IN ({})
-               AND (g.activity_id IS NULL OR g.point_count = ts.point_count)",
+               AND (ts.point_count = 0
+                    OR g.activity_id IS NULL
+                    OR g.point_count = ts.point_count)",
             placeholders.join(",")
         );
 
@@ -2193,6 +2203,105 @@ mod tests {
             .add_activity(id.to_string(), coords, "Ride".to_string())
             .unwrap();
         engine
+    }
+
+    /// Scenario: the `time` stream for an activity comes back empty upstream,
+    /// and the fetch stores a zero-length row so the activity reads as
+    /// answered rather than being asked again forever.
+    ///
+    /// Expected behaviour: it stays answered across a reload. The `point_count`
+    /// guard beside it exists to refetch a legacy stream whose length disagrees
+    /// with its track, and without the exemption it reads 0 against the track's
+    /// 2 and offers the activity on every pass.
+    #[test]
+    fn an_empty_stream_row_reads_as_answered() {
+        let mut engine = engine_with_track("a1", bounds_at(46.0));
+        let ids = vec!["a1".to_string()];
+
+        engine.set_time_streams_flat(&ids, &[], &[0]);
+        // The memory cache would answer for this session, so ask the store the
+        // question a relaunch asks.
+        engine.time_streams.pop(&"a1".to_string());
+
+        assert_eq!(
+            engine.get_activities_missing_time_streams(&ids),
+            Vec::<String>::new()
+        );
+    }
+
+    /// The zero-count exemption must not swallow the case it sits beside: a
+    /// stored stream whose length disagrees with its track is still offered
+    /// for refetch, which is what puts every released 0.3.x row back in front
+    /// of the sync.
+    #[test]
+    fn a_stream_shorter_than_its_track_is_still_missing() {
+        let mut engine = engine_with_track("a1", bounds_at(46.0));
+        let ids = vec!["a1".to_string()];
+
+        engine.set_time_streams_flat(&ids, &[0], &[0]);
+        engine.time_streams.pop(&"a1".to_string());
+
+        assert_eq!(engine.get_activities_missing_time_streams(&ids), ids);
+    }
+
+    /// A stream that matches its track is answered, empty row or not.
+    #[test]
+    fn a_stream_matching_its_track_is_answered() {
+        let mut engine = engine_with_track("a1", bounds_at(46.0));
+        let ids = vec!["a1".to_string()];
+
+        engine.set_time_streams_flat(&ids, &[0, 5], &[0]);
+        engine.time_streams.pop(&"a1".to_string());
+
+        assert_eq!(
+            engine.get_activities_missing_time_streams(&ids),
+            Vec::<String>::new()
+        );
+    }
+
+    /// Storing the empty answer twice is the same answer. The second pass must
+    /// not reopen the activity, since a repeat sync is the ordinary case.
+    #[test]
+    fn a_repeated_empty_answer_stays_answered() {
+        let mut engine = engine_with_track("a1", bounds_at(46.0));
+        let ids = vec!["a1".to_string()];
+
+        engine.set_time_streams_flat(&ids, &[], &[0]);
+        engine.set_time_streams_flat(&ids, &[], &[0]);
+        engine.time_streams.pop(&"a1".to_string());
+
+        assert_eq!(
+            engine.get_activities_missing_time_streams(&ids),
+            Vec::<String>::new()
+        );
+    }
+
+    /// An activity that was never asked has no row at all, and that is still
+    /// the missing case. The exemption is on a row that exists and says zero.
+    #[test]
+    fn an_activity_with_no_row_is_missing() {
+        let engine = engine_with_track("a1", bounds_at(46.0));
+        let ids = vec!["a1".to_string()];
+
+        assert_eq!(engine.get_activities_missing_time_streams(&ids), ids);
+    }
+
+    /// An activity with no track at all, an indoor ride, answers empty too.
+    #[test]
+    fn an_empty_answer_without_a_track_is_answered() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .add_activity("a1".to_string(), Vec::new(), "VirtualRide".to_string())
+            .ok();
+        let ids = vec!["a1".to_string()];
+
+        engine.set_time_streams_flat(&ids, &[], &[0]);
+        engine.time_streams.pop(&"a1".to_string());
+
+        assert_eq!(
+            engine.get_activities_missing_time_streams(&ids),
+            Vec::<String>::new()
+        );
     }
 
     fn bounds_at(lat: f64) -> Bounds {

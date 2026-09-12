@@ -8,6 +8,7 @@ import type { Edge } from 'react-native-safe-area-context';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncHealth } from '@/shared/native/useSyncHealth';
+import { pickTopBanner } from './topBanner';
 
 import { useNetwork } from './NetworkContext';
 
@@ -35,21 +36,13 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(() => {
-    // Determine which banner is showing (priority order: offline > syncError > demo > sync)
-    const showOfflineBanner = isAuthenticated && !isOnline;
-    // A connected device whose sync keeps failing takes the same slot, so the
-    // offline case is checked first and the two never both claim the inset.
-    const showSyncErrorBanner = isAuthenticated && !isDemoMode && isOnline && lastError !== null;
-    const showDemoBanner = isDemoMode && !hideDemoBanner;
-
-    let activeBanner: 'demo' | 'offline' | 'syncError' | null = null;
-    if (showOfflineBanner) {
-      activeBanner = 'offline';
-    } else if (showSyncErrorBanner) {
-      activeBanner = 'syncError';
-    } else if (showDemoBanner) {
-      activeBanner = 'demo';
-    }
+    const activeBanner = pickTopBanner({
+      isOnline,
+      isAuthenticated,
+      isDemoMode,
+      hideDemoBanner,
+      lastError: lastError ?? null,
+    });
 
     // Sync banner is now an overlay - doesn't affect layout or safe area
     const hasTopBanner = activeBanner !== null;

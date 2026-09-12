@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 27 standalone `#[uniffi::export]` functions plus
- * 273 methods inside `#[uniffi::export] impl` blocks across
+ * 274 methods inside `#[uniffi::export] impl` blocks across
  * 15 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 300 exports (27 standalone + 273 methods)
+ * Total: 301 exports (27 standalone + 274 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -1603,10 +1603,20 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'RecordingManager',
   },
   {
+    name: 'hold_for_network',
+    camelName: 'holdForNetwork',
+    file: 'objects/recordings.rs',
+    line: 117,
+    paramCount: 3,
+    returnType: 'Result<(), VeloqError>',
+    docs: 'The transport failed before the server was reached. The ride keeps its attempts for the same reason a 401 does, and is stamped so the backoff still holds it back.',
+    object: 'RecordingManager',
+  },
+  {
     name: 'hold_other_athletes',
     camelName: 'holdOtherAthletes',
     file: 'objects/recordings.rs',
-    line: 116,
+    line: 126,
     paramCount: 1,
     returnType: 'Result<u32, VeloqError>',
     docs: 'An athlete signed in: stop auto-uploading every ride that is not theirs, unstamped ones included. Returns how many were held.',
@@ -1616,7 +1626,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'requeue',
     camelName: 'requeue',
     file: 'objects/recordings.rs',
-    line: 121,
+    line: 131,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: 'A manual retry, or a requeue after an upgrade.',
@@ -1626,7 +1636,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'clear_permission_blocked',
     camelName: 'clearPermissionBlocked',
     file: 'objects/recordings.rs',
-    line: 127,
+    line: 137,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
     docs: 'After an OAuth write upgrade, everything permission-blocked becomes uploadable again. Returns how many moved.',
@@ -1636,7 +1646,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'demote_pending_to_local_only',
     camelName: 'demotePendingToLocalOnly',
     file: 'objects/recordings.rs',
-    line: 133,
+    line: 143,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
     docs: 'On logout: keep every recording on device, but stop auto-uploading so nothing lands in a different account after the next login.',
@@ -1646,7 +1656,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'next_pending_upload',
     camelName: 'nextPendingUpload',
     file: 'objects/recordings.rs',
-    line: 138,
+    line: 148,
     paramCount: 1,
     returnType: 'Result<Option<FfiRecordingEntry>, VeloqError>',
     docs: 'The next recording due an automatic upload, respecting the backoff.',
@@ -1656,7 +1666,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'delete_recording',
     camelName: 'deleteRecording',
     file: 'objects/recordings.rs',
-    line: 144,
+    line: 154,
     paramCount: 1,
     returnType: 'Result<Option<FfiRecordingEntry>, VeloqError>',
     docs: 'Remove one recording, handing back the row so the caller can delete the files it names.',
@@ -1666,7 +1676,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'unuploaded_count',
     camelName: 'unuploadedCount',
     file: 'objects/recordings.rs',
-    line: 149,
+    line: 159,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
     docs: 'Recordings intervals.icu does not hold yet.',
@@ -1676,7 +1686,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'permission_blocked_count',
     camelName: 'permissionBlockedCount',
     file: 'objects/recordings.rs',
-    line: 153,
+    line: 163,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
     docs: '',
@@ -1686,7 +1696,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'clear_recordings',
     camelName: 'clearRecordings',
     file: 'objects/recordings.rs',
-    line: 160,
+    line: 170,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
     docs: 'Drop every row. A `.veloqdb` restore carries this table like any other but not the FIT files it points at, so the rows are stale the moment they land on another install.',
@@ -3176,6 +3186,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'markRejected',
   'markPermissionBlocked',
   'holdForAuth',
+  'holdForNetwork',
   'holdOtherAthletes',
   'requeue',
   'clearPermissionBlocked',
@@ -3471,6 +3482,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   mark_rejected: 'markRejected',
   mark_permission_blocked: 'markPermissionBlocked',
   hold_for_auth: 'holdForAuth',
+  hold_for_network: 'holdForNetwork',
   hold_other_athletes: 'holdOtherAthletes',
   requeue: 'requeue',
   clear_permission_blocked: 'clearPermissionBlocked',

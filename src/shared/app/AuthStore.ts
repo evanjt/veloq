@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import type { Athlete } from '@/types';
 import { getEngine } from '@/shared/native/engine';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
+import { readCredentialKeys } from './credentialRead';
 
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
 const ATHLETE_ID_STORAGE_KEY = 'intervals_athlete_id';
@@ -129,11 +130,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize: async () => {
     try {
-      const [apiKey, athleteId, accessToken] = await Promise.all([
-        SecureStore.getItemAsync(API_KEY_STORAGE_KEY),
-        SecureStore.getItemAsync(ATHLETE_ID_STORAGE_KEY),
-        SecureStore.getItemAsync(ACCESS_TOKEN_STORAGE_KEY),
-      ]);
+      // Read the three separately: a rejection on one is not an answer about
+      // the other two, and it is worth one more try before it is taken as one.
+      const { values, failedKeys } = await readCredentialKeys(
+        (key) => SecureStore.getItemAsync(key),
+        [API_KEY_STORAGE_KEY, ATHLETE_ID_STORAGE_KEY, ACCESS_TOKEN_STORAGE_KEY]
+      );
+      const [apiKey, athleteId, accessToken] = values;
+      if (failedKeys.length > 0 && __DEV__) {
+        console.warn(`[AuthStore] Keychain would not read: ${failedKeys.join(', ')}`);
+      }
 
       // Determine auth method: OAuth takes priority over API key
       let authMethod: AuthMethod = null;

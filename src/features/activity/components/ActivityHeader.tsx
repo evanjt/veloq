@@ -164,7 +164,6 @@ export const ActivityHeader = React.memo(function ActivityHeader({
       <ComponentErrorBoundary componentName="Activity Map">
         <ActivityMapView
           coordinates={coordinates}
-          polyline={activity.polyline}
           activityType={activity.type}
           activityId={activity.id}
           country={activity.country}

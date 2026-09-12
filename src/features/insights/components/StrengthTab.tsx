@@ -24,7 +24,18 @@ import { colors, darkColors, spacing, typography, opacity, layout, bodyDiagram }
 import type { StrengthPeriod, MuscleVolume } from '@/types';
 import { PERIOD_LABEL_KEYS, DEFAULT_PERIOD } from '@/shared/app/period';
 
-export const StrengthTab = React.memo(function StrengthTab() {
+interface StrengthTabProps {
+  /**
+   * The engine knows of strength activities whose FIT has never been fetched,
+   * and nothing is cached yet. The tab is shown anyway, because hiding it left
+   * no surface from which the fetch could be retried.
+   */
+  awaitingDownload?: boolean;
+}
+
+export const StrengthTab = React.memo(function StrengthTab({
+  awaitingDownload = false,
+}: StrengthTabProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const { data: athlete } = useAthlete();
@@ -154,17 +165,19 @@ export const StrengthTab = React.memo(function StrengthTab() {
           <ActivityIndicator size="small" color={colors.primary} />
         </View>
       ) : !summary || summary.activityCount === 0 ? (
-        <View style={styles.emptyContainer}>
+        <View style={styles.emptyContainer} testID="strength-empty">
           <MaterialCommunityIcons
-            name="dumbbell"
+            name={awaitingDownload ? 'cloud-download-outline' : 'dumbbell'}
             size={32}
             color={isDark ? darkColors.textMuted : colors.textDisabled}
           />
           <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
-            {t('strength.noWorkouts', { period: periodLabel })}
+            {awaitingDownload
+              ? t('strength.notDownloaded')
+              : t('strength.noWorkouts', { period: periodLabel })}
           </Text>
           <Text style={[styles.emptyHint, isDark && styles.emptyTextDark]}>
-            {t('strength.noWorkoutsHint')}
+            {awaitingDownload ? t('strength.notDownloadedHint') : t('strength.noWorkoutsHint')}
           </Text>
         </View>
       ) : (

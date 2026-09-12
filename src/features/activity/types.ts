@@ -98,7 +98,6 @@ export interface Activity {
   pacing_index?: number; // Aerobic decoupling metric
   start_latlng?: [number, number];
   end_latlng?: [number, number];
-  polyline?: string;
   // Location info
   locality?: string; // City/town name from intervals.icu
   country?: string; // Country name

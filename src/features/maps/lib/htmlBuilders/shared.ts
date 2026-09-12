@@ -69,8 +69,13 @@ export function vectorProtocolScript(): string {
           // A zero-length hit is a poisoned entry from the build that asked the
           // origin for the unversioned path. Refetch rather than serve it.
           if (cached) {
+            var touchable = cached.clone();
             return cached.arrayBuffer().then(function(d) {
-              if (d.byteLength > 0) { vecHits++; return { data: d }; }
+              if (d.byteLength > 0) {
+                vecHits++;
+                _veloqTouch(cache, realUrl, touchable);
+                return { data: d };
+              }
               return vectorFetch(cache, realUrl);
             });
           }
@@ -89,7 +94,7 @@ export function vectorProtocolScript(): string {
         var copy = r.clone();
         return r.arrayBuffer().then(function(d) {
           if (d.byteLength === 0) throw new Error('empty vector tile: ' + realUrl);
-          cache.put(realUrl, copy); maybeEvict(VECTOR_CACHE);
+          _veloqPut(cache, realUrl, copy); maybeEvict(VECTOR_CACHE);
           return { data: d };
         });
       });
@@ -155,12 +160,13 @@ ${cacheEvictionScript(options.tileCacheBudgetMb)}
         return cache.match(realUrl).then(function(cached) {
           if (cached) {
             terrainHits++;
+            _veloqTouch(cache, realUrl, cached);
             return cached;
           }
           terrainMisses++;
           return fetch(realUrl).then(function(r) {
             if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(TERRAIN_CACHE);
+            _veloqPut(cache, realUrl, r.clone()); maybeEvict(TERRAIN_CACHE);
             return r;
           });
         });
@@ -210,11 +216,15 @@ ${cacheEvictionScript(options.tileCacheBudgetMb)}
       var realUrl = 'https://' + params.url.substring('cached-ground://'.length);
       return caches.open(GROUND_CACHE).then(function(cache) {
         return cache.match(realUrl).then(function(cached) {
-          if (cached) { groundHits++; return cached.blob().then(demBlobToImage); }
+          if (cached) {
+            groundHits++;
+            _veloqTouch(cache, realUrl, cached.clone());
+            return cached.blob().then(demBlobToImage);
+          }
           groundMisses++;
           return fetch(realUrl).then(function(r) {
             if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(GROUND_CACHE);
+            _veloqPut(cache, realUrl, r.clone()); maybeEvict(GROUND_CACHE);
             return r.blob().then(demBlobToImage);
           });
         });

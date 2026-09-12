@@ -901,8 +901,15 @@ const WELLNESS_DAYS: i64 = 365;
 /// `sync_activities_window`; that expansion is still TypeScript's job.
 const ACTIVITY_DAYS: i64 = 90;
 
+/// The curve windows every screen asks for. The five fitness periods
+/// (`src/shared/app/period.ts`), the two hook defaults, 42 for a pace curve
+/// and 365 for a power one, and 3650 for Best Efforts All-time. A curve is
+/// cached verbatim under `(kind, sport, days, gap)`, so a window nobody
+/// fetched while online is a blank chart offline.
+const CURVE_DAYS: &[i64] = &[7, 30, 42, 90, 180, 365, 3650];
+
 /// The steps `perform_sync` runs, for the progress counters TypeScript polls.
-const SYNC_STEPS: u32 = 5;
+const SYNC_STEPS: u32 = 6;
 
 /// The sync job: fetch the profile slice and write it into SQLite. Every step
 /// is independent, so one failing endpoint does not cost the others their data.
@@ -959,6 +966,7 @@ pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlet
     step!(sync_wellness(&transport, &athlete_id).await);
     step!(sync_activities(&transport, &athlete_id, &|| svc.is_cancelled()).await);
     step!(sync_activity_history_summary(&transport, &athlete_id).await);
+    step!(sync_curves(&transport, &athlete_id, &|| svc.is_cancelled()).await);
 
     let success = last_error.is_none();
     svc.finish(SyncState::Idle, last_error, success);
@@ -1188,6 +1196,103 @@ pub const OLDEST_ACTIVITY_DATE_KEY: &str = "oldest_activity_date";
 /// Settings key holding the per-year activity counts, as a `{"YYYY": n}` JSON
 /// object. The history slider gates a large widening on it.
 pub const ACTIVITY_YEAR_COUNTS_KEY: &str = "activity_year_counts";
+
+/// Fetch every power and pace curve the screens can ask for.
+///
+/// The curve is the one body no other step pulls: `usePowerCurve` and
+/// `usePaceCurve` fetch a window the first time it is opened, so a range the
+/// athlete never visited online reads as "No power data" offline rather than
+/// as a range nobody downloaded. Best Efforts All-time is the clearest case,
+/// because 3650 is a window nothing else ever asks for.
+///
+/// Backfill lane, so the whole sweep steps aside for a tapped screen. Roughly
+/// forty small bodies at three sports, replacing what is stored: the hooks
+/// hold their query for ever and leave freshness to a sync, so this is the
+/// thing that refreshes them.
+async fn sync_curves(
+    transport: &Transport,
+    athlete_id: &str,
+    cancelled: &(dyn Fn() -> bool + Sync),
+) -> Result<(), NetError> {
+    let sports = crate::persistence::with_persistent_engine_blocking(|engine| {
+        engine.get_available_sport_types()
+    })
+    .await
+    .unwrap_or_default();
+    if sports.is_empty() {
+        return Ok(());
+    }
+
+    let mut last_error: Option<NetError> = None;
+
+    for sport in &sports {
+        for &days in CURVE_DAYS {
+            if cancelled() {
+                return Ok(());
+            }
+            let window = format!("{}d", days);
+
+            match endpoints::fetch_power_curve_body(
+                transport,
+                athlete_id,
+                sport,
+                &window,
+                Lane::Backfill,
+            )
+            .await
+            {
+                Ok(body) => {
+                    let sport = sport.clone();
+                    store_body("power_curve", String::new(), move |engine| {
+                        engine.set_curve_body(CurveKind::Power, &sport, days, false, &body)
+                    })
+                    .await;
+                }
+                Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+                Err(e) => last_error = Some(e),
+            }
+
+            // Gradient-adjusted pace is a row of its own, and only running has
+            // one, so a switch flipped offline would otherwise replace a
+            // working chart with an empty one.
+            let gaps: &[bool] = if sport == "Run" {
+                &[false, true]
+            } else {
+                &[false]
+            };
+            for &gap in gaps {
+                if cancelled() {
+                    return Ok(());
+                }
+                match endpoints::fetch_pace_curve_body(
+                    transport,
+                    athlete_id,
+                    sport,
+                    &window,
+                    gap,
+                    Lane::Backfill,
+                )
+                .await
+                {
+                    Ok(body) => {
+                        let sport = sport.clone();
+                        store_body("pace_curve", String::new(), move |engine| {
+                            engine.set_curve_body(CurveKind::Pace, &sport, days, gap, &body)
+                        })
+                        .await;
+                    }
+                    Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+                    Err(e) => last_error = Some(e),
+                }
+            }
+        }
+    }
+
+    match last_error {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
+}
 
 /// Persist the athlete's history summary. It spans all history, not the synced
 /// window, so the timeline slider knows how far back it may reach and how much
@@ -1527,10 +1632,17 @@ impl SyncManager {
             for activity_id in missing {
                 let upstream = upstream_id(&activity_id).await;
                 match endpoints::fetch_time_stream(&transport, &upstream, Lane::Backfill).await {
-                    Ok(times) if !times.is_empty() => {
+                    // An empty answer is stored too, as a zero-length row. This
+                    // lane asked for exactly one thing and upstream said there
+                    // is none, so the row records that the question was put.
+                    // Dropping it left the activity named by
+                    // `get_activities_missing_time_streams` on every pass for
+                    // the life of the install, and left the section screens
+                    // waiting out `TIME_STREAM_TIMEOUT_MS` for an announcement
+                    // that never came.
+                    Ok(times) => {
                         store_time_stream(activity_id, times).await;
                     }
-                    Ok(_) => {}
                     // One activity without streams must not stop the batch;
                     // the section list would stay stuck on "loading".
                     Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
@@ -1996,6 +2108,10 @@ mod tests {
 
     #[test]
     fn successful_sync_returns_to_idle_completed() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         mock_profile_slice(&server, 200);
         let svc = SyncService::new();
@@ -2016,6 +2132,10 @@ mod tests {
 
     #[test]
     fn unauthorized_sync_moves_to_auth_expired() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         mock_profile_slice(&server, 401);
         let svc = SyncService::new();
@@ -2039,6 +2159,10 @@ mod tests {
     /// error, which is what a caller sees for any other failed step.
     #[test]
     fn an_unconfirmed_401_leaves_the_session_standing() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         // The profile is the confirmation endpoint, so it answers, and the
         // step after it is the one that is refused.
@@ -2118,6 +2242,10 @@ mod tests {
 
     #[test]
     fn server_error_records_error_but_returns_idle() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         mock_profile_slice(&server, 500);
         let svc = SyncService::new();
@@ -2130,7 +2258,10 @@ mod tests {
         ));
         let s = svc.snapshot();
         assert_eq!(s.state, SyncState::Idle);
-        assert_eq!(s.completed, 0);
+        // Every step that reached the server failed. The curve sweep is the
+        // one that did not: it reads its sports from the engine, there is no
+        // engine here, and a sweep with nothing to fetch has not failed.
+        assert_eq!(s.completed, 1);
         assert!(s.last_error.is_some());
     }
 
@@ -2141,6 +2272,10 @@ mod tests {
     /// closed set beside its message, and a clean settle carries none.
     #[test]
     fn a_rejected_credential_settles_with_the_unauthorized_reason() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         mock_profile_slice(&server, 401);
         let svc = SyncService::new();
@@ -2159,6 +2294,10 @@ mod tests {
 
     #[test]
     fn a_server_error_settles_with_the_server_reason() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         mock_profile_slice(&server, 500);
         let svc = SyncService::new();
@@ -2177,6 +2316,10 @@ mod tests {
 
     #[test]
     fn an_unreachable_host_settles_with_the_network_reason() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let svc = SyncService::new();
         svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
         assert!(svc.try_begin());
@@ -2251,6 +2394,10 @@ mod tests {
     /// the signed-out athlete's data into the new athlete's database.
     #[test]
     fn a_sync_stops_when_the_credential_is_cleared_under_it() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         let hit = server.mock(|when, then| {
             when.method(GET).path("/athlete/i1");
@@ -2270,6 +2417,10 @@ mod tests {
 
     #[test]
     fn a_sync_stops_when_another_athlete_signs_in_under_it() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         let hit = server.mock(|when, then| {
             when.method(GET).path("/athlete/i1");
@@ -2289,6 +2440,10 @@ mod tests {
 
     #[test]
     fn a_sync_for_the_athlete_who_is_still_signed_in_runs() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         mock_profile_slice(&server, 200);
         let svc = SyncService::new();
@@ -2330,6 +2485,10 @@ mod tests {
 
     #[test]
     fn one_failing_endpoint_does_not_cost_the_others() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         // Steps are independent, so a broken sport-settings response must not
         // stop the athlete profile and wellness from landing.
         let server = MockServer::start();
@@ -2366,6 +2525,10 @@ mod tests {
 
     #[test]
     fn cancel_before_run_skips_work() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let svc = SyncService::new();
         svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
         assert!(svc.try_begin());
@@ -2954,6 +3117,10 @@ mod tests {
 
     #[test]
     fn auth_expired_recovers_on_next_begin() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         // After a 401 the service rests in authExpired. Once TypeScript re-auths
         // and issues sync_now again, try_begin moves it back into syncing.
         let server = MockServer::start();
@@ -3372,6 +3539,223 @@ mod body_count_tests {
 
         set_observer(None);
         restore_service();
+    }
+
+    /// Scenario: the curve is cached verbatim under `(kind, sport, days, gap)`
+    /// and every screen fetched its own window the first time it was opened,
+    /// so a range the athlete never visited online read as "No power data"
+    /// offline. Best Efforts All-time is the clearest case: 3650 is a window
+    /// nothing else ever asks for.
+    ///
+    /// Expected behaviour: one sync step pulls every window for every sport
+    /// the library carries, and the Run gap variant with them.
+    mod curves {
+        use super::*;
+        use crate::governor::{Governor, NoopPolicy};
+        use crate::persistence::bodies::CurveKind;
+        use crate::persistence::with_persistent_engine;
+        use crate::types::ActivityMetrics;
+
+        fn transport_to(base: String) -> Transport {
+            let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+            Transport::with_governor(base, AuthMethod::ApiKey("k"), gov).expect("transport")
+        }
+
+        fn metric(id: &str, sport: &str) -> ActivityMetrics {
+            ActivityMetrics {
+                activity_id: id.to_string(),
+                name: format!("{} {}", sport, id),
+                date: 1_700_000_000,
+                distance: 1000.0,
+                moving_time: 600,
+                elapsed_time: 600,
+                elevation_gain: 0.0,
+                avg_hr: None,
+                avg_power: None,
+                sport_type: sport.to_string(),
+                training_load: None,
+                ftp: None,
+                power_zone_times: None,
+                hr_zone_times: None,
+            }
+        }
+
+        fn library_of(sports: &[&str]) {
+            let metrics = sports
+                .iter()
+                .enumerate()
+                .map(|(i, sport)| metric(&format!("a{i}"), sport))
+                .collect::<Vec<_>>();
+            with_persistent_engine(move |engine| {
+                engine.set_activity_metrics(metrics).expect("store metrics");
+            })
+            .expect("engine");
+        }
+
+        fn stored(kind: CurveKind, sport: &str, days: i64, gap: bool) -> Option<String> {
+            with_persistent_engine(|engine| engine.get_curve_body(kind, sport, days, gap))
+                .expect("engine")
+                .expect("read")
+        }
+
+        fn never_cancelled() -> impl Fn() -> bool + Sync {
+            || false
+        }
+
+        #[test]
+        fn every_window_the_screens_can_ask_for_is_fetched_for_every_sport() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["Ride", "Swim"]);
+
+            let server = MockServer::start();
+            let power = server.mock(|when, then| {
+                when.method(GET).path("/athlete/i1/power-curves.json");
+                then.status(200).json_body(json!({"list": []}));
+            });
+            let pace = server.mock(|when, then| {
+                when.method(GET).path("/athlete/i1/pace-curves.json");
+                then.status(200).json_body(json!({"list": []}));
+            });
+
+            let transport = transport_to(server.base_url());
+            crate::runtime::block_on(sync_curves(&transport, "i1", &never_cancelled()))
+                .expect("the sweep");
+
+            let windows = CURVE_DAYS.len();
+            power.assert_hits(windows * 2);
+            pace.assert_hits(windows * 2);
+
+            assert!(
+                stored(CurveKind::Power, "Ride", 3650, false).is_some(),
+                "Best Efforts All-time is the window nothing else fetches"
+            );
+            assert!(stored(CurveKind::Pace, "Swim", 42, false).is_some());
+            restore_service();
+        }
+
+        #[test]
+        fn running_takes_the_gradient_adjusted_pace_as_a_row_of_its_own() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["Run"]);
+
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(GET).path("/athlete/i1/power-curves.json");
+                then.status(200).json_body(json!({"list": []}));
+            });
+            let gap = server.mock(|when, then| {
+                when.method(GET)
+                    .path("/athlete/i1/pace-curves.json")
+                    .query_param("gap", "true");
+                then.status(200).json_body(json!({"list": ["gap"]}));
+            });
+            server.mock(|when, then| {
+                when.method(GET).path("/athlete/i1/pace-curves.json");
+                then.status(200).json_body(json!({"list": []}));
+            });
+
+            let transport = transport_to(server.base_url());
+            crate::runtime::block_on(sync_curves(&transport, "i1", &never_cancelled()))
+                .expect("the sweep");
+
+            gap.assert_hits(CURVE_DAYS.len());
+            assert!(
+                stored(CurveKind::Pace, "Run", 42, true).is_some(),
+                "the gap row is separate, and a switch flipped offline reads it"
+            );
+            assert!(stored(CurveKind::Pace, "Run", 42, false).is_some());
+            restore_service();
+        }
+
+        #[test]
+        fn an_empty_library_asks_for_nothing() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+
+            let server = MockServer::start();
+            let any = server.mock(|when, then| {
+                when.method(GET);
+                then.status(200).json_body(json!({"list": []}));
+            });
+
+            let transport = transport_to(server.base_url());
+            crate::runtime::block_on(sync_curves(&transport, "i1", &never_cancelled()))
+                .expect("the sweep");
+
+            any.assert_hits(0);
+        }
+
+        #[test]
+        fn a_cancelled_sweep_stops_rather_than_finishing_the_sports() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["Ride"]);
+
+            let server = MockServer::start();
+            let any = server.mock(|when, then| {
+                when.method(GET);
+                then.status(200).json_body(json!({"list": []}));
+            });
+
+            let transport = transport_to(server.base_url());
+            crate::runtime::block_on(sync_curves(&transport, "i1", &|| true)).expect("the sweep");
+
+            any.assert_hits(0);
+        }
+
+        #[test]
+        fn a_refused_credential_ends_the_sweep_rather_than_being_carried() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["Ride"]);
+
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(GET);
+                then.status(401);
+            });
+
+            let transport = transport_to(server.base_url());
+            let outcome =
+                crate::runtime::block_on(sync_curves(&transport, "i1", &never_cancelled()));
+
+            assert!(
+                matches!(outcome, Err(NetError::Unauthorized)),
+                "a dead credential is terminal, not one more failed window"
+            );
+        }
+
+        #[test]
+        fn one_window_that_fails_does_not_cost_the_others_their_bodies() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["Ride"]);
+
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(GET)
+                    .path("/athlete/i1/power-curves.json")
+                    .query_param("curves", "3650d");
+                then.status(500);
+            });
+            server.mock(|when, then| {
+                when.method(GET);
+                then.status(200).json_body(json!({"list": []}));
+            });
+
+            let transport = transport_to(server.base_url());
+            let outcome =
+                crate::runtime::block_on(sync_curves(&transport, "i1", &never_cancelled()));
+
+            assert!(outcome.is_err(), "a failed window is not a completed step");
+            assert!(
+                stored(CurveKind::Power, "Ride", 42, false).is_some(),
+                "the windows that landed are still on disk"
+            );
+            restore_service();
+        }
     }
 
     #[test]

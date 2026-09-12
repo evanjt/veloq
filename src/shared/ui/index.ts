@@ -27,3 +27,4 @@ export { useHeroMapHeight, HERO_MAP_FRACTION } from './useHeroMapHeight';
 export { SignalStatus, signalColor, type SignalLevel } from './SignalStatus';
 export { ScreenSafeAreaView } from './ScreenSafeAreaView';
 export { TipButtons } from './TipButtons';
+export { canDrawProfilePhoto } from './profileAvatar';

@@ -6,7 +6,7 @@ import { useWellness } from '@/features/wellness';
 import { computeWellnessStats } from '@/features/wellness/lib/wellnessStats';
 import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';
 import { usePaceCurve } from '@/features/stats';
-import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
+import { getFormZone, FORM_ZONE_COLORS, formZoneLabel } from '@/features/fitness/lib/fitness';
 import { useSportPreference, SPORT_COLORS } from '@/features/fitness/stores';
 import { useDashboardPreferences } from '@/features/home/store';
 import { type MetricId } from '@/features/home/store';
@@ -271,7 +271,7 @@ export function useSummaryCardData(
           value: quickStats.form,
           label: t('metrics.form'),
           color: formColor,
-          zoneLabel: formZone ? FORM_ZONE_LABELS[formZone] : undefined,
+          zoneLabel: formZone ? formZoneLabel(formZone) : undefined,
           zoneColor: formColor,
           trend: quickStats.formTrend,
         };

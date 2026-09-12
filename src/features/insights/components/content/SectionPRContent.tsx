@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { useSectionPerformances } from '@/features/routes/hooks/useSectionPerformances';
+import { findPreviousBest } from '@/features/insights/lib/previousBest';
 import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { Shimmer } from '@/shared/ui/Shimmer';
 import { SectionInsightMap } from './SectionInsightMap';
@@ -13,31 +14,11 @@ import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration, formatShortDate } from '@/shared/format/format';
 import { colors, darkColors, spacing, opacity, brand, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
-import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 const ACCENT_COLOR = brand.gold;
 
 interface SectionPRContentProps {
   insight: Insight;
-}
-
-/**
- * Compute the second-best time from all records (the "previous best" before the current PR).
- * Returns the record with the second-lowest bestTime, excluding the PR record.
- */
-function findPreviousBest(
-  records: SectionPerformanceRecord[],
-  bestRecord: SectionPerformanceRecord | null
-): SectionPerformanceRecord | null {
-  if (!bestRecord || records.length < 2) return null;
-  let secondBest: SectionPerformanceRecord | null = null;
-  for (const r of records) {
-    if (r.activityId === bestRecord.activityId) continue;
-    if (!secondBest || r.bestTime < secondBest.bestTime) {
-      secondBest = r;
-    }
-  }
-  return secondBest;
 }
 
 export const SectionPRContent = React.memo(function SectionPRContent({

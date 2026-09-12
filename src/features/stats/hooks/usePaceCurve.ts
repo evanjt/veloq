@@ -152,18 +152,3 @@ export function getTimeAtDistance(
   if (index === null) return null;
   return curve.times[index] ?? null;
 }
-
-export function paceToMinPer100m(metersPerSecond: number): {
-  minutes: number;
-  seconds: number;
-} {
-  if (metersPerSecond <= 0) return { minutes: 0, seconds: 0 };
-  const secondsPer100m = 100 / metersPerSecond;
-  let minutes = Math.floor(secondsPer100m / 60);
-  let seconds = Math.round(secondsPer100m % 60);
-  if (seconds === 60) {
-    minutes += 1;
-    seconds = 0;
-  }
-  return { minutes, seconds };
-}

@@ -44,12 +44,12 @@ import { useThrottledValue } from '@/features/maps/hooks/useThrottledValue';
 import {
   boundsOfLngLat,
   featureCollection,
+  lineEndpoints,
   lngLatFromShort,
   lngLatFromShortPoint,
   pointFeature,
 } from '@/features/maps/lib/coordinates';
 import { TRIM_UPDATE_THROTTLE_MS } from '@/features/maps/lib/mapBudgets';
-import { decodeCoords } from 'veloqrs';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
 import { toActivityType } from '@/features/routes/types';
 import { useSectionMapLayers, type NearbyPolyline } from './useSectionMapLayers';
@@ -312,22 +312,12 @@ export const SectionMapView = memo(function SectionMapView({
     ]);
   }, [startPoint, endPoint]);
 
-  const nearbyEndpoints = useMemo(() => {
-    if (!nearbyPolylines || nearbyPolylines.length === 0) return featureCollection([]);
-    return featureCollection(
-      nearbyPolylines.flatMap((entry) => {
-        if (!entry.encodedPolyline) return [];
-        const decoded = decodeCoords(entry.encodedPolyline);
-        if (decoded.length < 2) return [];
-        const first = decoded[0];
-        const last = decoded[decoded.length - 1];
-        return [
-          pointFeature([first.longitude, first.latitude], { position: 'start' }),
-          pointFeature([last.longitude, last.latitude], { position: 'end' }),
-        ];
-      })
-    );
-  }, [nearbyPolylines]);
+  // The nearby lines are already decoded into `nearbyGeoJSON`, so the dots come
+  // off that geometry rather than decoding every polyline a second time.
+  const nearbyEndpoints = useMemo(
+    () => lineEndpoints(sectionLayerData.nearbyGeoJSON),
+    [sectionLayerData.nearbyGeoJSON]
+  );
 
   // Trim drags arrive faster than the map needs. The slider stays smooth on the
   // UI thread while the geometry that reaches the surface is held to a budget.

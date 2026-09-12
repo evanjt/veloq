@@ -251,6 +251,34 @@ impl PersistentEngine {
         Ok(())
     }
 
+    /// Release every ride the last launch left mid-upload, and answer how many.
+    ///
+    /// `set_recording_uploading` is written before the request goes out and
+    /// only a returned outcome moves it on, so an app kill leaves the row at
+    /// `uploading`, where the manual affordance is hidden and the automatic
+    /// retry does not look. The attempt is counted, the same as any other that
+    /// did not report back: a kill that keeps happening would otherwise retry
+    /// the same ride forever. After the last attempt it parks as `failed`,
+    /// which is still manually retriable, and the FIT is never deleted.
+    pub fn release_stranded_uploads(&self, now: i64) -> SqlResult<u32> {
+        let changed = self.db.execute(
+            "UPDATE recordings \
+             SET retry_count = retry_count + 1, \
+                 last_attempt_at = ?, \
+                 last_error = 'The app closed while this ride was uploading', \
+                 upload_status = CASE WHEN retry_count + 1 >= ? THEN 'failed' ELSE 'pending' END \
+             WHERE upload_status = 'uploading'",
+            params![now, MAX_AUTO_RETRIES as i64],
+        )?;
+        if changed > 0 {
+            log::info!(
+                "veloqrs: [recordings] Released {} ride(s) stranded mid-upload",
+                changed
+            );
+        }
+        Ok(changed as u32)
+    }
+
     /// A manual retry, or a requeue after an upgrade: back to `pending` with a
     /// clean slate.
     pub fn requeue_recording(&self, id: &str) -> SqlResult<()> {
@@ -271,6 +299,23 @@ impl PersistentEngine {
             [],
         )?;
         Ok(changed as u32)
+    }
+
+    /// The transport failed before intervals.icu was reached.
+    ///
+    /// The ride stays in the queue with its attempt counter untouched, for the
+    /// same reason a 401 does: a request that never arrived says nothing about
+    /// the ride, and a device that spends a week out of signal would otherwise
+    /// spend all five attempts on cold launches and park a ride the server has
+    /// never seen. `last_attempt_at` *is* stamped, so the ordinary backoff
+    /// still applies and a failing transport cannot become a hot loop.
+    pub fn hold_recording_for_network(&self, id: &str, error: &str, now: i64) -> SqlResult<()> {
+        self.db.execute(
+            "UPDATE recordings SET upload_status = 'pending', last_error = ?, \
+             last_attempt_at = ? WHERE id = ?",
+            params![error, now, id],
+        )?;
+        Ok(())
     }
 
     /// A credential was refused while this ride was uploading.
@@ -626,6 +671,76 @@ mod tests {
         assert_eq!(row.last_error.as_deref(), Some("unauthorized"));
     }
 
+    /// Scenario: the athlete records a ride, then the phone spends a week with
+    /// no usable network. Every cold launch tries the upload and the transport
+    /// fails before the server is ever reached.
+    ///
+    /// Expected behaviour: the ride stays in the queue however many times the
+    /// transport fails. A failure that never reached intervals.icu says nothing
+    /// about the ride, so it must not spend one of the five attempts that park
+    /// it as `failed`.
+    #[test]
+    fn an_unreachable_network_never_parks_the_ride() {
+        let (_dir, e) = engine();
+        e.insert_recording(&entry("ride", 1_000, "uploading"))
+            .unwrap();
+
+        for i in 0..(MAX_AUTO_RETRIES + 3) {
+            let now = 100_000 + i as i64 * BACKOFF_BASE_MS * 64;
+            e.hold_recording_for_network("ride", "Network request failed", now)
+                .unwrap();
+
+            let row = e.get_recording("ride").unwrap().unwrap();
+            assert_eq!(
+                row.upload_status,
+                "pending",
+                "transport failure {} parked the ride",
+                i + 1
+            );
+            assert_eq!(
+                row.retry_count,
+                0,
+                "transport failure {} spent an attempt",
+                i + 1
+            );
+            assert_eq!(row.last_attempt_at, Some(now));
+        }
+
+        assert_eq!(
+            e.get_recording("ride")
+                .unwrap()
+                .unwrap()
+                .last_error
+                .as_deref(),
+            Some("Network request failed")
+        );
+    }
+
+    /// The stamp is what stops a hot loop: an entry held for the network is
+    /// eligible again on the ordinary backoff, not immediately.
+    #[test]
+    fn a_network_held_ride_waits_out_its_backoff_before_the_next_attempt() {
+        let (_dir, e) = engine();
+        e.insert_recording(&entry("ride", 1_000, "uploading"))
+            .unwrap();
+
+        e.hold_recording_for_network("ride", "offline", 100_000)
+            .unwrap();
+
+        assert!(
+            e.next_pending_recording(100_000 + BACKOFF_BASE_MS - 1)
+                .unwrap()
+                .is_none(),
+            "a ride held for the network retried before its backoff elapsed"
+        );
+        assert!(
+            e.next_pending_recording(100_000 + BACKOFF_BASE_MS)
+                .unwrap()
+                .is_some(),
+            "a ride held for the network never became eligible again"
+        );
+    }
+
     /// Scenario: the phone is signed out by a 401 and someone else signs in.
     /// Every held ride is still on the device and none of them is theirs.
     ///
@@ -736,6 +851,78 @@ mod tests {
         assert_eq!(read.upload_status, "uploaded");
         assert_eq!(read.intervals_activity_id.as_deref(), Some("i12345"));
         assert_eq!(read.last_error, None);
+    }
+
+    /// Scenario: the app is killed while a ride is uploading. The row is left
+    /// at `uploading`, which hides the manual retry and is skipped by the
+    /// automatic one, so the ride is stuck with no way out.
+    #[test]
+    fn a_launch_releases_a_ride_the_last_one_was_still_uploading() {
+        let (_dir, e) = engine();
+        e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
+        e.set_recording_uploading("r1").unwrap();
+
+        assert_eq!(e.release_stranded_uploads(200_000).unwrap(), 1);
+        let read = e.get_recording("r1").unwrap().unwrap();
+        assert_eq!(read.upload_status, "pending");
+        assert_eq!(read.retry_count, 1);
+        assert_eq!(read.last_attempt_at, Some(200_000));
+    }
+
+    /// A kill that keeps happening has to stop costing attempts forever, so it
+    /// is counted the same as any other attempt that did not report back.
+    #[test]
+    fn a_ride_killed_on_every_launch_parks_for_a_manual_retry() {
+        let (_dir, e) = engine();
+        e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
+
+        for launch in 0..MAX_AUTO_RETRIES {
+            e.set_recording_uploading("r1").unwrap();
+            e.release_stranded_uploads(200_000 + launch as i64).unwrap();
+        }
+
+        let read = e.get_recording("r1").unwrap().unwrap();
+        assert_eq!(read.upload_status, "failed");
+        assert_eq!(read.retry_count, MAX_AUTO_RETRIES);
+    }
+
+    #[test]
+    fn a_launch_leaves_every_other_status_alone() {
+        let (_dir, e) = engine();
+        e.insert_recording(&entry("a", 1_000, "pending")).unwrap();
+        e.insert_recording(&entry("b", 2_000, "uploaded")).unwrap();
+        e.insert_recording(&entry("c", 3_000, "localOnly")).unwrap();
+        e.insert_recording(&entry("d", 4_000, "permissionBlocked"))
+            .unwrap();
+
+        assert_eq!(e.release_stranded_uploads(200_000).unwrap(), 0);
+        for (id, status) in [
+            ("a", "pending"),
+            ("b", "uploaded"),
+            ("c", "localOnly"),
+            ("d", "permissionBlocked"),
+        ] {
+            assert_eq!(e.get_recording(id).unwrap().unwrap().upload_status, status);
+        }
+    }
+
+    /// The sweep runs at construction, so a database opened after a kill comes
+    /// up with nothing stranded.
+    #[test]
+    fn opening_the_database_releases_what_the_last_launch_stranded() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("routes.db");
+        {
+            let e = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+            e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
+            e.set_recording_uploading("r1").unwrap();
+        }
+
+        let e = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+        assert_eq!(
+            e.get_recording("r1").unwrap().unwrap().upload_status,
+            "pending"
+        );
     }
 
     #[test]

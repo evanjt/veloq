@@ -1129,6 +1129,9 @@ class EngineClient implements DelegateHost {
   holdRecordingForAuth = (id: string, error: string): void =>
     recordingDelegates.holdRecordingForAuth(this, id, error);
 
+  holdRecordingForNetwork = (id: string, error: string, nowMs: number): void =>
+    recordingDelegates.holdRecordingForNetwork(this, id, error, nowMs);
+
   /** Stops auto-uploading every ride this athlete did not record. */
   holdRecordingsOfOtherAthletes = (athleteId: string): void =>
     recordingDelegates.holdRecordingsOfOtherAthletes(this, athleteId);

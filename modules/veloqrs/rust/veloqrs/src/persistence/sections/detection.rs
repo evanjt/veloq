@@ -43,13 +43,7 @@ use super::super::{
     CacheUpdate, CheckpointSlot, PersistentEngine, SectionDetectionHandle,
     SectionDetectionProgress, load_groups_from_db,
 };
-
-/// A stored track that did not decode, named so it can be excluded from a
-/// detection pool by id rather than counted anonymously.
-pub(crate) struct CorruptTrack {
-    pub activity_id: String,
-    pub reason: String,
-}
+use super::track_pool::CorruptTrack;
 
 /// Share of unreadable rows above which a pool is treated as a read-path
 /// failure rather than isolated row rot. Above the ceiling the detect is
@@ -980,26 +974,14 @@ impl PersistentEngine {
 
             progress_clone.set_phase("loading", ids_to_load.len() as u32);
 
-            // #21: chunk the track load to bound the transient SQL/parse
-            // spike. The detector consumes full-resolution tracks and borrows
-            // each one directly, so all tracks must still be resident
-            // simultaneously when detection runs. We can NOT downsample on
-            // load without changing detection output.
-            // What chunking DOES fix: instead of binding every id into one
-            // giant IN(...) statement and materialising the whole result set
-            // at once, we load in CHUNK_SIZE batches and move each row into
-            // the resident `loaded` map as it arrives. This caps the peak of
-            // (resident tracks + in-flight query buffers) to roughly
-            // (all tracks) + (one chunk) rather than (all tracks) + (full
-            // result set). The final order-preserving pass over `ids_to_load`
-            // is byte-identical to before, so the detection input is unchanged.
-            //
-            // PARTIAL: this only trims the transient spike. The dominant
-            // resident cost - every full-resolution track held at once - is
-            // inherent to the all-pairs algorithm and can only be removed by
-            // a streaming/downsampling change inside the tracematch submodule
-            // (out of scope here).
-            const CHUNK_SIZE: usize = 150;
+            // The detector consumes full-resolution tracks and borrows each
+            // one directly, so every track must be resident at once. Chunking
+            // caps the transient spike, the resident set is inherent to the
+            // all-pairs algorithm, and downsampling on load would change
+            // detection output. `track_pool::load_tracks_chunked` is the one
+            // loader; the preview cuts over a pool built the same way, and it
+            // used to be a second copy of this loop that had already diverged
+            // on what it reported about a corrupt row.
             const MEMORY_WARN_THRESHOLD: usize = 800;
 
             if ids_to_load.len() > MEMORY_WARN_THRESHOLD {
@@ -1011,85 +993,25 @@ impl PersistentEngine {
                 );
             }
 
-            let mut tracks_loaded = 0;
-            let mut tracks_empty = 0;
-            let mut rows_readable = 0usize;
-            let mut corrupt_tracks: Vec<CorruptTrack> = Vec::new();
-            let tracks: Vec<(String, Vec<GpsPoint>)> = if ids_to_load.is_empty() {
-                Vec::new()
-            } else {
-                let mut loaded: HashMap<String, Vec<GpsPoint>> =
-                    HashMap::with_capacity(ids_to_load.len());
-
-                for chunk in ids_to_load.chunks(CHUNK_SIZE) {
-                    let placeholders: String = std::iter::repeat("?")
-                        .take(chunk.len())
-                        .collect::<Vec<_>>()
-                        .join(",");
-                    let sql = format!(
-                        "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
-                        placeholders
-                    );
-                    match conn.prepare(&sql) {
-                        Ok(mut stmt) => {
-                            let params_slice: Vec<&dyn rusqlite::ToSql> =
-                                chunk.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
-                            let rows = stmt.query_map(params_slice.as_slice(), |row| {
-                                Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
-                            });
-                            if let Ok(iter) = rows {
-                                for (id, blob) in iter.flatten() {
-                                    match TrackRead::from_blob(&blob) {
-                                        TrackRead::Present(track) => {
-                                            rows_readable += 1;
-                                            loaded.insert(id, track);
-                                        }
-                                        TrackRead::Missing => {}
-                                        TrackRead::Corrupt(reason) => {
-                                            corrupt_tracks.push(CorruptTrack {
-                                                activity_id: id,
-                                                reason,
-                                            })
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            log::warn!(
-                                "veloqrs: [SectionDetection] Batch prepare failed for chunk of {}: {:?}; skipping chunk",
-                                chunk.len(),
-                                e
-                            );
-                        }
-                    }
-                }
-
-                // Preserve the original `ids_to_load` order + emit per-track
-                // progress ticks + classify empty vs loaded. Tracks missing
-                // from the result (unknown ids, rows not found) count as empty.
-                ids_to_load
-                    .iter()
-                    .filter_map(|id| {
-                        progress_clone.increment();
-                        match loaded.remove(id) {
-                            Some(track) if !track.is_empty() => {
-                                tracks_loaded += 1;
-                                Some((id.clone(), track))
-                            }
-                            _ => {
-                                tracks_empty += 1;
-                                None
-                            }
-                        }
-                    })
-                    .collect()
+            let Some(pool) = super::track_pool::load_tracks_chunked(
+                &conn,
+                &ids_to_load,
+                &progress_clone,
+                &cancel_worker,
+            ) else {
+                log::info!("veloqrs: [SectionDetection] Cancelled during the track load");
+                progress_clone.set_phase(PHASE_CANCELLED, 0);
+                return;
             };
+
+            let rows_readable = pool.readable;
+            let corrupt_tracks = pool.corrupt;
+            let tracks = pool.tracks;
 
             log::info!(
                 "veloqrs: [SectionDetection] Loaded {} tracks ({} empty/missing, {} unreadable) from {} activity IDs",
-                tracks_loaded,
-                tracks_empty,
+                tracks.len(),
+                pool.empty,
                 corrupt_tracks.len(),
                 ids_to_load.len()
             );

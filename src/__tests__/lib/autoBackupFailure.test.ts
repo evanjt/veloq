@@ -44,6 +44,7 @@ const upload = jest.fn();
 const testBackend: BackupBackend = {
   id: 'test-remote',
   name: 'Test Remote',
+  isRemote: false,
   isAvailable: async () => true,
   listBackups: async () => [],
   upload: (localPath, metadata) => upload(localPath, metadata),

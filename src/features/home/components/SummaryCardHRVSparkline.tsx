@@ -12,6 +12,7 @@ import {
   useChartGestures,
 } from '@/shared/charts';
 import type { ScrubValues } from './SummaryCardSparkline';
+import { scrubDateLabel } from '../lib/scrubDateLabel';
 
 /** Match total height of fitness sparkline (44 chart + 4 form bar) */
 const CHART_HEIGHT = 48;
@@ -87,13 +88,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
     const rhr = rhrRef.current;
     const cb = onScrubRef.current;
     if (!cb || index < 0 || index >= hrv.length) return;
-    const daysAgo = hrv.length - 1 - index;
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    const dateLabel = date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-    });
+    const dateLabel = scrubDateLabel(hrv.length - 1 - index);
     cb({
       fitness: 0,
       fatigue: 0,

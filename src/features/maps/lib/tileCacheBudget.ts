@@ -81,6 +81,29 @@ export function tileCacheBudgets(totalMb: number): Record<TileCacheName, number>
 }
 
 /**
+ * Where a cached tile records when it was last read.
+ *
+ * The Cache API carries no metadata of its own, so the stamp rides in a header
+ * on the stored response. A tile stored before this existed has no header, and
+ * eviction reads that as the oldest: it is a pre-upgrade entry and nobody can
+ * say when it was last wanted.
+ */
+export const TILE_TOUCH_HEADER = 'x-veloq-touched';
+
+/**
+ * How stale a hit's stamp has to be before the read rewrites it.
+ *
+ * The stamp is what makes the ceiling an LRU, but a `put` over an existing
+ * request replaces in place per spec, so re-stamping means a delete and a put:
+ * two cache writes on the tile path, once per pan frame if it ran on every hit.
+ * An hour is coarse enough that a map the athlete pans over the same streets
+ * rewrites each tile once, and fine enough that the eviction order still
+ * reflects which areas they actually ride. The same window and the same reason
+ * as `STREAM_BODY_TOUCH_SECS` in `persistence/bodies.rs`.
+ */
+export const TILE_TOUCH_MS = 3600 * 1000;
+
+/**
  * The eviction pass both pages carry: FIFO by cache order, checked every 50
  * inserts, plus `window._veloqSetCacheBudgets` so a lowered setting evicts now
  * rather than at the next fiftieth tile.
@@ -101,6 +124,69 @@ export function cacheEvictionScript(totalMb: number = DEFAULT_TILE_CACHE_BUDGET_
 ${literal}
     };
 
+    var TOUCH_HEADER = '${TILE_TOUCH_HEADER}', TOUCH_MS = ${TILE_TOUCH_MS};
+
+    // When a stored response says it was last read. A response with no stamp
+    // predates stamping, and sorts oldest: nobody can say when it was wanted.
+    function touchedAt(r) {
+      var raw = r && r.headers ? r.headers.get(TOUCH_HEADER) : null;
+      var n = raw === null || raw === undefined ? NaN : parseInt(raw, 10);
+      return isNaN(n) ? 0 : n;
+    }
+
+    // A copy of a response carrying the current stamp, or null when this
+    // runtime cannot make one. Everything here is optional: a Response-like
+    // without a body reader, or a page with no Response constructor, must not
+    // throw into a tile request. An unstamped entry is a working tile that
+    // eviction reads as old, which is the right way to degrade.
+    function _veloqStamp(response) {
+      try {
+        if (typeof Response !== 'function' || typeof response.blob !== 'function') return null;
+        return response.blob().then(function(body) {
+          var headers = {};
+          try {
+            response.headers.forEach(function(v, k) { headers[k] = v; });
+          } catch (e) {}
+          headers[TOUCH_HEADER] = String(Date.now());
+          return new Response(body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: headers,
+          });
+        });
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Store a copy carrying the current stamp. The body is read once here, so
+    // the caller keeps the response it already holds.
+    function _veloqPut(cache, url, response) {
+      var stamped = _veloqStamp(response);
+      if (!stamped) return cache.put(url, response);
+      return stamped.then(function(r) {
+        return cache.put(url, r);
+      }).catch(function(e) {
+        try { cache.put(url, response); } catch (e2) {}
+      });
+    }
+
+    // Move a hit to the back of the eviction order, but only once its stamp has
+    // gone stale. A put replaces in place per spec, so this is a delete and a
+    // put, which is why it is rate-limited rather than run on every hit. A
+    // failure here leaves the entry where it was, which costs nothing but the
+    // reorder.
+    function _veloqTouch(cache, url, cached) {
+      try {
+        if (Date.now() - touchedAt(cached) < TOUCH_MS) return;
+        var stamped = _veloqStamp(cached);
+        if (!stamped) return;
+        stamped.then(function(r) {
+          return cache.delete(url).then(function() { return cache.put(url, r); });
+        }).catch(function(e) {});
+      } catch (e) {}
+    }
+
     function evictNow(cacheName) {
       var budget = CACHE_BUDGETS[cacheName];
       if (!budget) return;
@@ -108,17 +194,22 @@ ${literal}
         cache.keys().then(function(requests) {
           var sizes = requests.map(function(req) {
             return cache.match(req).then(function(r) {
-              if (!r) return { req: req, size: 0 };
+              if (!r) return { req: req, size: 0, touched: 0 };
+              var touched = touchedAt(r);
               var cl = parseInt(r.headers.get('content-length') || '0', 10) || 0;
-              if (cl > 0) return { req: req, size: cl };
+              if (cl > 0) return { req: req, size: cl, touched: touched };
               return r.arrayBuffer().then(function(buf) {
-                return { req: req, size: buf.byteLength };
+                return { req: req, size: buf.byteLength, touched: touched };
               });
             });
           });
           Promise.all(sizes).then(function(entries) {
             var total = entries.reduce(function(s, e) { return s + e.size; }, 0);
             if (total <= budget) return;
+            // Least recently read first. Insert order alone evicted the home
+            // area, which is the oldest set and the one ridden every week,
+            // and kept a holiday nobody will open again.
+            entries.sort(function(a, b) { return a.touched - b.touched; });
             for (var i = 0; i < entries.length && total > budget; i++) {
               cache.delete(entries[i].req);
               total -= entries[i].size;

@@ -69,6 +69,7 @@ async function unlinkQuietly(
 export const icloudBackend: BackupBackend = {
   id: 'icloud',
   name: 'iCloud',
+  isRemote: false,
 
   async isAvailable(): Promise<boolean> {
     if (Platform.OS !== 'ios') return false;

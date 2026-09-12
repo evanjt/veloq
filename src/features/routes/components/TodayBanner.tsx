@@ -8,7 +8,7 @@ import { useTheme } from '@/shared/app';
 import { useTodayWorkout } from '@/features/home/hooks/useTodayWorkout';
 import { useWorkoutSections } from '@/features/home/hooks/useWorkoutSections';
 import { useWellness } from '@/features/wellness';
-import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
+import { getFormZone, FORM_ZONE_COLORS, formZoneLabel } from '@/features/fitness/lib/fitness';
 import { formatDuration, formatDurationHuman, isolateNumeric } from '@/shared/format/format';
 import { WorkoutStepBar } from './WorkoutStepBar';
 import {
@@ -26,15 +26,13 @@ import type { WorkoutSection } from '@/features/home/hooks/useWorkoutSections';
 
 const PR_RECENCY_DAYS = 7;
 
-const DAY_NAMES_PLURAL = [
-  'Mondays',
-  'Tuesdays',
-  'Wednesdays',
-  'Thursdays',
-  'Fridays',
-  'Saturdays',
-  'Sundays',
-];
+// 2024-01-01 was a Monday, and `primaryDay` is 0 for Monday, so the offset is
+// the index. The weekday name then comes from the athlete's own locale rather
+// than a list that only ever held English.
+function weekdayName(primaryDay: number, locale: string): string {
+  const monday = new Date(Date.UTC(2024, 0, 1 + primaryDay));
+  return new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' }).format(monday);
+}
 
 interface TodayBannerProps {
   /**
@@ -67,7 +65,7 @@ export const TodayBanner = React.memo(function TodayBanner({ todayPattern }: Tod
   const tsb = ctl - atl;
   const formZone = getFormZone(tsb);
   const formColor = FORM_ZONE_COLORS[formZone];
-  const formLabel = FORM_ZONE_LABELS[formZone];
+  const formLabel = formZoneLabel(formZone);
 
   if (isLoading) return null;
   if (!todayWorkout && !tomorrowWorkout && !todayPattern && !latestWellness) return null;
@@ -114,14 +112,15 @@ const WorkoutCard = React.memo(function WorkoutCard({
   isTomorrow: boolean;
   isDark: boolean;
 }) {
+  const { t } = useTranslation();
   const sportIcon = workout.type === 'Run' ? '\u{1F3C3}' : '\u{1F6B4}';
   const targetLabel =
     workout.target === 'POWER'
-      ? 'Power'
+      ? t('routes.targetPower')
       : workout.target === 'HR'
-        ? 'HR'
+        ? t('routes.targetHr')
         : workout.target === 'PACE'
-          ? 'Pace'
+          ? t('routes.targetPace')
           : '';
 
   return (
@@ -147,17 +146,23 @@ const PatternCard = React.memo(function PatternCard({
   pattern: ActivityPattern;
   isDark: boolean;
 }) {
-  const sportLabel = pattern.sportType === 'Run' ? 'run' : 'ride';
-  const dayName = DAY_NAMES_PLURAL[pattern.primaryDay] ?? '';
+  const { t, i18n } = useTranslation();
+  const sport = t(pattern.sportType === 'Run' ? 'routes.patternRun' : 'routes.patternRide');
+  const day = weekdayName(pattern.primaryDay, i18n.language);
 
   return (
     <View style={styles.patternCard}>
       <Text style={[styles.patternText, isDark && styles.textLight]}>
-        {dayName} you usually {sportLabel} ~{formatDurationHuman(pattern.avgDurationSecs)}
+        {t('routes.patternSentence', {
+          day,
+          sport,
+          duration: formatDurationHuman(pattern.avgDurationSecs),
+        })}
       </Text>
       {pattern.avgTss > 0 && (
         <Text style={[styles.workoutMeta, isDark && styles.textMuted]}>
-          ~{Math.round(pattern.avgTss)} TSS {'\u00B7'} {pattern.activityCount} activities
+          ~{Math.round(pattern.avgTss)} TSS {'\u00B7'} {pattern.activityCount}{' '}
+          {t('routes.activities')}
         </Text>
       )}
     </View>

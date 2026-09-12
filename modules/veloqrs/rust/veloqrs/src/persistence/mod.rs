@@ -1229,7 +1229,7 @@ impl PersistentEngine {
         apply_write_pragmas(&db)?;
         Self::init_schema(&mut db)?;
 
-        Ok(Self {
+        let engine = Self {
             db,
             db_path: db_path.to_string(),
             activity_metadata: HashMap::new(),
@@ -1263,7 +1263,19 @@ impl PersistentEngine {
             perf_computations: 0,
             pattern_cache: None,
             pattern_computations: 0,
-        })
+        };
+
+        // A ride is marked `uploading` before its request goes out, so a kill
+        // strands the row where neither retry path looks. This is the one
+        // moment per launch where nothing can be in flight.
+        if let Err(e) = engine.release_stranded_uploads(attempts::now_ms()) {
+            log::warn!(
+                "veloqrs: [PersistentEngine] could not release stranded uploads: {}",
+                e
+            );
+        }
+
+        Ok(engine)
     }
 
     /// Create an in-memory database (for testing).

@@ -11,10 +11,12 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
+import { canDrawProfilePhoto } from '@/shared/ui';
 import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
 import { SummaryCardSparkline, type ScrubValues } from './SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
-import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
+import { useTranslation } from 'react-i18next';
+import { getFormZone, FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
 import { debug } from '@/shared/debug/debug';
 import type { TrendGlyph } from '@/shared/format/trend';
 
@@ -97,6 +99,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   showSparklineLabels = false,
   supportingMetrics,
 }: SummaryCardProps) {
+  const { t } = useTranslation();
   const { width: windowWidth } = useWindowDimensions();
   if (__DEV__) {
     const start = performance.now();
@@ -119,9 +122,7 @@ export const SummaryCard = React.memo(function SummaryCard({
     setScrubValues(values);
   }, []);
 
-  // Validate profile URL - must be a non-empty string starting with http
-  const hasValidProfileUrl =
-    profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
+  const canDrawPhoto = canDrawProfilePhoto(profileUrl, profileImageError);
 
   // Determine which sparkline to show - deferred until after first frame
   const isHrvMode = heroMetric === 'hrv';
@@ -185,7 +186,7 @@ export const SummaryCard = React.memo(function SummaryCard({
           accessibilityRole="button"
         >
           <View style={[styles.profilePhoto, isDark && styles.profilePhotoDark]}>
-            {hasValidProfileUrl && !profileImageError ? (
+            {canDrawPhoto ? (
               <Image
                 source={{ uri: profileUrl }}
                 style={StyleSheet.absoluteFill}
@@ -229,7 +230,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                 )}
                 <Text style={[styles.heroSubText, { color: currentFormColor }]}>
                   {currentForm > 0 ? `+${currentForm}` : currentForm}{' '}
-                  {FORM_ZONE_LABELS[currentFormZone]}
+                  {t(`formZones.${currentFormZone}`)}
                 </Text>
               </View>
             </View>

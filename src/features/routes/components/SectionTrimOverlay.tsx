@@ -7,7 +7,7 @@
  * through the JS bridge to avoid overwhelming React re-renders.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
@@ -18,6 +18,11 @@ import * as Haptics from 'expo-haptics';
 import { colors, darkColors, typography, spacing, layout, ink } from '@/theme';
 import { formatDistance } from '@/shared/format/format';
 import { useMetricSystem, useTheme } from '@/shared/app';
+import {
+  precisionLevel,
+  precisionRatio,
+  type PrecisionLevel,
+} from '@/features/routes/lib/trimPrecision';
 
 const HANDLE_SIZE = 28;
 const TRACK_HEIGHT = 4;
@@ -95,38 +100,22 @@ export function SectionTrimOverlay({
     [trackWidthSV]
   );
 
-  // ── Precision helpers (worklets) ──
-  const getPrecisionRatio = (dy: number): number => {
-    'worklet';
-    const absDy = Math.abs(dy);
-    if (absDy < 20) return 1.0;
-    if (absDy < 60) return 0.25;
-    return 0.125;
-  };
+  // The level the last haptic marked. Held on the UI thread so the crossing is
+  // found inside the worklet: a drag crosses two thresholds at most, so the JS
+  // thread hears from the gesture twice rather than on every frame.
+  const lastPrecision = useSharedValue<PrecisionLevel>('normal');
 
-  const getPrecisionLevel = (dy: number): 'normal' | 'precision' | 'fine' => {
-    'worklet';
-    const absDy = Math.abs(dy);
-    if (absDy < 20) return 'normal';
-    if (absDy < 60) return 'precision';
-    return 'fine';
-  };
-
-  const lastPrecisionRef = useRef<'normal' | 'precision' | 'fine'>('normal');
-  const fireHapticOnThreshold = useCallback((level: 'normal' | 'precision' | 'fine') => {
-    if (level !== lastPrecisionRef.current) {
-      lastPrecisionRef.current = level;
-      if (level === 'precision') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      } else if (level === 'fine') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-      }
+  const fireHaptic = useCallback((level: PrecisionLevel) => {
+    if (level === 'precision') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    } else if (level === 'fine') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     }
   }, []);
 
   const resetPrecision = useCallback(() => {
-    lastPrecisionRef.current = 'normal';
-  }, []);
+    lastPrecision.value = 'normal';
+  }, [lastPrecision]);
 
   // ── Step button handlers (JS thread - immediate) ──
   const nudgeStart = useCallback(
@@ -166,7 +155,7 @@ export function SectionTrimOverlay({
         })
         .onUpdate((e) => {
           'worklet';
-          const ratio = getPrecisionRatio(e.translationY);
+          const ratio = precisionRatio(e.translationY);
           const tw = trackWidthSV.value;
           if (tw <= 0) return;
           const deltaX = (e.translationX - prevTransX.value) * ratio;
@@ -180,7 +169,11 @@ export function SectionTrimOverlay({
               runOnJS(onStartChange)(Math.round(newFrac * maxIndex));
             }
           }
-          runOnJS(fireHapticOnThreshold)(getPrecisionLevel(e.translationY));
+          const level = precisionLevel(e.translationY);
+          if (level !== lastPrecision.value) {
+            lastPrecision.value = level;
+            runOnJS(fireHaptic)(level);
+          }
         })
         .onEnd(() => {
           'worklet';
@@ -198,7 +191,8 @@ export function SectionTrimOverlay({
       trackWidthSV,
       lastEmitTime,
       isDragging,
-      fireHapticOnThreshold,
+      fireHaptic,
+      lastPrecision,
       resetPrecision,
     ]
   );
@@ -215,7 +209,7 @@ export function SectionTrimOverlay({
         })
         .onUpdate((e) => {
           'worklet';
-          const ratio = getPrecisionRatio(e.translationY);
+          const ratio = precisionRatio(e.translationY);
           const tw = trackWidthSV.value;
           if (tw <= 0) return;
           const deltaX = (e.translationX - prevTransX.value) * ratio;
@@ -229,7 +223,11 @@ export function SectionTrimOverlay({
               runOnJS(onEndChange)(Math.round(newFrac * maxIndex));
             }
           }
-          runOnJS(fireHapticOnThreshold)(getPrecisionLevel(e.translationY));
+          const level = precisionLevel(e.translationY);
+          if (level !== lastPrecision.value) {
+            lastPrecision.value = level;
+            runOnJS(fireHaptic)(level);
+          }
         })
         .onEnd(() => {
           'worklet';
@@ -247,7 +245,8 @@ export function SectionTrimOverlay({
       trackWidthSV,
       lastEmitTime,
       isDragging,
-      fireHapticOnThreshold,
+      fireHaptic,
+      lastPrecision,
       resetPrecision,
     ]
   );

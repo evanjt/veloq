@@ -62,22 +62,11 @@ export const POWER_CURVE_DURATIONS = [
 
 // Get power at a specific duration from the curve
 export function getPowerAtDuration(curve: PowerCurve | undefined, secs: number): number | null {
-  if (!curve?.secs || !curve?.watts) return null;
+  if (!curve?.watts) return null;
 
-  const index = curve.secs.findIndex((s) => s === secs);
-  if (index !== -1) return curve.watts[index];
-
-  // Find closest duration
-  let closestIndex = 0;
-  let closestDiff = Math.abs(curve.secs[0] - secs);
-  for (let i = 1; i < curve.secs.length; i++) {
-    const diff = Math.abs(curve.secs[i] - secs);
-    if (diff < closestDiff) {
-      closestDiff = diff;
-      closestIndex = i;
-    }
-  }
-  return curve.watts[closestIndex];
+  const index = getIndexAtDuration(curve, secs);
+  if (index === null) return null;
+  return curve.watts[index] ?? null;
 }
 
 // Get the array index for a given duration (exact or closest match)

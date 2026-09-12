@@ -28,6 +28,7 @@ describe('insight notifications', () => {
     enabled: true,
     privacyAccepted: true,
     pendingUnregister: false,
+    pendingUnregisterAthleteId: null,
     categories: {
       sectionPr: false,
       fitnessMilestone: true,

@@ -22,7 +22,7 @@ import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
 import { useRoutesScreenData } from '@/features/routes/hooks/useRoutesScreenData';
 import { useTheme } from '@/shared/app';
 import { useUserLocation } from '@/shared/app/useUserLocation';
-import { useHasStrengthData } from '@/features/strength';
+import { useStrengthTabState } from '@/features/strength';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -134,7 +134,8 @@ export default function InsightsScreen() {
   const { isDark } = useTheme();
   const { tab, insightId } = useLocalSearchParams<{ tab?: string; insightId?: string }>();
   const { insights, todayPattern, markAsSeen } = useInsights();
-  const hasStrength = useHasStrengthData();
+  const strengthTab = useStrengthTabState();
+  const hasStrength = strengthTab !== 'hidden';
   const { location: userLocation, requestPermission } = useUserLocation();
   const routeSortTouchedRef = useRef(false);
   const sectionSortTouchedRef = useRef(false);
@@ -465,7 +466,8 @@ export default function InsightsScreen() {
 
   const tabPages = useMemo(() => {
     const pages: React.ReactNode[] = [insightsPage];
-    if (hasStrength) pages.push(<StrengthTab key="strength" />);
+    if (hasStrength)
+      pages.push(<StrengthTab key="strength" awaitingDownload={strengthTab === 'awaiting'} />);
     pages.push(routesPage);
     pages.push(sectionsPage);
     if (debugEnabled) {
@@ -476,7 +478,7 @@ export default function InsightsScreen() {
       );
     }
     return pages;
-  }, [insightsPage, routesPage, sectionsPage, hasStrength, debugEnabled]);
+  }, [insightsPage, routesPage, sectionsPage, hasStrength, strengthTab, debugEnabled]);
 
   return (
     <ScreenErrorBoundary screenName="Insights">

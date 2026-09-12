@@ -135,6 +135,26 @@ export function featureCollection(
   };
 }
 
+/**
+ * The start and end points of every line in a collection that has already been
+ * built. The nearby sections on the section map are decoded once into
+ * LineStrings, so their dots come off that geometry rather than decoding the
+ * same polylines a second time.
+ */
+export function lineEndpoints(lines: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
+  return featureCollection(
+    lines.features.flatMap((feature) => {
+      if (feature.geometry?.type !== 'LineString') return [];
+      const { coordinates } = feature.geometry;
+      if (coordinates.length < 2) return [];
+      return [
+        pointFeature(coordinates[0] as LngLat, { position: 'start' }),
+        pointFeature(coordinates[coordinates.length - 1] as LngLat, { position: 'end' }),
+      ];
+    })
+  );
+}
+
 /** Empty collection shared by every surface so idle sources stay cheap. */
 export const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = {
   type: 'FeatureCollection',

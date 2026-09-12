@@ -239,6 +239,12 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
     return chips;
   }, [intervalsData, activity]);
 
+  // Each block is gated on the source it reads. Only the chart and the HR zones
+  // need a stream; the intervals and the power zones are persisted columns, so
+  // a streamless activity still has both.
+  const hasIntervals = (intervalsData?.icu_intervals?.length ?? 0) > 0;
+  const hasPowerZones = (activity.icu_zone_times?.length ?? 0) > 0;
+
   return (
     <>
       <ScrollView
@@ -248,33 +254,35 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
         showsVerticalScrollIndicator={false}
         scrollEnabled={!chartInteracting}
       >
-        {availableCharts.length > 0 && (
+        {(availableCharts.length > 0 || hasIntervals || hasPowerZones) && (
           <View style={styles.chartSection}>
-            <View style={styles.chartControls}>
-              <View style={styles.chartSelectorContainer}>
-                <ChartTypeSelector
-                  available={availableCharts}
-                  selected={selectedCharts}
-                  onToggle={handleChartToggle}
-                  onPreviewStart={(id) => setPreviewMetricId(id as ChartTypeId)}
-                  onPreviewEnd={() => setPreviewMetricId(null)}
-                  metricValues={chartMetrics}
-                />
+            {availableCharts.length > 0 && (
+              <View style={styles.chartControls}>
+                <View style={styles.chartSelectorContainer}>
+                  <ChartTypeSelector
+                    available={availableCharts}
+                    selected={selectedCharts}
+                    onToggle={handleChartToggle}
+                    onPreviewStart={(id) => setPreviewMetricId(id as ChartTypeId)}
+                    onPreviewEnd={() => setPreviewMetricId(null)}
+                    metricValues={chartMetrics}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={[styles.fullscreenButton, isDark && styles.expandButtonDark]}
+                  onPress={openChartFullscreen}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Fullscreen chart"
+                  accessibilityRole="button"
+                >
+                  <MaterialCommunityIcons
+                    name="fullscreen"
+                    size={16}
+                    color={isDark ? colors.textOnDark : colors.textPrimary}
+                  />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={[styles.fullscreenButton, isDark && styles.expandButtonDark]}
-                onPress={openChartFullscreen}
-                activeOpacity={0.7}
-                accessibilityLabel="Fullscreen chart"
-                accessibilityRole="button"
-              >
-                <MaterialCommunityIcons
-                  name="fullscreen"
-                  size={16}
-                  color={isDark ? colors.textOnDark : colors.textPrimary}
-                />
-              </TouchableOpacity>
-            </View>
+            )}
 
             {/* Chart */}
             {streams && selectedCharts.length > 0 && (
@@ -294,48 +302,47 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                   activityType={activity.type}
                   onMetricsChange={handleMetricsChange}
                 />
+              </View>
+            )}
 
-                {/* Intervals zone bar */}
-                {intervalsData?.icu_intervals && intervalsData.icu_intervals.length > 0 && (
-                  <View testID="activity-interval-table">
-                    <>
-                      <TouchableOpacity
-                        style={[styles.intervalsBar, isDark && styles.intervalsBarDark]}
-                        onPress={() => setIntervalsExpanded((v) => !v)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.intervalsBarLeft}>
-                          <Text style={[styles.intervalsTitle, isDark && styles.textMuted]}>
-                            {t('activityDetail.tabs.intervals')}
-                          </Text>
-                          {intervalZoneSummary.map((z, i) => (
-                            <View
-                              key={i}
-                              style={[styles.zoneChip, { backgroundColor: z.color + '25' }]}
-                            >
-                              <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
-                              <Text style={[styles.zoneChipText, { color: z.color }]}>
-                                {z.label} x{z.count} {formatDurationHuman(z.totalTime)}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                        <MaterialCommunityIcons
-                          name={intervalsExpanded ? 'chevron-up' : 'chevron-down'}
-                          size={18}
-                          color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                        />
-                      </TouchableOpacity>
-                      {intervalsExpanded && (
-                        <IntervalsTable
-                          intervals={intervalsData.icu_intervals}
-                          activityType={activity.type}
-                          isMetric={isMetric}
-                          isDark={isDark}
-                        />
-                      )}
-                    </>
+            {/* Intervals zone bar. Its own source is `icu_intervals`, which is
+                persisted whether or not the streams were ever fetched. */}
+            {hasIntervals && (
+              <View
+                testID="activity-interval-table"
+                style={[styles.intervalsCard, isDark && styles.cardDark]}
+              >
+                <TouchableOpacity
+                  style={[styles.intervalsBar, isDark && styles.intervalsBarDark]}
+                  onPress={() => setIntervalsExpanded((v) => !v)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.intervalsBarLeft}>
+                    <Text style={[styles.intervalsTitle, isDark && styles.textMuted]}>
+                      {t('activityDetail.tabs.intervals')}
+                    </Text>
+                    {intervalZoneSummary.map((z, i) => (
+                      <View key={i} style={[styles.zoneChip, { backgroundColor: z.color + '25' }]}>
+                        <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
+                        <Text style={[styles.zoneChipText, { color: z.color }]}>
+                          {z.label} x{z.count} {formatDurationHuman(z.totalTime)}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
+                  <MaterialCommunityIcons
+                    name={intervalsExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  />
+                </TouchableOpacity>
+                {intervalsExpanded && intervalsData?.icu_intervals && (
+                  <IntervalsTable
+                    intervals={intervalsData.icu_intervals}
+                    activityType={activity.type}
+                    isMetric={isMetric}
+                    isDark={isDark}
+                  />
                 )}
               </View>
             )}
@@ -357,7 +364,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
             )}
 
             {/* Power Zones Chart */}
-            {activity.icu_zone_times && activity.icu_zone_times.length > 0 && (
+            {hasPowerZones && (
               <View style={[styles.chartCard, isDark && styles.cardDark]}>
                 <ComponentErrorBoundary componentName="Power Zones Chart">
                   <PowerZonesChart activity={activity} />
@@ -590,14 +597,19 @@ const styles = StyleSheet.create({
   textMuted: {
     color: darkColors.textSecondary,
   },
+  intervalsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: layout.cardPadding,
+    marginBottom: spacing.sm,
+    ...shadows.card,
+    overflow: 'hidden',
+  },
   intervalsBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xsPlus,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
   },
   intervalsBarDark: {
     borderTopColor: darkColors.border,

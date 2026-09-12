@@ -419,12 +419,12 @@ const styles = StyleSheet.create({
     width: PREVIEW_WIDTH,
     height: PREVIEW_HEIGHT,
     borderRadius: layout.borderRadiusXs,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: colorWithOpacity(ink.black, 0.05),
     justifyContent: 'center',
     alignItems: 'center',
   },
   previewPlaceholderDark: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colorWithOpacity(ink.white, 0.08),
   },
   infoContainer: {
     flex: 1,
@@ -494,13 +494,13 @@ const styles = StyleSheet.create({
     color: darkColors.textDisabled,
   },
   customTag: {
-    backgroundColor: 'rgba(168, 85, 247, 0.12)',
+    backgroundColor: colorWithOpacity(colors.chartPurple, 0.12),
     paddingHorizontal: spacing.xsPlus,
     paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,
   },
   customTagDark: {
-    backgroundColor: 'rgba(192, 132, 252, 0.15)',
+    backgroundColor: colorWithOpacity(darkColors.chartFatigue, 0.15),
   },
   customTagText: {
     fontSize: typography.micro.fontSize,
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: 'rgba(217, 119, 6, 0.12)',
+    backgroundColor: colorWithOpacity(colors.amberIcon, 0.12),
     paddingHorizontal: spacing.xsPlus,
     paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,

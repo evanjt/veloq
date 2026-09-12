@@ -7,7 +7,7 @@
  * - Documents inconsistent zone time serialization (powerZoneTimes vs hrZoneTimes)
  */
 
-import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
+import { hasMetricsRow, toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import type { Activity } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -146,5 +146,29 @@ describe('date edge cases', () => {
     const emptyActivity = makeActivity({ start_date_local: '' });
     expect(() => toActivityMetrics(emptyActivity)).not.toThrow();
     expect(typeof toActivityMetrics(emptyActivity).date).toBe('bigint');
+  });
+});
+
+/**
+ * Scenario: a strength session is recorded with no moving time. Its FIT is
+ * downloaded and its sets are written, and every strength aggregate INNER
+ * JOINs `activity_metrics`.
+ *
+ * Expected behaviour: it gets a metrics row. A zero duration is a fact about
+ * the session, not a reason for its sets to have no read path.
+ */
+describe('which activities get a metrics row', () => {
+  it('keeps a session with no moving time', () => {
+    expect(hasMetricsRow(makeActivity({ type: 'WeightTraining', moving_time: 0 }))).toBe(true);
+    expect(hasMetricsRow(makeActivity({ moving_time: undefined }))).toBe(true);
+  });
+
+  it('keeps an ordinary activity', () => {
+    expect(hasMetricsRow(makeActivity())).toBe(true);
+  });
+
+  it('drops one with no local start date, which has no date to key on', () => {
+    expect(hasMetricsRow(makeActivity({ start_date_local: '' }))).toBe(false);
+    expect(hasMetricsRow(makeActivity({ start_date_local: undefined }))).toBe(false);
   });
 });

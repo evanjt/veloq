@@ -51,12 +51,16 @@ interface SectionRescanState {
   clearResult: () => void;
 }
 
+/**
+ * The before and after of a rescan. A SQL count, not a summary load: the
+ * totals are read on every tap and the summaries were only ever a way of
+ * reaching the number beside them.
+ */
 function getSectionCount(): number {
   const engine = getEngine();
   if (!engine) return 0;
   try {
-    const { totalCount } = engine.getFilteredSectionSummaries(undefined, 1, 'visits');
-    return totalCount;
+    return engine.getSectionCount();
   } catch {
     return 0;
   }

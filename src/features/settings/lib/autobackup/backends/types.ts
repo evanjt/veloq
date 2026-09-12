@@ -29,6 +29,15 @@ export interface BackupBackend {
   /** Display name for the UI (e.g., 'iCloud', 'Nextcloud') */
   name: string;
 
+  /**
+   * Whether `upload` needs the network at the moment it is called. Local and
+   * iCloud both write to a directory on the device and are false: iCloud's
+   * write is to its container and the OS syncs it later, so it succeeds with
+   * the radio off. WebDAV is true, and a snapshot for it is not worth taking
+   * while the radio is down.
+   */
+  isRemote: boolean;
+
   /** Check if this backend is available on the current device/platform. */
   isAvailable(): Promise<boolean>;
 

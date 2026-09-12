@@ -13,6 +13,7 @@ import {
   TILE_CACHE_NAMES,
   applyTileCacheBudgetScript,
   cacheEvictionScript,
+  TILE_TOUCH_HEADER,
   clampTileCacheBudgetMb,
   tileCacheBudgets,
 } from '@/features/maps/lib/tileCacheBudget';
@@ -210,5 +211,101 @@ describe('the stored setting', () => {
     store['veloq-tile-cache'] = JSON.stringify({ budgetMb: 'lots' });
     await useTileCacheSettings.getState().initialize();
     expect(useTileCacheSettings.getState().budgetMb).toBe(DEFAULT_TILE_CACHE_BUDGET_MB);
+  });
+});
+
+/**
+ * Scenario: an athlete rides the same roads every week and takes one holiday.
+ * The home tiles are the oldest entries in the cache and the holiday tiles the
+ * newest.
+ *
+ * Expected behaviour: eviction takes the tiles nobody has looked at in months,
+ * not the tiles that arrived first. Insert order alone throws away the home
+ * area and keeps the holiday, which is the wrong way round and is what the
+ * athlete notices.
+ */
+describe('eviction order', () => {
+  type Entry = { url: string; size: number; touched: number | null };
+  type CacheStub = { keys: jest.Mock; match: jest.Mock; delete: jest.Mock };
+
+  const HOUR = 3600 * 1000;
+  const NOW = 1_800_000_000_000;
+  const CACHE = 'veloq-vector-v1';
+
+  function runPage(entries: Entry[]): {
+    cache: CacheStub;
+    setBudgets: (b: Record<string, number>) => void;
+  } {
+    const cache: CacheStub = {
+      keys: jest.fn(async () => entries.map((e) => e.url)),
+      match: jest.fn(async (url: string) => {
+        const entry = entries.find((e) => e.url === url);
+        if (!entry) return undefined;
+        return {
+          headers: {
+            get: (name: string) =>
+              name === TILE_TOUCH_HEADER
+                ? entry.touched === null
+                  ? null
+                  : String(entry.touched)
+                : String(entry.size),
+          },
+          arrayBuffer: async () => new ArrayBuffer(0),
+        };
+      }),
+      delete: jest.fn(async () => true),
+    };
+    const caches = { open: async () => cache };
+    const win: Record<string, unknown> = { _rn_log: () => {} };
+    const realNow = Date.now;
+    Date.now = () => NOW;
+    try {
+      new Function('caches', 'window', cacheEvictionScript())(caches, win);
+    } finally {
+      Date.now = realNow;
+    }
+    return { cache, setBudgets: win._veloqSetCacheBudgets as (b: Record<string, number>) => void };
+  }
+
+  /** Two microtask drains: the sizing pass, then the deletes it decides on. */
+  async function drain(): Promise<void> {
+    await new Promise(process.nextTick);
+    await new Promise(process.nextTick);
+    await new Promise(process.nextTick);
+  }
+
+  it('evicts the least recently read tile, not the first inserted', async () => {
+    const size = 30 * MB;
+    const { cache, setBudgets } = runPage([
+      { url: 'home-inserted-first', size, touched: NOW - HOUR },
+      { url: 'holiday-inserted-second', size, touched: NOW - 200 * 24 * HOUR },
+      { url: 'home-inserted-third', size, touched: NOW },
+    ]);
+    await drain();
+    cache.delete.mockClear();
+
+    // 90 MB held against a 60 MB ceiling, so exactly one entry goes.
+    setBudgets({ [CACHE]: 60 * MB });
+    await drain();
+
+    expect(cache.delete).toHaveBeenCalledWith('holiday-inserted-second');
+    expect(cache.delete).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats a tile stored before stamping as the oldest, wherever it was inserted', async () => {
+    const size = 30 * MB;
+    const { cache, setBudgets } = runPage([
+      { url: 'stamped-old', size, touched: NOW - 10 * HOUR },
+      { url: 'stamped-recent', size, touched: NOW },
+      { url: 'unstamped-legacy', size, touched: null },
+    ]);
+    await drain();
+    cache.delete.mockClear();
+
+    setBudgets({ [CACHE]: 60 * MB });
+    await drain();
+
+    expect(cache.delete).toHaveBeenCalledWith('unstamped-legacy');
+    expect(cache.delete).toHaveBeenCalledTimes(1);
   });
 });

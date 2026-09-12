@@ -12,7 +12,7 @@ export { useMuscleDetail } from './hooks/useMuscleDetail';
 export type { MuscleGroupDetail } from './hooks/useMuscleDetail';
 export {
   useStrengthVolume,
-  useHasStrengthData,
+  useStrengthTabState,
   useStrengthProgression,
   useExercisesForMuscle,
   useActivitiesForExercise,

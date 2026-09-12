@@ -961,24 +961,24 @@ impl PersistentEngine {
                 "veloqrs: [SectionPreview] Pool loaded: {} tracks ({} empty, {} unreadable) of {} component ids",
                 pool.tracks.len(),
                 pool.empty,
-                pool.unreadable,
+                pool.unreadable(),
                 component_ids.len()
             );
 
             // Same gate as the real detect, so a preview never proposes
             // sections a Keep would refuse to cut. Read-only, so the refusal
             // is reported to the caller and nothing is recorded.
-            if !super::detection::pool_is_usable(pool.readable, pool.unreadable as usize) {
+            if !super::detection::pool_is_usable(pool.readable, pool.unreadable()) {
                 log::error!(
                     "veloqrs: [SectionPreview] Refusing the preview: {} of {} stored tracks in the component are unreadable",
-                    pool.unreadable,
-                    pool.readable + pool.unreadable as usize
+                    pool.unreadable(),
+                    pool.readable + pool.unreadable()
                 );
                 announce_phase(&progress_worker, "aborted", 0);
                 sender
                     .send(PreviewOutcome::PoolUnusable {
                         readable: pool.readable,
-                        unreadable: pool.unreadable,
+                        unreadable: pool.unreadable() as u32,
                     })
                     .ok();
                 return;
@@ -1016,7 +1016,7 @@ impl PersistentEngine {
                 pool: PayloadPool {
                     activities: pool.tracks.len() as u32,
                     empty: pool.empty,
-                    unreadable: pool.unreadable,
+                    unreadable: pool.unreadable() as u32,
                 },
                 elapsed_ms: started.elapsed().as_millis() as u64,
                 config: PayloadConfig {

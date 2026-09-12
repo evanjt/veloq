@@ -14739,6 +14739,16 @@ export interface RecordingManagerLike {
    */
   holdForAuth(id: string, error: string) /*throws*/ : void;
   /**
+   * The transport failed before the server was reached. The ride keeps its
+   * attempts for the same reason a 401 does, and is stamped so the backoff
+   * still holds it back.
+   */
+  holdForNetwork(
+    id: string,
+    error: string,
+    nowMs: /*i64*/ bigint,
+  ) /*throws*/ : void;
+  /**
    * An athlete signed in: stop auto-uploading every ride that is not
    * theirs, unstamped ones included. Returns how many were held.
    */
@@ -15008,6 +15018,33 @@ export class RecordingManager
           uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(id),
           FfiConverterString.lower(error),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * The transport failed before the server was reached. The ride keeps its
+   * attempts for the same reason a 401 does, and is stamped so the backoff
+   * still holds it back.
+   */
+  holdForNetwork(
+    id: string,
+    error: string,
+    nowMs: /*i64*/ bigint,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_hold_for_network(
+          uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(id),
+          FfiConverterString.lower(error),
+          FfiConverterInt64.lower(nowMs),
           callStatus,
         );
       },
@@ -22358,6 +22395,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_recordingmanager_hold_for_auth",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_hold_for_network() !==
+    4306
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_hold_for_network",
     );
   }
   if (

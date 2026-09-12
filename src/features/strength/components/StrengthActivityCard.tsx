@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
-import { useTheme, useMetricSystem } from '@/shared/app';
+import { useTheme, useMetricSystem, useAthlete } from '@/shared/app';
 import type { Activity } from '@/types';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import {
@@ -22,6 +22,7 @@ import { colors, darkColors, typography, spacing, shadows, brand, layout } from 
 import { CHART_CONFIG } from '@/constants';
 import { ActivityCardContextMenu } from '@/features/activity/components/ActivityCardContextMenu';
 import { SkylineBar } from '@/features/activity/components/SkylineBar';
+import { formatWeightRounded } from '@/features/strength/lib/formatting';
 
 /** Aggregated muscle/exercise data for a strength activity */
 export interface StrengthCardData {
@@ -47,6 +48,8 @@ interface StrengthActivityCardProps {
  */
 function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityCardProps) {
   const { t } = useTranslation();
+  const { data: athlete } = useAthlete();
+  const bodyGender = athlete?.sex === 'F' ? 'female' : 'male';
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const [menuVisible, setMenuVisible] = useState(false);
@@ -210,14 +213,14 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             <View style={styles.strengthBodies}>
               <Body
                 data={strengthData.muscles}
-                gender="male"
+                gender={bodyGender}
                 side="front"
                 scale={0.38}
                 colors={[brand.tealDark, brand.tealLight]}
               />
               <Body
                 data={strengthData.muscles}
-                gender="male"
+                gender={bodyGender}
                 side="back"
                 scale={0.38}
                 colors={[brand.tealDark, brand.tealLight]}
@@ -229,7 +232,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
                   {formatDuration(activity.moving_time)}
                 </RNText>
                 <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
-                  Duration
+                  {t('strength.durationLabel')}
                 </RNText>
               </View>
               <View style={styles.strengthStatRow}>
@@ -237,18 +240,16 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
                   {strengthData.exerciseCount} / {strengthData.setCount}
                 </RNText>
                 <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
-                  {t('activityDetail.exercises')} / Sets
+                  {t('activityDetail.exercises')} / {t('strength.setsLabel')}
                 </RNText>
               </View>
               {strengthData.totalWeight > 0 && (
                 <View style={styles.strengthStatRow}>
                   <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
-                    {isMetric
-                      ? `${Math.round(strengthData.totalWeight)} kg`
-                      : `${Math.round(strengthData.totalWeight * 2.20462)} lbs`}
+                    {formatWeightRounded(strengthData.totalWeight, isMetric)}
                   </RNText>
                   <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
-                    Total
+                    {t('strength.totalLabel')}
                   </RNText>
                 </View>
               )}

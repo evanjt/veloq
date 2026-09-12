@@ -177,3 +177,34 @@ export function buildTrendWithBand(
     lower: Math.max(yMin - yPad, p.y - p.std),
   }));
 }
+
+/**
+ * Index of the scatter point nearest a tap, or -1 when nothing can be hit.
+ *
+ * Both the tap and the points are compared in the chart's own normalised box,
+ * x and y running 0 to 1 with y measured down from the top edge, so the axis
+ * the chart draws is the axis the tap resolves against.
+ */
+export function nearestScatterPointIndex(
+  points: readonly { x: number; y: number | null | undefined }[],
+  tap: { x: number; y: number },
+  yDomain: readonly [number, number]
+): number {
+  const [bottom, top] = yDomain;
+  const span = top - bottom || 1;
+
+  let closestIdx = -1;
+  let closestDist = Infinity;
+  for (let i = 0; i < points.length; i++) {
+    const value = points[i].y;
+    if (value == null || !Number.isFinite(value)) continue;
+    const dx = points[i].x - tap.x;
+    const dy = 1 - (value - bottom) / span - tap.y;
+    const dist = dx * dx + dy * dy;
+    if (dist < closestDist) {
+      closestDist = dist;
+      closestIdx = i;
+    }
+  }
+  return closestIdx;
+}

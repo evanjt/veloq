@@ -6,7 +6,7 @@ import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/engine';
 import { engine, hasStarted } from 'veloqrs';
-import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
+import { hasMetricsRow, toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 import type { Activity } from '@/types';
@@ -14,6 +14,7 @@ import type { SyncProgress } from './useRouteSyncProgress';
 import { backfillTimeStreams } from '@/features/routes/lib/timeStreamBackfill';
 import { awaitTilePass } from '@/features/routes/lib/tilePass';
 import { followDetection, type DetectionEngine } from '@/features/routes/lib/detectionRun';
+import { routeSyncPlan } from '@/features/routes/lib/routeSyncPlan';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('RouteDataSync');
@@ -84,24 +85,6 @@ export function useRouteDataSync(
         return;
       }
 
-      // Skip sync when offline - GPS fetch requires network
-      // Existing synced activities will still work from the engine cache
-      if (!online) {
-        if (__DEV__) {
-          log.log('[RouteDataSync] Blocked: offline');
-        }
-        if (isMountedRef.current) {
-          updateProgress({
-            status: 'idle',
-            completed: 0,
-            total: 0,
-            percent: 0,
-            message: i18n.t('cache.offlineUsingCached'),
-          });
-        }
-        return;
-      }
-
       // Prevent concurrent syncs
       if (!canStartSync()) {
         if (__DEV__) {
@@ -163,21 +146,23 @@ export function useRouteDataSync(
           );
         }
         if (newActivities.length > 0) {
-          const newMetrics = newActivities
-            .filter((a) => a.start_date_local && a.moving_time)
-            .map(toActivityMetrics);
+          const newMetrics = newActivities.filter(hasMetricsRow).map(toActivityMetrics);
           if (newMetrics.length > 0) {
             nativeModule.engine.setActivityMetrics(newMetrics);
             engine.triggerRefresh('activities');
           }
         }
 
+        // Offline only the fetching half has nothing to do. The seeding, the
+        // drain and a dirty detection are local compute over stored tracks.
+        const plan = routeSyncPlan({ online, isDemo, newGpsCount: withGps.length });
+
         // Batch-fetch FIT files for WeightTraining activities not yet processed.
         // The empty list asks the engine for its own queue: the sport is a
         // column there, so filtering a whole-library parsed array here for
         // `WeightTraining` only sent the engine ids it can select itself.
         if (
-          !isDemoModeRef.current &&
+          plan.fetchStrength &&
           typeof nativeModule.engine.getUnprocessedStrengthIds === 'function'
         ) {
           const unprocessed = nativeModule.engine.getUnprocessedStrengthIds([]);
@@ -206,7 +191,7 @@ export function useRouteDataSync(
           }
         }
 
-        if (withGps.length === 0) {
+        if (plan.recoverDetection) {
           // Drain any completed-but-uncollected detection results. If a prior
           // detection finished after the TS poll loop timed out, the result
           // sits in the global handle and blocks all future start() calls.
@@ -274,7 +259,7 @@ export function useRouteDataSync(
           // Backfill: time streams for activities with NULL lap_time (upgrade
           // path). Rust fetches and persists them behind the shared governor
           // and announces each one, so this only reports progress.
-          if (isMountedRef.current && !isDemo && !abortController.signal.aborted) {
+          if (plan.backfillStreams && isMountedRef.current && !abortController.signal.aborted) {
             try {
               const { total, remaining } = await backfillTimeStreams((completed, streams) => {
                 if (!isMountedRef.current) return;
@@ -306,7 +291,9 @@ export function useRouteDataSync(
               completed: engineActivityIds.size,
               total: engineActivityIds.size,
               percent: 100,
-              message: i18n.t('cache.allActivitiesSynced'),
+              message: online
+                ? i18n.t('cache.allActivitiesSynced')
+                : i18n.t('cache.offlineUsingCached'),
             });
           }
           markSyncComplete(abortController);

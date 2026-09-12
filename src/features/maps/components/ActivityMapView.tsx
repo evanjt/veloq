@@ -8,7 +8,7 @@ import { View, Modal, StatusBar, Animated, ActivityIndicator } from 'react-nativ
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { getActivityColor } from '@/features/activity/lib/activityUtils';
-import { decodePolyline, LatLng } from '@/shared/geo/polyline';
+import { LatLng } from '@/shared/geo/polyline';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { colors, spacing } from '@/theme';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
@@ -87,7 +87,6 @@ export interface SectionCreationResult {
 }
 
 interface ActivityMapViewProps {
-  polyline?: string;
   coordinates?: LatLng[];
   activityType: ActivityType;
   /** Activity ID - used to resolve per-activity map style overrides */
@@ -153,7 +152,6 @@ interface ActivityMapViewProps {
 }
 
 export const ActivityMapView = memo(function ActivityMapView({
-  polyline: encodedPolyline,
   coordinates: providedCoordinates,
   activityType,
   activityId,
@@ -210,11 +208,8 @@ export const ActivityMapView = memo(function ActivityMapView({
     if (providedCoordinates && providedCoordinates.length > 0) {
       return providedCoordinates;
     }
-    if (encodedPolyline) {
-      return decodePolyline(encodedPolyline);
-    }
     return [];
-  }, [encodedPolyline, providedCoordinates]);
+  }, [providedCoordinates]);
 
   // Filter valid coordinates for bounds and route display
   const validCoordinates = useMemo(() => {

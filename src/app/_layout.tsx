@@ -496,6 +496,7 @@ export default function RootLayout() {
     if (!appReady) return;
     const {
       getNotificationPreferences,
+      resolvePendingUnregisterAthleteId,
       retryPendingUnregister,
     } = require('@/features/settings/stores/NotificationPreferencesStore');
     const { useAuthStore: authStore } = require('@/shared/app/AuthStore');
@@ -506,8 +507,11 @@ export default function RootLayout() {
         ensurePushTokenRegistered,
       } = require('@/features/settings/lib/pushTokenRegistration');
       ensurePushTokenRegistered(athleteId);
-    } else if (!prefs.enabled && prefs.pendingUnregister && athleteId) {
-      retryPendingUnregister(athleteId);
+    } else {
+      // The id comes from the request, not the session: a sign-out between the
+      // two deletes the credential and the retry never fires again.
+      const pendingFor = resolvePendingUnregisterAthleteId();
+      if (pendingFor) retryPendingUnregister(pendingFor);
     }
   }, [appReady]);
 

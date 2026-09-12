@@ -1,8 +1,17 @@
 /**
- * Unified settings read/write that prefers SQLite (via Rust FFI) with
- * AsyncStorage fallback. During the transition period, writes go to both.
+ * Unified settings read/write that prefers SQLite (via Rust FFI), with
+ * AsyncStorage behind it. Writes go to both.
  *
- * After a full release cycle, the AsyncStorage fallback can be removed.
+ * **The AsyncStorage half is load-bearing, not transitional.** The store
+ * initialisers run before `initWithPath`, so every read and write at cold
+ * start happens with no engine: `getSetting` falls through to AsyncStorage and
+ * `commitPending` drops the SQLite half at its `if (!engine) return`. Removing
+ * the fallback empties every preference on every launch, online or off, with
+ * nothing failing loudly to say so. `settingsColdStartFallback.test.ts` is
+ * what holds it in place.
+ *
+ * Making SQLite the real source would mean moving the initialisers after
+ * engine init, a change to the launch order and not one to make here.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';

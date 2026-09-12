@@ -10,6 +10,7 @@ import {
   markRecordingRejected,
   markRecordingPermissionBlocked,
   holdRecordingForAuth,
+  holdRecordingForNetwork,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { recordProvisionalUpload } from '@/features/recording/lib/storage/provisionalActivity';
 import { classifyUploadError } from './classifyUploadError';
@@ -123,8 +124,11 @@ export async function uploadRecording(
       return { outcome: 'authExpired', errorDetail: err.apiDetail ?? err.errMsg };
     }
 
+    // A transport failure never reached intervals.icu, so it is not an attempt
+    // the ride spent. Counting it parked a ride after five cold launches out of
+    // signal, which broke the promise that it uploads on its own.
     if (err.type === 'network') {
-      await markRecordingUploadFailed(entry.id, err.errMsg);
+      await holdRecordingForNetwork(entry.id, err.errMsg);
       return { outcome: 'network', errorDetail: err.errMsg };
     }
 

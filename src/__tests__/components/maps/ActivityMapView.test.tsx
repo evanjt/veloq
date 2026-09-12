@@ -46,7 +46,6 @@ const COORDINATES: LatLng[] = [
 
 // A real encoded track through Bern, so the polyline path is exercised for
 // real rather than through a hand-built coordinate array.
-const ENCODED_POLYLINE = 'oewzHkvhc@_@_@_@_@_@_@';
 
 function renderActivityMap(props: Partial<React.ComponentProps<typeof ActivityMapView>> = {}) {
   return render(
@@ -62,12 +61,6 @@ describe('ActivityMapView', () => {
 
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
     expect(screen.getByTestId('activity-map-style-toggle')).toBeTruthy();
-  });
-
-  it('mounts a map from an encoded polyline', () => {
-    renderActivityMap({ coordinates: undefined, polyline: ENCODED_POLYLINE });
-
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
 
   it('hides the control stack when the caller turns it off', () => {
@@ -158,14 +151,8 @@ describe('ActivityMapView', () => {
       expect(screen.queryByTestId('maplibre-map')).toBeNull();
     });
 
-    it('tolerates a malformed polyline', () => {
-      expect(() =>
-        renderActivityMap({ coordinates: undefined, polyline: 'not-a-polyline!!!' })
-      ).not.toThrow();
-    });
-
-    it('tolerates an empty polyline string', () => {
-      renderActivityMap({ coordinates: undefined, polyline: '' });
+    it('falls back to a placeholder with no coordinates at all', () => {
+      renderActivityMap({ coordinates: undefined });
 
       expect(screen.queryByTestId('maplibre-map')).toBeNull();
     });

@@ -283,6 +283,19 @@ export async function markRecordingUploadFailed(id: string, error: string): Prom
   log.log(`Upload failed for ${id} (retry ${retryCount}/${MAX_AUTO_RETRIES}): ${error}`);
 }
 
+/**
+ * The transport failed before intervals.icu was reached.
+ *
+ * The ride keeps its attempt count: a request that never arrived says nothing
+ * about the ride, and a device out of signal for a week would otherwise spend
+ * all five attempts on cold launches and park a ride the server never saw. The
+ * attempt is stamped, so the ordinary backoff still applies.
+ */
+export async function holdRecordingForNetwork(id: string, error: string): Promise<void> {
+  library().holdRecordingForNetwork(id, error, Date.now());
+  log.log(`Upload held for the network: ${id} (${error})`);
+}
+
 /** A server-side rejection that automatic retries cannot fix. */
 export async function markRecordingRejected(id: string, error: string): Promise<void> {
   library().markRecordingRejected(id, error, Date.now());

@@ -4,7 +4,7 @@ import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CurveChart, useChartColors } from '@/shared/charts';
-import { colors, typography, spacing, chartStyles, layout } from '@/theme';
+import { colors, typography, spacing, chartStyles, layout, colorWithOpacity } from '@/theme';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman } from '@/shared/format/format';
 
@@ -19,7 +19,7 @@ interface PowerCurveChartProps {
   ftp?: number | null;
 }
 
-const FTP_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
+const FTP_LINE_COLOR = colorWithOpacity(colors.chartGuideLine, 0.6);
 const X_LABELS = ['5s', '1m', '5m', '20m', '1h'];
 
 interface ChartPoint {

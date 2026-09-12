@@ -13,6 +13,7 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Network from 'expo-network';
 import Constants from 'expo-constants';
 import { getEngine } from '@/shared/native/engine';
 import { debug } from '@/shared/debug/debug';
@@ -198,13 +199,22 @@ async function runBackupOnce(force: boolean): Promise<boolean> {
     return false;
   }
 
-  try {
-    const cacheDir = FileSystem.cacheDirectory;
-    if (!cacheDir) throw new Error('Device cache directory not available');
+  // A snapshot is a full copy of the database, so it is not taken for an
+  // upload that cannot start. Only the radio is checked: a reachable server
+  // that refuses has to fail, so that recordBackupFailure tells the user.
+  if (backend.isRemote && !(await isRadioUp())) {
+    log.log('Radio is down, skipping auto-backup to a remote backend');
+    return false;
+  }
 
-    const timestamp = new Date().toISOString();
-    const tempFilename = `veloq-autobackup-${Date.now()}.veloqdb`;
-    const tempPath = `${cacheDir}${tempFilename}`;
+  const cacheDir = FileSystem.cacheDirectory;
+  if (!cacheDir) throw new Error('Device cache directory not available');
+
+  const timestamp = new Date().toISOString();
+  const tempFilename = `veloq-autobackup-${Date.now()}.veloqdb`;
+  const tempPath = `${cacheDir}${tempFilename}`;
+
+  try {
     const plainPath = tempPath.startsWith('file://') ? tempPath.slice(7) : tempPath;
 
     // Atomic SQLite snapshot, copied on a Rust thread
@@ -230,9 +240,6 @@ async function runBackupOnce(force: boolean): Promise<boolean> {
     // Upload to backend
     await backend.upload(tempPath, entry);
 
-    // Clean up temp file
-    await FileSystem.deleteAsync(tempPath, { idempotent: true });
-
     // Update last backup timestamp
     engine.setSetting(SETTING_LAST_BACKUP, String(Date.now()));
     clearBackupFailure();
@@ -251,6 +258,26 @@ async function runBackupOnce(force: boolean): Promise<boolean> {
     recordBackupFailure(error);
     // Rethrow the original so the caller keeps the failure kind
     throw error instanceof Error ? error : new Error(msg);
+  } finally {
+    // The name carries a timestamp, so a snapshot left behind is never reused
+    // and nothing sweeps the cache directory. Deleting it here covers the
+    // failure path as well as the success one.
+    await FileSystem.deleteAsync(tempPath, { idempotent: true }).catch((error: unknown) => {
+      log.warn('Could not delete the backup snapshot:', String(error));
+    });
+  }
+}
+
+/**
+ * Whether the device has a radio at all. A read that throws counts as up, so
+ * a permission problem or an unimplemented platform never costs a backup.
+ */
+async function isRadioUp(): Promise<boolean> {
+  try {
+    const state = await Network.getNetworkStateAsync();
+    return state.isConnected !== false && state.isInternetReachable !== false;
+  } catch {
+    return true;
   }
 }
 

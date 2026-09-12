@@ -12,7 +12,7 @@
  * answers for one activity in one row.
  */
 
-import type { StartOutcome } from 'veloqrs';
+import { hasStarted, isRetryableStart, type StartOutcome } from 'veloqrs';
 
 /** Max time to wait for the engine to store the body. */
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -76,6 +76,12 @@ export function awaitActivityBody(
 
     timer = setTimeout(() => finish(null), timeoutMs);
 
-    engine.syncActivityDetail(activityId);
+    // A refusal that asking again cannot change is the answer. There is no
+    // credential, or there is nothing to fetch, so the fifteen seconds buy
+    // nothing and the headless task spends them before it can write anything
+    // at all. A retryable refusal is different: the work may still land from
+    // whatever holds the slot, so that one waits.
+    const outcome = engine.syncActivityDetail(activityId);
+    if (!hasStarted(outcome) && !isRetryableStart(outcome)) finish(null);
   });
 }

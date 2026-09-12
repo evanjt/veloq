@@ -233,7 +233,9 @@ export function computeInsightsFromData(
     };
 
     // Compute CTL/ATL/TSB from wellness
-    const sortedWellness = (wellnessData ?? []).sort((a, b) => a.id.localeCompare(b.id));
+    // Copy first: this array is the TanStack cache's own, and sorting it in
+    // place reorders it for every other consumer of the wellness query.
+    const sortedWellness = [...(wellnessData ?? [])].sort((a, b) => a.id.localeCompare(b.id));
     const latestWellness =
       sortedWellness.length > 0 ? sortedWellness[sortedWellness.length - 1] : null;
     const ctl = latestWellness?.ctl ?? latestWellness?.ctlLoad ?? 0;

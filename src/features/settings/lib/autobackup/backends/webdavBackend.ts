@@ -134,6 +134,7 @@ export async function testWebdavConnection(): Promise<string | null> {
 export const webdavBackend: BackupBackend = {
   id: 'webdav',
   name: 'WebDAV',
+  isRemote: true,
 
   async isAvailable(): Promise<boolean> {
     return webdavConfigProblem() === null;

@@ -7,7 +7,18 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { CHART_CONFIG } from '@/constants';
-import { chartStyles, colors, typography, spacing, layout, verdictColor } from '@/theme';
+import {
+  chartStyles,
+  colors,
+  typography,
+  spacing,
+  layout,
+  verdictColor,
+  colorWithOpacity,
+  ink,
+  brand,
+  darkColors,
+} from '@/theme';
 import {
   localDayEnd,
   localDayStart,
@@ -145,7 +156,9 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
 
   // Color constants
   const colorCurrent = colors.primary;
-  const colorPrevious = isDark ? 'rgba(100, 149, 237, 0.8)' : 'rgba(70, 130, 220, 0.7)';
+  const colorPrevious = isDark
+    ? colorWithOpacity(darkColors.chartPreviousSeason, 0.8)
+    : colorWithOpacity(colors.chartPreviousSeason, 0.7);
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -209,11 +222,11 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
       if (isCurrentMonth || isSelected) {
         const hlColor = isSelected
           ? isDark
-            ? 'rgba(255, 255, 255, 0.15)'
-            : 'rgba(0, 0, 0, 0.08)'
+            ? colorWithOpacity(ink.white, 0.15)
+            : colorWithOpacity(ink.black, 0.08)
           : isDark
-            ? 'rgba(255, 255, 255, 0.08)'
-            : 'rgba(20, 184, 166, 0.08)'; // brand.tealLight @ 8%
+            ? colorWithOpacity(ink.white, 0.08)
+            : colorWithOpacity(brand.tealLight, 0.08);
         highlightPaint.setColor(Skia.Color(hlColor));
         canvas.drawRRect(
           Skia.RRectXY(
@@ -515,11 +528,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderRadius: layout.borderRadiusSm,
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    backgroundColor: colorWithOpacity(ink.black, 0.02),
     minHeight: 44,
   },
   summaryActive: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: colorWithOpacity(ink.black, 0.05),
   },
   summaryItem: {
     alignItems: 'center',

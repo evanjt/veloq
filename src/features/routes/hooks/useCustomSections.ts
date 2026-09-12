@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
@@ -83,6 +84,7 @@ function toAppSections(sections: NativeSection[]): Section[] {
 export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCustomSectionsResult {
   const { sportType, enabled = true, preComputedSections } = options;
   const queryClient = useQueryClient();
+  const { t, i18n } = useTranslation();
 
   // A caller that already read the sections owns the answer. Seeding the query
   // was not enough: a cache another screen primed wins over `initialData`, so
@@ -157,10 +159,17 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         throw new Error('Route engine not initialized');
       }
 
-      // Generate date-stamped default name if none provided
+      // Generate date-stamped default name if none provided. The date is the
+      // athlete's locale, not en-US, and so is the wording around it.
       const name =
         params.name ??
-        `${params.sportType} Section (${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`;
+        t('routes.sectionDefaultName', {
+          sport: params.sportType,
+          date: new Date().toLocaleDateString(i18n.language, {
+            month: 'short',
+            day: 'numeric',
+          }),
+        });
 
       // Create section via unified FFI
       const sectionId = engine.createSectionFromIndices(
@@ -225,7 +234,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       await invalidate();
       return result;
     },
-    [invalidate]
+    [invalidate, t, i18n.language]
   );
 
   // Delete a section

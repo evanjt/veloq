@@ -532,6 +532,9 @@ RustBuffer uniffi_veloqrs_fn_method_recordingmanager_get_recording(
 void uniffi_veloqrs_fn_method_recordingmanager_hold_for_auth(
     /*handle*/ uint64_t ptr, RustBuffer id, RustBuffer error,
     RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_recordingmanager_hold_for_network(
+    /*handle*/ uint64_t ptr, RustBuffer id, RustBuffer error, int64_t now_ms,
+    RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_method_recordingmanager_hold_other_athletes(
     /*handle*/ uint64_t ptr, RustBuffer athlete_id,
     RustCallStatus *uniffi_out_err);
@@ -1297,6 +1300,7 @@ uint16_t
 uniffi_veloqrs_checksum_method_recordingmanager_demote_pending_to_local_only();
 uint16_t uniffi_veloqrs_checksum_method_recordingmanager_get_recording();
 uint16_t uniffi_veloqrs_checksum_method_recordingmanager_hold_for_auth();
+uint16_t uniffi_veloqrs_checksum_method_recordingmanager_hold_for_network();
 uint16_t uniffi_veloqrs_checksum_method_recordingmanager_hold_other_athletes();
 uint16_t uniffi_veloqrs_checksum_method_recordingmanager_list_recordings();
 uint16_t
@@ -6638,6 +6642,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_recordingmanager_hold_for_auth(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_recordingmanager_hold_for_network"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "recordingmanager_hold_for_network"),
+          4,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_recordingmanager_hold_for_network(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_recordingmanager_hold_other_athletes"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -11272,6 +11288,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_recordingmanager_hold_for_auth(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_recordingmanager_hold_for_"
+        "network"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "recordingmanager_hold_for_network"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_recordingmanager_hold_for_network(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_recordingmanager_hold_other_"
         "athletes"] = jsi::Function::createFromHostFunction(
       rt,
@@ -16201,6 +16229,23 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_recordingmanager_hold_for_auth(
 
   return jsi::Value::undefined();
 }
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_recordingmanager_hold_for_network(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_recordingmanager_hold_for_network(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[3]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
 jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_fn_method_recordingmanager_hold_other_athletes(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -20846,6 +20891,15 @@ jsi::Value NativeVeloqrs::
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
   auto value = uniffi_veloqrs_checksum_method_recordingmanager_hold_for_auth();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_recordingmanager_hold_for_network(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_recordingmanager_hold_for_network();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

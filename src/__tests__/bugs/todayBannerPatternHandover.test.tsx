@@ -21,6 +21,29 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
+// The banner's sentence is a key with three interpolations. Resolving it
+// against the real en-AU bundle keeps the assertion on what the athlete reads
+// rather than on the key name.
+jest.mock('react-i18next', () => {
+  const bundle = require('@/i18n/locales/en-AU.json');
+  return {
+    useTranslation: () => ({
+      i18n: { language: 'en-AU' },
+      t: (key: string, values?: Record<string, string | number>) => {
+        const text = key
+          .split('.')
+          .reduce<unknown>(
+            (acc, part) =>
+              acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[part] : undefined,
+            bundle
+          );
+        if (typeof text !== 'string') return key;
+        return text.replace(/\{\{(\w+)\}\}/g, (_m, name) => String(values?.[name] ?? ''));
+      },
+    }),
+  };
+});
+
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
 }));
@@ -98,7 +121,7 @@ describe('TodayBanner', () => {
     );
 
     expect(engineCall).not.toHaveBeenCalled();
-    expect(getByText(/Wednesdays you usually run/)).toBeTruthy();
+    expect(getByText(/On Wednesday you usually run/)).toBeTruthy();
   });
 
   it('makes no engine call when it is handed no pattern', () => {

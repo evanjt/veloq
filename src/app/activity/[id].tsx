@@ -12,7 +12,12 @@ import {
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useActivity, useActivityStreams, useActivityIntervals } from '@/features/activity/hooks';
+import {
+  useActivity,
+  useActivityStreams,
+  useActivityIntervals,
+  useDetailCoordinates,
+} from '@/features/activity/hooks';
 import { groupSectionEncounters } from '@/features/activity';
 import { useSectionOverlays } from '@/features/activity/hooks/useSectionOverlays';
 import { useActivityDetailData } from '@/features/activity/hooks/useActivityDetailData';
@@ -38,7 +43,7 @@ import type {
   SectionCreationError,
 } from '@/features/maps/components/ActivityMapView';
 import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
-import { convertLatLngTuples, decodePolyline } from '@/shared/geo/polyline';
+import { convertLatLngTuples } from '@/shared/geo/polyline';
 import type { Section as NativeSection } from 'veloqrs';
 import { useExerciseSets, ExerciseTable, MuscleGroupView } from '@/features/strength';
 import { useAthlete } from '@/shared/app/useAthlete';
@@ -160,16 +165,10 @@ export default function ActivityDetailScreen() {
     return convertLatLngTuples(representativeStreams.latlng);
   }, [activeTab, representativeStreams]);
 
-  // Get coordinates from streams or polyline
-  const coordinates = useMemo(() => {
-    if (streams?.latlng) {
-      return convertLatLngTuples(streams.latlng);
-    }
-    if (activity?.polyline) {
-      return decodePolyline(activity.polyline);
-    }
-    return [];
-  }, [streams, activity]);
+  // Stream, then the stored track. The track is what makes
+  // an offline ride draw: it is written for every ingested activity and this
+  // screen was the one surface not reading it.
+  const coordinates = useDetailCoordinates(id || '', streams?.latlng);
 
   const hasGpsData = coordinates.length > 0;
   const isRouteMatchingOn = useRouteSettings((s) => s.settings.enabled);
