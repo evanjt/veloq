@@ -121,6 +121,11 @@ static TABLES: &[Table] = &[
         "the server's series, quantised; a fetch refills it",
     ),
     t(
+        "activity_stream_backfill",
+        Derived,
+        "how many times the backfill asked upstream and got nothing storable",
+    ),
+    t(
         "athlete_profile",
         Mirror,
         "the athlete record intervals.icu holds",

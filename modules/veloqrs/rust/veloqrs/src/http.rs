@@ -18,7 +18,7 @@ use crate::net::types::{StreamDto, parse_streams};
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
 
 /// Helper to calculate elapsed milliseconds from an Instant
@@ -27,38 +27,94 @@ fn elapsed_ms(start: Instant) -> u64 {
     start.elapsed().as_millis() as u64
 }
 
-/// Global progress state for FFI polling.
-/// Uses atomics to allow safe concurrent access from fetch tasks and FFI polls.
-pub struct DownloadProgress {
-    completed: AtomicU32,
-    total: AtomicU32,
-    active: AtomicBool,
-    cancelled: AtomicBool,
+/// One fetch-and-store run's share of the download slot.
+struct QueuedRun {
+    run: u64,
+    total: u32,
+    completed: u32,
+    cancelled: bool,
 }
 
-impl DownloadProgress {
-    const fn new() -> Self {
-        Self {
-            completed: AtomicU32::new(0),
-            total: AtomicU32::new(0),
-            active: AtomicBool::new(false),
-            cancelled: AtomicBool::new(false),
-        }
+/// The runs that have been started, oldest first. The head holds the slot.
+///
+/// Three callers start a fetch-and-store: the foreground GPS sync, the headless
+/// push task and the map's own download. There was one set of counters and one
+/// cancel flag, so a second start reset both under the run in flight. The first
+/// caller's poll then settled on the second run's guard drop, read no result of
+/// its own and reported a download that was still running as a failure, and a
+/// cancel aimed at either run stopped both.
+///
+/// A run joins the queue on the thread that starts it, before the id is handed
+/// back, so the slot reads busy from the moment the caller has something to
+/// poll. Its own thread waits for the head before fetching anything.
+struct DownloadQueue {
+    runs: std::collections::VecDeque<QueuedRun>,
+}
+
+static DOWNLOAD_QUEUE: std::sync::Mutex<DownloadQueue> = std::sync::Mutex::new(DownloadQueue {
+    runs: std::collections::VecDeque::new(),
+});
+static DOWNLOAD_SLOT_FREED: std::sync::Condvar = std::sync::Condvar::new();
+
+fn queue() -> std::sync::MutexGuard<'static, DownloadQueue> {
+    DOWNLOAD_QUEUE.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+impl DownloadQueue {
+    fn holder(&self) -> Option<&QueuedRun> {
+        self.runs.front()
+    }
+
+    fn holder_mut(&mut self) -> Option<&mut QueuedRun> {
+        self.runs.front_mut()
     }
 }
 
-/// Global progress instance - single writer (fetch loop), multiple readers (FFI polls)
-static DOWNLOAD_PROGRESS: DownloadProgress = DownloadProgress::new();
-
-/// Reset progress counters at start of fetch operation.
+/// Join the download queue and answer the place taken.
 ///
-/// Clears the cancel with them: the flag belongs to one run, and a cancel that
-/// outlived its run would stop every download after it.
-pub fn reset_download_progress(total: u32) {
-    DOWNLOAD_PROGRESS.total.store(total, Ordering::Relaxed);
-    DOWNLOAD_PROGRESS.completed.store(0, Ordering::Relaxed);
-    DOWNLOAD_PROGRESS.cancelled.store(false, Ordering::Relaxed);
-    DOWNLOAD_PROGRESS.active.store(true, Ordering::Relaxed);
+/// Called on the thread that starts the run, not the one that fetches, so a
+/// caller that has been given a run id is already visible to the poll.
+pub fn enqueue_download(run: u64, total: u32) {
+    queue().runs.push_back(QueuedRun {
+        run,
+        total,
+        completed: 0,
+        cancelled: false,
+    });
+}
+
+/// Wait for this run to reach the head of the queue, and hold it there.
+///
+/// The guard leaves the queue however the fetch thread ends. The crate unwinds
+/// rather than aborts and the panic hook logs and returns, so a panic in the
+/// fetch thread kills that thread alone: without the guard the slot stayed held
+/// for the life of the process, the only consumer polls it every 100 ms and
+/// breaks on nothing else, and the app spun at 10 Hz behind a sync banner that
+/// never cleared.
+pub fn hold_download_slot(run: u64) -> DownloadSlotGuard {
+    let mut guard = queue();
+    while guard.holder().map(|h| h.run) != Some(run) {
+        guard = DOWNLOAD_SLOT_FREED
+            .wait(guard)
+            .unwrap_or_else(|e| e.into_inner());
+    }
+    DownloadSlotGuard { run }
+}
+
+pub struct DownloadSlotGuard {
+    run: u64,
+}
+
+impl Drop for DownloadSlotGuard {
+    fn drop(&mut self) {
+        leave_download_queue(self.run);
+    }
+}
+
+/// Drop a run from the queue whether it ever held the slot or not.
+pub fn leave_download_queue(run: u64) {
+    queue().runs.retain(|r| r.run != run);
+    DOWNLOAD_SLOT_FREED.notify_all();
 }
 
 /// Ask the running download to stop. Returns whether there was one.
@@ -66,52 +122,54 @@ pub fn reset_download_progress(total: u32) {
 /// Cooperative: the fetch-and-store loop checks between activities, so the
 /// activity in flight finishes and lands. Stopping mid-activity would leave a
 /// track half written, and the loop is the only place the library is whole.
+/// Scoped to the run holding the slot, so a cancel cannot reach the one queued
+/// behind it or the one that starts next.
 pub fn cancel_download() -> bool {
-    if !DOWNLOAD_PROGRESS.active.load(Ordering::SeqCst) {
-        return false;
+    let mut guard = queue();
+    match guard.holder_mut() {
+        Some(holder) => {
+            holder.cancelled = true;
+            true
+        }
+        None => false,
     }
-    DOWNLOAD_PROGRESS.cancelled.store(true, Ordering::SeqCst);
-    true
 }
 
-/// Whether the running download has been asked to stop.
-pub fn download_cancelled() -> bool {
-    DOWNLOAD_PROGRESS.cancelled.load(Ordering::SeqCst)
+/// Whether this run has been asked to stop.
+pub fn download_cancelled(run: u64) -> bool {
+    queue().runs.iter().any(|r| r.run == run && r.cancelled)
 }
 
-/// Increment completed counter after each activity fetches
+/// Count one activity against the run holding the slot.
 pub fn increment_download_progress() {
-    DOWNLOAD_PROGRESS.completed.fetch_add(1, Ordering::Relaxed);
-}
-
-/// Mark download as complete
-pub fn finish_download_progress() {
-    DOWNLOAD_PROGRESS.active.store(false, Ordering::Relaxed);
-}
-
-/// Clears the download flag when the fetch thread unwinds.
-///
-/// The crate unwinds rather than aborts, and the panic hook logs and returns,
-/// so a panic in the body of the spawned thread kills that thread alone and
-/// used to skip the `finish_download_progress()` at its tail. The flag then
-/// stayed true for the life of the process, and the only consumer polls it
-/// every 100 ms and breaks on nothing else, so the app span at 10 Hz behind a
-/// sync banner that never cleared. Same shape as `objects::sync::FinishGuard`.
-pub struct DownloadFinishGuard;
-
-impl Drop for DownloadFinishGuard {
-    fn drop(&mut self) {
-        finish_download_progress();
+    if let Some(holder) = queue().holder_mut() {
+        holder.completed += 1;
     }
 }
 
-/// Get current progress state (called by FFI)
+/// Current progress for the FFI poll: the holder's counters, and whether any
+/// run is still queued.
+///
+/// A caller waiting its turn reads the holder's counters rather than its own.
+/// That keeps the poll's stall deadline honest, which is on movement and not on
+/// wall clock, and the bar it feeds is scaled against the caller's own id count
+/// anyway.
 pub fn get_download_progress() -> (u32, u32, bool) {
-    (
-        DOWNLOAD_PROGRESS.completed.load(Ordering::Relaxed),
-        DOWNLOAD_PROGRESS.total.load(Ordering::Relaxed),
-        DOWNLOAD_PROGRESS.active.load(Ordering::Relaxed),
-    )
+    let guard = queue();
+    match guard.holder() {
+        Some(holder) => (holder.completed, holder.total, true),
+        None => (0, 0, false),
+    }
+}
+
+/// Progress for one run alone. Inactive once that run has left the queue,
+/// whatever else is downloading.
+pub fn run_download_progress(run: u64) -> (u32, u32, bool) {
+    let guard = queue();
+    match guard.runs.iter().find(|r| r.run == run) {
+        Some(entry) => (entry.completed, entry.total, true),
+        None => (0, 0, false),
+    }
 }
 
 // Dispatch pace is the governor's job now (≤8 req/s across the whole process),
@@ -231,8 +289,8 @@ impl ActivityFetcher {
         let total = activity_ids.len() as u32;
         let wide_ids = Arc::new(wide_ids);
         let wide_bytes = Arc::new(AtomicU32::new(0));
-        // NOTE: Caller is responsible for calling reset_download_progress() before this
-        // and finish_download_progress() after this completes.
+        // The caller holds the download slot around this, so the increments
+        // below land against its own run.
         let completed = Arc::new(AtomicU32::new(0));
         let total_bytes = Arc::new(AtomicU32::new(0));
 
@@ -349,8 +407,6 @@ impl ActivityFetcher {
             wide_bytes.load(Ordering::Relaxed) / 1024,
             total_kb
         );
-
-        // NOTE: Caller is responsible for calling finish_download_progress()
 
         results
     }
@@ -485,11 +541,11 @@ mod tests {
     #[test]
     fn a_panicking_fetch_thread_still_clears_the_download_flag() {
         let _serial = crate::test_globals::serial_global_state();
-        reset_download_progress(3);
+        enqueue_download(1, 3);
         assert!(get_download_progress().2, "a started download reads active");
 
         let unwound = std::thread::spawn(|| {
-            let _guard = DownloadFinishGuard;
+            let _slot = hold_download_slot(1);
             panic!("the fetch thread unwound");
         })
         .join();
@@ -504,14 +560,61 @@ mod tests {
     #[test]
     fn the_guard_clears_the_flag_on_a_clean_return_too() {
         let _serial = crate::test_globals::serial_global_state();
-        reset_download_progress(1);
+        enqueue_download(1, 1);
         {
-            let _guard = DownloadFinishGuard;
+            let _slot = hold_download_slot(1);
             increment_download_progress();
         }
-        let (completed, total, active) = get_download_progress();
+        let (_, _, active) = get_download_progress();
         assert!(!active, "a finished download reads inactive");
-        assert_eq!((completed, total), (1, 1), "the counters still stand");
+    }
+
+    /// Scenario: three callers start a fetch-and-store, and a map tap landing
+    /// during the background push task's download is ordinary.
+    ///
+    /// Expected behaviour: the counters belong to the run holding the slot. A
+    /// second start joins the queue behind it instead of resetting them, so the
+    /// first caller's poll still reads its own run.
+    #[test]
+    fn a_second_run_queues_rather_than_resetting_the_one_in_flight() {
+        let _serial = crate::test_globals::serial_global_state();
+        enqueue_download(1, 4);
+        let first = hold_download_slot(1);
+        increment_download_progress();
+
+        enqueue_download(2, 9);
+        assert_eq!(
+            get_download_progress(),
+            (1, 4, true),
+            "the run in flight keeps its counters"
+        );
+        assert_eq!(
+            run_download_progress(2),
+            (0, 9, true),
+            "and the one queued behind it is waiting, not running"
+        );
+
+        drop(first);
+        let _second = hold_download_slot(2);
+        assert_eq!(
+            get_download_progress(),
+            (0, 9, true),
+            "the queued run takes the slot with its own count"
+        );
+    }
+
+    /// A poll for a run that has left the queue reads inactive whatever else is
+    /// downloading, which is what stops one caller settling on another's end.
+    #[test]
+    fn a_finished_run_reads_inactive_while_the_next_one_downloads() {
+        let _serial = crate::test_globals::serial_global_state();
+        enqueue_download(1, 2);
+        enqueue_download(2, 5);
+        drop(hold_download_slot(1));
+        let _second = hold_download_slot(2);
+
+        assert!(!run_download_progress(1).2, "run 1 is over");
+        assert!(run_download_progress(2).2, "run 2 is not");
     }
 
     /// A fetcher pointed at a mock server rather than the live base URL.
@@ -980,15 +1083,23 @@ mod tests {
     /// which is why it is cleared by the reset every run already calls.
     #[test]
     fn a_run_can_be_cancelled_and_the_next_one_starts_clean() {
-        reset_download_progress(4);
-        assert!(!download_cancelled(), "a fresh run is not cancelled");
+        let _serial = crate::test_globals::serial_global_state();
+        enqueue_download(1, 4);
+        let first = hold_download_slot(1);
+        assert!(!download_cancelled(1), "a fresh run is not cancelled");
 
+        enqueue_download(2, 2);
         assert!(cancel_download(), "a run was active to cancel");
-        assert!(download_cancelled(), "and it is flagged");
-
-        reset_download_progress(2);
+        assert!(download_cancelled(1), "and it is flagged");
         assert!(
-            !download_cancelled(),
+            !download_cancelled(2),
+            "the cancel stops the run it was aimed at, not the one queued behind it"
+        );
+
+        drop(first);
+        let _second = hold_download_slot(2);
+        assert!(
+            !download_cancelled(2),
             "the next run starts clean, or one cancel stops every download after it"
         );
     }
@@ -997,12 +1108,13 @@ mod tests {
     /// flag that the next run would read.
     #[test]
     fn cancelling_an_idle_download_flags_nothing() {
-        reset_download_progress(1);
-        finish_download_progress();
+        let _serial = crate::test_globals::serial_global_state();
+        enqueue_download(1, 1);
+        drop(hold_download_slot(1));
 
         assert!(!cancel_download(), "there was no run to cancel");
         assert!(
-            !download_cancelled(),
+            !download_cancelled(1),
             "so nothing is flagged for the next one"
         );
     }

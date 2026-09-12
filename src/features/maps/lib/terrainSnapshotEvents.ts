@@ -87,6 +87,9 @@ export function onClearTileCache(cb: TileCacheClearListener): () => void {
 }
 
 export function emitClearTileCache(): void {
+  // The remembered figure is about to be wrong by the whole cache, and the
+  // pages that can re-measure it may not be mounted.
+  resetTileCacheStats();
   for (const cb of tileCacheClearListeners) cb();
 }
 
@@ -138,13 +141,39 @@ export function requestTileCacheStats(): void {
 type TileCacheStatsListener = (stats: TileCacheStats) => void;
 const tileCacheStatsListeners = new Set<TileCacheStatsListener>();
 
+/**
+ * The last figure a map page reported, kept so a screen with no map on it can
+ * still show one.
+ *
+ * Only a mounted map page can read the Cache API buckets, and the cache screen
+ * is a root-stack route over the tabs, so nothing is mounted to answer its
+ * request and it showed "at least 0 B" whatever was on disk. The request still
+ * goes out, so a map that is up refreshes this; the memory is what covers the
+ * screens where none is.
+ */
+let lastStats: TileCacheStats | null = null;
+
+/** What was last reported, or null if no map has answered this session. */
+export function lastTileCacheStats(): TileCacheStats | null {
+  return lastStats;
+}
+
+/** Forget it, which is what clearing the cache means for the figure. */
+export function resetTileCacheStats(): void {
+  lastStats = null;
+}
+
 export function onTileCacheStats(cb: TileCacheStatsListener): () => void {
   tileCacheStatsListeners.add(cb);
+  // A subscriber that arrives after the report would otherwise wait for a map
+  // it has no way of mounting.
+  if (lastStats) cb(lastStats);
   return () => {
     tileCacheStatsListeners.delete(cb);
   };
 }
 
 export function emitTileCacheStats(stats: TileCacheStats): void {
+  lastStats = stats;
   for (const cb of tileCacheStatsListeners) cb(stats);
 }

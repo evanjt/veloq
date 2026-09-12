@@ -47,3 +47,4 @@ export {
   SPORT_COLORS,
   type PrimarySport,
 } from './stores';
+export { lastSevenDaysWindow } from './lib/weekWindow';

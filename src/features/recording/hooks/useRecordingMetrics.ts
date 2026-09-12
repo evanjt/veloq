@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { elevationGain as sumElevationGain } from '@/shared/math/kinematics';
 
 // MET values for calorie estimation
 const MET_VALUES: Record<string, number> = {
@@ -48,6 +47,7 @@ export function useRecordingMetrics(): {
   lapTime: number;
 } {
   const streams = useRecordingStore((s) => s.streams);
+  const totals = useRecordingStore((s) => s.totals);
   const laps = useRecordingStore((s) => s.laps);
   const activityType = useRecordingStore((s) => s.activityType);
   const startTime = useRecordingStore((s) => s.startTime);
@@ -95,9 +95,9 @@ export function useRecordingMetrics(): {
     const pace = speed > 0 ? 1000 / speed : 0;
     const avgPace = avgSpeed > 0 ? 1000 / avgSpeed : 0;
 
-    // Sum positive deltas; dropouts are skipped, not read as 0 (live altitude
-    // is a real reading, so 0 stays 0 - only missing samples are ignored).
-    const elevationGain = sumElevationGain(streams.altitude);
+    // Accumulated per appended sample by the store. Rescanning the whole
+    // altitude array here made the work over a ride quadratic.
+    const elevationGain = totals.elevationGain;
 
     // Calories estimation. With a heart-rate sensor, use the HR-based energy
     // expenditure regression (Keytel et al., Journal of Sports Sciences, 2005;
@@ -105,10 +105,9 @@ export function useRecordingMetrics(): {
     // HR, fall back to duration_hours * weight_kg * MET.
     const weightKg = athleteWeight ?? DEFAULT_WEIGHT_KG;
     const durationHours = elapsedSeconds / 3600;
-    const hrValues = streams.heartrate.filter((v) => v > 0);
     let calories: number;
-    if (hrValues.length >= 30) {
-      const avgHr = hrValues.reduce((sum, v) => sum + v, 0) / hrValues.length;
+    if (totals.heartrateCount >= 30) {
+      const avgHr = totals.heartrateSum / totals.heartrateCount;
       const kcalPerMin = (-55.0969 + 0.6309 * avgHr + 0.1988 * weightKg + 0.2017 * 35) / 4.184;
       calories = Math.round(Math.max(0, kcalPerMin) * (elapsedSeconds / 60));
     } else {
@@ -142,5 +141,5 @@ export function useRecordingMetrics(): {
       lapDistance,
       lapTime,
     };
-  }, [streams, laps, activityType, startTime, pausedDuration, athleteWeight]);
+  }, [streams, totals, laps, activityType, startTime, pausedDuration, athleteWeight]);
 }

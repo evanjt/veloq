@@ -114,7 +114,12 @@ describe('FFI Binding Validation', () => {
       // is standalone for the same reason: it is written during init, before
       // there is a handle to hang it on, and it says the library that handle
       // opens is not the one the athlete had.
-      expect(STANDALONE_EXPORTS.length).toBe(22);
+      //
+      // The four stream-backfill calls sit here for the same reason the
+      // elevation ones do, and beside them: the pass is a detached thread
+      // holding a process-global slot, and its start, stop and progress are
+      // all reads of that slot rather than of a handle.
+      expect(STANDALONE_EXPORTS.length).toBe(26);
     });
 
     it('should include the known standalone FFI functions', () => {
@@ -144,6 +149,13 @@ describe('FFI Binding Validation', () => {
       expect(names.has('is_elevation_backfill_paused')).toBe(true);
       expect(names.has('get_elevation_backfill_progress')).toBe(true);
       expect(names.has('get_elevation_backfill_remaining')).toBe(true);
+      expect(names.has('start_stream_backfill')).toBe(true);
+      // Tens of megabytes on the athlete's own connection, so unlike the
+      // elevation pass nothing starts this at launch and the stop is the
+      // control that matters.
+      expect(names.has('stop_stream_backfill')).toBe(true);
+      expect(names.has('get_stream_backfill_progress')).toBe(true);
+      expect(names.has('get_stream_backfill_remaining')).toBe(true);
       expect(names.has('is_cutover_pending')).toBe(true);
       expect(names.has('is_cutover_running')).toBe(true);
       expect(names.has('start_detector_cutover')).toBe(true);

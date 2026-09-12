@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { debug } from '@/shared/debug/debug';
 import {
@@ -17,6 +17,7 @@ import { extractPushPayload } from './lib/pushPayload';
 import { replaceActivityTrayEntry, trayActionFor } from './lib/traySweep';
 import { appendTaskRun } from './lib/taskRunLog';
 import { awaitActivityBody } from './lib/awaitActivityBody';
+import { writeRouteLineAttachment } from './lib/routeLineImage';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
 import type { WellnessInput } from './lib/computeInsightsData';
 import {
@@ -145,6 +146,25 @@ async function indexActivity(
       activityId,
       detail: `failed: ${e instanceof Error ? e.message : String(e)}`,
     });
+  }
+}
+
+/**
+ * Draw the route line the enriched notification carries beside its text.
+ * iOS only: a locally scheduled notification on Android resolves its image to
+ * the static large icon, so there is nothing for the file to attach to.
+ * Returns null whenever the picture cannot be made, which never blocks the
+ * notification itself.
+ */
+async function drawRouteLine(activityId: string): Promise<string | null> {
+  if (Platform.OS !== 'ios') return null;
+  try {
+    const { engine } = require('veloqrs');
+    const points = engine.getGpsTrack(activityId);
+    return await writeRouteLineAttachment(activityId, points ?? null);
+  } catch (e) {
+    log.warn('Route picture could not be drawn:', e);
+    return null;
   }
 }
 
@@ -404,7 +424,12 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       // activity and a tray entry is noise, which is the common case when
       // tapping the visible push cold-starts the app and the silent push fires
       // the task a second later. The old entries still come down.
-      const action = trayActionFor(body, AppState.currentState === 'active');
+      const action = trayActionFor(
+        body,
+        AppState.currentState === 'active',
+        activityInfo?.ingested ?? false
+      );
+      const attachmentUri = action === 'post' ? await drawRouteLine(activityId) : null;
       const posted =
         action === 'leave'
           ? false
@@ -420,10 +445,13 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
                 action === 'dismiss-only'
                   ? null
                   : () =>
-                      presentActivityNotification(activityId, title, body, {
-                        route: `/activity/${activityId}`,
+                      presentActivityNotification(
                         activityId,
-                      }),
+                        title,
+                        body,
+                        { route: `/activity/${activityId}`, activityId },
+                        attachmentUri
+                      ),
             });
 
       if (posted) {

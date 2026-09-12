@@ -24,14 +24,12 @@ import { colors, darkColors, spacing, typography, layout } from '@/theme';
 
 const ICONS: Record<BackgroundJobId, React.ComponentProps<typeof MaterialCommunityIcons>['name']> =
   {
-    sync: 'sync',
     detection: 'map-marker-path',
     elevationBackfill: 'terrain',
     cutover: 'autorenew',
   };
 
 const TITLE_KEYS = {
-  sync: 'backgroundJobs.sync',
   detection: 'backgroundJobs.detection',
   elevationBackfill: 'backgroundJobs.elevationBackfill',
   cutover: 'backgroundJobs.cutover',
@@ -44,10 +42,9 @@ const TITLE_KEYS = {
  * it has yet to fetch, detection counts activities it has never looked at, and
  * the rebuild is one unit of work that fetches nothing at all. One shared line
  * said "still to fetch" for all three, so a resting rebuild read "1 still to
- * fetch". Sync counts nothing yet and never reaches here.
+ * fetch".
  */
 const WAITING_KEYS = {
-  sync: 'backgroundJobs.remaining',
   detection: 'backgroundJobs.detectionWaiting',
   elevationBackfill: 'backgroundJobs.remaining',
   cutover: 'backgroundJobs.cutoverWaiting',

@@ -1,5 +1,6 @@
 import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo } from 'react';
+import { readActivityBody } from '@/features/activity/lib/engineActivityBody';
 import {
   DETAIL_STREAM_TYPES,
   readStreams,
@@ -251,23 +252,6 @@ export function useActivity(id: string) {
     gcTime: CACHE.SHORT,
     enabled: !!id,
   });
-}
-
-/** The stored body for one activity, from the window that contains its day. */
-function readActivityBody(id: string): Activity | null {
-  const engine = getEngine();
-  if (!engine?.getActivityBodies || !id) return null;
-  // The store is keyed by id but queried by window, so scan the widest range
-  // the app ever shows. The table holds one row per activity, not per day.
-  for (const body of engine.getActivityBodies(0, Math.floor(Date.now() / 1000) + 86400)) {
-    try {
-      const parsed = JSON.parse(body) as Activity;
-      if (parsed.id === id) return parsed;
-    } catch {
-      // Skip a corrupt row rather than failing the lookup.
-    }
-  }
-  return null;
 }
 
 export function useActivityStreams(id: string) {

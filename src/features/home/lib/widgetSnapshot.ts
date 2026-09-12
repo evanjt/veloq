@@ -25,7 +25,7 @@ import {
   formatRelativeDate,
   formatSwimPace,
 } from '@/shared/format';
-import { getEngine } from '@/shared/native/engine';
+import { getEngine, isEngineReady } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getRecentRecordingTypes } from '@/shared/recording';
 import type { WidgetSnapshotData } from 'veloqrs';
@@ -660,6 +660,11 @@ function relativeDateLabel(unixSeconds: number): string {
 /**
  * Read the engine and build the snapshot. Returns null when the engine isn't ready
  * (e.g. very early startup) so callers can no-op.
+ *
+ * The handle exists from the first require and readiness is a separate flag, so
+ * a null check on the handle answers "did the native module load" and never
+ * "is the database open". Composing from a closed engine writes zero fitness,
+ * zero form and no rides, which blanks the widget rather than leaving it stale.
  */
 export function gatherWidgetSnapshot(opts: {
   locale: string;
@@ -668,7 +673,7 @@ export function gatherWidgetSnapshot(opts: {
   translate?: (key: string) => string;
 }): WidgetSnapshot | null {
   const engine = getEngine();
-  if (!engine) return null;
+  if (!engine || !isEngineReady()) return null;
 
   const now = opts.now ?? new Date();
   const nowSeconds = Math.floor(now.getTime() / 1000);
@@ -684,8 +689,12 @@ export function gatherWidgetSnapshot(opts: {
       SPARKLINE_DAYS
     );
   } catch {
-    data = undefined;
+    // `with_engine` answers NotInitialized when the database is not open, and
+    // that is "unknown", not "the athlete has no data". Anything else that
+    // throws is unknown too.
+    return null;
   }
+  if (!data) return null;
 
   let summaryPrefs: SummaryCardPreferences | null = null;
   try {
@@ -694,15 +703,15 @@ export function gatherWidgetSnapshot(opts: {
     summaryPrefs = null;
   }
 
-  const latest = data?.latest
+  const latest = data.latest
     ? ({ ...data.latest, isPr: data.latestIsPr } as RawLatestActivity)
     : null;
 
   return composeSnapshot({
-    sparklines: (data?.sparklines as RawSparklines | undefined) ?? null,
-    summary: (data?.summary as RawSummary | undefined) ?? null,
+    sparklines: (data.sparklines as RawSparklines | undefined) ?? null,
+    summary: (data.summary as RawSummary | undefined) ?? null,
     latest,
-    latestGps: latest ? ((data?.latestGps as RawGpsPoint[]) ?? null) : null,
+    latestGps: latest ? ((data.latestGps as RawGpsPoint[]) ?? null) : null,
     summaryPrefs,
     locale: opts.locale,
     isMetric: opts.isMetric,

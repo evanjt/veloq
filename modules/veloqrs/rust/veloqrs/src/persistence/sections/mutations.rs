@@ -9,7 +9,7 @@ use crate::persistence::PersistentEngine;
 use crate::sections::assign_carried_exclusions;
 use crate::sections::{BatchAttachSummary, CreateSectionParams, IndexActivitySummary, SectionType};
 use rusqlite::{OptionalExtension, params};
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracematch::matching::calculate_route_distance;
 use tracematch::{GpsPoint, SectionPortion};
@@ -991,11 +991,20 @@ impl PersistentEngine {
             return Ok(0);
         }
 
-        let activity_ids = if self.section_config.pool_sports {
+        let mut activity_ids = if self.section_config.pool_sports {
             self.get_activity_ids()
         } else {
             self.get_activity_ids_by_sport(sport_type)
         };
+
+        // Anything whose bounds cannot reach the line produces no portion, so
+        // it is dropped before it costs a read. On a library spread across a
+        // country that is nearly all of it.
+        let near: HashSet<String> = self
+            .activities_near_polyline(polyline, self.section_config.proximity_threshold)
+            .into_iter()
+            .collect();
+        activity_ids.retain(|id| near.contains(id));
 
         if activity_ids.is_empty() {
             return Ok(0);
@@ -1008,25 +1017,21 @@ impl PersistentEngine {
             sport_type
         );
 
-        let mut track_map: HashMap<String, Vec<GpsPoint>> = HashMap::new();
-        for aid in &activity_ids {
-            if let Some(track) = self.get_gps_track(aid) {
-                track_map.insert(aid.to_string(), track);
-            }
-        }
-
         let mut match_count: u32 = 0;
 
-        // Compute full portion details for each matching activity (all laps)
+        // One track at a time. Holding every candidate's points at once is a
+        // whole second copy of the library in memory for no gain: each is read
+        // once and used once.
         for aid in &activity_ids {
-            if let Some(track) = track_map.get(aid) {
-                let portions = compute_section_portions(aid, track, polyline, &self.section_config);
-                if !portions.is_empty() {
-                    for portion in &portions {
-                        self.add_section_activity_with_portion(section_id, portion)?;
-                    }
-                    match_count += 1;
+            let Some(track) = self.get_gps_track(aid) else {
+                continue;
+            };
+            let portions = compute_section_portions(aid, &track, polyline, &self.section_config);
+            if !portions.is_empty() {
+                for portion in &portions {
+                    self.add_section_activity_with_portion(section_id, portion)?;
                 }
+                match_count += 1;
             }
         }
 

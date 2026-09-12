@@ -14,9 +14,15 @@ use rusqlite::{Result as SqlResult, params};
 use super::{PersistentEngine, codec};
 use crate::net::types::StreamDto;
 
-/// Days of stream history kept when the athlete has never chosen. Ninety, and
-/// the athlete can widen it without a ceiling.
-pub const DEFAULT_STREAM_RETENTION_DAYS: i64 = 90;
+/// What is kept when the athlete has never chosen: everything.
+///
+/// This was ninety days, set against the size of the raw JSON. The codec packs
+/// it about ten times smaller: a 1,595-activity library measures 17.0 MB for
+/// everything against 1.2 MB for ninety days, so the window was discarding the
+/// cadence, heart rate and power of every older activity to save about 16 MB.
+/// Those are the samples route matching compares attempts with, so the default
+/// keeps them and the athlete narrows it if they want the space.
+pub const DEFAULT_STREAM_RETENTION_DAYS: Option<i64> = None;
 
 /// The athlete's retention window, in days. Zero means keep everything, which
 /// is what "no hard ceiling" comes to when the window is opened all the way.
@@ -42,11 +48,21 @@ pub fn pack_activity_streams(raw: &[StreamDto]) -> Vec<(&str, Vec<u8>, usize)> {
         .collect()
 }
 
+/// One activity the stream backfill owes an ask, with the track length the
+/// answer has to match.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StreamGap {
+    pub activity_id: String,
+    /// Samples the stored track holds. A response that covers a different
+    /// number is a re-processed activity, not this one's series.
+    pub point_count: usize,
+}
+
 impl PersistentEngine {
     /// The retention window in days, or `None` for keep everything. An unset,
-    /// unparseable or negative value reads as the default rather than as
-    /// unlimited: a corrupt setting must not silently turn the store into an
-    /// unbounded one.
+    /// unparseable or negative value reads as the default, which keeps
+    /// everything: a setting nobody can read must not silently start deleting
+    /// an athlete's history.
     pub fn stream_retention_days(&self) -> Option<i64> {
         let raw = self
             .get_setting(STREAM_RETENTION_DAYS_KEY)
@@ -56,7 +72,7 @@ impl PersistentEngine {
         match raw {
             Some(0) => None,
             Some(d) if d > 0 => Some(d),
-            _ => Some(DEFAULT_STREAM_RETENTION_DAYS),
+            _ => DEFAULT_STREAM_RETENTION_DAYS,
         }
     }
 
@@ -201,6 +217,68 @@ impl PersistentEngine {
         Ok(removed)
     }
 
+    /// One activity the stream backfill still has to ask about: what the sync
+    /// would have widened for today and has no stored series for.
+    ///
+    /// Derived on every call rather than held anywhere, so an interrupted pass
+    /// resumes with no bookkeeping and an activity the athlete's detail screen
+    /// stocked in the meantime leaves the queue on its own.
+    ///
+    /// The window is applied here in SQL rather than through
+    /// [`Self::inside_stream_window`] per row, so narrowing the window narrows
+    /// the queue in the same breath. An undated activity is in the queue only
+    /// when the window is unbounded, which is the same rule the sync widens by.
+    ///
+    /// `point_count` rides along because the fetch has to check the series it
+    /// gets back still covers the track it will be addressed against. Newest
+    /// first, so an athlete watching the progress sees the activities they
+    /// care about most fill in first.
+    pub fn activities_missing_streams(&self, attempt_limit: u32) -> SqlResult<Vec<StreamGap>> {
+        let window = self.stream_retention_days();
+        let mut stmt = self.db.prepare(
+            "SELECT a.id, g.point_count
+               FROM activities a
+               JOIN gps_tracks g ON g.activity_id = a.id
+               LEFT JOIN activity_stream_backfill b ON b.activity_id = a.id
+              WHERE NOT EXISTS (
+                        SELECT 1 FROM activity_streams s WHERE s.activity_id = a.id)
+                AND COALESCE(b.attempts, 0) < ?1
+                AND (?2 IS NULL
+                     OR (a.start_date IS NOT NULL
+                         AND a.start_date >= strftime('%s', 'now') - ?2 * 86400))
+              ORDER BY a.start_date IS NULL, a.start_date DESC, a.id",
+        )?;
+        let rows = stmt.query_map(params![attempt_limit, window], |row| {
+            Ok(StreamGap {
+                activity_id: row.get(0)?,
+                point_count: row.get::<_, i64>(1)? as usize,
+            })
+        })?;
+        rows.collect()
+    }
+
+    /// How many activities the stream backfill still has to ask about.
+    pub fn stream_backfill_remaining(&self, attempt_limit: u32) -> SqlResult<usize> {
+        Ok(self.activities_missing_streams(attempt_limit)?.len())
+    }
+
+    /// Count one ask that settled nothing against an activity, so an activity
+    /// upstream carries no extra series for eventually leaves the queue.
+    ///
+    /// An ask that stored something never reaches here: the stored rows are
+    /// what take it out of the queue, and they say more than a count could.
+    pub fn record_stream_backfill_attempt(&self, activity_id: &str) -> SqlResult<()> {
+        self.db.execute(
+            "INSERT INTO activity_stream_backfill (activity_id, attempts, updated_at)
+             VALUES (?, 1, strftime('%s', 'now'))
+             ON CONFLICT(activity_id) DO UPDATE SET
+                attempts = attempts + 1,
+                updated_at = excluded.updated_at",
+            params![activity_id],
+        )?;
+        Ok(())
+    }
+
     /// Bytes the stream store holds, for the settings readout.
     pub fn stream_store_bytes(&self) -> SqlResult<i64> {
         self.db.query_row(
@@ -221,6 +299,171 @@ mod tests {
         let path = dir.path().join("routes.db");
         let engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
         (dir, engine)
+    }
+
+    // Scenario: the window was set against the raw JSON size and the codec packs
+    // it about ten times smaller, so ninety days was throwing away the per-sample
+    // series route matching is the reason for keeping.
+    //
+    // Expected behaviour: an athlete who has never chosen keeps everything, and
+    // one who has chosen keeps exactly what they chose.
+    #[test]
+    fn an_athlete_who_never_chose_keeps_every_series() {
+        let (_dir, engine) = engine();
+        activity_aged(&engine, "old", 4000);
+        engine
+            .store_activity_streams("old", &[series("watts", &[Some(1.0)])])
+            .unwrap();
+
+        assert!(
+            engine.inside_stream_window(Some(0)),
+            "a 1970 activity is inside an unbounded window"
+        );
+        assert_eq!(engine.prune_streams_outside_retention().unwrap(), 0);
+        assert_eq!(engine.stored_stream_kinds("old").unwrap(), vec!["watts"]);
+    }
+
+    /// Give an activity a stored track, which is what makes it a candidate:
+    /// the backfill only asks about activities the sync already ingested.
+    fn track(engine: &PersistentEngine, id: &str, points: usize) {
+        engine
+            .db
+            .execute(
+                "INSERT INTO gps_tracks (activity_id, track_data, point_count) VALUES (?, X'00', ?)",
+                params![id, points as i64],
+            )
+            .unwrap();
+    }
+
+    /// Scenario: the default retention window used to be ninety days, so every
+    /// activity older than that synced with only the three series the track
+    /// needs. Widening the default fixes the next sync and nothing about the
+    /// library already on the device.
+    ///
+    /// Expected behaviour: the backfill queue names exactly the activities with
+    /// no stored series, and nothing it already has them for.
+    #[test]
+    fn the_queue_names_only_activities_with_no_stored_series() {
+        let (_dir, engine) = engine();
+        activity_aged(&engine, "bare", 400);
+        track(&engine, "bare", 120);
+        activity_aged(&engine, "stocked", 300);
+        track(&engine, "stocked", 90);
+        engine
+            .store_activity_streams("stocked", &[series("watts", &[Some(1.0)])])
+            .unwrap();
+
+        let queue = engine.activities_missing_streams(3).unwrap();
+
+        assert_eq!(
+            queue,
+            vec![StreamGap {
+                activity_id: "bare".to_string(),
+                point_count: 120,
+            }]
+        );
+    }
+
+    /// The queue is derived, so a pass that stored half its batch and died
+    /// resumes on what is left rather than starting over.
+    #[test]
+    fn a_stored_activity_leaves_the_queue_without_any_bookkeeping() {
+        let (_dir, engine) = engine();
+        for id in ["a", "b"] {
+            activity_aged(&engine, id, 400);
+            track(&engine, id, 10);
+        }
+        assert_eq!(engine.stream_backfill_remaining(3).unwrap(), 2);
+
+        engine
+            .store_activity_streams("a", &[series("heartrate", &[Some(120.0)])])
+            .unwrap();
+
+        let queue = engine.activities_missing_streams(3).unwrap();
+        assert_eq!(
+            queue
+                .iter()
+                .map(|g| g.activity_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["b"],
+            "the stored activity is out of the queue, the other is still in it"
+        );
+    }
+
+    /// An athlete who narrowed the window is asking for less on disk, so the
+    /// backfill must not download what the prune would delete on arrival.
+    #[test]
+    fn a_narrow_window_backfills_nothing_outside_it() {
+        let (_dir, engine) = engine();
+        activity_aged(&engine, "recent", 10);
+        track(&engine, "recent", 10);
+        activity_aged(&engine, "ancient", 400);
+        track(&engine, "ancient", 10);
+        engine.set_stream_retention_days(90).unwrap();
+
+        let queue = engine.activities_missing_streams(3).unwrap();
+
+        assert_eq!(
+            queue
+                .iter()
+                .map(|g| g.activity_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["recent"]
+        );
+    }
+
+    /// An undated activity is widened by the sync only when the window is
+    /// unbounded. The queue applies the same rule, or the backfill would
+    /// download series the prune leaves alone but the sync never asked for.
+    #[test]
+    fn an_undated_activity_follows_the_same_rule_the_sync_widens_by() {
+        let (_dir, engine) = engine();
+        engine
+            .db
+            .execute(
+                "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+                 VALUES ('undated', 'Ride', 0, 0, 0, 0)",
+                [],
+            )
+            .unwrap();
+        track(&engine, "undated", 10);
+
+        assert_eq!(
+            engine.stream_backfill_remaining(3).unwrap(),
+            1,
+            "unbounded window: the sync widens for it, so the backfill asks"
+        );
+
+        engine.set_stream_retention_days(90).unwrap();
+
+        assert_eq!(
+            engine.stream_backfill_remaining(3).unwrap(),
+            0,
+            "a window the activity's date cannot be checked against excludes it"
+        );
+    }
+
+    /// Scenario: a ride recorded with no sensors carries no series beyond the
+    /// track, so every pass asks about it, stores nothing, and offers it again.
+    ///
+    /// Expected behaviour: the asks are counted and the activity retires, so a
+    /// library of such rides lets a pass end rather than never draining.
+    #[test]
+    fn an_activity_upstream_never_answers_for_retires_out_of_the_queue() {
+        let (_dir, engine) = engine();
+        activity_aged(&engine, "sensorless", 400);
+        track(&engine, "sensorless", 10);
+
+        for _ in 0..3 {
+            assert_eq!(engine.stream_backfill_remaining(3).unwrap(), 1);
+            engine.record_stream_backfill_attempt("sensorless").unwrap();
+        }
+
+        assert_eq!(
+            engine.stream_backfill_remaining(3).unwrap(),
+            0,
+            "three asks that settled nothing is upstream's position, not a bad afternoon"
+        );
     }
 
     fn series(kind: &str, data: &[Option<f64>]) -> StreamDto {
@@ -253,6 +496,7 @@ mod tests {
     #[test]
     fn the_window_decides_which_activities_the_sync_widens_for() {
         let (_dir, engine) = engine();
+        engine.set_stream_retention_days(90).unwrap();
         let now = chrono::Utc::now().timestamp();
 
         assert!(engine.inside_stream_window(Some(now - 10 * 86_400)));
@@ -275,8 +519,10 @@ mod tests {
     #[test]
     fn the_edge_of_the_window_is_inside_it() {
         let (_dir, engine) = engine();
+        // The default keeps everything, so this needs a window of its own.
+        engine.set_stream_retention_days(90).unwrap();
         let now = chrono::Utc::now().timestamp();
-        let edge = now - DEFAULT_STREAM_RETENTION_DAYS * 86_400;
+        let edge = now - 90 * 86_400;
 
         assert!(engine.inside_stream_window(Some(edge + 1)));
         assert!(!engine.inside_stream_window(Some(edge - 1)));
@@ -499,12 +745,13 @@ mod tests {
     }
 
     #[test]
-    fn the_default_window_is_ninety_days() {
+    fn the_default_window_keeps_everything() {
         let (_dir, engine) = engine();
         assert_eq!(
             engine.stream_retention_days(),
-            Some(DEFAULT_STREAM_RETENTION_DAYS)
+            DEFAULT_STREAM_RETENTION_DAYS
         );
+        assert_eq!(engine.stream_retention_days(), None);
     }
 
     #[test]
@@ -521,26 +768,22 @@ mod tests {
     }
 
     #[test]
-    fn a_corrupt_window_reads_as_the_default_rather_than_as_unlimited() {
+    fn a_window_nobody_can_read_falls_back_to_the_default() {
         let (_dir, engine) = engine();
-        engine
-            .set_setting(STREAM_RETENTION_DAYS_KEY, "not a number")
-            .unwrap();
-        assert_eq!(
-            engine.stream_retention_days(),
-            Some(DEFAULT_STREAM_RETENTION_DAYS)
-        );
-
-        engine.set_setting(STREAM_RETENTION_DAYS_KEY, "-5").unwrap();
-        assert_eq!(
-            engine.stream_retention_days(),
-            Some(DEFAULT_STREAM_RETENTION_DAYS)
-        );
+        for bad in ["", "  ", "not a number", "-5"] {
+            engine.set_setting(STREAM_RETENTION_DAYS_KEY, bad).unwrap();
+            assert_eq!(
+                engine.stream_retention_days(),
+                DEFAULT_STREAM_RETENTION_DAYS,
+                "a window of {bad:?} should read as the default"
+            );
+        }
     }
 
     #[test]
     fn the_window_evicts_oldest_first_and_keeps_the_newest() {
         let (_dir, engine) = engine();
+        engine.set_stream_retention_days(90).unwrap();
         activity_aged(&engine, "recent", 10);
         activity_aged(&engine, "edge", 80);
         activity_aged(&engine, "old", 200);
@@ -550,7 +793,7 @@ mod tests {
                 .unwrap();
         }
 
-        // The default window already dropped the 200-day activity on write.
+        // The 90-day window already dropped the 200-day activity on write.
         assert!(engine.stored_stream_kinds("old").unwrap().is_empty());
         assert!(!engine.stored_stream_kinds("edge").unwrap().is_empty());
         assert!(!engine.stored_stream_kinds("recent").unwrap().is_empty());
@@ -571,6 +814,7 @@ mod tests {
     #[test]
     fn opening_an_old_activity_does_not_stock_the_durable_store() {
         let (_dir, engine) = engine();
+        engine.set_stream_retention_days(90).unwrap();
         activity_aged(&engine, "old", 400);
         let body = r#"[{"type":"heartrate","data":[140.0,142.0]}]"#;
 

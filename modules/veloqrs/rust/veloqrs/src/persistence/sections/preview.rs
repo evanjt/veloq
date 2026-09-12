@@ -58,6 +58,57 @@ pub struct PreviewCentre {
     pub locality: Option<String>,
 }
 
+/// How far apart two ranked bins have to be to count as different places.
+///
+/// Measured rather than chosen: replaying the binning over two libraries, a
+/// home valley occupies 46 of the 5 km bins spread along 45 km of river, so
+/// inside it the gap to a higher-ranked bin runs 0.7 to 25 km, and the first
+/// bin that is somewhere else rather than a further zoom of the same valley is
+/// 70 km away. Fifty keeps the valley as one area and the next town as another.
+///
+/// It is a distance off the athlete's own data. No place is named in code.
+const CENTRE_SPREAD_RADIUS_M: f64 = 50_000.0;
+
+/// Thin the ranked areas so one place takes one slot, keeping visit total as
+/// the ranking.
+///
+/// Greedy: walk the list in rank order and take a bin unless a bin already
+/// taken is within [`CENTRE_SPREAD_RADIUS_M`] of it. The picker is a chooser
+/// for where to tune rather than a summary of where the athlete rides, so this
+/// is de-duplication and not a tour: it removes further zooms of a place
+/// already on the list and changes nothing else about the order.
+///
+/// **An athlete who only rides one valley still fills every slot.** When
+/// suppression cannot reach `limit`, the remaining slots come from the bins it
+/// suppressed, still in rank order, so that athlete gets their busiest
+/// sub-areas rather than one area and five empty rows. A second, smaller radius
+/// would do the same job and would be another constant to justify.
+fn spread_centres(centres: Vec<PreviewCentre>, limit: usize) -> Vec<PreviewCentre> {
+    if centres.len() <= limit {
+        return centres;
+    }
+    let mut taken: Vec<PreviewCentre> = Vec::with_capacity(limit);
+    let mut suppressed: Vec<PreviewCentre> = Vec::new();
+    for centre in centres {
+        let crowded = taken.iter().any(|t| {
+            crate::persistence::haversine_distance_meters(t.lat, t.lng, centre.lat, centre.lng)
+                < CENTRE_SPREAD_RADIUS_M
+        });
+        if crowded {
+            suppressed.push(centre);
+        } else if taken.len() < limit {
+            taken.push(centre);
+        }
+    }
+    for centre in suppressed {
+        if taken.len() >= limit {
+            break;
+        }
+        taken.push(centre);
+    }
+    taken
+}
+
 /// The (lat, lng) grid indices a bin key names, or None when it will not parse.
 fn bin_indices(bin_key: &str) -> Option<(i64, i64)> {
     let (lat, lng) = bin_key.split_once(':')?;
@@ -591,7 +642,9 @@ impl PersistentEngine {
                 .cmp(&a.visit_total)
                 .then_with(|| a.bin_key.cmp(&b.bin_key))
         });
-        centres.truncate(limit as usize);
+        // Between the sort and the cut, or a dense home region takes every slot
+        // in adjacent 5 km bins.
+        let mut centres = spread_centres(centres, limit as usize);
         self.name_centres(&mut centres);
         centres
     }
@@ -1003,6 +1056,117 @@ impl PersistentEngine {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    mod spreading_the_riding_areas {
+        use super::super::{PreviewCentre, spread_centres};
+
+        /// Scenario: the picker ranked six bins by visit total and a dense home
+        /// region holds forty-six of them, so five of the six slots were zooms
+        /// of one valley on a library with rides on three other continents.
+        ///
+        /// Expected behaviour: one area per place, ranked by visits as before,
+        /// and a library that only has one place still fills every slot with
+        /// that place's busiest sub-areas rather than going short.
+        fn centre(lat: f64, lng: f64, visits: u32) -> PreviewCentre {
+            PreviewCentre {
+                bin_key: format!("{lat}:{lng}"),
+                lat,
+                lng,
+                visit_total: visits,
+                section_count: 1,
+                source: "sections".to_string(),
+                locality: None,
+            }
+        }
+
+        fn visits(centres: &[PreviewCentre]) -> Vec<u32> {
+            centres.iter().map(|c| c.visit_total).collect()
+        }
+
+        /// 0.1 degrees of latitude is about 11 km, 0.45 about 50 km.
+        #[test]
+        fn neighbouring_bins_of_one_valley_collapse_to_its_busiest() {
+            let valley = vec![
+                centre(46.2, 7.3, 1759),
+                centre(46.25, 7.35, 161),
+                centre(46.3, 7.4, 61),
+            ];
+            let out = spread_centres(valley, 3);
+            assert_eq!(
+                visits(&out),
+                vec![1759, 161, 61],
+                "a short list must still fill"
+            );
+            // But the order is the fallback's, so the first is the only
+            // unsuppressed one.
+            assert_eq!(out[0].visit_total, 1759);
+        }
+
+        #[test]
+        fn a_library_on_three_continents_takes_one_area_each_before_a_second_of_the_first() {
+            let centres = vec![
+                centre(46.2, 7.3, 1759),
+                centre(46.25, 7.35, 161),
+                centre(-33.8, 151.2, 54),
+                centre(-37.8, 144.9, 38),
+            ];
+            assert_eq!(visits(&spread_centres(centres, 3)), vec![1759, 54, 38]);
+        }
+
+        #[test]
+        fn the_radius_is_fifty_kilometres() {
+            // 0.4 degrees of latitude is about 44 km, inside it.
+            let near = vec![centre(46.2, 7.3, 100), centre(46.6, 7.3, 90)];
+            assert_eq!(visits(&spread_centres(near, 2)), vec![100, 90]);
+            assert_eq!(
+                spread_centres(vec![centre(46.2, 7.3, 100), centre(46.6, 7.3, 90)], 1).len(),
+                1
+            );
+            // 0.7 degrees is about 78 km, outside it, so both are distinct
+            // places and the second slot is the far one rather than a refill.
+            let far = vec![
+                centre(46.2, 7.3, 100),
+                centre(46.25, 7.35, 95),
+                centre(46.9, 7.3, 10),
+            ];
+            assert_eq!(visits(&spread_centres(far, 2)), vec![100, 10]);
+        }
+
+        #[test]
+        fn a_one_valley_athlete_gets_the_busiest_sub_areas_rather_than_empty_slots() {
+            let valley: Vec<PreviewCentre> = (0..6)
+                .map(|i| centre(46.2 + f64::from(i) * 0.05, 7.3, 100 - i as u32))
+                .collect();
+            let out = spread_centres(valley, 6);
+            assert_eq!(out.len(), 6, "no slot may come back empty");
+            assert_eq!(visits(&out), vec![100, 99, 98, 97, 96, 95]);
+        }
+
+        #[test]
+        fn a_list_shorter_than_the_limit_is_returned_whole() {
+            let out = spread_centres(vec![centre(46.2, 7.3, 5)], 6);
+            assert_eq!(out.len(), 1);
+        }
+
+        /// The tiebreak on equal visit totals is what keeps the slots from
+        /// shuffling between reads, so suppression must not disturb it.
+        #[test]
+        fn equal_visit_totals_keep_their_order() {
+            let tied = vec![
+                centre(46.2, 7.3, 10),
+                centre(-33.8, 151.2, 10),
+                centre(-37.8, 144.9, 10),
+            ];
+            let first = spread_centres(tied.clone(), 3);
+            for _ in 0..5 {
+                let again = spread_centres(tied.clone(), 3);
+                assert_eq!(
+                    first.iter().map(|c| c.bin_key.clone()).collect::<Vec<_>>(),
+                    again.iter().map(|c| c.bin_key.clone()).collect::<Vec<_>>()
+                );
+            }
+        }
+    }
 
     fn bounds(min_lat: f64, max_lat: f64, min_lng: f64, max_lng: f64) -> tracematch::Bounds {
         tracematch::Bounds {

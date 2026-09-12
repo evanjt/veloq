@@ -5,6 +5,7 @@ import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { AthleteSummary } from '@/types';
+import { mondayAnchors, weekAnchorSeconds } from '@/features/fitness/lib/weekWindow';
 
 /**
  * Get ISO week number for a date
@@ -108,17 +109,11 @@ function readWeeklySummaries(currentMonday: Date, weeksBack: number): AthleteSum
   const engine = getEngine();
   if (!engine?.getWeeklySummaries) return [];
 
-  const mondays: Date[] = [];
-  for (let i = weeksBack; i >= 0; i--) {
-    const monday = new Date(currentMonday);
-    monday.setDate(monday.getDate() - i * 7);
-    mondays.push(monday);
-  }
+  const mondays = mondayAnchors(currentMonday, weeksBack);
 
-  const rows = engine.getWeeklySummaries(
-    mondays.map((d) => Math.floor(d.getTime() / 1000)),
-    WEEK_SECONDS
-  );
+  // Wall-clock stamps, not instants: `activity_metrics.date` is a zoneless
+  // local time, so a true instant here slides every week by the UTC offset.
+  const rows = engine.getWeeklySummaries(mondays.map(weekAnchorSeconds), WEEK_SECONDS);
 
   return rows
     .map((row, i) => toSummary(mondays[i], row))

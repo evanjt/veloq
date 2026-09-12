@@ -61,6 +61,19 @@ export interface RouteOutline {
 export const ROUTE_OUTLINE_MAX_POINTS = 150;
 
 /**
+ * A track as either form, so a caller holding pairs does not have to build a
+ * throwaway object per fix to be read at the stride. The recording store keeps
+ * `[lat, lng]` pairs and the card is refreshed every five seconds, so that
+ * projection was the whole ride copied to use 150 of it.
+ */
+export type LatLngPair = readonly [number, number];
+export type RouteTrack = readonly LatLng[] | readonly LatLngPair[];
+
+function asLatLng(p: LatLng | LatLngPair): LatLng {
+  return Array.isArray(p) ? { latitude: p[0], longitude: p[1] } : (p as LatLng);
+}
+
+/**
  * Project and normalise a GPS track into a 0..1 drawing box. Equirectangular
  * projection (x scaled by cos of the mid latitude) keeps the shape visually
  * faithful at route scale; y is flipped so it grows downward like screen pixels.
@@ -69,7 +82,7 @@ export const ROUTE_OUTLINE_MAX_POINTS = 150;
  * widget snapshot, and the Live Activity payload ActivityKit caps at 4 KB.
  */
 export function composeRouteOutline(
-  gps: LatLng[] | null | undefined,
+  gps: RouteTrack | null | undefined,
   maxPoints = ROUTE_OUTLINE_MAX_POINTS
 ): RouteOutline | null {
   if (!gps || gps.length < 2) return null;
@@ -77,13 +90,14 @@ export function composeRouteOutline(
   const stride = Math.max(1, Math.ceil(gps.length / maxPoints));
   const sampled: LatLng[] = [];
   for (let i = 0; i < gps.length; i += stride) {
-    const p = gps[i];
+    const p = asLatLng(gps[i]);
     if (Number.isFinite(p.latitude) && Number.isFinite(p.longitude)) sampled.push(p);
   }
-  const last = gps[gps.length - 1];
+  const lastIndex = gps.length - 1;
+  const last = asLatLng(gps[lastIndex]);
   if (
     sampled.length > 0 &&
-    sampled[sampled.length - 1] !== last &&
+    lastIndex % stride !== 0 &&
     Number.isFinite(last.latitude) &&
     Number.isFinite(last.longitude)
   ) {

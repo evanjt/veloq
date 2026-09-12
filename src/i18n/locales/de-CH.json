@@ -114,6 +114,14 @@
     "exercisesSummary": "{{exercises}} Übige · {{sets}} Sätz",
     "tapMuscle": "Tipp für Details"
   },
+  "activitySummary": {
+    "distance": "Distanz",
+    "elevation": "Höhi",
+    "fetching": "Aktivitäte am hole...",
+    "movingTime": "Beweigs-Ziit",
+    "openActivity": "Details luege",
+    "title": "Zämmefassig"
+  },
   "activityTypes": {
     "AlpineSki": "Ski Alpin",
     "BackcountrySki": "Skitoure",
@@ -365,6 +373,20 @@
       "forwardSchema": "Die Date sind vo n äre nöie Version vo Veloq gspeicheret. Aktualisier d App zum si öffne.",
       "storageUnavailable": "D Datebank het nöd chönne gschribe werde. Mach Platz frei und probier s nöd.",
       "failed": "D Route-Engine het gstoppt us eme Grund, wo d App nöd cha benenne."
+    },
+    "quarantine": {
+      "title": "Deine Aktivitätenbibliothek wurde neu aufgebaut",
+      "resyncing": "Deine Aktivitäten werden erneut geladen.",
+      "dismiss": "Verstanden",
+      "separator": ", ",
+      "kept": {
+        "lead": "Einige Daten waren nicht lesbar, daher wurde die Bibliothek neu aufgebaut. Behalten: {{kept}}.",
+        "sections": "{{count}} eigene Abschnitte",
+        "history": "{{count}} Abschnittsereignisse",
+        "geometry": "{{count}} Abschnittsformen",
+        "pins": "{{count}} angeheftete Formen",
+        "intents": "{{count}} entfernte Korridore"
+      }
     }
   },
   "errorState": {
@@ -805,7 +827,9 @@
       "title": "Benachrichtigunge",
       "enable": "Benachrichtigunge aktiviere",
       "requiresOAuth": "Zum Benachrichtigunge aktiviere, trenn di und verbind di nomol mit em OAuth-Login statt emene persönliche API-Schlüssel.",
-      "privacyHint": "Spicheret en Push-Token und Athleten-ID uf üsem Server (30-Täg-Ablauf). Lueg veloq.fit/privacy"
+      "privacyHint": "Spicheret en Push-Token und Athleten-ID uf üsem Server (30-Täg-Ablauf). Lueg veloq.fit/privacy",
+      "sectionPr": "Bestleistungen",
+      "fitnessMilestone": "Fitness-Meilensteine"
     },
     "prompt": {
       "title": "Bliib uf em Laufende",
@@ -826,12 +850,7 @@
       "sectionPrMany": "PR auf {{name}} und {{count}} weiteren",
       "fasterOnRoute": "Schneller als üblich auf {{name}}",
       "fasterOnRouteDelta": "Schneller als üblich auf {{name}} ({{delta}} hinter PR)",
-      "onRoute": "Auf {{name}}",
-      "sectionTraversedOne": "1 Abschnitt absolviert",
-      "sectionTraversedMany": "{{count}} Abschnitte absolviert",
-      "distanceAndTime": "{{km}} km in {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "Auf {{name}}"
     }
   },
   "recording": {
@@ -1238,6 +1257,12 @@
     "streamHistoryDays": "{{count}} Tage",
     "streamHistoryAll": "Alle",
     "streamHistoryReset": "Zurücksetzen",
+    "streamBackfill": "Fehlende Serien",
+    "streamBackfillOwed_one": "{{count}} Aktivität",
+    "streamBackfillOwed_other": "{{count}} Aktivitäten",
+    "streamBackfillProgress": "{{completed}} von {{total}}",
+    "streamBackfillDownload": "Laden",
+    "streamBackfillStop": "Stopp",
     "tileCacheLimit": "Chartechachle-Limit",
     "tileCacheLimitHint": "Erhöhen Sie ihn für besseres Offline- und lokales Browsen",
     "tileCacheUsedOfBudget": "{{used}} von {{budget}} belegt",
@@ -1667,7 +1692,6 @@
     "title": "Hintergrundufgabe",
     "intro": "Langi Ufgabe, wo d App vo sich us macht. Si laufed wiiter, au wenn du de Bildschirm verlaasch.",
     "openLink": "Hintergrundufgabe",
-    "sync": "Aktivitäte synchronisiere",
     "detection": "Abschnitt erkenne",
     "elevationBackfill": "Höhedate lade",
     "cutover": "Abschnitt neu ufbaue",

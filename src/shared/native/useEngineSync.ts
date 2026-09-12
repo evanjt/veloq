@@ -39,6 +39,7 @@ export function useEngineSync(): void {
   const startedRef = useRef(false);
   const wasSyncingRef = useRef(false);
   const [retryNonce, setRetryNonce] = useState(0);
+  const retry = () => setRetryNonce((nonce) => nonce + 1);
 
   useEffect(() => {
     if (!isAuthenticated || isDemoMode || startedRef.current) return;
@@ -55,6 +56,19 @@ export function useEngineSync(): void {
   useEffect(() => {
     if (!isAuthenticated) startedRef.current = false;
   }, [isAuthenticated]);
+
+  // Re-arm when the library is wiped. "Clear & Sync" empties SQLite and
+  // announces `syncReset`, but the latch is still set from this same process,
+  // so nothing asked Rust to refill it and the library stayed empty until the
+  // next cold launch. The bump is what brings the start effect back, since
+  // clearing the ref alone changes nothing the effect depends on.
+  useEffect(() => {
+    const unsubscribe = getEngine()?.subscribe('syncReset', () => {
+      startedRef.current = false;
+      retry();
+    });
+    return () => unsubscribe?.();
+  }, [engineReadyNonce]);
 
   useEffect(() => {
     if (state === SyncState.Syncing) {
@@ -79,7 +93,6 @@ export function useEngineSync(): void {
     updateWidgetSnapshot();
   }, [state, status?.lastError]);
 
-  const retry = () => setRetryNonce((nonce) => nonce + 1);
   useReconnect(retry);
   useForeground(retry);
 }

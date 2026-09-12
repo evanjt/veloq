@@ -38,7 +38,6 @@
   "settings -> fitness": 2,
   "settings -> insights": 2,
   "stats -> fitness": 2,
-  "~app -> auth": 1,
   "activity -> settings": 1,
   "auth -> recording": 1,
   "home -> insights": 1,

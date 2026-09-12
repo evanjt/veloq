@@ -235,12 +235,14 @@ mod tests {
     }
 
     #[test]
-    fn stream_retention_defaults_to_ninety_days_and_zero_keeps_everything() {
+    fn stream_retention_defaults_to_keeping_everything_and_zero_says_so() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("settings.db");
         let settings = SettingsManager::new();
 
-        assert_eq!(settings.stream_retention_days().unwrap(), 90);
+        // The FFI carries "keep everything" as zero, which is also what the
+        // athlete sets to ask for it.
+        assert_eq!(settings.stream_retention_days().unwrap(), 0);
         assert_eq!(settings.stream_store_bytes().unwrap(), 0);
         settings.set_stream_retention_days(30).unwrap();
         assert_eq!(settings.stream_retention_days().unwrap(), 30);

@@ -67,14 +67,44 @@ const activity = {
   stream_types: ['latlng'],
 } as unknown as Activity;
 
-function renderCard() {
+function renderCard(index = 0) {
   const requestSnapshot = jest.fn();
   const snapshotRef = { current: { requestSnapshot, retryFailed: jest.fn() } };
   const tree = render(
-    <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
+    <ActivityMapPreview
+      activity={activity}
+      index={index}
+      snapshotRef={snapshotRef}
+      snapshotReady={true}
+    />
   );
   return { requestSnapshot, tree };
 }
+
+describe('a card too far from the viewport asks for nothing', () => {
+  const { setVisibleRange } = require('@/features/activity/lib/previewRange');
+
+  afterEach(() => {
+    setVisibleRange(null);
+    mockDowngraded = true;
+  });
+
+  it('asks when it is the card on screen', () => {
+    setVisibleRange({ first: 0, last: 2 });
+
+    const { requestSnapshot } = renderCard(1);
+
+    expect(requestSnapshot).toHaveBeenCalled();
+  });
+
+  it('says nothing three screens down, where the list still mounts it', () => {
+    setVisibleRange({ first: 0, last: 2 });
+
+    const { requestSnapshot } = renderCard(11);
+
+    expect(requestSnapshot).not.toHaveBeenCalled();
+  });
+});
 
 describe('a card holding a stand-in serves it and still asks for the real one', () => {
   afterEach(() => {

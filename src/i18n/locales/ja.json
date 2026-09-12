@@ -114,6 +114,14 @@
     "exercisesSummary": "{{exercises}}種目 · {{sets}}セット",
     "tapMuscle": "タップして詳細を表示"
   },
+  "activitySummary": {
+    "distance": "距離",
+    "elevation": "標高",
+    "fetching": "アクティビティを取得中...",
+    "movingTime": "移動時間",
+    "openActivity": "詳細を表示",
+    "title": "サマリー"
+  },
   "activityTypes": {
     "AlpineSki": "アルペンスキー",
     "BackcountrySki": "バックカントリースキー",
@@ -365,6 +373,20 @@
       "forwardSchema": "このデータは新しいバージョンの Veloq で保存されています。アプリを更新してください。",
       "storageUnavailable": "データベースを書き込めませんでした。空き容量を確保してからやり直してください。",
       "failed": "ルートエンジンが原因不明で停止しました。"
+    },
+    "quarantine": {
+      "title": "アクティビティライブラリを再構築しました",
+      "resyncing": "アクティビティを再度ダウンロードしています。",
+      "dismiss": "OK",
+      "separator": "、",
+      "kept": {
+        "lead": "一部のデータを読み取れなかったため、ライブラリを再構築しました。保持: {{kept}}。",
+        "sections": "あなたのセクション {{count}} 件",
+        "history": "セクション履歴 {{count}} 件",
+        "geometry": "セクション形状 {{count}} 件",
+        "pins": "固定した形状 {{count}} 件",
+        "intents": "削除した区間 {{count}} 件"
+      }
     }
   },
   "errorState": {
@@ -805,7 +827,9 @@
       "title": "通知",
       "enable": "通知を有効にする",
       "requiresOAuth": "通知を有効にするには、APIキーではなくOAuthログインで再接続してください。",
-      "privacyHint": "プッシュトークンとアスリートIDをサーバーに保存（30日で期限切れ）。veloq.fit/privacyを参照"
+      "privacyHint": "プッシュトークンとアスリートIDをサーバーに保存（30日で期限切れ）。veloq.fit/privacyを参照",
+      "sectionPr": "自己ベスト",
+      "fitnessMilestone": "フィットネスの節目"
     },
     "prompt": {
       "title": "最新情報を受け取る",
@@ -826,12 +850,7 @@
       "sectionPrMany": "{{name}}ほか{{count}}件でPR",
       "fasterOnRoute": "「{{name}}」でいつもより速い",
       "fasterOnRouteDelta": "「{{name}}」でいつもより速い(PRまで{{delta}})",
-      "onRoute": "「{{name}}」を走行",
-      "sectionTraversedOne": "1件のセクションを通過",
-      "sectionTraversedMany": "{{count}}件のセクションを通過",
-      "distanceAndTime": "{{km}} km・{{min}}分",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}}分"
+      "onRoute": "「{{name}}」を走行"
     }
   },
   "recording": {
@@ -1238,6 +1257,12 @@
     "streamHistoryDays": "{{count}}日",
     "streamHistoryAll": "すべて",
     "streamHistoryReset": "リセット",
+    "streamBackfill": "未取得のデータ系列",
+    "streamBackfillOwed_one": "{{count}} 件のアクティビティ",
+    "streamBackfillOwed_other": "{{count}} 件のアクティビティ",
+    "streamBackfillProgress": "{{total}} 件中 {{completed}} 件",
+    "streamBackfillDownload": "ダウンロード",
+    "streamBackfillStop": "停止",
     "tileCacheLimit": "マップタイルの上限",
     "tileCacheLimitHint": "上げるとオフラインと周辺の表示が快適になります",
     "tileCacheUsedOfBudget": "{{budget}} 中 {{used}} を使用",
@@ -1667,7 +1692,6 @@
     "title": "バックグラウンド処理",
     "intro": "アプリが自動で実行する長い処理です。この画面を離れても続きます。",
     "openLink": "バックグラウンド処理",
-    "sync": "アクティビティの同期",
     "detection": "セクション検出",
     "elevationBackfill": "標高データの取得",
     "cutover": "セクションの再構築",

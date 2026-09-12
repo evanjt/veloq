@@ -13,13 +13,24 @@ import {
 import { colors, darkColors, spacing, typography, layout, shadows, ink } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 
+/**
+ * The kinds of push the athlete can turn off one at a time. Both flags shipped
+ * in the store with no way to set them, so the ladder's rungs were gated by
+ * preferences nobody could reach.
+ */
+const CATEGORIES = [
+  { id: 'sectionPr', label: 'notifications.settings.sectionPr' },
+  { id: 'fitnessMilestone', label: 'notifications.settings.fitnessMilestone' },
+] as const;
+
 export function NotificationSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const authMethod = useAuthStore((s) => s.authMethod);
   const isOAuth = authMethod === 'oauth';
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
-  const { enabled, privacyAccepted, setEnabled, acceptPrivacy } = useNotificationPreferences();
+  const { enabled, privacyAccepted, categories, setEnabled, acceptPrivacy, setCategoryEnabled } =
+    useNotificationPreferences();
   const [toggling, setToggling] = useState(false);
   const [showPrivacyDialog, setShowPrivacyDialog] = useState(false);
 
@@ -96,6 +107,23 @@ export function NotificationSection() {
           />
         </View>
 
+        {CATEGORIES.map((category) => (
+          <View key={category.id} style={[styles.row, styles.categoryRow]}>
+            <Text style={[styles.rowLabel, isDark && settingsStyles.textLight]} numberOfLines={1}>
+              {t(category.label)}
+            </Text>
+            <Switch
+              value={categories[category.id]}
+              onValueChange={(next) => setCategoryEnabled(category.id, next)}
+              // A switch that can be moved while notifications are off promises
+              // a push that will not arrive.
+              disabled={!enabled || !canEnable || toggling}
+              color={colors.primary}
+              testID={`settings-notifications-${category.id}`}
+            />
+          </View>
+        ))}
+
         {!canEnable ? (
           <Text
             testID="settings-notifications-oauth-hint"
@@ -165,6 +193,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
+  },
+  categoryRow: {
+    // Indented under the switch that governs them.
+    paddingLeft: spacing.xl,
+    paddingVertical: spacing.xs,
   },
   rowLabel: {
     ...typography.body,

@@ -67,6 +67,11 @@ import type {
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import type { WebViewStyleOptions } from '@/features/maps/lib/htmlBuilders/styleResolution';
 import type { MapStyleType } from './mapStyles';
+import {
+  emitTileCacheStats,
+  onTileCacheStatsRequest,
+} from '@/features/maps/lib/terrainSnapshotEvents';
+import { tileCacheStatsScript } from '@/features/maps/lib/tileCacheBudget';
 
 const log = debug.create('MapSurface');
 
@@ -429,9 +434,28 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
           inject(buildHeatmapTileReplyScript(requestId, null));
         }
       },
+      tileCacheStats: (data) => {
+        emitTileCacheStats({
+          tileCount: (data.tileCount as number) ?? 0,
+          totalBytes: (data.totalBytes as number) ?? 0,
+          terrain: (data.terrain as { tileCount: number; totalBytes: number }) ?? undefined,
+          vector: (data.vector as { tileCount: number; totalBytes: number }) ?? undefined,
+          ground: (data.ground as { tileCount: number; totalBytes: number }) ?? undefined,
+        });
+      },
     }),
     [inject, reportFailure, resolvePending, serveHeatmapTiles]
   );
+
+  // Any interactive map that is up can read the buckets, and it is the only
+  // surface that can: the snapshot pool is torn down whenever the feed is not
+  // focused, so a request made from settings reached nothing at all.
+  useEffect(() => {
+    return onTileCacheStatsRequest(() => {
+      if (!readyRef.current) return;
+      inject(tileCacheStatsScript());
+    });
+  }, [inject]);
 
   const handleMessage = useWebViewBridge(handlers);
 

@@ -114,6 +114,14 @@
     "exercisesSummary": "{{exercises}} øvelser · {{sets}} sæt",
     "tapMuscle": "Tryk for detaljer"
   },
+  "activitySummary": {
+    "distance": "Afstand",
+    "elevation": "Stigning",
+    "fetching": "Henter aktiviteter...",
+    "movingTime": "Bevægelsestid",
+    "openActivity": "Vis detaljer",
+    "title": "Oversigt"
+  },
   "activityTypes": {
     "AlpineSki": "Alpint ski",
     "BackcountrySki": "Skitur",
@@ -365,6 +373,20 @@
       "forwardSchema": "Disse data er gemt af en nyere version af Veloq. Opdatér appen for at åbne dem.",
       "storageUnavailable": "Databasen kunne ikke skrives. Frigør plads, og prøv igen.",
       "failed": "Rutemotoren stoppede af en årsag, appen ikke kan navngive."
+    },
+    "quarantine": {
+      "title": "Dit aktivitetsbibliotek er genopbygget",
+      "resyncing": "Dine aktiviteter hentes igen.",
+      "dismiss": "Forstået",
+      "separator": ", ",
+      "kept": {
+        "lead": "Nogle data kunne ikke læses, så biblioteket blev genopbygget. Beholdt: {{kept}}.",
+        "sections": "{{count}} af dine egne sektioner",
+        "history": "{{count}} sektionshændelser",
+        "geometry": "{{count}} sektionsformer",
+        "pins": "{{count}} fastgjorte former",
+        "intents": "{{count}} fjernede korridorer"
+      }
     }
   },
   "errorState": {
@@ -805,7 +827,9 @@
       "title": "Notifikationer",
       "enable": "Aktivér notifikationer",
       "requiresOAuth": "For at aktivere notifikationer skal du afbryde forbindelsen og oprette forbindelse igen med OAuth-login i stedet for en personlig API-nøgle.",
-      "privacyHint": "Gemmer et push-token og atlet-ID på vores server (30 dages udløb). Se veloq.fit/privacy"
+      "privacyHint": "Gemmer et push-token og atlet-ID på vores server (30 dages udløb). Se veloq.fit/privacy",
+      "sectionPr": "Personlige rekorder",
+      "fitnessMilestone": "Formmilepæle"
     },
     "prompt": {
       "title": "Hold dig opdateret",
@@ -826,12 +850,7 @@
       "sectionPrMany": "PR på {{name}} og {{count}} flere",
       "fasterOnRoute": "Hurtigere end normalt på {{name}}",
       "fasterOnRouteDelta": "Hurtigere end normalt på {{name}} ({{delta}} fra PR)",
-      "onRoute": "På {{name}}",
-      "sectionTraversedOne": "1 afsnit gennemført",
-      "sectionTraversedMany": "{{count}} afsnit gennemført",
-      "distanceAndTime": "{{km}} km på {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "På {{name}}"
     }
   },
   "recording": {
@@ -1239,6 +1258,12 @@
     "streamHistoryDays": "{{count}} dage",
     "streamHistoryAll": "Alle",
     "streamHistoryReset": "Nulstil",
+    "streamBackfill": "Manglende serier",
+    "streamBackfillOwed_one": "{{count}} aktivitet",
+    "streamBackfillOwed_other": "{{count}} aktiviteter",
+    "streamBackfillProgress": "{{completed}} af {{total}}",
+    "streamBackfillDownload": "Hent",
+    "streamBackfillStop": "Afbryd",
     "tileCacheLimit": "Grænse for korttegn",
     "tileCacheLimitHint": "Hæv den for bedre offline- og lokal browsing",
     "tileCacheUsedOfBudget": "{{used}} af {{budget}} brugt",
@@ -1667,7 +1692,6 @@
     "title": "Baggrundsopgaver",
     "intro": "Lange opgaver, som appen kører af sig selv. De fortsætter, når du forlader denne skærm.",
     "openLink": "Baggrundsopgaver",
-    "sync": "Synkronisering af aktiviteter",
     "detection": "Registrering af sektioner",
     "elevationBackfill": "Hentning af højdedata",
     "cutover": "Genopbygning af sektioner",

@@ -22,6 +22,12 @@ export {
 } from './lib/oauth';
 
 export {
+  launchIdentityAction,
+  completeLaunchIdentity,
+  type LaunchIdentityAction,
+} from './lib/launchIdentity';
+
+export {
   accountChangeAction,
   confirmAccountChange,
   promptAccountMismatch,

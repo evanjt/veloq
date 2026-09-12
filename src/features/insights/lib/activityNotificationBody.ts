@@ -2,106 +2,16 @@ import type { NotificationPreferences } from '@/features/settings/stores/Notific
 import { formatDurationDelta } from '@/shared/format/format';
 
 import type { Insight, TFunc } from '../types';
+import {
+  type ActivityHighlight,
+  type ActivityHighlightTier,
+  type ActivityInfo,
+  computeSectionPrDelta,
+  resolveActivityHighlight,
+} from './activityHighlight';
 
-export interface ActivityInfo {
-  name: string;
-  type: string;
-  ingested: boolean;
-  distance?: number;
-  movingTime?: number;
-}
-
-export function formatBasicStat(info: ActivityInfo | null, t: TFunc): string | null {
-  if (!info) return null;
-  const km = info.distance && info.distance > 0 ? info.distance / 1000 : 0;
-  const mins = info.movingTime && info.movingTime > 0 ? Math.round(info.movingTime / 60) : 0;
-  if (km >= 1 && mins > 0) {
-    return t('notifications.activityBody.distanceAndTime', { km: km.toFixed(1), min: mins });
-  }
-  if (km >= 1) {
-    return t('notifications.activityBody.distanceOnly', { km: km.toFixed(1) });
-  }
-  if (mins > 0) {
-    return t('notifications.activityBody.timeOnly', { min: mins });
-  }
-  return null;
-}
-
-interface PerfRecord {
-  activityId: string;
-  bestTime: number;
-  direction: string;
-}
-
-interface PerfResult {
-  records?: PerfRecord[];
-  bestRecord?: PerfRecord | null;
-}
-
-/**
- * Seconds this activity's section PR improved on the previous best, from the
- * records already returned by getPerformancesBatch. Null when this is the
- * only timed attempt in the PR's direction, or times tie.
- */
-export function computeSectionPrDelta(
-  result: PerfResult | undefined,
-  activityId: string
-): number | null {
-  const best = result?.bestRecord;
-  if (!best || best.activityId !== activityId) return null;
-  if (!Number.isFinite(best.bestTime) || best.bestTime <= 0) return null;
-  const others = (result.records ?? []).filter(
-    (r) =>
-      r.activityId !== activityId &&
-      r.direction === best.direction &&
-      Number.isFinite(r.bestTime) &&
-      r.bestTime > 0
-  );
-  if (others.length === 0) return null;
-  const previousBest = Math.min(...others.map((r) => r.bestTime));
-  const delta = previousBest - best.bestTime;
-  return delta > 0 ? delta : null;
-}
-
-/**
- * Matched-route signal for this activity, from the same engine data that
- * drives the activity-card route badge. Best-effort: returns null when the
- * activity is not (yet) in any route group.
- */
-function getRouteHighlight(activityId: string): {
-  routeName: string;
-  isPr: boolean;
-  trendUp: boolean;
-  timeDeltaSeconds: number | null;
-  prImprovementSeconds: number | null;
-} | null {
-  try {
-    const { engine } = require('veloqrs');
-    type Highlight = {
-      activityId: string;
-      routeName: string;
-      isPr: boolean;
-      trend: number;
-      timeDeltaSeconds?: number | null;
-      prImprovementSeconds?: number | null;
-    };
-    const highlights: Highlight[] = engine.getActivityRouteHighlights([activityId]);
-    const h = highlights?.find((entry) => entry.activityId === activityId);
-    if (!h) return null;
-    return {
-      routeName: h.routeName ?? '',
-      isPr: !!h.isPr,
-      trendUp: h.trend > 0,
-      timeDeltaSeconds: typeof h.timeDeltaSeconds === 'number' ? h.timeDeltaSeconds : null,
-      prImprovementSeconds:
-        typeof h.prImprovementSeconds === 'number' && h.prImprovementSeconds > 0
-          ? h.prImprovementSeconds
-          : null,
-    };
-  } catch {
-    return null;
-  }
-}
+export { computeSectionPrDelta };
+export type { ActivityInfo };
 
 /**
  * Roughly what an Android lock screen shows of a body before it collapses the
@@ -177,7 +87,7 @@ function compose(detail: string, activityName: string): string {
  * it. Three is enough: the four PR rungs, the trend rung, and everything
  * below it, which is what the single hardcoded title used to cover.
  */
-export type ActivityNotificationTier = 'pr' | 'faster' | 'recorded';
+export type ActivityNotificationTier = ActivityHighlightTier;
 
 const TITLE_KEYS: Record<ActivityNotificationTier, string> = {
   pr: 'notifications.activityPr.title',
@@ -191,177 +101,111 @@ export interface ActivityNotification {
 }
 
 /**
- * The detail clause and the rung it came from. A null detail means no clause
- * won and the body is the activity name alone.
+ * The finding as a lock-screen clause, or null when the body is the activity
+ * name alone.
+ *
+ * Every rung that carries a place name goes through `fitDetail`, which is the
+ * cap's only concession: the delta is what the enrichment exists for, so the
+ * name yields to it rather than the other way round.
  */
-interface Detail {
-  detail: string | null;
-  tier: ActivityNotificationTier;
+export function formatHighlightDetail(
+  highlight: ActivityHighlight,
+  t: TFunc,
+  info: ActivityInfo | null
+): string | null {
+  return renderHighlight(highlight, t, info, fitDetail);
 }
 
-const pr = (detail: string): Detail => ({ detail, tier: 'pr' });
-const faster = (detail: string): Detail => ({ detail, tier: 'faster' });
-const recorded = (detail: string | null): Detail => ({ detail, tier: 'recorded' });
-
 /**
- * Walk the priority ladder for this activity.
- * Queries the engine to find the matched route, section PRs, and matches for
- * THIS specific activity, rather than relying on generic insight fingerprint
- * diffing.
+ * The same finding with nothing given up: the full place name and no cap.
+ *
+ * A screen has room the lock screen does not, and it must say the same thing:
+ * one set of templates, two fits, so the sentence the athlete was shown and
+ * the one on the screen cannot drift apart.
  */
-function resolveDetail(
-  activityId: string,
-  newInsights: Insight[],
-  prefs: NotificationPreferences,
-  activityInfo: ActivityInfo | null,
-  t: TFunc
-): Detail {
-  const route = getRouteHighlight(activityId);
+export function formatHighlightSentence(
+  highlight: ActivityHighlight,
+  t: TFunc,
+  info: ActivityInfo | null
+): string | null {
+  return renderHighlight(highlight, t, info, (render, name) => render(name));
+}
 
-  try {
-    const { engine } = require('veloqrs');
+type Fit = (render: (place: string) => string, rawName: string) => string;
 
-    // Check which sections this activity traversed
-    // Rust already filters out disabled/superseded sections
-    const sections = engine.getSectionsForActivity(activityId);
-    const sectionCount = sections?.length ?? 0;
-
-    let prCount = 0;
-    let prSectionName = '';
-    let prSectionHasName = false;
-    let prSectionDelta: number | null = null;
-    if (sectionCount > 0) {
-      // Single batched FFI call instead of one per section. Saves
-      // (N-1) × ~10-30 ms of round-trip overhead in the background task.
-      const sectionIds = sections.map((s: { id: string }) => s.id);
-      type BatchEntry = { sectionId: string; result: PerfResult };
-      const batch: BatchEntry[] = (() => {
-        try {
-          return engine.getPerformancesBatch(sectionIds);
-        } catch {
-          return [];
-        }
-      })();
-      const perfById = new Map(batch.map((entry: BatchEntry) => [entry.sectionId, entry.result]));
-
-      for (const section of sections) {
-        const perf = perfById.get(section.id);
-        if (perf?.bestRecord?.activityId === activityId) {
-          prCount++;
-          if (!prSectionName) {
-            prSectionHasName = !!section.name;
-            prSectionName = section.name || t('notifications.activityBody.aSection');
-            prSectionDelta = computeSectionPrDelta(perf, activityId);
-          }
-        }
-      }
-    }
-
-    // Achievements first (gated by the PR category preference), then the
-    // matched-route identity, then plain traversal counts. Each delta key
-    // falls back to its no-delta sibling when the comparison isn't available.
-    if (prefs.categories.sectionPr) {
-      if (route?.isPr && route.routeName) {
-        const improvement = route.prImprovementSeconds;
-        return pr(
-          fitDetail(
-            (place) =>
-              improvement
-                ? t('notifications.activityBody.routePrDelta', {
-                    name: place,
-                    delta: formatDurationDelta(improvement),
-                  })
-                : t('notifications.activityBody.routePr', { name: place }),
-            route.routeName
-          )
-        );
-      }
-      if (prCount === 1) {
-        const delta = prSectionDelta;
-        return pr(
-          fitDetail(
-            (place) =>
-              delta
-                ? t('notifications.activityBody.sectionPrDelta', {
-                    name: place,
-                    delta: formatDurationDelta(delta),
-                  })
-                : t('notifications.activityBody.sectionPr', { name: place }),
-            prSectionName
-          )
-        );
-      }
-      if (prCount > 1) {
-        return pr(
-          prSectionHasName
-            ? fitDetail(
-                (place) =>
-                  t('notifications.activityBody.sectionPrMany', {
-                    name: place,
-                    count: prCount - 1,
-                  }),
-                prSectionName
-              )
-            : t('notifications.activityBody.sectionPrCount', { count: prCount })
-        );
-      }
-      if (route?.isPr) {
-        return pr(
-          route.prImprovementSeconds
-            ? t('notifications.activityBody.routePrUnnamedDelta', {
-                delta: formatDurationDelta(route.prImprovementSeconds),
+function renderHighlight(
+  highlight: ActivityHighlight,
+  t: TFunc,
+  info: ActivityInfo | null,
+  fit: Fit
+): string | null {
+  switch (highlight.kind) {
+    case 'routePr':
+      return fit(
+        (place) =>
+          highlight.improvementSeconds
+            ? t('notifications.activityBody.routePrDelta', {
+                name: place,
+                delta: formatDurationDelta(highlight.improvementSeconds),
               })
-            : t('notifications.activityBody.routePrUnnamed')
-        );
-      }
-    }
-
-    // A speed verdict against a running average, not a time against the
-    // all-time best, so neither this clause nor its title may claim a time
-    // improvement. The delta here is the gap still to close.
-    if (route?.trendUp && route.routeName) {
-      const gap = route.timeDeltaSeconds;
-      return faster(
-        fitDetail(
-          (place) =>
-            gap != null && gap > 0
-              ? t('notifications.activityBody.fasterOnRouteDelta', {
-                  name: place,
-                  delta: formatDurationDelta(gap),
-                })
-              : t('notifications.activityBody.fasterOnRoute', { name: place }),
-          route.routeName
-        )
+            : t('notifications.activityBody.routePr', { name: place }),
+        highlight.routeName
       );
-    }
-    if (route?.routeName) {
-      return recorded(
-        fitDetail(
-          (place) => t('notifications.activityBody.onRoute', { name: place }),
-          route.routeName
-        )
+    case 'sectionPr':
+      return fit(
+        (place) =>
+          highlight.improvementSeconds
+            ? t('notifications.activityBody.sectionPrDelta', {
+                name: place,
+                delta: formatDurationDelta(highlight.improvementSeconds),
+              })
+            : t('notifications.activityBody.sectionPr', { name: place }),
+        sectionPlace(highlight.sectionName, highlight.named, t)
       );
-    }
-    if (sectionCount === 1) {
-      return recorded(t('notifications.activityBody.sectionTraversedOne'));
-    }
-    if (sectionCount > 1) {
-      return recorded(
-        t('notifications.activityBody.sectionTraversedMany', { count: sectionCount })
+    case 'sectionPrMany':
+      return highlight.named
+        ? fit(
+            (place) =>
+              t('notifications.activityBody.sectionPrMany', {
+                name: place,
+                count: highlight.count - 1,
+              }),
+            highlight.sectionName
+          )
+        : t('notifications.activityBody.sectionPrCount', { count: highlight.count });
+    case 'routePrUnnamed':
+      return highlight.improvementSeconds
+        ? t('notifications.activityBody.routePrUnnamedDelta', {
+            delta: formatDurationDelta(highlight.improvementSeconds),
+          })
+        : t('notifications.activityBody.routePrUnnamed');
+    case 'fasterOnRoute':
+      return fit(
+        (place) =>
+          highlight.gapSeconds != null
+            ? t('notifications.activityBody.fasterOnRouteDelta', {
+                name: place,
+                delta: formatDurationDelta(highlight.gapSeconds),
+              })
+            : t('notifications.activityBody.fasterOnRoute', { name: place }),
+        highlight.routeName
       );
-    }
-  } catch {
-    // Engine query failed, fall through
+    case 'onRoute':
+      return fit(
+        (place) => t('notifications.activityBody.onRoute', { name: place }),
+        highlight.routeName
+      );
+    case 'milestone':
+      return highlight.title;
+    case 'none':
+    default:
+      return null;
   }
+}
 
-  // Check for new insights caused by this activity
-  const milestone = newInsights.find((i) => i.category === 'fitness_milestone');
-  if (milestone) {
-    return recorded(milestone.title);
-  }
-
-  // Fallback: basic stats so the notification isn't just the activity name
-  return recorded(formatBasicStat(activityInfo, t));
+/** An unnamed section reads as "a section" rather than as an empty name. */
+function sectionPlace(name: string, named: boolean, t: TFunc): string {
+  return named ? name : t('notifications.activityBody.aSection');
 }
 
 /**
@@ -377,14 +221,24 @@ export function buildActivityNotification(
   activityInfo: ActivityInfo | null,
   t: TFunc
 ): ActivityNotification {
-  const { detail, tier } = resolveDetail(activityId, newInsights, prefs, activityInfo, t);
+  const { highlight, tier } = resolveActivityHighlight(
+    activityId,
+    newInsights,
+    prefs.categories.sectionPr,
+    activityInfo,
+    prefs.categories.fitnessMilestone
+  );
+  const detail = formatHighlightDetail(highlight, t, activityInfo);
   // The cap binds on what is posted, not on the name alone. A clause with no
   // name left to give up is cut here rather than by the lock screen.
   const clause = detail === null ? null : trim(detail, NOTIFICATION_BODY_MAX);
   return {
     title: t(TITLE_KEYS[tier]),
-    body:
-      clause === null ? trim(activityName, NOTIFICATION_BODY_MAX) : compose(clause, activityName),
+    // No clause, no notification. The ladder found no PR, no named-route
+    // result and no milestone, and the activity's own name is not news. An
+    // empty body is how that reaches the tray decision, which takes the
+    // generic entry down rather than reposting the ride back at the athlete.
+    body: clause === null ? '' : compose(clause, activityName),
   };
 }
 

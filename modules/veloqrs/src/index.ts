@@ -100,6 +100,7 @@ export { isRetryableInit, hasOpened } from './delegates/init';
 
 // Elevation backfill consumer types
 export type { ElevationBackfillPhase } from './delegates/elevation';
+export type { StreamBackfillPhase } from './delegates/streamBackfill';
 
 // Detector cutover consumer types
 export type {

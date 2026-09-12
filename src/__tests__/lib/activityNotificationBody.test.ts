@@ -33,6 +33,11 @@ const noPrPrefs: NotificationPreferences = {
   categories: { sectionPr: false, fitnessMilestone: true },
 };
 
+const noMilestonePrefs: NotificationPreferences = {
+  ...prefs,
+  categories: { sectionPr: true, fitnessMilestone: false },
+};
+
 function setEngine({
   highlight = null,
   sections = [],
@@ -198,16 +203,37 @@ describe('buildActivityNotificationBody priority ladder', () => {
     expectLeads(build(), 'notifications.activityBody.onRoute(Lake Loop)');
   });
 
-  it('sections traversed without any route match', () => {
+  // Only notable rides notify. Riding through a section is not a result, and
+  // neither is the distance line the floor rung used to produce, so both leave
+  // the body empty and the task takes the generic entry down instead.
+  it('says nothing for a traverse with no result in it', () => {
     setEngine({ highlight: null, sections: [{ id: 's1', name: 'Climb' }] });
-    expectLeads(build(), 'notifications.activityBody.sectionTraversedOne');
+    expect(build()).toBe('');
   });
 
-  it('falls back to milestone insight, then basic stats, then bare name', () => {
+  it('says nothing for a ride with no PR, no named route and no milestone', () => {
+    setEngine({ highlight: null, sections: [] });
+    expect(build()).toBe('');
+  });
+
+  // The flag was declared and defaulted on and nothing read it, so a switch
+  // over it would have been a lie.
+  it('says nothing about a milestone the athlete switched off', () => {
+    setEngine({ highlight: null, sections: [] });
+    const milestone = { id: 'i1', category: 'fitness_milestone', title: 'FTP up 5W' } as Insight;
+    const body = build(noMilestonePrefs, [milestone]);
+    expect(body).not.toContain('FTP up 5W');
+  });
+
+  it('falls back to the milestone insight, which is the last rung there is', () => {
     setEngine({ highlight: null, sections: [] });
     const milestone = { id: 'i1', category: 'fitness_milestone', title: 'FTP up 5W' } as Insight;
     expectLeads(build(prefs, [milestone]), 'FTP up 5W');
+  });
 
+  // The distance line was the floor rung and fired on every activity.
+  it('does not fall back to a distance and time line', () => {
+    setEngine({ highlight: null, sections: [] });
     expect(
       buildActivityNotificationBody(
         'a1',
@@ -217,19 +243,20 @@ describe('buildActivityNotificationBody priority ladder', () => {
         { name: 'Morning Ride', type: 'Ride', ingested: true, distance: 12345, movingTime: 2700 },
         t
       )
-    ).toContain('notifications.activityBody.distanceAndTime(12.3,45)');
-
-    expect(build()).toBe('Morning Ride');
+    ).toBe('');
   });
 
-  it('engine failure falls through to the name, never throws', () => {
+  // An engine that cannot answer cannot say the ride was notable, and the
+  // decision is that only notable rides notify. It says nothing rather than
+  // throwing or naming the ride back at the athlete.
+  it('says nothing when the engine cannot answer, and never throws', () => {
     mockEngine.getActivityRouteHighlights.mockImplementation(() => {
       throw new Error('engine down');
     });
     mockEngine.getSectionsForActivity.mockImplementation(() => {
       throw new Error('engine down');
     });
-    expect(build()).toBe('Morning Ride');
+    expect(build()).toBe('');
   });
 });
 
@@ -302,13 +329,10 @@ describe('the body fits the collapsed lock screen', () => {
     expect(buildEnglish('Ride')).toBe('On Lake Loop - Ride');
   });
 
-  it('leaves a body with no detail clause as the name alone, capped', () => {
+  it('gives no body at all when there is no detail clause', () => {
     setEngine({ highlight: null, sections: [] });
 
-    const body = buildEnglish(LONG_ACTIVITY);
-
-    expect(body.length).toBeLessThanOrEqual(NOTIFICATION_BODY_MAX);
-    expect(body).toMatch(/^Wednesday evening/);
+    expect(buildEnglish(LONG_ACTIVITY)).toBe('');
   });
 
   it('keeps a name that lands exactly on the cap whole', () => {

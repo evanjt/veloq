@@ -56,6 +56,7 @@ import {
   matchesFeedGroup,
   type FeedGroup,
 } from '@/features/activity/lib/feedActivityGroups';
+import { setVisibleRange } from '@/features/activity';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('Feed');
@@ -63,6 +64,8 @@ const log = debug.create('Feed');
 // Height of the search section (search bar + chips + padding) for scroll-to-reveal
 const SEARCH_SECTION_HEIGHT = 78;
 const INITIAL_CONTENT_OFFSET = { x: 0, y: SEARCH_SECTION_HEIGHT } as const;
+/** A card counts as on screen once a tenth of it is. */
+const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 10 } as const;
 
 export default function FeedScreen() {
   // Performance timing - tracks total render time and sub-component costs
@@ -291,6 +294,23 @@ export default function FeedScreen() {
       />
     ),
     [snapshotWebViewReady, isDark, sectionHighlightsMap, routeHighlightsMap]
+  );
+
+  // The list mounts two to three screens either side of the viewport so
+  // scrolling does not blank. Generation is a different question, so the cards
+  // near the viewport are published and a card asks for its render only when it
+  // is one of them. The identity has to stay put or the list rejects it, which
+  // is what the empty dependency list is for.
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
+      const indices = viewableItems
+        .map((item) => item.index)
+        .filter((index): index is number => index !== null);
+      setVisibleRange(
+        indices.length > 0 ? { first: Math.min(...indices), last: Math.max(...indices) } : null
+      );
+    },
+    []
   );
 
   const navigateToSettings = useCallback(() => {
@@ -549,6 +569,8 @@ export default function FeedScreen() {
 
         <FlatList
           ref={listRef}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={VIEWABILITY_CONFIG}
           testID="home-activity-list"
           data={filteredActivities}
           renderItem={renderActivity}

@@ -296,7 +296,6 @@ pub fn start_fetch_and_store(
     // immediately rather than spawning a thread that can only fail.
     let Ok(fetcher) = crate::http::ActivityFetcher::from_credentials() else {
         info!("[RUST: start_fetch_and_store] No credentials set");
-        crate::http::reset_download_progress(activity_count as u32);
         store_fetch_run_result(
             run,
             FetchAndStoreResult {
@@ -310,7 +309,6 @@ pub fn start_fetch_and_store(
                 total_time_ms: 0,
             },
         );
-        crate::http::finish_download_progress();
         return run;
     };
 
@@ -336,8 +334,9 @@ pub fn start_fetch_and_store(
         elapsed_ms(sport_map_start)
     );
 
-    // Reset progress counters
-    crate::http::reset_download_progress(activity_ids.len() as u32);
+    // Join the queue here rather than on the fetch thread, so a caller holding
+    // a run id already reads as busy the first time it polls.
+    crate::http::enqueue_download(run, activity_ids.len() as u32);
 
     info!(
         "[RUST: start_fetch_and_store] Spawning background thread ({} ms)",
@@ -348,10 +347,12 @@ pub fn start_fetch_and_store(
 
     // Spawn background thread
     std::thread::spawn(move || {
-        // The flag is cleared on the way out of this thread however it leaves.
-        // A panic unwinds this one thread and the process carries on, so the
-        // tail below is not reached and the only consumer polls forever.
-        let _progress_guard = crate::http::DownloadFinishGuard;
+        // The run leaves the queue on the way out of this thread however it
+        // leaves. A panic unwinds this one thread and the process carries on,
+        // so the tail below is not reached and the only consumer polls forever.
+        // Waiting for the head serialises the three callers: a map tap landing
+        // during a background download runs after it rather than over it.
+        let _slot = crate::http::hold_download_slot(run);
         let thread_start = Instant::now();
         info!(
             "[RUST: start_fetch_and_store] Thread started for {} activities",
@@ -395,7 +396,7 @@ pub fn start_fetch_and_store(
         for (idx, result) in fetch_results.into_iter().enumerate() {
             // Between activities, never inside one: a track stops being half
             // written here, and the rows already stored stay whole.
-            if crate::http::download_cancelled() {
+            if crate::http::download_cancelled(run) {
                 info!(
                     "[RUST: start_fetch_and_store] Cancelled after {}/{} activities",
                     idx, num_results
@@ -474,7 +475,7 @@ pub fn start_fetch_and_store(
             })
             .unwrap_or_default();
             for activity_id in missing {
-                if crate::http::download_cancelled() {
+                if crate::http::download_cancelled(run) {
                     info!("[RUST: start_fetch_and_store] Cancelled before the remaining streams");
                     break;
                 }
@@ -789,6 +790,72 @@ pub fn get_elevation_backfill_progress() -> ElevationBackfillProgress {
         failed: snapshot.failed,
         percent: snapshot.percent(),
     }
+}
+
+/// Start the stream backfill on a background thread.
+///
+/// Unlike the elevation backfill this is not fired at launch: it is tens of
+/// megabytes on whatever connection the phone has, so a screen starts it.
+#[uniffi::export]
+pub fn start_stream_backfill() -> crate::objects::FfiStartOutcome {
+    init_logging();
+    crate::net::stream_backfill::start_stream_backfill()
+}
+
+/// Ask the stream backfill to stop. It ends at its next batch boundary, so the
+/// activities already stored stay stored.
+#[uniffi::export]
+pub fn stop_stream_backfill() {
+    init_logging();
+    crate::net::stream_backfill::stop_stream_backfill()
+}
+
+/// How many activities the stream backfill still has to ask upstream about.
+/// Zero means the library is fully stocked for the window as it stands.
+///
+/// Raises rather than answering zero when it cannot answer at all: a screen
+/// that offers the backfill reads this, and an absent engine must not read as
+/// the job being done.
+#[uniffi::export]
+pub fn get_stream_backfill_remaining() -> Result<u32, crate::VeloqError> {
+    let remaining = crate::objects::error::with_engine(|e| {
+        e.stream_backfill_remaining(crate::net::stream_backfill::STREAM_ATTEMPT_LIMIT)
+    })?
+    .map_err(|e| crate::VeloqError::Database {
+        msg: format!("{}", e),
+    })?;
+    Ok(remaining.try_into().unwrap_or(u32::MAX))
+}
+
+/// Read the stream backfill's progress. Safe to poll at any time.
+#[uniffi::export]
+pub fn get_stream_backfill_progress() -> StreamBackfillProgress {
+    let snapshot = crate::net::stream_backfill::stream_backfill_progress();
+    StreamBackfillProgress {
+        phase: snapshot.phase.to_string(),
+        completed: snapshot.completed,
+        total: snapshot.total,
+        stored: snapshot.stored,
+        failed: snapshot.failed,
+        percent: snapshot.percent(),
+    }
+}
+
+/// What a poller sees while the stream backfill runs and after it settles.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct StreamBackfillProgress {
+    /// One of idle, fetching, complete, partial, stopped, failed.
+    pub phase: String,
+    /// Activities this pass has finished with, however they ended.
+    pub completed: u32,
+    /// Activities the pass started with.
+    pub total: u32,
+    /// Activities whose series landed in the store.
+    pub stored: u32,
+    /// Activities whose fetch failed, so the next pass asks about them again.
+    pub failed: u32,
+    /// Whole-percent progress. An empty queue is 100, not 0.
+    pub percent: u32,
 }
 
 /// Whether the Corridor-to-Unified cutover is pending.

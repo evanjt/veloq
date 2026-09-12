@@ -876,13 +876,19 @@ where
     };
     // Kept back for the confirmation, for the same reason as `spawn_once`.
     let (confirm_on, confirm_for) = (transport.clone(), athlete_id.clone());
-    let outcome = run_on_runtime(job(transport, athlete_id)).await;
     // A write refused for a dead credential parks the service, so an upload
-    // reaches the same session-expiry path a failed sync already does.
-    if outcome.kind == FfiCallKind::Unauthorized {
-        park_auth_expired(&confirm_on, &confirm_for).await;
-    }
-    outcome
+    // reaches the same session-expiry path a failed sync already does. The
+    // confirmation goes inside the spawn with the job: awaited out here it
+    // would reach the transport from the foreign executor, which is not a
+    // tokio context, and panic rather than park.
+    run_on_runtime(async move {
+        let result = job(transport, athlete_id).await;
+        if matches!(result, Err(NetError::Unauthorized)) {
+            park_auth_expired(&confirm_on, &confirm_for).await;
+        }
+        result
+    })
+    .await
 }
 
 /// How many days of wellness one sync pulls. Matches the widest range the
@@ -951,11 +957,57 @@ pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlet
     step!(sync_athlete(&transport, &athlete_id).await);
     step!(sync_sport_settings(&transport, &athlete_id).await);
     step!(sync_wellness(&transport, &athlete_id).await);
-    step!(sync_activities(&transport, &athlete_id).await);
+    step!(sync_activities(&transport, &athlete_id, &|| svc.is_cancelled()).await);
     step!(sync_activity_history_summary(&transport, &athlete_id).await);
 
     let success = last_error.is_none();
     svc.finish(SyncState::Idle, last_error, success);
+}
+
+/// The window job: fetch and store one date window of activities.
+///
+/// Free function over `&SyncService` for the same reason `perform_sync` is one,
+/// so a test can drive the whole job against a local service instead of the
+/// process-wide one.
+pub(crate) async fn perform_window_sync(
+    svc: &SyncService,
+    transport: Transport,
+    athlete_id: String,
+    oldest: &str,
+    newest: &str,
+) {
+    if svc.is_cancelled() || !svc.still_signed_in(&athlete_id) {
+        svc.finish(SyncState::Idle, None, false);
+        return;
+    }
+    svc.begin_steps(1);
+    let cancelled = || svc.is_cancelled();
+    match sync_activity_window(&transport, &athlete_id, oldest, newest, &cancelled).await {
+        Ok(WindowOutcome::Stored) => {
+            svc.complete_step();
+            svc.finish(SyncState::Idle, None, true);
+        }
+        // Nothing was written, so the step did not complete and the job did
+        // not succeed. Reporting it as one is what let the status say the
+        // window landed while the state machine said cancelled.
+        Ok(WindowOutcome::Abandoned) => svc.finish(SyncState::Idle, None, false),
+        Err(NetError::Unauthorized) => {
+            if credential_is_rejected(&transport, &athlete_id).await {
+                svc.finish(
+                    SyncState::AuthExpired,
+                    Some(SyncFailure::unauthorized()),
+                    false,
+                );
+            } else {
+                svc.finish(
+                    SyncState::Idle,
+                    Some(SyncFailure::from(&NetError::Unauthorized)),
+                    false,
+                );
+            }
+        }
+        Err(e) => svc.finish(SyncState::Idle, Some(SyncFailure::from(&e)), false),
+    }
 }
 
 /// Persist the athlete profile body.
@@ -992,16 +1044,25 @@ fn start_date_to_timestamp(start_date_local: Option<&str>) -> Option<i64> {
 /// Persist the activity list: aggregate metrics for Rust, plus the untyped
 /// body per activity for the screens. No GPS required, so activities that
 /// never reach the `activities` table still show up in the feed.
-async fn sync_activities(transport: &Transport, athlete_id: &str) -> Result<(), NetError> {
+async fn sync_activities(
+    transport: &Transport,
+    athlete_id: &str,
+    cancelled: &(dyn Fn() -> bool + Sync),
+) -> Result<(), NetError> {
     let newest = chrono::Local::now().date_naive();
     let oldest = newest - chrono::Duration::days(ACTIVITY_DAYS);
+    // The outcome is dropped because the loop's own gate owns the terminal
+    // state: an abandoned window is followed by a step check that finishes
+    // the job unsuccessfully, so reporting it twice would say nothing new.
     sync_activity_window(
         transport,
         athlete_id,
         &oldest.to_string(),
         &newest.to_string(),
+        cancelled,
     )
     .await
+    .map(|_| ())
 }
 
 /// One activity's metrics row from the record the page carried. The stats
@@ -1036,6 +1097,15 @@ fn activity_metrics_row(record: ActivityRecord, date: i64) -> crate::ActivityMet
     }
 }
 
+/// What a window sync did with the page it asked for. A job that was cancelled
+/// wrote nothing, so its caller owes a terminal state that does not read as a
+/// success.
+#[derive(Debug, PartialEq, Eq)]
+enum WindowOutcome {
+    Stored,
+    Abandoned,
+}
+
 /// Persist one date window of activities. The default sync covers 90 days; the
 /// feed asks for older windows as the reader scrolls past it.
 async fn sync_activity_window(
@@ -1043,7 +1113,11 @@ async fn sync_activity_window(
     athlete_id: &str,
     oldest: &str,
     newest: &str,
-) -> Result<(), NetError> {
+    cancelled: &(dyn Fn() -> bool + Sync),
+) -> Result<WindowOutcome, NetError> {
+    if cancelled() {
+        return Ok(WindowOutcome::Abandoned);
+    }
     let items = endpoints::fetch_activities_with_bodies(
         transport,
         athlete_id,
@@ -1054,7 +1128,14 @@ async fn sync_activity_window(
     )
     .await?;
     if items.is_empty() {
-        return Ok(());
+        return Ok(WindowOutcome::Stored);
+    }
+    // The cancel is soft, so the page in flight was allowed to finish, but
+    // writing it is not part of that bargain: the state machine moved to
+    // Paused when the athlete stopped the sync, and rows landing after that
+    // is what makes the UI lie.
+    if cancelled() {
+        return Ok(WindowOutcome::Abandoned);
     }
 
     // The server names the activity by its own id; the row it belongs to is
@@ -1093,7 +1174,7 @@ async fn sync_activity_window(
         }
     })
     .await;
-    Ok(())
+    Ok(WindowOutcome::Stored)
 }
 
 /// Midnight for a YYYY-MM-DD day, as epoch seconds.
@@ -1270,33 +1351,7 @@ impl SyncManager {
         };
         crate::runtime::spawn(async move {
             let _guard = FinishGuard;
-            if !SYNC_SERVICE.still_signed_in(&athlete_id) {
-                SYNC_SERVICE.finish(SyncState::Idle, None, false);
-                return;
-            }
-            SYNC_SERVICE.begin_steps(1);
-            match sync_activity_window(&transport, &athlete_id, &oldest, &newest).await {
-                Ok(()) => {
-                    SYNC_SERVICE.complete_step();
-                    SYNC_SERVICE.finish(SyncState::Idle, None, true);
-                }
-                Err(NetError::Unauthorized) => {
-                    if credential_is_rejected(&transport, &athlete_id).await {
-                        SYNC_SERVICE.finish(
-                            SyncState::AuthExpired,
-                            Some(SyncFailure::unauthorized()),
-                            false,
-                        );
-                    } else {
-                        SYNC_SERVICE.finish(
-                            SyncState::Idle,
-                            Some(SyncFailure::from(&NetError::Unauthorized)),
-                            false,
-                        );
-                    }
-                }
-                Err(e) => SYNC_SERVICE.finish(SyncState::Idle, Some(SyncFailure::from(&e)), false),
-            }
+            perform_window_sync(&SYNC_SERVICE, transport, athlete_id, &oldest, &newest).await;
         });
         Ok(FfiStartOutcome::Started)
     }
@@ -2409,8 +2464,12 @@ mod tests {
             then.status(200).json_body(json!([]));
         });
 
-        crate::runtime::block_on(sync_activities(&transport_to(server.base_url()), "i1"))
-            .expect("default sync");
+        crate::runtime::block_on(sync_activities(
+            &transport_to(server.base_url()),
+            "i1",
+            &|| false,
+        ))
+        .expect("default sync");
         mock.assert();
     }
 
@@ -2454,6 +2513,7 @@ mod tests {
             "i1",
             "2019-01-01",
             "2019-12-31",
+            &|| false,
         ))
         .expect("expansion window");
         mock.assert();
@@ -2488,6 +2548,7 @@ mod tests {
             "i1",
             "2026-01-01",
             "2026-01-31",
+            &|| false,
         ))
         .expect("window");
         mock.assert();
@@ -2512,9 +2573,99 @@ mod tests {
             "i1",
             "2025-01-01",
             "2025-01-31",
+            &|| false,
         ))
         .expect("window sync");
         mock.assert();
+    }
+
+    /// Expected behaviour: a cancel that lands before the job runs stops the
+    /// request, not just the write. The state machine is already `Paused` by
+    /// then, so a request that still goes out spends the athlete's data on a
+    /// sync they stopped.
+    #[test]
+    fn a_window_cancelled_before_it_starts_never_asks_the_api() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities");
+            then.status(200)
+                .json_body(json!([{"id": "a1", "type": "Ride", "name": "Loop",
+                                   "start_date_local": "2025-01-15T08:30:00"}]));
+        });
+
+        let outcome = crate::runtime::block_on(sync_activity_window(
+            &transport_to(server.base_url()),
+            "i1",
+            "2025-01-01",
+            "2025-01-31",
+            &|| true,
+        ))
+        .expect("a cancelled window is not an error");
+
+        assert_eq!(outcome, WindowOutcome::Abandoned);
+        mock.assert_hits(0);
+    }
+
+    /// Expected behaviour: the cancel is soft, so the request in flight is
+    /// allowed to finish, but what it carried is not written. Writing it is
+    /// what let the library keep filling after the UI said cancelled.
+    #[test]
+    fn a_window_cancelled_in_flight_stores_nothing_it_fetched() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities");
+            then.status(200)
+                .json_body(json!([{"id": "a1", "type": "Ride", "name": "Loop",
+                                   "start_date_local": "2025-01-15T08:30:00",
+                                   "distance": 28400.0}]));
+        });
+
+        // False at the gate before the request, true at the gate before the
+        // write: the cancel arrived while the page was in flight.
+        let checks = std::sync::atomic::AtomicU32::new(0);
+        let cancelled = || checks.fetch_add(1, std::sync::atomic::Ordering::Relaxed) > 0;
+
+        let outcome = crate::runtime::block_on(sync_activity_window(
+            &transport_to(server.base_url()),
+            "i1",
+            "2025-01-01",
+            "2025-01-31",
+            &cancelled,
+        ))
+        .expect("a cancelled window is not an error");
+
+        assert_eq!(outcome, WindowOutcome::Abandoned);
+        mock.assert_hits(1);
+        assert!(
+            checks.load(std::sync::atomic::Ordering::Relaxed) >= 2,
+            "the write ran without asking whether the job was still wanted"
+        );
+    }
+
+    /// Expected behaviour: a cancelled job settles unsuccessfully, so the
+    /// status does not claim the window landed while the state machine was
+    /// moved to `Paused` by the cancel.
+    #[test]
+    fn a_cancelled_window_job_does_not_settle_as_a_success() {
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin());
+        svc.request_cancel();
+
+        // An unroutable base stands in for a mock that would fail the test if
+        // it were hit: a cancelled job must not dispatch at all.
+        crate::runtime::block_on(perform_window_sync(
+            &svc,
+            transport_to("http://127.0.0.1:1".into()),
+            "i1".into(),
+            "2025-01-01",
+            "2025-01-31",
+        ));
+
+        let s = svc.snapshot();
+        assert_eq!(s.state, SyncState::Idle);
+        assert_eq!(s.completed, 0, "a cancelled job completed a step");
+        assert!(s.last_error.is_none(), "a cancel is not a failure");
     }
 
     #[test]
@@ -2533,6 +2684,7 @@ mod tests {
             "i1",
             "2025-01-01",
             "2025-01-31",
+            &|| false,
         ))
         .expect("window sync tolerates the gap");
     }
@@ -3191,5 +3343,94 @@ mod body_count_tests {
         assert!(landed(Some(true)));
         assert!(!landed(Some(false)));
         assert!(!landed(None));
+    }
+}
+
+/// Scenario: a write is refused with 401 and the foreign caller polls the
+/// returned future itself, on a thread that is not a tokio context.
+///
+/// Expected behaviour: the confirmation reaches the profile, the session parks,
+/// and the caller gets an `Unauthorized` outcome rather than a panic.
+#[cfg(test)]
+mod write_auth_tests {
+    use super::*;
+    use crate::test_globals::serial_global_state;
+    use httpmock::prelude::*;
+
+    fn aim_service_at(server: &MockServer) {
+        *SYNC_SERVICE
+            .base_url
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = server.base_url();
+        SYNC_SERVICE.set_credentials(AuthKind::ApiKey, "k".into(), "i1".into());
+    }
+
+    fn restore_service() {
+        SYNC_SERVICE.clear_credentials();
+        SYNC_SERVICE.finish(SyncState::Idle, None, false);
+        *SYNC_SERVICE
+            .base_url
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = INTERVALS_BASE_URL.to_string();
+    }
+
+    /// Run the call the way uniffi's foreign executor does: on a plain thread
+    /// that polls the future itself with no tokio runtime entered, so anything
+    /// reaching the reactor inline panics instead of working.
+    fn off_the_runtime<F>(call: F) -> FfiCallOutcome
+    where
+        F: FnOnce() -> FfiCallOutcome + Send + 'static,
+    {
+        std::thread::spawn(call)
+            .join()
+            .expect("the write panicked instead of reporting the refusal")
+    }
+
+    #[test]
+    fn a_confirmed_refusal_parks_the_session_when_polled_off_the_runtime() {
+        let _guard = serial_global_state();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a9");
+            then.status(401);
+        });
+        let profile = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(401);
+        });
+        aim_service_at(&server);
+
+        let outcome = off_the_runtime(|| {
+            futures::executor::block_on(SyncManager::new().confirm_activity_uploaded("a9".into()))
+        });
+
+        assert_eq!(outcome.kind, FfiCallKind::Unauthorized);
+        profile.assert();
+        assert_eq!(SYNC_SERVICE.snapshot().state, SyncState::AuthExpired);
+        restore_service();
+    }
+
+    #[test]
+    fn an_unconfirmed_refusal_leaves_the_session_standing() {
+        let _guard = serial_global_state();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a9");
+            then.status(401);
+        });
+        let profile = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(200).body("{}");
+        });
+        aim_service_at(&server);
+
+        let outcome = off_the_runtime(|| {
+            futures::executor::block_on(SyncManager::new().confirm_activity_uploaded("a9".into()))
+        });
+
+        assert_eq!(outcome.kind, FfiCallKind::Unauthorized);
+        profile.assert();
+        assert_ne!(SYNC_SERVICE.snapshot().state, SyncState::AuthExpired);
+        restore_service();
     }
 }

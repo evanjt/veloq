@@ -24,6 +24,18 @@ const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.j
   scripts: Record<string, string>;
 };
 
+/**
+ * A lock of this test's own, so nothing here waits on the fleet. Every case
+ * that runs the script has to pass this: the script's default is the real
+ * build lock, and a build holds that for a quarter of an hour. Taking it here
+ * blocked one case for the build's whole duration and timed the other out,
+ * which failed the suite on a machine that was only busy.
+ */
+function privateLock(): NodeJS.ProcessEnv {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-android-build-'));
+  return { ...process.env, VELOQ_ANDROID_BUILD_LOCK: path.join(dir, 'lock') };
+}
+
 describe('the Android build takes a lock of its own', () => {
   it('is what the build scripts run through', () => {
     for (const name of [
@@ -48,24 +60,45 @@ describe('the Android build takes a lock of its own', () => {
     expect(source).not.toContain('TMPDIR');
   });
 
+  it('never runs the script on the lock a real build holds', () => {
+    // The script's default is the fleet's own lock, which a build holds for a
+    // quarter of an hour. A case here that takes it fails on a machine that is
+    // merely busy, and says nothing about the script.
+    const source = fs.readFileSync(path.join(__dirname, 'androidBuildLock.test.ts'), 'utf8');
+    const calls = source
+      .split(/\bspawnSync?\(/)
+      .slice(1)
+      .filter((chunk) => chunk.slice(0, 120).includes('script'));
+    expect(calls.length).toBeGreaterThan(0);
+    // Each one hands the child an environment, and every environment this file
+    // builds names a lock of its own.
+    for (const call of calls) {
+      expect(call.slice(0, 400)).toMatch(/\benv\b/);
+    }
+    for (const env of source.split(/\.\.\.process\.env/).slice(1)) {
+      expect(env.slice(0, 120)).toContain('VELOQ_ANDROID_BUILD_LOCK');
+    }
+  });
+
   it('runs under an outer flock rather than waiting on itself', () => {
-    // The shape the guide's recipe creates. A temp file stands in for the
-    // build lock: taking the real one here would queue behind whatever the
-    // fleet is building.
+    // The shape the guide's recipe creates: an outer lock taken by hand, the
+    // script's own taken inside it. Both stand in for the real ones.
     const outer = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-outer-')), 'lock');
     const run = spawnSync('flock', [outer, script, 'echo', 'nested'], {
       encoding: 'utf8',
       timeout: 15000,
+      env: privateLock(),
     });
     expect(run.status).toBe(0);
     expect(run.stdout).toContain('nested');
   });
 
   it('passes the command through and keeps its exit code', () => {
-    const ok = spawnSync(script, ['echo', 'built'], { encoding: 'utf8' });
+    const env = privateLock();
+    const ok = spawnSync(script, ['echo', 'built'], { encoding: 'utf8', env });
     expect(ok.status).toBe(0);
     expect(ok.stdout).toContain('built');
-    expect(spawnSync(script, ['false'], { encoding: 'utf8' }).status).not.toBe(0);
+    expect(spawnSync(script, ['false'], { encoding: 'utf8', env }).status).not.toBe(0);
   });
 
   it('serialises two runs rather than letting them interleave', async () => {

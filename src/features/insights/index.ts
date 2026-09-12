@@ -9,6 +9,9 @@ export { StrengthTab } from './components/StrengthTab';
 export { InsightDetailContent } from './components/content/InsightDetailContent';
 
 export { useInsights } from './hooks/useInsights';
+export { useActivityHighlight } from './hooks/useActivityHighlight';
+export type { ActivityHighlightView } from './hooks/useActivityHighlight';
+export type { ActivityHighlight, ActivityInfo } from './lib/activityHighlight';
 
 export { generateInsights, getLastInsightOutcome } from './lib/generateInsights';
 export {

@@ -114,6 +114,14 @@
     "exercisesSummary": "{{exercises}} esercizi · {{sets}} serie",
     "tapMuscle": "Tocca per i dettagli"
   },
+  "activitySummary": {
+    "distance": "Distanza",
+    "elevation": "Dislivello",
+    "fetching": "Recupero attività...",
+    "movingTime": "Tempo in movimento",
+    "openActivity": "Vedi dettagli",
+    "title": "Riepilogo"
+  },
   "activityTypes": {
     "AlpineSki": "Sci alpino",
     "BackcountrySki": "Scialpinismo",
@@ -365,6 +373,20 @@
       "forwardSchema": "Questi dati sono stati salvati da una versione più recente di Veloq. Aggiorna l'app per aprirli.",
       "storageUnavailable": "Non è stato possibile scrivere il database. Libera spazio e riprova.",
       "failed": "Il motore dei percorsi si è fermato per un motivo che l'app non sa indicare."
+    },
+    "quarantine": {
+      "title": "La tua libreria di attività è stata ricostruita",
+      "resyncing": "Le tue attività si stanno scaricando di nuovo.",
+      "dismiss": "Ho capito",
+      "separator": ", ",
+      "kept": {
+        "lead": "Alcuni dati non erano leggibili, quindi la libreria è stata ricostruita. Conservato: {{kept}}.",
+        "sections": "{{count}} sezioni tue",
+        "history": "{{count}} eventi di sezione",
+        "geometry": "{{count}} tracciati di sezione",
+        "pins": "{{count}} tracciati fissati",
+        "intents": "{{count}} corridoi rimossi"
+      }
     }
   },
   "errorState": {
@@ -805,7 +827,9 @@
       "title": "Notifiche",
       "enable": "Attiva notifiche",
       "requiresOAuth": "Per attivare le notifiche, disconnettiti e riconnettiti usando il flusso di accesso OAuth invece della chiave API personale.",
-      "privacyHint": "Conserva un token push e l'ID atleta sul nostro server (scadenza 30 giorni). Vedi veloq.fit/privacy"
+      "privacyHint": "Conserva un token push e l'ID atleta sul nostro server (scadenza 30 giorni). Vedi veloq.fit/privacy",
+      "sectionPr": "Record personali",
+      "fitnessMilestone": "Traguardi di forma"
     },
     "prompt": {
       "title": "Resta aggiornato",
@@ -826,12 +850,7 @@
       "sectionPrMany": "PR su {{name}} e altre {{count}}",
       "fasterOnRoute": "Più veloce del solito su {{name}}",
       "fasterOnRouteDelta": "Più veloce del solito su {{name}} (a {{delta}} dal PR)",
-      "onRoute": "Su {{name}}",
-      "sectionTraversedOne": "1 sezione percorsa",
-      "sectionTraversedMany": "{{count}} sezioni percorse",
-      "distanceAndTime": "{{km}} km in {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "Su {{name}}"
     }
   },
   "recording": {
@@ -1238,6 +1257,12 @@
     "streamHistoryDays": "{{count}} giorni",
     "streamHistoryAll": "Tutto",
     "streamHistoryReset": "Reimposta",
+    "streamBackfill": "Serie mancanti",
+    "streamBackfillOwed_one": "{{count}} attività",
+    "streamBackfillOwed_other": "{{count}} attività",
+    "streamBackfillProgress": "{{completed}} di {{total}}",
+    "streamBackfillDownload": "Scarica",
+    "streamBackfillStop": "Interrompi",
     "tileCacheLimit": "Limite riquadri mappa",
     "tileCacheLimitHint": "Aumentalo per migliorare la navigazione offline e locale",
     "tileCacheUsedOfBudget": "{{used}} di {{budget}} usati",
@@ -1667,7 +1692,6 @@
     "title": "Attività in background",
     "intro": "Operazioni lunghe che l'app esegue da sola. Proseguono quando esci da questa schermata.",
     "openLink": "Attività in background",
-    "sync": "Sincronizzazione attività",
     "detection": "Rilevamento sezioni",
     "elevationBackfill": "Download del dislivello",
     "cutover": "Ricostruzione sezioni",

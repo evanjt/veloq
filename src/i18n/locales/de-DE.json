@@ -114,6 +114,14 @@
     "exercisesSummary": "{{exercises}} Übungen · {{sets}} Sätze",
     "tapMuscle": "Tippen für Details"
   },
+  "activitySummary": {
+    "distance": "Distanz",
+    "elevation": "Höhenmeter",
+    "fetching": "Aktivitäten werden abgerufen...",
+    "movingTime": "Bewegungszeit",
+    "openActivity": "Details anzeigen",
+    "title": "Zusammenfassung"
+  },
   "activityTypes": {
     "AlpineSki": "Ski Alpin",
     "BackcountrySki": "Skitouren",
@@ -365,6 +373,20 @@
       "forwardSchema": "Diese Daten wurden von einer neueren Version von Veloq gespeichert. Aktualisiere die App, um sie zu öffnen.",
       "storageUnavailable": "Die Datenbank konnte nicht geschrieben werden. Schaffe Speicherplatz und versuche es erneut.",
       "failed": "Die Routen-Engine wurde aus einem Grund beendet, den die App nicht benennen kann."
+    },
+    "quarantine": {
+      "title": "Deine Aktivitätenbibliothek wurde neu aufgebaut",
+      "resyncing": "Deine Aktivitäten werden erneut geladen.",
+      "dismiss": "Verstanden",
+      "separator": ", ",
+      "kept": {
+        "lead": "Einige Daten waren nicht lesbar, daher wurde die Bibliothek neu aufgebaut. Behalten: {{kept}}.",
+        "sections": "{{count}} eigene Abschnitte",
+        "history": "{{count}} Abschnittsereignisse",
+        "geometry": "{{count}} Abschnittsformen",
+        "pins": "{{count}} angeheftete Formen",
+        "intents": "{{count}} entfernte Korridore"
+      }
     }
   },
   "errorState": {
@@ -805,7 +827,9 @@
       "title": "Benachrichtigungen",
       "enable": "Benachrichtigungen aktivieren",
       "requiresOAuth": "Um Benachrichtigungen zu aktivieren, trenne die Verbindung und melde dich über den OAuth-Login statt mit einem persönlichen API-Schlüssel erneut an.",
-      "privacyHint": "Speichert ein Push-Token und eine Athleten-ID auf unserem Server (30 Tage Ablauf). Siehe veloq.fit/privacy"
+      "privacyHint": "Speichert ein Push-Token und eine Athleten-ID auf unserem Server (30 Tage Ablauf). Siehe veloq.fit/privacy",
+      "sectionPr": "Bestleistungen",
+      "fitnessMilestone": "Fitness-Meilensteine"
     },
     "prompt": {
       "title": "Bleib auf dem Laufenden",
@@ -826,12 +850,7 @@
       "sectionPrMany": "PR auf {{name}} und {{count}} weiteren",
       "fasterOnRoute": "Schneller als üblich auf {{name}}",
       "fasterOnRouteDelta": "Schneller als üblich auf {{name}} ({{delta}} hinter PR)",
-      "onRoute": "Auf {{name}}",
-      "sectionTraversedOne": "1 Abschnitt absolviert",
-      "sectionTraversedMany": "{{count}} Abschnitte absolviert",
-      "distanceAndTime": "{{km}} km in {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "Auf {{name}}"
     }
   },
   "recording": {
@@ -1238,6 +1257,12 @@
     "streamHistoryDays": "{{count}} Tage",
     "streamHistoryAll": "Alle",
     "streamHistoryReset": "Zurücksetzen",
+    "streamBackfill": "Fehlende Serien",
+    "streamBackfillOwed_one": "{{count}} Aktivität",
+    "streamBackfillOwed_other": "{{count}} Aktivitäten",
+    "streamBackfillProgress": "{{completed}} von {{total}}",
+    "streamBackfillDownload": "Laden",
+    "streamBackfillStop": "Stopp",
     "tileCacheLimit": "Kartenkachel-Limit",
     "tileCacheLimitHint": "Erhöhen Sie ihn für besseres Offline- und lokales Browsen",
     "tileCacheUsedOfBudget": "{{used}} von {{budget}} belegt",
@@ -1667,7 +1692,6 @@
     "title": "Hintergrundaufgaben",
     "intro": "Lange Aufgaben, die die App von selbst ausführt. Sie laufen weiter, wenn du diesen Bildschirm verlässt.",
     "openLink": "Hintergrundaufgaben",
-    "sync": "Aktivitätssynchronisierung",
     "detection": "Abschnittserkennung",
     "elevationBackfill": "Höhendaten laden",
     "cutover": "Abschnitte neu aufbauen",

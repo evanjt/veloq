@@ -114,6 +114,14 @@
     "exercisesSummary": "{{exercises}} oefeningen · {{sets}} sets",
     "tapMuscle": "Tik voor details"
   },
+  "activitySummary": {
+    "distance": "Afstand",
+    "elevation": "Hoogte",
+    "fetching": "Activiteiten ophalen...",
+    "movingTime": "Beweegtijd",
+    "openActivity": "Details bekijken",
+    "title": "Samenvatting"
+  },
   "activityTypes": {
     "AlpineSki": "Alpineskiën",
     "BackcountrySki": "Skitoer",
@@ -365,6 +373,20 @@
       "forwardSchema": "Deze gegevens zijn opgeslagen door een nieuwere versie van Veloq. Werk de app bij om ze te openen.",
       "storageUnavailable": "De database kon niet worden weggeschreven. Maak ruimte vrij en probeer het opnieuw.",
       "failed": "De route-engine is gestopt om een reden die de app niet kan benoemen."
+    },
+    "quarantine": {
+      "title": "Je activiteitenbibliotheek is opnieuw opgebouwd",
+      "resyncing": "Je activiteiten worden opnieuw gedownload.",
+      "dismiss": "Begrepen",
+      "separator": ", ",
+      "kept": {
+        "lead": "Sommige gegevens waren onleesbaar, dus de bibliotheek is opnieuw opgebouwd. Bewaard: {{kept}}.",
+        "sections": "{{count}} eigen secties",
+        "history": "{{count}} sectiegebeurtenissen",
+        "geometry": "{{count}} sectievormen",
+        "pins": "{{count}} vastgezette vormen",
+        "intents": "{{count}} verwijderde corridors"
+      }
     }
   },
   "errorState": {
@@ -805,7 +827,9 @@
       "title": "Meldingen",
       "enable": "Meldingen inschakelen",
       "requiresOAuth": "Koppel los en verbind opnieuw via de OAuth-inlogmethode in plaats van een persoonlijke API-sleutel om meldingen in te schakelen.",
-      "privacyHint": "Slaat een pushtoken en atleet-ID op onze server op (30 dagen geldig). Zie veloq.fit/privacy"
+      "privacyHint": "Slaat een pushtoken en atleet-ID op onze server op (30 dagen geldig). Zie veloq.fit/privacy",
+      "sectionPr": "Persoonlijke records",
+      "fitnessMilestone": "Fitnessmijlpalen"
     },
     "prompt": {
       "title": "Blijf op de hoogte",
@@ -826,12 +850,7 @@
       "sectionPrMany": "PR op {{name}} en {{count}} meer",
       "fasterOnRoute": "Sneller dan gewoonlijk op {{name}}",
       "fasterOnRouteDelta": "Sneller dan gewoonlijk op {{name}} ({{delta}} van PR)",
-      "onRoute": "Op {{name}}",
-      "sectionTraversedOne": "1 sectie afgelegd",
-      "sectionTraversedMany": "{{count}} secties afgelegd",
-      "distanceAndTime": "{{km}} km in {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "Op {{name}}"
     }
   },
   "recording": {
@@ -1238,6 +1257,12 @@
     "streamHistoryDays": "{{count}} dagen",
     "streamHistoryAll": "Alles",
     "streamHistoryReset": "Herstellen",
+    "streamBackfill": "Ontbrekende reeksen",
+    "streamBackfillOwed_one": "{{count}} activiteit",
+    "streamBackfillOwed_other": "{{count}} activiteiten",
+    "streamBackfillProgress": "{{completed}} van {{total}}",
+    "streamBackfillDownload": "Downloaden",
+    "streamBackfillStop": "Stoppen",
     "tileCacheLimit": "Limiet kaarttegels",
     "tileCacheLimitHint": "Verhoog deze voor beter offline en lokaal bladeren",
     "tileCacheUsedOfBudget": "{{used}} van {{budget}} gebruikt",
@@ -1667,7 +1692,6 @@
     "title": "Achtergrondtaken",
     "intro": "Lange taken die de app zelf uitvoert. Ze gaan door als je dit scherm verlaat.",
     "openLink": "Achtergrondtaken",
-    "sync": "Activiteiten synchroniseren",
     "detection": "Sectiedetectie",
     "elevationBackfill": "Hoogtegegevens downloaden",
     "cutover": "Secties opnieuw opbouwen",

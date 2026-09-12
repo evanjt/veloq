@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { debug } from '@/shared/debug/debug';
+import { getStoredCredentials } from '@/shared/app/AuthStore';
 
 const log = debug.create('PushToken');
 
@@ -42,6 +43,36 @@ export async function refreshPushTokenRegistration(athleteId: string): Promise<v
 }
 
 /**
+ * The intervals.icu credential this device holds, in the form intervals.icu
+ * itself reads.
+ *
+ * The worker forwards it to `GET /athlete/0` and refuses a registration whose
+ * athlete id is not the one that comes back, so a device speaks only for the
+ * athlete it is signed in as. Both sign-ins carry: OAuth as a bearer, a
+ * personal API key as Basic `API_KEY:<key>`.
+ */
+export function authorizationHeader(
+  credentials: Pick<
+    ReturnType<typeof getStoredCredentials>,
+    'apiKey' | 'accessToken' | 'authMethod'
+  >
+): string | null {
+  const { apiKey, accessToken, authMethod } = credentials;
+  if (authMethod === 'oauth' && accessToken?.trim()) {
+    return `Bearer ${accessToken.trim()}`;
+  }
+  if (authMethod === 'apiKey' && apiKey?.trim()) {
+    return `Basic ${base64(`API_KEY:${apiKey.trim()}`)}`;
+  }
+  return null;
+}
+
+/** Hermes has no `btoa`, and this runs in the headless task too. */
+function base64(value: string): string {
+  return Buffer.from(value, 'utf8').toString('base64');
+}
+
+/**
  * Get the Expo push token for this device.
  * Expo handles FCM (Android) and APNs (iOS) routing transparently.
  * Returns null if unable to get token.
@@ -67,10 +98,16 @@ export async function registerPushToken(athleteId: string): Promise<boolean> {
   const token = await getExpoPushToken();
   if (!token) return false;
 
+  const authorization = authorizationHeader(getStoredCredentials());
+  if (!authorization) {
+    log.warn('No credential to register a push token with');
+    return false;
+  }
+
   try {
     const response = await fetch(`${API_URL}/devices/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: authorization },
       body: JSON.stringify({
         athleteId,
         token,
@@ -99,10 +136,18 @@ export async function unregisterPushToken(athleteId: string): Promise<boolean> {
   const token = await getExpoPushToken();
   if (!token) return false;
 
+  // Every sign-out path unregisters before it clears the credential, because
+  // the worker will not take the word of a device that cannot prove who it is.
+  const authorization = authorizationHeader(getStoredCredentials());
+  if (!authorization) {
+    log.warn('No credential to unregister a push token with');
+    return false;
+  }
+
   try {
     const response = await fetch(`${API_URL}/devices/unregister`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: authorization },
       body: JSON.stringify({ athleteId, token }),
     });
 

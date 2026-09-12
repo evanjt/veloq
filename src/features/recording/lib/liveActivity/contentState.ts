@@ -1,5 +1,5 @@
-import { composeRouteOutline } from '@/shared/geo/routePreview';
-import type { RecordingGpsPoint, RecordingStatus } from '@/features/recording/types';
+import { composeRouteOutline, type RouteTrack } from '@/shared/geo/routePreview';
+import type { RecordingStatus } from '@/features/recording/types';
 
 /**
  * ActivityKit rejects a ContentState whose encoded form exceeds 4 KB, and the
@@ -36,7 +36,7 @@ export interface ContentStateInput {
   pausedDurationMs: number;
   distanceLabel: string;
   speedLabel: string;
-  gps: RecordingGpsPoint[];
+  gps: RouteTrack;
 }
 
 /**

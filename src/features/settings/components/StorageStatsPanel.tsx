@@ -10,6 +10,7 @@ import { useTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSetti
 import { mapCacheTotal } from '../lib/mapCacheTotal';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 
+import { StreamBackfillRow } from './StreamBackfillRow';
 import { StreamHistoryRow } from './StreamHistoryRow';
 
 function formatDateOrDash(dateStr: string | null): string {
@@ -310,6 +311,8 @@ export function StorageStatsPanel({
       </View>
 
       <StreamHistoryRow isDark={isDark} />
+
+      <StreamBackfillRow isDark={isDark} />
 
       {/* Everything the map draws from, which is previews, heatmap and tiles. */}
       <View style={[styles.infoRow, isDark && styles.infoRowDark]}>

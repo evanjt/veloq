@@ -249,6 +249,44 @@ export function getNetworkPush(): NetworkPush | undefined {
   );
 }
 /**
+ * Read the stream backfill's progress. Safe to poll at any time.
+ */
+export function getStreamBackfillProgress(): StreamBackfillProgress {
+  return FfiConverterTypeStreamBackfillProgress.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_stream_backfill_progress(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * How many activities the stream backfill still has to ask upstream about.
+ * Zero means the library is fully stocked for the window as it stands.
+ *
+ * Raises rather than answering zero when it cannot answer at all: a screen
+ * that offers the backfill reads this, and an absent engine must not read as
+ * the job being done.
+ */
+export function getStreamBackfillRemaining(): /*u32*/ number /*throws*/ {
+  return FfiConverterUInt32.lift(
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_stream_backfill_remaining(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Whether the Corridor-to-Unified cutover is pending.
  */
 export function isCutoverPending(): boolean {
@@ -423,6 +461,38 @@ export function startFetchAndStore(
       },
       /*liftString:*/ FfiConverterString.lift,
     ),
+  );
+}
+/**
+ * Start the stream backfill on a background thread.
+ *
+ * Unlike the elevation backfill this is not fired at launch: it is tens of
+ * megabytes on whatever connection the phone has, so a screen starts it.
+ */
+export function startStreamBackfill(): FfiStartOutcome {
+  return FfiConverterTypeFfiStartOutcome.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_stream_backfill(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Ask the stream backfill to stop. It ends at its next batch boundary, so the
+ * activities already stored stay stored.
+ */
+export function stopStreamBackfill(): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_veloqrs_fn_func_stop_stream_backfill(
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift,
   );
 }
 /**
@@ -1296,19 +1366,19 @@ export type FfiActivityDetailData = {
    */
   sectionCount: /*u32*/ number;
   /**
-   * Route groups meeting the caller's minimum, most attempts first
+   * The route group this activity belongs to, if it meets the caller's
+   * minimum. At most one: the screen asks which group holds this activity,
+   * so the catalogue was what it searched rather than what it needed.
    */
   routeGroups: Array<FfiRouteGroup>;
-  /**
-   * Route group total before the minimum-activity filter
-   */
-  totalRouteGroupCount: /*u32*/ number;
   /**
    * Visible sections this activity traverses, most-visited first
    */
   matchedSections: Array<FfiSection>;
   /**
-   * Every visible custom section, matched or not
+   * Visible custom sections naming this activity that `matched_sections`
+   * does not already carry. Not the whole custom catalogue: the screen
+   * filtered it to exactly this on the far side of the call.
    */
   customSections: Array<FfiSection>;
   /**
@@ -1355,7 +1425,6 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         activityCount: FfiConverterUInt32.read(from),
         sectionCount: FfiConverterUInt32.read(from),
         routeGroups: FfiConverterArrayTypeFfiRouteGroup.read(from),
-        totalRouteGroupCount: FfiConverterUInt32.read(from),
         matchedSections: FfiConverterArrayTypeFfiSection.read(from),
         customSections: FfiConverterArrayTypeFfiSection.read(from),
         encounters: FfiConverterArrayTypeFfiSectionEncounter.read(from),
@@ -1368,7 +1437,6 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
       FfiConverterUInt32.write(value.activityCount, into);
       FfiConverterUInt32.write(value.sectionCount, into);
       FfiConverterArrayTypeFfiRouteGroup.write(value.routeGroups, into);
-      FfiConverterUInt32.write(value.totalRouteGroupCount, into);
       FfiConverterArrayTypeFfiSection.write(value.matchedSections, into);
       FfiConverterArrayTypeFfiSection.write(value.customSections, into);
       FfiConverterArrayTypeFfiSectionEncounter.write(value.encounters, into);
@@ -1381,7 +1449,6 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         FfiConverterUInt32.allocationSize(value.activityCount) +
         FfiConverterUInt32.allocationSize(value.sectionCount) +
         FfiConverterArrayTypeFfiRouteGroup.allocationSize(value.routeGroups) +
-        FfiConverterUInt32.allocationSize(value.totalRouteGroupCount) +
         FfiConverterArrayTypeFfiSection.allocationSize(value.matchedSections) +
         FfiConverterArrayTypeFfiSection.allocationSize(value.customSections) +
         FfiConverterArrayTypeFfiSectionEncounter.allocationSize(
@@ -9940,6 +10007,90 @@ const FfiConverterTypeSettingPair = (() => {
       return (
         FfiConverterString.allocationSize(value.key) +
         FfiConverterString.allocationSize(value.value)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What a poller sees while the stream backfill runs and after it settles.
+ */
+export type StreamBackfillProgress = {
+  /**
+   * One of idle, fetching, complete, partial, stopped, failed.
+   */
+  phase: string;
+  /**
+   * Activities this pass has finished with, however they ended.
+   */
+  completed: /*u32*/ number;
+  /**
+   * Activities the pass started with.
+   */
+  total: /*u32*/ number;
+  /**
+   * Activities whose series landed in the store.
+   */
+  stored: /*u32*/ number;
+  /**
+   * Activities whose fetch failed, so the next pass asks about them again.
+   */
+  failed: /*u32*/ number;
+  /**
+   * Whole-percent progress. An empty queue is 100, not 0.
+   */
+  percent: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link StreamBackfillProgress} record objects.
+ */
+export const StreamBackfillProgress = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      StreamBackfillProgress,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<StreamBackfillProgress>,
+  });
+})();
+
+const FfiConverterTypeStreamBackfillProgress = (() => {
+  type TypeName = StreamBackfillProgress;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        phase: FfiConverterString.read(from),
+        completed: FfiConverterUInt32.read(from),
+        total: FfiConverterUInt32.read(from),
+        stored: FfiConverterUInt32.read(from),
+        failed: FfiConverterUInt32.read(from),
+        percent: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.phase, into);
+      FfiConverterUInt32.write(value.completed, into);
+      FfiConverterUInt32.write(value.total, into);
+      FfiConverterUInt32.write(value.stored, into);
+      FfiConverterUInt32.write(value.failed, into);
+      FfiConverterUInt32.write(value.percent, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.phase) +
+        FfiConverterUInt32.allocationSize(value.completed) +
+        FfiConverterUInt32.allocationSize(value.total) +
+        FfiConverterUInt32.allocationSize(value.stored) +
+        FfiConverterUInt32.allocationSize(value.failed) +
+        FfiConverterUInt32.allocationSize(value.percent)
       );
     }
   }
@@ -20633,6 +20784,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_stream_backfill_progress() !==
+    25872
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_get_stream_backfill_progress",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_stream_backfill_remaining() !==
+    48991
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_get_stream_backfill_remaining",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_cutover_pending() !==
     63840
   ) {
@@ -20702,6 +20869,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_start_fetch_and_store",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_stream_backfill() !==
+    31152
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_start_stream_backfill",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_stop_stream_backfill() !==
+    23541
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_stop_stream_backfill",
     );
   }
   if (
@@ -23121,6 +23304,7 @@ export default Object.freeze({
     FfiConverterTypeSectionSummary,
     FfiConverterTypeSettingPair,
     FfiConverterTypeSettingsManager,
+    FfiConverterTypeStreamBackfillProgress,
     FfiConverterTypeStrengthManager,
     FfiConverterTypeSuggestedHome,
     FfiConverterTypeSyncManager,

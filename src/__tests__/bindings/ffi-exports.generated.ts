@@ -5,7 +5,7 @@
  * This file contains the expected FFI exports extracted from Rust source.
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
- * 22 standalone `#[uniffi::export]` functions plus
+ * 26 standalone `#[uniffi::export]` functions plus
  * 268 methods inside `#[uniffi::export] impl` blocks across
  * 15 UniFFI Objects.
  */
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 290 exports (22 standalone + 268 methods)
+ * Total: 294 exports (26 standalone + 268 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -156,10 +156,46 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     docs: "Read the elevation backfill's progress. Safe to poll at any time.",
   },
   {
+    name: 'start_stream_backfill',
+    camelName: 'startStreamBackfill',
+    file: 'ffi.rs',
+    line: 799,
+    paramCount: 0,
+    returnType: 'crate::objects::FfiStartOutcome',
+    docs: 'Start the stream backfill on a background thread. Unlike the elevation backfill this is not fired at launch: it is tens of megabytes on whatever connection the phone has, so a screen starts it.',
+  },
+  {
+    name: 'stop_stream_backfill',
+    camelName: 'stopStreamBackfill',
+    file: 'ffi.rs',
+    line: 807,
+    paramCount: 0,
+    returnType: 'void',
+    docs: 'Ask the stream backfill to stop. It ends at its next batch boundary, so the activities already stored stay stored.',
+  },
+  {
+    name: 'get_stream_backfill_remaining',
+    camelName: 'getStreamBackfillRemaining',
+    file: 'ffi.rs',
+    line: 819,
+    paramCount: 0,
+    returnType: 'Result<u32, crate::VeloqError>',
+    docs: 'How many activities the stream backfill still has to ask upstream about. Zero means the library is fully stocked for the window as it stands. Raises rather than answering zero when it cannot answer at all: a screen that offers the backfill reads this, and an absent engine must not read as the job being done.',
+  },
+  {
+    name: 'get_stream_backfill_progress',
+    camelName: 'getStreamBackfillProgress',
+    file: 'ffi.rs',
+    line: 831,
+    paramCount: 0,
+    returnType: 'StreamBackfillProgress',
+    docs: "Read the stream backfill's progress. Safe to poll at any time.",
+  },
+  {
     name: 'is_cutover_pending',
     camelName: 'isCutoverPending',
     file: 'ffi.rs',
-    line: 796,
+    line: 862,
     paramCount: 0,
     returnType: 'bool',
     docs: 'Whether the Corridor-to-Unified cutover is pending.',
@@ -168,7 +204,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'is_cutover_running',
     camelName: 'isCutoverRunning',
     file: 'ffi.rs',
-    line: 802,
+    line: 868,
     paramCount: 0,
     returnType: 'bool',
     docs: 'Whether a cutover run is currently in flight.',
@@ -177,7 +213,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'start_detector_cutover',
     camelName: 'startDetectorCutover',
     file: 'ffi.rs',
-    line: 821,
+    line: 887,
     paramCount: 0,
     returnType: 'bool',
     docs: 'Start the cutover on a background thread. Returns whether a run was started: false means no engine, not owed, or already running. A full cut is a cold detect over the whole library, so it must never be driven from the calling thread.',
@@ -186,7 +222,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'cancel_detector_cutover',
     camelName: 'cancelDetectorCutover',
     file: 'ffi.rs',
-    line: 833,
+    line: 899,
     paramCount: 0,
     returnType: 'void',
     docs: "Ask the running cutover to stop at its next step boundary. The cut is a cold detect over the whole library, spawned unattended at launch, and the only lever before this was a force-quit, which the in-flight token undid on the next launch anyway. Stopping costs the run's work and nothing else: the migration is still owed and the next launch runs it again from the top.",
@@ -195,7 +231,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_cutover_progress',
     camelName: 'getCutoverProgress',
     file: 'ffi.rs',
-    line: 839,
+    line: 905,
     paramCount: 0,
     returnType: 'CutoverProgress',
     docs: 'How far the running cutover has got.',
@@ -204,7 +240,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_change_card_support',
     camelName: 'getChangeCardSupport',
     file: 'ffi.rs',
-    line: 848,
+    line: 914,
     paramCount: 0,
     returnType: 'crate::FfiChangeCardSupport',
     docs: 'Which claims the change card may make on this build.',
@@ -213,7 +249,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_cutover_diff',
     camelName: 'getCutoverDiff',
     file: 'ffi.rs',
-    line: 872,
+    line: 938,
     paramCount: 0,
     returnType: 'Option<String>',
     docs: 'The stored cutover diff payload, if any.',
@@ -2911,7 +2947,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 2451,
+    line: 2452,
     paramCount: 3,
     returnType: 'Result<f64, VeloqError>',
     docs: "Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB. Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...]. Uses an R-tree on polylineB for O(n log m) instead of O(n*m). Returns 0.0-1.0. An odd length is refused rather than trimmed. The pairing below is `chunks_exact(2)`, which drops a trailing value without a word, so a caller that flattened one point short got an answer over a line it did not send. Latitude-first order cannot be checked here at all: only an encoded input carries its own order.",
@@ -2935,6 +2971,10 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'isElevationBackfillPaused',
   'getElevationBackfillRemaining',
   'getElevationBackfillProgress',
+  'startStreamBackfill',
+  'stopStreamBackfill',
+  'getStreamBackfillRemaining',
+  'getStreamBackfillProgress',
   'isCutoverPending',
   'isCutoverRunning',
   'startDetectorCutover',
@@ -3235,6 +3275,10 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   is_elevation_backfill_paused: 'isElevationBackfillPaused',
   get_elevation_backfill_remaining: 'getElevationBackfillRemaining',
   get_elevation_backfill_progress: 'getElevationBackfillProgress',
+  start_stream_backfill: 'startStreamBackfill',
+  stop_stream_backfill: 'stopStreamBackfill',
+  get_stream_backfill_remaining: 'getStreamBackfillRemaining',
+  get_stream_backfill_progress: 'getStreamBackfillProgress',
   is_cutover_pending: 'isCutoverPending',
   is_cutover_running: 'isCutoverRunning',
   start_detector_cutover: 'startDetectorCutover',

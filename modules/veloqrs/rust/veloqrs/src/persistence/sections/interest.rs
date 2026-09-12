@@ -177,10 +177,8 @@ impl PersistentEngine {
             .flat_map(|m| m.keys().map(String::as_str))
             .collect();
         let mut tracks: HashMap<String, Vec<GpsPoint>> = HashMap::with_capacity(needed.len());
-        self.for_each_track(|id, pts| {
-            if needed.contains(id) {
-                tracks.insert(id.to_string(), pts.to_vec());
-            }
+        self.for_each_track(&needed, |id, pts| {
+            tracks.insert(id.to_string(), pts.to_vec());
         });
         let outings: HashMap<String, RankOuting> = tracks
             .iter()

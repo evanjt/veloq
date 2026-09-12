@@ -6,7 +6,7 @@
  */
 
 import { renderHook } from '@testing-library/react-native';
-import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingStore, streamTotals } from '@/features/recording/stores/RecordingStore';
 import { useRecordingMetrics } from '@/features/recording/hooks/useRecordingMetrics';
 import type { RecordingStreams, RecordingLap } from '@/types';
 
@@ -30,7 +30,12 @@ function resetStore() {
 }
 
 function setStoreState(partial: Record<string, unknown>) {
-  useRecordingStore.setState(partial);
+  // Injecting streams wholesale is what the crash restore does, so the totals
+  // are scanned back the same way it scans them.
+  const streams = partial.streams as RecordingStreams | undefined;
+  useRecordingStore.setState(
+    streams && !('totals' in partial) ? { ...partial, totals: streamTotals(streams) } : partial
+  );
 }
 
 /** Build streams with reasonable defaults for a simple recording */
@@ -620,5 +625,49 @@ describe('useRecordingMetrics', () => {
 
     // Calories: (600/3600) * 70 * 8 = 93.33 -> rounded to 93
     expect(result.current.calories).toBeCloseTo(93, 0);
+  });
+});
+
+describe("useRecordingMetrics reads the store's running totals", () => {
+  beforeEach(resetStore);
+
+  /// Scenario: the hook rescanned the altitude and heart-rate arrays on every
+  /// fix, so a five-hour ride at 1 Hz walked 18,000 entries three times a
+  /// second.
+  ///
+  /// Expected behaviour: it reads the accumulator the store keeps per sample.
+  /// A total that disagrees with the stream proves which one is being read.
+  it('reports the accumulated elevation gain rather than rescanning the stream', () => {
+    setStoreState({
+      streams: makeStreams({
+        time: [0, 1, 2],
+        altitude: [100, 110, 105],
+        distance: [0, 10, 20],
+        speed: [0, 10, 10],
+      }),
+      totals: { elevationGain: 777, heartrateSum: 0, heartrateCount: 0 },
+    });
+
+    const { result } = renderHook(() => useRecordingMetrics());
+    expect(result.current.elevationGain).toBe(777);
+  });
+
+  it('takes the calorie average from the accumulated pulse, not a filter over the stream', () => {
+    const heartrate = Array.from({ length: 40 }, () => 100);
+    setStoreState({
+      activityType: 'Ride',
+      streams: makeStreams({
+        time: heartrate.map((_, i) => i),
+        altitude: heartrate.map(() => 0),
+        distance: heartrate.map((_, i) => i * 5),
+        speed: heartrate.map(() => 5),
+        heartrate,
+      }),
+      totals: { elevationGain: 0, heartrateSum: 40 * 160, heartrateCount: 40 },
+    });
+
+    const { result } = renderHook(() => useRecordingMetrics());
+    const kcalPerMin = (-55.0969 + 0.6309 * 160 + 0.1988 * 70 + 0.2017 * 35) / 4.184;
+    expect(result.current.calories).toBe(Math.round(kcalPerMin * (39 / 60)));
   });
 });

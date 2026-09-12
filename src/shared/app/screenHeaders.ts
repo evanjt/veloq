@@ -30,6 +30,7 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'route/[id]': null,
   routes: null,
   'section/[id]': null,
+  'summary/[id]': { titleKey: 'activitySummary.title' },
 
   about: { titleKey: 'about.title' },
   account: { titleKey: 'settings.account' },

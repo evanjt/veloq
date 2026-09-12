@@ -23,7 +23,7 @@ import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activ
 import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
 import { ACTIVITY_CATEGORIES } from '@/features/recording/lib/recordingModes';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
-import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingStore, streamTotals } from '@/features/recording/stores/RecordingStore';
 import { useCanRecord } from '@/features/recording/hooks/useCanRecord';
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
 import {
@@ -188,6 +188,7 @@ export default function RecordScreen() {
                 pausedDuration: backup.pausedDuration,
                 pauseIntervals: backup.pauseIntervals ?? [],
                 streams: backup.streams,
+                totals: streamTotals(backup.streams),
                 laps: backup.laps,
                 status: 'stopped',
               });
@@ -209,6 +210,7 @@ export default function RecordScreen() {
                 },
               ],
               streams: backup.streams,
+              totals: streamTotals(backup.streams),
               laps: backup.laps,
               status: 'paused', // Start paused so user can review before resuming
               _pauseStart: now,

@@ -65,10 +65,10 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
   getLastBackupTimestamp: jest.fn().mockResolvedValue(null),
 }));
 
-// The hub reads the job list for the Background Jobs subtitle. What that list
-// is computed from belongs to BackgroundJobsPanel's own tests.
+// The hub reads only the running count for the Background Jobs subtitle. What
+// that count is computed from belongs to useRunningJobCount's own tests.
 jest.mock('@/features/settings', () => ({
-  useBackgroundJobs: () => [{ id: 'sync', state: 'idle' }],
+  useRunningJobCount: () => 0,
 }));
 
 jest.mock('@/features/settings/components', () => ({

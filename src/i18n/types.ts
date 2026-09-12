@@ -339,6 +339,12 @@ export interface TranslationResource {
     streamHistoryDays: string;
     streamHistoryAll: string;
     streamHistoryReset: string;
+    streamBackfill: string;
+    streamBackfillOwed_one: string;
+    streamBackfillOwed_other: string;
+    streamBackfillProgress: string;
+    streamBackfillDownload: string;
+    streamBackfillStop: string;
     storageDatabase: string;
     storageHeatmap: string;
     storageTerrain: string;
@@ -839,6 +845,9 @@ export interface TranslationResource {
       enable: string;
       requiresOAuth: string;
       privacyHint: string;
+      /** The per-category switches under the main one. */
+      sectionPr: string;
+      fitnessMilestone: string;
     };
     prompt: {
       title: string;
@@ -1108,6 +1117,22 @@ export interface TranslationResource {
       storageUnavailable: string;
       failed: string;
     };
+    /** The one-time notice that a damaged library was rebuilt. */
+    quarantine: {
+      title: string;
+      resyncing: string;
+      dismiss: string;
+      /** Between the things that were kept, inside one sentence. */
+      separator: string;
+      kept: {
+        lead: string;
+        sections: string;
+        history: string;
+        geometry: string;
+        pins: string;
+        intents: string;
+      };
+    };
   };
 
   errorState: {
@@ -1178,6 +1203,15 @@ export interface TranslationResource {
     grade: string;
     wbal: string;
     temp: string;
+  };
+
+  activitySummary: {
+    distance: string;
+    elevation: string;
+    fetching: string;
+    movingTime: string;
+    openActivity: string;
+    title: string;
   };
 
   activityDetail: {
@@ -1634,7 +1668,6 @@ export interface TranslationResource {
     title: string;
     intro: string;
     openLink: string;
-    sync: string;
     detection: string;
     elevationBackfill: string;
     cutover: string;

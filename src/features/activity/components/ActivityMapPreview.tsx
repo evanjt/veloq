@@ -7,6 +7,7 @@ import { getMapLibreBounds } from '@/shared/geo/polyline';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { StaticCompassArrow } from '@/shared/ui';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
+import { isWithinPreviewRange, onPreviewRangeChange } from '../lib/previewRange';
 import {
   hasTerrainPreview,
   isTerrainPreviewDowngraded,
@@ -207,8 +208,20 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // otherwise. FlatList windowing is the throttle: only near-viewport cards
   // mount.
   // Deferred until the feed screen is focused - avoids competing with the detail view's Map3DWebView
+  // Mounted is not the same as near enough to be worth rendering. The list
+  // keeps two to three screens either side alive for smooth scrolling; a render
+  // is only worth starting for a card on screen or one screen from it, and this
+  // re-asks that question when the feed says the viewport moved.
+  const [inRange, setInRange] = useState(() => isWithinPreviewRange(index));
+  useEffect(() => {
+    const update = () => setInRange(isWithinPreviewRange(index));
+    update();
+    return onPreviewRangeChange(update);
+  }, [index]);
+
   useEffect(() => {
     if (!screenFocused) return;
+    if (!inRange) return;
     if (validCoordinates.length < 2) return;
     // What is on screen and what to ask for are two decisions. A flat stand-in
     // is served either way, because a card is never blanked to redraw it, but
@@ -249,6 +262,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     snapshotRef,
     snapshotReady,
     hasActivityOverride,
+    inRange,
   ]);
 
   if (__DEV__ && mapPreviewStart && index < 3) {

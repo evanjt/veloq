@@ -115,11 +115,24 @@ describe('iOS points its record surfaces at a started recording', () => {
 });
 
 describe('the gather path reads the sports the recording preferences published', () => {
-  const mockEngine = { getWidgetSnapshot: jest.fn(() => undefined) };
+  // An engine with nothing in it still answers. Handing back undefined models
+  // a shape the FFI never produces: it returns the payload or it throws.
+  const mockEngine = {
+    getWidgetSnapshot: jest.fn(() => ({
+      sparklines: null,
+      summary: null,
+      latest: null,
+      latestIsPr: false,
+      latestGps: null,
+    })),
+  };
 
   beforeEach(() => {
     jest.resetModules();
-    jest.doMock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+    jest.doMock('@/shared/native/engine', () => ({
+      getEngine: () => mockEngine,
+      isEngineReady: () => true,
+    }));
   });
 
   afterEach(() => {

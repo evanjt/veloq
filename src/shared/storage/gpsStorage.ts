@@ -11,7 +11,11 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { debug } from '@/shared/debug/debug';
 import { getEngine } from '@/shared/native/engine';
-import { clearTerrainPreviews } from '@/features/maps/lib/storage/terrainPreviewCache';
+import { getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
+import {
+  clearTerrainPreviews,
+  getTerrainPreviewCacheSize,
+} from '@/features/maps/lib/storage/terrainPreviewCache';
 import { forgetCachedAthleteId, forgetStoredActivityCount } from './cachedAthleteId';
 
 const log = debug.create('GpsStorage');
@@ -109,47 +113,41 @@ export async function estimateRoutesDatabaseSize(): Promise<number> {
 }
 
 /**
- * Recursively measure total size of a directory in bytes.
+ * One bucket's bytes, or zero if it cannot answer. A bucket that throws is
+ * not worth losing the other three over: the figure is a subtitle, and the
+ * engine is not open on every screen that reads it.
  */
-async function getDirectorySize(dirPath: string): Promise<number> {
+async function bucketSize(read: () => number | bigint | Promise<number>): Promise<number> {
   try {
-    const dirInfo = await FileSystem.getInfoAsync(dirPath);
-    if (!dirInfo.exists || !dirInfo.isDirectory) return 0;
-
-    const entries = await FileSystem.readDirectoryAsync(dirPath);
-    let total = 0;
-
-    for (const entry of entries) {
-      const fullPath = `${dirPath}${entry}`;
-      const info = await FileSystem.getInfoAsync(fullPath);
-      if (!info.exists) continue;
-      if (info.isDirectory) {
-        total += await getDirectorySize(`${fullPath}/`);
-      } else if ('size' in info) {
-        total += info.size || 0;
-      }
-    }
-    return total;
+    return Number(await read()) || 0;
   } catch {
     return 0;
   }
 }
 
 /**
- * Get total app storage usage across documentDirectory and cacheDirectory.
- * This is the ground-truth measurement that accounts for all files the app
- * has written, including SQLite WAL files, map caches, terrain previews, etc.
+ * Total app storage usage, as the sum of the four buckets that know their own
+ * size.
+ *
+ * Three of them answer natively and the fourth is three files, so nothing here
+ * touches the tile trees. Walking `documentDirectory` and `cacheDirectory`
+ * instead cost one `getInfoAsync` round trip per tile, awaited in series on
+ * the JS thread, over the two largest trees the app writes.
  */
 export async function getAppStorageSize(): Promise<number> {
-  const docDir = FileSystem.documentDirectory;
-  const cacheDir = FileSystem.cacheDirectory;
-
-  const [docSize, cacheSize] = await Promise.all([
-    docDir ? getDirectorySize(docDir) : Promise.resolve(0),
-    cacheDir ? getDirectorySize(cacheDir) : Promise.resolve(0),
+  const sizes = await Promise.all([
+    bucketSize(estimateRoutesDatabaseSize),
+    bucketSize(getHeatmapTilesCacheSize),
+    bucketSize(() => {
+      // Required lazily, not imported: `veloqrs` reaches the Turbo Module at
+      // import time, and this module is imported by cleanup paths that run in
+      // tests and on web, where that module does not exist.
+      const { basemapStore } = require('veloqrs') as typeof import('veloqrs');
+      return basemapStore().getCacheSize();
+    }),
+    bucketSize(getTerrainPreviewCacheSize),
   ]);
-
-  return docSize + cacheSize;
+  return sizes.reduce((total, size) => total + size, 0);
 }
 
 // =============================================================================

@@ -23,6 +23,7 @@ import {
   SportToggleSelector,
   FitnessHeaderStats,
   WeekShapeCard,
+  lastSevenDaysWindow,
 } from '@/features/fitness';
 import {
   useFitnessRefresh,
@@ -44,6 +45,9 @@ import { DEFAULT_PERIOD } from '@/shared/app/period';
 export default function FitnessScreen() {
   // Performance timing
   const perfEndRef = useRef<(() => void) | null>(null);
+  // Deliberately during render: the timer has to start where the render does,
+  // and an effect would measure from after paint instead.
+  // eslint-disable-next-line react-hooks/refs
   perfEndRef.current = logScreenRender('FitnessScreen');
   useEffect(() => {
     perfEndRef.current?.();
@@ -140,18 +144,10 @@ export default function FitnessScreen() {
   // Handle pull-to-refresh - invalidate all fitness-related queries
   const { isRefreshing, onRefresh } = useFitnessRefresh(refetch);
 
-  // The last seven days, midnight to midnight, which is the window the engine
-  // reads a shape over. Held in a memo so it does not move every render.
-  const { weekStartTs, weekEndTs } = useMemo(() => {
-    const end = new Date();
-    end.setHours(0, 0, 0, 0);
-    const start = new Date(end);
-    start.setDate(start.getDate() - 6);
-    return {
-      weekStartTs: Math.floor(start.getTime() / 1000),
-      weekEndTs: Math.floor(end.getTime() / 1000),
-    };
-  }, []);
+  // The last seven days, local midnight to the end of today, which is the
+  // window the engine reads a shape over. Held in a memo so it does not move
+  // every render.
+  const { weekStartTs, weekEndTs } = useMemo(() => lastSevenDaysWindow(new Date()), []);
   const weekShape = useWeekLoadShape(weekStartTs, weekEndTs);
 
   // Memoized derivations (FTP trend, dominant zone, decoupling, form zone, display values)

@@ -627,6 +627,9 @@ export const TerrainSnapshotWebView = forwardRef<
           totalBytes: (data.totalBytes as number) ?? 0,
           terrain: (data.terrain as { tileCount: number; totalBytes: number }) ?? undefined,
           vector: (data.vector as { tileCount: number; totalBytes: number }) ?? undefined,
+          // The page posts three buckets and this forwarded two, so the
+          // storage breakdown had no ground row however much it held.
+          ground: (data.ground as { tileCount: number; totalBytes: number }) ?? undefined,
         });
       },
       snapshotError: (data: WebViewBridgeMessage) => {

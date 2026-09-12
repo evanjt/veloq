@@ -190,6 +190,7 @@ const ACTIVITY_KEYED_TABLES: &[&str] = &[
     "activity_indicators",
     "activity_matches",
     "activity_streams",
+    "activity_stream_backfill",
     "stream_bodies",
     "interval_bodies",
     "exercise_sets",
@@ -682,6 +683,7 @@ impl PersistentEngine {
              DELETE FROM time_streams;
              DELETE FROM stream_bodies;
              DELETE FROM activity_streams;
+             DELETE FROM activity_stream_backfill;
              DELETE FROM interval_bodies;
              DELETE FROM curve_bodies;
              DELETE FROM calendar_event_bodies;
@@ -1393,6 +1395,30 @@ impl PersistentEngine {
             .collect()
     }
 
+    /// The activities whose bounds could reach a line, padded by the same
+    /// proximity threshold the matcher uses. `track_portions` already refuses
+    /// a track whose points all miss that box, but it refuses it after the
+    /// read and the decode, so on a real library the refusal costs one DB read
+    /// and one decode per activity the athlete owns. The bounds are in memory
+    /// and indexed, so the same refusal is free here. A bounding box that
+    /// intersects is implied by any point inside the box, so this drops
+    /// nothing the matcher would have kept.
+    pub fn activities_near_polyline(&self, polyline: &[GpsPoint], pad_metres: f64) -> Vec<String> {
+        let Some(bounds) = Bounds::from_points(polyline) else {
+            return Vec::new();
+        };
+        // A degree of longitude shrinks with latitude, so the east-west pad is
+        // taken at the box's own latitude rather than at the equator.
+        let d_lat = pad_metres / 111_132.0;
+        let d_lng = pad_metres / (111_320.0 * bounds.min_lat.to_radians().cos()).max(1.0);
+        self.query_viewport(&Bounds {
+            min_lat: bounds.min_lat - d_lat,
+            max_lat: bounds.max_lat + d_lat,
+            min_lng: bounds.min_lng - d_lng,
+            max_lng: bounds.max_lng + d_lng,
+        })
+    }
+
     /// Get a signature, loading from DB if not cached.
     pub fn get_signature(&mut self, id: &str) -> Option<Arc<RouteSignature>> {
         if let Some(sig) = self.signature_cache.get(&id.to_string()) {
@@ -1698,13 +1724,25 @@ impl PersistentEngine {
             .collect()
     }
 
-    /// Visit every stored track once, streaming. The callback borrows the
-    /// points for the length of the call and the decoded buffer is dropped
-    /// before the next row, so the whole library is never resident at once.
+    /// Visit the stored tracks `wanted` names, once each, streaming. The
+    /// callback borrows the points for the length of the call and the decoded
+    /// buffer is dropped before the next row, so the whole library is never
+    /// resident at once.
+    ///
+    /// A row outside `wanted` is skipped before its blob is read, so an
+    /// unwanted track costs neither the copy out of SQLite nor the decode.
+    /// The only caller ranks the sections' own members, which on a real
+    /// library is a fraction of the rows, and it runs under the write lock.
+    ///
     /// A corrupt row is logged and visited with an empty slice. The returned
     /// [`TrackWalk`] counts what the walk saw and what it lost, so a caller
-    /// can tell a short result from a complete one.
-    pub fn for_each_track(&self, mut f: impl FnMut(&str, &[GpsPoint])) -> TrackWalk {
+    /// can tell a short result from a complete one. Every count is against
+    /// `wanted`: a row nobody asked for is neither visited nor corrupt.
+    pub fn for_each_track(
+        &self,
+        wanted: &std::collections::HashSet<&str>,
+        mut f: impl FnMut(&str, &[GpsPoint]),
+    ) -> TrackWalk {
         let mut walk = TrackWalk::default();
         let mut stmt = match self
             .db
@@ -1737,9 +1775,20 @@ impl PersistentEngine {
                     continue;
                 }
             };
-            let (id, blob): (String, Vec<u8>) = match (row.get(0), row.get(1)) {
-                (Ok(id), Ok(blob)) => (id, blob),
-                (Err(e), _) | (_, Err(e)) => {
+            let id: String = match row.get(0) {
+                Ok(id) => id,
+                Err(e) => {
+                    log::warn!("[for_each_track] column read failed: {}", e);
+                    walk.failed += 1;
+                    continue;
+                }
+            };
+            if !wanted.contains(id.as_str()) {
+                continue;
+            }
+            let blob: Vec<u8> = match row.get(1) {
+                Ok(blob) => blob,
+                Err(e) => {
                     log::warn!("[for_each_track] column read failed: {}", e);
                     walk.failed += 1;
                     continue;
@@ -1944,6 +1993,7 @@ impl PersistentEngine {
 mod tests {
     use super::super::commit_counter;
     use super::*;
+    use std::collections::HashSet;
 
     fn engine_with_activity_in_sections(sections: usize) -> PersistentEngine {
         let mut engine = PersistentEngine::in_memory().unwrap();
@@ -1986,6 +2036,72 @@ mod tests {
                 .unwrap();
         }
         engine
+    }
+
+    /// Scenario: ranking wants the tracks of the few activities that have
+    /// passes, and the library holds many that do not.
+    ///
+    /// Expected behaviour: the walk hands over only what was asked for, and
+    /// never pays the blob read or the decode for the rest.
+    #[test]
+    fn a_track_walk_decodes_only_the_ids_it_was_asked_for() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let coords = vec![
+            GpsPoint {
+                latitude: 46.2,
+                longitude: 7.3,
+                elevation: None,
+            },
+            GpsPoint {
+                latitude: 46.21,
+                longitude: 7.31,
+                elevation: None,
+            },
+        ];
+        for id in ["a1", "a2", "a3"] {
+            engine
+                .add_activity(id.to_string(), coords.clone(), "Ride".to_string())
+                .unwrap();
+        }
+
+        let wanted: HashSet<&str> = ["a2"].into_iter().collect();
+        let mut seen: Vec<(String, usize)> = Vec::new();
+        let walk = engine.for_each_track(&wanted, |id, pts| seen.push((id.to_string(), pts.len())));
+
+        assert_eq!(seen, vec![("a2".to_string(), 2)]);
+        assert_eq!(walk.visited, 1);
+        assert_eq!(walk.corrupt, 0);
+        assert!(!walk.is_incomplete());
+    }
+
+    /// A corrupt row the caller did not ask for is not its problem, and
+    /// decoding it to find out would be the cost the filter exists to avoid.
+    #[test]
+    fn a_corrupt_row_outside_the_wanted_set_is_not_counted() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let coords = vec![GpsPoint {
+            latitude: 46.2,
+            longitude: 7.3,
+            elevation: None,
+        }];
+        for id in ["a1", "a2"] {
+            engine
+                .add_activity(id.to_string(), coords.clone(), "Ride".to_string())
+                .unwrap();
+        }
+        engine
+            .db
+            .execute(
+                "UPDATE gps_tracks SET track_data = ? WHERE activity_id = 'a1'",
+                params![vec![0xff_u8, 0xfe, 0xfd]],
+            )
+            .unwrap();
+
+        let wanted: HashSet<&str> = ["a2"].into_iter().collect();
+        let walk = engine.for_each_track(&wanted, |_, _| {});
+
+        assert_eq!(walk.visited, 1);
+        assert_eq!(walk.corrupt, 0);
     }
 
     /// A deletion ran the cascade, then one visit_count update per section the

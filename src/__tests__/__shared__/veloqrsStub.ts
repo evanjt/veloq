@@ -134,6 +134,7 @@ export const basemap = {
   setSourceTemplate: jest.fn(),
   getTile: jest.fn(() => undefined),
   getOrFetchTile: jest.fn(() => undefined),
+  getCacheSize: jest.fn(() => 0n),
 };
 
 export const basemapStore = jest.fn(() => basemap);

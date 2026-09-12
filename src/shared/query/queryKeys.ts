@@ -19,9 +19,13 @@ export const queryKeys = {
       byAthlete: (athleteId: string) => ['activities-infinite', athleteId] as const,
     },
     detail: (id: string) => ['activity', id] as const,
+    labels: ['activity-labels'] as const,
+    labelsFor: (ids: readonly string[]) => ['activity-labels', ids.join(',')] as const,
     streams: (id: string) => ['activity-streams-v3', id] as const,
     intervals: (id: string) => ['activity-intervals', id] as const,
     mapPreview: (activityId: string) => ['map-preview-streams', activityId] as const,
+    highlight: (id: string, announcePrs: boolean) =>
+      ['activity-highlight', id, announcePrs] as const,
   },
 
   strength: {

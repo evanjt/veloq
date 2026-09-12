@@ -12,7 +12,7 @@ import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext'
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useRecordingPreferences } from '@/features/recording';
 import { useSensorStore } from '@/features/sensors';
-import { useBackgroundJobs } from '@/features/settings';
+import { useRunningJobCount } from '@/features/settings';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useLanguageStore, getAvailableLanguages } from '@/shared/app/LanguageStore';
@@ -196,8 +196,10 @@ export default function SettingsScreen() {
 
   // Subtitle: Background jobs. This spoke has no preference to preview, so the
   // state of the thing itself is what the row is for: how many are running.
-  const backgroundJobs = useBackgroundJobs();
-  const runningJobCount = backgroundJobs.filter((job) => job.state === 'running').length;
+  // The hub wants the count and nothing else, so it does not take the jobs
+  // screen's hook: that one reads the awaiting count every tick, a COUNT under
+  // the engine's write lock, for a subtitle that never shows it.
+  const runningJobCount = useRunningJobCount();
   const backgroundJobsSubtitle =
     runningJobCount > 0
       ? t('settings.jobsRunning', { count: runningJobCount })

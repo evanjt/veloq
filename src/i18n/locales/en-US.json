@@ -114,6 +114,14 @@
     "exercisesSummary": "{{exercises}} exercises · {{sets}} sets",
     "tapMuscle": "Tap for details"
   },
+  "activitySummary": {
+    "distance": "Distance",
+    "elevation": "Elevation",
+    "fetching": "Fetching activities...",
+    "movingTime": "Moving Time",
+    "openActivity": "View Details",
+    "title": "Summary"
+  },
   "activityTypes": {
     "AlpineSki": "Alpine Ski",
     "BackcountrySki": "Backcountry Ski",
@@ -353,6 +361,20 @@
       "forwardSchema": "This data was saved by a newer version of Veloq. Update the app to open it.",
       "storageUnavailable": "The database could not be written. Free up space, then try again.",
       "failed": "The route engine stopped for a reason the app cannot name."
+    },
+    "quarantine": {
+      "title": "Your activity library was rebuilt",
+      "resyncing": "Your activities are downloading again.",
+      "dismiss": "Got it",
+      "separator": ", ",
+      "kept": {
+        "lead": "Some data could not be read, so the library was rebuilt. Kept: {{kept}}.",
+        "sections": "{{count}} of your own sections",
+        "history": "{{count}} section events",
+        "geometry": "{{count}} section shapes",
+        "pins": "{{count}} pinned shapes",
+        "intents": "{{count}} removed corridors"
+      }
     }
   },
   "errorState": {
@@ -827,7 +849,9 @@
       "title": "Notifications",
       "enable": "Enable notifications",
       "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
-      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy"
+      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
+      "sectionPr": "Personal bests",
+      "fitnessMilestone": "Fitness milestones"
     },
     "prompt": {
       "title": "Stay in the loop",
@@ -848,12 +872,7 @@
       "sectionPrMany": "PR on {{name}} and {{count}} more",
       "fasterOnRoute": "Faster than usual on {{name}}",
       "fasterOnRouteDelta": "Faster than usual on {{name}} ({{delta}} off PR)",
-      "onRoute": "On {{name}}",
-      "sectionTraversedOne": "1 section traversed",
-      "sectionTraversedMany": "{{count}} sections traversed",
-      "distanceAndTime": "{{km}} km in {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "On {{name}}"
     }
   },
   "recording": {
@@ -1261,6 +1280,12 @@
     "streamHistoryDays": "{{count}} days",
     "streamHistoryAll": "All",
     "streamHistoryReset": "Reset",
+    "streamBackfill": "Missing series",
+    "streamBackfillOwed_one": "{{count}} activity",
+    "streamBackfillOwed_other": "{{count}} activities",
+    "streamBackfillProgress": "{{completed}} of {{total}}",
+    "streamBackfillDownload": "Download",
+    "streamBackfillStop": "Stop",
     "tileCacheLimit": "Map tile limit",
     "tileCacheLimitHint": "Raise it to improve offline and local browsing",
     "tileCacheUsedOfBudget": "{{used}} of {{budget}} used",
@@ -1667,7 +1692,6 @@
     "title": "Background Jobs",
     "intro": "Long jobs the app runs on its own. They keep going when you leave this screen.",
     "openLink": "Background jobs",
-    "sync": "Activity sync",
     "detection": "Section detection",
     "elevationBackfill": "Elevation download",
     "cutover": "Section rebuild",

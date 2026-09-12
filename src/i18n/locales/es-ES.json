@@ -114,6 +114,14 @@
     "exercisesSummary": "{{exercises}} ejercicios · {{sets}} series",
     "tapMuscle": "Toca para ver detalles"
   },
+  "activitySummary": {
+    "distance": "Distancia",
+    "elevation": "Elevación",
+    "fetching": "Obteniendo actividades...",
+    "movingTime": "Tiempo en movimiento",
+    "openActivity": "Ver detalles",
+    "title": "Resumen"
+  },
   "activityTypes": {
     "AlpineSki": "Esquí alpino",
     "BackcountrySki": "Esquí de travesía",
@@ -365,6 +373,20 @@
       "forwardSchema": "Estos datos se guardaron con una versión más nueva de Veloq. Actualiza la aplicación para abrirlos.",
       "storageUnavailable": "No se ha podido escribir la base de datos. Libera espacio e inténtalo de nuevo.",
       "failed": "El motor de rutas se paró por un motivo que la aplicación no sabe nombrar."
+    },
+    "quarantine": {
+      "title": "Tu biblioteca de actividades se ha reconstruido",
+      "resyncing": "Tus actividades se están descargando de nuevo.",
+      "dismiss": "Entendido",
+      "separator": ", ",
+      "kept": {
+        "lead": "Algunos datos no se pudieron leer, así que la biblioteca se reconstruyó. Se conservó: {{kept}}.",
+        "sections": "{{count}} secciones tuyas",
+        "history": "{{count}} eventos de sección",
+        "geometry": "{{count}} trazados de sección",
+        "pins": "{{count}} trazados fijados",
+        "intents": "{{count}} corredores eliminados"
+      }
     }
   },
   "errorState": {
@@ -805,7 +827,9 @@
       "title": "Notificaciones",
       "enable": "Activar notificaciones",
       "requiresOAuth": "Para activar las notificaciones, desconecta y vuelve a conectar usando el flujo de inicio de sesión OAuth en lugar de una clave API personal.",
-      "privacyHint": "Almacena un token push y un ID de atleta en nuestro servidor (caducidad de 30 días). Ver veloq.fit/privacy"
+      "privacyHint": "Almacena un token push y un ID de atleta en nuestro servidor (caducidad de 30 días). Ver veloq.fit/privacy",
+      "sectionPr": "Récords personales",
+      "fitnessMilestone": "Hitos de forma"
     },
     "prompt": {
       "title": "Manteneos al día",
@@ -826,12 +850,7 @@
       "sectionPrMany": "PR en {{name}} y {{count}} más",
       "fasterOnRoute": "Más rápido de lo habitual en {{name}}",
       "fasterOnRouteDelta": "Más rápido de lo habitual en {{name}} (a {{delta}} del PR)",
-      "onRoute": "En {{name}}",
-      "sectionTraversedOne": "1 sección recorrida",
-      "sectionTraversedMany": "{{count}} secciones recorridas",
-      "distanceAndTime": "{{km}} km en {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "En {{name}}"
     }
   },
   "recording": {
@@ -1238,6 +1257,12 @@
     "streamHistoryDays": "{{count}} días",
     "streamHistoryAll": "Todo",
     "streamHistoryReset": "Restablecer",
+    "streamBackfill": "Series que faltan",
+    "streamBackfillOwed_one": "{{count}} actividad",
+    "streamBackfillOwed_other": "{{count}} actividades",
+    "streamBackfillProgress": "{{completed}} de {{total}}",
+    "streamBackfillDownload": "Descargar",
+    "streamBackfillStop": "Detener",
     "tileCacheLimit": "Límite de mosaicos de mapa",
     "tileCacheLimitHint": "Auméntalo para mejorar el uso sin conexión y local",
     "tileCacheUsedOfBudget": "{{used}} de {{budget}} usados",
@@ -1667,7 +1692,6 @@
     "title": "Tareas en segundo plano",
     "intro": "Tareas largas que la aplicación ejecuta sola. Continúan cuando sales de esta pantalla.",
     "openLink": "Tareas en segundo plano",
-    "sync": "Sincronización de actividades",
     "detection": "Detección de tramos",
     "elevationBackfill": "Descarga de altimetría",
     "cutover": "Reconstrucción de tramos",

@@ -951,6 +951,10 @@ uint32_t uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
     RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_func_get_network_push(RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_func_get_stream_backfill_progress(
+    RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_func_get_stream_backfill_remaining(
+    RustCallStatus *uniffi_out_err);
 int8_t
 uniffi_veloqrs_fn_func_is_cutover_pending(RustCallStatus *uniffi_out_err);
 int8_t
@@ -971,6 +975,10 @@ uint64_t
 uniffi_veloqrs_fn_func_start_fetch_and_store(RustBuffer activity_ids,
                                              RustBuffer sport_types,
                                              RustCallStatus *uniffi_out_err);
+RustBuffer
+uniffi_veloqrs_fn_func_start_stream_backfill(RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_func_stop_stream_backfill(
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_take_fetch_and_store_result(
     uint64_t run, RustCallStatus *uniffi_out_err);
 RustBuffer
@@ -1106,6 +1114,8 @@ uint16_t uniffi_veloqrs_checksum_func_get_download_progress();
 uint16_t uniffi_veloqrs_checksum_func_get_elevation_backfill_progress();
 uint16_t uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining();
 uint16_t uniffi_veloqrs_checksum_func_get_network_push();
+uint16_t uniffi_veloqrs_checksum_func_get_stream_backfill_progress();
+uint16_t uniffi_veloqrs_checksum_func_get_stream_backfill_remaining();
 uint16_t uniffi_veloqrs_checksum_func_is_cutover_pending();
 uint16_t uniffi_veloqrs_checksum_func_is_cutover_running();
 uint16_t uniffi_veloqrs_checksum_func_is_elevation_backfill_paused();
@@ -1115,6 +1125,8 @@ uint16_t uniffi_veloqrs_checksum_func_set_network_online();
 uint16_t uniffi_veloqrs_checksum_func_start_detector_cutover();
 uint16_t uniffi_veloqrs_checksum_func_start_elevation_backfill();
 uint16_t uniffi_veloqrs_checksum_func_start_fetch_and_store();
+uint16_t uniffi_veloqrs_checksum_func_start_stream_backfill();
+uint16_t uniffi_veloqrs_checksum_func_stop_stream_backfill();
 uint16_t uniffi_veloqrs_checksum_func_take_fetch_and_store_result();
 uint16_t uniffi_veloqrs_checksum_func_validate_backup_database();
 uint16_t uniffi_veloqrs_checksum_func_take_quarantine_report();
@@ -8516,6 +8528,30 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_func_get_network_push(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_func_get_stream_backfill_progress"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_func_get_stream_backfill_progress"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_func_get_stream_backfill_progress(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_func_get_stream_backfill_remaining"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_func_get_stream_backfill_remaining"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_func_get_stream_backfill_remaining(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_func_is_cutover_pending"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -8614,6 +8650,28 @@ NativeVeloqrs::NativeVeloqrs(
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_func_start_fetch_and_store(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_func_start_stream_backfill"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_func_start_stream_backfill"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_func_start_stream_backfill(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_func_stop_stream_backfill"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_func_stop_stream_backfill"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_func_stop_stream_backfill(
                 rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_func_take_fetch_and_store_result"] =
@@ -9288,6 +9346,31 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_checksum_func_get_network_push(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_func_get_stream_backfill_progress"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_func_get_stream_backfill_progress"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_func_get_stream_backfill_progress(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_func_get_stream_backfill_remaining"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_get_"
+                                        "stream_backfill_remaining"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_func_get_stream_backfill_remaining(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_func_is_cutover_pending"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -9392,6 +9475,28 @@ NativeVeloqrs::NativeVeloqrs(
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_checksum_func_start_fetch_and_store(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_func_start_stream_backfill"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_func_start_stream_backfill"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_func_start_stream_backfill(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_func_stop_stream_backfill"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_func_stop_stream_backfill"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_func_stop_stream_backfill(
                 rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_func_take_fetch_and_store_result"] =
@@ -18419,6 +18524,30 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_network_push(
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_stream_backfill_progress(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_get_stream_backfill_progress(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_stream_backfill_remaining(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_get_stream_backfill_remaining(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_is_cutover_pending(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -18522,6 +18651,28 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_start_fetch_and_store(
                                                         args[count - 1]);
 
   return uniffi_jsi::Bridging<uint64_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_start_stream_backfill(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_start_stream_backfill(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_stop_stream_backfill(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_func_stop_stream_backfill(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
@@ -19184,6 +19335,22 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_get_network_push(
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_get_stream_backfill_progress(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_func_get_stream_backfill_progress();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_get_stream_backfill_remaining(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_func_get_stream_backfill_remaining();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_is_cutover_pending(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -19250,6 +19417,21 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_start_fetch_and_store(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_func_start_fetch_and_store();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_start_stream_backfill(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_func_start_stream_backfill();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_stop_stream_backfill(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_func_stop_stream_backfill();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

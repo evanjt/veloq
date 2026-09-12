@@ -61,6 +61,8 @@ import * as detectionDelegates from './delegates/detection';
 import * as connectivityDelegates from './delegates/connectivity';
 import * as elevationDelegates from './delegates/elevation';
 import type { ElevationBackfillProgress } from './delegates/elevation';
+import * as streamBackfillDelegates from './delegates/streamBackfill';
+import type { StreamBackfillProgress } from './delegates/streamBackfill';
 import type { NetworkPush } from './delegates/connectivity';
 import * as cutoverDelegates from './delegates/cutover';
 import type { CutoverDiff, CutoverProgress } from './delegates/cutover';
@@ -630,6 +632,16 @@ class EngineClient implements DelegateHost {
 
   getElevationBackfillRemaining = (): number | null =>
     elevationDelegates.getElevationBackfillRemaining(this);
+
+  startStreamBackfill = (): FfiStartOutcome => streamBackfillDelegates.startStreamBackfill(this);
+
+  stopStreamBackfill = (): void => streamBackfillDelegates.stopStreamBackfill(this);
+
+  getStreamBackfillProgress = (): StreamBackfillProgress | null =>
+    streamBackfillDelegates.getStreamBackfillProgress(this);
+
+  getStreamBackfillRemaining = (): number | null =>
+    streamBackfillDelegates.getStreamBackfillRemaining(this);
 
   isCutoverPending = (): boolean => cutoverDelegates.isCutoverPending(this);
 

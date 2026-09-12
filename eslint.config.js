@@ -187,7 +187,7 @@ module.exports = [
       'src/shared/storage/gpsStorage.ts',
       'src/shared/ui/GlobalErrorBoundary.tsx',
       'src/app/debug.tsx',
-      'src/features/insights/lib/activityNotificationBody.ts',
+      'src/features/insights/lib/activityHighlight.ts',
       'src/features/routes/stores/RouteSettingsStore.ts',
       'src/features/sensors/lib/sensorManager.ts',
       'src/features/settings/components/DetectionIllustration.tsx',

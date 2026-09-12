@@ -114,6 +114,14 @@
     "exercisesSummary": "{{exercises}} ćwiczeń · {{sets}} serii",
     "tapMuscle": "Dotknij, aby zobaczyć szczegóły"
   },
+  "activitySummary": {
+    "distance": "Dystans",
+    "elevation": "Przewyższenie",
+    "fetching": "Pobieranie aktywności...",
+    "movingTime": "Czas ruchu",
+    "openActivity": "Zobacz szczegóły",
+    "title": "Podsumowanie"
+  },
   "activityTypes": {
     "AlpineSki": "Narty zjazdowe",
     "BackcountrySki": "Skitouring",
@@ -365,6 +373,20 @@
       "forwardSchema": "Te dane zapisała nowsza wersja Veloq. Zaktualizuj aplikację, aby je otworzyć.",
       "storageUnavailable": "Nie udało się zapisać bazy danych. Zwolnij miejsce i spróbuj ponownie.",
       "failed": "Silnik tras zatrzymał się z powodu, którego aplikacja nie potrafi nazwać."
+    },
+    "quarantine": {
+      "title": "Twoja biblioteka aktywności została odbudowana",
+      "resyncing": "Twoje aktywności są pobierane ponownie.",
+      "dismiss": "Rozumiem",
+      "separator": ", ",
+      "kept": {
+        "lead": "Część danych była nieczytelna, więc biblioteka została odbudowana. Zachowano: {{kept}}.",
+        "sections": "{{count}} własnych odcinków",
+        "history": "{{count}} zdarzeń odcinka",
+        "geometry": "{{count}} kształtów odcinka",
+        "pins": "{{count}} przypiętych kształtów",
+        "intents": "{{count}} usuniętych korytarzy"
+      }
     }
   },
   "errorState": {
@@ -807,7 +829,9 @@
       "title": "Powiadomienia",
       "enable": "Włącz powiadomienia",
       "requiresOAuth": "Aby włączyć powiadomienia, odłącz się i połącz ponownie używając logowania OAuth zamiast osobistego klucza API.",
-      "privacyHint": "Przechowuje token push i identyfikator sportowca na naszym serwerze (wygasa po 30 dniach). Zobacz veloq.fit/privacy"
+      "privacyHint": "Przechowuje token push i identyfikator sportowca na naszym serwerze (wygasa po 30 dniach). Zobacz veloq.fit/privacy",
+      "sectionPr": "Rekordy życiowe",
+      "fitnessMilestone": "Kamienie milowe formy"
     },
     "prompt": {
       "title": "Bądź na bieżąco",
@@ -828,12 +852,7 @@
       "sectionPrMany": "PR na {{name}} i {{count}} innych",
       "fasterOnRoute": "Szybciej niż zwykle na {{name}}",
       "fasterOnRouteDelta": "Szybciej niż zwykle na {{name}} ({{delta}} do PR)",
-      "onRoute": "Na {{name}}",
-      "sectionTraversedOne": "1 odcinek pokonany",
-      "sectionTraversedMany": "{{count}} odcinków pokonanych",
-      "distanceAndTime": "{{km}} km w {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "Na {{name}}"
     }
   },
   "recording": {
@@ -1240,6 +1259,12 @@
     "streamHistoryDays": "{{count}} dni",
     "streamHistoryAll": "Wszystko",
     "streamHistoryReset": "Resetuj",
+    "streamBackfill": "Brakujące serie",
+    "streamBackfillOwed_one": "{{count}} aktywność",
+    "streamBackfillOwed_other": "{{count}} aktywności",
+    "streamBackfillProgress": "{{completed}} z {{total}}",
+    "streamBackfillDownload": "Pobierz",
+    "streamBackfillStop": "Zatrzymaj",
     "tileCacheLimit": "Limit kafelków mapy",
     "tileCacheLimitHint": "Zwiększ go, aby poprawić przeglądanie offline i lokalne",
     "tileCacheUsedOfBudget": "Użyto {{used}} z {{budget}}",
@@ -1669,7 +1694,6 @@
     "title": "Zadania w tle",
     "intro": "Długie zadania, które aplikacja wykonuje sama. Trwają dalej po opuszczeniu tego ekranu.",
     "openLink": "Zadania w tle",
-    "sync": "Synchronizacja aktywności",
     "detection": "Wykrywanie odcinków",
     "elevationBackfill": "Pobieranie przewyższeń",
     "cutover": "Przebudowa odcinków",

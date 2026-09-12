@@ -114,6 +114,14 @@
     "exercisesSummary": "{{exercises}} exercícios · {{sets}} séries",
     "tapMuscle": "Toque para ver detalhes"
   },
+  "activitySummary": {
+    "distance": "Distância",
+    "elevation": "Elevação",
+    "fetching": "Buscando atividades...",
+    "movingTime": "Tempo em mov.",
+    "openActivity": "Ver detalhes",
+    "title": "Resumo"
+  },
   "activityTypes": {
     "AlpineSki": "Esqui alpino",
     "BackcountrySki": "Esqui de travessia",
@@ -365,6 +373,20 @@
       "forwardSchema": "Estes dados foram salvos por uma versão mais nova do Veloq. Atualize o app para abri-los.",
       "storageUnavailable": "Não foi possível gravar o banco de dados. Libere espaço e tente de novo.",
       "failed": "O motor de rotas parou por um motivo que o app não consegue nomear."
+    },
+    "quarantine": {
+      "title": "A sua biblioteca de atividades foi reconstruída",
+      "resyncing": "As suas atividades estão a ser descarregadas novamente.",
+      "dismiss": "Entendido",
+      "separator": ", ",
+      "kept": {
+        "lead": "Alguns dados não puderam ser lidos, por isso a biblioteca foi reconstruída. Mantido: {{kept}}.",
+        "sections": "{{count}} secções suas",
+        "history": "{{count}} eventos de secção",
+        "geometry": "{{count}} traçados de secção",
+        "pins": "{{count}} traçados fixados",
+        "intents": "{{count}} corredores removidos"
+      }
     }
   },
   "errorState": {
@@ -805,7 +827,9 @@
       "title": "Notificações",
       "enable": "Ativar notificações",
       "requiresOAuth": "Para ativar notificações, desconecte e reconecte usando o fluxo de login OAuth em vez de uma chave de API pessoal.",
-      "privacyHint": "Armazena um token push e ID de atleta no nosso servidor (expira em 30 dias). Veja veloq.fit/privacy"
+      "privacyHint": "Armazena um token push e ID de atleta no nosso servidor (expira em 30 dias). Veja veloq.fit/privacy",
+      "sectionPr": "Recordes pessoais",
+      "fitnessMilestone": "Marcos de forma"
     },
     "prompt": {
       "title": "Fique por dentro",
@@ -826,12 +850,7 @@
       "sectionPrMany": "PR em {{name}} e mais {{count}}",
       "fasterOnRoute": "Mais rápido que o normal em {{name}}",
       "fasterOnRouteDelta": "Mais rápido que o normal em {{name}} (a {{delta}} do PR)",
-      "onRoute": "Em {{name}}",
-      "sectionTraversedOne": "1 seção percorrida",
-      "sectionTraversedMany": "{{count}} seções percorridas",
-      "distanceAndTime": "{{km}} km em {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "Em {{name}}"
     }
   },
   "recording": {
@@ -1238,6 +1257,12 @@
     "streamHistoryDays": "{{count}} dias",
     "streamHistoryAll": "Tudo",
     "streamHistoryReset": "Redefinir",
+    "streamBackfill": "Séries ausentes",
+    "streamBackfillOwed_one": "{{count}} atividade",
+    "streamBackfillOwed_other": "{{count}} atividades",
+    "streamBackfillProgress": "{{completed}} de {{total}}",
+    "streamBackfillDownload": "Baixar",
+    "streamBackfillStop": "Parar",
     "tileCacheLimit": "Limite de blocos do mapa",
     "tileCacheLimitHint": "Aumente para melhorar a navegação offline e local",
     "tileCacheUsedOfBudget": "{{used}} de {{budget}} usados",
@@ -1667,7 +1692,6 @@
     "title": "Tarefas em segundo plano",
     "intro": "Tarefas longas que o aplicativo executa sozinho. Continuam quando você sai desta tela.",
     "openLink": "Tarefas em segundo plano",
-    "sync": "Sincronização de atividades",
     "detection": "Detecção de trechos",
     "elevationBackfill": "Download de altimetria",
     "cutover": "Reconstrução de trechos",

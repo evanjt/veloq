@@ -114,6 +114,14 @@
     "exercisesSummary": "{{exercises}}个练习 · {{sets}}组",
     "tapMuscle": "点击查看详情"
   },
+  "activitySummary": {
+    "distance": "距离",
+    "elevation": "海拔",
+    "fetching": "正在获取活动...",
+    "movingTime": "运动时间",
+    "openActivity": "查看详情",
+    "title": "总结"
+  },
   "activityTypes": {
     "AlpineSki": "高山滑雪",
     "BackcountrySki": "越野滑雪",
@@ -365,6 +373,20 @@
       "forwardSchema": "这些数据由更新版本的 Veloq 保存。请升级应用后再打开。",
       "storageUnavailable": "无法写入数据库。请释放存储空间后重试。",
       "failed": "路线引擎因未知原因停止。"
+    },
+    "quarantine": {
+      "title": "你的活动库已重建",
+      "resyncing": "正在重新下载你的活动。",
+      "dismiss": "知道了",
+      "separator": "、",
+      "kept": {
+        "lead": "部分数据无法读取，因此活动库已重建。已保留：{{kept}}。",
+        "sections": "{{count}} 个你自己的路段",
+        "history": "{{count}} 条路段记录",
+        "geometry": "{{count}} 个路段形状",
+        "pins": "{{count}} 个已固定形状",
+        "intents": "{{count}} 条已移除路线"
+      }
     }
   },
   "errorState": {
@@ -805,7 +827,9 @@
       "title": "通知",
       "enable": "启用通知",
       "requiresOAuth": "要启用通知，请断开连接并使用 OAuth 登录流程重新连接，而非个人 API 密钥。",
-      "privacyHint": "在我们的服务器上存储推送令牌和运动员 ID（30天过期）。详见 veloq.fit/privacy"
+      "privacyHint": "在我们的服务器上存储推送令牌和运动员 ID（30天过期）。详见 veloq.fit/privacy",
+      "sectionPr": "个人最佳",
+      "fitnessMilestone": "体能里程碑"
     },
     "prompt": {
       "title": "保持同步",
@@ -826,12 +850,7 @@
       "sectionPrMany": "{{name}} 及另外 {{count}} 个路段新PR",
       "fasterOnRoute": "「{{name}}」比平时更快",
       "fasterOnRouteDelta": "「{{name}}」比平时更快(距PR {{delta}})",
-      "onRoute": "途经路线「{{name}}」",
-      "sectionTraversedOne": "经过 1 个路段",
-      "sectionTraversedMany": "经过 {{count}} 个路段",
-      "distanceAndTime": "{{km}} 公里，用时 {{min}} 分钟",
-      "distanceOnly": "{{km}} 公里",
-      "timeOnly": "{{min}} 分钟"
+      "onRoute": "途经路线「{{name}}」"
     }
   },
   "recording": {
@@ -1238,6 +1257,12 @@
     "streamHistoryDays": "{{count}} 天",
     "streamHistoryAll": "全部",
     "streamHistoryReset": "重置",
+    "streamBackfill": "缺失的数据序列",
+    "streamBackfillOwed_one": "{{count}} 项活动",
+    "streamBackfillOwed_other": "{{count}} 项活动",
+    "streamBackfillProgress": "{{total}} 项中的 {{completed}} 项",
+    "streamBackfillDownload": "下载",
+    "streamBackfillStop": "停止",
     "tileCacheLimit": "地图瓦片上限",
     "tileCacheLimitHint": "调高可改善离线和本地浏览",
     "tileCacheUsedOfBudget": "已用 {{used}}／共 {{budget}}",
@@ -1667,7 +1692,6 @@
     "title": "后台任务",
     "intro": "应用自行运行的长时间任务。离开此页面后仍会继续。",
     "openLink": "后台任务",
-    "sync": "活动同步",
     "detection": "路段检测",
     "elevationBackfill": "海拔数据下载",
     "cutover": "路段重建",

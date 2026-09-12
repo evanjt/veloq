@@ -114,6 +114,14 @@
     "exercisesSummary": "{{exercises}} exercices · {{sets}} séries",
     "tapMuscle": "Appuyez pour les détails"
   },
+  "activitySummary": {
+    "distance": "Distance",
+    "elevation": "Dénivelé",
+    "fetching": "Récupération des activités...",
+    "movingTime": "Temps en mouvement",
+    "openActivity": "Voir les détails",
+    "title": "Résumé"
+  },
   "activityTypes": {
     "AlpineSki": "Ski alpin",
     "BackcountrySki": "Ski de randonnée",
@@ -365,6 +373,20 @@
       "forwardSchema": "Ces données ont été enregistrées par une version plus récente de Veloq. Mettez l'application à jour pour les ouvrir.",
       "storageUnavailable": "La base de données n'a pas pu être écrite. Libérez de l'espace, puis réessayez.",
       "failed": "Le moteur de parcours s'est arrêté pour une raison que l'application ne sait pas nommer."
+    },
+    "quarantine": {
+      "title": "Votre bibliothèque d'activités a été reconstruite",
+      "resyncing": "Vos activités se téléchargent à nouveau.",
+      "dismiss": "J'ai compris",
+      "separator": ", ",
+      "kept": {
+        "lead": "Certaines données étaient illisibles, la bibliothèque a donc été reconstruite. Conservé : {{kept}}.",
+        "sections": "{{count}} de vos propres sections",
+        "history": "{{count}} événements de section",
+        "geometry": "{{count}} tracés de section",
+        "pins": "{{count}} tracés épinglés",
+        "intents": "{{count}} couloirs supprimés"
+      }
     }
   },
   "errorState": {
@@ -805,7 +827,9 @@
       "title": "Notifications",
       "enable": "Activer les notifications",
       "requiresOAuth": "Pour activer les notifications, déconnectez-vous et reconnectez-vous via le flux OAuth au lieu d'une clé API personnelle.",
-      "privacyHint": "Stocke un jeton push et un identifiant athlète sur notre serveur (expiration à 30 jours). Voir veloq.fit/privacy"
+      "privacyHint": "Stocke un jeton push et un identifiant athlète sur notre serveur (expiration à 30 jours). Voir veloq.fit/privacy",
+      "sectionPr": "Records personnels",
+      "fitnessMilestone": "Étapes de forme"
     },
     "prompt": {
       "title": "Restez informé",
@@ -826,12 +850,7 @@
       "sectionPrMany": "PR sur {{name}} et {{count}} autres",
       "fasterOnRoute": "Plus rapide que d'habitude sur {{name}}",
       "fasterOnRouteDelta": "Plus rapide que d'habitude sur {{name}} (à {{delta}} du PR)",
-      "onRoute": "Sur {{name}}",
-      "sectionTraversedOne": "1 section parcourue",
-      "sectionTraversedMany": "{{count}} sections parcourues",
-      "distanceAndTime": "{{km}} km en {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "Sur {{name}}"
     }
   },
   "recording": {
@@ -1238,6 +1257,12 @@
     "streamHistoryDays": "{{count}} jours",
     "streamHistoryAll": "Tout",
     "streamHistoryReset": "Réinitialiser",
+    "streamBackfill": "Séries manquantes",
+    "streamBackfillOwed_one": "{{count}} activité",
+    "streamBackfillOwed_other": "{{count}} activités",
+    "streamBackfillProgress": "{{completed}} sur {{total}}",
+    "streamBackfillDownload": "Télécharger",
+    "streamBackfillStop": "Arrêter",
     "tileCacheLimit": "Limite des tuiles de carte",
     "tileCacheLimitHint": "Augmentez-la pour améliorer la navigation hors ligne et locale",
     "tileCacheUsedOfBudget": "{{used}} sur {{budget}} utilisés",
@@ -1667,7 +1692,6 @@
     "title": "Tâches en arrière-plan",
     "intro": "Tâches longues que l'application exécute seule. Elles continuent quand vous quittez cet écran.",
     "openLink": "Tâches en arrière-plan",
-    "sync": "Synchronisation des activités",
     "detection": "Détection des sections",
     "elevationBackfill": "Téléchargement du dénivelé",
     "cutover": "Reconstruction des sections",

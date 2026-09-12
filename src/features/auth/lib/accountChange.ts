@@ -174,7 +174,9 @@ export function promptAccountMismatch(args: PromptAccountMismatchArgs): Promise<
           onPress: () => {
             void (async () => {
               const engine = getEngine();
-              engine?.clear();
+              // The wipe runs on a Rust thread and `clear` re-opens the handle
+              // after it, so the stamp has to follow it rather than race it.
+              await engine?.clear();
               engine?.setSetting('__athlete_id', credentialsAthleteId);
               await rememberCachedAthleteId(credentialsAthleteId);
               resolve(true);

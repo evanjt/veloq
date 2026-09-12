@@ -1202,6 +1202,14 @@ impl PersistentEngine {
                     sections_to_send.len()
                 );
 
+                // The fold is the last reader of the pool and its time
+                // streams. Held across the apply below they sit resident
+                // beside everything the apply loads for itself, so the run
+                // peaks at two full passes of the library rather than one.
+                drop(seconds_view);
+                drop(seconds);
+                drop(tracks);
+
                 let update = CacheUpdate {
                     cache,
                     folded_ids: folded_after,

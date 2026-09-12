@@ -57,8 +57,18 @@ const mockUpdateWidgetSnapshot = updateWidgetSnapshot as jest.MockedFunction<
   typeof updateWidgetSnapshot
 >;
 
+/** The `syncReset` listeners the engine is holding, so a test can fire one. */
+const resetListeners: (() => void)[] = [];
+
 function engineWith(syncNow: jest.Mock) {
-  return { syncNow, triggerRefresh: jest.fn() } as unknown as ReturnType<typeof getEngine>;
+  return {
+    syncNow,
+    triggerRefresh: jest.fn(),
+    subscribe: jest.fn((channel: string, listener: () => void) => {
+      if (channel === 'syncReset') resetListeners.push(listener);
+      return () => {};
+    }),
+  } as unknown as ReturnType<typeof getEngine>;
 }
 
 function settled(lastError?: string): SyncStatus {
@@ -71,6 +81,7 @@ describe('useEngineSync', () => {
     mockStatus = null;
     mockIsOnline = true;
     foregroundCallback = null;
+    resetListeners.length = 0;
     useEngineStatus.setState({ readyNonce: 0 });
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
   });
@@ -100,6 +111,50 @@ describe('useEngineSync', () => {
     act(() => useEngineStatus.getState().markEngineReady());
 
     expect(syncNow).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Scenario: "Clear & Sync" wipes the library and announces `syncReset`. The
+   * launch latch is still set from this same process, so nothing asked Rust to
+   * refill it and the library stayed empty until the next cold launch.
+   */
+  it('syncs again after the library is cleared', () => {
+    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    mockGetEngine.mockReturnValue(engineWith(syncNow));
+
+    renderHook(() => useEngineSync());
+    expect(syncNow).toHaveBeenCalledTimes(1);
+
+    act(() => resetListeners.forEach((fire) => fire()));
+
+    expect(syncNow).toHaveBeenCalledTimes(2);
+  });
+
+  it('hears the clear even when the engine opened after this hook mounted', () => {
+    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    mockGetEngine.mockReturnValue(null);
+
+    renderHook(() => useEngineSync());
+    expect(resetListeners).toHaveLength(0);
+
+    mockGetEngine.mockReturnValue(engineWith(syncNow));
+    act(() => useEngineStatus.getState().markEngineReady());
+    expect(syncNow).toHaveBeenCalledTimes(1);
+
+    act(() => resetListeners.forEach((fire) => fire()));
+
+    expect(syncNow).toHaveBeenCalledTimes(2);
+  });
+
+  it('holds one listener, not one per retry', () => {
+    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    mockGetEngine.mockReturnValue(engineWith(syncNow));
+
+    renderHook(() => useEngineSync());
+    act(() => foregroundCallback?.());
+    act(() => foregroundCallback?.());
+
+    expect(resetListeners).toHaveLength(1);
   });
 
   it('skips demo mode, which reads seeded rows', () => {

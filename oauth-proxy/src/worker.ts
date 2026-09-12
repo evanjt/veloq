@@ -17,6 +17,7 @@
  */
 
 import { secretsMatch } from "./secrets";
+import { authoriseDevice, intervalsAthleteResolver } from "./deviceAuth";
 
 interface Env {
   INTERVALS_CLIENT_ID: string;
@@ -385,6 +386,8 @@ function visibleContentForEvent(
  * Register a device push token for an athlete.
  * Called after user opts in to notifications.
  * Body: { athleteId: string, token: string, platform: "ios" | "android" }
+ * Authorization: the caller's own intervals.icu credential, which has to
+ * resolve to the athlete the body names.
  */
 async function handleDeviceRegister(
   request: Request,
@@ -403,6 +406,15 @@ async function handleDeviceRegister(
 
     if (body.platform !== "ios" && body.platform !== "android") {
       return jsonResponse({ error: "Invalid platform" }, 400);
+    }
+
+    const auth = await authoriseDevice(
+      request.headers.get("Authorization"),
+      body.athleteId,
+      intervalsAthleteResolver()
+    );
+    if (!auth.ok) {
+      return jsonResponse({ error: auth.error }, auth.status);
     }
 
     const key = `athlete:${body.athleteId}`;
@@ -445,8 +457,11 @@ async function handleDeviceRegister(
 
 /**
  * Unregister a device push token.
- * Called on logout or when user disables notifications.
+ * Called on logout or when user disables notifications, so it runs before the
+ * credential is cleared.
  * Body: { athleteId: string, token: string }
+ * Authorization: the caller's own intervals.icu credential, which has to
+ * resolve to the athlete the body names.
  */
 async function handleDeviceUnregister(
   request: Request,
@@ -460,6 +475,15 @@ async function handleDeviceUnregister(
 
     if (!body.athleteId || !body.token) {
       return jsonResponse({ error: "Missing required fields" }, 400);
+    }
+
+    const auth = await authoriseDevice(
+      request.headers.get("Authorization"),
+      body.athleteId,
+      intervalsAthleteResolver()
+    );
+    if (!auth.ok) {
+      return jsonResponse({ error: auth.error }, auth.status);
     }
 
     const key = `athlete:${body.athleteId}`;
