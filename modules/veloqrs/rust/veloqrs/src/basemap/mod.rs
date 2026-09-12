@@ -118,12 +118,19 @@ fn extension_of(url: &str) -> String {
 /// and eviction stay in one place instead of being split across a WebView's
 /// per-origin storage.
 pub fn get_or_fetch(source: &str, z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
+    // The allowlist first, and before the store is touched. The WebView passes
+    // whatever source name the page asked for, so a read came first and the
+    // store admitted the name: it joined it onto the tile root, read an
+    // `index.json`, walked the subdirectories and kept a `SourceIndex` under
+    // that string, which nothing ever removes.
+    let template = template_for(source)?;
+
     let store = store()?;
     if let Some(bytes) = store.get(source, z, x, y) {
         return Some(bytes);
     }
 
-    let url = template_for(source)?
+    let url = template
         .replace("{z}", &z.to_string())
         .replace("{x}", &x.to_string())
         .replace("{y}", &y.to_string());

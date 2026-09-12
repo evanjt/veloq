@@ -295,16 +295,18 @@ impl LiveSectionMatcher {
     /// Feed one fix. Events come back in candidate order, and a section can
     /// produce at most one event per fix.
     pub fn push(&mut self, fix: Fix) -> Vec<LiveSectionEvent> {
-        if let Some(previous) = self.previous
-            && haversine_distance(&previous.point, &fix.point) >= MOVING_METRES
-            && let Some(heading) = bearing(&previous.point, &fix.point)
-        {
-            self.heading = Some(heading);
-        }
+        // One haversine for the pair, not two: the heading gate and the moving
+        // flag ask the same question of the same two points.
         let moving = self
             .previous
             .map(|previous| haversine_distance(&previous.point, &fix.point) >= MOVING_METRES)
             .unwrap_or(false);
+        if moving
+            && let Some(previous) = self.previous
+            && let Some(heading) = bearing(&previous.point, &fix.point)
+        {
+            self.heading = Some(heading);
+        }
 
         let mut events = Vec::new();
         for index in 0..self.candidates.len() {
@@ -436,16 +438,17 @@ impl LiveSectionMatcher {
 /// keeps the per-fix cost independent of how long the section is.
 fn nearest_on_window(line: &Line, point: &GpsPoint, reached: usize) -> (usize, f64) {
     let anchor = line.cumulative[reached];
+    // `cumulative` is non-decreasing by construction, so both ends are a binary
+    // search. `position`/`rposition` walked the whole array per fix per armed
+    // candidate, which is the one cost a bounded window exists to avoid.
     let first = line
         .cumulative
-        .iter()
-        .position(|d| *d >= anchor - BACKWARD_WINDOW_METRES)
-        .unwrap_or(0);
+        .partition_point(|d| *d < anchor - BACKWARD_WINDOW_METRES);
     let last = line
         .cumulative
-        .iter()
-        .rposition(|d| *d <= anchor + FORWARD_WINDOW_METRES)
-        .unwrap_or(line.points.len() - 1)
+        .partition_point(|d| *d <= anchor + FORWARD_WINDOW_METRES)
+        .saturating_sub(1)
+        .min(line.points.len().saturating_sub(1))
         .max(first);
 
     let mut best = reached;
@@ -467,6 +470,66 @@ fn nearest_on_window(line: &Line, point: &GpsPoint, reached: usize) -> (usize, f
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Scenario: the window search walked the whole cumulative array with
+    /// `position` and `rposition`, per fix, per armed candidate. A bounded
+    /// window exists so the per-fix cost does not grow with the section, and
+    /// the walk to find the window put it straight back.
+    ///
+    /// Expected behaviour: the binary search picks exactly the same window the
+    /// walk did, at both ends and at both edges of the line.
+    #[test]
+    fn the_window_search_picks_the_same_bounds_the_walk_did() {
+        let points = line(46.0, 7.0, 400, 10.0);
+        let subject = Line::new(points.clone());
+
+        for reached in [0usize, 1, 37, 200, 398, 399] {
+            let anchor = subject.cumulative[reached];
+            let walked_first = subject
+                .cumulative
+                .iter()
+                .position(|d| *d >= anchor - BACKWARD_WINDOW_METRES)
+                .unwrap_or(0);
+            let walked_last = subject
+                .cumulative
+                .iter()
+                .rposition(|d| *d <= anchor + FORWARD_WINDOW_METRES)
+                .unwrap_or(subject.points.len() - 1)
+                .max(walked_first);
+
+            let searched_first = subject
+                .cumulative
+                .partition_point(|d| *d < anchor - BACKWARD_WINDOW_METRES);
+            let searched_last = subject
+                .cumulative
+                .partition_point(|d| *d <= anchor + FORWARD_WINDOW_METRES)
+                .saturating_sub(1)
+                .min(subject.points.len().saturating_sub(1))
+                .max(searched_first);
+
+            assert_eq!(
+                (searched_first, searched_last),
+                (walked_first, walked_last),
+                "window at index {reached} moved"
+            );
+        }
+    }
+
+    /// Two points is the shortest line `LiveCandidate::new` accepts, so it is
+    /// the edge both ends of the search have to survive.
+    #[test]
+    fn the_shortest_line_a_candidate_allows_still_has_a_window() {
+        let subject = Line::new(line(46.0, 7.0, 2, 10.0));
+
+        assert_eq!(
+            nearest_on_window(&subject, &GpsPoint::new(46.0, 7.0), 0).0,
+            0
+        );
+        assert_eq!(
+            nearest_on_window(&subject, &GpsPoint::new(46.0, 7.0), 1).0,
+            0
+        );
+    }
 
     /// A straight eastward line of `count` points spaced `spacing` metres.
     fn line(lat: f64, lng: f64, count: usize, spacing: f64) -> Vec<GpsPoint> {

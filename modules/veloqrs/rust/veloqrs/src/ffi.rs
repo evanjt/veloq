@@ -356,15 +356,25 @@ pub fn start_fetch_and_store(
     // Build sport type lookup, and alongside it the set of activities inside
     // the stream retention window, which is what the fetch widens for.
     let sport_map_start = Instant::now();
-    let wide_ids: std::collections::HashSet<String> =
-        crate::persistence::with_persistent_engine(|engine| {
-            sport_types
-                .iter()
-                .filter(|m| engine.inside_stream_window(m.start_date))
-                .map(|m| m.activity_id.clone())
-                .collect()
-        })
-        .unwrap_or_default();
+    // The setting and the clock are read once for the whole batch. Asking the
+    // engine per row ran a `SELECT` and a `Utc::now` apiece, under the write
+    // lock, for a window that cannot move mid-sync.
+    let retention = crate::persistence::with_persistent_engine(|engine| {
+        (
+            engine.stream_retention_days(),
+            chrono::Utc::now().timestamp(),
+        )
+    });
+    let wide_ids: std::collections::HashSet<String> = match retention {
+        Some((days, now)) => sport_types
+            .iter()
+            .filter(|m| {
+                crate::persistence::streams::inside_stream_window_at(days, now, m.start_date)
+            })
+            .map(|m| m.activity_id.clone())
+            .collect(),
+        None => Default::default(),
+    };
     let sport_map: HashMap<String, String> = sport_types
         .into_iter()
         .map(|m| (m.activity_id, m.sport_type))
@@ -403,20 +413,32 @@ pub fn start_fetch_and_store(
         // Runs on the shared process runtime instead of building a throwaway
         // 4-thread runtime per call.
 
-        // Fetch GPS data
+        // Fetch GPS data. The results come down a channel as they land rather
+        // than back as one `Vec`: 490 activities at 5,000 points is roughly
+        // 80 MB of tracks plus half a megabyte of series apiece, and collecting
+        // them first held all of it in the window before a single row was
+        // written, then lost the lot to a kill. Storage now runs alongside the
+        // download.
         let fetch_start = Instant::now();
-        let fetch_results = crate::runtime::block_on(fetcher.fetch_activity_maps(
-            activity_ids_clone.clone(),
-            wide_ids,
-            None,
-        ));
-        let fetch_success_count = fetch_results.iter().filter(|r| r.success).count();
-        info!(
-            "[RUST: start_fetch_and_store] Fetch complete: {}/{} successful ({} ms)",
-            fetch_success_count,
-            fetch_results.len(),
-            elapsed_ms(fetch_start)
-        );
+        let (result_tx, result_rx) = std::sync::mpsc::channel::<crate::http::ActivityMapResult>();
+        let fetch_ids = activity_ids_clone.clone();
+        // Its own fetcher over a clone of the same transport, so the pooled
+        // client, the governor and the retry policy are still shared and the
+        // time-stream pass below keeps the one it was given.
+        let downloader = crate::http::ActivityFetcher::with_transport(fetcher.transport().clone());
+        let fetch = std::thread::spawn(move || {
+            crate::runtime::block_on(downloader.fetch_activity_maps_into(
+                fetch_ids,
+                wide_ids,
+                None,
+                move |result| {
+                    // A send that fails means the storing loop has stopped,
+                    // which is a cancel: the result is dropped rather than
+                    // queued for nobody.
+                    result_tx.send(result).ok();
+                },
+            ));
+        });
 
         // Store directly in persistent engine (NO FFI round-trip!)
         use crate::persistence::sections::conditioning;
@@ -425,16 +447,20 @@ pub fn start_fetch_and_store(
         let mut failed_ids = Vec::new();
         let mut total_points: usize = 0;
         let mut total_attached_portions: u32 = 0;
-        let num_results = fetch_results.len();
+        let mut fetch_success_count = 0usize;
+        let num_results = activity_ids_clone.len();
 
         // PERF ASSESSMENT: Storage is currently SEQUENTIAL (one activity at a time)
         // SQLite doesn't support concurrent writes, but we could batch inserts
         info!(
-            "[RUST: PERF] Storage: processing {} activities SEQUENTIALLY (SQLite limitation)",
+            "[RUST: PERF] Storage: processing up to {} activities SEQUENTIALLY (SQLite limitation)",
             num_results
         );
 
-        for (idx, result) in fetch_results.into_iter().enumerate() {
+        for (idx, result) in result_rx.into_iter().enumerate() {
+            if result.success {
+                fetch_success_count += 1;
+            }
             // Between activities, never inside one: a track stops being half
             // written here, and the rows already stored stay whole.
             if crate::http::download_cancelled(run) {
@@ -578,6 +604,17 @@ pub fn start_fetch_and_store(
             // app after the fact.
             conditioning::condition_pending();
         }
+
+        // The fetch thread is done once the channel closed, but a cancel drops
+        // the receiver first, so join it rather than leave it detached against
+        // a run this one has already reported on.
+        let _ = fetch.join();
+        info!(
+            "[RUST: start_fetch_and_store] Fetch complete: {}/{} successful ({} ms)",
+            fetch_success_count,
+            num_results,
+            elapsed_ms(fetch_start)
+        );
 
         let storage_time = elapsed_ms(storage_start);
         let avg_per_activity = if !synced_ids.is_empty() {
@@ -1130,6 +1167,39 @@ mod tests {
         })
         .expect("the engine is open");
         assert_eq!(missing, vec!["a1".to_string()]);
+    }
+
+    /// Scenario: every released 0.3.x stored the raw `time` series, which keeps
+    /// the samples the `latlng` mask drops, so the stored stream is longer than
+    /// its track by the number of unfixed samples. On the July export that is
+    /// 587 of 733 activities. Nothing corrected it: this query asked only
+    /// whether a row existed, so the sync never fetched one again.
+    ///
+    /// Expected behaviour: a stream whose length disagrees with its track reads
+    /// as missing, which is what puts it back in front of the sync.
+    #[test]
+    fn a_stream_that_is_not_the_track_length_is_owed_again() {
+        let _serial = serial_global_state();
+        let _tmp = init_global_engine("gps_misaligned.db");
+
+        let track = downloaded_track(0.0);
+        let long: Vec<u32> = (0..(track.len() as u32 + 3)).map(|i| i * 10).collect();
+        store_downloaded_track("a1", track, "Ride".into(), &[], &long);
+
+        let missing = crate::persistence::with_persistent_engine(|engine| {
+            // The store caches it in memory, and the in-memory check runs
+            // first; a fresh launch reads it off disk, which is the shape this
+            // is about.
+            engine.forget_time_stream_for_test("a1");
+            engine.get_activities_missing_time_streams(&["a1".to_string()])
+        })
+        .expect("the engine is open");
+
+        assert_eq!(
+            missing,
+            vec!["a1".to_string()],
+            "a stream in the wrong index space is owed again"
+        );
     }
 
     #[test]

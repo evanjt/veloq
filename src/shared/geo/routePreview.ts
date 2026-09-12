@@ -1,11 +1,10 @@
+import type { LatLng } from './polyline';
+
+export type { LatLng };
+
 export interface PixelPoint {
   x: number;
   y: number;
-}
-
-export interface LatLng {
-  latitude: number;
-  longitude: number;
 }
 
 /**

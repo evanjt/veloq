@@ -275,6 +275,17 @@ export interface RawWidgetData {
   isMetric: boolean;
   /** Unix seconds, injected for deterministic tests. */
   nowSeconds: number;
+  /**
+   * Now as the same zoneless wall clock an activity's date is recorded in.
+   *
+   * An activity's `date` comes from `start_date_local` through
+   * `localWallClockToEpochSeconds`, so it carries local components encoded as
+   * if they were UTC. Ageing it against a true instant is out by the device's
+   * offset: east of Greenwich a ride an hour ago reads as being in the future
+   * and the impact block vanishes, west of it the label reads "Yesterday" for
+   * a ride taken today.
+   */
+  nowWallSeconds: number;
   /** i18n lookup; falls back to the raw key when absent (pure-test safe). */
   translate?: (key: string) => string;
   /** Recent sports, most recent first. Blanks and repeats are dropped here. */
@@ -632,7 +643,7 @@ function composeImpact(
 ): WidgetImpact | null {
   if (!latest) return null;
   if (form.length < 2 || fitness.length < 2 || fatigue.length < 2) return null;
-  const ageDays = (raw.nowSeconds - latest.date) / 86400;
+  const ageDays = (raw.nowWallSeconds - latest.date) / 86400;
   if (ageDays < 0 || ageDays > IMPACT_MAX_AGE_DAYS) return null;
   // Oldest-first: today is the last element, yesterday the one before it.
   const today = form.length - 1;
@@ -653,7 +664,12 @@ function composeImpact(
 /** Relative date label from a unix-seconds timestamp, guarded against bad input. */
 function relativeDateLabel(unixSeconds: number): string {
   if (!Number.isFinite(unixSeconds) || unixSeconds <= 0) return '';
-  const iso = new Date(unixSeconds * 1000).toISOString().slice(0, 10);
+  // The seconds are a zoneless wall clock, so the components come back off the
+  // UTC reading. Sliced to `YYYY-MM-DD` they were then parsed as UTC midnight
+  // and compared against a local calendar day, which is a day out for half the
+  // world. Keeping the time and dropping the `Z` makes it a local parse, which
+  // is the clock the components were written in.
+  const iso = new Date(unixSeconds * 1000).toISOString().slice(0, 19);
   return formatRelativeDate(iso);
 }
 
@@ -677,6 +693,7 @@ export function gatherWidgetSnapshot(opts: {
 
   const now = opts.now ?? new Date();
   const nowSeconds = Math.floor(now.getTime() / 1000);
+  const nowWallSeconds = localWallClockToEpochSeconds(now);
 
   let data: WidgetSnapshotData | undefined;
   try {
@@ -686,7 +703,8 @@ export function gatherWidgetSnapshot(opts: {
       b.currentEnd,
       b.prevStart,
       b.prevEnd,
-      SPARKLINE_DAYS
+      SPARKLINE_DAYS,
+      ROUTE_PREVIEW_MAX_POINTS
     );
   } catch {
     // `with_engine` answers NotInitialized when the database is not open, and
@@ -716,6 +734,7 @@ export function gatherWidgetSnapshot(opts: {
     locale: opts.locale,
     isMetric: opts.isMetric,
     nowSeconds,
+    nowWallSeconds,
     translate: opts.translate,
     // No account, no shortcuts. Every one-tap surface starts a ride directly, so
     // leaving a stale one on a launcher would walk straight past the sign-in

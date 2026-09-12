@@ -20,7 +20,8 @@ import {
   useRouteSignatures,
 } from '@/features/routes/hooks';
 import { useSectionAutoToggle, useVisibilityToggles } from '@/features/maps/hooks';
-import { TRACE_ZOOM_THRESHOLD, VIEWPORT_CULLING_THRESHOLD } from '@/features/maps/lib/mapBudgets';
+import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
+import { traceSubjects } from '@/features/maps/lib/traceBudget';
 import { buildSpiderGeoJSON } from '@/features/maps/lib/buildSpiderGeoJSON';
 import { isHeatmapEnabled } from '@/features/maps/stores/HeatmapPreferenceStore';
 import {
@@ -42,7 +43,7 @@ import {
   REGIONAL_INTERACTIVE_LAYERS,
 } from './regional/regionalMapLayerSpecs';
 import { EMPTY_FEATURE_COLLECTION } from '../lib/coordinates';
-import { useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
+import { surfaceIsLeaving, useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
 
 // Stable no-op function reference for disabled callbacks.
 // Inline `() => {}` creates a new reference every render, which destabilises
@@ -101,6 +102,10 @@ export function RegionalMapView({
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
+  // Whether the camera has crossed into the zoom the trace layer draws at. The
+  // handler below has always computed this; the setter used to be a no-op, so
+  // the payload went up whatever the zoom.
+  const [aboveTraceZoom, setAboveTraceZoom] = useState(false);
   // The overlay carries six fields per section. The popup wants the whole
   // record, so it is read for the one section that was tapped.
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
@@ -181,9 +186,6 @@ export function RegionalMapView({
     center: [number, number];
     zoom: number;
   } | null>(null);
-  useEffect(() => {
-    if (!isMapFocused) setCameraOnBlur(settledCameraRef.current);
-  }, [isMapFocused]);
   // Within a session `cameraOnBlur` carries the position across a tab switch.
   // Across a launch nothing did, so every cold start opened on the world view
   // over a camera that had been saved on every settle since.
@@ -194,6 +196,14 @@ export function RegionalMapView({
       setCameraForAttribution({ center, zoom });
     }
   }, []);
+
+  /** The 3D surface's camera, kept in the same place the 2D one's settles. */
+  const handle3DCameraState = useCallback(
+    (camera: { center: [number, number]; zoom: number }) => {
+      handleCameraSettled(camera.center, camera.zoom);
+    },
+    [handleCameraSettled]
+  );
 
   // Dynamic attribution based on visible satellite sources at current location.
   // Shared with ActivityMapView via `computeAttribution` so both maps stay in sync
@@ -214,19 +224,19 @@ export function RegionalMapView({
     onAttributionChange?.(attributionText);
   }, [attributionText, onAttributionChange]);
 
-  // Clustering handles large point counts on its own. Culling below the
-  // threshold just churns array references through every GeoJSON builder.
-  const visibleActivities = useMemo(() => {
-    if (activities.length < VIEWPORT_CULLING_THRESHOLD) {
-      return activities;
-    }
-    if (!visibleActivityIds) {
-      // No viewport info yet - show all activities
-      return activities;
-    }
-    // Filter to only visible activities (only for large datasets)
-    return activities.filter((a) => visibleActivityIds.has(a.id));
-  }, [activities, visibleActivityIds]);
+  // Traces are a line per activity, and the layer draws none below the trace
+  // zoom, so below it there is nothing worth building or sending.
+  const traceActivities = useMemo(
+    () =>
+      traceSubjects({
+        activities,
+        visibleIds: visibleActivityIds,
+        zoom: aboveTraceZoom ? TRACE_ZOOM_THRESHOLD : null,
+        threshold: TRACE_ZOOM_THRESHOLD,
+        id: (a) => a.id,
+      }),
+    [activities, visibleActivityIds, aboveTraceZoom]
+  );
 
   // All GeoJSON data for map layers
   const {
@@ -239,7 +249,7 @@ export function RegionalMapView({
     routeHasData,
   } = useMapGeoJSON({
     allActivities: activities,
-    visibleActivities,
+    traceActivities,
     activityCenters,
     routeSignatures,
     sections,
@@ -282,7 +292,7 @@ export function RegionalMapView({
     setVisibleActivityIds,
     currentZoomRef,
     currentCenterRef,
-    setAboveTraceZoom: NOOP, // Visibility is a zoom expression on the layer
+    setAboveTraceZoom,
     traceZoomThreshold: TRACE_ZOOM_THRESHOLD,
     onCameraSettled: handleCameraSettled,
     surfaceRef,
@@ -380,6 +390,13 @@ export function RegionalMapView({
   const can3D = activities.length > 0;
   // Show 3D view when enabled
   const show3D = is3DMode && can3D;
+
+  // Entering 3D unmounts the 2D surface as surely as leaving the tab does, so
+  // both snapshot where it was. Without the 3D half, coming back opened on the
+  // camera saved at the last tab blur, and then saved that as the new one.
+  useEffect(() => {
+    if (surfaceIsLeaving(isMapFocused, show3D)) setCameraOnBlur(settledCameraRef.current);
+  }, [isMapFocused, show3D]);
 
   const heatmapEnabled = isHeatmapEnabled();
 
@@ -479,6 +496,9 @@ export function RegionalMapView({
             tracesGeoJSON={EMPTY_FEATURE_COLLECTION}
             pointMarkersGeoJSON={showActivities ? markersGeoJSON : EMPTY_FEATURE_COLLECTION}
             showHeatmap={showHeatmap}
+            // The 3D camera is the camera: without this the 2D surface came
+            // back where 3D started rather than where the athlete left it.
+            onCameraStateChange={handle3DCameraState}
             onSectionClick={handle3DSectionClick}
             onActivityClick={(activityId) => {
               const activity = activities.find((a) => a.id === activityId);

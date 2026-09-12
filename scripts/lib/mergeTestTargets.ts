@@ -85,6 +85,30 @@ function rustTestName(path: string): string | null {
 }
 
 /**
+ * The suites a path drags in beyond the one it names.
+ *
+ * A schema or migration change is the class that destroys user data, and it
+ * was the one class that could not reach its own gate: none of these paths is
+ * under `tests/`, so the plan named `--lib` and stopped. The golden is a
+ * tripwire nobody runs on purpose, so it has to be named here.
+ *
+ * `migration_checksums` is the guard against editing an already-applied
+ * migration's bytes, which splits the installed base. `migration_upgrade`
+ * walks the live upgrade path. `schema_golden` is the fixture that says a
+ * schema moved at all.
+ */
+const SCHEMA_SUITES = ['schema_golden', 'migration_checksums', 'migration_upgrade'];
+
+/** Paths whose change is a schema change, whatever else the merge touched. */
+function touchesSchema(path: string): boolean {
+  return (
+    path.startsWith(`${CRATE}src/migrations/`) ||
+    path === `${CRATE}src/persistence/schema.rs` ||
+    path.startsWith(`${RUST_TEST_DIR}fixtures/schema/`)
+  );
+}
+
+/**
  * A merge touching the crate's sources runs its unit tests too: a reader
  * changed on one side and its caller on the other is the shape that got
  * through, and the integration suites alone do not cover it.
@@ -111,11 +135,9 @@ function isTypeScript(path: string): boolean {
 /** The suites to run for a set of changed paths. */
 export function mergeTestTargets(changed: string[]): MergeTargets {
   const unrunnable = unrunnableSuites();
-  const rustTests = [
-    ...new Set(
-      changed.map(rustTestName).filter((n): n is string => n !== null && !unrunnable.has(n))
-    ),
-  ];
+  const named = changed.map(rustTestName).filter((n): n is string => n !== null);
+  const schema = changed.some(touchesSchema) ? SCHEMA_SUITES : [];
+  const rustTests = [...new Set([...named, ...schema])].filter((n) => !unrunnable.has(n));
   return {
     rustTests: rustTests.sort(),
     rustLib: changed.some(touchesRustSource),

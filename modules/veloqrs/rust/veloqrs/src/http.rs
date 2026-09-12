@@ -256,13 +256,17 @@ impl ActivityFetcher {
     /// The error keeps its kind. The caller decides from it whether the activity
     /// has settled (upstream holds no file) or should be retried, and flattening
     /// it to a string made a transport blip indistinguishable from a 404.
-    pub async fn download_fit_file(&self, activity_id: &str) -> Result<Vec<u8>, NetError> {
+    ///
+    /// The lane is the caller's: a strength card the athlete opened is waiting
+    /// on this, a batch behind a sync is not, and the batch ran on the
+    /// Interactive lane and competed with the foreground for it.
+    pub async fn download_fit_file(
+        &self,
+        activity_id: &str,
+        lane: Lane,
+    ) -> Result<Vec<u8>, NetError> {
         self.transport
-            .get_bytes(
-                &format!("/activity/{}/file", activity_id),
-                &[],
-                Lane::Interactive,
-            )
+            .get_bytes(&format!("/activity/{}/file", activity_id), &[], lane)
             .await
     }
 }
@@ -288,6 +292,37 @@ impl ActivityFetcher {
         wide_ids: std::collections::HashSet<String>,
         on_progress: Option<ProgressCallback>,
     ) -> Vec<ActivityMapResult> {
+        let collected = std::sync::Mutex::new(Vec::with_capacity(activity_ids.len()));
+        self.fetch_activity_maps_into(activity_ids, wide_ids, on_progress, |result| {
+            collected
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .push(result)
+        })
+        .await;
+        collected.into_inner().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// The same fetch, handing each result over the moment it lands.
+    ///
+    /// The collecting form above held every track and every series in a `Vec`
+    /// until the last download finished, and the caller stored nothing until
+    /// then: 490 activities at 5,000 points is roughly 80 MB of tracks plus
+    /// half a megabyte of series apiece, resident in the window for the length
+    /// of the download, and a kill lost all of it. `on_result` runs on the
+    /// runtime as each activity completes, so storage runs alongside the
+    /// download rather than behind it.
+    ///
+    /// It is called from inside the concurrent stream, so it must not block for
+    /// long: the production caller sends down a channel and stores on a thread
+    /// of its own.
+    pub async fn fetch_activity_maps_into(
+        &self,
+        activity_ids: Vec<String>,
+        wide_ids: std::collections::HashSet<String>,
+        on_progress: Option<ProgressCallback>,
+        on_result: impl Fn(ActivityMapResult) + Send + Sync,
+    ) {
         use futures::stream::{self, StreamExt};
 
         let total = activity_ids.len() as u32;
@@ -297,6 +332,10 @@ impl ActivityFetcher {
         // below land against its own run.
         let completed = Arc::new(AtomicU32::new(0));
         let total_bytes = Arc::new(AtomicU32::new(0));
+        // Counted as they land rather than tallied from a `Vec` that no longer
+        // exists, which is the whole point of handing them over.
+        let successes = AtomicU32::new(0);
+        let failures = AtomicU32::new(0);
 
         info!(
             "[RUST: PERF] HTTP Fetch: {} activities, max {} concurrent (governor-paced)",
@@ -314,7 +353,7 @@ impl ActivityFetcher {
         let counter = Arc::new(DispatchCounter::new());
 
         // Buffered parallel fetch; the governor paces dispatch across all tasks.
-        let results: Vec<ActivityMapResult> = stream::iter(activity_ids)
+        stream::iter(activity_ids)
             .map(|id| {
                 let transport = &self.transport;
                 let counter = Arc::clone(&counter);
@@ -376,12 +415,24 @@ impl ActivityFetcher {
                 }
             })
             .buffer_unordered(MAX_CONCURRENCY)
-            .collect()
+            .for_each(|result| {
+                let on_result = &on_result;
+                let successes = &successes;
+                let failures = &failures;
+                async move {
+                    if result.success {
+                        successes.fetch_add(1, Ordering::Relaxed);
+                    } else {
+                        failures.fetch_add(1, Ordering::Relaxed);
+                    }
+                    on_result(result);
+                }
+            })
             .await;
 
         let elapsed = start.elapsed();
-        let success_count = results.iter().filter(|r| r.success).count();
-        let error_count = results.iter().filter(|r| !r.success).count();
+        let success_count = successes.load(Ordering::Relaxed);
+        let error_count = failures.load(Ordering::Relaxed);
         let rate = total as f64 / elapsed.as_secs_f64();
         let total_kb = total_bytes.load(Ordering::Relaxed) / 1024;
 
@@ -411,8 +462,6 @@ impl ActivityFetcher {
             wide_bytes.load(Ordering::Relaxed) / 1024,
             total_kb
         );
-
-        results
     }
 
     /// One activity's track. Transport owns pacing, retry, `Retry-After` and
@@ -679,6 +728,77 @@ mod tests {
 
     fn series_named<'a>(r: &'a ActivityMapResult, kind: &str) -> Option<&'a StreamDto> {
         r.streams.iter().find(|s| s.kind == kind)
+    }
+
+    /// Scenario: the batch collected every result into a `Vec` before a single
+    /// row was written. 490 activities at 5,000 points is roughly 80 MB of
+    /// tracks plus half a megabyte of series apiece, all resident in the window
+    /// before storage began, and a kill during the download lost the lot.
+    ///
+    /// Expected behaviour: each result is handed over the moment it lands, so
+    /// storage runs alongside the download rather than behind it.
+    #[test]
+    fn each_track_reaches_the_caller_as_it_lands_not_after_the_last_one() {
+        let server = MockServer::start();
+        for id in ["a1", "a2", "a3"] {
+            server.mock(|when, then| {
+                when.method(GET)
+                    .path(format!("/activity/{id}/streams.json"));
+                then.status(200).json_body(streams_body(
+                    json!([46.0, 46.1]),
+                    json!([7.0, 7.1]),
+                    vec![],
+                ));
+            });
+        }
+        let f = fetcher_to(server.base_url());
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        let handed: Vec<ActivityMapResult> = std::thread::scope(|scope| {
+            let collector = scope.spawn(move || rx.into_iter().collect());
+            crate::runtime::block_on(f.fetch_activity_maps_into(
+                vec!["a1".to_string(), "a2".to_string(), "a3".to_string()],
+                std::collections::HashSet::new(),
+                None,
+                move |result| {
+                    tx.send(result).ok();
+                },
+            ));
+            collector.join().unwrap()
+        });
+
+        assert_eq!(handed.len(), 3, "every result is handed over");
+        assert!(
+            handed.iter().all(|r| r.success),
+            "and each one whole: {:?}",
+            handed.iter().map(|r| &r.error).collect::<Vec<_>>()
+        );
+    }
+
+    /// The collecting form is the streaming one with a collector on the end, so
+    /// the two cannot drift: one fetch, one set of results, one order of
+    /// arrival.
+    #[test]
+    fn the_collecting_fetch_returns_what_the_streaming_one_hands_over() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.0, 46.1]),
+                json!([7.0, 7.1]),
+                vec![],
+            ));
+        });
+        let f = fetcher_to(server.base_url());
+
+        let collected = crate::runtime::block_on(f.fetch_activity_maps(
+            vec!["a1".to_string()],
+            std::collections::HashSet::new(),
+            None,
+        ));
+
+        assert_eq!(collected.len(), 1);
+        assert_eq!(collected[0].activity_id, "a1");
     }
 
     #[test]
@@ -1073,7 +1193,7 @@ mod tests {
         });
 
         let f = fetcher_to(server.base_url());
-        let bytes = crate::runtime::block_on(f.download_fit_file("a1")).unwrap();
+        let bytes = crate::runtime::block_on(f.download_fit_file("a1", Lane::Interactive)).unwrap();
 
         assert_eq!(bytes, vec![0x0E, 0x10, 0x00, 0x00]);
     }
@@ -1087,7 +1207,26 @@ mod tests {
         });
 
         let f = fetcher_to(server.base_url());
-        assert!(crate::runtime::block_on(f.download_fit_file("a1")).is_err());
+        assert!(crate::runtime::block_on(f.download_fit_file("a1", Lane::Interactive)).is_err());
+    }
+
+    /// Scenario: the strength FIT batch ran on the Interactive lane, so a
+    /// background sweep of a whole library competed with whatever the athlete
+    /// was tapping for the shared dispatch pace.
+    ///
+    /// Expected behaviour: the lane is the caller's, so the batch can yield and
+    /// the single fetch a card is waiting on does not.
+    #[test]
+    fn a_fit_download_runs_on_the_lane_its_caller_names() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/file");
+            then.status(200).body(vec![0x0Eu8]);
+        });
+        let f = fetcher_to(server.base_url());
+
+        assert!(crate::runtime::block_on(f.download_fit_file("a1", Lane::Backfill)).is_ok());
+        assert!(crate::runtime::block_on(f.download_fit_file("a1", Lane::Interactive)).is_ok());
     }
 
     /// Scenario: the fetch-and-store thread runs to its end whatever the

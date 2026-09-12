@@ -11,6 +11,7 @@ use crate::http::ActivityFetcher;
 use crate::net::transport::NetError;
 use crate::persistence::FitOutcome;
 use crate::persistence::attempts::JobKey;
+use crate::persistence::with_persistent_engine_blocking;
 use crate::{
     FfiExerciseActivities, FfiExerciseActivity, FfiExerciseContribution, FfiExerciseSet,
     FfiExerciseSummary, FfiMuscleExerciseSummary, FfiMuscleGroup, FfiMuscleGroupDetail,
@@ -23,7 +24,7 @@ use std::sync::Arc;
 /// Parse a downloaded FIT file, store whatever sets it holds, and settle the
 /// activity. Both fetch paths share it so one download can only ever produce one
 /// verdict, written the same way.
-fn store_parsed_sets(activity_id: &str, data: &[u8]) {
+async fn store_parsed_sets(activity_id: &str, data: &[u8]) {
     let sets = fit::parse_fit_sets(data);
     let outcome = if sets.is_empty() {
         FitOutcome::Empty
@@ -37,26 +38,44 @@ fn store_parsed_sets(activity_id: &str, data: &[u8]) {
         data.len()
     );
 
-    let stored = with_engine(|e| -> Result<(), VeloqError> {
+    // Off the tokio workers: the write lock is blocking and there are eight
+    // workers, so taking it from inside the download future parks one for the
+    // whole transaction. The closure is `'static`, so it takes owned data.
+    let id = activity_id.to_string();
+    let stored = with_persistent_engine_blocking(move |e| -> Result<(), VeloqError> {
         if !sets.is_empty() {
-            e.store_exercise_sets(activity_id, &sets)
+            e.store_exercise_sets(&id, &sets)
                 .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
                 })?;
         }
-        e.mark_fit_outcome(activity_id, outcome)
+        e.mark_fit_outcome(&id, outcome)
             .map_err(|err| VeloqError::Database {
                 msg: format!("{}", err),
             })?;
         Ok(())
-    });
-    if let Err(e) = stored.and_then(|inner| inner) {
-        log::error!("[Strength] Failed to store sets for {}: {}", activity_id, e);
-        return;
+    })
+    .await;
+    match stored {
+        Some(Ok(())) => {}
+        Some(Err(e)) => {
+            log::error!("[Strength] Failed to store sets for {}: {}", activity_id, e);
+            return;
+        }
+        None => {
+            log::error!("[Strength] No engine to store sets for {}", activity_id);
+            return;
+        }
     }
     // Announced only once the verdict is committed and the lock is released: an
     // event without a row would send the reader straight back for another fetch.
-    observer::notify(|o| o.fit_parsed(activity_id.to_string()));
+    // On a blocking thread, because the observer calls into JS and a worker
+    // parked on that is a worker not polling the rest of the batch.
+    let announced = activity_id.to_string();
+    let _ = tokio::task::spawn_blocking(move || {
+        observer::notify(|o| o.fit_parsed(announced.clone()));
+    })
+    .await;
 }
 
 /// Decide what a failed download means for the activity.
@@ -66,7 +85,7 @@ fn store_parsed_sets(activity_id: &str, data: &[u8]) {
 /// or the server, so nothing is recorded and the activity stays in
 /// `get_unprocessed_strength_ids` for the next attempt. Marking those settled is
 /// what deleted a user's strength data for good.
-fn settle_failed_download(activity_id: &str, error: NetError) -> Result<(), NetError> {
+async fn settle_failed_download(activity_id: &str, error: NetError) -> Result<(), NetError> {
     if !fit_is_absent_upstream(&error) {
         log::warn!(
             "[Strength] FIT download failed for {}, will retry: {}",
@@ -80,18 +99,33 @@ fn settle_failed_download(activity_id: &str, error: NetError) -> Result<(), NetE
         "[Strength] No FIT file upstream for {} ({}), settling",
         activity_id, error
     );
-    let settled = with_engine(|engine| {
+    let id = activity_id.to_string();
+    let settled = with_persistent_engine_blocking(move |engine| {
         engine
-            .mark_fit_outcome(activity_id, FitOutcome::Absent)
+            .mark_fit_outcome(&id, FitOutcome::Absent)
             .map_err(|e| VeloqError::Database {
                 msg: format!("{}", e),
             })
-    });
-    if let Err(e) = settled.and_then(|inner| inner) {
-        log::error!("[Strength] Failed to settle {}: {}", activity_id, e);
-        return Ok(());
+    })
+    .await;
+    match settled {
+        Some(Ok(())) => {}
+        Some(Err(e)) => {
+            log::error!("[Strength] Failed to settle {}: {}", activity_id, e);
+            return Ok(());
+        }
+        None => {
+            log::error!("[Strength] No engine to settle {}", activity_id);
+            return Ok(());
+        }
     }
-    observer::notify(|o| o.fit_parsed(activity_id.to_string()));
+    // On a blocking thread for the same reason the store path is: the observer
+    // calls into JS, and a parked worker is a worker not polling the batch.
+    let announced = activity_id.to_string();
+    let _ = tokio::task::spawn_blocking(move || {
+        observer::notify(|o| o.fit_parsed(announced.clone()));
+    })
+    .await;
     Ok(())
 }
 
@@ -153,11 +187,15 @@ impl StrengthManager {
             move |transport, _athlete_id| async move {
                 let fetcher = ActivityFetcher::with_transport(transport);
                 let upstream = sync::upstream_id(&activity_id).await;
-                let data = match fetcher.download_fit_file(&upstream).await {
+                // A card the athlete has open is waiting on this one.
+                let data = match fetcher
+                    .download_fit_file(&upstream, crate::governor::Lane::Interactive)
+                    .await
+                {
                     Ok(data) => data,
-                    Err(e) => return settle_failed_download(&activity_id, e),
+                    Err(e) => return settle_failed_download(&activity_id, e).await,
                 };
-                store_parsed_sets(&activity_id, &data);
+                store_parsed_sets(&activity_id, &data).await;
                 Ok(())
             },
         )
@@ -205,9 +243,14 @@ impl StrengthManager {
 
                 for activity_id in &activity_ids {
                     let upstream = sync::upstream_id(activity_id).await;
-                    match fetcher.download_fit_file(&upstream).await {
+                    // Behind a sync and nobody waiting, so it yields to the
+                    // foreground rather than competing with it for the pace.
+                    match fetcher
+                        .download_fit_file(&upstream, crate::governor::Lane::Backfill)
+                        .await
+                    {
                         Ok(data) => {
-                            store_parsed_sets(activity_id, &data);
+                            store_parsed_sets(activity_id, &data).await;
                             parsed += 1;
                         }
                         Err(NetError::Unauthorized) => {
@@ -217,7 +260,7 @@ impl StrengthManager {
                             return Err(NetError::Unauthorized);
                         }
                         Err(e) => {
-                            let _ = settle_failed_download(activity_id, e);
+                            let _ = settle_failed_download(activity_id, e).await;
                         }
                     }
                 }
@@ -782,8 +825,10 @@ mod tests {
         let recorder = Recorder::new();
         set_observer(Some(recorder.clone()));
 
-        // A FIT file carrying no sets settles the activity all the same.
-        store_parsed_sets("a1", &[]);
+        // A FIT file carrying no sets settles the activity all the same. On the
+        // shared runtime, because the store now hands the write and the
+        // announcement to blocking threads rather than parking a worker.
+        crate::runtime::block_on(store_parsed_sets("a1", &[]));
         set_observer(None);
 
         assert_eq!(recorder.events(), vec!["fit_parsed:a1"]);
@@ -800,13 +845,13 @@ mod tests {
         let recorder = Recorder::new();
         set_observer(Some(recorder.clone()));
 
-        settle_failed_download(
+        crate::runtime::block_on(settle_failed_download(
             "a2",
             NetError::Http {
                 status: 404,
                 body: String::new(),
             },
-        )
+        ))
         .expect("an absent file settles rather than fails");
         set_observer(None);
 
@@ -823,7 +868,9 @@ mod tests {
         let recorder = Recorder::new();
         set_observer(Some(recorder.clone()));
 
-        assert!(settle_failed_download("a3", NetError::RateLimited).is_err());
+        assert!(
+            crate::runtime::block_on(settle_failed_download("a3", NetError::RateLimited)).is_err()
+        );
         set_observer(None);
 
         assert!(recorder.events().is_empty());

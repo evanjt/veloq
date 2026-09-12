@@ -32,6 +32,7 @@ import { darkColors, spacing, typography } from '@/theme';
 import { ComponentErrorBoundary } from '@/shared/ui';
 import { debug } from '@/shared/debug/debug';
 import { HEATMAP_TILES_DIR } from '@/features/maps/hooks/useHeatmapTiles';
+import { heatmapTilePath } from '@/features/maps/lib/webViewLiterals';
 import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
 import type {
   WebViewBridgeHandlers,
@@ -57,6 +58,7 @@ import {
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import { buildReleaseMapScript } from '@/features/maps/lib/htmlBuilders/shared';
 import { createSurfacePatcher } from '@/features/maps/lib/mapSurfacePatch';
+import { createPendingRequests } from '@/features/maps/lib/pendingRequests';
 import { registerReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
 import type {
   MapCameraSpec,
@@ -72,6 +74,8 @@ import {
   emitTileCacheStats,
   onTileCacheStatsRequest,
 } from '@/features/maps/lib/terrainSnapshotEvents';
+import { useLiveTileCacheBudget } from '@/features/maps/hooks/useLiveTileCacheBudget';
+import { useLiveTileCacheClear } from '@/features/maps/hooks/useLiveTileCacheClear';
 import { tileCacheStatsScript } from '@/features/maps/lib/tileCacheBudget';
 
 const log = debug.create('MapSurface');
@@ -163,8 +167,6 @@ export interface MapSurfaceProps {
   testID?: string;
 }
 
-type PendingResolver = (value: unknown) => void;
-
 function toCameraState(data: WebViewBridgeMessage): MapCameraState | null {
   const center = data.center as LngLat | undefined;
   const bounds = data.bounds as LngLatBounds | undefined;
@@ -223,8 +225,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   // What the page has been told, so a re-render only ships what moved.
   const patcherRef = useRef(createSurfacePatcher());
 
-  const pendingRef = useRef(new Map<string, PendingResolver>());
-  const requestSeqRef = useRef(0);
+  const pendingRef = useRef(createPendingRequests());
 
   // Callbacks live in refs so the bridge handler map stays stable.
   const callbacksRef = useRef({
@@ -310,21 +311,14 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   }, []);
 
   const resolvePending = useCallback((requestId: string, value: unknown) => {
-    const resolver = pendingRef.current.get(requestId);
-    if (!resolver) return;
-    pendingRef.current.delete(requestId);
-    resolver(value);
+    pendingRef.current.settle(requestId, value);
   }, []);
 
+  // The empty answer each caller passes is what it is handed if the page goes
+  // away before it replies, so nothing waits on a promise that cannot settle.
   const request = useCallback(
-    <T,>(build: (requestId: string) => string): Promise<T> => {
-      requestSeqRef.current += 1;
-      const requestId = `req_${requestSeqRef.current}`;
-      return new Promise<T>((resolve) => {
-        pendingRef.current.set(requestId, resolve as PendingResolver);
-        inject(build(requestId));
-      });
-    },
+    <T,>(empty: T, build: (requestId: string) => string): Promise<T> =>
+      pendingRef.current.open<T>(empty, (requestId) => inject(build(requestId))),
     [inject]
   );
 
@@ -377,7 +371,9 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       },
       heatmapTileRequest: async (data) => {
         const requestId = data.requestId as string;
-        const tilePath = data.tilePath as string;
+        // The page decides this path, so it is checked against the one shape a
+        // tile can take before it is joined onto anything.
+        const tilePath = heatmapTilePath(data.tilePath);
         if (!requestId || !tilePath) return;
         if (!serveHeatmapTiles) {
           inject(buildHeatmapTileReplyScript(requestId, null));
@@ -420,6 +416,12 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     });
   }, [inject]);
 
+  // The ceiling is baked into the HTML when the page is built, so a change made
+  // while this map is open has to be sent in. The clear is the same: the pool
+  // that used to be the only subscriber is not mounted when settings is up.
+  useLiveTileCacheBudget(inject);
+  useLiveTileCacheClear(inject);
+
   const handleMessage = useWebViewBridge(handlers);
 
   useEffect(() => {
@@ -449,23 +451,23 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
         inject(buildResetOrientationScript());
       },
       queryFeatures: (point, queryLayers, radius) =>
-        request<MapFeatureHit[]>((requestId) =>
+        request<MapFeatureHit[]>([], (requestId) =>
           buildQueryFeaturesScript(requestId, point, queryLayers, radius)
         ),
       queryViewportFeatures: (queryLayers) =>
-        request<MapFeatureHit[]>((requestId) =>
+        request<MapFeatureHit[]>([], (requestId) =>
           buildQueryViewportFeaturesScript(requestId, queryLayers)
         ),
       getClusterLeaves: (sourceId, clusterId, limit = 100, offset = 0) =>
-        request<GeoJSON.Feature[]>((requestId) =>
+        request<GeoJSON.Feature[]>([], (requestId) =>
           buildClusterLeavesScript(requestId, sourceId, clusterId, limit, offset)
         ),
       getClusterExpansionZoom: (sourceId, clusterId) =>
-        request<number | null>((requestId) =>
+        request<number | null>(null, (requestId) =>
           buildClusterExpansionZoomScript(requestId, sourceId, clusterId)
         ),
       projectPoints: (points) =>
-        request<{ id: string; x: number; y: number }[]>((requestId) =>
+        request<{ id: string; x: number; y: number }[]>([], (requestId) =>
           buildProjectPointsScript(requestId, points)
         ),
     }),
@@ -476,6 +478,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   const handleCrash = useCallback(() => {
     readyRef.current = false;
     patcherRef.current.forget();
+    pendingRef.current.abandon();
     webViewRef.current?.reload();
   }, []);
 
@@ -486,6 +489,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       registerReleasableSurface({
         release: () => {
           readyRef.current = false;
+          pendingRef.current.abandon();
           inject(buildReleaseMapScript());
         },
         rebuild: handleCrash,
@@ -497,7 +501,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     const pending = pendingRef.current;
     return () => {
       readyRef.current = false;
-      pending.clear();
+      pending.abandon();
       webViewRef.current?.stopLoading();
     };
   }, []);

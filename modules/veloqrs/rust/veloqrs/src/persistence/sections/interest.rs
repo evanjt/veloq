@@ -235,11 +235,12 @@ impl PersistentEngine {
 
         let tx = self.db.unchecked_transaction()?;
         {
-            let mut stmt = tx.prepare(
+            let mut stmt = tx.prepare(&format!(
                 "UPDATE sections SET elevation_loss_m = ?, max_grade_percent = ?, straightness = ?,
-                        klass = ?, is_lift = ?, rank_score = ?, sport_rank_score = ?
-                 WHERE id = ?",
-            )?;
+                        klass = ?, is_lift = {IS_LIFT_UNLESS_UNFLAGGED}, rank_score = ?,
+                        sport_rank_score = ?
+                 WHERE id = ?"
+            ))?;
             for s in self.sections.iter_mut() {
                 let mut rank = pooled.get(&s.id).cloned().unwrap_or_default();
                 rank.sport_score = sport_scores.get(&s.id).copied().unwrap_or(rank.score);
@@ -257,6 +258,64 @@ impl PersistentEngine {
             }
         }
         tx.commit()
+    }
+}
+
+/// The `is_lift` column of the enrichment write, as SQL.
+///
+/// `is_lift` is derived: the detector answers it again on every enrichment pass
+/// and the pass re-`UPDATE`s the column, so an athlete's unflag written to the
+/// column comes back at the next detect. The durable record is a `lift` intent,
+/// and it wins here. One constant because the write and the flag-setter below
+/// have to agree, and a second copy is how they would stop agreeing.
+pub(crate) const IS_LIFT_UNLESS_UNFLAGGED: &str = "CASE WHEN EXISTS(
+        SELECT 1 FROM section_intents i WHERE i.id = sections.id AND i.kind = 'lift'
+    ) THEN 0 ELSE ? END";
+
+impl PersistentEngine {
+    /// Mark or unmark a section as a lift.
+    ///
+    /// Unmarking writes an intent as well as the column, because the column
+    /// alone does not survive the next enrichment pass. Re-marking takes the
+    /// intent away again, or the section could never be a lift once unflagged.
+    /// The intent suppresses nothing: every other reader of `section_intents`
+    /// is scoped to its own kind, so the section stays in the catalogue.
+    pub fn set_section_is_lift(&self, section_id: &str, is_lift: bool) -> Result<(), String> {
+        if is_lift {
+            self.db
+                .execute(
+                    "DELETE FROM section_intents WHERE id = ? AND kind = 'lift'",
+                    rusqlite::params![section_id],
+                )
+                .map_err(|e| e.to_string())?;
+        } else {
+            self.record_section_intent(section_id, "lift");
+        }
+        self.db
+            .execute(
+                "UPDATE sections SET is_lift = ? WHERE id = ?",
+                rusqlite::params![i32::from(is_lift), section_id],
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// Run the enrichment pass's `is_lift` write alone, with the detector's
+    /// answer, so a test can prove the intent survives it without standing up a
+    /// whole detection run.
+    #[doc(hidden)]
+    pub fn restamp_lift_flag_for_test(
+        &self,
+        section_id: &str,
+        detected: bool,
+    ) -> Result<(), String> {
+        self.db
+            .execute(
+                &format!("UPDATE sections SET is_lift = {IS_LIFT_UNLESS_UNFLAGGED} WHERE id = ?"),
+                rusqlite::params![i32::from(detected), section_id],
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(())
     }
 }
 

@@ -75,7 +75,7 @@ const request = (activityId: string, flat = true): SnapshotRequest => ({
 /** Every request the pool has handed to a worker so far, oldest first. */
 const rendered = () =>
   injected
-    .map((script) => /var activityId = '([^']+)'/.exec(script)?.[1])
+    .map((script) => /var activityId = "([^"]+)"/.exec(script)?.[1])
     .filter((id): id is string => !!id);
 
 describe('the snapshot pool retries a failure when the queue goes idle', () => {

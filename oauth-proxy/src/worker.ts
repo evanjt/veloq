@@ -17,6 +17,7 @@
  */
 
 import { secretsMatch } from "./secrets";
+import { dedupeKey, exchangeKey, rateKey, stateKey } from "./keys";
 import { authoriseDevice, intervalsAthleteResolver } from "./deviceAuth";
 import { isValidVerifier, newOpaqueToken, verifierMatches } from "./pkce";
 
@@ -118,7 +119,7 @@ export default {
  * Returns true if request should be allowed, false if rate limited
  */
 async function checkRateLimit(ip: string, env: Env): Promise<boolean> {
-  const key = `rate:${ip}`;
+  const key = rateKey(ip);
   const current = await env.OAUTH_STATES.get(key);
 
   if (!current) {
@@ -198,7 +199,7 @@ async function handleRegisterState(
         ? JSON.stringify({ challenge })
         : "valid";
 
-    await env.OAUTH_STATES.put(state, stored, {
+    await env.OAUTH_STATES.put(stateKey(state), stored, {
       expirationTtl: STATE_TTL_SECONDS,
     });
 
@@ -241,7 +242,7 @@ async function handleOAuthCallback(url: URL, env: Env): Promise<Response> {
     return redirectToAppWithError("missing_state");
   }
 
-  const storedState = await env.OAUTH_STATES.get(state);
+  const storedState = await env.OAUTH_STATES.get(stateKey(state));
   if (!storedState) {
     console.error(
       "OAuth state not found or expired:",
@@ -251,7 +252,7 @@ async function handleOAuthCallback(url: URL, env: Env): Promise<Response> {
   }
 
   // Delete state after validation (single use)
-  await env.OAUTH_STATES.delete(state);
+  await env.OAUTH_STATES.delete(stateKey(state));
 
   const challenge = challengeFromStoredState(storedState);
 
@@ -280,7 +281,9 @@ async function handleOAuthCallback(url: URL, env: Env): Promise<Response> {
 
   // Validate response
   if (!tokenData.access_token || !tokenData.athlete?.id) {
-    console.error("Invalid token response:", tokenData);
+    // The shape, never the contents: a response missing `athlete.id` still
+    // carries the access token, and this used to write it to the logs.
+    console.error("Invalid token response, keys:", Object.keys(tokenData));
     return redirectToAppWithError("invalid_response");
   }
 
@@ -317,10 +320,6 @@ function challengeFromStoredState(storedState: string): string | null {
 }
 
 /** Where a pending exchange lives. Namespaced so it cannot be read as a state. */
-function exchangeKey(code: string): string {
-  return `exchange:${code}`;
-}
-
 /**
  * Redeem a one-time code for the token it stands for.
  *
@@ -710,10 +709,10 @@ async function handleIntervalsWebhook(
       // test iteration (curl loop against the same activity_id).
       const skipDedupe = (payload as { skip_dedupe?: boolean }).skip_dedupe === true;
       if (!skipDedupe) {
-        const dedupeKey = `dedup:${event.athlete_id}:${event.type}:${event.activity?.id ?? "none"}`;
-        const alreadyProcessed = await env.OAUTH_STATES.get(dedupeKey);
+        const seen = dedupeKey(event.athlete_id, event.type, event.activity?.id);
+        const alreadyProcessed = await env.OAUTH_STATES.get(seen);
         if (alreadyProcessed) continue;
-        await env.OAUTH_STATES.put(dedupeKey, "1", { expirationTtl: 300 });
+        await env.OAUTH_STATES.put(seen, "1", { expirationTtl: 300 });
       }
 
       // Look up device tokens for this athlete

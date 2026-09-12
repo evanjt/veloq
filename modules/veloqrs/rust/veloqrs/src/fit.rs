@@ -46,9 +46,12 @@ pub fn parse_fit_strength_sets(data: &[u8]) -> Result<Vec<FitExerciseSet>, FitPa
         return Err(FitParseError::Empty);
     }
     let mut cursor = Cursor::new(data);
-    let _ =
+    // Decoded once and handed on. Reporting the failure used to mean decoding
+    // the file here and again inside `parse_fit_sets`, so every strength
+    // upload parsed its FIT twice.
+    let records =
         fitparser::from_reader(&mut cursor).map_err(|e| FitParseError::Decode(format!("{}", e)))?;
-    Ok(parse_fit_sets(data))
+    Ok(sets_from_records(&records))
 }
 
 /// Parse a FIT binary file and extract exercise set data.
@@ -60,11 +63,15 @@ pub fn parse_fit_sets(data: &[u8]) -> Vec<FitExerciseSet> {
         Ok(r) => r,
         Err(_) => return Vec::new(),
     };
+    sets_from_records(&records)
+}
 
+/// The exercise sets among already-decoded FIT records.
+fn sets_from_records(records: &[fitparser::FitDataRecord]) -> Vec<FitExerciseSet> {
     let mut sets = Vec::new();
     let mut set_order: u32 = 0;
 
-    for record in &records {
+    for record in records {
         // Filter for "Set" messages (exercise set records)
         if record.kind() != fitparser::profile::MesgNum::Set {
             continue;
@@ -280,7 +287,7 @@ pub fn exercise_muscle_groups(category: u16) -> Vec<MuscleActivation> {
         31 | 32 => (&[], &[]),                       // Warm Up / Run (no strength muscles)
         0xFFFF | 0xFFFE => (&[], &[]),               // Unknown / Invalid
         other => {
-            eprintln!("[fit] Unknown exercise category {other}, no muscle mapping available");
+            log::debug!("[fit] Unknown exercise category {other}, no muscle mapping available");
             (&[], &[])
         }
     };

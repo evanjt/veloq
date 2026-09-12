@@ -158,22 +158,22 @@ impl PersistentEngine {
         // Backfill: ensure every group member has an activity_matches DB entry.
         // The grouping algorithm uses Union-Find which adds members transitively,
         // but only records match info for directly compared pairs.
+        //
+        // One prepared insert per member, not a probe and an insert. The key is
+        // `(route_id, activity_id)`, so `OR IGNORE` leaves a row that already
+        // carries a real percentage exactly where it was, and `changes()` is
+        // the count the probe used to produce. This runs at launch and again
+        // after every apply.
         let mut backfilled = 0u32;
-        for group in &self.groups {
-            for activity_id in &group.activity_ids {
-                let exists: bool = self.db.query_row(
-                    "SELECT EXISTS(SELECT 1 FROM activity_matches WHERE route_id = ? AND activity_id = ?)",
-                    rusqlite::params![&group.group_id, activity_id],
-                    |row| row.get(0),
-                ).unwrap_or(true);
-
-                if !exists {
-                    let _ = self.db.execute(
-                        "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction)
-                         VALUES (?, ?, 0.0, 'same')",
-                        rusqlite::params![&group.group_id, activity_id],
-                    );
-                    backfilled += 1;
+        if let Ok(mut stmt) = self.db.prepare(
+            "INSERT OR IGNORE INTO activity_matches (route_id, activity_id, match_percentage, direction)
+             VALUES (?, ?, 0.0, 'same')",
+        ) {
+            for group in &self.groups {
+                for activity_id in &group.activity_ids {
+                    backfilled += stmt
+                        .execute(rusqlite::params![&group.group_id, activity_id])
+                        .unwrap_or(0) as u32;
                 }
             }
         }
@@ -216,8 +216,8 @@ impl PersistentEngine {
                     "veloqrs: [migration] All non-representative match percentages are 0.0, \
                      running one-time AMD recalculation"
                 );
-                self.recalculate_match_percentages_from_tracks();
-                match self.persist_match_percentages() {
+                self.recalculate_match_percentages_from_tracks(None);
+                match self.persist_match_percentages(None) {
                     Ok(()) => {
                         let _ = self.db.execute(
                             "INSERT OR REPLACE INTO schema_info (key, value)
@@ -674,7 +674,7 @@ impl PersistentEngine {
         // Phase 3: Recalculate match percentages using ORIGINAL GPS tracks (not simplified signatures)
         // This captures actual GPS variation that was smoothed out by Douglas-Peucker
         // NOTE: This is the BOTTLENECK - see PERF logs inside this function
-        self.recalculate_match_percentages_from_tracks();
+        self.recalculate_match_percentages_from_tracks(None);
 
         // Log match info computed
         let total_matches: usize = self.activity_matches.values().map(|v| v.len()).sum();
@@ -723,15 +723,29 @@ impl PersistentEngine {
 
     /// Recalculate match percentages using original GPS tracks instead of simplified signatures.
     /// Uses AMD (Average Minimum Distance) for accurate track comparison.
-    fn recalculate_match_percentages_from_tracks(&mut self) {
+    /// Recompute match percentages against each group's representative.
+    ///
+    /// `only_group` narrows the work to one group, which is what a tap that
+    /// chooses a representative needs: the other groups' representatives have
+    /// not moved, so their percentages cannot have changed. `None` does the whole
+    /// library, which is what regrouping needs. Without the filter, choosing a
+    /// representative for one route loaded and compared every track in every
+    /// group, on the JS thread and under the write lock.
+    fn recalculate_match_percentages_from_tracks(&mut self, only_group: Option<&str>) {
         use crate::matching::{amd_to_percentage, average_min_distance};
         use std::collections::HashMap;
         use std::time::Instant;
 
         let func_start = Instant::now();
 
+        let in_scope = |group: &RouteGroup| match only_group {
+            Some(id) => group.group_id == id,
+            None => true,
+        };
+
         log::info!(
-            "veloqrs: [PERF] recalculate_match_percentages: {} groups, parallel AMD via rayon",
+            "veloqrs: [PERF] recalculate_match_percentages: {} of {} groups, parallel AMD via rayon",
+            self.groups.iter().filter(|g| in_scope(g)).count(),
             self.groups.len()
         );
 
@@ -741,7 +755,7 @@ impl PersistentEngine {
         let mut tracks: HashMap<String, Arc<Vec<GpsPoint>>> = HashMap::new();
         let mut total_points_loaded: usize = 0;
 
-        for group in &self.groups {
+        for group in self.groups.iter().filter(|g| in_scope(g)) {
             // Load representative track
             if let Some(track) = self.load_gps_track_from_db(&group.representative_id)
                 && track.len() >= 2
@@ -781,7 +795,7 @@ impl PersistentEngine {
             Vec::new();
         let mut skipped_self = 0u32;
 
-        for group in &self.groups {
+        for group in self.groups.iter().filter(|g| in_scope(g)) {
             let rep_track = match tracks.get(&group.representative_id) {
                 Some(t) => t,
                 None => continue,
@@ -881,13 +895,45 @@ impl PersistentEngine {
     /// Write in-memory match percentages back to SQLite.
     /// Only updates rows where the computed percentage is non-zero
     /// (representatives stay at 0.0 by design - they are the reference track).
-    fn persist_match_percentages(&self) -> SqlResult<()> {
+    ///
+    /// `only_group` matches the recompute above: write back what was just
+    /// recalculated and nothing else. One transaction, not one per row: every
+    /// `UPDATE` used to autocommit, which is a disk sync each, on a user tap.
+    fn persist_match_percentages(&self, only_group: Option<&str>) -> SqlResult<()> {
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+        let result = self.write_match_percentages(only_group);
+        match result {
+            Ok(updated) => {
+                self.db.execute_batch("COMMIT")?;
+                if updated > 0 {
+                    log::info!(
+                        "veloqrs: Persisted {} non-zero match percentages to DB",
+                        updated
+                    );
+                }
+                Ok(())
+            }
+            Err(e) => {
+                // A partial write would leave percentages disagreeing with the
+                // representative they were measured against.
+                let _ = self.db.execute_batch("ROLLBACK");
+                Err(e)
+            }
+        }
+    }
+
+    fn write_match_percentages(&self, only_group: Option<&str>) -> SqlResult<u32> {
         let mut stmt = self.db.prepare(
             "UPDATE activity_matches SET match_percentage = ?
              WHERE route_id = ? AND activity_id = ?",
         )?;
         let mut updated = 0u32;
         for (route_id, matches) in &self.activity_matches {
+            if let Some(id) = only_group
+                && route_id != id
+            {
+                continue;
+            }
             for m in matches {
                 if m.match_percentage > 0.0 {
                     updated +=
@@ -895,13 +941,7 @@ impl PersistentEngine {
                 }
             }
         }
-        if updated > 0 {
-            log::info!(
-                "veloqrs: Persisted {} non-zero match percentages to DB",
-                updated
-            );
-        }
-        Ok(())
+        Ok(updated)
     }
 
     pub(super) fn save_groups(&self) -> SqlResult<()> {
@@ -1687,9 +1727,10 @@ impl PersistentEngine {
         self.consensus_cache.pop(&route_id.to_string());
         self.group_cache.pop(&route_id.to_string());
 
-        // Recompute match percentages against the new representative and persist
-        self.recalculate_match_percentages_from_tracks();
-        if let Err(e) = self.persist_match_percentages() {
+        // Recompute match percentages against the new representative and persist.
+        // Only this group moved, so only this group is recomputed.
+        self.recalculate_match_percentages_from_tracks(Some(route_id));
+        if let Err(e) = self.persist_match_percentages(Some(route_id)) {
             log::error!(
                 "veloqrs: Failed to persist match percentages after representative change: {}",
                 e

@@ -21,15 +21,8 @@ import {
   type LngLatBounds,
 } from '@/features/maps/lib/coordinates';
 import type { MapImageSpec, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
-import {
-  type MapStyleType,
-  isDarkStyle,
-  getNextStyle,
-  getStyleIcon,
-  MAP_ATTRIBUTIONS,
-  TERRAIN_ATTRIBUTION,
-  getCombinedSatelliteAttribution,
-} from './mapStyles';
+import { type MapStyleType, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
+import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { offlineMapStyle } from '@/features/maps/lib/offlineStyleFallback';
 
 /** Room left around fitted bounds, in pixels. Extra on top for the controls. */
@@ -271,20 +264,18 @@ export function BaseMapView({
     [routeColor, overlayLayers]
   );
 
-  // Dynamic attribution based on map style and current location
-  // For satellite mode, shows regional attributions (swisstopo, IGN, etc.) based on map center
-  const attributionText = useMemo(() => {
-    if (mapStyle === 'satellite' && currentCenter) {
-      const satAttribution = getCombinedSatelliteAttribution(
-        currentCenter[1], // lat
-        currentCenter[0], // lng
-        currentZoom
-      );
-      return is3DMode ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
-    }
-    const baseAttribution = MAP_ATTRIBUTIONS[mapStyle];
-    return is3DMode ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
-  }, [mapStyle, currentCenter, currentZoom, is3DMode]);
+  // Satellite mode reads its attribution from the viewport, so the sources named
+  // are the ones on screen. Shared with the activity and regional maps.
+  const attributionText = useMemo(
+    () =>
+      computeAttribution({
+        style: mapStyle,
+        is3D: is3DMode,
+        center: currentCenter,
+        zoom: currentZoom,
+      }),
+    [mapStyle, currentCenter, currentZoom, is3DMode]
+  );
 
   // Render controls (shared between 2D and 3D)
   const renderControls = () => (

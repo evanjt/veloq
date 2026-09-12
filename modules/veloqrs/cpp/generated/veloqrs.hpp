@@ -799,6 +799,9 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_revert_to_version(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_set_is_lift(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_set_name(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -2082,6 +2085,9 @@ protected:
       size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_set_is_lift(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_set_name(

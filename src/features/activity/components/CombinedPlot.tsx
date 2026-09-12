@@ -91,8 +91,6 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   const touchX = useSharedValue(-1); // -1 means not touching
   const xValuesShared = useSharedValue<number[]>([]);
   const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
-  // Store Victory Native's actual rendered x-coordinates for smooth crosshair
-  const pointXCoordsShared = useSharedValue<number[]>([]);
 
   // The scrub position lives in the pill that draws it. Held here it rendered
   // the chart root per index, and the root is what rebuilds every Skia path.
@@ -383,19 +381,6 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                     left: bounds.left,
                     right: bounds.right,
                   };
-                }
-                // Sync actual point x-coordinates for accurate crosshair positioning
-                if (seriesInfo.length > 0) {
-                  const firstSeriesPoints = points[seriesInfo[0].id];
-                  if (firstSeriesPoints) {
-                    const newCoords = firstSeriesPoints.map((p) => p.x);
-                    if (
-                      newCoords.length !== pointXCoordsShared.value.length ||
-                      newCoords[0] !== pointXCoordsShared.value[0]
-                    ) {
-                      pointXCoordsShared.value = newCoords;
-                    }
-                  }
                 }
 
                 const chartH = bounds.bottom - bounds.top;

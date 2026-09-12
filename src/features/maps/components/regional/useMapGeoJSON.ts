@@ -53,7 +53,12 @@ export function getMarkerSize(_distance: number): number {
 
 interface UseMapGeoJSONOptions {
   allActivities: ActivityBoundsItem[];
-  visibleActivities: ActivityBoundsItem[];
+  /**
+   * Whose traces and start points to send. Empty below the zoom those layers
+   * draw at, and culled to the camera above it. The markers take
+   * `allActivities`, so nothing here wants the viewport-culled set any more.
+   */
+  traceActivities: ActivityBoundsItem[];
   activityCenters: Record<string, [number, number]>;
   routeSignatures: Record<string, RouteSignature>;
   /** Six fields and a line: everything the overlay draws, and nothing else. */
@@ -81,7 +86,7 @@ interface UseMapGeoJSONResult {
 
 export function useMapGeoJSON({
   allActivities,
-  visibleActivities,
+  traceActivities,
   activityCenters,
   routeSignatures,
   sections,
@@ -170,7 +175,7 @@ export function useMapGeoJSON({
   const tracesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
     // Always build full traces regardless of showTraces - visibility controlled by layer opacity
     let skippedCount = 0;
-    const features = visibleActivities
+    const features = traceActivities
       .filter((activity) => routeSignatures[activity.id]) // Only activities with signatures
       .map((activity) => {
         const signature = routeSignatures[activity.id];
@@ -221,15 +226,17 @@ export function useMapGeoJSON({
     if (features.length === 0) return EMPTY_FEATURE_COLLECTION;
 
     return { type: 'FeatureCollection', features };
-  }, [visibleActivities, routeSignatures]);
+  }, [traceActivities, routeSignatures]);
 
   // ===========================================
   // 2b. ACTIVITY START POINTS - First GPS coordinate per activity
   // ===========================================
   // Shown at high zoom as small directional markers indicating where each activity began.
   // Uses the first point from routeSignatures (actual GPS start, not bounds center).
+  // Same budget as the traces: the layer's radius ramp is 0 below the trace
+  // zoom, so below it these are as invisible as the lines they mark.
   const startPointsGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const features = visibleActivities
+    const features = traceActivities
       .filter((activity) => routeSignatures[activity.id])
       .map((activity) => {
         const signature = routeSignatures[activity.id];
@@ -254,7 +261,7 @@ export function useMapGeoJSON({
 
     if (features.length === 0) return EMPTY_FEATURE_COLLECTION;
     return { type: 'FeatureCollection', features };
-  }, [visibleActivities, routeSignatures]);
+  }, [traceActivities, routeSignatures]);
 
   // ===========================================
   // 3. SECTIONS - Frequent road/trail section polylines

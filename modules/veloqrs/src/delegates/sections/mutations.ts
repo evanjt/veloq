@@ -11,6 +11,31 @@ import { validateId, validateName } from '../../conversions';
 import type { FfiGpsPoint, FfiIndexActivitySummary } from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
 
+/**
+ * Mark or unmark a section as a lift.
+ *
+ * The unmark is durable in Rust: `isLift` is re-derived on every enrichment
+ * pass, so the engine writes an intent as well as the column. Nothing here has
+ * to remember that, but a caller expecting a column write will be surprised by
+ * how long it lasts.
+ */
+export function setSectionIsLift(
+  host: DelegateHost,
+  sectionId: string,
+  isLift: boolean
+): boolean {
+  if (!host.ready) return false;
+  validateId(sectionId, 'section ID');
+  try {
+    host.timed('setSectionIsLift', () => host.engine.sections().setIsLift(sectionId, isLift));
+    host.notify('sections');
+    return true;
+  } catch (e) {
+    console.error('[Engine] setSectionIsLift failed:', sectionId, e);
+    return false;
+  }
+}
+
 export function setSectionName(host: DelegateHost, sectionId: string, name: string): boolean {
   if (!host.ready) return false;
   validateId(sectionId, 'section ID');

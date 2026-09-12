@@ -8,9 +8,9 @@ import { useMemo } from 'react';
 import { useCustomSections } from './useCustomSections';
 import { useEngineSubscription } from './useEngine';
 import { getEngine } from '@/shared/native/engine';
-import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import type { FrequentSection } from '@/types';
 import { convertSectionSummaryToApp } from '@/features/routes/lib/sectionConversions';
+import { unifySections } from '@/features/routes/lib/unifySections';
 
 // Re-export for backwards compatibility
 export { generateSectionName } from '@/features/routes/lib/sectionNaming';
@@ -70,71 +70,14 @@ export function useSections(options: UseSectionsOptions = {}): UseSectionsResult
     error: customError,
   } = useCustomSections({ sportType, enabled });
 
-  // Combine all sections
-  // NOTE: Overlap calculation for auto vs custom sections is pre-computed and stored
-  // in SupersededSectionsStore when custom sections are created.
-  const unified = useMemo(() => {
-    const result: FrequentSection[] = [];
-    const seenIds = new Set<string>(); // Track IDs to prevent duplicates
-
-    // Add custom sections first (user-created take priority)
-    // Note: custom.id already has "custom_" prefix from generateId()
-    if (includeCustom) {
-      for (const custom of customSections) {
-        if (seenIds.has(custom.id)) continue;
-        seenIds.add(custom.id);
-        result.push({
-          id: custom.id,
-          sectionType: 'custom',
-          name: custom.name || '',
-          polyline: custom.polyline,
-          sportType: custom.sportType,
-          distanceMeters: custom.distanceMeters,
-          activityIds: custom.activityIds || [],
-          visitCount: custom.visitCount || custom.activityIds?.length || 1,
-          createdAt: custom.createdAt || new Date().toISOString(),
-        });
-      }
-    }
-
-    // Add engine sections (auto-detected and custom from batch data)
-    // Disabled/superseded state is in the section data from SQLite
-    for (const engine of engineSections) {
-      if (seenIds.has(engine.id)) continue;
-
-      const actualType =
-        engine.sectionType === 'custom' || engine.id.startsWith('custom_') ? 'custom' : 'auto';
-
-      seenIds.add(engine.id);
-      result.push({
-        ...engine,
-        sectionType: actualType,
-        name: engine.name || generateSectionName(engine),
-        activityIds: engine.activityIds || [],
-        createdAt: engine.createdAt || new Date().toISOString(),
-      });
-    }
-
-    // Sort: disabled/superseded sections last, then by type. Stable within each
-    // group so upstream ordering (e.g. Rust-side nearest-distance pre-sort from
-    // batchSections) survives. Consumers like SectionsList apply their own
-    // visit/distance/name comparator after this; 'nearby' relies on the
-    // preserved upstream order.
-    result.sort((a, b) => {
-      const aHidden = !!(a.disabled || a.supersededBy);
-      const bHidden = !!(b.disabled || b.supersededBy);
-      if (aHidden && !bHidden) return 1;
-      if (!aHidden && bHidden) return -1;
-
-      const typePriority: Record<string, number> = { custom: 0, auto: 1 };
-      const aPriority = typePriority[a.sectionType] ?? 1;
-      const bPriority = typePriority[b.sectionType] ?? 1;
-
-      return aPriority - bPriority;
-    });
-
-    return result;
-  }, [engineSections, customSections, includeCustom]);
+  // Combine all sections. The engine row wins wherever it has the id, so a
+  // custom section keeps its rank scores, class and elevation.
+  // NOTE: Overlap calculation for auto vs custom sections is pre-computed and
+  // stored in SupersededSectionsStore when custom sections are created.
+  const unified = useMemo(
+    () => unifySections({ engineSections, customSections, includeCustom }),
+    [engineSections, customSections, includeCustom]
+  );
 
   // Compute counts (disabled/superseded are hidden from counts)
   const autoCount = unified.filter(

@@ -363,7 +363,14 @@ class EngineClient implements DelegateHost {
       }
       // Heatmap tiles path is set lazily via enableHeatmapTiles() - called from app
       // code when the heatmap setting is enabled. This avoids importing provider stores
-      // in the native module.
+      // in the native module. What the athlete last chose is re-applied here,
+      // because the path lives only in the engine's memory and a clear opens a
+      // new one: the layout's post-init block does not run again for a clear
+      // mid-session, so the path stayed unset and the previous library's tiles
+      // went on being served.
+      if (this.heatmapTilesPath) {
+        this.applyHeatmapTilesPath(this.heatmapTilesPath);
+      }
       this.replayPendingWrites();
     }
     return result;
@@ -776,6 +783,9 @@ class EngineClient implements DelegateHost {
   setSectionName = (sectionId: string, name: string): boolean =>
     sectionDelegates.setSectionName(this, sectionId, name);
 
+  setSectionIsLift = (sectionId: string, isLift: boolean): boolean =>
+    sectionDelegates.setSectionIsLift(this, sectionId, isLift);
+
   getNamedCorridors = (): FfiNamedCorridor[] => sectionDelegates.getNamedCorridors(this);
 
   removeNamedCorridor = (intentId: string): boolean =>
@@ -989,7 +999,8 @@ class EngineClient implements DelegateHost {
     currentEnd: number,
     prevStart: number,
     prevEnd: number,
-    sparklineDays: number
+    sparklineDays: number,
+    maxGpsPoints: number
   ): FfiWidgetSnapshotData | undefined =>
     fitnessDelegates.getWidgetSnapshot(
       this,
@@ -997,7 +1008,8 @@ class EngineClient implements DelegateHost {
       currentEnd,
       prevStart,
       prevEnd,
-      sparklineDays
+      sparklineDays,
+      maxGpsPoints
     );
 
   getZoneDistribution = (sportType: string, zoneType: string): number[] =>
@@ -1034,6 +1046,23 @@ class EngineClient implements DelegateHost {
 
   /** Enable heatmap tile generation by setting the tiles path. */
   enableHeatmapTiles = (): void => heatmapDelegates.enableHeatmapTiles(this);
+
+  /**
+   * The tiles path in force, or null when the athlete has the heatmap off.
+   *
+   * Remembered on this side because the engine's own copy is in memory and
+   * goes with a clear, a quarantine reopen or an init retry.
+   */
+  heatmapTilesPath: string | null = null;
+
+  /** Re-apply a remembered path to a freshly opened engine. */
+  applyHeatmapTilesPath(path: string): void {
+    try {
+      this.engine?.heatmap().setTilesPath(path);
+    } catch (e) {
+      console.warn('[EngineClient] Failed to re-apply the heatmap tiles path:', e);
+    }
+  }
 
   /** Disable heatmap tile generation by clearing the tiles path in the engine. */
   disableHeatmapTiles = (): void => heatmapDelegates.disableHeatmapTiles(this);

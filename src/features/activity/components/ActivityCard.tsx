@@ -42,6 +42,7 @@ import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useExerciseSets, useMuscleGroups } from '@/features/strength';
 import type { TerrainSnapshotWebViewRef } from '@/features/maps/components/TerrainSnapshotWebView';
 import { debug } from '@/shared/debug/debug';
+import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 
 const log = debug.create('ActivityCard');
 
@@ -662,31 +663,31 @@ export const ActivityCard = React.memo(
       </View>
     );
   },
-  (prev, next) => {
-    // Custom comparator: skip re-render when activity content hasn't changed.
-    const equal =
-      prev.activity.id === next.activity.id &&
-      prev.activity.name === next.activity.name &&
-      prev.index === next.index &&
-      prev.startupTrack === next.startupTrack &&
-      prev.colorScheme === next.colorScheme &&
-      prev.snapshotReady === next.snapshotReady &&
-      prev.sectionHighlights === next.sectionHighlights &&
-      prev.routeHighlight === next.routeHighlight;
-    if (__DEV__ && !equal && (prev.index ?? 0) < 3) {
-      const diffs: string[] = [];
-      if (prev.activity.id !== next.activity.id) diffs.push('id');
-      if (prev.activity.name !== next.activity.name) diffs.push('name');
-      if (prev.index !== next.index) diffs.push('index');
-      if (prev.startupTrack !== next.startupTrack) diffs.push('startupTrack');
-      if (prev.colorScheme !== next.colorScheme) diffs.push('colorScheme');
-      if (prev.snapshotReady !== next.snapshotReady) diffs.push('snapshotReady');
-      if (prev.sectionHighlights !== next.sectionHighlights) diffs.push('sectionHighlights');
-      if (prev.routeHighlight !== next.routeHighlight) diffs.push('routeHighlight');
-      log.log(`    🔍 ActivityCard[${prev.index}] memo: re-render because: ${diffs.join(', ')}`);
-    }
-    return equal;
-  }
+  (prev, next) =>
+    rowIsUnchanged(
+      {
+        record: prev.activity,
+        extras: [
+          prev.index,
+          prev.startupTrack,
+          prev.colorScheme,
+          prev.snapshotReady,
+          prev.sectionHighlights,
+          prev.routeHighlight,
+        ],
+      },
+      {
+        record: next.activity,
+        extras: [
+          next.index,
+          next.startupTrack,
+          next.colorScheme,
+          next.snapshotReady,
+          next.sectionHighlights,
+          next.routeHighlight,
+        ],
+      }
+    )
 );
 
 const styles = StyleSheet.create({

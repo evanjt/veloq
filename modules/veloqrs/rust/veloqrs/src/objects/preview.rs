@@ -287,7 +287,9 @@ impl SectionPreview {
             Some(Ok(Claim::Taken)) => {}
         }
 
-        match with_engine_read(|e| e.preview_detect_background(lat, lng, overlay, key.clone()))? {
+        // The write lock: `preview_detect_background` reaches SQLite, which the
+        // read lock may not.
+        match with_engine(|e| e.preview_detect_background(lat, lng, overlay, key.clone()))? {
             Some(handle) => {
                 *slot = Some(handle);
                 info!("veloqrs: [SectionPreview] Preview started");

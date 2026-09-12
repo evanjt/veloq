@@ -92,9 +92,34 @@ impl PersistentEngine {
         );
         self.evict_processed_activity_ids(&moved);
         self.invalidate_perf_cache();
+        // A stream that moved takes its activity's lap times with it. The
+        // backfill below only fills `NULL`, so without this the values the old
+        // stream produced would stand. That is the whole point of refetching a
+        // stream whose length disagrees with its track: the wrong lap times
+        // must not survive the replacement.
+        self.clear_lap_times_for(&moved);
         // Backfill NULL lap_time/lap_pace rows that newly-arrived streams can now resolve.
         // Without this, the in-DB junction stays NULL until the next engine init / load_sections call.
         self.backfill_section_performance_cache();
+    }
+
+    /// Empty the lap columns for these activities, so the backfill recomputes
+    /// them from whatever stream now stands.
+    ///
+    /// Exclusions are user decisions and are not touched: an excluded traversal
+    /// is not timed either way.
+    fn clear_lap_times_for(&self, activity_ids: &[String]) {
+        if activity_ids.is_empty() {
+            return;
+        }
+        let placeholders = vec!["?"; activity_ids.len()].join(",");
+        let sql = format!(
+            "UPDATE section_activities SET lap_time = NULL, lap_pace = NULL
+             WHERE activity_id IN ({placeholders}) AND excluded = 0"
+        );
+        let _ = self
+            .db
+            .execute(&sql, rusqlite::params_from_iter(activity_ids.iter()));
     }
 
     /// Get activity IDs that have section_activities with NULL lap_time but no time_stream.
@@ -180,6 +205,13 @@ impl PersistentEngine {
             }
         }
 
+        // The track length each stream has to match, or it is not in the
+        // track's index space and cannot time anything.
+        let track_points = {
+            let ids: Vec<String> = db_time_streams.keys().cloned().collect();
+            self.track_point_counts(&ids)
+        };
+
         // One commit for the pass, not one per lap.
         let Ok(tx) = self.db.unchecked_transaction() else {
             return 0;
@@ -188,7 +220,11 @@ impl PersistentEngine {
         for (section_id, activity_id, start_idx, end_idx, distance) in &null_portions {
             let times = db_time_streams.get(activity_id).map(|v| v.as_slice());
             let (lap_time, lap_pace) = super::super::sections::compute_lap_time_from_stream(
-                times, *start_idx, *end_idx, *distance,
+                times,
+                track_points.get(activity_id).copied(),
+                *start_idx,
+                *end_idx,
+                *distance,
             );
             if let (Some(lap_time), Some(lap_pace)) = (lap_time, lap_pace) {
                 let _ = tx.execute(
@@ -540,6 +576,7 @@ impl PersistentEngine {
                                 };
                                 match super::super::sections::compute_lap_time_from_stream(
                                     Some(times.as_slice()),
+                                    self.track_point_count(activity_id),
                                     portion.start_index,
                                     portion.end_index,
                                     portion.distance_meters,

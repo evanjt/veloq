@@ -30,6 +30,7 @@ import {
   migrateLegacyUploadQueue,
   adoptAsyncStorageIndex,
   bufferToBase64,
+  base64ToBuffer,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import type { RecordingStreams } from '@/features/recording/types';
 
@@ -613,5 +614,44 @@ describe('adopting the AsyncStorage index', () => {
     const listed = await listRecordings();
     expect(listed.map((e) => e.id)).toEqual(['q1']);
     expect(listed[0].uploadStatus).toBe('pending');
+  });
+});
+
+/**
+ * Scenario: a five-hour ride's FIT file is encoded for the upload queue.
+ *
+ * Expected behaviour: the same bytes come back out, whatever the length, and
+ * a chunk boundary is not a place where a byte can go missing.
+ */
+describe('bufferToBase64', () => {
+  const roundTrip = (bytes: Uint8Array) =>
+    new Uint8Array(base64ToBuffer(bufferToBase64(bytes.buffer as ArrayBuffer)));
+
+  it('round-trips every byte value', () => {
+    const bytes = Uint8Array.from({ length: 256 }, (_, i) => i);
+
+    expect(roundTrip(bytes)).toEqual(bytes);
+  });
+
+  it('round-trips nothing at all', () => {
+    expect(bufferToBase64(new ArrayBuffer(0))).toBe('');
+    expect(roundTrip(new Uint8Array(0))).toEqual(new Uint8Array(0));
+  });
+
+  it.each([8191, 8192, 8193, 16_384, 16_385])(
+    'round-trips %i bytes, which crosses a chunk boundary',
+    (length) => {
+      const bytes = Uint8Array.from({ length }, (_, i) => (i * 31 + 7) & 0xff);
+
+      expect(roundTrip(bytes)).toEqual(bytes);
+    }
+  );
+
+  it('encodes a length that is not a multiple of three the same way', () => {
+    // Base64 pads in threes, so the tail is where a chunked encoder goes wrong.
+    for (const length of [1, 2, 3, 4, 5]) {
+      const bytes = Uint8Array.from({ length }, (_, i) => i + 1);
+      expect(roundTrip(bytes)).toEqual(bytes);
+    }
   });
 });

@@ -40,3 +40,21 @@ export function waitForGpsTrack(activityId: string): Promise<[number, number][] 
     },
   });
 }
+
+/**
+ * Whether a track that has just landed still belongs on screen.
+ *
+ * The wait runs up to fifteen seconds, and the marker the athlete tapped is
+ * often not the one they are looking at by the time it returns. Applied
+ * unconditionally it reopened a dismissed popup, replaced the marker they had
+ * tapped since, or wrote into a screen that had already gone.
+ *
+ * `onScreen` is the id the popup is showing now, null when it is dismissed.
+ */
+export function trackStillWanted(
+  landedFor: string,
+  onScreen: string | null,
+  mounted: boolean
+): boolean {
+  return mounted && onScreen === landedFor;
+}

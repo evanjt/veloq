@@ -31,6 +31,7 @@ import { formatPace, formatSpeed, formatDistance } from '@/shared/format/format'
 import { useConsensusRoute } from '@/features/routes/hooks/useEngine';
 import { toActivityType } from '@/features/routes/types';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
+import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 
 interface RouteRowProps {
   /** Route data - can be either DiscoveredRouteInfo (during processing) or RouteGroup (saved) */
@@ -360,20 +361,18 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
 }
 
 // Memoize - only re-render if route data changes
-export const RouteRow = memo(RouteRowComponent, (prevProps, nextProps) => {
-  const prevSportTypes =
-    'sportTypes' in prevProps.route ? (prevProps.route as RouteGroup).sportTypes : undefined;
-  const nextSportTypes =
-    'sportTypes' in nextProps.route ? (nextProps.route as RouteGroup).sportTypes : undefined;
-  return (
-    prevProps.route.id === nextProps.route.id &&
-    prevProps.route.name === nextProps.route.name &&
-    prevProps.route.activityCount === nextProps.route.activityCount &&
-    prevProps.navigable === nextProps.navigable &&
-    prevProps.distanceFromUser === nextProps.distanceFromUser &&
-    prevSportTypes?.length === nextSportTypes?.length
-  );
-});
+export const RouteRow = memo(RouteRowComponent, (prevProps, nextProps) =>
+  rowIsUnchanged(
+    {
+      record: prevProps.route,
+      extras: [prevProps.navigable, prevProps.distanceFromUser],
+    },
+    {
+      record: nextProps.route,
+      extras: [nextProps.navigable, nextProps.distanceFromUser],
+    }
+  )
+);
 
 const styles = StyleSheet.create({
   wrapper: {

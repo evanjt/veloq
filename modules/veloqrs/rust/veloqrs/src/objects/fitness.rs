@@ -376,16 +376,21 @@ impl FitnessManager {
                     continue;
                 };
 
-                // Relevance order is discarded below, so a cut here only hides
-                // eligible sections. Ranking favours recent traversals, which is
-                // the opposite of what staleness selects for.
-                for section in e.get_ranked_sections(sport, u32::MAX) {
+                // Relevance order is discarded below, so a cut by rank would only
+                // hide eligible sections: ranking favours recent traversals, the
+                // opposite of what staleness selects for. The staleness itself is
+                // the cut, and it belongs in the query rather than in this loop,
+                // which used to walk every section of every sport to keep a few.
+                for section in e.get_stale_ranked_sections(sport, stale_threshold_days) {
                     if exclude.contains(&section.section_id) {
                         continue;
                     }
                     if section.traversal_count == 0 || !section.best_time_secs.is_finite() {
                         continue;
                     }
+                    // The query bounds the latest traversal by a whole number of
+                    // days back from now; `days_since_last` is a calendar count,
+                    // so the boundary case is still checked here.
                     if section.days_since_last < stale_threshold_days {
                         continue;
                     }
@@ -443,7 +448,8 @@ impl FitnessManager {
 
     /// Everything the home-screen widget snapshot is composed from: wellness
     /// sparklines, the summary card, and the latest activity with its record
-    /// flag and GPS track. Replaces the six-call gather in the widget writer.
+    /// flag and GPS track, strided to `max_gps_points`. Replaces the six-call
+    /// gather in the widget writer. Zero means the whole track.
     fn get_widget_snapshot(
         &self,
         current_start: i64,
@@ -451,6 +457,7 @@ impl FitnessManager {
         prev_start: i64,
         prev_end: i64,
         sparkline_days: u32,
+        max_gps_points: u32,
     ) -> Result<crate::FfiWidgetSnapshotData, VeloqError> {
         with_engine(|e| {
             e.widget_snapshot_data(
@@ -459,6 +466,7 @@ impl FitnessManager {
                 prev_start,
                 prev_end,
                 sparkline_days,
+                max_gps_points,
             )
         })
     }

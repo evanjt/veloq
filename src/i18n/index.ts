@@ -5,24 +5,7 @@ import 'intl-pluralrules';
 
 import { SUPPORTED_LOCALES, LOCALE_FALLBACKS, type SupportedLocale } from './types';
 
-// Import all locale files
-import enAU from './locales/en-AU.json';
-import enUS from './locales/en-US.json';
-import enGB from './locales/en-GB.json';
-import es from './locales/es.json';
-import esES from './locales/es-ES.json';
-import es419 from './locales/es-419.json';
-import fr from './locales/fr.json';
-import deDE from './locales/de-DE.json';
-import deCH from './locales/de-CH.json';
-import nl from './locales/nl.json';
-import it from './locales/it.json';
-import pt from './locales/pt.json';
-import ptBR from './locales/pt-BR.json';
-import ja from './locales/ja.json';
-import zhHans from './locales/zh-Hans.json';
-import pl from './locales/pl.json';
-import da from './locales/da.json';
+import { localesToLoad, loadLocale } from './localeBundles';
 
 /**
  * Get the best matching locale from device settings
@@ -55,27 +38,28 @@ export function getDeviceLocale(): SupportedLocale {
 }
 
 /**
- * Resources for all supported locales
+ * The bundles one locale needs, as i18next's `resources` shape. Its own chain
+ * and the root fallback, and none of the other fourteen.
  */
-const resources = {
-  'en-AU': { translation: enAU },
-  'en-US': { translation: enUS },
-  'en-GB': { translation: enGB },
-  es: { translation: es },
-  'es-ES': { translation: esES },
-  'es-419': { translation: es419 },
-  fr: { translation: fr },
-  'de-DE': { translation: deDE },
-  'de-CH': { translation: deCH },
-  nl: { translation: nl },
-  it: { translation: it },
-  pt: { translation: pt },
-  'pt-BR': { translation: ptBR },
-  ja: { translation: ja },
-  'zh-Hans': { translation: zhHans },
-  pl: { translation: pl },
-  da: { translation: da },
-};
+function resourcesFor(locale: string): Record<string, { translation: Record<string, unknown> }> {
+  const resources: Record<string, { translation: Record<string, unknown> }> = {};
+  for (const needed of localesToLoad(locale)) {
+    resources[needed] = { translation: loadLocale(needed) };
+  }
+  return resources;
+}
+
+/**
+ * Hand i18next the bundles for a locale it does not hold yet. Adding a bundle
+ * it already has would re-evaluate nothing, but it would fire `added` and
+ * re-render every subscriber, so the check is worth making.
+ */
+function ensureLocaleLoaded(locale: string): void {
+  for (const needed of localesToLoad(locale)) {
+    if (i18n.hasResourceBundle(needed, 'translation')) continue;
+    i18n.addResourceBundle(needed, 'translation', loadLocale(needed), true, true);
+  }
+}
 
 /**
  * Initialize i18n with the detected or saved locale
@@ -84,7 +68,7 @@ export async function initializeI18n(savedLocale?: SupportedLocale | null): Prom
   const locale = savedLocale || getDeviceLocale();
 
   await i18n.use(initReactI18next).init({
-    resources,
+    resources: resourcesFor(locale),
     lng: locale,
     fallbackLng: LOCALE_FALLBACKS[locale] || ['en-GB'],
 
@@ -117,6 +101,9 @@ export async function initializeI18n(savedLocale?: SupportedLocale | null): Prom
 export async function changeLanguage(locale: SupportedLocale): Promise<void> {
   const fallbacks = LOCALE_FALLBACKS[locale] || ['en-GB'];
   i18n.options.fallbackLng = fallbacks;
+  // The bundles are loaded on demand, so the one being switched to has to be in
+  // the store before the switch, or every key reads as itself.
+  ensureLocaleLoaded(locale);
   await i18n.changeLanguage(locale);
 }
 

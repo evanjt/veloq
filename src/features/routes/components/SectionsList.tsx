@@ -44,6 +44,7 @@ import type { FrequentSection } from '@/types';
 import { type SectionWithPolyline } from 'veloqrs';
 import { convertSectionWithPolylineToApp } from '@/features/routes/lib/sectionConversions';
 import { computeCenter, haversineDistance, type LatLng } from '@/shared/geo/distance';
+import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 
 const log = debug.create('SectionsList');
 
@@ -205,25 +206,17 @@ const SectionListItem = memo(
       </Swipeable>
     );
   },
-  (prev, next) => {
-    // Custom comparator: skip re-render if actual data hasn't changed
-    if (prev.item !== next.item) {
-      if (
-        prev.item.id !== next.item.id ||
-        prev.item.visitCount !== next.item.visitCount ||
-        prev.item.distanceMeters !== next.item.distanceMeters ||
-        prev.item.name !== next.item.name ||
-        prev.item.sectionType !== next.item.sectionType ||
-        prev.item.isUserDefined !== next.item.isUserDefined
-      )
-        return false;
-    }
-    return (
-      prev.isDisabled === next.isDisabled &&
-      prev.isDark === next.isDark &&
-      prev.distanceFromUser === next.distanceFromUser
-    );
-  }
+  (prev, next) =>
+    rowIsUnchanged(
+      {
+        record: prev.item,
+        extras: [prev.isDisabled, prev.isDark, prev.distanceFromUser],
+      },
+      {
+        record: next.item,
+        extras: [next.isDisabled, next.isDark, next.distanceFromUser],
+      }
+    )
 );
 
 export const SectionsList = memo(function SectionsList({

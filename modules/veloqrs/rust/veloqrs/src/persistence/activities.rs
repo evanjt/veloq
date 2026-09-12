@@ -184,6 +184,74 @@ fn wipe_derived_catalogue(db: &rusqlite::Connection) -> SqlResult<usize> {
 /// snapshot of the pre-cutover catalogue with the lap data denormalised into
 /// it, so removing an activity from it would rewrite a record of what was once
 /// true. Whether the archive owns those rows or mirrors them is unsettled.
+/// Delete the heatmap tiles covering `bounds`, on a thread of its own.
+///
+/// Tile invalidation is PNG deletes on disk, and a 40 km bounding box at z17 is
+/// about 10,000 tiles with two `path.exists()` each. Run where the caller
+/// stands it holds the engine write lock, or the JS thread, for the whole walk
+/// and convoys every foreground read behind it. The sweep needs the path and
+/// the bounds and never the engine, so it takes neither.
+///
+/// The whole set is handed over at once rather than one call per activity: a
+/// census reconcile removes as many activities as the athlete deleted, and a
+/// thread apiece is worse than the hold it replaces.
+fn spawn_tile_sweep(tiles_path: String, bounds: Vec<Bounds>, reason: &'static str) {
+    let count = bounds.len();
+    let cancel = crate::persistence::CancelToken::new();
+    if let Ok(mut guard) = crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL.lock() {
+        *guard = Some(cancel.clone());
+    }
+    std::thread::spawn(move || {
+        let config = crate::tiles::HeatmapConfig::default();
+        let path = std::path::Path::new(&tiles_path);
+        let margin = 0.001; // ~111m at equator, for points that bled into a neighbour
+        let mut total_deleted = 0;
+        let mut stopped = false;
+        for bound in &bounds {
+            // Per bound, which is the sweep's only boundary: one bound is a
+            // bounded walk of one activity's tiles, and there are as many of
+            // them as the caller handed over.
+            if cancel.is_cancelled() {
+                stopped = true;
+                break;
+            }
+            total_deleted += crate::tiles::invalidate_tiles_in_bounds(
+                path,
+                bound.min_lat - margin,
+                bound.max_lat + margin,
+                bound.min_lng - margin,
+                bound.max_lng + margin,
+                config.min_zoom,
+                config.max_zoom,
+            );
+        }
+        // Marked after the sweep, never before. A mark set first can be cleared
+        // by a generation run that finishes between the mark and the delete, and
+        // nothing then redraws the ground the sweep took.
+        //
+        // A cancelled sweep marks too, and must: it deleted tiles for the bounds
+        // it reached, and the bounds it never reached still hold ground that
+        // changed. Either way the set is owed a redraw.
+        crate::persistence::tiles::mark_tiles_dirty(&tiles_path);
+        if let Ok(mut guard) = crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL.lock() {
+            *guard = None;
+        }
+        if stopped {
+            log::info!(
+                "[heatmap] Sweep cancelled after {} tiles, the set stays dirty",
+                total_deleted
+            );
+        } else if total_deleted > 0 {
+            log::info!(
+                "[heatmap] Invalidated {} tiles for {} {}",
+                total_deleted,
+                count,
+                reason
+            );
+        }
+    });
+}
+
 const ACTIVITY_KEYED_TABLES: &[&str] = &[
     "activity_bodies",
     "activity_metrics",
@@ -425,46 +493,33 @@ impl PersistentEngine {
             .map(|(id, _, _)| id.clone())
             .collect();
 
+        // The rollback arm every sibling writer has. Without it a failed write
+        // left the connection inside the transaction, so every later `BEGIN`
+        // failed with "cannot start a transaction within a transaction" and the
+        // first sibling that does roll back discarded everything since.
         self.db.execute_batch("BEGIN IMMEDIATE")?;
-
-        let mut stored_bounds: Vec<(String, Bounds)> = Vec::with_capacity(activities.len());
-
-        for (id, coords, sport_type) in &activities {
-            let bounds = Bounds::from_points(coords).unwrap_or(Bounds {
-                min_lat: 0.0,
-                max_lat: 0.0,
-                min_lng: 0.0,
-                max_lng: 0.0,
-            });
-
-            let signature = RouteSignature::from_points(id, coords, &self.match_config);
-
-            self.store_activity(id, sport_type, &bounds)?;
-            self.store_gps_track(id, coords)?;
-            if let Some(sig) = &signature {
-                self.store_signature(id, sig)?;
-                self.signature_cache.put(id.clone(), Arc::new(sig.clone()));
+        let written = self.write_activities_batch(&activities);
+        let written = match written {
+            Ok(w) => {
+                self.db.execute_batch("COMMIT")?;
+                w
             }
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                return Err(e);
+            }
+        };
 
-            self.activity_metadata.insert(
-                id.clone(),
-                ActivityMetadata {
-                    id: id.clone(),
-                    sport_type: sport_type.clone(),
-                    bounds,
-                    // Straight from the signature just stored, so a freshly
-                    // synced activity's marker lands on its start without
-                    // waiting for the next load.
-                    start_point: signature
-                        .as_ref()
-                        .map(|sig| (sig.start_point.latitude, sig.start_point.longitude)),
-                },
-            );
-
-            stored_bounds.push((id.clone(), bounds));
+        // In-memory only once the rows are on disk, or a rolled-back batch
+        // leaves the catalogue claiming activities the database does not hold.
+        let mut stored_bounds: Vec<(String, Bounds)> = Vec::with_capacity(written.len());
+        for (id, metadata, signature) in written {
+            if let Some(sig) = signature {
+                self.signature_cache.put(id.clone(), sig);
+            }
+            stored_bounds.push((id.clone(), metadata.bounds));
+            self.activity_metadata.insert(id, metadata);
         }
-
-        self.db.execute_batch("COMMIT")?;
 
         self.rebuild_spatial_index();
 
@@ -487,64 +542,7 @@ impl PersistentEngine {
             // on a detached thread so it does not happen while the engine write
             // lock is held (that would convoy every foreground read). The sweep
             // needs only the path and bounds, never `self`.
-            let activity_count = bounds_to_clear.len();
-            let cancel = crate::persistence::CancelToken::new();
-            if let Ok(mut guard) =
-                crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL.lock()
-            {
-                *guard = Some(cancel.clone());
-            }
-            std::thread::spawn(move || {
-                let config = crate::tiles::HeatmapConfig::default();
-                let path = std::path::Path::new(&tiles_path);
-                let margin = 0.001;
-                let mut total_deleted = 0;
-                let mut stopped = false;
-                for bounds in &bounds_to_clear {
-                    // Per bound, which is the sweep's only boundary: one bound
-                    // is a bounded walk of one activity's tiles, and there are
-                    // as many of them as the sync stored activities.
-                    if cancel.is_cancelled() {
-                        stopped = true;
-                        break;
-                    }
-                    total_deleted += crate::tiles::invalidate_tiles_in_bounds(
-                        path,
-                        bounds.min_lat - margin,
-                        bounds.max_lat + margin,
-                        bounds.min_lng - margin,
-                        bounds.max_lng + margin,
-                        config.min_zoom,
-                        config.max_zoom,
-                    );
-                }
-                // Marked after the sweep, never before. A mark set first can be
-                // cleared by a generation run that finishes between the mark and
-                // the delete, and nothing then redraws the ground the sweep took.
-                //
-                // A cancelled sweep marks too, and must: it deleted tiles for
-                // the bounds it reached, and the bounds it never reached still
-                // hold ground the new activities changed. Either way the set is
-                // owed a redraw.
-                crate::persistence::tiles::mark_tiles_dirty(&tiles_path);
-                if let Ok(mut guard) =
-                    crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL.lock()
-                {
-                    *guard = None;
-                }
-                if stopped {
-                    log::info!(
-                        "[heatmap] Sweep cancelled after {} tiles, the set stays dirty",
-                        total_deleted
-                    );
-                } else if total_deleted > 0 {
-                    log::info!(
-                        "[heatmap] Invalidated {} tiles for {} new activities",
-                        total_deleted,
-                        activity_count
-                    );
-                }
-            });
+            spawn_tile_sweep(tiles_path, bounds_to_clear, "new activities");
         }
 
         Ok(())
@@ -589,34 +587,48 @@ impl PersistentEngine {
 
         self.rebuild_spatial_index();
 
-        // Invalidate heatmap tiles covering the removed activity
-        // Add small margin (~100m) to catch edge tiles where GPS points bled into neighbors
-        if let Some(ref bounds) = removed_bounds {
-            if let Some(ref tiles_path) = self.heatmap_tiles_path {
-                let config = crate::tiles::HeatmapConfig::default();
-                let path = std::path::Path::new(tiles_path);
-                let margin = 0.001; // ~111m at equator
-                let deleted = crate::tiles::invalidate_tiles_in_bounds(
-                    path,
-                    bounds.min_lat - margin,
-                    bounds.max_lat + margin,
-                    bounds.min_lng - margin,
-                    bounds.max_lng + margin,
-                    config.min_zoom,
-                    config.max_zoom,
-                );
-                if deleted > 0 {
-                    log::info!(
-                        "[heatmap] Invalidated {} tiles for removed activity {}",
-                        deleted,
-                        id
-                    );
-                    self.mark_heatmap_dirty();
-                }
-            }
+        if let Some(bounds) = removed_bounds {
+            self.sweep_tiles_for(vec![bounds], "removed activities");
         }
 
         Ok(())
+    }
+
+    /// Remove an activity without sweeping its tiles, handing the caller the
+    /// bounds the sweep would have covered.
+    ///
+    /// For a caller removing many in one hold: `remove_activity` spawns a
+    /// sweep of its own, and a census reconcile that deleted two hundred
+    /// activities would spawn two hundred threads, each overwriting the cancel
+    /// token of the one before it. The caller sweeps once, at the end.
+    pub fn remove_activity_deferred(&mut self, id: &str) -> SqlResult<Option<Bounds>> {
+        let removed_bounds = self.activity_metadata.get(id).map(|m| m.bounds.clone());
+
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+        match self.remove_activity_rows(id) {
+            Ok(()) => self.db.execute_batch("COMMIT")?,
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                return Err(e);
+            }
+        }
+
+        self.rebuild_spatial_index();
+        Ok(removed_bounds)
+    }
+
+    /// Hand a set of bounds to the detached sweep, if tiles are configured.
+    pub(crate) fn sweep_tiles_for(&mut self, bounds: Vec<Bounds>, reason: &'static str) {
+        if bounds.is_empty() {
+            return;
+        }
+        let Some(tiles_path) = self.heatmap_tiles_path.clone() else {
+            return;
+        };
+        // Marked here rather than after the sweep: the rows are already gone,
+        // so the ground they drew is stale whatever the sweep manages.
+        self.mark_heatmap_dirty();
+        spawn_tile_sweep(tiles_path, bounds, reason);
     }
 
     /// Every row a removal touches, with no transaction of its own so the
@@ -781,6 +793,12 @@ impl PersistentEngine {
         self.identity = super::sections::SectionIdentity::default();
         self.route_identity = super::route_identity::RouteIdentity::default();
 
+        // The tiles on disk draw the library that was just deleted, so the set
+        // is owed a redraw. `clear_routes_and_sections` has always marked it;
+        // this one did not, and the generator then reported the previous
+        // athlete's tiles up to date and went on serving them.
+        self.mark_heatmap_dirty();
+
         Ok(())
     }
 
@@ -891,6 +909,53 @@ impl PersistentEngine {
     // ========================================================================
     // Database Storage
     // ========================================================================
+
+    /// Write one batch's rows, answering what the in-memory catalogue owes.
+    ///
+    /// Takes `&self`, so nothing it returns has touched the catalogue yet: the
+    /// caller applies that after the commit.
+    #[allow(clippy::type_complexity)]
+    fn write_activities_batch(
+        &self,
+        activities: &[(String, Vec<GpsPoint>, String)],
+    ) -> SqlResult<Vec<(String, ActivityMetadata, Option<Arc<RouteSignature>>)>> {
+        let mut written = Vec::with_capacity(activities.len());
+
+        for (id, coords, sport_type) in activities {
+            let bounds = Bounds::from_points(coords).unwrap_or(Bounds {
+                min_lat: 0.0,
+                max_lat: 0.0,
+                min_lng: 0.0,
+                max_lng: 0.0,
+            });
+
+            let signature = RouteSignature::from_points(id, coords, &self.match_config);
+
+            self.store_activity(id, sport_type, &bounds)?;
+            self.store_gps_track(id, coords)?;
+            if let Some(sig) = &signature {
+                self.store_signature(id, sig)?;
+            }
+
+            written.push((
+                id.clone(),
+                ActivityMetadata {
+                    id: id.clone(),
+                    sport_type: sport_type.clone(),
+                    bounds,
+                    // Straight from the signature just stored, so a freshly
+                    // synced activity's marker lands on its start without
+                    // waiting for the next load.
+                    start_point: signature
+                        .as_ref()
+                        .map(|sig| (sig.start_point.latitude, sig.start_point.longitude)),
+                },
+                signature.map(Arc::new),
+            ));
+        }
+
+        Ok(written)
+    }
 
     pub(super) fn store_activity(
         &self,
@@ -1236,6 +1301,7 @@ impl PersistentEngine {
         }
 
         let mut removed = Vec::with_capacity(vanished.len());
+        let mut swept: Vec<Bounds> = Vec::new();
         for key in vanished {
             // A section's line is a triple into one stored stream, so the
             // reference moves before the row does: `section_activities`
@@ -1270,11 +1336,20 @@ impl PersistentEngine {
                     }
                 }
             }
-            match self.remove_activity(&key) {
-                Ok(()) => removed.push(key),
+            match self.remove_activity_deferred(&key) {
+                Ok(bounds) => {
+                    if let Some(bounds) = bounds {
+                        swept.push(bounds);
+                    }
+                    removed.push(key);
+                }
                 Err(e) => log::warn!("veloqrs: [census] removal of {} failed: {}", key, e),
             }
         }
+        // One sweep for the whole reconcile rather than one per activity: this
+        // loop runs inside a single engine hold, and a thread apiece would each
+        // overwrite the cancel token of the one before it.
+        self.sweep_tiles_for(swept, "activities removed by the census");
         if !removed.is_empty() {
             log::info!(
                 "veloqrs: [census] {} activities left intervals.icu and were removed",
@@ -1859,6 +1934,51 @@ impl PersistentEngine {
         walk
     }
 
+    /// Drop one activity's cached stream, so a read goes back to the database.
+    /// A fresh launch has nothing cached, which is the shape the length rule is
+    /// about.
+    #[doc(hidden)]
+    pub fn forget_time_stream_for_test(&mut self, activity_id: &str) {
+        self.time_streams.pop(&activity_id.to_string());
+    }
+
+    /// How many points one activity's stored track holds.
+    ///
+    /// `None` when there is no track row. Cheap: `gps_tracks` carries the count
+    /// as a column, so this never decodes a blob.
+    pub(crate) fn track_point_count(&self, activity_id: &str) -> Option<usize> {
+        self.db
+            .query_row(
+                "SELECT point_count FROM gps_tracks WHERE activity_id = ?",
+                params![activity_id],
+                |row| row.get::<_, i64>(0),
+            )
+            .ok()
+            .map(|n| n as usize)
+    }
+
+    /// The same, for a batch, so a pass over many portions makes one query.
+    pub(crate) fn track_point_counts(
+        &self,
+        activity_ids: &[String],
+    ) -> std::collections::HashMap<String, usize> {
+        if activity_ids.is_empty() {
+            return std::collections::HashMap::new();
+        }
+        let placeholders = vec!["?"; activity_ids.len()].join(",");
+        let sql = format!(
+            "SELECT activity_id, point_count FROM gps_tracks WHERE activity_id IN ({placeholders})"
+        );
+        let Ok(mut stmt) = self.db.prepare(&sql) else {
+            return std::collections::HashMap::new();
+        };
+        stmt.query_map(rusqlite::params_from_iter(activity_ids.iter()), |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
+        })
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
+    }
+
     /// Get GPS track from database (on-demand, never cached).
     pub fn get_gps_track(&self, id: &str) -> Option<Vec<GpsPoint>> {
         self.track(id).into_option("get_gps_track", id)
@@ -1986,10 +2106,21 @@ impl PersistentEngine {
             return Vec::new();
         }
 
-        // Check SQLite for the remaining ones
+        // Check SQLite for the remaining ones.
+        //
+        // A row alone is not enough: a stream whose `point_count` disagrees
+        // with its track's is not in the track's index space, so nothing can
+        // read a lap time off it. Every released 0.3.x stored the raw `time`
+        // series, which keeps the samples the `latlng` mask drops, and on the
+        // July export 587 of 733 activities are that shape. Counting those as
+        // missing is what puts them back in front of the sync, which refetches
+        // them through the backfill lane and recomputes the rows.
         let placeholders: Vec<&str> = not_in_memory.iter().map(|_| "?").collect();
         let query = format!(
-            "SELECT activity_id FROM time_streams WHERE activity_id IN ({})",
+            "SELECT ts.activity_id FROM time_streams ts
+             LEFT JOIN gps_tracks g ON g.activity_id = ts.activity_id
+             WHERE ts.activity_id IN ({})
+               AND (g.activity_id IS NULL OR g.point_count = ts.point_count)",
             placeholders.join(",")
         );
 
@@ -2042,6 +2173,28 @@ mod tests {
     use super::*;
     use std::collections::HashSet;
 
+    /// An engine holding one activity with a stored track, so a removal has
+    /// bounds to hand back.
+    fn engine_with_track(id: &str, bounds: Bounds) -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let coords = vec![
+            GpsPoint {
+                latitude: bounds.min_lat,
+                longitude: bounds.min_lng,
+                elevation: None,
+            },
+            GpsPoint {
+                latitude: bounds.max_lat,
+                longitude: bounds.max_lng,
+                elevation: None,
+            },
+        ];
+        engine
+            .add_activity(id.to_string(), coords, "Ride".to_string())
+            .unwrap();
+        engine
+    }
+
     fn bounds_at(lat: f64) -> Bounds {
         Bounds {
             min_lat: lat,
@@ -2049,6 +2202,81 @@ mod tests {
             min_lng: 7.0,
             max_lng: 7.1,
         }
+    }
+
+    /// Scenario: Clear and Sync wipes the library, and the heatmap tiles on
+    /// disk are the previous athlete's ground. `clear_routes_and_sections`
+    /// marks the set dirty so it redraws; `clear` did not, so on the next
+    /// launch the generator reported "up to date" and served the old library's
+    /// tiles over the new one's.
+    ///
+    /// Expected behaviour: a wipe marks the set dirty too. It is the wipe with
+    /// more to redraw, not less.
+    #[test]
+    fn a_wipe_marks_the_heatmap_for_a_redraw() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let tiles = dir.path().join("tiles");
+        let mut engine = engine_with_track("a1", bounds_at(46.0));
+        engine.set_heatmap_tiles_path(tiles.to_string_lossy().into_owned());
+        // The path setter marks it itself, so start from a clean marker.
+        let _ = std::fs::remove_file(tiles.join(crate::persistence::tiles::DIRTY_MARKER));
+
+        engine.clear().unwrap();
+
+        assert!(
+            tiles.join(crate::persistence::tiles::DIRTY_MARKER).exists(),
+            "the wiped library's tiles are owed a redraw"
+        );
+    }
+
+    /// Scenario: `remove_activity` swept the removed activity's tiles inline,
+    /// under the engine write lock. A 40 km bounding box at z17 is about 10,000
+    /// tiles with two `path.exists()` each, and a census reconcile calls this
+    /// once per activity the athlete deleted upstream, inside one hold.
+    ///
+    /// Expected behaviour: the removal answers with the bounds and sweeps
+    /// nothing, so a caller removing many hands one set to one detached thread
+    /// rather than spawning a thread apiece, each overwriting the cancel token
+    /// of the one before it.
+    #[test]
+    fn a_deferred_removal_hands_back_its_bounds_and_sweeps_nothing() {
+        let mut engine = engine_with_track("gone", bounds_at(46.0));
+
+        let swept = engine
+            .remove_activity_deferred("gone")
+            .expect("the removal succeeds");
+
+        assert_eq!(
+            swept.map(|b| b.min_lat),
+            Some(46.0),
+            "the caller gets the ground to sweep"
+        );
+        assert!(
+            engine.activity_metadata.get("gone").is_none(),
+            "and the rows are gone all the same"
+        );
+    }
+
+    /// An activity with no stored bounds owes no sweep, so the caller is handed
+    /// nothing rather than a rectangle at the origin, which at z17 is a walk of
+    /// the Gulf of Guinea.
+    #[test]
+    fn a_removal_with_no_bounds_owes_no_sweep() {
+        let mut engine = engine_with_track("gone", bounds_at(46.0));
+        engine.activity_metadata.remove("gone");
+
+        assert!(engine.remove_activity_deferred("gone").unwrap().is_none());
+    }
+
+    /// Nothing to sweep spawns nothing: a reconcile that removed only
+    /// activities with no track must not start a thread to do nothing.
+    #[test]
+    fn an_empty_sweep_starts_nothing() {
+        let mut engine = engine_with_track("kept", bounds_at(46.0));
+        engine.heatmap_tiles_path = None;
+
+        engine.sweep_tiles_for(Vec::new(), "nothing");
+        engine.sweep_tiles_for(vec![bounds_at(46.0)], "no path configured");
     }
 
     /// Scenario: a sync re-ingests activities it already holds, which is most
@@ -2422,6 +2650,71 @@ mod tests {
             uncovered.is_empty(),
             "these tables hold an activity_id and no removal clears them: {uncovered:?}"
         );
+    }
+
+    fn two_points() -> Vec<GpsPoint> {
+        vec![
+            GpsPoint {
+                latitude: 46.2,
+                longitude: 7.3,
+                elevation: None,
+            },
+            GpsPoint {
+                latitude: 46.21,
+                longitude: 7.31,
+                elevation: None,
+            },
+        ]
+    }
+
+    /// Scenario: `add_activities_batch` opened `BEGIN IMMEDIATE` and propagated
+    /// every write error with `?`, so a failure left the connection inside the
+    /// transaction. Every later `BEGIN` then failed with "cannot start a
+    /// transaction within a transaction", and the first sibling that does roll
+    /// back discarded everything written since.
+    ///
+    /// Expected behaviour: the same rollback arm every sibling writer has.
+    #[test]
+    fn a_failed_batch_leaves_the_connection_out_of_its_transaction() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine.db.execute_batch("DROP TABLE gps_tracks").unwrap();
+
+        let failed =
+            engine.add_activities_batch(vec![("a1".to_string(), two_points(), "Ride".to_string())]);
+
+        assert!(failed.is_err(), "the write had nowhere to store the track");
+        assert!(
+            engine.db.is_autocommit(),
+            "the rollback ran, so the next writer can begin its own"
+        );
+    }
+
+    /// The in-memory catalogue is the engine's answer to what it holds, so a
+    /// batch that rolled back must not leave it claiming the activity.
+    #[test]
+    fn a_failed_batch_adds_nothing_to_the_in_memory_catalogue() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine.db.execute_batch("DROP TABLE gps_tracks").unwrap();
+
+        let _ =
+            engine.add_activities_batch(vec![("a1".to_string(), two_points(), "Ride".to_string())]);
+
+        assert!(
+            !engine.activity_metadata.contains_key("a1"),
+            "nothing was stored, so nothing is known"
+        );
+        assert!(engine.signature_cache.get(&"a1".to_string()).is_none());
+    }
+
+    #[test]
+    fn a_batch_that_lands_is_still_in_the_catalogue_afterwards() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .add_activities_batch(vec![("a1".to_string(), two_points(), "Ride".to_string())])
+            .unwrap();
+
+        assert!(engine.activity_metadata.contains_key("a1"));
+        assert!(engine.db.is_autocommit());
     }
 
     #[test]

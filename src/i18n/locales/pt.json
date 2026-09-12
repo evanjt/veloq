@@ -1135,6 +1135,7 @@
     "resetBoundsConfirm": "Repor os limites originais detetados automaticamente?\n\nA secção será novamente comparada com todas as suas atividades.",
     "traversals": "travessias",
     "liftGround": "Teleférico",
+    "notLift": "Não é um teleférico",
     "trimFailed": "Falha ao recortar os limites da secção",
     "trimTooShort": "A secção deve ter pelo menos 5 pontos",
     "expandUnavailable": "Nenhuma faixa de atividade disponível para expansão",

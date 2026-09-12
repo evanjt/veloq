@@ -127,6 +127,7 @@ pub(super) fn mean_over_traversal(
 /// insert path (`insert_section_activity`), and the lazy backfill path.
 pub(super) fn compute_lap_time_from_stream(
     times: Option<&[u32]>,
+    track_points: Option<usize>,
     start_index: u32,
     end_index: u32,
     distance_meters: f64,
@@ -135,6 +136,19 @@ pub(super) fn compute_lap_time_from_stream(
         Some(t) => t,
         None => return (None, None),
     };
+    // A stream that is not the track's length is not in the track's index
+    // space. `fetch_time_stream` has reduced `time` through the `latlng` mask
+    // since 2026-08-16, but every 0.3.x stored the raw series, which keeps the
+    // samples the coordinate mask drops. Indexing that with track indices reads
+    // the wrong window, and the four lap-time readers were the one place the
+    // rule was not applied: the detector's loader and the scrubber's body
+    // builder both refuse such a stream already.
+    //
+    // `None` is "the track length is not knowable here", which an activity with
+    // no track row is, and not evidence of a misalignment.
+    if track_points.is_some_and(|n| n != times.len()) {
+        return (None, None);
+    }
     if end_index == 0 || end_index as usize > times.len() {
         return (None, None);
     }
@@ -301,6 +315,18 @@ fn next_section_number(taken: &mut HashSet<u32>, counter: &mut u32) -> u32 {
     }
 }
 
+/// Ids read per `IN (...)` batch when the catalogue pre-fetches streams.
+///
+/// The same bound the detection pool uses, for the same reason: one `IN` over
+/// the whole library holds every decoded series resident at once, which on a
+/// long-ride library is around 100 MB on top of the pool that is already there.
+const STREAM_READ_CHUNK: usize = 150;
+
+/// `?,?,?` for a batch of `n`.
+fn placeholders_for(n: usize) -> String {
+    std::iter::repeat_n("?", n).collect::<Vec<_>>().join(",")
+}
+
 impl PersistentEngine {
     /// Load sections from database.
     pub(super) fn load_sections(&mut self) -> SqlResult<()> {
@@ -372,7 +398,7 @@ impl PersistentEngine {
                 "SELECT id, section_type, name, sport_type, polyline_json, distance_meters,
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
-                        created_at, updated_at, consensus_state_blob,
+                        created_at, updated_at,
                         polyline_blob, point_density_blob,
                         elevation_gain_m, avg_grade_percent,
                         rep_start_index, rep_end_index,
@@ -388,25 +414,19 @@ impl PersistentEngine {
                     let polyline_json: Option<String> = row.get(4)?;
                     let point_density_json: Option<String> = row.get(10)?;
                     let representative_activity_id: Option<String> = row.get(6)?;
-                    let consensus_state_blob: Option<Vec<u8>> = row.get(17)?;
-                    let polyline_blob: Option<Vec<u8>> = row.get(18)?;
-                    let point_density_blob: Option<Vec<u8>> = row.get(19)?;
-                    let consensus_state = consensus_state_blob.and_then(|bytes| {
-                        match codec::deserialize_gps_composite::<tracematch::sections::ConsensusAccumulator>(&bytes) {
-                            Ok(acc) => Some(acc),
-                            Err(e) => {
-                                log::warn!(
-                                    "veloqrs: [load_sections] failed to deserialize consensus_state blob for section {}: {}",
-                                    id, e
-                                );
-                                None
-                            }
-                        }
-                    });
+                    let polyline_blob: Option<Vec<u8>> = row.get(17)?;
+                    let point_density_blob: Option<Vec<u8>> = row.get(18)?;
+                    // `consensus_state_blob` is neither selected nor decoded.
+                    // The detector only ever produces `None` for this field and
+                    // nothing reads it back, so loading it was a MessagePack
+                    // decode per section on every launch for a value that is
+                    // discarded. The column stays, holding whatever legacy rows
+                    // put there.
+                    let consensus_state = None;
 
                     // Both columns or neither: a half-range indexes nothing.
-                    let rep_start: Option<u32> = row.get(22)?;
-                    let rep_end: Option<u32> = row.get(23)?;
+                    let rep_start: Option<u32> = row.get(21)?;
+                    let rep_end: Option<u32> = row.get(22)?;
                     let polyline: Vec<GpsPoint> = geometry::line(
                         &self.db,
                         polyline_blob.as_deref(),
@@ -471,13 +491,13 @@ impl PersistentEngine {
                         },
                         is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                         stability: row.get::<_, Option<f64>>(14)?.unwrap_or(0.0),
-                        elevation_gain_m: row.get(20)?,
-                        avg_grade_percent: row.get(21)?,
+                        elevation_gain_m: row.get(19)?,
+                        avg_grade_percent: row.get(20)?,
                         version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
                         updated_at: row.get(16)?,
                         created_at: row.get(15)?,
-                        enrichment: interest::enrichment_from_row(row, 20, 24)?,
-                        rank: interest::rank_from_row(row, 29)?,
+                        enrichment: interest::enrichment_from_row(row, 19, 23)?,
+                        rank: interest::rank_from_row(row, 28)?,
                         consensus_state,
                     })
                 })?
@@ -1696,7 +1716,13 @@ impl PersistentEngine {
                 .ok()
         };
 
-        compute_lap_time_from_stream(times.as_deref(), start_index, end_index, distance_meters)
+        compute_lap_time_from_stream(
+            times.as_deref(),
+            self.track_point_count(activity_id),
+            start_index,
+            end_index,
+            distance_meters,
+        )
     }
 
     /// Sections near a given section, measured between the two lines rather
@@ -2069,39 +2095,50 @@ impl PersistentEngine {
                     }
                 }
             }
-            if needed.is_empty() {
-                HashMap::new()
-            } else {
-                let mut map: HashMap<String, Vec<u32>> = HashMap::with_capacity(needed.len());
-                let placeholders = std::iter::repeat("?")
-                    .take(needed.len())
-                    .collect::<Vec<_>>()
-                    .join(",");
+            let mut map: HashMap<String, Vec<u32>> = HashMap::with_capacity(needed.len());
+            let ids: Vec<&str> = needed.iter().copied().collect();
+            // Chunked for the same reason the detection pool is: one `IN` over
+            // the whole library holds every decoded series resident at once,
+            // which on a long-ride library is the spike, not the total.
+            for chunk in ids.chunks(STREAM_READ_CHUNK) {
                 let sql = format!(
                     "SELECT activity_id, times FROM time_streams WHERE activity_id IN ({})",
-                    placeholders
+                    placeholders_for(chunk.len())
                 );
-                let ids: Vec<&str> = needed.iter().copied().collect();
                 let params_vec: Vec<&dyn rusqlite::ToSql> =
-                    ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
-                if let Ok(mut stmt) = tx.prepare(&sql) {
-                    if let Ok(rows) = stmt.query_map(params_vec.as_slice(), |row| {
+                    chunk.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+                if let Ok(mut stmt) = tx.prepare(&sql)
+                    && let Ok(rows) = stmt.query_map(params_vec.as_slice(), |row| {
                         let id: String = row.get(0)?;
                         let bytes: Vec<u8> = row.get(1)?;
                         let stream = codec::deserialize::<Vec<u32>>(&bytes)
                             .map_err(|_| rusqlite::Error::InvalidQuery)?;
                         Ok((id, stream))
-                    }) {
-                        for row in rows.flatten() {
-                            map.insert(row.0, row.1);
-                        }
+                    })
+                {
+                    for row in rows.flatten() {
+                        map.insert(row.0, row.1);
                     }
                 }
-                map
             }
+            map
         };
 
         // The effort each lap was ridden at comes from the same slice as its
+        // How long each activity's track is, so a stream that is not in the
+        // track's index space cannot time a traversal. One batched read for
+        // the same reason the streams take one.
+        let track_points: HashMap<String, usize> = {
+            let ids: Vec<String> = sorted_sections
+                .iter()
+                .flat_map(|s| s.activity_portions.iter())
+                .map(|p| p.activity_id.clone())
+                .collect::<std::collections::HashSet<_>>()
+                .into_iter()
+                .collect();
+            self.track_point_counts(&ids)
+        };
+
         // clock, and `OR REPLACE` rewrites the whole row, so the apply computes
         // it here rather than leaving it to the lazy pass: the pass would then
         // redo the whole library after every detect, and the column would be
@@ -2114,22 +2151,15 @@ impl PersistentEngine {
                     needed.insert(portion.activity_id.as_str());
                 }
             }
-            if needed.is_empty() {
-                HashMap::new()
-            } else {
-                let mut map: HashMap<String, Vec<Option<f64>>> =
-                    HashMap::with_capacity(needed.len());
-                let placeholders = std::iter::repeat("?")
-                    .take(needed.len())
-                    .collect::<Vec<_>>()
-                    .join(",");
+            let mut map: HashMap<String, Vec<Option<f64>>> = HashMap::with_capacity(needed.len());
+            let ids: Vec<&str> = needed.iter().copied().collect();
+            for chunk in ids.chunks(STREAM_READ_CHUNK) {
                 let sql = format!(
                     "SELECT activity_id, data FROM activity_streams WHERE kind = 'heartrate' AND activity_id IN ({})",
-                    placeholders
+                    placeholders_for(chunk.len())
                 );
-                let ids: Vec<&str> = needed.iter().copied().collect();
                 let params_vec: Vec<&dyn rusqlite::ToSql> =
-                    ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+                    chunk.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
                 if let Ok(mut stmt) = tx.prepare(&sql)
                     && let Ok(rows) = stmt.query_map(params_vec.as_slice(), |row| {
                         let id: String = row.get(0)?;
@@ -2143,8 +2173,8 @@ impl PersistentEngine {
                         }
                     }
                 }
-                map
             }
+            map
         };
 
         for section in sorted_sections {
@@ -2299,6 +2329,7 @@ impl PersistentEngine {
 
                 let (lap_time, lap_pace) = compute_lap_time_from_stream(
                     times,
+                    track_points.get(&portion.activity_id).copied(),
                     portion.start_index,
                     portion.end_index,
                     portion.distance_meters,

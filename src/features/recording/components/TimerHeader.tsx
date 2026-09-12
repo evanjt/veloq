@@ -1,3 +1,4 @@
+import React from 'react';
 import { View, TouchableOpacity, Animated } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -10,7 +11,7 @@ import type { RecordingMode, RecordingStatus } from '../types';
 import { GpsSignalIndicator } from './GpsSignalIndicator';
 import { styles } from '../RecordingScreen.styles';
 
-export function TimerHeader({
+function TimerHeaderInner({
   formattedElapsed,
   currentActivityType,
   status,
@@ -115,3 +116,9 @@ export function TimerHeader({
     </View>
   );
 }
+
+/**
+ * The recording screen re-renders every second while the timer runs, so the
+ * parts of it that do not change with the clock are held here.
+ */
+export const TimerHeader = React.memo(TimerHeaderInner);

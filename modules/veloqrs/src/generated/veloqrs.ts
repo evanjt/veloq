@@ -13483,7 +13483,8 @@ export interface FitnessManagerLike {
   /**
    * Everything the home-screen widget snapshot is composed from: wellness
    * sparklines, the summary card, and the latest activity with its record
-   * flag and GPS track. Replaces the six-call gather in the widget writer.
+   * flag and GPS track, strided to `max_gps_points`. Replaces the six-call
+   * gather in the widget writer. Zero means the whole track.
    */
   getWidgetSnapshot(
     currentStart: /*i64*/ bigint,
@@ -13491,6 +13492,7 @@ export interface FitnessManagerLike {
     prevStart: /*i64*/ bigint,
     prevEnd: /*i64*/ bigint,
     sparklineDays: /*u32*/ number,
+    maxGpsPoints: /*u32*/ number,
   ) /*throws*/ : FfiWidgetSnapshotData;
   getZoneDistribution(
     sportType: string,
@@ -13997,7 +13999,8 @@ export class FitnessManager
   /**
    * Everything the home-screen widget snapshot is composed from: wellness
    * sparklines, the summary card, and the latest activity with its record
-   * flag and GPS track. Replaces the six-call gather in the widget writer.
+   * flag and GPS track, strided to `max_gps_points`. Replaces the six-call
+   * gather in the widget writer. Zero means the whole track.
    */
   getWidgetSnapshot(
     currentStart: /*i64*/ bigint,
@@ -14005,6 +14008,7 @@ export class FitnessManager
     prevStart: /*i64*/ bigint,
     prevEnd: /*i64*/ bigint,
     sparklineDays: /*u32*/ number,
+    maxGpsPoints: /*u32*/ number,
   ): FfiWidgetSnapshotData /*throws*/ {
     return FfiConverterTypeFfiWidgetSnapshotData.lift(
       uniffiCaller.rustCallWithError(
@@ -14019,6 +14023,7 @@ export class FitnessManager
             FfiConverterInt64.lower(prevStart),
             FfiConverterInt64.lower(prevEnd),
             FfiConverterUInt32.lower(sparklineDays),
+            FfiConverterUInt32.lower(maxGpsPoints),
             callStatus,
           );
         },
@@ -16299,6 +16304,14 @@ export interface SectionManagerLike {
   resetBounds(sectionId: string) /*throws*/ : void;
   resetReference(sectionId: string) /*throws*/ : void;
   revertToVersion(sectionId: string, version: /*i64*/ bigint) /*throws*/ : void;
+  /**
+   * Mark or unmark a section as a lift.
+   *
+   * The unmark is durable: `is_lift` is re-derived on every enrichment pass,
+   * so the engine records an intent as well as the column. Marking it again
+   * takes the intent back off.
+   */
+  setIsLift(sectionId: string, isLift: boolean) /*throws*/ : void;
   setName(sectionId: string, name: string) /*throws*/ : void;
   setReference(sectionId: string, activityId: string) /*throws*/ : void;
   setSuperseded(
@@ -17411,6 +17424,30 @@ export class SectionManager
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
           FfiConverterInt64.lower(version),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Mark or unmark a section as a lift.
+   *
+   * The unmark is durable: `is_lift` is re-derived on every enrichment pass,
+   * so the engine records an intent as well as the column. Marking it again
+   * takes the intent back off.
+   */
+  setIsLift(sectionId: string, isLift: boolean): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_is_lift(
+          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(sectionId),
+          FfiConverterBool.lower(isLift),
           callStatus,
         );
       },
@@ -22013,7 +22050,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_widget_snapshot() !==
-    54490
+    61631
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_widget_snapshot",
@@ -22945,6 +22982,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_is_lift() !==
+    43445
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_set_is_lift",
     );
   }
   if (

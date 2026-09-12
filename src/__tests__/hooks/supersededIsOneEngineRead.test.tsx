@@ -42,6 +42,9 @@ function engine() {
     getSectionById: jest.fn(() => createdSection()),
     findSupersededSections: jest.fn(() => ['auto-3', 'auto-7']),
     setSuperseded: jest.fn(),
+    // The hook listens for the engine's own `sections` announcement, so the
+    // stub has to offer the channel the real engine does.
+    subscribe: jest.fn(() => jest.fn()),
   };
 }
 

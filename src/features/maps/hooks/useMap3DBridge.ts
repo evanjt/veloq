@@ -3,6 +3,7 @@ import type { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { HEATMAP_TILES_DIR } from '@/features/maps/hooks/useHeatmapTiles';
+import { heatmapTilePath, jsLiteral } from '@/features/maps/lib/webViewLiterals';
 import { bundledBasemapAsset } from '@/features/maps/lib/bundledBasemap';
 import { buildBundledAssetReplyScript } from '@/features/maps/lib/htmlBuilders';
 import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
@@ -110,9 +111,12 @@ export function useMap3DBridge({
         );
       },
       heatmapTileRequest: (data: WebViewBridgeMessage) => {
-        if (!data.requestId || !data.tilePath) return;
+        if (!data.requestId) return;
         const requestId = data.requestId as string;
-        const tilePath = data.tilePath as string;
+        // The page decides this path, so it is checked against the one shape a
+        // tile can take before it is joined onto anything.
+        const tilePath = heatmapTilePath(data.tilePath);
+        if (!tilePath) return;
         // Heatmap tile request from WebView - read PNG from filesystem, return as base64
         const fullPath = `${HEATMAP_TILES_DIR}${tilePath}`;
         FileSystem.getInfoAsync(fullPath)
@@ -135,10 +139,10 @@ export function useMap3DBridge({
               // by walking charCodeAt to preserve raw bytes.
               webViewRef.current.injectJavaScript(`
                   (function() {
-                    var req = window._heatmapRequests && window._heatmapRequests['${requestId}'];
+                    var req = window._heatmapRequests && window._heatmapRequests[${jsLiteral(requestId)}];
                     if (!req) return;
                     try {
-                      var binary = atob('${base64}');
+                      var binary = atob(${jsLiteral(base64)});
                       var len = binary.length;
                       var bytes = new Uint8Array(len);
                       for (var i = 0; i < len; i++) {
@@ -148,7 +152,7 @@ export function useMap3DBridge({
                     } catch (err) {
                       req.reject(new Error('heatmap base64 decode failed: ' + err));
                     }
-                    delete window._heatmapRequests['${requestId}'];
+                    delete window._heatmapRequests[${jsLiteral(requestId)}];
                   })();
                   true;
                 `);
@@ -156,10 +160,10 @@ export function useMap3DBridge({
               // Tile not found
               webViewRef.current.injectJavaScript(`
                   (function() {
-                    var req = window._heatmapRequests && window._heatmapRequests['${requestId}'];
+                    var req = window._heatmapRequests && window._heatmapRequests[${jsLiteral(requestId)}];
                     if (req) {
                       req.reject(new Error('not found'));
-                      delete window._heatmapRequests['${requestId}'];
+                      delete window._heatmapRequests[${jsLiteral(requestId)}];
                     }
                   })();
                   true;
@@ -170,10 +174,10 @@ export function useMap3DBridge({
             // Read error
             webViewRef.current?.injectJavaScript(`
                 (function() {
-                  var req = window._heatmapRequests && window._heatmapRequests['${requestId}'];
+                  var req = window._heatmapRequests && window._heatmapRequests[${jsLiteral(requestId)}];
                   if (req) {
                     req.reject(new Error('read error'));
-                    delete window._heatmapRequests['${requestId}'];
+                    delete window._heatmapRequests[${jsLiteral(requestId)}];
                   }
                 })();
                 true;

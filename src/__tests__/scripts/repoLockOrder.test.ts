@@ -34,6 +34,35 @@ describe('repository locks are taken in one order', () => {
     expect(spawnSync(script, [a, '--', 'false'], { encoding: 'utf8' }).status).not.toBe(0);
   });
 
+  /// Scenario: 99 is flock's own "deadline passed" code, and the retry loop
+  /// reads it as contention. A wrapped command that exits 99 itself was then
+  /// retried forever, spinning while holding nothing.
+  ///
+  /// Expected behaviour: the command's own 99 reaches the caller as a plain
+  /// failure, so only flock's 99 means contention.
+  it('does not retry forever when the command itself exits 99', () => {
+    const { a } = tempLocks();
+    const ran = spawnSync(script, [a, '--', 'sh', '-c', 'exit 99'], {
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    expect(ran.signal).toBeNull();
+    expect(ran.status).not.toBeNull();
+    expect(ran.status).not.toBe(0);
+    expect(ran.stderr).not.toContain('releasing and retrying');
+  });
+
+  it('keeps a command exit of 99 distinguishable from success across two locks', () => {
+    const { a, b } = tempLocks();
+    const ran = spawnSync(script, [a, b, '--', 'sh', '-c', 'exit 99'], {
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    expect(ran.signal).toBeNull();
+    expect(ran.status).not.toBe(0);
+    expect(ran.stderr).not.toContain('releasing and retrying');
+  });
+
   it('sorts the locks, so the order named does not decide the order taken', () => {
     const { a, b } = tempLocks();
     const forwards = spawnSync(script, ['--print-order', a, b, '--', 'true'], { encoding: 'utf8' });

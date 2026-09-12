@@ -22,7 +22,32 @@ const FORUM_URL =
 const GITHUB_ISSUES_URL = 'https://github.com/evanjt/veloq/issues/new';
 const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/evanjt';
 
+/**
+ * Whether the card is on screen, and nothing else.
+ *
+ * The body is a child so that mounting it is what opens the billing connection.
+ * Holding `useDonation` up here bound Play Billing or StoreKit and fetched the
+ * products on every feed mount, including the launches where this returns null,
+ * which is most of them once the athlete has dismissed the card.
+ */
 export function SupportCard() {
+  // Asked through the selector rather than pulled apart into the four fields
+  // it reads: the store re-runs it on every change, which is what the four
+  // subscriptions were for.
+  const shouldShow = useSupportStore((s) => s.isLoaded && s.shouldShow());
+  const [visible, setVisible] = useState(false);
+
+  // The card appears as soon as the store says it should, decided while
+  // rendering so the home feed does not commit once without it and reflow.
+  if (!visible && shouldShow) {
+    setVisible(true);
+  }
+
+  if (!visible) return null;
+  return <SupportCardBody onDismiss={() => setVisible(false)} />;
+}
+
+function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const neverShowAgain = useSupportStore((s) => s.neverShowAgain);
@@ -30,19 +55,8 @@ export function SupportCard() {
   const recordAction = useSupportStore((s) => s.recordAction);
   const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
 
-  // Asked through the selector rather than pulled apart into the four fields
-  // it reads: the store re-runs it on every change, which is what the four
-  // subscriptions were for.
-  const shouldShow = useSupportStore((s) => s.isLoaded && s.shouldShow());
-  const [visible, setVisible] = useState(false);
   const [tipsExpanded, setTipsExpanded] = useState(false);
   const tipHeight = useSharedValue(0);
-
-  // The card appears as soon as the store says it should, decided while
-  // rendering so the home feed does not commit once without it and reflow.
-  if (!visible && shouldShow) {
-    setVisible(true);
-  }
 
   const tipAnimStyle = useAnimatedStyle(() => ({
     height: tipHeight.value,
@@ -89,15 +103,14 @@ export function SupportCard() {
 
   const handleRemindLater = useCallback(() => {
     remindLater();
-    setVisible(false);
-  }, [remindLater]);
+    onDismiss();
+  }, [remindLater, onDismiss]);
 
   const handleNeverShow = useCallback(() => {
     neverShowAgain();
-    setVisible(false);
-  }, [neverShowAgain]);
+    onDismiss();
+  }, [neverShowAgain, onDismiss]);
 
-  if (!visible) return null;
   if (purchaseSuccess) {
     return (
       <Animated.View

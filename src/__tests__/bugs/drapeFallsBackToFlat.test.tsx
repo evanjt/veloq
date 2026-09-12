@@ -145,7 +145,7 @@ describe('the pool draws the flat basemap when the drape runs out', () => {
     failOnWorkerOne('a1', false);
     jest.advanceTimersByTime(2000);
 
-    const drawn = injected.filter((s) => s.includes("activityId = 'a1'"));
+    const drawn = injected.filter((s) => s.includes('activityId = "a1"'));
     expect(drawn.length).toBeGreaterThan(0);
     expect(rendersFlat(drawn[drawn.length - 1])).toBe(true);
   });
@@ -156,7 +156,7 @@ describe('the pool draws the flat basemap when the drape runs out', () => {
 
     // One script, the request itself. A flat render has no rung below it, so
     // nothing draws it a second time.
-    expect(injected.filter((s) => s.includes("activityId = 'a2'"))).toHaveLength(1);
+    expect(injected.filter((s) => s.includes('activityId = "a2"'))).toHaveLength(1);
   });
 
   const landOnWorkerOne = async (activityId: string) => {
@@ -186,7 +186,7 @@ describe('the pool draws the flat basemap when the drape runs out', () => {
     pool().requestSnapshot(request('a5', false));
     await landOnWorkerOne('a5');
 
-    const redrawn = injected.filter((s) => s.includes("activityId = 'a4'"));
+    const redrawn = injected.filter((s) => s.includes('activityId = "a4"'));
     expect(redrawn).toHaveLength(1);
     expect(rendersFlat(redrawn[0])).toBe(false);
   });
@@ -198,7 +198,7 @@ describe('the pool draws the flat basemap when the drape runs out', () => {
 
     await landOnWorkerOne('a6');
 
-    expect(injected.filter((s) => s.includes("activityId = 'a6'"))).toHaveLength(0);
+    expect(injected.filter((s) => s.includes('activityId = "a6"'))).toHaveLength(0);
   });
 
   it('saves the stand-in under the drape it was asked for', async () => {

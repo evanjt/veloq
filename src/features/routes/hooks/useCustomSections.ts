@@ -3,9 +3,10 @@
  * Uses unified sections table via Rust engine.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { decodeCoords } from 'veloqrs';
 import type { Section as NativeSection } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -106,8 +107,20 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       // Get custom sections from unified table
       return toAppSections(engine.getSectionsByType('custom'));
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    // SQLite is the source and the engine says when it moved, so the clock
+    // only bounds how long a read that missed the announcement can be wrong.
+    // An edit used to sit unread for the whole five minutes.
+    staleTime: 1000 * 60 * 5,
   });
+
+  // The engine's own announcement, which a rename, a trim or a detection apply
+  // all raise. Without it this read was refreshed by nothing at all.
+  const sectionsTrigger = useEngineSubscription(['sections']);
+  const firstTrigger = useRef(sectionsTrigger);
+  useEffect(() => {
+    if (sectionsTrigger === firstTrigger.current) return;
+    void queryClient.invalidateQueries({ queryKey: queryKeys.sections.custom });
+  }, [queryClient, sectionsTrigger]);
 
   const preComputed = useMemo(
     () => (preComputedSections ? toAppSections(preComputedSections) : undefined),

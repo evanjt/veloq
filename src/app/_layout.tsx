@@ -71,6 +71,11 @@ import { installRecordingSession } from '@/features/recording/lib/recordingSessi
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
+import {
+  runEngineInit,
+  startEngineInitRun,
+  type EngineInitAttempt,
+} from '@/shared/app/engineInitRun';
 import { rememberCachedAthleteId, migrateSettingsToSqlite } from '@/shared/storage';
 import {
   promptAccountMismatch,
@@ -149,6 +154,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const markEngineReady = useEngineStatus((s) => s.markEngineReady);
   useCutoverRetry();
   useEffect(() => {
+    const run = startEngineInitRun();
     if (isAuthenticated) {
       const engine = getEngine();
       if (engine) {
@@ -157,7 +163,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           if (__DEV__) {
             console.warn('[Engine] Cannot initialize - document directory not available.');
           }
-          return;
+          return () => run.cancel();
         }
 
         /**
@@ -167,6 +173,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
          * may run before that is settled. `completeLaunchIdentity` is the gate.
          */
         const afterInit = (cachedAthleteId?: string) => {
+          // A chain the athlete abandoned by tapping retry must not reach this
+          // block: two of them ask the backfill and cutover questions twice.
+          if (!run.live) return;
           setEngineInitFailed(false);
           setEngineInitFailureReason(null);
           // Effects mounted below this one ran while the handle was null.
@@ -234,7 +243,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           }
         };
 
-        const tryInit = async (attempt: number) => {
+        const attemptInit = async (attempt: number): Promise<EngineInitAttempt> => {
           if (engine.initWithPath(dbPath)) {
             // Engine holds at most one identity's data at a time. If the cached
             // __athlete_id setting belongs to someone else (different real
@@ -272,33 +281,34 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             });
             // `ask-first` is waiting on the athlete rather than failing, and
             // everything else that did not settle failed to re-open, which is
-            // the same condition the retry below is for.
-            if (settled || action === 'ask-first') return;
+            // the same condition the retry is for.
+            if (action === 'ask-first') return 'waiting';
+            if (settled) return 'settled';
           }
-          if (attempt < 2 && isRetryableInit(engine.initOutcome())) {
-            // Retry once after delay - handles transient FS issues on first
-            // launch. Only a held file lifts on its own: a database from a
-            // newer build and a directory nothing can be written to answer the
-            // same way in 500 ms, so the athlete waits a second to be told
-            // what they could have been told at once.
+          if (__DEV__) {
+            console.warn(`[Engine] Init attempt ${attempt + 1} failed`);
+          }
+          return 'failed';
+        };
+
+        // Only a held file lifts on its own: a database from a newer build and
+        // a directory nothing can be written to answer the same way in 500 ms,
+        // so the athlete waits a second to be told what they could have been
+        // told at once.
+        void runEngineInit(run, {
+          attempt: attemptInit,
+          retryable: () => isRetryableInit(engine.initOutcome()),
+          giveUp: () => {
             if (__DEV__) {
-              console.warn(`[Engine] Init attempt ${attempt + 1} failed, retrying in 500ms...`);
-            }
-            setTimeout(() => void tryInit(attempt + 1), 500);
-          } else {
-            if (__DEV__) {
-              console.warn(
-                `[Engine] Persistent init failed after ${attempt + 1} attempts for path: ${dbPath}`
-              );
+              console.warn(`[Engine] Persistent init failed for path: ${dbPath}`);
             }
             setEngineInitFailureReason(engine.initOutcome());
             setEngineInitFailed(true);
-          }
-        };
-
-        void tryInit(0);
+          },
+        });
       }
     }
+    return () => run.cancel();
   }, [
     isAuthenticated,
     initializeRange,
@@ -492,8 +502,10 @@ export default function RootLayout() {
     const prefs = getNotificationPreferences();
     const { athleteId, isDemoMode: demo } = authStore.getState();
     if (prefs.enabled && athleteId && !demo) {
-      const { registerPushToken } = require('@/features/settings/lib/pushTokenRegistration');
-      registerPushToken(athleteId);
+      const {
+        ensurePushTokenRegistered,
+      } = require('@/features/settings/lib/pushTokenRegistration');
+      ensurePushTokenRegistered(athleteId);
     } else if (!prefs.enabled && prefs.pendingUnregister && athleteId) {
       retryPendingUnregister(athleteId);
     }

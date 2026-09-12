@@ -13,6 +13,9 @@ const API_URL = 'https://auth.veloq.fit';
 /** Last successful registration refresh (ms epoch). Internal bookkeeping, not a user setting. */
 const TOKEN_REFRESHED_AT_KEY = 'veloq-push-token-refreshed-at';
 
+/** The token the server was last told about, for the same bookkeeping. */
+const TOKEN_REGISTERED_KEY = 'veloq-push-token-registered';
+
 /**
  * Server-side tokens expire after 30 days and are otherwise only re-registered
  * on app open, login, or opt-in. Refresh at most daily from the paths that
@@ -33,12 +36,33 @@ export async function refreshPushTokenRegistration(athleteId: string): Promise<v
     if (Number.isFinite(last) && Date.now() - last < TOKEN_REFRESH_INTERVAL_MS) {
       return;
     }
-    const ok = await registerPushToken(athleteId);
-    if (ok) {
-      await AsyncStorage.setItem(TOKEN_REFRESHED_AT_KEY, String(Date.now()));
-    }
+    await registerPushToken(athleteId);
   } catch (e) {
     log.warn('Push token refresh failed:', e);
+  }
+}
+
+/**
+ * Register on app open, but only when there is something to say.
+ *
+ * Every launch used to POST the same token, so a user who opens the app ten
+ * times a day made ten registrations of a record with a 30-day life. A token
+ * the server has not seen goes up at once, because that is the one case where
+ * waiting for the daily refresh loses notifications; anything else falls
+ * through to the refresh and its throttle.
+ */
+export async function ensurePushTokenRegistered(athleteId: string): Promise<void> {
+  try {
+    const token = await getExpoPushToken();
+    if (!token) return;
+    const registered = await AsyncStorage.getItem(TOKEN_REGISTERED_KEY);
+    if (registered === token) {
+      await refreshPushTokenRegistration(athleteId);
+      return;
+    }
+    await registerPushToken(athleteId);
+  } catch (e) {
+    log.warn('Push token registration check failed:', e);
   }
 }
 
@@ -117,6 +141,10 @@ export async function registerPushToken(athleteId: string): Promise<boolean> {
 
     if (response.ok) {
       log.log('Push token registered');
+      await AsyncStorage.multiSet([
+        [TOKEN_REGISTERED_KEY, token],
+        [TOKEN_REFRESHED_AT_KEY, String(Date.now())],
+      ]);
       return true;
     }
 
@@ -153,6 +181,7 @@ export async function unregisterPushToken(athleteId: string): Promise<boolean> {
 
     if (response.ok) {
       log.log('Push token unregistered');
+      await AsyncStorage.multiRemove([TOKEN_REGISTERED_KEY, TOKEN_REFRESHED_AT_KEY]);
       return true;
     }
 

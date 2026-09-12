@@ -2,6 +2,7 @@ import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import { TERRAIN_3D_CONFIG } from '@/features/maps/components/mapStyles';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { resolveStyleExpression, TERRAIN_STYLE_OPTIONS } from './styleResolution';
+import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
 
 /**
  * JPEG quality for a captured preview.
@@ -103,11 +104,11 @@ export function buildRenderSnapshotScript(
               var isSatellite = ${isSatellite};
               var isDark = ${isDark};
               var isFlat = ${isFlat};
-              var routeColor = '${request.routeColor}';
-              var lightStyleUrl = '${lightStyleUrl}';
+              var routeColor = ${jsLiteral(request.routeColor)};
+              var lightStyleUrl = ${jsLiteral(lightStyleUrl)};
               var inlineStyle = ${styleConfig};
-              var activityId = '${request.activityId}';
-              var mapStyle = '${request.mapStyle}';
+              var activityId = ${jsLiteral(request.activityId)};
+              var mapStyle = ${jsLiteral(request.mapStyle)};
               var myGen = ${gen};
               var terrainSource = ${terrainSourceJSON};
               var skyConfig = ${skyConfigJSON};
@@ -571,7 +572,7 @@ export function buildRenderSnapshotScript(
                 window.ReactNativeWebView.postMessage(JSON.stringify({
                   type: 'snapshotError',
                   workerId: ${workerId},
-                  activityId: '${request.activityId}',
+                  activityId: ${jsLiteral(request.activityId)},
                   gen: ${gen},
                   error: e.message,
                 }));

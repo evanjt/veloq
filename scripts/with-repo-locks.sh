@@ -25,19 +25,33 @@
 set -eu
 
 wait_secs="${VELOQ_LOCK_WAIT_SECS:-10}"
-# flock's own exit code for "deadline passed", so a command that exits 1 is
-# never mistaken for contention and retried forever.
+# flock's own exit code for "deadline passed". The command runs through --run
+# below, which maps its own 99 to 1, so only flock's 99 ever means contention.
 busy=99
 
 inner=""
 print_order=""
+run=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --inner) inner="yes"; shift ;;
     --print-order) print_order="yes"; shift ;;
+    --run) run="yes"; shift ;;
     *) break ;;
   esac
 done
+
+# Innermost: every lock is held, so run the command and make sure its own exit
+# is never mistaken for flock's. 99 is flock's "deadline passed", and the retry
+# loop below reads it as contention, so a command that exits 99 itself spun
+# forever while holding nothing.
+if [ -n "$run" ]; then
+  [ "${1:-}" = "--" ] && shift
+  status=0
+  "$@" || status=$?
+  [ "$status" -eq "$busy" ] && status=1
+  exit "$status"
+fi
 
 locks=""
 while [ $# -gt 0 ]; do
@@ -69,7 +83,7 @@ rest=$(printf '%s\n' "$sorted" | tail -n +2)
 
 attempt() {
   if [ -z "$rest" ]; then
-    flock -w "$wait_secs" -E "$busy" "$first" "$@"
+    flock -w "$wait_secs" -E "$busy" "$first" "$0" --run -- "$@"
   else
     # shellcheck disable=SC2086
     flock -w "$wait_secs" -E "$busy" "$first" "$0" --inner $rest -- "$@"

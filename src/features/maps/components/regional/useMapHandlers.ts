@@ -10,7 +10,7 @@ import * as Location from 'expo-location'; // 30 seconds
 import { normalizeBounds } from '@/shared/geo/polyline';
 import { activitySpatialIndex, mapBoundsToViewport } from '@/shared/geo/spatialIndex';
 import { planClusterZoom } from '@/features/maps/lib/clusterZoom';
-import { waitForGpsTrack } from '@/features/maps/lib/gpsTrackWait';
+import { trackStillWanted, waitForGpsTrack } from '@/features/maps/lib/gpsTrackWait';
 import { saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import { startFetchAndStore } from 'veloqrs';
 import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
@@ -131,9 +131,15 @@ export function useMapHandlers({
   const prevCenterRef = useRef<[number, number] | null>(null);
   const prevZoomRef = useRef<number>(-1);
 
+  // Read by the track wait, which outlives this screen by up to fifteen
+  // seconds and must not write into it once it has gone.
+  const mountedRef = useRef(true);
+
   // Cleanup debounce timers on unmount
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       if (visibleDebounceRef.current) clearTimeout(visibleDebounceRef.current);
       if (zoomCenterDebounceRef.current) clearTimeout(zoomCenterDebounceRef.current);
     };
@@ -202,6 +208,10 @@ export function useMapHandlers({
           );
           setSelected({ activity, mapData: null, isLoading: true });
           waitForGpsTrack(activity.id).then((coords) => {
+            // The wait is up to fifteen seconds, so what the athlete is
+            // looking at now decides whether this lands.
+            const onScreen = selectedRef.current?.activity.id ?? null;
+            if (!trackStillWanted(activity.id, onScreen, mountedRef.current)) return;
             setSelected({
               activity,
               mapData: coords

@@ -54,3 +54,18 @@ export function haversineDistance(
     Math.cos(lat1 * DEG_TO_RAD) * Math.cos(lat2 * DEG_TO_RAD) * Math.sin(dLng / 2) ** 2;
   return EARTH_RADIUS_M * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
+
+/**
+ * Total length of a polyline in metres, the sum of its legs.
+ *
+ * Lives beside `haversineDistance` so a polyline's length uses the one earth
+ * radius. A caller that walked the points itself had a second one, and its
+ * figures then disagreed with the engine's for the same line.
+ */
+export function polylineDistance(points: LatLng[]): number {
+  let total = 0;
+  for (let i = 1; i < points.length; i++) {
+    total += haversineDistance(points[i - 1], points[i]);
+  }
+  return total;
+}

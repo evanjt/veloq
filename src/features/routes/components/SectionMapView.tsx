@@ -181,16 +181,25 @@ export const SectionMapView = memo(function SectionMapView({
     };
   }, [map3DOpacity, bearingAnim]);
 
-  // Refit camera when extension track changes (entering/leaving expand mode)
+  // Frame each section once, and again on entering or leaving expand mode.
+  // Keying the refit on the geometry took the camera back on every `sections`
+  // event, because the detail bundle hands down a fresh `polyline` array of the
+  // same points, so panning the map was undone by the next sync. Extending
+  // further inside expand mode is the athlete moving the handle rather than a
+  // mode change, so it leaves the viewport alone too.
+  const isExpanding = extensionCoords.length > 0;
+  const frameKey = `${section.id}|${isExpanding}`;
+  const framedSection = useRef<string | null>(null);
   useEffect(() => {
+    if (framedSection.current === frameKey) return;
     const nextBounds = boundsOfLngLat(
-      extensionCoords.length > 0 ? extensionCoords : sectionCoords,
+      isExpanding ? extensionCoords : sectionCoords,
       SECTION_MAP_BOUNDS_PADDING
     );
-    if (nextBounds) {
-      surfaceRef.current?.fitBounds(nextBounds, SECTION_MAP_FIT_PADDING, 500);
-    }
-  }, [extensionCoords, sectionCoords]);
+    if (!nextBounds) return;
+    framedSection.current = frameKey;
+    surfaceRef.current?.fitBounds(nextBounds, SECTION_MAP_FIT_PADDING, 500);
+  }, [frameKey, extensionCoords, sectionCoords, isExpanding]);
 
   // Reset 3D ready state when toggling off
   useEffect(() => {

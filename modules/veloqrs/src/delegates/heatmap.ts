@@ -13,6 +13,7 @@ import type { DelegateHost } from './host';
 export function enableHeatmapTiles(host: DelegateHost): void {
   const tilesPath = `${FileSystem.cacheDirectory}heatmap-tiles/`;
   const normalizedTilesPath = tilesPath.startsWith('file://') ? tilesPath.slice(7) : tilesPath;
+  host.heatmapTilesPath = normalizedTilesPath;
   host.write('enableHeatmapTiles', () => {
     try {
       host.engine.heatmap().setTilesPath(normalizedTilesPath);
@@ -24,6 +25,9 @@ export function enableHeatmapTiles(host: DelegateHost): void {
 
 /** Disable heatmap tile generation by clearing the tiles path in the engine. */
 export function disableHeatmapTiles(host: DelegateHost): void {
+  // Forgotten here as well as cleared in the engine, or the next re-open would
+  // turn it back on for an athlete who turned it off.
+  host.heatmapTilesPath = null;
   host.write('disableHeatmapTiles', () => {
     try {
       host.engine.heatmap().clearTilesPath();

@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, TextInput } from 'react-native';
+import { View, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -57,6 +57,8 @@ export interface SectionHeaderProps {
     encodedPolyline: ArrayBuffer;
   }[];
   onNearbyPress?: (sectionId: string) => void;
+  /** Take the detector's lift flag off. Absent leaves the badge inert. */
+  onUnflagLift?: () => void;
   onBack: () => void;
   onStartEditing: () => void;
   onSaveName: () => void;
@@ -88,6 +90,7 @@ export function SectionHeader({
   allActivityTraces,
   nearbyPolylines,
   onNearbyPress,
+  onUnflagLift,
   onBack,
   onStartEditing,
   onSaveName,
@@ -123,10 +126,26 @@ export function SectionHeader({
             }}
           />
           {section.isLift && (
-            <View style={styles.liftBadge} testID="section-lift-badge">
+            <TouchableOpacity
+              style={styles.liftBadge}
+              testID="section-lift-badge"
+              accessibilityRole="button"
+              accessibilityLabel={t('sections.notLift')}
+              onPress={onUnflagLift}
+              disabled={!onUnflagLift}
+              activeOpacity={0.7}
+            >
               <MaterialCommunityIcons name="gondola" size={12} color={colors.textOnDark} />
               <Text style={styles.liftBadgeText}>{t('sections.liftGround')}</Text>
-            </View>
+              {onUnflagLift && (
+                <MaterialCommunityIcons
+                  name="close"
+                  size={12}
+                  color={colors.textOnDark}
+                  testID="section-lift-unflag"
+                />
+              )}
+            </TouchableOpacity>
           )}
           <HeroStatsRow
             stats={[

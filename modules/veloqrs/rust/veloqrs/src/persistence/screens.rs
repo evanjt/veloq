@@ -8,6 +8,33 @@
 use crate::objects::strength::aggregate_strength_sets;
 use crate::sections::SectionType;
 
+/// Every `stride`-th point of a track, plus the last one, so the result is at
+/// most `max_points` plus one.
+///
+/// The same rule the widget's own projection uses, so striding here leaves that
+/// pass an identity rather than changing the outline it draws. `max_points` of
+/// zero means the whole track, which is what a caller that wants no cap asks
+/// for.
+fn stride_track(points: Vec<crate::GpsPoint>, max_points: u32) -> Vec<crate::FfiGpsPoint> {
+    let max = max_points as usize;
+    if max == 0 || points.len() <= max {
+        return points.into_iter().map(crate::FfiGpsPoint::from).collect();
+    }
+    let stride = points.len().div_ceil(max).max(1);
+    let last = points.len() - 1;
+    let mut out: Vec<crate::FfiGpsPoint> = points
+        .iter()
+        .step_by(stride)
+        .map(|p| crate::FfiGpsPoint::from(p.clone()))
+        .collect();
+    // The end of the ride is the part of the shape a stride is most likely to
+    // drop, and the outline closes on it.
+    if last % stride != 0 {
+        out.push(crate::FfiGpsPoint::from(points[last].clone()));
+    }
+    out
+}
+
 impl super::PersistentEngine {
     /// Everything the insights pipeline reads from the engine.
     ///
@@ -573,6 +600,7 @@ impl super::PersistentEngine {
         prev_start: i64,
         prev_end: i64,
         sparkline_days: u32,
+        max_gps_points: u32,
     ) -> crate::FfiWidgetSnapshotData {
         let sparklines = self.get_wellness_sparklines(sparkline_days).ok().flatten();
 
@@ -606,9 +634,13 @@ impl super::PersistentEngine {
                     || self.get_activity_indicators(&ids).iter().any(|i| {
                         i.indicator_type == "section_pr" || i.indicator_type == "route_pr"
                     });
+                // Strided here rather than in JavaScript. The widget draws 150
+                // points and the writer runs on every background transition and
+                // every settled sync, so the whole track crossed the boundary
+                // to have 150 of it kept.
                 let gps = self
                     .get_gps_track(&m.activity_id)
-                    .map(|points| points.into_iter().map(crate::FfiGpsPoint::from).collect())
+                    .map(|points| stride_track(points, max_gps_points))
                     .unwrap_or_default();
                 (is_pr, gps)
             }
@@ -676,5 +708,64 @@ impl super::PersistentEngine {
                 })
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn track(n: usize) -> Vec<crate::GpsPoint> {
+        (0..n)
+            .map(|i| crate::GpsPoint {
+                latitude: 46.0 + i as f64 * 0.001,
+                longitude: 7.0,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    /// Scenario: the widget draws 150 points, and the writer runs on every
+    /// background transition and every settled sync. The whole track crossed
+    /// the FFI boundary each time so JavaScript could keep 150 of it.
+    ///
+    /// Expected behaviour: the stride happens before the crossing, and produces
+    /// the same points the projection would have kept.
+    #[test]
+    fn a_long_track_crosses_at_the_cap_not_at_its_length() {
+        let strided = stride_track(track(5_000), 150);
+
+        assert!(
+            strided.len() <= 151,
+            "150 points, plus the last one the stride missed: {}",
+            strided.len()
+        );
+        assert_eq!(strided[0].latitude, 46.0, "it starts where the ride did");
+        assert_eq!(
+            strided.last().unwrap().latitude,
+            46.0 + 4_999.0 * 0.001,
+            "and ends where it did: the outline closes on that point"
+        );
+    }
+
+    /// A track already under the cap is handed over whole. Striding it would
+    /// throw away detail for nothing.
+    #[test]
+    fn a_short_track_is_not_strided() {
+        assert_eq!(stride_track(track(100), 150).len(), 100);
+        assert_eq!(stride_track(track(150), 150).len(), 150);
+    }
+
+    /// Zero is a caller asking for no cap, not for no points.
+    #[test]
+    fn no_cap_means_the_whole_track() {
+        assert_eq!(stride_track(track(5_000), 0).len(), 5_000);
+    }
+
+    /// An empty track strides to nothing rather than panicking on its last
+    /// index.
+    #[test]
+    fn an_empty_track_strides_to_nothing() {
+        assert!(stride_track(Vec::new(), 150).is_empty());
     }
 }

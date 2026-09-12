@@ -58,6 +58,17 @@ impl PersistentEngine {
         start_index: u32,
         end_index: u32,
     ) -> Result<(), String> {
+        let done = self.in_write_txn(|e| e.write_trim_section(section_id, start_index, end_index));
+        self.resync_section_after_edit(section_id, done.is_err());
+        done
+    }
+
+    fn write_trim_section(
+        &mut self,
+        section_id: &str,
+        start_index: u32,
+        end_index: u32,
+    ) -> Result<(), String> {
         // Load current polyline (blob authoritative, JSON fallback)
         let polyline: Vec<GpsPoint> = self.stored_section_polyline(section_id)?;
 
@@ -209,10 +220,30 @@ impl PersistentEngine {
         Ok(())
     }
 
+    /// Put the in-memory copy of a section back in step with the database.
+    ///
+    /// An editor's caches are invalidated inside its transaction, so a rollback
+    /// would otherwise leave the catalogue holding the edit the database no
+    /// longer has.
+    pub(super) fn resync_section_after_edit(&mut self, section_id: &str, rolled_back: bool) {
+        if !rolled_back {
+            return;
+        }
+        self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
+        self.refresh_section_in_memory(section_id);
+    }
+
     /// Reset a section's bounds to the original (pre-trim) polyline.
     /// Restores the backed-up original_polyline_json and re-matches activities.
     /// For auto sections, clears is_user_defined. For custom sections, preserves it.
     pub fn reset_section_bounds(&mut self, section_id: &str) -> Result<(), String> {
+        let done = self.in_write_txn(|e| e.write_reset_section_bounds(section_id));
+        self.resync_section_after_edit(section_id, done.is_err());
+        done
+    }
+
+    fn write_reset_section_bounds(&mut self, section_id: &str) -> Result<(), String> {
         // Load original polyline and section type
         let (original_json, section_type, sport_type): (Option<String>, String, String) = self
             .db
@@ -316,6 +347,16 @@ impl PersistentEngine {
     /// `reverted` event linking the version. Fails when the version is
     /// absent or pruned: a revert must land on a line the user was shown.
     pub fn revert_section_to_version(
+        &mut self,
+        section_id: &str,
+        version: i64,
+    ) -> Result<(), String> {
+        let done = self.in_write_txn(|e| e.write_revert_section_to_version(section_id, version));
+        self.resync_section_after_edit(section_id, done.is_err());
+        done
+    }
+
+    fn write_revert_section_to_version(
         &mut self,
         section_id: &str,
         version: i64,
@@ -427,6 +468,20 @@ impl PersistentEngine {
     /// Backs up the original polyline on first edit (preserves true original across multiple edits).
     /// Re-matches all activities against the new polyline.
     pub fn expand_section_bounds(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+        start_index: u32,
+        end_index: u32,
+    ) -> Result<(), String> {
+        let done = self.in_write_txn(|e| {
+            e.write_expand_section_bounds(section_id, activity_id, start_index, end_index)
+        });
+        self.resync_section_after_edit(section_id, done.is_err());
+        done
+    }
+
+    fn write_expand_section_bounds(
         &mut self,
         section_id: &str,
         activity_id: &str,
@@ -760,5 +815,103 @@ impl PersistentEngine {
         )?;
 
         Ok(Some(new_id))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence::codec;
+
+    fn line(n: usize) -> Vec<GpsPoint> {
+        (0..n)
+            .map(|i| GpsPoint {
+                latitude: 46.0 + i as f64 * 0.001,
+                longitude: 7.0,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    /// An engine holding one section of `n` points and one traversal of it.
+    fn engine_with_section(n: usize, section_type: &str) -> (PersistentEngine, Vec<GpsPoint>) {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let polyline = line(n);
+        engine
+            .add_activity("a1".to_string(), polyline.clone(), "Ride".to_string())
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections
+                 (id, section_type, sport_type, polyline_json, polyline_blob, distance_meters)
+                 VALUES ('s1', ?, 'Ride', '[]', ?, 100.0)",
+                params![section_type, codec::serialize_track_points(&polyline)],
+            )
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO section_activities
+                 (section_id, activity_id, direction, start_index, end_index, distance_meters)
+                 VALUES ('s1', 'a1', 'same', 0, ?, 100.0)",
+                params![n as i64 - 1],
+            )
+            .unwrap();
+        (engine, polyline)
+    }
+
+    fn traversals(engine: &PersistentEngine) -> i64 {
+        engine
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM section_activities WHERE section_id = 's1'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap()
+    }
+
+    /// Scenario: the editors took no transaction at all. `trim_section` wrote
+    /// the new polyline, deleted the junction rows, then re-matched, so a
+    /// failure in the re-match left the section holding its new line with zero
+    /// traversals, and nothing said so.
+    ///
+    /// Expected behaviour: the whole edit lands or none of it does.
+    #[test]
+    fn a_trim_that_fails_partway_leaves_the_section_as_it_was() {
+        // Custom, so the trim clears the junction rows itself rather than
+        // handing that to the re-match, which is the write that fails here.
+        let (mut engine, original) = engine_with_section(10, "custom");
+        engine
+            .db
+            .execute_batch("DROP TABLE section_activities")
+            .unwrap();
+
+        let failed = engine.trim_section("s1", 2, 7);
+
+        assert!(failed.is_err(), "there were no junction rows to clear");
+        assert_eq!(
+            engine.stored_section_polyline("s1").unwrap().len(),
+            original.len(),
+            "the section kept the line it had, rather than the new one with nothing attached"
+        );
+        assert!(
+            engine.db.is_autocommit(),
+            "the rollback ran, so the next writer can begin its own"
+        );
+    }
+
+    #[test]
+    fn a_trim_that_lands_shortens_the_section_and_commits() {
+        let (mut engine, original) = engine_with_section(10, "auto");
+
+        engine.trim_section("s1", 2, 7).unwrap();
+
+        let trimmed = engine.stored_section_polyline("s1").unwrap();
+        assert_eq!(trimmed.len(), 6, "points 2 through 7 inclusive");
+        assert!(trimmed.len() < original.len());
+        assert_eq!(traversals(&engine), 1, "the one traversal was re-matched");
+        assert!(engine.db.is_autocommit());
     }
 }

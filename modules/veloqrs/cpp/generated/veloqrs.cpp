@@ -411,7 +411,7 @@ RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_sparklines(
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_widget_snapshot(
     /*handle*/ uint64_t ptr, int64_t current_start, int64_t current_end,
     int64_t prev_start, int64_t prev_end, uint32_t sparkline_days,
-    RustCallStatus *uniffi_out_err);
+    uint32_t max_gps_points, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_zone_distribution(
     /*handle*/ uint64_t ptr, RustBuffer sport_type, RustBuffer zone_type,
     RustCallStatus *uniffi_out_err);
@@ -769,6 +769,9 @@ void uniffi_veloqrs_fn_method_sectionmanager_reset_reference(
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_revert_to_version(
     /*handle*/ uint64_t ptr, RustBuffer section_id, int64_t version,
+    RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_sectionmanager_set_is_lift(
+    /*handle*/ uint64_t ptr, RustBuffer section_id, int8_t is_lift,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_set_name(
     /*handle*/ uint64_t ptr, RustBuffer section_id, RustBuffer name,
@@ -1382,6 +1385,7 @@ uint16_t uniffi_veloqrs_checksum_method_sectionmanager_remove_named_corridor();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_reset_reference();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version();
+uint16_t uniffi_veloqrs_checksum_method_sectionmanager_set_is_lift();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_set_name();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_set_reference();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_set_superseded();
@@ -5997,7 +6001,7 @@ NativeVeloqrs::NativeVeloqrs(
           rt,
           jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
                                         "fitnessmanager_get_widget_snapshot"),
-          6,
+          7,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -7653,6 +7657,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_sectionmanager_revert_to_version(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_is_lift"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_is_lift"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_set_is_lift(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_name"] =
@@ -12208,6 +12224,19 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_is_lift"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_is_lift"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_set_is_lift(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_name"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -15355,6 +15384,7 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_widget_snapshot(
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[3]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[4]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[5]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[6]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -17536,6 +17566,22 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_revert_to_version(
                                                         args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_set_is_lift(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_sectionmanager_set_is_lift(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[2]), &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -21457,6 +21503,14 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_set_is_lift(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_sectionmanager_set_is_lift();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

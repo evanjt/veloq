@@ -113,10 +113,25 @@ interface ActiveConnection {
   disconnectSub: Subscription | null;
   cancelled: boolean;
   reconnectAttempt: number;
-  reconnectTimer: ReturnType<typeof setTimeout> | null;
 }
 
 const activeConnections = new Map<string, ActiveConnection>();
+
+/**
+ * The pending reconnect per sensor, so a deliberate disconnect can cancel it.
+ * It used to be a field on `ActiveConnection`, which is deleted before the
+ * reconnect is ever scheduled, so nothing held the handle and the `clearTimeout`
+ * that read it could never fire.
+ */
+const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/**
+ * Bumped by every teardown, so a connect still in flight can see that the
+ * sensor it is connecting was disconnected while it awaited. Without it the
+ * landing connect recreated the entry after the ride ended, and the next
+ * ride's `connectKnownSensors` returned early against it.
+ */
+const connectGenerations = new Map<string, number>();
 
 async function subscribeToSensor(active: ActiveConnection, kinds: SensorKind[]): Promise<void> {
   const { device } = active;
@@ -195,9 +210,20 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
     kinds: sensor.kinds,
   });
 
+  const generation = connectGenerations.get(sensor.id) ?? 0;
+  const superseded = () => (connectGenerations.get(sensor.id) ?? 0) !== generation;
+
   try {
     const device = await ble.connectToDevice(sensor.id, { timeout: 10_000 });
+    if (superseded()) {
+      abandonConnect(sensor.id);
+      return;
+    }
     await device.discoverAllServicesAndCharacteristics();
+    if (superseded()) {
+      abandonConnect(sensor.id);
+      return;
+    }
 
     const active: ActiveConnection = {
       device,
@@ -205,7 +231,6 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
       disconnectSub: null,
       cancelled: false,
       reconnectAttempt: 0,
-      reconnectTimer: null,
     };
     activeConnections.set(sensor.id, active);
 
@@ -217,6 +242,11 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
     });
 
     await subscribeToSensor(active, sensor.kinds);
+    if (superseded()) {
+      cleanupConnection(sensor.id);
+      abandonConnect(sensor.id);
+      return;
+    }
     useSensorStore.getState().setConnection(sensor.id, {
       status: 'connected',
       name: sensor.name,
@@ -229,25 +259,45 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
   }
 }
 
+/** Drop the device a superseded connect opened, so it does not stay connected. */
+function abandonConnect(id: string): void {
+  log.log(`Dropping a sensor connect that was disconnected while it was in flight: ${id}`);
+  void getBle()
+    ?.cancelDeviceConnection(id)
+    .catch(() => {
+      // Already gone, which is the outcome wanted.
+    });
+}
+
 function scheduleReconnect(sensor: KnownSensor, attempt = 1): void {
   const conn = useSensorStore.getState().connections[sensor.id];
   if (!conn) return; // Disconnected deliberately
   useSensorStore.getState().setConnectionStatus(sensor.id, 'reconnecting');
   const delay = Math.min(RECONNECT_BASE_MS * 2 ** Math.min(attempt, 6), RECONNECT_MAX_MS);
-  setTimeout(() => {
+  const timer = setTimeout(() => {
+    reconnectTimers.delete(sensor.id);
     // Still wanted? (disconnectSensor removes the store entry)
     if (!useSensorStore.getState().connections[sensor.id]) return;
     connectAndSubscribe(sensor, attempt);
   }, delay);
+  const previous = reconnectTimers.get(sensor.id);
+  if (previous) clearTimeout(previous);
+  reconnectTimers.set(sensor.id, timer);
 }
 
 function cleanupConnection(id: string, options?: { keepStoreEntry?: boolean }): void {
+  // Before anything else: a connect still in flight has to see this.
+  connectGenerations.set(id, (connectGenerations.get(id) ?? 0) + 1);
+  const timer = reconnectTimers.get(id);
+  if (timer) {
+    clearTimeout(timer);
+    reconnectTimers.delete(id);
+  }
   const active = activeConnections.get(id);
   if (active) {
     active.cancelled = true;
     for (const sub of active.subscriptions) sub.remove();
     active.disconnectSub?.remove();
-    if (active.reconnectTimer) clearTimeout(active.reconnectTimer);
     activeConnections.delete(id);
   }
   if (!options?.keepStoreEntry) {

@@ -1135,6 +1135,7 @@
     "resetBoundsConfirm": "Nulstil til de originale automatisk registrerede grænser?\n\nSektionen vil blive genmatchet mod alle dine aktiviteter.",
     "traversals": "gennemkørsler",
     "liftGround": "Lift",
+    "notLift": "Ikke en lift",
     "trimFailed": "Kunne ikke trimme sektionsgrænserne",
     "trimTooShort": "Sektionen skal have mindst 5 punkter",
     "expandUnavailable": "Ingen aktivitetsspor tilgængeligt til udvidelse",

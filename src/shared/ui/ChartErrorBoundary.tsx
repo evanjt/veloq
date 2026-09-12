@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
+import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 
 interface Props {
   children: ReactNode;
@@ -33,6 +34,7 @@ export class ChartErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    recordBoundaryCrash(error, errorInfo, { fatal: false, screen: this.props.label });
     if (__DEV__) {
       console.error('[ChartErrorBoundary] Chart render error:', error, errorInfo);
     }

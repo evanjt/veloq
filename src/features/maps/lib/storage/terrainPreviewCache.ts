@@ -30,6 +30,12 @@ export const TERRAIN_PREVIEW_VERSION_KEY = 'terrain-preview-cache-version';
 const VERSION_KEY = TERRAIN_PREVIEW_VERSION_KEY;
 
 /**
+ * The insertion order of the cached keys, so a launch does not have to stat
+ * every file to work it out. Written whenever the index changes.
+ */
+const ORDER_KEY = 'terrain-preview-order';
+
+/**
  * What a render fell back to when the one asked for could not be drawn. Today
  * the only rung is a 3D drape served as the flat basemap.
  */
@@ -82,7 +88,15 @@ export async function initTerrainPreviewCache(): Promise<void> {
     }
 
     const files = await FileSystem.readDirectoryAsync(TERRAIN_DIR);
-    cachedKeys = await orderByWriteTime(files.filter((f) => f.endsWith('.jpg')));
+    const keysOnDisk = files.filter((f) => f.endsWith('.jpg')).map((f) => f.replace('.jpg', ''));
+    const storedOrder = await readStoredOrder();
+    // The stored order is the whole point: without it the only record of
+    // insertion order is each file's write time, and reading those is one
+    // native call per file.
+    cachedKeys = storedOrder
+      ? reconcileTerrainOrder(storedOrder, keysOnDisk)
+      : await orderByWriteTime(keysOnDisk.map((k) => `${k}.jpg`));
+    writeStoredOrder();
     initialized = true;
     for (const cb of cacheReadyListeners) cb();
   } catch {
@@ -93,6 +107,26 @@ export async function initTerrainPreviewCache(): Promise<void> {
 }
 
 /**
+ * Reconcile the stored insertion order against what is actually on disk.
+ *
+ * The files are the truth about what exists and the stored order is the truth
+ * about age, so each answers the half it knows. A key whose file has gone is
+ * dropped. A file the order has never heard of has no known insertion time, and
+ * the rule below applies: unknown age sorts oldest, so it goes to the front and
+ * is evicted before a preview whose age is known.
+ *
+ * Pure, and the reason the stat pass is not needed: ordering used to cost one
+ * `getInfoAsync` per file, up to 150 of them, at every feed mount.
+ */
+export function reconcileTerrainOrder(storedOrder: string[], keysOnDisk: string[]): string[] {
+  const onDisk = new Set(keysOnDisk);
+  const known = new Set(storedOrder);
+  const unknownAge = keysOnDisk.filter((key) => !known.has(key));
+  const stillThere = storedOrder.filter((key) => onDisk.has(key));
+  return [...unknownAge, ...stillThere];
+}
+
+/**
  * The index is ordered by insertion, and eviction takes the front of it, so
  * rebuilding it in directory order evicts whatever the filesystem happened to
  * name first. That is not the oldest preview and can be the card on screen,
@@ -100,6 +134,9 @@ export async function initTerrainPreviewCache(): Promise<void> {
  * the only record of insertion order that survives a restart, since a filename
  * is all this cache keeps on disk. A file whose time cannot be read sorts
  * oldest, so it is evicted before a preview whose age is known.
+ *
+ * Only reached on the first launch after this cache learned to persist its own
+ * order, or if that record is lost. Everything after reads the order back.
  */
 async function orderByWriteTime(files: string[]): Promise<string[]> {
   const dated = await Promise.all(
@@ -110,6 +147,32 @@ async function orderByWriteTime(files: string[]): Promise<string[]> {
     })
   );
   return dated.sort((a, b) => a.at - b.at).map((d) => d.key);
+}
+
+/** The persisted order, or null when there is none to read. */
+async function readStoredOrder(): Promise<string[] | null> {
+  try {
+    const raw = await AsyncStorage.getItem(ORDER_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    return parsed.filter((k): k is string => typeof k === 'string');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Record the order the index is in.
+ *
+ * Not awaited by the callers that mutate the index, and deliberately: those
+ * paths promise to drop an entry before they await anything, so a caller cannot
+ * see a key whose file is on its way out. A write that is lost or fails costs
+ * the next launch one stat pass, which is what every launch used to do, and the
+ * reconcile against the directory listing repairs a stale order anyway.
+ */
+function writeStoredOrder(): void {
+  void AsyncStorage.setItem(ORDER_KEY, JSON.stringify(cachedKeys)).catch(() => {});
 }
 
 type CacheReadyListener = () => void;
@@ -217,6 +280,9 @@ export async function saveTerrainPreview(
   // Update index - remove if already present, add to end
   cachedKeys = cachedKeys.filter((k) => k !== key);
   cachedKeys.push(key);
+  // One write for the whole call: the stale drop, the eviction and the append
+  // have all landed in the index by here.
+  writeStoredOrder();
 
   return filePath;
 }
@@ -233,6 +299,7 @@ export async function deleteTerrainPreviewsForActivity(activityId: string): Prom
   const prefix = `${activityId}_`;
   const toDelete = cachedKeys.filter((k) => k.startsWith(prefix));
   cachedKeys = cachedKeys.filter((k) => !k.startsWith(prefix));
+  writeStoredOrder();
 
   for (const key of toDelete) {
     const path = `${TERRAIN_DIR}${key}.jpg`;
@@ -253,11 +320,20 @@ export async function deleteSupersededTerrainPreviews(
   style: string,
   is3D: boolean
 ): Promise<void> {
+  // Two keys survive, not one. A drape that could not be rendered is saved as a
+  // flat stand-in under the 3D key with a downgrade marker, so keeping only the
+  // undowngraded key deleted the stand-in that had just landed and left the card
+  // holding a uri to nothing. The stand-in is also what an upgrade falls back to
+  // when it fails, so it is worth keeping after the real drape arrives.
   const keep = cacheKey(activityId, style, is3D);
+  const keepStandIn = cacheKey(activityId, style, is3D, 'flat');
   const prefix = `${activityId}_`;
-  const toDelete = cachedKeys.filter((k) => k.startsWith(prefix) && k !== keep);
+  const toDelete = cachedKeys.filter(
+    (k) => k.startsWith(prefix) && k !== keep && k !== keepStandIn
+  );
   if (toDelete.length === 0) return;
   cachedKeys = cachedKeys.filter((k) => !toDelete.includes(k));
+  writeStoredOrder();
 
   for (const key of toDelete) {
     await FileSystem.deleteAsync(`${TERRAIN_DIR}${key}.jpg`, { idempotent: true }).catch(() => {});
@@ -275,6 +351,9 @@ export async function clearTerrainPreviews(): Promise<void> {
   }
   cachedKeys = [];
   initialized = false;
+  // The order has to go with the files, or the next launch reconciles a stored
+  // order against an empty directory and keeps nothing anyway, one pass late.
+  void AsyncStorage.removeItem(ORDER_KEY).catch(() => {});
 }
 
 /**

@@ -74,7 +74,7 @@ const request = (activityId: string): SnapshotRequest => ({
 /** Every request the pool has handed to a worker so far, oldest first. */
 const rendered = () =>
   injected
-    .map((script) => /var activityId = '([^']+)'/.exec(script)?.[1])
+    .map((script) => /var activityId = "([^"]+)"/.exec(script)?.[1])
     .filter((id): id is string => !!id);
 
 const lastProgress = () => mockSetProgress.mock.calls[mockSetProgress.mock.calls.length - 1]?.[0];

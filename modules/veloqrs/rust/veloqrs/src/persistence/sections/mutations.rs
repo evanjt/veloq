@@ -355,6 +355,16 @@ impl PersistentEngine {
         section_id: &str,
         activity_id: &str,
     ) -> Result<(), String> {
+        let done = self.in_write_txn(|e| e.write_set_section_reference(section_id, activity_id));
+        self.resync_section_after_edit(section_id, done.is_err());
+        done
+    }
+
+    fn write_set_section_reference(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+    ) -> Result<(), String> {
         // Every branch below promotes the row to user-defined; the resolved
         // corridor name lands on the row first so the promotion keeps it.
         self.adopt_corridor_name(section_id);

@@ -429,10 +429,52 @@ export function formatDateTime(dateString: string): string {
 }
 
 /**
+ * A `YYYY-MM-DD` day as local midnight, anything else as `Date` reads it.
+ *
+ * `new Date('2026-03-14')` is UTC midnight by the specification, so west of
+ * Greenwich it is already the 13th locally and every formatter below renders
+ * the day before. A chart labelled with a day string means the athlete's day,
+ * not an instant. A string carrying a time still means an instant and is left
+ * alone.
+ *
+ * An impossible day is rejected rather than rolled over: `new Date(2026, 1, 31)`
+ * is quietly the 3rd of March, and a silent wrong day is worse than an invalid
+ * one the caller can see.
+ */
+export function parseDayString(value: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return new Date(value);
+  const [year, month, day] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const d = new Date(year, month - 1, day);
+  const rolled = d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day;
+  return rolled ? new Date(NaN) : d;
+}
+
+/** A day string or a Date, as the Date the formatters below render. */
+function asDay(date: Date | string): Date {
+  return typeof date === 'string' ? parseDayString(date) : date;
+}
+
+/**
+ * A wall-clock day stored as epoch seconds, rendered as that day.
+ *
+ * `activity_metrics.date` holds the athlete's own day as though it were UTC,
+ * so reading it in local time is the same off-by-one in the other direction:
+ * east of Greenwich every set is dated a day late.
+ */
+export function formatEpochDayUtc(seconds: number): string {
+  return new Date(seconds * 1000).toLocaleDateString(getIntlLocale(), {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+/**
  * Format date as short date (e.g., "Jan 2")
  */
 export function formatShortDate(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = asDay(date);
   const locale = getIntlLocale();
   return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
@@ -441,7 +483,7 @@ export function formatShortDate(date: Date | string): string {
  * Format date with weekday (e.g., "Fri, Jan 2")
  */
 export function formatShortDateWithWeekday(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = asDay(date);
   const locale = getIntlLocale();
   return d.toLocaleDateString(locale, {
     weekday: 'short',
@@ -473,13 +515,13 @@ export function formatAxisDate(date: Date, includeDay: boolean): string {
  * Format month only (e.g., "Jan")
  */
 export function formatMonth(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = asDay(date);
   const locale = getIntlLocale();
   return d.toLocaleDateString(locale, { month: 'short' });
 }
 
 export function formatFullDate(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = asDay(date);
   const locale = getIntlLocale();
   return d.toLocaleDateString(locale, {
     month: 'short',
@@ -492,7 +534,7 @@ export function formatFullDate(date: Date | string): string {
  * Format full date with weekday and year (e.g., "Fri, Jan 2, 2024")
  */
 export function formatFullDateWithWeekday(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = asDay(date);
   const locale = getIntlLocale();
   return d.toLocaleDateString(locale, {
     weekday: 'short',

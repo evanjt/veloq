@@ -535,6 +535,8 @@ fn widget_snapshot_matches_the_calls_it_replaces() {
         now - 14 * 86_400,
         now - 7 * 86_400,
         30,
+        // The widget's own point budget, so the track crosses at the cap.
+        150,
     );
 
     assert_eq!(
@@ -575,6 +577,8 @@ fn widget_snapshot_is_empty_without_activities() {
         now - 14 * 86_400,
         now - 7 * 86_400,
         30,
+        // The widget's own point budget, so the track crosses at the cap.
+        150,
     );
 
     assert!(bundle.latest.is_none());

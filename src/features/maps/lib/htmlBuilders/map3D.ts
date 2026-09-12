@@ -17,6 +17,7 @@ import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import { resolveStyleExpression, LIGHT_STYLE_URL, TERRAIN_STYLE_OPTIONS } from './styleResolution';
 import { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared';
 import { getTileCacheBudgetMb } from '@/features/maps/lib/storage/tileCacheSettings';
+import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
 
 export interface Map3DHtmlConfig {
   /** Route coordinates as [lng, lat] pairs. Empty array = no route layer. */
@@ -234,7 +235,7 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
       window.map = new maplibregl.Map(buildMapOptions(styleJSON));
     } else {
       window._rn_log('creating map with light style URL');
-      window.map = new maplibregl.Map(buildMapOptions('${LIGHT_STYLE_URL}'));
+      window.map = new maplibregl.Map(buildMapOptions(${jsLiteral(LIGHT_STYLE_URL)}));
     }
 
     var map = window.map;
@@ -366,7 +367,7 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
             visibility: hasRoute ? 'visible' : 'none',
           },
           paint: {
-            'line-color': '${routeColor}',
+            'line-color': ${jsLiteral(routeColor)},
             'line-width': 3,
           },
         });
@@ -558,7 +559,7 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
       // missing layer id silently drops the addLayer in some MapLibre versions. Probe
       // for it and only insert behind it when present.
       var showHeatmap = ${showHeatmap};
-      var isLightMap = '${mapStyle}' === 'light';
+      var isLightMap = ${jsLiteral(mapStyle)} === 'light';
       map.addSource('heatmap-tiles', {
         type: 'raster',
         tiles: ['heatmap-file://{z}/{x}/{y}.png'],

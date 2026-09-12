@@ -231,6 +231,7 @@ export default function SectionDetailScreen() {
     handleToggleShowExcluded,
     handleRematchActivities,
     handleAcceptSection,
+    handleUnflagLift,
   } = useSectionActions({
     id,
     isCustomId: !!isCustomId,
@@ -401,6 +402,7 @@ export default function SectionDetailScreen() {
             onNearbyPress={
               isTrimming ? undefined : (sectionId) => router.push(`/section/${sectionId}`)
             }
+            onUnflagLift={isTrimming ? undefined : handleUnflagLift}
             onBack={() => router.back()}
             onStartEditing={handleStartEditing}
             onSaveName={handleSaveName}

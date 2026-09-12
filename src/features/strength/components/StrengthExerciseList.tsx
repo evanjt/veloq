@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
+import { formatEpochDayUtc } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
 import type { MuscleVolume, ExerciseSummary } from '@/types';
 
@@ -115,10 +116,7 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
                         {activity.activityName}
                       </Text>
                       <Text style={[styles.activityDate, isDark && styles.activityDateDark]}>
-                        {new Date(activity.date * 1000).toLocaleDateString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
+                        {formatEpochDayUtc(activity.date)}
                       </Text>
                     </View>
                     <Text style={[styles.activityStats, isDark && styles.activityStatsDark]}>

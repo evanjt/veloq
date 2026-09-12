@@ -445,6 +445,13 @@ impl PersistentEngine {
             }
         }
 
+        // The track length each stream has to match, or it is not in the
+        // track's index space and cannot time anything.
+        let track_points = {
+            let ids: Vec<String> = time_streams.keys().cloned().collect();
+            self.track_point_counts(&ids)
+        };
+
         if time_streams.is_empty() && heart_rates.is_empty() {
             return Ok(0);
         }
@@ -471,6 +478,7 @@ impl PersistentEngine {
                 } else {
                     super::sections::compute_lap_time_from_stream(
                         time_streams.get(activity_id).map(Vec::as_slice),
+                        track_points.get(activity_id).copied(),
                         *start_idx,
                         *end_idx,
                         *distance,

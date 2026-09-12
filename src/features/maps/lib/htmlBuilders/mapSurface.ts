@@ -70,6 +70,12 @@ export interface MapLayerSpec {
   paint?: Record<string, unknown>;
   layout?: Record<string, unknown>;
   filter?: unknown[];
+  /**
+   * Lowest zoom the layer draws at. A layer whose features are only legible
+   * when the view is tight says so here rather than painting a smear and
+   * relying on opacity to hide it.
+   */
+  minzoom?: number;
   /** Insert below this layer when it exists in the base style. */
   beforeId?: string;
   /** Hidden layers stay mounted so a toggle is a visibility flip, not a churn. */
@@ -314,6 +320,7 @@ function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
               ),
             };
             if (spec.filter) definition.filter = spec.filter;
+            if (spec.minzoom !== undefined) definition.minzoom = spec.minzoom;
             map.addLayer(definition, before);
           }
           window._veloq.layerSpecs[spec.id] = spec;

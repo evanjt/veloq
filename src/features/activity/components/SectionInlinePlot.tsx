@@ -29,6 +29,7 @@ import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionSparkline } from '@/features/routes/components/section/SectionSparkline';
 import type { SectionEncounter } from 'veloqrs';
 import type { SectionEncounterGroup } from '@/features/activity/lib/groupSectionEncounters';
+import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 
 interface SectionInlinePlotProps {
   group: SectionEncounterGroup;
@@ -295,15 +296,33 @@ export const SectionInlinePlot = memo(
       </View>
     );
   },
-  (prev, next) => {
-    return (
-      prev.isHighlighted === next.isHighlighted &&
-      prev.group === next.group &&
-      prev.index === next.index &&
-      prev.isDark === next.isDark &&
-      prev.activityId === next.activityId
-    );
-  }
+  (prev, next) =>
+    rowIsUnchanged(
+      {
+        record: prev.group,
+        extras: [
+          prev.isHighlighted,
+          prev.index,
+          prev.isDark,
+          prev.isMetric,
+          prev.activityId,
+          prev.sportType,
+          prev.renderRightActions,
+        ],
+      },
+      {
+        record: next.group,
+        extras: [
+          next.isHighlighted,
+          next.index,
+          next.isDark,
+          next.isMetric,
+          next.activityId,
+          next.sportType,
+          next.renderRightActions,
+        ],
+      }
+    )
 );
 
 const styles = StyleSheet.create({

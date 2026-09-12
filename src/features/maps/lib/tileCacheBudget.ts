@@ -140,6 +140,12 @@ ${literal}
       CACHE_BUDGETS = budgets;
       for (var name in budgets) evictNow(name);
     };
+
+    // And once on load, because a page that opens over a cache already above
+    // the ceiling would otherwise sit there until its fiftieth insert. The
+    // budget a page is built with is current, so this is the previous session's
+    // overflow rather than a stale ceiling.
+    for (var _name in CACHE_BUDGETS) evictNow(_name);
 `;
 }
 

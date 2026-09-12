@@ -40,6 +40,7 @@ function raw(overrides: Partial<RawWidgetData> = {}): RawWidgetData {
     locale: 'en-AU',
     isMetric: true,
     nowSeconds: 1_700_000_000,
+    nowWallSeconds: 1_700_000_000,
     ...overrides,
   };
 }

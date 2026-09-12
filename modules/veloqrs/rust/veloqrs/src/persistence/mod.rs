@@ -1098,6 +1098,37 @@ pub(crate) fn apply_write_pragmas(conn: &Connection) -> SqlResult<()> {
 impl PersistentEngine {
     /// Invalidate the performance cache.
     /// Call after any mutation that affects sections, time streams, or activity metrics.
+    /// Run one editor's whole write inside a transaction, rolling back if any
+    /// step of it fails.
+    ///
+    /// The section editors took no transaction at all: `trim_section` updated
+    /// `sections`, deleted the junction rows, then re-matched, and an error in
+    /// the re-match left the section holding its new polyline with zero
+    /// traversals. A `Transaction` cannot be used here because it borrows the
+    /// connection for as long as it lives and every editor needs `&mut self`
+    /// while it runs, so the statements are issued directly and this holds the
+    /// arms.
+    pub(crate) fn in_write_txn<T>(
+        &mut self,
+        work: impl FnOnce(&mut Self) -> Result<T, String>,
+    ) -> Result<T, String> {
+        self.db
+            .execute_batch("BEGIN IMMEDIATE")
+            .map_err(|e| format!("Failed to open the write transaction: {}", e))?;
+        match work(self) {
+            Ok(value) => {
+                self.db
+                    .execute_batch("COMMIT")
+                    .map_err(|e| format!("Failed to commit: {}", e))?;
+                Ok(value)
+            }
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                Err(e)
+            }
+        }
+    }
+
     pub(crate) fn invalidate_perf_cache(&mut self) {
         self.perf_cache.clear();
     }
@@ -3328,6 +3359,55 @@ mod tests {
         }
     }
 
+    /// Scenario: `fetch_time_stream` has reduced `time` through the `latlng`
+    /// mask since 2026-08-16, so a stream stored since then is positional to
+    /// the stored track. Every released 0.3.x stored the raw series, which
+    /// keeps the samples the coordinate mask drops and is longer than the
+    /// track by the number of unfixed ones. On the July export that is 587 of
+    /// 733 activities, and the lap times read off them are wrong: 728 laps off
+    /// by more than 2 s, p95 22 s, worst 1,043 s.
+    ///
+    /// Expected behaviour: the same length rule the detector's stream loader
+    /// and the scrubber's body builder already apply. A stream whose length
+    /// disagrees with its track is not in the track's index space, so it
+    /// cannot time a traversal at all.
+    #[test]
+    fn a_stream_that_is_not_the_track_length_times_nothing() {
+        use super::sections::compute_lap_time_from_stream;
+
+        let times: Vec<u32> = vec![0, 10, 20, 30, 40];
+
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), Some(5), 0, 3, 90.0).0,
+            Some(20.0),
+            "a stream the length of its track times the traversal"
+        );
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), Some(4), 0, 3, 90.0),
+            (None, None),
+            "one sample longer than the track is the pre-mask shape"
+        );
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), Some(6), 0, 3, 90.0),
+            (None, None),
+            "and shorter is no better"
+        );
+    }
+
+    /// The track length is not always knowable: an activity whose track row is
+    /// gone has none. That is not evidence the stream is misaligned, so the
+    /// bounds checks alone stand for it.
+    #[test]
+    fn an_unknown_track_length_still_times_the_traversal() {
+        use super::sections::compute_lap_time_from_stream;
+
+        let times: Vec<u32> = vec![0, 10, 20];
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), None, 0, 3, 90.0).0,
+            Some(20.0)
+        );
+    }
+
     /// Regression: `compute_lap_time_from_stream` handles the zero-span and
     /// missing-stream edge cases by returning `(None, None)` - never panics
     /// on out-of-bounds indices.
@@ -3337,25 +3417,25 @@ mod tests {
 
         // No stream available.
         assert_eq!(
-            compute_lap_time_from_stream(None, 0, 5, 100.0),
+            compute_lap_time_from_stream(None, None, 0, 5, 100.0),
             (None, None)
         );
 
         // Zero-duration traversal: `1..1` holds no points at all.
         let times: Vec<u32> = vec![10, 20, 30];
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 1, 1, 100.0),
+            compute_lap_time_from_stream(Some(&times), None, 1, 1, 100.0),
             (None, None)
         );
 
         // Out of bounds end_index.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 0, 99, 100.0),
+            compute_lap_time_from_stream(Some(&times), None, 0, 99, 100.0),
             (None, None)
         );
 
         // `0..2` is the points at 0 and 1, so 10s; 100m/10s = 10 m/s.
-        let (lap_time, lap_pace) = compute_lap_time_from_stream(Some(&times), 0, 2, 100.0);
+        let (lap_time, lap_pace) = compute_lap_time_from_stream(Some(&times), None, 0, 2, 100.0);
         assert_eq!(lap_time, Some(10.0));
         assert_eq!(lap_pace, Some(10.0));
     }
@@ -3371,37 +3451,37 @@ mod tests {
 
         // Ends on the last point: `0..10` on a ten-point track.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 0, times.len() as u32, 90.0),
+            compute_lap_time_from_stream(Some(&times), None, 0, times.len() as u32, 90.0),
             (Some(9.0), Some(10.0))
         );
 
         // Ends one short of it, and is a second shorter for it.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 0, times.len() as u32 - 1, 90.0).0,
+            compute_lap_time_from_stream(Some(&times), None, 0, times.len() as u32 - 1, 90.0).0,
             Some(8.0)
         );
 
         // A single-point portion spans no time.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 4, 5, 90.0),
+            compute_lap_time_from_stream(Some(&times), None, 4, 5, 90.0),
             (None, None)
         );
 
         // The placeholder row `create_section` writes, before a rescan fills it.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 0, 0, 0.0),
+            compute_lap_time_from_stream(Some(&times), None, 0, 0, 0.0),
             (None, None)
         );
 
         // One past the end of the track is not a lap, however long the stream is.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 0, times.len() as u32 + 1, 90.0),
+            compute_lap_time_from_stream(Some(&times), None, 0, times.len() as u32 + 1, 90.0),
             (None, None)
         );
 
         // A start beyond the stream is not a lap either.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 20, 25, 90.0),
+            compute_lap_time_from_stream(Some(&times), None, 20, 25, 90.0),
             (None, None)
         );
     }

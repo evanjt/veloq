@@ -49,9 +49,6 @@
       "config": {
         "usesNonExemptEncryption": false
       },
-      "associatedDomains": [
-        "applinks:intervals.icu"
-      ],
       "appStoreUrl": "https://apps.apple.com/us/app/veloq/id6757836732"
     },
     "android": {
@@ -82,6 +79,12 @@
       "bundler": "metro"
     },
     "plugins": [
+      [
+        "expo-camera",
+        {
+          "recordAudioAndroid": false
+        }
+      ],
       "./src/plugins/with-gradle-repositories",
       "./src/plugins/with-release-signing",
       "./src/plugins/with-packaging-options",

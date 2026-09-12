@@ -28,6 +28,36 @@ impl PersistentEngine {
         sport_type: &str,
         limit: u32,
     ) -> Vec<crate::FfiRankedSection> {
+        self.ranked_sections(sport_type, limit, None)
+    }
+
+    /// Ranked sections whose most recent traversal is at least
+    /// `stale_threshold_days` old.
+    ///
+    /// The stale-PR insight wanted these and had nothing to ask for them with, so
+    /// it took the whole ranked list for every sport with no limit and discarded
+    /// all but the stale ones. The cut belongs in the query: it is one traversal
+    /// join per sport per insights pass, and it grows with years of use rather
+    /// than with the window asked for.
+    ///
+    /// The bound is on each section's latest traversal, not on the rows, because
+    /// `best_time_secs` and the improvement signal are computed over every
+    /// traversal a section has. Filtering rows by date would change the times.
+    pub fn get_stale_ranked_sections(
+        &self,
+        sport_type: &str,
+        stale_threshold_days: u32,
+    ) -> Vec<crate::FfiRankedSection> {
+        let cutoff = Utc::now().timestamp() - i64::from(stale_threshold_days) * 86_400;
+        self.ranked_sections(sport_type, u32::MAX, Some(cutoff))
+    }
+
+    fn ranked_sections(
+        &self,
+        sport_type: &str,
+        limit: u32,
+        last_traversal_at_or_before: Option<i64>,
+    ) -> Vec<crate::FfiRankedSection> {
         let start = std::time::Instant::now();
 
         // Rank within one sport: a run's lap and a ride's over the same ground
@@ -39,17 +69,34 @@ impl PersistentEngine {
             activity_date: i64,
         }
 
-        let rows: Vec<TraversalRow> = {
-            let mut stmt = match self.db.prepare(
-                "SELECT s.id, s.name, sa.lap_time, am.date
+        // The same traversal join either way. With a cutoff it is narrowed to the
+        // sections whose newest traversal is already that old, by a GROUP BY over
+        // the same joins, so the rows that survive are every traversal of a stale
+        // section rather than the stale traversals of every section.
+        const TRAVERSALS: &str = "SELECT s.id, s.name, sa.lap_time, am.date
                  FROM sections s
                  JOIN section_activities sa ON s.id = sa.section_id
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
                  JOIN activities a ON sa.activity_id = a.id
                  WHERE a.sport_type = ? AND sa.excluded = 0 AND sa.lap_time IS NOT NULL
-                   AND s.disabled = 0 AND s.superseded_by IS NULL
-                 ORDER BY s.id, am.date ASC",
-            ) {
+                   AND s.disabled = 0 AND s.superseded_by IS NULL";
+        let stale_clause = " AND s.id IN (
+                     SELECT sa2.section_id
+                     FROM section_activities sa2
+                     JOIN activity_metrics am2 ON sa2.activity_id = am2.activity_id
+                     JOIN activities a2 ON sa2.activity_id = a2.id
+                     WHERE a2.sport_type = ? AND sa2.excluded = 0
+                       AND sa2.lap_time IS NOT NULL
+                     GROUP BY sa2.section_id
+                     HAVING MAX(am2.date) <= ?
+                 )";
+        let sql = match last_traversal_at_or_before {
+            Some(_) => format!("{}{} ORDER BY s.id, am.date ASC", TRAVERSALS, stale_clause),
+            None => format!("{} ORDER BY s.id, am.date ASC", TRAVERSALS),
+        };
+
+        let rows: Vec<TraversalRow> = {
+            let mut stmt = match self.db.prepare(&sql) {
                 Ok(s) => s,
                 Err(e) => {
                     log::error!("veloqrs: [RankedSections] Failed to prepare query: {}", e);
@@ -57,7 +104,12 @@ impl PersistentEngine {
                 }
             };
 
-            match stmt.query_map(rusqlite::params![sport_type], |row| {
+            let params: Vec<&dyn rusqlite::types::ToSql> = match &last_traversal_at_or_before {
+                Some(cutoff) => vec![&sport_type, &sport_type, cutoff],
+                None => vec![&sport_type],
+            };
+
+            match stmt.query_map(params.as_slice(), |row| {
                 Ok(TraversalRow {
                     section_id: row.get(0)?,
                     section_name: row.get::<_, Option<String>>(1)?.unwrap_or_default(),

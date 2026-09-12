@@ -12,6 +12,7 @@
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
 
 const mockSettings = { getSetting: jest.fn(), setSetting: jest.fn() };
+const mockHeatmap = { setTilesPath: jest.fn(), clearTilesPath: jest.fn() };
 const mockNativeEngine = {
   isInitialized: () => true,
   initOutcome: () => 1,
@@ -20,6 +21,7 @@ const mockNativeEngine = {
   pollClearAll: jest.fn(() => 'complete'),
   destroy: jest.fn(),
   settings: () => mockSettings,
+  heatmap: () => mockHeatmap,
 };
 const mockCreate = jest.fn((_dbPath: string) => mockNativeEngine);
 
@@ -102,6 +104,40 @@ describe('EngineClient.clear', () => {
     client.setSetting('__athlete_id', 'a-99');
 
     expect(client.getSetting('__athlete_id')).toBe('a-99');
+  });
+
+  /**
+   * Scenario: the tiles path lives only in the engine's memory, and a clear
+   * destroys the engine and opens a new one. `enableHeatmapTiles` is called
+   * from the layout's post-init block, which does not run again for a clear
+   * mid-session, so afterwards the path was unset: `mark_heatmap_dirty`
+   * returned early, generation did nothing, and the next launch reported the
+   * previous library's tiles up to date and served them.
+   *
+   * Expected behaviour: the re-open re-applies whatever the athlete last chose,
+   * so the engine that comes back is the one that went away.
+   */
+  it('re-applies the heatmap tiles path the athlete had enabled', async () => {
+    const client = openClient();
+    client.enableHeatmapTiles();
+    const path = mockHeatmap.setTilesPath.mock.calls[0][0];
+    mockHeatmap.setTilesPath.mockClear();
+
+    await client.clear();
+
+    expect(mockHeatmap.setTilesPath).toHaveBeenCalledWith(path);
+  });
+
+  /** And leaves it off for an athlete who turned it off. */
+  it('does not turn the heatmap back on for an athlete who turned it off', async () => {
+    const client = openClient();
+    client.enableHeatmapTiles();
+    client.disableHeatmapTiles();
+    mockHeatmap.setTilesPath.mockClear();
+
+    await client.clear();
+
+    expect(mockHeatmap.setTilesPath).not.toHaveBeenCalled();
   });
 
   it('re-registers the observer, so the reopened engine still announces', async () => {

@@ -69,6 +69,9 @@ function makeRaw(overrides: Partial<RawWidgetData> = {}): RawWidgetData {
     locale: 'en-AU',
     isMetric: true,
     nowSeconds: NOW,
+    // The two clocks agree at offset zero, which is the case this fixture was
+    // written for. `widgetSnapshotClock.test.ts` covers the ones that differ.
+    nowWallSeconds: NOW,
     translate,
     ...overrides,
   };
@@ -243,6 +246,7 @@ describe('composeSnapshot', () => {
       locale: 'en-US',
       isMetric: true,
       nowSeconds: NOW,
+      nowWallSeconds: NOW,
     });
     expect(s.metrics.form).toEqual({ value: 0, trendDir: 'flat', zone: 'greyZone' });
     expect(s.metrics.rampRate.value).toBe(0);

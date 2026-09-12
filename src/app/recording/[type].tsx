@@ -146,6 +146,21 @@ export default function RecordingScreen() {
 
   // In-place tile customisation (long-press a tile while unlocked)
   const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null);
+
+  // Stable handles for the memoised children below. An arrow written at the
+  // call site is a new function on every render, and this screen renders every
+  // second while the timer runs, so `React.memo` on those children could never
+  // hold against one. The two padding objects are the same story: a fresh
+  // object literal per render is a changed prop.
+  const openTypePicker = useCallback(() => setShowTypePicker(true), [setShowTypePicker]);
+  const openRoutePicker = useCallback(() => setShowRoutePicker(true), []);
+  const dismissGpsWarning = useCallback(() => setGpsWarning(null), [setGpsWarning]);
+  const bottomPadding = insets.bottom + TAB_BAR_SAFE_PADDING;
+  const unlockTrackStyle = useMemo(
+    () => ({ paddingTop: spacing.sm, paddingBottom: bottomPadding }),
+    [bottomPadding]
+  );
+  const controlBarStyle = useMemo(() => ({ paddingBottom: bottomPadding }), [bottomPadding]);
   const effectiveFields = useMemo(
     () =>
       dataFields ??
@@ -225,7 +240,7 @@ export default function RecordingScreen() {
         textPrimary={textPrimary}
         textSecondary={textSecondary}
         border={border}
-        onOpenTypePicker={() => setShowTypePicker(true)}
+        onOpenTypePicker={openTypePicker}
         onLock={lock}
       />
 
@@ -236,7 +251,7 @@ export default function RecordingScreen() {
         gpsWarning={gpsWarning}
         sensorIssue={sensorIssue}
         splitBanner={splitBanner}
-        onDismissGpsWarning={() => setGpsWarning(null)}
+        onDismissGpsWarning={dismissGpsWarning}
       />
 
       {/* Main Content Area */}
@@ -246,7 +261,7 @@ export default function RecordingScreen() {
             coordinates={coordinates}
             currentLocation={currentLocation}
             routeOverlay={overlayPoints}
-            onOpenRoutePicker={() => setShowRoutePicker(true)}
+            onOpenRoutePicker={openRoutePicker}
             style={styles.map}
           />
         ) : (
@@ -266,14 +281,12 @@ export default function RecordingScreen() {
         metrics={metrics}
         isMetric={isMetric}
         hrZone={hrZone}
-        onLongPressField={isLocked ? undefined : (index) => setEditingFieldIndex(index)}
+        onLongPressField={isLocked ? undefined : setEditingFieldIndex}
       />
 
       {/* Controls, or the unlock track while locked */}
       {isLocked ? (
-        <View
-          style={{ paddingTop: spacing.sm, paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }}
-        >
+        <View style={unlockTrackStyle}>
           <UnlockTrack onUnlock={unlock} />
         </View>
       ) : (
@@ -284,7 +297,7 @@ export default function RecordingScreen() {
           onResume={handleResume}
           onStop={handleStop}
           onLap={handleLap}
-          style={{ paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }}
+          style={controlBarStyle}
         />
       )}
 

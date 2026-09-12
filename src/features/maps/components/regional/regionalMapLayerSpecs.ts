@@ -17,6 +17,7 @@ export const CLUSTER_CIRCLE_LAYER_ID = 'cluster-circles';
 export const UNCLUSTERED_POINT_LAYER_ID = 'unclustered-point';
 export const SPIDER_POINT_LAYER_ID = 'spider-points';
 export const SECTIONS_LINE_LAYER_ID = 'sections-line';
+export const TRACES_LINE_LAYER_ID = 'activity-traces-line';
 
 /** Tap precedence: the fanned-out markers sit above everything else. */
 export const REGIONAL_INTERACTIVE_LAYERS = [
@@ -128,6 +129,30 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
   }
 
   layers.push(
+    {
+      // The athlete's own lines, under the sections and the markers so neither
+      // is obscured. The source was declared and uploaded from the start and no
+      // layer read it, so the traces were tiled and never painted.
+      //
+      // It comes in at the zoom the start points already call tight enough to
+      // show traces, because below that the lines are a smear: the builder puts
+      // every activity in the window into one FeatureCollection.
+      id: TRACES_LINE_LAYER_ID,
+      type: 'line',
+      source: 'activity-traces',
+      minzoom: TRACE_ZOOM_THRESHOLD,
+      layout: {
+        'line-cap': 'round',
+        'line-join': 'round',
+        visibility: showActivities ? 'visible' : 'none',
+      },
+      paint: {
+        'line-color': ['get', 'color'],
+        'line-width': ['interpolate', ['linear'], ['zoom'], TRACE_ZOOM_THRESHOLD, 1.2, 18, 3],
+        'line-opacity': showActivities ? 0.7 : 0,
+      },
+      visible: showActivities,
+    },
     {
       id: 'sections-outline',
       type: 'line',

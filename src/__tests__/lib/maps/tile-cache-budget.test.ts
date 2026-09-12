@@ -115,8 +115,28 @@ describe('lowering the budget', () => {
     return { cache, win };
   }
 
+  /** Let the page's own load-time pass finish, so a case sees only its trigger. */
+  async function settled(cache: CacheStub): Promise<void> {
+    await new Promise(process.nextTick);
+    cache.delete.mockClear();
+  }
+
+  /**
+   * A page opening over a cache the previous session left above the ceiling
+   * would otherwise sit there until its fiftieth insert, which on a map the
+   * athlete only pans is a long time.
+   */
+  it('evicts once on load, without waiting for an insert', async () => {
+    const { cache } = runPage(cacheEvictionScript(60));
+
+    await new Promise(process.nextTick);
+
+    expect(cache.delete).toHaveBeenCalled();
+  });
+
   it('evicts down to the new ceiling as soon as it is set', async () => {
     const { cache, win } = runPage(cacheEvictionScript());
+    await settled(cache);
     const setBudgets = win._veloqSetCacheBudgets as (b: Record<string, number>) => void;
     expect(setBudgets).toBeInstanceOf(Function);
 
@@ -128,6 +148,7 @@ describe('lowering the budget', () => {
 
   it('deletes nothing when the cache is already under the new ceiling', async () => {
     const { cache, win } = runPage(cacheEvictionScript());
+    await settled(cache);
     (win._veloqSetCacheBudgets as (b: Record<string, number>) => void)({
       'veloq-satellite-v1': 400 * MB,
     });

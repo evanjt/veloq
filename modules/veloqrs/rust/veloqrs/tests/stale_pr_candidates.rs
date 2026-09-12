@@ -153,3 +153,77 @@ fn the_stale_candidate_carries_the_age_the_gate_needs() {
     );
     assert_eq!(neglected.traversal_count, 3);
 }
+
+/// The stale-PR path took the whole ranked list for every sport and kept the few
+/// stale ones. Asking the query for the stale ones returns the same candidate
+/// without walking the other hundred and twenty.
+#[test]
+fn the_stale_query_returns_only_the_stale_section() {
+    let (engine, _tmp) = seeded();
+
+    let stale: Vec<String> = engine
+        .get_stale_ranked_sections(SPORT, 30)
+        .into_iter()
+        .map(|s| s.section_id)
+        .collect();
+
+    assert_eq!(
+        stale,
+        vec![NEGLECTED.to_string()],
+        "only the year-old section is stale at a thirty day threshold"
+    );
+}
+
+/// The bound is on each section's newest traversal, not on the rows, because the
+/// best time and the improvement signal are computed over every traversal a
+/// section has. A row-level date filter would silently change the times.
+#[test]
+fn the_stale_section_keeps_every_one_of_its_traversals() {
+    let (engine, _tmp) = seeded();
+
+    let stale = engine.get_stale_ranked_sections(SPORT, 30);
+    let neglected = stale
+        .iter()
+        .find(|s| s.section_id == NEGLECTED)
+        .expect("the neglected section is the stale one");
+
+    let uncapped = engine.get_ranked_sections(SPORT, u32::MAX);
+    let same = uncapped
+        .iter()
+        .find(|s| s.section_id == NEGLECTED)
+        .expect("and it is in the full ranking too");
+
+    assert_eq!(neglected.traversal_count, 3, "all three traversals counted");
+    assert_eq!(neglected.traversal_count, same.traversal_count);
+    assert!((neglected.best_time_secs - same.best_time_secs).abs() < 1e-9);
+    assert_eq!(neglected.days_since_last, same.days_since_last);
+}
+
+#[test]
+fn a_threshold_nothing_meets_returns_nothing() {
+    let (engine, _tmp) = seeded();
+
+    assert!(
+        engine.get_stale_ranked_sections(SPORT, 1000).is_empty(),
+        "no section has been idle for a thousand days"
+    );
+}
+
+/// A threshold of zero is every section, which is the whole ranked list. This
+/// pins that the narrowing is a filter and not a different query.
+#[test]
+fn a_zero_threshold_is_every_section() {
+    let (engine, _tmp) = seeded();
+
+    assert_eq!(
+        engine.get_stale_ranked_sections(SPORT, 0).len(),
+        engine.get_ranked_sections(SPORT, u32::MAX).len()
+    );
+}
+
+#[test]
+fn the_stale_query_answers_nothing_for_a_sport_with_no_sections() {
+    let (engine, _tmp) = seeded();
+
+    assert!(engine.get_stale_ranked_sections("Swim", 30).is_empty());
+}

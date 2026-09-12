@@ -131,3 +131,6 @@ modules/veloqrs/rust/veloqrs/tests/fixtures/private/
 # Copied from widget/ios by src/plugins/with-ios-widget.js so the app process and the
 # widget extension compile one Live Activity contract. Tracked in widget/ios only.
 modules/veloq-live-activity/ios/RecordingActivity*.swift
+
+# Maestro JUnit reports, written by a run and never read back.
+maestro-*-retest.xml

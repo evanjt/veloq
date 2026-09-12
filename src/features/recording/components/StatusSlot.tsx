@@ -20,7 +20,7 @@ interface StatusSlotProps extends StatusSlotInput {
   onDismissGpsWarning: () => void;
 }
 
-export function StatusSlot({
+function StatusSlotInner({
   backgroundTrackingWarning,
   gpsWarning,
   sensorIssue,
@@ -138,3 +138,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+
+/**
+ * The recording screen re-renders every second while the timer runs, so the
+ * parts of it that do not change with the clock are held here.
+ */
+export const StatusSlot = React.memo(StatusSlotInner);

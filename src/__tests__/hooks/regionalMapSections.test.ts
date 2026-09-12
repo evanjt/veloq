@@ -50,7 +50,7 @@ function makeSection(overrides: Partial<MapSection> = {}): MapSection {
 function buildArgs(sections: MapSection[]): Parameters<typeof useMapGeoJSON>[0] {
   return {
     allActivities: [],
-    visibleActivities: [],
+    traceActivities: [],
     activityCenters: {},
     routeSignatures: {},
     sections,

@@ -58,6 +58,21 @@ pub struct StreamGap {
     pub point_count: usize,
 }
 
+/// The window decision on its own, so a caller filtering a whole sync reads
+/// the setting once and takes the clock once rather than doing both per row.
+///
+/// `days` is `None` for keep everything, which is [`PersistentEngine::stream_retention_days`]'s
+/// own reading of an unset or unusable setting.
+pub fn inside_stream_window_at(days: Option<i64>, now: i64, start_date: Option<i64>) -> bool {
+    let Some(days) = days else {
+        return true;
+    };
+    let Some(start) = start_date else {
+        return false;
+    };
+    start >= now - days * 86_400
+}
+
 impl PersistentEngine {
     /// The retention window in days, or `None` for keep everything. An unset,
     /// unparseable or negative value reads as the default, which keeps
@@ -101,14 +116,11 @@ impl PersistentEngine {
     /// call's prune takes it straight back out, which is the window doing what
     /// it was set to do. The screen still draws it, off the cached body.
     pub fn inside_stream_window(&self, start_date: Option<i64>) -> bool {
-        let Some(days) = self.stream_retention_days() else {
-            return true;
-        };
-        let Some(start) = start_date else {
-            return false;
-        };
-        let now = chrono::Utc::now().timestamp();
-        start >= now - days * 86_400
+        inside_stream_window_at(
+            self.stream_retention_days(),
+            chrono::Utc::now().timestamp(),
+            start_date,
+        )
     }
 
     /// Store the series of one activity, replacing whatever it held. Series the
@@ -309,6 +321,34 @@ mod tests {
     /// SQLite scans the whole `activities` table once per stored activity, so a
     /// 500-activity sync into a 5,000-activity library scans 2.5 million rows
     /// it does not need, all of it holding the lock every screen read waits on.
+    /// Scenario: a sync filters every fetched activity through the retention
+    /// window. The setting and the clock are now read once for the batch, so
+    /// the decision is pinned here on its own.
+    #[test]
+    fn the_window_decision_reads_a_day_boundary_the_same_way_whoever_asks() {
+        use super::inside_stream_window_at;
+        let now = 1_700_000_000;
+        let edge = now - 90 * 86_400;
+
+        assert!(inside_stream_window_at(Some(90), now, Some(edge)));
+        assert!(inside_stream_window_at(Some(90), now, Some(edge + 1)));
+        assert!(!inside_stream_window_at(Some(90), now, Some(edge - 1)));
+    }
+
+    /// No window keeps everything, an undated activity is outside any window,
+    /// and a zero window is no window rather than nothing at all.
+    #[test]
+    fn the_window_decision_keeps_everything_when_there_is_no_window() {
+        use super::inside_stream_window_at;
+        let now = 1_700_000_000;
+
+        assert!(inside_stream_window_at(None, now, Some(0)));
+        assert!(inside_stream_window_at(None, now, None));
+        assert!(!inside_stream_window_at(Some(90), now, None));
+        assert!(inside_stream_window_at(Some(0), now, Some(now)));
+        assert!(!inside_stream_window_at(Some(0), now, Some(now - 1)));
+    }
+
     #[test]
     fn the_retention_prune_does_not_scan_every_activity() {
         let (_dir, engine) = engine();

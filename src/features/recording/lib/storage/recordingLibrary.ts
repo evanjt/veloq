@@ -82,13 +82,23 @@ async function ensureRecordingsDir(): Promise<void> {
 const BACKOFF_BASE_MS = 30_000;
 const BACKOFF_CAP_MS = 60 * 60 * 1000;
 
+/**
+ * How many bytes go through `String.fromCharCode` at once. Small enough to
+ * stay inside the argument limit, large enough that a multi-megabyte FIT is
+ * a few hundred joins rather than a few million.
+ */
+const BASE64_CHUNK = 8192;
+
 export function bufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  // Built per chunk and joined once. Appending a character at a time
+  // reallocated the string on every byte of a long ride's FIT file, on the
+  // JS thread while the athlete waits on the save.
+  const chunks: string[] = [];
+  for (let i = 0; i < bytes.length; i += BASE64_CHUNK) {
+    chunks.push(String.fromCharCode(...bytes.subarray(i, i + BASE64_CHUNK)));
   }
-  return btoa(binary);
+  return btoa(chunks.join(''));
 }
 
 export function base64ToBuffer(base64: string): ArrayBuffer {

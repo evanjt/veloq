@@ -65,7 +65,7 @@ impl HeatmapManager {
     fn poll(&self) -> Result<String, VeloqError> {
         let mut handle_guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
             .lock()
-            .map_err(|_| VeloqError::LockFailed)?;
+            .unwrap_or_else(|e| e.into_inner());
 
         if handle_guard.is_none() {
             return Ok("idle".to_string());
@@ -99,7 +99,7 @@ impl HeatmapManager {
 
         if let Some(handle) = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
             .lock()
-            .map_err(|_| VeloqError::LockFailed)?
+            .unwrap_or_else(|e| e.into_inner())
             .as_ref()
         {
             handle.cancel();
@@ -111,7 +111,7 @@ impl HeatmapManager {
         // the caller is waiting to read.
         if let Some(token) = crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL
             .lock()
-            .map_err(|_| VeloqError::LockFailed)?
+            .unwrap_or_else(|e| e.into_inner())
             .as_ref()
         {
             token.cancel();
@@ -125,7 +125,7 @@ impl HeatmapManager {
     fn get_progress(&self) -> Result<Vec<u32>, VeloqError> {
         let handle_guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
             .lock()
-            .map_err(|_| VeloqError::LockFailed)?;
+            .unwrap_or_else(|e| e.into_inner());
 
         match handle_guard.as_ref() {
             Some(handle) => {
@@ -171,6 +171,42 @@ mod tests {
         assert_eq!(heatmap.clear_tiles(base_str.clone()).unwrap(), 1);
         assert_eq!(heatmap.get_cache_size(base_str).unwrap(), 0);
         heatmap.clear_tiles_path().unwrap();
+    }
+
+    /// Scenario: a panic inside a tile job poisons the handle or the sweep
+    /// cancel slot, and both were read with `map_err(|_| LockFailed)`. Every
+    /// later call answered `LockFailed`, so heatmap generation was over for the
+    /// life of the process. Every other slot in this file already recovers.
+    ///
+    /// Expected behaviour: a poisoned lock is taken anyway, the same way the
+    /// engine's other failover paths take theirs.
+    #[test]
+    fn a_poisoned_tile_lock_is_recovered_rather_than_reported_forever() {
+        let _guard = serial_global_state();
+        let heatmap = HeatmapManager::new();
+        *crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+
+        // Poison both slots the way a panicking tile job would.
+        let _ = std::panic::catch_unwind(|| {
+            let _held = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock();
+            panic!("a tile job unwound");
+        });
+        let _ = std::panic::catch_unwind(|| {
+            let _held = crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL.lock();
+            panic!("a sweep unwound");
+        });
+        assert!(
+            crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
+                .lock()
+                .is_err(),
+            "the slot has to be poisoned for this to test anything"
+        );
+
+        assert_eq!(heatmap.poll().unwrap(), "idle");
+        assert_eq!(heatmap.get_progress().unwrap(), vec![0, 0]);
+        assert!(!heatmap.cancel().unwrap(), "nothing was running to stop");
     }
 
     #[test]

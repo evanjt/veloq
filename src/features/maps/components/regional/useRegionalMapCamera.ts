@@ -161,23 +161,31 @@ export function useRegionalMapCamera({
     []
   );
 
-  // Set initial bounds once when we first have activities
-  // This prevents the zoom from jumping during background sync
-  useEffect(() => {
-    if (initialBoundsRef.current === null && activities.length > 0) {
-      initialBoundsRef.current = calculateBoundsAndCenter(activities);
-    }
-  }, [activities, calculateBoundsAndCenter]);
-
-  // Compute center from current activities (always uses most recent activity).
-  // Memoized to avoid creating new references on every render, which would trigger
-  // cascading re-renders → spurious regionDidChange on Android → snapback.
-  const currentData = useMemo(
-    () => calculateBoundsAndCenter(activities),
-    [activities, calculateBoundsAndCenter]
+  // The bounds, once, from the first activities this hook is given anything in.
+  //
+  // Keyed on whether there are any rather than on the list, so a background
+  // sync landing while the map is open does not recompute them. Each pass
+  // walks the whole library three times and bins every centre, and the answer
+  // is only ever read while it is the first one: the camera should not jump
+  // mid-sync either.
+  const hasActivities = activities.length > 0;
+  const initialBounds = useMemo(
+    () => (hasActivities ? calculateBoundsAndCenter(activities) : null),
+    // `activities` is deliberately not a dep. See above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hasActivities, calculateBoundsAndCenter]
   );
-  const cachedData = initialBoundsRef.current;
-  const mapCenter = currentData?.center ?? cachedData?.center ?? null;
+
+  // The same value where a callback or an effect can read it, which is the only
+  // place a ref may be read.
+  useEffect(() => {
+    initialBoundsRef.current = initialBounds;
+  }, [initialBounds]);
+
+  // Nothing reads a later centre: the three consumers (`currentCenterRef`, the
+  // satellite attribution camera and the surface's `initialCenter`) each take
+  // it once, while it is still the first one.
+  const mapCenter = initialBounds?.center ?? null;
 
   // Initialize currentCenterRef from mapCenter (no re-render needed)
   useEffect(() => {
@@ -186,13 +194,11 @@ export function useRegionalMapCamera({
     }
   }, [mapCenter]);
 
-  // Stable refs so markUserInteracted (a useCallback with no deps) can access current values.
-  // Avoids adding activities/calculateBoundsAndCenter as deps, which would recreate the callback
+  // A stable ref so markUserInteracted (a useCallback with no deps) can read
+  // the current list. Adding `activities` as a dep would recreate the callback
   // on every render and destabilise handleRegionDidChange in useMapHandlers.
   const activitiesRef = useRef(activities);
   activitiesRef.current = activities;
-  const calculateBoundsRef = useRef(calculateBoundsAndCenter);
-  calculateBoundsRef.current = calculateBoundsAndCenter;
 
   /** Apply the computed camera position - fit all activities with padding. */
   const applyPosition = useCallback(
@@ -235,7 +241,7 @@ export function useRegionalMapCamera({
       setHasCameraSettled(true);
 
       if (!hasAutoRepositionedRef.current && activitiesRef.current.length > 0) {
-        const data = calculateBoundsRef.current(activitiesRef.current);
+        const data = initialBoundsRef.current;
         if (data) {
           applyPosition(data);
         }
@@ -252,11 +258,11 @@ export function useRegionalMapCamera({
     if (hasAutoRepositionedRef.current) return;
     if (activities.length === 0) return;
 
-    const data = calculateBoundsAndCenter(activities);
+    const data = initialBoundsRef.current;
     if (!data) return;
 
     applyPosition(data);
-  }, [activities, hasCameraSettled, calculateBoundsAndCenter, applyPosition]);
+  }, [activities, hasCameraSettled, applyPosition]);
 
   return {
     activityCenters,

@@ -82,7 +82,16 @@ function runPage(
     cacheContents: new Map(),
   };
   const seeded = new Map<string, object>();
-  seed.forEach((url) => seeded.set(url, { seeded: true }));
+  // A real Cache entry carries headers, and the page's own eviction pass reads
+  // content-length off them on load, so a bare marker object is not a stand-in
+  // for one.
+  seed.forEach((url) =>
+    seeded.set(url, {
+      seeded: true,
+      headers: { get: () => '1024' },
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(1024)),
+    })
+  );
   recorder.cacheContents.set(TERRAIN_CACHE, seeded);
 
   const posted: { type: string }[] = [];

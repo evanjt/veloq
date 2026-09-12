@@ -643,23 +643,35 @@ impl PersistentEngine {
         })
     }
 
-    /// The first and last fix of every stored track.
+    /// The first and last fix of every stored track, as columns.
+    ///
+    /// `signatures` holds both endpoints already, and the privacy preview this
+    /// suggestion is offered for reads them from there, so reading the same
+    /// rows keeps the suggestion and the trim looking at one set of
+    /// activities. Decoding every `gps_tracks` blob instead was a full-table
+    /// decode from a settings-row mount, for two points a row.
     fn track_endpoints(&self) -> Vec<(f64, f64)> {
-        let Ok(mut stmt) = self.db.prepare("SELECT track_data FROM gps_tracks") else {
+        let Ok(mut stmt) = self.db.prepare(
+            "SELECT s.start_point_lat, s.start_point_lng, s.end_point_lat, s.end_point_lng
+             FROM signatures s
+             JOIN gps_tracks g ON g.activity_id = s.activity_id",
+        ) else {
             return Vec::new();
         };
-        let Ok(rows) = stmt.query_map([], |row| row.get::<_, Vec<u8>>(0)) else {
+        let Ok(rows) = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, f64>(0)?,
+                row.get::<_, f64>(1)?,
+                row.get::<_, f64>(2)?,
+                row.get::<_, f64>(3)?,
+            ))
+        }) else {
             return Vec::new();
         };
         let mut out = Vec::new();
-        for blob in rows.flatten() {
-            let TrackRead::Present(points) = TrackRead::from_blob(&blob) else {
-                continue;
-            };
-            if let (Some(first), Some(last)) = (points.first(), points.last()) {
-                out.push((first.latitude, first.longitude));
-                out.push((last.latitude, last.longitude));
-            }
+        for (start_lat, start_lng, end_lat, end_lng) in rows.flatten() {
+            out.push((start_lat, start_lng));
+            out.push((end_lat, end_lng));
         }
         out
     }
@@ -719,6 +731,39 @@ mod suggested_home_tests {
         assert!(metres < 100.0, "the suggestion is {metres} m from the door");
         assert_eq!(home.activity_count, 8, "both ends of all four rides");
         assert!(home.endpoint_share > 0.9);
+    }
+
+    /// The suggestion and the trim it is offered for now read the same rows,
+    /// so an activity the trim cannot see cannot pull the suggested door.
+    #[test]
+    fn an_activity_with_no_signature_does_not_move_the_suggestion() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine(&dir);
+        for (i, offset) in [5.0, 20.0, 40.0, 15.0].iter().enumerate() {
+            engine
+                .add_activity(
+                    format!("ride{i}"),
+                    vec![near_home(*offset), away(3.0), near_home(offset + 10.0)],
+                    "Ride".into(),
+                )
+                .expect("add");
+        }
+        engine
+            .add_activity(
+                "elsewhere".into(),
+                vec![away(40.0), away(41.0), away(40.5)],
+                "Ride".into(),
+            )
+            .expect("add");
+        engine
+            .db
+            .execute("DELETE FROM signatures WHERE activity_id = 'elsewhere'", [])
+            .unwrap();
+
+        let home = engine.suggest_export_home().expect("a home to confirm");
+
+        assert_eq!(home.activity_count, 8, "both ends of the four signed rides");
+        assert!(home.endpoint_share > 0.9, "and nothing else counted");
     }
 
     #[test]

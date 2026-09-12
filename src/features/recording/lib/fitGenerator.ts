@@ -91,16 +91,35 @@ const CRC_TABLE = new Uint16Array([
   0x5000, 0x9c01, 0x8801, 0x4400,
 ]);
 
+/** Enough for a short ride's header and definitions before the first grow. */
+const INITIAL_CAPACITY = 4096;
+
 /**
  * Minimal FIT binary writer.
  * Builds FIT file byte-by-byte with definition and data messages.
  */
 class FitWriter {
-  private buffer: number[] = [];
+  /**
+   * The file so far. A `number[]` pushed one element at a time cost a boxed
+   * slot per byte, and a five-hour ride is megabytes of them, all built on the
+   * JS thread while the athlete waits on the save.
+   */
+  private bytes = new Uint8Array(INITIAL_CAPACITY);
+  private length = 0;
   private dataSize = 0;
 
+  private push(value: number): void {
+    if (this.length === this.bytes.length) {
+      const grown = new Uint8Array(this.bytes.length * 2);
+      grown.set(this.bytes);
+      this.bytes = grown;
+    }
+    this.bytes[this.length] = value & 0xff;
+    this.length += 1;
+  }
+
   writeUint8(value: number): void {
-    this.buffer.push(value & 0xff);
+    this.push(value);
     this.dataSize++;
   }
 
@@ -129,7 +148,7 @@ class FitWriter {
 
   writeHeader(): void {
     for (let i = 0; i < FIT_HEADER_SIZE; i++) {
-      this.buffer.push(0);
+      this.push(0);
     }
     this.dataSize = 0;
   }
@@ -155,7 +174,7 @@ class FitWriter {
     this.writeUint8(localMesgType & 0x0f);
   }
 
-  computeCrc(data: number[]): number {
+  computeCrc(data: Uint8Array): number {
     let crc = 0;
     for (const byte of data) {
       crc = (crc >> 4) ^ CRC_TABLE[(crc ^ byte) & 0x0f];
@@ -167,28 +186,28 @@ class FitWriter {
   toArrayBuffer(): ArrayBuffer {
     const profileVersion = PROFILE_VERSION_MAJOR * 100 + PROFILE_VERSION_MINOR;
 
-    this.buffer[0] = FIT_HEADER_SIZE;
-    this.buffer[1] = PROTOCOL_VERSION;
-    this.buffer[2] = profileVersion & 0xff;
-    this.buffer[3] = (profileVersion >> 8) & 0xff;
-    this.buffer[4] = this.dataSize & 0xff;
-    this.buffer[5] = (this.dataSize >> 8) & 0xff;
-    this.buffer[6] = (this.dataSize >> 16) & 0xff;
-    this.buffer[7] = (this.dataSize >> 24) & 0xff;
-    this.buffer[8] = FIT_SIGNATURE[0];
-    this.buffer[9] = FIT_SIGNATURE[1];
-    this.buffer[10] = FIT_SIGNATURE[2];
-    this.buffer[11] = FIT_SIGNATURE[3];
+    this.bytes[0] = FIT_HEADER_SIZE;
+    this.bytes[1] = PROTOCOL_VERSION;
+    this.bytes[2] = profileVersion & 0xff;
+    this.bytes[3] = (profileVersion >> 8) & 0xff;
+    this.bytes[4] = this.dataSize & 0xff;
+    this.bytes[5] = (this.dataSize >> 8) & 0xff;
+    this.bytes[6] = (this.dataSize >> 16) & 0xff;
+    this.bytes[7] = (this.dataSize >> 24) & 0xff;
+    this.bytes[8] = FIT_SIGNATURE[0];
+    this.bytes[9] = FIT_SIGNATURE[1];
+    this.bytes[10] = FIT_SIGNATURE[2];
+    this.bytes[11] = FIT_SIGNATURE[3];
 
-    const headerCrc = this.computeCrc(this.buffer.slice(0, 12));
-    this.buffer[12] = headerCrc & 0xff;
-    this.buffer[13] = (headerCrc >> 8) & 0xff;
+    const headerCrc = this.computeCrc(this.bytes.subarray(0, 12));
+    this.bytes[12] = headerCrc & 0xff;
+    this.bytes[13] = (headerCrc >> 8) & 0xff;
 
-    const dataCrc = this.computeCrc(this.buffer.slice(FIT_HEADER_SIZE));
-    this.buffer.push(dataCrc & 0xff);
-    this.buffer.push((dataCrc >> 8) & 0xff);
+    const dataCrc = this.computeCrc(this.bytes.subarray(FIT_HEADER_SIZE, this.length));
+    this.push(dataCrc & 0xff);
+    this.push((dataCrc >> 8) & 0xff);
 
-    return new Uint8Array(this.buffer).buffer;
+    return this.bytes.slice(0, this.length).buffer;
   }
 }
 

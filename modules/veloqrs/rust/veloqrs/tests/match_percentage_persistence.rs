@@ -199,3 +199,51 @@ fn save_groups_failure_preserves_previous_rows() {
         "a failed save_groups must not wipe activity_matches"
     );
 }
+
+/// Scenario: the grouping algorithm adds members transitively and only records
+/// match info for the pairs it compared, so a member can reach a group with no
+/// `activity_matches` row. The load backfills one.
+///
+/// Expected behaviour: the missing row comes back at the default, and a row
+/// that already carries a real percentage is left exactly as it stands.
+#[test]
+fn the_member_backfill_fills_gaps_without_touching_what_is_there() {
+    let (mut engine, dir) = setup_engine(5);
+    let groups = engine.get_groups();
+    let group = groups.first().expect("one group").clone();
+    assert!(group.activity_ids.len() >= 2, "need a group with members");
+
+    let kept = group.activity_ids[0].clone();
+    let dropped = group.activity_ids[1].clone();
+    let conn = rusqlite::Connection::open(dir.path().join("test.db")).unwrap();
+    conn.execute(
+        "UPDATE activity_matches SET match_percentage = 87.5
+         WHERE route_id = ? AND activity_id = ?",
+        params![&group.group_id, &kept],
+    )
+    .unwrap();
+    conn.execute(
+        "DELETE FROM activity_matches WHERE route_id = ? AND activity_id = ?",
+        params![&group.group_id, &dropped],
+    )
+    .unwrap();
+
+    engine.reload_groups_from_db();
+
+    let percentage = |activity_id: &str| -> f64 {
+        conn.query_row(
+            "SELECT match_percentage FROM activity_matches
+             WHERE route_id = ? AND activity_id = ?",
+            params![&group.group_id, activity_id],
+            |row| row.get(0),
+        )
+        .unwrap()
+    };
+
+    assert_eq!(percentage(&dropped), 0.0, "the missing row is backfilled");
+    assert_eq!(
+        percentage(&kept),
+        87.5,
+        "a real percentage is not overwritten"
+    );
+}

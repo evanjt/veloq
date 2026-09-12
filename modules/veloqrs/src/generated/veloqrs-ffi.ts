@@ -564,6 +564,7 @@ interface NativeModuleInterface {
     prevStart: bigint,
     prevEnd: bigint,
     sparklineDays: number,
+    maxGpsPoints: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_zone_distribution(
@@ -1267,6 +1268,12 @@ interface NativeModuleInterface {
     ptr: bigint,
     sectionId: Uint8Array,
     version: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_is_lift(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    isLift: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_name(
@@ -2072,6 +2079,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_reference(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_is_lift(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_name(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_reference(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_superseded(): number;

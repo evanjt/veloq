@@ -24,10 +24,14 @@ impl SectionManager {
         &self,
         filter: crate::FfiSectionFilter,
     ) -> Result<Vec<crate::FfiSection>, VeloqError> {
-        // Read lock throughout: every path below borrows the engine and none
-        // mutates it, so the section list no longer serialises on the write
-        // lock the detector's apply holds.
-        with_engine_read(|e| {
+        // The write lock, and not the read one it used to take. Nothing here
+        // mutates, but `get_sections_for_activity` and `get_sections_by_type`
+        // both prepare a statement, and `prepare` is a `RefCell` borrow_mut on
+        // a connection the `unsafe impl Sync` promises only the write lock
+        // touches. Latent while every caller is the JS thread, and a panic the
+        // moment one is not. The read lock comes back when the reader has a
+        // connection of its own.
+        with_engine(|e| {
             let mut sections: Vec<crate::FfiSection> =
                 match (&filter.activity_id, &filter.section_type) {
                     (Some(activity_id), _) => e
@@ -144,7 +148,9 @@ impl SectionManager {
         sport_type: Option<String>,
         min_visits: Option<u32>,
     ) -> Result<Vec<crate::FfiMapSection>, VeloqError> {
-        with_engine_read(|e| e.get_map_sections(sport_type.as_deref(), min_visits))
+        // The write lock: `get_map_sections` reaches `get_section_summaries`,
+        // which prepares a statement, and the read lock may not.
+        with_engine(|e| e.get_map_sections(sport_type.as_deref(), min_visits))
     }
 
     /// The section's line, coordinate-encoded like every other track that
@@ -286,6 +292,18 @@ impl SectionManager {
                 .map_err(|e| VeloqError::Database {
                     msg: format!("{}", e),
                 })
+        })?
+    }
+
+    /// Mark or unmark a section as a lift.
+    ///
+    /// The unmark is durable: `is_lift` is re-derived on every enrichment pass,
+    /// so the engine records an intent as well as the column. Marking it again
+    /// takes the intent back off.
+    fn set_is_lift(&self, section_id: String, is_lift: bool) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_section_is_lift(&section_id, is_lift)
+                .map_err(|msg| VeloqError::Database { msg })
         })?
     }
 
@@ -633,7 +651,9 @@ impl SectionManager {
         custom_section_id: String,
         overlap_threshold: f64,
     ) -> Result<Vec<String>, VeloqError> {
-        with_engine_read(|e| {
+        // The write lock: `find_superseded_auto_sections` prepares a statement,
+        // which the read lock may not reach.
+        with_engine(|e| {
             e.find_superseded_auto_sections(&custom_section_id, 50.0, overlap_threshold)
         })
     }

@@ -15,6 +15,18 @@ import type { FrequentSection, RoutePoint } from '@/types';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
+const mockFitBounds = jest.fn();
+jest.mock('@/features/maps/lib/htmlBuilders/mapSurface', () => {
+  const actual = jest.requireActual('@/features/maps/lib/htmlBuilders/mapSurface');
+  return {
+    ...actual,
+    buildFitBoundsScript: (...args: unknown[]) => {
+      mockFitBounds(...args);
+      return actual.buildFitBoundsScript(...args);
+    },
+  };
+});
+
 jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     preferences: { defaultStyle: 'light' },
@@ -171,6 +183,66 @@ describe('SectionMapView', () => {
       expect(screen.getByTestId('section-map-container')).toBeTruthy();
     });
   });
+  describe('camera framing', () => {
+    beforeEach(() => mockFitBounds.mockClear());
+
+    it('leaves the camera alone when the same section arrives again', () => {
+      const { rerender } = renderSection();
+      const framed = mockFitBounds.mock.calls.length;
+      expect(framed).toBeGreaterThan(0);
+
+      // A `sections` engine event rebuilds the detail bundle, so `polyline` is a
+      // fresh array of the same points. The athlete's own pan and zoom survive it.
+      rerender(
+        <SafeAreaProvider initialMetrics={METRICS}>
+          <SectionMapView
+            section={section({ polyline: POLYLINE.map((p) => ({ ...p })) })}
+            interactive
+          />
+        </SafeAreaProvider>
+      );
+
+      expect(mockFitBounds).toHaveBeenCalledTimes(framed);
+    });
+
+    it('reframes when the section itself changes', () => {
+      const { rerender } = renderSection();
+      const framed = mockFitBounds.mock.calls.length;
+
+      rerender(
+        <SafeAreaProvider initialMetrics={METRICS}>
+          <SectionMapView section={section({ id: 'section-2' })} interactive />
+        </SafeAreaProvider>
+      );
+
+      expect(mockFitBounds.mock.calls.length).toBeGreaterThan(framed);
+    });
+
+    it('reframes on entering and leaving expand mode', () => {
+      const { rerender } = renderSection();
+      const framed = mockFitBounds.mock.calls.length;
+
+      const withTrack = (track: RoutePoint[] | undefined) =>
+        rerender(
+          <SafeAreaProvider initialMetrics={METRICS}>
+            <SectionMapView section={section()} interactive extensionTrack={track} />
+          </SafeAreaProvider>
+        );
+
+      withTrack(POLYLINE);
+      const entered = mockFitBounds.mock.calls.length;
+      expect(entered).toBeGreaterThan(framed);
+
+      // Extending further inside expand mode is the athlete moving the handle,
+      // not a mode change, so it does not snatch the viewport back.
+      withTrack([...POLYLINE, { lat: 46.953, lng: 7.452 }]);
+      expect(mockFitBounds.mock.calls.length).toBe(entered);
+
+      withTrack(undefined);
+      expect(mockFitBounds.mock.calls.length).toBeGreaterThan(entered);
+    });
+  });
+
   it('falls back to the 2D map when the terrain page reports failure', () => {
     renderSection();
 

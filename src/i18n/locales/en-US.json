@@ -1173,6 +1173,7 @@
     "points": "points",
     "traversals": "traversals",
     "liftGround": "Lift",
+    "notLift": "Not a lift",
     "traversalsSummary": "{{count}} traversals · best {{time}}",
     "visitsCount": "{{count}} visits",
     "scanForMatches": "Scan for matches",

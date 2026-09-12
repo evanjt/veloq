@@ -409,6 +409,10 @@ export function getWeeklySummaries(
  * Everything the home-screen widget snapshot is composed from, in one
  * round-trip: wellness sparklines, the summary card, and the latest activity
  * with its record flag and GPS track.
+ *
+ * `maxGpsPoints` is the widget's own point budget. The track used to cross
+ * whole on every background transition and every settled sync, for JavaScript
+ * to keep 150 points of it. Zero asks for the whole track.
  */
 export function getWidgetSnapshot(
   host: DelegateHost,
@@ -416,7 +420,8 @@ export function getWidgetSnapshot(
   currentEnd: number,
   prevStart: number,
   prevEnd: number,
-  sparklineDays: number
+  sparklineDays: number,
+  maxGpsPoints: number
 ): FfiWidgetSnapshotData | undefined {
   if (!host.ready) return undefined;
   return host.timed('getWidgetSnapshot', () =>
@@ -427,7 +432,8 @@ export function getWidgetSnapshot(
         BigInt(currentEnd),
         BigInt(prevStart),
         BigInt(prevEnd),
-        sparklineDays
+        sparklineDays,
+        maxGpsPoints
       )
   );
 }

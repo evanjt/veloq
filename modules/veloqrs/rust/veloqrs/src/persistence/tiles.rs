@@ -23,7 +23,7 @@ const TILE_FORMAT_VERSION: &str = "7";
 
 /// Marker file written to the tiles directory when new data arrives.
 /// Cleared after tile generation completes. Prevents redundant generation on app restart.
-const DIRTY_MARKER: &str = ".dirty";
+pub(crate) const DIRTY_MARKER: &str = ".dirty";
 
 /// Number of unreadable activities named individually in the log.
 const CORRUPT_ID_LOG_CAP: usize = 20;

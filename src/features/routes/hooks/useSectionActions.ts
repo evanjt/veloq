@@ -98,6 +98,8 @@ export interface UseSectionActionsResult {
   handleRematchActivities: () => void;
   /** Accept (pin) an auto-detected section to protect it from re-detection. */
   handleAcceptSection: () => void;
+  /** Take the detector's lift flag off this section, durably. */
+  handleUnflagLift: () => void;
 }
 
 export function useSectionActions({
@@ -374,6 +376,22 @@ export function useSectionActions({
     onSectionRefresh();
   }, [id, isCustomId, queryClient, onSectionRefresh]);
 
+  // --- lift flag ---
+  // The write is an intent, not the derived column, so it outlives the next
+  // enrichment pass. A refusal leaves the badge up rather than hiding a flag
+  // that is still set.
+  const handleUnflagLift = useCallback(() => {
+    if (!id) return;
+    const engine = getEngine();
+    if (!engine) return;
+    if (!engine.setSectionIsLift(id, false)) {
+      log.warn('unflag refused', id);
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
+    onSectionRefresh();
+  }, [id, queryClient, onSectionRefresh]);
+
   // --- rematch ---
   const handleRematchActivities = useCallback(() => {
     rescan();
@@ -405,5 +423,6 @@ export function useSectionActions({
     handleToggleShowExcluded,
     handleRematchActivities,
     handleAcceptSection,
+    handleUnflagLift,
   };
 }
