@@ -4,6 +4,7 @@
 import { NATIVE_TILE_TRANSPORT, nativeTileUrl } from '@/features/maps/lib/tileTransport';
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
 import { NATURAL_EARTH_ORIGIN } from '@/features/maps/styles/liberty/sources';
+import { ink, colorWithOpacity } from '@/theme';
 
 export type MapStyleType = 'light' | 'dark' | 'satellite';
 
@@ -654,7 +655,7 @@ export const TERRAIN_3D_CONFIG = {
     },
     light: {
       'hillshade-shadow-color': '#473B24',
-      'hillshade-highlight-color': 'rgba(255,255,255,0.1)',
+      'hillshade-highlight-color': colorWithOpacity(ink.white, 0.1),
       'hillshade-illumination-anchor': 'map',
       'hillshade-exaggeration': 0.3,
     },

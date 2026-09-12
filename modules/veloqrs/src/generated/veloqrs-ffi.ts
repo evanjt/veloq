@@ -63,6 +63,11 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_names(
+    ptr: bigint,
+    activityIds: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_count(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -501,7 +506,7 @@ interface NativeModuleInterface {
     endTs: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve_body(
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve(
     ptr: bigint,
     sport: Uint8Array,
     days: bigint,
@@ -514,7 +519,7 @@ interface NativeModuleInterface {
     endTs: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_power_curve_body(
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_power_curve(
     ptr: bigint,
     sport: Uint8Array,
     days: bigint,
@@ -1879,6 +1884,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_debug_clone(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_body(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_names(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_detail_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_gps_track(): number;
@@ -1960,9 +1966,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_interval_body(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_monthly_stats(): number;
-  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve_body(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats(): number;
-  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve_body(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_week_load_shape(): number;

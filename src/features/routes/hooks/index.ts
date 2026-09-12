@@ -35,3 +35,4 @@ export { useRouteReference } from './useRouteReference';
 export { useExcludedActivities } from './useExcludedActivities';
 export { useRouteRenaming } from './useRouteRenaming';
 export { useDetectionHold } from './useDetectionHold';
+export { useLedgerActivityNames } from './useLedgerActivityNames';

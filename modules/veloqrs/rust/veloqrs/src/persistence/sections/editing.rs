@@ -226,12 +226,23 @@ impl PersistentEngine {
     /// would otherwise leave the catalogue holding the edit the database no
     /// longer has.
     pub(super) fn resync_section_after_edit(&mut self, section_id: &str, rolled_back: bool) {
-        if !rolled_back {
+        if rolled_back {
+            self.invalidate_section_cache(section_id);
+            self.invalidate_perf_cache();
+            self.refresh_section_in_memory(section_id);
             return;
         }
-        self.invalidate_section_cache(section_id);
-        self.invalidate_perf_cache();
-        self.refresh_section_in_memory(section_id);
+        // An editor deletes and re-matches the section's junction rows, so the
+        // badges the old line earned belong to laps the section no longer has.
+        // Scoped to this section: the whole-table pass costs 31 to 39 ms on a
+        // 589-activity library and nothing outside this section moved.
+        if let Err(e) = self.recompute_indicators_for_section(section_id) {
+            log::warn!(
+                "veloqrs: [section edit] indicator recompute for {} failed: {}",
+                section_id,
+                e
+            );
+        }
     }
 
     /// Reset a section's bounds to the original (pre-trim) polyline.

@@ -367,7 +367,7 @@ impl SectionManager {
             e.exclude_activity_from_section(&section_id, &activity_id)
                 .map_err(|e| VeloqError::Database { msg: e })?;
             // Recompute indicators since exclusion changes PR/trend calculations
-            if let Err(err) = e.recompute_activity_indicators() {
+            if let Err(err) = e.recompute_indicators_for_section(&section_id) {
                 log::warn!(
                     "veloqrs: [exclude_activity] Indicator recomputation failed: {}",
                     err
@@ -382,7 +382,7 @@ impl SectionManager {
             e.include_activity_in_section(&section_id, &activity_id)
                 .map_err(|e| VeloqError::Database { msg: e })?;
             // Recompute indicators since inclusion changes PR/trend calculations
-            if let Err(err) = e.recompute_activity_indicators() {
+            if let Err(err) = e.recompute_indicators_for_section(&section_id) {
                 log::warn!(
                     "veloqrs: [include_activity] Indicator recomputation failed: {}",
                     err
@@ -405,7 +405,7 @@ impl SectionManager {
         with_engine(|e| {
             e.exclude_section_lap(&section_id, &activity_id, start_index)
                 .map_err(|e| VeloqError::Database { msg: e })?;
-            if let Err(err) = e.recompute_activity_indicators() {
+            if let Err(err) = e.recompute_indicators_for_section(&section_id) {
                 log::warn!(
                     "veloqrs: [exclude_lap] Indicator recomputation failed: {}",
                     err
@@ -424,7 +424,7 @@ impl SectionManager {
         with_engine(|e| {
             e.include_section_lap(&section_id, &activity_id, start_index)
                 .map_err(|e| VeloqError::Database { msg: e })?;
-            if let Err(err) = e.recompute_activity_indicators() {
+            if let Err(err) = e.recompute_indicators_for_section(&section_id) {
                 log::warn!(
                     "veloqrs: [include_lap] Indicator recomputation failed: {}",
                     err

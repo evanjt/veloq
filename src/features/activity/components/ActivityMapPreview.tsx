@@ -33,7 +33,7 @@ import {
   type AttributionOverlayRef,
 } from '@/features/maps/components/AttributionOverlay';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
-import { layout } from '@/theme';
+import { layout, ink, colorWithOpacity } from '@/theme';
 import type { Activity } from '@/types';
 import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
 import { debug } from '@/shared/debug/debug';
@@ -338,7 +338,11 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
         />
         {Math.abs(bearing) > 5 && (
           <View style={styles.compassOverlay}>
-            <StaticCompassArrow bearing={bearing} size={16} southColor="rgba(255,255,255,0.7)" />
+            <StaticCompassArrow
+              bearing={bearing}
+              size={16}
+              southColor={colorWithOpacity(ink.white, 0.7)}
+            />
           </View>
         )}
         <AttributionOverlay
@@ -383,7 +387,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 68,
     right: 10,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: colorWithOpacity(ink.black, 0.45),
     borderRadius: layout.borderRadiusFull,
     width: 24,
     height: 24,

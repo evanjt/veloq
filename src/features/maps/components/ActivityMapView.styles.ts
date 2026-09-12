@@ -1,6 +1,15 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  shadows,
+  typography,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -22,7 +31,7 @@ export const styles = StyleSheet.create({
     zIndex: 2,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: colorWithOpacity(ink.black, 0.3),
     borderRadius: layout.borderRadius,
   },
   map: {
@@ -78,10 +87,10 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
   startMarker: {
-    backgroundColor: 'rgba(34,197,94,0.75)',
+    backgroundColor: colorWithOpacity(colors.success, 0.75),
   },
   endMarker: {
-    backgroundColor: 'rgba(239,68,68,0.75)',
+    backgroundColor: colorWithOpacity(colors.error, 0.75),
   },
   sectionCreationMarker: {
     width: 24,
@@ -93,10 +102,10 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sectionStartMarker: {
-    backgroundColor: 'rgba(34,197,94,0.9)',
+    backgroundColor: colorWithOpacity(colors.success, 0.9),
   },
   sectionEndMarker: {
-    backgroundColor: 'rgba(239,68,68,0.9)',
+    backgroundColor: colorWithOpacity(colors.error, 0.9),
   },
   highlightMarker: {
     width: 14,
@@ -118,7 +127,7 @@ export const styles = StyleSheet.create({
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.modal,

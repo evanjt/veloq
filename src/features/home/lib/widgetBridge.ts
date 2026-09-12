@@ -10,6 +10,7 @@
 import { requireOptionalNativeModule } from 'expo-modules-core';
 
 import { i18n } from '@/i18n';
+import { formAsPercent } from '@/shared/app/FormPreferenceStore';
 import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
 import { debug } from '@/shared/debug/debug';
 
@@ -57,6 +58,7 @@ export function updateWidgetSnapshot(now?: Date): void {
     const snapshot = gatherWidgetSnapshot({
       locale: i18n.language,
       isMetric: getIsMetric(),
+      formAsPercent: formAsPercent(),
       now,
       translate: (key) => t(key),
     });

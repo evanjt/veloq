@@ -9,7 +9,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor } from '@/features/activity/lib/activityUtils';
-import { colors, mapLayerColors, spacing, layout } from '@/theme';
+import { colors, mapLayerColors, spacing, layout, colorWithOpacity, ink } from '@/theme';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { BaseMapView, isDarkStyle, MapSurface } from '@/features/maps/components';
 import {
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: spacing.sm,
     right: spacing.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
     borderRadius: spacing.xsPlus,
     padding: spacing.xs,
   },

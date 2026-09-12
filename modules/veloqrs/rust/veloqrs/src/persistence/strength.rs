@@ -350,4 +350,65 @@ mod tests {
         assert!(engine.store_exercise_sets("a1", &sets).is_err());
         assert!(engine.db.is_autocommit());
     }
+
+    /// Scenario: the section history panel draws a chip per traversal and holds
+    /// only the activity ids.
+    ///
+    /// Expected behaviour: one read answers for the ids it knows and says
+    /// nothing about the rest, so a caller can fall back to the id rather than
+    /// draw an empty chip. This had no test at all until the panel needed it.
+    #[test]
+    fn activity_names_answers_only_the_ids_it_knows() {
+        let (_dir, engine) = engine();
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                     elapsed_time, elevation_gain, sport_type)
+                 VALUES ('a1', 'Sunday hills', 1700, 0, 0, 0, 0, 'Ride')",
+                [],
+            )
+            .unwrap();
+
+        let names = engine
+            .get_activity_names(&["a1".to_string(), "missing".to_string()])
+            .unwrap();
+
+        assert_eq!(names.len(), 1);
+        assert_eq!(
+            names.get("a1"),
+            Some(&("Sunday hills".to_string(), 1700_i64))
+        );
+    }
+
+    #[test]
+    fn activity_names_answers_nothing_for_no_ids() {
+        let (_dir, engine) = engine();
+
+        assert!(engine.get_activity_names(&[]).unwrap().is_empty());
+    }
+
+    /// The panel asks for every id on the event, and a section with many
+    /// traversals asks for many at once.
+    #[test]
+    fn activity_names_answers_a_whole_batch_in_one_read() {
+        let (_dir, engine) = engine();
+        for i in 0..25 {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                         elapsed_time, elevation_gain, sport_type)
+                     VALUES (?1, ?2, 0, 0, 0, 0, 0, 'Ride')",
+                    rusqlite::params![format!("a{i}"), format!("Ride {i}")],
+                )
+                .unwrap();
+        }
+        let ids: Vec<String> = (0..25).map(|i| format!("a{i}")).collect();
+
+        let names = engine.get_activity_names(&ids).unwrap();
+
+        assert_eq!(names.len(), 25);
+        assert_eq!(names.get("a24").map(|(n, _)| n.as_str()), Some("Ride 24"));
+    }
 }

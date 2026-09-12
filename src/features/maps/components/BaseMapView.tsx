@@ -8,7 +8,17 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
-import { colors, darkColors, mapLayerColors, spacing, layout, shadows, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  mapLayerColors,
+  spacing,
+  layout,
+  shadows,
+  typography,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { TerrainUnavailableNotice } from './TerrainUnavailableNotice';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
@@ -471,7 +481,7 @@ const styles = StyleSheet.create({
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.mapOverlay,
@@ -497,7 +507,7 @@ const styles = StyleSheet.create({
     width: layout.minTapTarget, // 44 - Accessibility minimum
     height: layout.minTapTarget, // 44 - Accessibility minimum
     borderRadius: layout.minTapTarget / 2, // 22
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.mapOverlay,
@@ -518,7 +528,7 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   attributionPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: colorWithOpacity(ink.white, 0.7),
     paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: spacing.sm,

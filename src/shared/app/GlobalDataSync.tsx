@@ -105,14 +105,14 @@ export function GlobalDataSync() {
 
           for (const sport of ['Run', 'Swim'] as const) {
             if (!sportTypes.includes(sport)) continue;
-            const stored = engine.getPaceCurveBody(sport, 42, false);
+            const stored = engine.getPaceCurve(sport, 42, false);
             if (!stored) {
               // Not fetched yet. Ask for it; the next sync-complete pass seeds
               // the snapshot, and the pace curve screen would anyway.
               engine.syncPaceCurve(sport, 42, false);
               continue;
             }
-            const curve = parsePaceCurveBody(stored, sport);
+            const curve = parsePaceCurveBody(stored.raw, sport);
             if (curve?.criticalSpeed && curve.criticalSpeed > 0) {
               engine.savePaceSnapshot(
                 sport,

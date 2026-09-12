@@ -16,6 +16,7 @@ import {
   layout,
   typography,
   verdictColor,
+  colorWithOpacity,
 } from '@/theme';
 import { DataPointRow } from './DataPointRow';
 import { formatDuration } from '@/shared/format/format';
@@ -363,10 +364,10 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   comparisonPositive: {
-    backgroundColor: 'rgba(34, 197, 94, 0.08)',
+    backgroundColor: colorWithOpacity(colors.success, 0.08),
   },
   comparisonNegative: {
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    backgroundColor: colorWithOpacity(colors.warning, 0.08),
   },
   comparisonColumns: {
     flexDirection: 'row',

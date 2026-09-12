@@ -26,6 +26,19 @@ impl CurveKind {
     }
 }
 
+/// A stored curve and when it was fetched.
+///
+/// The two travel together because a curve drawn offline says nothing about
+/// its own age, and reading the time as a second call would be a second FFI
+/// hop on a screen that already makes one per mount.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiStoredCurve {
+    /// The body the server sent, unparsed.
+    pub raw: String,
+    /// Epoch seconds at the fetch that stored it.
+    pub fetched_at: i64,
+}
+
 impl PersistentEngine {
     /// Store a curve body under the parameters that produced it.
     pub fn set_curve_body(
@@ -62,6 +75,38 @@ impl PersistentEngine {
                  WHERE kind = ? AND sport = ? AND days = ? AND gap = ?",
                 params![kind.as_str(), sport, days, gap as i64],
                 |row| row.get(0),
+            )
+            .map(Some)
+            .or_else(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                other => Err(other),
+            })
+    }
+
+    /// The stored curve with the time it was fetched, or `None` when that
+    /// combination has never been fetched.
+    ///
+    /// Keyed exactly as `get_curve_body` is: a curve only means anything
+    /// alongside the sport, window and gap flag it was computed for, and so
+    /// does its age.
+    pub fn get_stored_curve(
+        &self,
+        kind: CurveKind,
+        sport: &str,
+        days: i64,
+        gap: bool,
+    ) -> SqlResult<Option<FfiStoredCurve>> {
+        self.db
+            .query_row(
+                "SELECT raw, updated_at FROM curve_bodies
+                 WHERE kind = ? AND sport = ? AND days = ? AND gap = ?",
+                params![kind.as_str(), sport, days, gap as i64],
+                |row| {
+                    Ok(FfiStoredCurve {
+                        raw: row.get(0)?,
+                        fetched_at: row.get(1)?,
+                    })
+                },
             )
             .map(Some)
             .or_else(|e| match e {
@@ -463,6 +508,115 @@ mod tests {
             .ok()
     }
 
+    /// What a reconstructed stream body costs against a cached one, measured
+    /// rather than estimated. The shape that matters is the one the activity
+    /// screen opens with: a few thousand track points across five series.
+    ///
+    /// Ignored by default: it is a measurement, not an assertion.
+    /// Run: `cargo test --release -p veloqrs --lib bodies::tests::what_a_reconstruction_costs -- --ignored --nocapture`
+    #[test]
+    #[ignore = "a measurement; run it deliberately"]
+    fn what_a_reconstruction_costs_against_a_cached_body() {
+        use crate::net::types::StreamDto;
+
+        const TYPES: &str = "latlng,time,heartrate,watts,altitude";
+
+        // `storable_series` masks the lot against the latlng index space, so
+        // coordinates have to be real ones or the mask drops most of the track
+        // and every other series is then refused as misaligned.
+        fn series(kind: &str, points: usize) -> StreamDto {
+            if kind == "latlng" {
+                return StreamDto {
+                    kind: kind.to_string(),
+                    data: (0..points).map(|i| Some(46.0 + i as f64 * 1e-5)).collect(),
+                    data2: Some((0..points).map(|i| Some(7.0 + i as f64 * 1e-5)).collect()),
+                };
+            }
+            StreamDto {
+                kind: kind.to_string(),
+                data: (0..points).map(|i| Some(i as f64 * 1.5)).collect(),
+                data2: None,
+            }
+        }
+
+        println!("points  body_bytes  cached_ms  reconstructed_ms  ratio");
+        for &points in &[1_000usize, 4_000, 10_000] {
+            let (_dir, mut engine) = engine();
+            // The reconstruction reads the track first, so the activity has to
+            // be on disk before its series mean anything.
+            engine
+                .add_activity(
+                    "a1".to_string(),
+                    (0..points)
+                        .map(|i| tracematch::GpsPoint {
+                            latitude: 46.0 + i as f64 * 1e-5,
+                            longitude: 7.0 + i as f64 * 1e-5,
+                            elevation: Some(500.0 + i as f64 * 0.01),
+                        })
+                        .collect(),
+                    "Ride".to_string(),
+                )
+                .expect("add_activity");
+            // The ingest may simplify the track, and a series whose sample
+            // count disagrees with the stored points is refused whole, so the
+            // body is built at the length that actually landed.
+            let stored_points = match engine.track("a1") {
+                crate::persistence::codec::TrackRead::Present(p) => p.len(),
+                _ => panic!("the track did not store"),
+            };
+            let body = serde_json::to_string(
+                &["latlng", "time", "heartrate", "watts", "altitude"]
+                    .iter()
+                    .map(|k| series(k, stored_points))
+                    .collect::<Vec<_>>(),
+            )
+            .expect("encode");
+
+            // `set_stream_body` caches the body and writes the durable series
+            // the reconstruction reads, so one call seeds both paths.
+            engine.set_stream_body("a1", TYPES, &body).expect("seed");
+
+            let cached = median_ms(|| {
+                engine
+                    .get_stream_body("a1", TYPES)
+                    .expect("read")
+                    .expect("cached")
+                    .len()
+            });
+            let probe = engine.reconstruct_stream_body("a1", TYPES);
+            assert!(
+                probe.is_some(),
+                "the reconstruction refused the selection at {stored_points} points"
+            );
+            let rebuilt = median_ms(|| {
+                engine
+                    .reconstruct_stream_body("a1", TYPES)
+                    .map(|s| s.len())
+                    .unwrap_or(0)
+            });
+
+            println!(
+                "{stored_points:>6}  {:>10}  {cached:>9.2}  {rebuilt:>16.2}  {:>5.1}x",
+                body.len(),
+                rebuilt / cached.max(f64::MIN_POSITIVE)
+            );
+        }
+    }
+
+    /// Median of five, so one scheduling hiccup does not become the number.
+    fn median_ms(mut run: impl FnMut() -> usize) -> f64 {
+        let mut runs: Vec<f64> = (0..5)
+            .map(|_| {
+                let start = std::time::Instant::now();
+                let n = run();
+                assert!(n > 0, "the read answered nothing");
+                start.elapsed().as_secs_f64() * 1000.0
+            })
+            .collect();
+        runs.sort_by(|a, b| a.partial_cmp(b).expect("finite"));
+        runs[2]
+    }
+
     /// Scenario: the activity screen reads a cached stream body, once a scrub
     /// frame.
     ///
@@ -586,6 +740,79 @@ mod tests {
                 .unwrap()
                 .as_deref(),
             Some("new")
+        );
+    }
+
+    /// Scenario: a curve drawn offline was fetched weeks ago and the header has
+    /// nothing to date it with, because the read answers the body alone while
+    /// the column has been written since `015_curve_interval_calendar_bodies`.
+    #[test]
+    fn a_stored_curve_answers_when_it_was_fetched() {
+        let (_dir, engine) = engine();
+        let before = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        engine
+            .set_curve_body(CurveKind::Power, "Ride", 90, false, "watts")
+            .unwrap();
+
+        let stored = engine
+            .get_stored_curve(CurveKind::Power, "Ride", 90, false)
+            .unwrap()
+            .expect("the curve was just written");
+        assert_eq!(stored.raw, "watts");
+        assert!(stored.fetched_at >= before);
+    }
+
+    #[test]
+    fn a_curve_that_was_never_fetched_answers_nothing() {
+        let (_dir, engine) = engine();
+
+        assert!(
+            engine
+                .get_stored_curve(CurveKind::Pace, "Run", 42, false)
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn a_refetch_moves_the_fetched_time_with_the_body() {
+        let (_dir, engine) = engine();
+        engine
+            .set_curve_body(CurveKind::Power, "Ride", 90, false, "old")
+            .unwrap();
+        let first = engine
+            .get_stored_curve(CurveKind::Power, "Ride", 90, false)
+            .unwrap()
+            .unwrap();
+
+        engine
+            .set_curve_body(CurveKind::Power, "Ride", 90, false, "new")
+            .unwrap();
+        let second = engine
+            .get_stored_curve(CurveKind::Power, "Ride", 90, false)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(second.raw, "new");
+        assert!(second.fetched_at >= first.fetched_at);
+    }
+
+    #[test]
+    fn the_fetched_time_is_keyed_the_same_way_the_body_is() {
+        let (_dir, engine) = engine();
+        engine
+            .set_curve_body(CurveKind::Pace, "Run", 42, false, "plain")
+            .unwrap();
+
+        assert!(
+            engine
+                .get_stored_curve(CurveKind::Pace, "Run", 42, true)
+                .unwrap()
+                .is_none()
         );
     }
 

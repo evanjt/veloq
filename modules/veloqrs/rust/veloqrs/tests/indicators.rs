@@ -1,8 +1,13 @@
 //! Integration tests for activity indicators version-based invalidation.
 //!
-//! Verifies B-2 fix: recompute fires on any version mismatch, not only when
-//! sections are present (the old guard left users with empty section tables
-//! stuck on stale indicators forever).
+//! The stale-version recompute is a launch-time pass, not a read-time one. It
+//! rewrites every row in `activity_indicators` under the write lock, and the
+//! version cannot change while the process runs, so a read has nothing to
+//! check. Doing it on the read put a library-wide write inside the feed's
+//! render memo.
+//!
+//! The guarantee is unchanged either way: nothing ever reads indicators
+//! computed by a superseded algorithm. Only the moment moved.
 //!
 //! Run: `cargo test --test indicators -p veloqrs`
 
@@ -16,6 +21,7 @@ const CURRENT_VERSION: i32 = 5;
 struct Setup {
     engine: PersistentEngine,
     raw: Connection,
+    path: PathBuf,
     _tmp: TempDir,
 }
 
@@ -28,8 +34,14 @@ fn setup() -> Setup {
     Setup {
         engine,
         raw,
+        path,
         _tmp: tmp,
     }
+}
+
+/// Open a second engine on the same file, the way a relaunch would.
+fn reopen(s: &Setup) -> PersistentEngine {
+    PersistentEngine::new(s.path.to_str().unwrap()).expect("engine reopen")
 }
 
 fn set_indicator_version(db: &Connection, version: i32) {
@@ -66,90 +78,104 @@ fn count_indicators(db: &Connection) -> i64 {
 }
 
 // ============================================================================
-// B-2 regression: version recompute does not depend on section presence
+// The version check belongs to the open, not to the read
 // ============================================================================
 
 #[test]
-fn version_mismatch_with_no_sections_still_recomputes() {
-    // The bug: old code gated recompute on `!self.sections.is_empty()`, so
-    // users with no sections never picked up new indicator-algorithm versions.
+fn a_stale_version_is_recomputed_when_the_engine_opens() {
     let setup = setup();
-    set_indicator_version(&setup.raw, 1); // stale
-    insert_stale_indicator(&setup.raw, "ghost"); // bogus row from old algo
+    set_indicator_version(&setup.raw, 1);
+    insert_stale_indicator(&setup.raw, "ghost");
 
-    // Trigger version check (call signature: any activity ID, doesn't matter)
-    let _ = setup
-        .engine
-        .get_activity_indicators(&["any-activity".to_string()]);
+    let _second = reopen(&setup);
 
-    // Stale row must be cleared
+    // No read has happened yet. The open alone must have cleared the rows the
+    // superseded algorithm wrote and stamped the version it wrote them under.
     assert_eq!(
         count_indicators(&setup.raw),
         0,
-        "recompute should have wiped stale indicators even with no sections"
+        "the open must wipe indicators left by a superseded algorithm"
     );
-    // Version stamp must be updated
     assert_eq!(
         read_indicator_version(&setup.raw),
         CURRENT_VERSION,
-        "indicator_version must be stamped to current after recompute"
+        "the open must stamp the current version"
     );
 }
 
 #[test]
-fn version_match_skips_recompute() {
+fn a_stale_version_recomputes_with_no_sections_present() {
+    // The old guard gated the recompute on `!self.sections.is_empty()`, which
+    // left a library with no sections on stale indicators forever.
     let setup = setup();
-    set_indicator_version(&setup.raw, CURRENT_VERSION); // up to date
+    set_indicator_version(&setup.raw, 1);
+    insert_stale_indicator(&setup.raw, "ghost");
+
+    let _second = reopen(&setup);
+
+    assert_eq!(count_indicators(&setup.raw), 0);
+    assert_eq!(read_indicator_version(&setup.raw), CURRENT_VERSION);
+}
+
+#[test]
+fn a_read_never_recomputes_however_stale_the_version_reads() {
+    let setup = setup();
+    // Written behind the open engine's back, which is the only way the version
+    // can be stale while a process is running.
+    set_indicator_version(&setup.raw, 1);
     insert_stale_indicator(&setup.raw, "preserved");
 
     let _ = setup
         .engine
         .get_activity_indicators(&["any-activity".to_string()]);
 
-    // Recompute did NOT fire, the row is preserved. Proves the guard works
-    // both ways (no spurious recomputes when version matches).
     assert_eq!(
         count_indicators(&setup.raw),
         1,
-        "version match must not trigger recompute"
+        "a read must not rewrite the table, whatever the version says"
+    );
+    assert_eq!(
+        read_indicator_version(&setup.raw),
+        1,
+        "a read must not stamp the version either"
     );
 }
 
 #[test]
-fn fresh_install_stamps_version_on_first_call() {
-    // No stored version (key missing) → unwrap_or(0) → 0 < CURRENT_VERSION → recompute.
+fn a_matching_version_leaves_the_table_alone_on_open() {
     let setup = setup();
-    let _ = setup
-        .engine
-        .get_activity_indicators(&["any-activity".to_string()]);
+    set_indicator_version(&setup.raw, CURRENT_VERSION);
+    insert_stale_indicator(&setup.raw, "preserved");
+
+    let _second = reopen(&setup);
+
+    assert_eq!(
+        count_indicators(&setup.raw),
+        1,
+        "an up-to-date version must not trigger a recompute"
+    );
+}
+
+#[test]
+fn a_fresh_install_stamps_the_version_on_the_first_open() {
+    // No stored version reads as 0, which is behind the current one.
+    let setup = setup();
     assert_eq!(
         read_indicator_version(&setup.raw),
         CURRENT_VERSION,
-        "fresh install must stamp current version on first read"
+        "the first open of a new database must stamp the current version"
     );
 }
 
 #[test]
-fn empty_activity_id_list_short_circuits() {
+fn an_empty_activity_id_list_returns_empty() {
     let setup = setup();
-    set_indicator_version(&setup.raw, 1);
     insert_stale_indicator(&setup.raw, "ghost");
 
     let result = setup.engine.get_activity_indicators(&[]);
 
-    assert!(result.is_empty(), "empty input → empty output");
-    // Important: short-circuit must fire BEFORE version check, so stale data
-    // remains untouched until a real query comes in.
-    assert_eq!(
-        count_indicators(&setup.raw),
-        1,
-        "empty input must not trigger recompute"
-    );
-    assert_eq!(
-        read_indicator_version(&setup.raw),
-        1,
-        "version stamp must be untouched when input is empty"
-    );
+    assert!(result.is_empty(), "empty input, empty output");
+    assert_eq!(count_indicators(&setup.raw), 1, "and nothing written");
 }
 
 // --- One badge per activity, earned by its fastest lap ---
@@ -215,7 +241,9 @@ fn setup_interval_session() -> Setup {
     insert_timed_pass(&s.raw, "act_intervals", 100, 90.0);
     insert_timed_pass(&s.raw, "act_intervals", 200, 105.0);
 
-    set_indicator_version(&s.raw, 1);
+    // The rows above went in behind the engine, so ask for the pass rather
+    // than leaning on a stale stamp to fire it from a read.
+    s.engine.recompute_activity_indicators().expect("recompute");
     s
 }
 
@@ -265,7 +293,7 @@ fn a_faded_session_is_not_judged_on_the_lap_it_faded_to() {
     insert_timed_pass(&s.raw, "act_first", 0, 100.0);
     insert_timed_pass(&s.raw, "act_faded", 0, 80.0);
     insert_timed_pass(&s.raw, "act_faded", 100, 97.0);
-    set_indicator_version(&s.raw, 1);
+    s.engine.recompute_activity_indicators().expect("recompute");
 
     let _ = s.engine.get_activity_indicators(&["act_faded".to_string()]);
 
@@ -287,7 +315,7 @@ fn a_lone_interval_session_does_not_compare_against_its_own_laps() {
     insert_timed_pass(&s.raw, "act_only", 0, 110.0);
     insert_timed_pass(&s.raw, "act_only", 100, 90.0);
     insert_timed_pass(&s.raw, "act_only", 200, 105.0);
-    set_indicator_version(&s.raw, 1);
+    s.engine.recompute_activity_indicators().expect("recompute");
 
     let _ = s.engine.get_activity_indicators(&["act_only".to_string()]);
 
@@ -311,7 +339,7 @@ fn matching_the_best_time_earns_no_pr_row() {
     insert_dated_activity(&s.raw, "act_tie", 1_700_500_000);
     insert_timed_pass(&s.raw, "act_first", 0, 100.0);
     insert_timed_pass(&s.raw, "act_tie", 0, 100.0);
-    set_indicator_version(&s.raw, 1);
+    s.engine.recompute_activity_indicators().expect("recompute");
 
     let _ = s
         .engine
@@ -338,7 +366,7 @@ fn a_beat_has_to_clear_the_noise_the_tolerance_absorbs() {
         insert_dated_activity(&s.raw, "act_now", 1_700_500_000);
         insert_timed_pass(&s.raw, "act_first", 0, 100.0);
         insert_timed_pass(&s.raw, "act_now", 0, lap);
-        set_indicator_version(&s.raw, 1);
+        s.engine.recompute_activity_indicators().expect("recompute");
 
         let _ = s.engine.get_activity_indicators(&["act_now".to_string()]);
 
@@ -361,7 +389,7 @@ fn an_outing_that_was_later_beaten_holds_no_record() {
     insert_timed_pass(&s.raw, "act_slow", 0, 120.0);
     insert_timed_pass(&s.raw, "act_middle", 0, 100.0);
     insert_timed_pass(&s.raw, "act_fast", 0, 90.0);
-    set_indicator_version(&s.raw, 1);
+    s.engine.recompute_activity_indicators().expect("recompute");
 
     let ids: Vec<String> = ["act_slow", "act_middle", "act_fast"]
         .iter()
@@ -378,4 +406,111 @@ fn an_outing_that_was_later_beaten_holds_no_record() {
         })
         .collect();
     assert_eq!(pr_holders, vec!["act_fast"]);
+}
+
+// ============================================================================
+// An edit that moves a section's line must move its badges with it
+// ============================================================================
+
+/// A section with a real polyline, so the bounds editors have something to cut.
+fn insert_drawn_section(db: &Connection, points: usize) {
+    let polyline: Vec<String> = (0..points)
+        .map(|i| {
+            format!(
+                "{{\"latitude\":46.0,\"longitude\":{:.5}}}",
+                7.0 + i as f64 * 0.001
+            )
+        })
+        .collect();
+    db.execute(
+        "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                               distance_meters, disabled, version)
+         VALUES ('sec_oval', 'auto', 'Oval', 'Run', ?1, 400.0, 0, 1)",
+        params![format!("[{}]", polyline.join(","))],
+    )
+    .expect("insert drawn section");
+}
+
+/// One timed pass spanning `distance` of the section, so the completeness rule
+/// the PR query applies can be satisfied on a line of any length.
+fn insert_pass_of_length(
+    db: &Connection,
+    activity_id: &str,
+    start_index: i64,
+    lap_time: f64,
+    distance: f64,
+) {
+    db.execute(
+        "INSERT INTO section_activities (section_id, activity_id, direction, start_index,
+                                         end_index, distance_meters, lap_time, excluded)
+         VALUES ('sec_oval', ?1, 'same', ?2, ?3, ?4, ?5, 0)",
+        params![
+            activity_id,
+            start_index,
+            start_index + 40,
+            distance,
+            lap_time
+        ],
+    )
+    .expect("insert pass");
+}
+
+/// A section whose badges are earned, then a trim that leaves it no traversals
+/// at all, since nothing in this database has a track to re-match against.
+#[test]
+fn a_trim_clears_the_badges_the_old_line_earned() {
+    let mut s = setup();
+    insert_drawn_section(&s.raw, 30);
+    insert_dated_activity(&s.raw, "act_first", 1_700_000_000);
+    insert_dated_activity(&s.raw, "act_second", 1_700_500_000);
+    insert_timed_pass(&s.raw, "act_first", 0, 100.0);
+    insert_timed_pass(&s.raw, "act_second", 0, 90.0);
+    s.engine.recompute_activity_indicators().expect("recompute");
+    assert!(
+        count_indicators(&s.raw) > 0,
+        "the two passes must earn badges before the trim"
+    );
+
+    s.engine.trim_section("sec_oval", 5, 24).expect("trim");
+
+    assert_eq!(
+        count_indicators(&s.raw),
+        0,
+        "a trim re-matches the section, so a badge earned on the old line is not the section's any more"
+    );
+}
+
+#[test]
+fn a_bounds_reset_clears_the_badges_the_trimmed_line_earned() {
+    let mut s = setup();
+    insert_drawn_section(&s.raw, 30);
+    s.engine.trim_section("sec_oval", 5, 24).expect("trim");
+
+    // The trim rewrote the section's length, and a traversal has to span
+    // enough of it to count, so the passes are measured against what it is now.
+    let trimmed_distance: f64 = s
+        .raw
+        .query_row(
+            "SELECT distance_meters FROM sections WHERE id = 'sec_oval'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("trimmed distance");
+    insert_dated_activity(&s.raw, "act_first", 1_700_000_000);
+    insert_dated_activity(&s.raw, "act_second", 1_700_500_000);
+    insert_pass_of_length(&s.raw, "act_first", 0, 100.0, trimmed_distance);
+    insert_pass_of_length(&s.raw, "act_second", 0, 90.0, trimmed_distance);
+    s.engine.recompute_activity_indicators().expect("recompute");
+    assert!(
+        count_indicators(&s.raw) > 0,
+        "the two passes must earn badges on the trimmed line"
+    );
+
+    s.engine.reset_section_bounds("sec_oval").expect("reset");
+
+    assert_eq!(
+        count_indicators(&s.raw),
+        0,
+        "a reset re-matches against the original line, so the trimmed line's badges are not the section's any more"
+    );
 }

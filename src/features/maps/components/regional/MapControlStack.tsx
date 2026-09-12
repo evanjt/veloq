@@ -7,7 +7,7 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Animated, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, shadows, layout } from '@/theme';
+import { colors, darkColors, spacing, shadows, layout, colorWithOpacity, ink } from '@/theme';
 import { CompassArrow } from '@/shared/ui';
 
 /** Reusable layer toggle button inside a LayerToggleGroup. */
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.mapOverlay,
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   dualButtonContainer: {
     width: 40,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     overflow: 'hidden',
     ...shadows.mapOverlay,
   },
@@ -363,17 +363,17 @@ const styles = StyleSheet.create({
   },
   dualButtonDivider: {
     height: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: colorWithOpacity(ink.black, 0.1),
     marginHorizontal: spacing.sm,
   },
   dualButtonDividerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: colorWithOpacity(ink.white, 0.1),
   },
   // Layer toggle styles (activities/sections/routes combined)
   layerToggleContainer: {
     width: 40,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     overflow: 'hidden',
     ...shadows.mapOverlay,
   },

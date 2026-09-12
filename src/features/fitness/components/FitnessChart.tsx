@@ -9,7 +9,7 @@ import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
 import { colors, typography, spacing, layout, chartStyles } from '@/theme';
-import { calculateTSB } from '@/features/fitness/lib/fitness';
+import { formFromLoads } from '@/shared/math';
 import { sortByDateId } from '@/features/activity/lib/activityUtils';
 import { formatShortDate } from '@/shared/format/format';
 import { ChartErrorBoundary } from '@/shared/ui';
@@ -111,12 +111,11 @@ export const FitnessChart = React.memo(function FitnessChart({
       };
     }
 
-    const withTSB = calculateTSB(data);
     const points: ChartDataPoint[] = [];
     const indices: number[] = [];
 
     // Sort by date
-    const sorted = sortByDateId(withTSB);
+    const sorted = sortByDateId(data);
 
     let maxL = 0;
     let maxF = 0;
@@ -124,12 +123,9 @@ export const FitnessChart = React.memo(function FitnessChart({
     let maxFm = 0;
 
     sorted.forEach((day, idx) => {
-      const fitnessRaw = day.ctl ?? day.ctlLoad ?? 0;
-      const fatigueRaw = day.atl ?? day.atlLoad ?? 0;
-      // Use rounded values for form calculation to match intervals.icu display
-      const fitness = Math.round(fitnessRaw);
-      const fatigue = Math.round(fatigueRaw);
-      const form = fitness - fatigue;
+      const fitness = Math.round(day.ctl ?? day.ctlLoad ?? 0);
+      const fatigue = Math.round(day.atl ?? day.atlLoad ?? 0);
+      const form = formFromLoads(day.ctl ?? day.ctlLoad, day.atl ?? day.atlLoad);
       // Estimate daily load from the difference in fatigue (rough approximation)
       const load = day.sportInfo?.reduce((sum, s) => sum + (s.load || 0), 0) || 0;
 

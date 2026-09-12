@@ -8,7 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ScreenSafeAreaView } from '@/shared/ui';
 import { replaceTo } from '@/shared/app/navigation';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { createSharedStyles } from '@/styles';
 import { clearAccountData } from '@/shared/storage';
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+    backgroundColor: colorWithOpacity(colors.error, 0.1),
     padding: spacing.sm,
     borderRadius: layout.borderRadiusSm,
     marginBottom: spacing.md,

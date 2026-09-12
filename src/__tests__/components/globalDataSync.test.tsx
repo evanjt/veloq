@@ -56,7 +56,7 @@ const engine = {
   setActivityMetrics: jest.fn(),
   triggerRefresh: jest.fn(),
   getAvailableSportTypes: jest.fn(() => []),
-  getPaceCurveBody: jest.fn(() => null),
+  getPaceCurve: jest.fn(() => null),
   syncPaceCurve: jest.fn(),
   savePaceSnapshot: jest.fn(),
   getSyncStatus: jest.fn(() => ({ state: syncing ? SyncState.Syncing : SyncState.Idle })),

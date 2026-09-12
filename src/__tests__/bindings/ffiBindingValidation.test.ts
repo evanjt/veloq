@@ -124,7 +124,17 @@ describe('FFI Binding Validation', () => {
       // narrows: the download queue is process state in `http`, not engine
       // state, and a caller polling its own run must not queue behind the
       // engine lock to do it.
-      expect(STANDALONE_EXPORTS.length).toBe(27);
+      //
+      // `fetch_and_index_activity` sits beside the rest of that fetch
+      // lifecycle, for the reason `cancel_fetch_and_store` does. It is the
+      // blocking single-activity sibling of `start_fetch_and_store`, over the
+      // same fetch and the same store, and its caller is the case that pair
+      // cannot serve: a push handler in Kotlin or Swift holding an activity
+      // id, a budget in seconds and no run loop to poll a global slot on.
+      // Hanging it on an object would make that handler build a handle across
+      // the FFI first, an allocation and a failure mode inside that budget,
+      // for a call that is one shot rather than a session.
+      expect(STANDALONE_EXPORTS.length).toBe(28);
     });
 
     it('should include the known standalone FFI functions', () => {
@@ -141,6 +151,10 @@ describe('FFI Binding Validation', () => {
       // an engine method would be the wrong home and would queue behind the
       // lock the cancel exists to stop taking.
       expect(names.has('cancel_fetch_and_store')).toBe(true);
+      // One id in, a summary out, blocking. The native push handler this was
+      // built for has no run loop to poll the global slot the batch reports
+      // through, so the composition it needs lives beside that batch.
+      expect(names.has('fetch_and_index_activity')).toBe(true);
       // A caller queued behind a 500-activity sync used to poll the global
       // flag and watch someone else's numbers long after its own had landed.
       expect(names.has('get_fetch_run_progress')).toBe(true);

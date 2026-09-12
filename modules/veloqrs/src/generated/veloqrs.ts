@@ -1763,6 +1763,63 @@ const FfiConverterTypeFfiActivityMetrics = (() => {
 })();
 
 /**
+ * One activity's display name, for a caller that holds ids and has to draw
+ * something an athlete recognises. Only the ids the engine knows are
+ * answered, so the caller falls back to the id itself.
+ */
+export type FfiActivityName = {
+  activityId: string;
+  name: string;
+  /**
+   * Start time as epoch seconds, so a caller can order what it draws.
+   */
+  date: /*i64*/ bigint;
+};
+
+/**
+ * Generated factory for {@link FfiActivityName} record objects.
+ */
+export const FfiActivityName = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiActivityName, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiActivityName>,
+  });
+})();
+
+const FfiConverterTypeFfiActivityName = (() => {
+  type TypeName = FfiActivityName;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityId: FfiConverterString.read(from),
+        name: FfiConverterString.read(from),
+        date: FfiConverterInt64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.activityId, into);
+      FfiConverterString.write(value.name, into);
+      FfiConverterInt64.write(value.date, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterInt64.allocationSize(value.date)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A detected recurring training pattern from k-means clustering.
  */
 export type FfiActivityPattern = {
@@ -8784,6 +8841,64 @@ const FfiConverterTypeFfiStartupData = (() => {
 })();
 
 /**
+ * A stored curve and when it was fetched.
+ *
+ * The two travel together because a curve drawn offline says nothing about
+ * its own age, and reading the time as a second call would be a second FFI
+ * hop on a screen that already makes one per mount.
+ */
+export type FfiStoredCurve = {
+  /**
+   * The body the server sent, unparsed.
+   */
+  raw: string;
+  /**
+   * Epoch seconds at the fetch that stored it.
+   */
+  fetchedAt: /*i64*/ bigint;
+};
+
+/**
+ * Generated factory for {@link FfiStoredCurve} record objects.
+ */
+export const FfiStoredCurve = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiStoredCurve, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiStoredCurve>,
+  });
+})();
+
+const FfiConverterTypeFfiStoredCurve = (() => {
+  type TypeName = FfiStoredCurve;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        raw: FfiConverterString.read(from),
+        fetchedAt: FfiConverterInt64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.raw, into);
+      FfiConverterInt64.write(value.fetchedAt, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.raw) +
+        FfiConverterInt64.allocationSize(value.fetchedAt)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Bundled strength aggregation for the insights hook: one monthly summary
  * plus N weekly summaries, each keyed to the corresponding input range.
  * Collapses 5+ separate `getStrengthSummary` FFI calls into one round-trip.
@@ -11266,6 +11381,19 @@ export interface ActivityManagerLike {
    * page of them parsed in JavaScript to find it.
    */
   getActivityBody(activityId: string) /*throws*/ : string | undefined;
+  /**
+   * Display names for a batch of activity ids, for a caller that holds ids
+   * and has to draw something an athlete recognises.
+   *
+   * Batched rather than one call per id: a caller drawing a row of chips
+   * would otherwise make a blocking FFI hop each, on a screen where a
+   * transition is already running. Ids the engine has no name for are
+   * absent from the answer rather than carrying an empty string, so the
+   * caller can tell "no name" from "a blank name" and fall back to the id.
+   */
+  getActivityNames(
+    activityIds: Array<string>,
+  ) /*throws*/ : Array<FfiActivityName>;
   getCount() /*throws*/ : /*u32*/ number;
   /**
    * Everything the activity detail screen paints with, in one engine lock:
@@ -11473,6 +11601,36 @@ export class ActivityManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_body(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Display names for a batch of activity ids, for a caller that holds ids
+   * and has to draw something an athlete recognises.
+   *
+   * Batched rather than one call per id: a caller drawing a row of chips
+   * would otherwise make a blocking FFI hop each, on a screen where a
+   * transition is already running. Ids the engine has no name for are
+   * absent from the answer rather than carrying an empty string, so the
+   * caller can tell "no name" from "a blank name" and fall back to the id.
+   */
+  getActivityNames(
+    activityIds: Array<string>,
+  ): Array<FfiActivityName> /*throws*/ {
+    return FfiConverterArrayTypeFfiActivityName.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_names(
+            uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayString.lower(activityIds),
             callStatus,
           );
         },
@@ -13407,13 +13565,14 @@ export interface FitnessManagerLike {
     endTs: /*i64*/ bigint,
   ) /*throws*/ : Array<FfiMonthlyStats>;
   /**
-   * A stored pace curve body, keyed by sport, window and the gap flag.
+   * A stored pace curve, keyed by sport, window and the gap flag, with the
+   * time it was fetched.
    */
-  getPaceCurveBody(
+  getPaceCurve(
     sport: string,
     days: /*i64*/ bigint,
     gap: boolean,
-  ) /*throws*/ : string | undefined;
+  ) /*throws*/ : FfiStoredCurve | undefined;
   /**
    * Aggregated totals for one date window: count, duration, distance, TSS.
    */
@@ -13422,13 +13581,17 @@ export interface FitnessManagerLike {
     endTs: /*i64*/ bigint,
   ) /*throws*/ : FfiPeriodStats;
   /**
-   * A stored power curve body, or `None` when that sport and window have
-   * never been fetched. `None` means "ask for it", not "no data".
+   * A stored power curve, or `None` when that sport and window have never
+   * been fetched. `None` means "ask for it", not "no data".
+   *
+   * The fetch time rides along with the body rather than answering a second
+   * call, because a curve drawn offline says nothing about its own age and
+   * the screens that draw one already make an FFI hop per mount.
    */
-  getPowerCurveBody(
+  getPowerCurve(
     sport: string,
     days: /*i64*/ bigint,
-  ) /*throws*/ : string | undefined;
+  ) /*throws*/ : FfiStoredCurve | undefined;
   /**
    * The feed's first paint in a single engine lock: the summary card and
    * the GPS preview tracks. `params` supplies the summary card's two week
@@ -13759,20 +13922,21 @@ export class FitnessManager
   }
 
   /**
-   * A stored pace curve body, keyed by sport, window and the gap flag.
+   * A stored pace curve, keyed by sport, window and the gap flag, with the
+   * time it was fetched.
    */
-  getPaceCurveBody(
+  getPaceCurve(
     sport: string,
     days: /*i64*/ bigint,
     gap: boolean,
-  ): string | undefined /*throws*/ {
-    return FfiConverterOptionalString.lift(
+  ): FfiStoredCurve | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiStoredCurve.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
         ),
         /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve_body(
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sport),
             FfiConverterInt64.lower(days),
@@ -13811,20 +13975,24 @@ export class FitnessManager
   }
 
   /**
-   * A stored power curve body, or `None` when that sport and window have
-   * never been fetched. `None` means "ask for it", not "no data".
+   * A stored power curve, or `None` when that sport and window have never
+   * been fetched. `None` means "ask for it", not "no data".
+   *
+   * The fetch time rides along with the body rather than answering a second
+   * call, because a curve drawn offline says nothing about its own age and
+   * the screens that draw one already make an FFI hop per mount.
    */
-  getPowerCurveBody(
+  getPowerCurve(
     sport: string,
     days: /*i64*/ bigint,
-  ): string | undefined /*throws*/ {
-    return FfiConverterOptionalString.lift(
+  ): FfiStoredCurve | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiStoredCurve.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
         ),
         /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_power_curve_body(
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_power_curve(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sport),
             FfiConverterInt64.lower(days),
@@ -20714,6 +20882,11 @@ const FfiConverterOptionalTypeFfiSection = new FfiConverterOptional(
 const FfiConverterOptionalTypeFfiSectionPerformanceRecord =
   new FfiConverterOptional(FfiConverterTypeFfiSectionPerformanceRecord);
 
+// FfiConverter for FfiStoredCurve | undefined
+const FfiConverterOptionalTypeFfiStoredCurve = new FfiConverterOptional(
+  FfiConverterTypeFfiStoredCurve,
+);
+
 // FfiConverter for FfiStrengthInsightSeries | undefined
 const FfiConverterOptionalTypeFfiStrengthInsightSeries =
   new FfiConverterOptional(FfiConverterTypeFfiStrengthInsightSeries);
@@ -20774,6 +20947,11 @@ const FfiConverterArrayTypeFfiActivityIndicator = new FfiConverterArray(
 // FfiConverter for Array<FfiActivityMetrics>
 const FfiConverterArrayTypeFfiActivityMetrics = new FfiConverterArray(
   FfiConverterTypeFfiActivityMetrics,
+);
+
+// FfiConverter for Array<FfiActivityName>
+const FfiConverterArrayTypeFfiActivityName = new FfiConverterArray(
+  FfiConverterTypeFfiActivityName,
 );
 
 // FfiConverter for Array<FfiActivityPattern>
@@ -21363,6 +21541,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_get_activity_body",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_names() !==
+    60614
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_get_activity_names",
     );
   }
   if (
@@ -22014,11 +22200,11 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve_body() !==
-    31854
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve() !==
+    29645
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve_body",
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve",
     );
   }
   if (
@@ -22030,11 +22216,11 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve_body() !==
-    6853
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve() !==
+    13721
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve_body",
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve",
     );
   }
   if (
@@ -23649,6 +23835,7 @@ export default Object.freeze({
     FfiConverterTypeFfiActivityHighlightsBundle,
     FfiConverterTypeFfiActivityIndicator,
     FfiConverterTypeFfiActivityMetrics,
+    FfiConverterTypeFfiActivityName,
     FfiConverterTypeFfiActivityPattern,
     FfiConverterTypeFfiActivityRouteHighlight,
     FfiConverterTypeFfiActivitySectionHighlight,
@@ -23740,6 +23927,7 @@ export default Object.freeze({
     FfiConverterTypeFfiStalePrOpportunity,
     FfiConverterTypeFfiStartOutcome,
     FfiConverterTypeFfiStartupData,
+    FfiConverterTypeFfiStoredCurve,
     FfiConverterTypeFfiStrengthInsightSeries,
     FfiConverterTypeFfiStrengthSummary,
     FfiConverterTypeFfiSummaryCardData,

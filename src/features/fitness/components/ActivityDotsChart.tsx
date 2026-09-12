@@ -12,6 +12,7 @@ import { colors, darkColors, opacity, spacing, layout, typography, chartStyles }
 import { getActivityColor, sortByDateId } from '@/features/activity/lib/activityUtils';
 import type { Activity, ActivityType, WellnessData } from '@/types';
 import { stripMarks, markFills } from '../lib/stripMarks';
+import { formFromLoads } from '@/shared/math';
 
 // Simple emoji icons for activity types
 const ACTIVITY_EMOJIS: Record<string, string> = {
@@ -134,7 +135,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
         activities: dayActivities,
         fitness,
         fatigue,
-        form: fitness - fatigue,
+        form: formFromLoads(fitnessRaw, fatigueRaw),
       };
     });
   }, [data, activitiesByDate]);

@@ -44,6 +44,7 @@ import {
   DetailFallback,
   SectionTrimOverlay,
   SportTypeSelector,
+  useLedgerActivityNames,
 } from '@/features/routes';
 import { getEngine } from '@/shared/native/engine';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
@@ -161,6 +162,7 @@ export default function SectionDetailScreen() {
     [detail]
   );
   const ledger = useSectionLedger(id, sectionRefreshKey, bundledLedger);
+  const ledgerActivityNames = useLedgerActivityNames(ledger.history);
   const [shownVersion, setShownVersion] = useState<number | null>(null);
   const shadowTrack = useMemo<[number, number][] | undefined>(() => {
     if (shownVersion == null) return undefined;
@@ -523,6 +525,7 @@ export default function SectionDetailScreen() {
               onShowVersion={setShownVersion}
               onRevert={handleRevert}
               onUnpin={handleUnpin}
+              activityNames={ledgerActivityNames}
             />
           )}
 

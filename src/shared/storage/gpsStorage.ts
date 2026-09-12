@@ -10,7 +10,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { debug } from '@/shared/debug/debug';
-import { getEngine } from '@/shared/native/engine';
+import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
 import {
   clearTerrainPreviews,
@@ -81,7 +81,12 @@ export async function clearBoundsCache(): Promise<void> {
 // Routes Database Size (Rust SQLite)
 // =============================================================================
 
-const ROUTES_DB_PATH = `${FileSystem.documentDirectory}routes.db`;
+// Asked rather than spelled: since the database moved into the App Group
+// container on iOS there is one answer and `engine.ts` holds it.
+function routesDbPath(): string | null {
+  const path = getRouteDbPath();
+  return path === null ? null : `file://${path}`;
+}
 
 /**
  * Get the size of a single file, returning 0 if it doesn't exist.
@@ -104,10 +109,12 @@ async function getFileSize(path: string): Promise<number> {
  * which can be substantial in WAL mode.
  */
 export async function estimateRoutesDatabaseSize(): Promise<number> {
+  const path = routesDbPath();
+  if (path === null) return 0;
   const [main, wal, shm] = await Promise.all([
-    getFileSize(ROUTES_DB_PATH),
-    getFileSize(`${ROUTES_DB_PATH}-wal`),
-    getFileSize(`${ROUTES_DB_PATH}-shm`),
+    getFileSize(path),
+    getFileSize(`${path}-wal`),
+    getFileSize(`${path}-shm`),
   ]);
   return main + wal + shm;
 }

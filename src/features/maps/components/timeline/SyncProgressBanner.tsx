@@ -18,7 +18,7 @@ import Animated, {
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
-import { colors, ink, typography, spacing } from '@/theme';
+import { colors, ink, typography, spacing, colorWithOpacity } from '@/theme';
 
 interface SyncProgressBannerProps {
   /** Whether the banner is visible */
@@ -155,12 +155,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   countText: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: colorWithOpacity(ink.white, 0.7),
     fontSize: typography.caption.fontSize,
   },
   progressTrack: {
     height: 3,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: colorWithOpacity(ink.black, 0.2),
   },
   progressFill: {
     height: '100%',

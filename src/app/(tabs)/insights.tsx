@@ -29,7 +29,15 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { colors, darkColors, spacing, amberBanner, layout, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  amberBanner,
+  layout,
+  typography,
+  colorWithOpacity,
+} from '@/theme';
 
 type TabType = 'insights' | 'strength' | 'routes' | 'sections' | 'debug';
 
@@ -561,7 +569,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusMd,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    backgroundColor: colorWithOpacity(colors.warning, 0.1),
   },
   disabledHintText: {
     fontSize: typography.caption.fontSize,

@@ -1,6 +1,15 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  shadows,
+  typography,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -22,7 +31,7 @@ export const styles = StyleSheet.create({
     zIndex: 2,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: colorWithOpacity(ink.black, 0.3),
     borderRadius: layout.borderRadius,
   },
   map: {
@@ -45,10 +54,10 @@ export const styles = StyleSheet.create({
     borderColor: colors.textOnDark,
   },
   startMarker: {
-    backgroundColor: 'rgba(34,197,94,0.75)',
+    backgroundColor: colorWithOpacity(colors.success, 0.75),
   },
   endMarker: {
-    backgroundColor: 'rgba(239,68,68,0.75)',
+    backgroundColor: colorWithOpacity(colors.error, 0.75),
   },
   nearbyMarker: {
     width: 10,
@@ -59,10 +68,10 @@ export const styles = StyleSheet.create({
     opacity: 0.5,
   },
   nearbyStartMarker: {
-    backgroundColor: 'rgba(34,197,94,0.6)',
+    backgroundColor: colorWithOpacity(colors.success, 0.6),
   },
   nearbyEndMarker: {
-    backgroundColor: 'rgba(239,68,68,0.6)',
+    backgroundColor: colorWithOpacity(colors.error, 0.6),
   },
   nearbyPopup: {
     position: 'absolute',
@@ -115,7 +124,7 @@ export const styles = StyleSheet.create({
     position: 'absolute',
     bottom: spacing.sm,
     right: spacing.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
     borderRadius: spacing.xsPlus,
     padding: spacing.xs,
   },
@@ -131,7 +140,7 @@ export const styles = StyleSheet.create({
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.modal,

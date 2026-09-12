@@ -2,7 +2,15 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, activityTypeColors, typography, spacing, layout } from '@/theme';
+import {
+  colors,
+  activityTypeColors,
+  typography,
+  spacing,
+  layout,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import type { ActivityType } from '@/types';
 import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
 import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
@@ -238,7 +246,7 @@ export function ActivityTypeFilter({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,

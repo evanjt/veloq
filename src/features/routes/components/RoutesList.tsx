@@ -6,13 +6,12 @@
  * Full group data is only loaded on detail page.
  */
 
-import React, { useEffect, useRef, memo, useMemo, useState } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
   FlatList,
   RefreshControl,
-  LayoutAnimation,
   Platform,
   ActivityIndicator,
   TouchableOpacity,
@@ -31,7 +30,7 @@ import { haversineDistance, type LatLng } from '@/shared/geo/distance';
 import { Shimmer } from '@/shared/ui';
 import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
-import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
+import type { RouteGroup } from '@/types';
 import { batchGroupToRouteGroup } from '@/features/routes/lib/batchGroupToRouteGroup';
 
 export type RoutesSortOption = 'activities' | 'distance' | 'name' | 'nearby';
@@ -70,69 +69,6 @@ function RouteRowSkeleton() {
     </View>
   );
 }
-
-// Memoized routes list - only updates when route count changes
-const DiscoveredRoutesList = memo(
-  function DiscoveredRoutesList({
-    routes,
-    isDark,
-    t,
-  }: {
-    routes: DiscoveredRouteInfo[];
-    isDark: boolean;
-    t: (key: string) => string;
-  }) {
-    const prevCountRef = useRef(routes.length);
-
-    // Animate layout when routes are added
-    useEffect(() => {
-      if (routes.length > prevCountRef.current) {
-        LayoutAnimation.configureNext({
-          duration: 200,
-          create: {
-            type: LayoutAnimation.Types.easeOut,
-            property: LayoutAnimation.Properties.opacity,
-          },
-          update: { type: LayoutAnimation.Types.easeOut },
-        });
-      }
-      prevCountRef.current = routes.length;
-    }, [routes.length]);
-
-    if (routes.length === 0) {
-      return (
-        <View style={styles.noRoutesYet}>
-          <MaterialCommunityIcons
-            name="map-search-outline"
-            size={32}
-            color={isDark ? darkColors.iconDisabled : colors.gray400}
-          />
-          <Text style={[styles.noRoutesText, isDark && styles.textMuted]}>
-            {t('routes.lookingForRoutes')}
-          </Text>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.routesList}>
-        {routes.map((route) => (
-          <RouteRow key={route.id} route={route} />
-        ))}
-      </View>
-    );
-  },
-  (prev, next) => {
-    // Only re-render if route count changes or activity counts change
-    if (prev.routes.length !== next.routes.length) return false;
-    if (prev.isDark !== next.isDark) return false;
-    // Check if any route's activity count changed
-    for (let i = 0; i < prev.routes.length; i++) {
-      if (prev.routes[i].activityCount !== next.routes[i].activityCount) return false;
-    }
-    return true;
-  }
-);
 
 export const RoutesList = memo(function RoutesList({
   onRefresh,
@@ -207,11 +143,6 @@ export const RoutesList = memo(function RoutesList({
 
   const showActivityList = progress.status === 'processing';
 
-  // Memoize routes array reference to prevent unnecessary re-renders
-  const routes = useMemo(() => {
-    return [] as DiscoveredRouteInfo[];
-  }, []);
-
   const sortChips: {
     key: RoutesSortOption;
     label: string;
@@ -256,11 +187,16 @@ export const RoutesList = memo(function RoutesList({
                 : (t('routes.waiting' as never) as string)}
             </Text>
           </View>
-          <DiscoveredRoutesList
-            routes={routes}
-            isDark={isDark}
-            t={((key: string) => t(key as never) as string) as (key: string) => string}
-          />
+          <View style={styles.noRoutesYet}>
+            <MaterialCommunityIcons
+              name="map-search-outline"
+              size={32}
+              color={isDark ? darkColors.iconDisabled : colors.gray400}
+            />
+            <Text style={[styles.noRoutesText, isDark && styles.textMuted]}>
+              {t('routes.lookingForRoutes' as never) as string}
+            </Text>
+          </View>
         </View>
       )}
     </View>

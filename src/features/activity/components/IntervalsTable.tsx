@@ -11,7 +11,7 @@ import {
   formatPower,
 } from '@/shared/format/format';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography, ink, colorWithOpacity } from '@/theme';
 import type { ActivityInterval, ActivityType } from '@/types';
 
 interface IntervalsTableProps {
@@ -132,10 +132,10 @@ const styles = StyleSheet.create({
   intervalRowRecovery: {},
   intervalRowBorder: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.08)',
+    borderTopColor: colorWithOpacity(ink.black, 0.08),
   },
   intervalRowBorderDark: {
-    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopColor: colorWithOpacity(ink.white, 0.08),
   },
   indexText: {
     fontSize: typography.caption.fontSize,

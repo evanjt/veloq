@@ -197,11 +197,13 @@ fn wipe_derived_catalogue(db: &rusqlite::Connection) -> SqlResult<usize> {
 /// thread apiece is worse than the hold it replaces.
 fn spawn_tile_sweep(tiles_path: String, bounds: Vec<Bounds>, reason: &'static str) {
     let count = bounds.len();
-    let cancel = crate::persistence::CancelToken::new();
-    if let Ok(mut guard) = crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL.lock() {
-        *guard = Some(cancel.clone());
-    }
+    let registration = crate::persistence::register_tile_sweep();
+    let cancel = registration.token();
     std::thread::spawn(move || {
+        // Held for the life of the sweep. Dropping it takes this sweep's
+        // registration and leaves every sibling's, so a sweep that ends cannot
+        // make another one unstoppable.
+        let _registration = registration;
         let config = crate::tiles::HeatmapConfig::default();
         let path = std::path::Path::new(&tiles_path);
         let margin = 0.001; // ~111m at equator, for points that bled into a neighbour
@@ -233,9 +235,6 @@ fn spawn_tile_sweep(tiles_path: String, bounds: Vec<Bounds>, reason: &'static st
         // it reached, and the bounds it never reached still hold ground that
         // changed. Either way the set is owed a redraw.
         crate::persistence::tiles::mark_tiles_dirty(&tiles_path);
-        if let Ok(mut guard) = crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL.lock() {
-            *guard = None;
-        }
         if stopped {
             log::info!(
                 "[heatmap] Sweep cancelled after {} tiles, the set stays dirty",

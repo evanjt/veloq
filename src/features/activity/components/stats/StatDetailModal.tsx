@@ -6,7 +6,17 @@ import React from 'react';
 import { View, Text, StyleSheet, Modal, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, opacity, typography, spacing, layout, verdictColor } from '@/theme';
+import {
+  colors,
+  darkColors,
+  opacity,
+  typography,
+  spacing,
+  layout,
+  verdictColor,
+  ink,
+  colorWithOpacity,
+} from '@/theme';
 import type { StatDetail } from './types';
 
 interface StatDetailModalProps {
@@ -131,7 +141,7 @@ export function StatDetailModal({ stat, isDark, onClose }: StatDetailModalProps)
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: colorWithOpacity(ink.black, 0.6),
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,

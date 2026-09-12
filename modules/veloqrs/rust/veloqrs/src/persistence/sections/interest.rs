@@ -215,20 +215,30 @@ impl PersistentEngine {
             })
             .collect();
         let proximity = self.section_config.proximity_threshold;
-        let pooled: HashMap<String, RankFeatures> =
-            tracematch::rank(&candidates, &outings, proximity, None)
-                .into_iter()
-                .collect();
-        let mut by_sport: HashMap<&str, Vec<RankCandidate>> = HashMap::new();
+        // Measuring the features is the whole cost of ranking, and the pooled
+        // and per-sport scores are two percentiles over the same measurements.
+        let measured = tracematch::rank_features(&candidates, &outings, proximity, None);
+        let features: HashMap<&str, &RankFeatures> =
+            measured.iter().map(|(id, f)| (id.as_str(), f)).collect();
+
+        let mut pooled_scored = measured.clone();
+        tracematch::score_features(&mut pooled_scored);
+        let pooled: HashMap<String, RankFeatures> = pooled_scored.into_iter().collect();
+
+        let mut by_sport: HashMap<&str, Vec<(String, RankFeatures)>> = HashMap::new();
         for (c, s) in candidates.iter().zip(&self.sections) {
+            let Some(f) = features.get(c.id) else {
+                continue;
+            };
             by_sport
                 .entry(s.sport_type.as_str())
                 .or_default()
-                .push(c.clone());
+                .push((c.id.to_string(), (*f).clone()));
         }
         let mut sport_scores: HashMap<String, f64> = HashMap::new();
-        for group in by_sport.values() {
-            for (id, f) in tracematch::rank(group, &outings, proximity, None) {
+        for group in by_sport.values_mut() {
+            tracematch::score_features(group);
+            for (id, f) in group.drain(..) {
                 sport_scores.insert(id, f.score);
             }
         }

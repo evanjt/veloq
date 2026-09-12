@@ -326,7 +326,20 @@ name = "attach_finalize_cost"
 required-features = ["synthetic"]
 
 [[bench]]
+name = "section_editor_cost"
+
+[[bench]]
+name = "activity_upsert_cost"
+
+[[bench]]
+name = "insights_data_cost"
+
+[[bench]]
 name = "live_section_replay"
+
+[[bench]]
+name = "activity_detail_cost"
+harness = false
 
 [[bin]]
 name = "uniffi-bindgen"
@@ -352,6 +365,14 @@ required-features = ["real-corpus"]
 
 [[test]]
 name = "evidence_cache_durability"
+required-features = ["synthetic"]
+
+[[test]]
+name = "evidence_cache_decode_cost"
+required-features = ["synthetic"]
+
+[[test]]
+name = "evidence_cache_write_cost"
 required-features = ["synthetic"]
 
 [[test]]
@@ -385,3 +406,13 @@ required-features = ["synthetic"]
 [[test]]
 name = "every_table_declares_an_owner"
 path = "tests/every_table_declares_an_owner.rs"
+
+[[test]]
+name = "indicator_recompute_cost"
+required-features = ["synthetic"]
+
+[[test]]
+name = "tile_sweep_enumeration"
+
+[[test]]
+name = "detection_cluster_spread"

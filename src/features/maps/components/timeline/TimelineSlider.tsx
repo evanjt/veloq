@@ -4,7 +4,16 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
-import { colors, darkColors, typography, spacing, layout, smallElementShadow } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  layout,
+  smallElementShadow,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import { SyncProgressBanner } from './SyncProgressBanner';
 import { TimelineLegend } from './TimelineLegend';
 import { ActivityCategoryFilter } from './ActivityCategoryFilter';
@@ -425,7 +434,7 @@ export function TimelineSlider({
                                 ? colors.primary
                                 : isDark
                                   ? 'rgba(60,60,60,0.8)'
-                                  : 'rgba(255,255,255,0.8)',
+                                  : colorWithOpacity(ink.white, 0.8),
                           },
                         ]}
                       />

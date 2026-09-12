@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, typography, spacing, layout, shadows } from '@/theme';
+import { colors, typography, spacing, layout, shadows, colorWithOpacity, ink } from '@/theme';
 import { formatDistance } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app';
 
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
   },
   statusPill: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     borderRadius: layout.borderRadiusFull,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   technicalDetails: {
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    backgroundColor: colorWithOpacity(ink.black, 0.03),
     borderRadius: spacing.xs,
     padding: spacing.sm,
     gap: spacing.xs,

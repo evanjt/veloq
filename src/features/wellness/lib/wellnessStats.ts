@@ -7,6 +7,7 @@ import {
   type TrendGlyph,
   type TrendMetric,
 } from '@/shared/format/trend';
+import { formFromLoads } from '@/shared/math';
 
 /**
  * The arrow beside a number, or undefined when there is nothing to compare it
@@ -46,7 +47,7 @@ export function computeWellnessStats(wellness: WellnessData[] | undefined): Well
 
   const fitness = Math.round(latest?.ctl ?? latest?.ctlLoad ?? 0);
   const fatigue = Math.round(latest?.atl ?? latest?.atlLoad ?? 0);
-  const form = fitness - fatigue;
+  const form = formFromLoads(latest?.ctl ?? latest?.ctlLoad, latest?.atl ?? latest?.atlLoad);
   const hrv = latest?.hrv ?? null;
   const rhr = latest?.restingHR ?? null;
   const weight = latest?.weight ?? null;

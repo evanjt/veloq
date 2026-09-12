@@ -11,7 +11,16 @@ import { useTheme } from '@/shared/app';
 import { formatDurationOrNull } from '@/shared/format/format';
 import { formatEffortValue } from '@/features/fitness/lib';
 import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
-import { colors, darkColors, layout, spacing, typography, opacity } from '@/theme';
+import {
+  colors,
+  darkColors,
+  layout,
+  spacing,
+  typography,
+  opacity,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 
 type TimeRangeKey = 'season' | 'allTime';
 
@@ -319,10 +328,10 @@ const styles = StyleSheet.create({
   },
   rowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+    borderBottomColor: colorWithOpacity(ink.black, 0.08),
   },
   rowBorderDark: {
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: colorWithOpacity(ink.white, 0.08),
   },
   label: {
     ...typography.bodySmall,

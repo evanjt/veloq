@@ -4,7 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, cameraOverlay, layout, typography } from '@/theme';
+import { colors, spacing, cameraOverlay, layout, typography, colorWithOpacity, ink } from '@/theme';
 
 interface NextcloudQrScannerProps {
   onScanned: (data: string) => void;
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
   },
   closeButton: {
     width: 40,
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: colorWithOpacity(ink.black, 0.6),
     padding: spacing.lg,
   },
   instructionText: {

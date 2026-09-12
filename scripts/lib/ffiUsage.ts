@@ -366,6 +366,14 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
   'StrengthManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'SyncManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
 
+  // Built for a caller that is not TypeScript. The push handler this exists
+  // for runs in Kotlin, and on iOS in Swift, with no JS runtime alive: it
+  // holds an activity id, fetches the track, stores it and indexes it in one
+  // blocking call, because it has no run loop to poll the batch path's global
+  // result slot on. Delete it if that handler is never written.
+  fetchAndIndexActivity:
+    'called from the native push handler, which runs with no JS runtime, not from TypeScript',
+
   // The basemap tile store. Reached by the offline map work rather than a
   // screen, so none of it has a caller here yet.
   'BasemapManager.setPath': 'the basemap tile store, reached from the offline map work rather than a screen',

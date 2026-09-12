@@ -15,7 +15,7 @@ import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
 import { navigateTab } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, ink, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, ink, typography, colorWithOpacity } from '@/theme';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: colorWithOpacity(ink.black, 0.6),
   },
   card: {
     borderRadius: layout.borderRadius,

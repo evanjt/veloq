@@ -109,12 +109,7 @@ impl HeatmapManager {
         // The handle stays in its slot: the worker is still winding down and
         // `poll` is what clears it, so taking it here would lose the outcome
         // the caller is waiting to read.
-        if let Some(token) = crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .as_ref()
-        {
-            token.cancel();
+        if crate::persistence::cancel_tile_sweeps() {
             stopped = true;
         }
 
@@ -193,10 +188,6 @@ mod tests {
             let _held = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock();
             panic!("a tile job unwound");
         });
-        let _ = std::panic::catch_unwind(|| {
-            let _held = crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL.lock();
-            panic!("a sweep unwound");
-        });
         assert!(
             crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
                 .lock()
@@ -207,6 +198,55 @@ mod tests {
         assert_eq!(heatmap.poll().unwrap(), "idle");
         assert_eq!(heatmap.get_progress().unwrap(), vec![0, 0]);
         assert!(!heatmap.cancel().unwrap(), "nothing was running to stop");
+    }
+
+    /// Scenario: two tile sweeps are in flight. `add_activities_batch` spawns
+    /// one for new and mutated activities and the removal path spawns another,
+    /// and the elevation backfill stores through the same batch while a GPS
+    /// sync stores its own.
+    ///
+    /// Expected behaviour: a cancel reaches both. One slot holds one token, so
+    /// the second spawn overwrote the first and the first swept on unstoppably.
+    #[test]
+    fn a_cancel_reaches_every_running_sweep_and_not_only_the_last() {
+        let _guard = serial_global_state();
+        let heatmap = HeatmapManager::new();
+
+        let first = crate::persistence::register_tile_sweep();
+        let second = crate::persistence::register_tile_sweep();
+
+        assert!(heatmap.cancel().unwrap(), "two sweeps were running");
+        assert!(
+            second.token().is_cancelled(),
+            "the last sweep was not stopped"
+        );
+        assert!(first.token().is_cancelled(), "the first sweep kept running");
+    }
+
+    /// Scenario: the sweep that finishes first used to clear the one slot, so a
+    /// cancel after it reached neither the sweep still running nor anything at
+    /// all.
+    ///
+    /// Expected behaviour: a sweep ending takes its own registration and leaves
+    /// its sibling's, and a cancel with none left is a no-op rather than a lie.
+    #[test]
+    fn a_sweep_ending_leaves_its_siblings_cancellable() {
+        let _guard = serial_global_state();
+        let heatmap = HeatmapManager::new();
+
+        let first = crate::persistence::register_tile_sweep();
+        let second = crate::persistence::register_tile_sweep();
+        let still_running = second.token();
+        drop(first);
+
+        assert!(heatmap.cancel().unwrap(), "one sweep was still running");
+        assert!(
+            still_running.is_cancelled(),
+            "the survivor was not reachable"
+        );
+
+        drop(second);
+        assert!(!heatmap.cancel().unwrap(), "nothing was left to stop");
     }
 
     #[test]

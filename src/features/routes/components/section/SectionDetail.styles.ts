@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
 
 export const styles = StyleSheet.create({
   container: {
@@ -99,7 +99,7 @@ export const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: colorWithOpacity(ink.black, 0.4),
     justifyContent: 'center',
     alignItems: 'center',
   },

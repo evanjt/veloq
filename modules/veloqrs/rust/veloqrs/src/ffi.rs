@@ -225,6 +225,55 @@ pub(crate) fn elevation_state_of(points: &[GpsPoint]) -> u8 {
     }
 }
 
+/// Why a fetched activity cannot be ingested, when it cannot.
+///
+/// Named rather than collapsed into a bool, because a caller woken by a push
+/// has one activity and one chance to say something about it: "the server
+/// refused" and "this ride has no GPS" want different notifications, and
+/// today's batch path discards both by skipping the row.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum TrackRefusal {
+    /// The fetch itself failed. Carries what the transport said.
+    Fetch(String),
+    /// The response carried no `latlng` series at all: an indoor ride, a
+    /// manual entry, a session recorded without GPS.
+    NoTrack,
+    /// There is a series and it is too short to be a line. Two points is the
+    /// floor everything downstream assumes.
+    TooShort,
+}
+
+/// The points a fetched activity can be stored as, or why it cannot.
+///
+/// Pure, so the decision the batch path makes inline at three separate `if`s
+/// can be tested without a network, an engine or a runtime, and so the single
+/// and batch paths cannot drift on what counts as a usable track.
+pub(crate) fn usable_track(
+    result: &crate::http::ActivityMapResult,
+) -> Result<Vec<GpsPoint>, TrackRefusal> {
+    if !result.success {
+        return Err(TrackRefusal::Fetch(
+            result
+                .error
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string()),
+        ));
+    }
+    let Some(latlngs) = result.latlngs.as_deref() else {
+        return Err(TrackRefusal::NoTrack);
+    };
+    if latlngs.len() < 2 {
+        return Err(TrackRefusal::TooShort);
+    }
+    let coords = track_points(latlngs, result.elevations.as_deref());
+    // A series long enough to be a line can still filter down to nothing:
+    // `is_storable` drops a point outside the world or at the null island.
+    if coords.len() < 2 {
+        return Err(TrackRefusal::TooShort);
+    }
+    Ok(coords)
+}
+
 /// Store one downloaded track, attach it to the catalogue, then announce it.
 ///
 /// Returns whether the track landed and how many portions attached. The
@@ -471,12 +520,12 @@ pub fn start_fetch_and_store(
                 break;
             }
             let activity_start = Instant::now();
-            if result.success {
-                if let Some(latlngs) = result.latlngs {
-                    if latlngs.len() >= 2 {
-                        let coords = track_points(&latlngs, result.elevations.as_deref());
-
-                        if coords.len() >= 2 {
+            // The same gate the single-activity path uses, so the two cannot
+            // drift on what counts as a usable track.
+            match usable_track(&result) {
+                Ok(coords) => {
+                    {
+                        {
                             total_points += coords.len();
 
                             // Get sport type
@@ -519,17 +568,10 @@ pub fn start_fetch_and_store(
                             } else {
                                 failed_ids.push(result.activity_id);
                             }
-                        } else {
-                            failed_ids.push(result.activity_id);
                         }
-                    } else {
-                        failed_ids.push(result.activity_id);
                     }
-                } else {
-                    failed_ids.push(result.activity_id);
                 }
-            } else {
-                failed_ids.push(result.activity_id);
+                Err(_) => failed_ids.push(result.activity_id),
             }
         }
 
@@ -1042,8 +1084,171 @@ pub fn get_cutover_diff() -> Option<String> {
     crate::persistence::with_persistent_engine(|e| e.cutover_diff()).flatten()
 }
 
+/// Fetch one activity's track, store it, and index it against the catalogue.
+///
+/// One blocking call, for a caller with no run loop. A push handler in Kotlin
+/// or Swift holds an activity id, a budget measured in seconds and no way to
+/// poll: `start_fetch_and_store` arms a global slot and hands back a run id,
+/// which is the right shape for a screen watching a progress bar and the wrong
+/// one here. This returns what happened, or says why nothing did.
+///
+/// The three steps each already exist and were only ever composed by the batch
+/// path, in a thread that reports through that slot. Composing them here is
+/// what lets a native caller hold an id and get a sentence out of it.
+#[uniffi::export]
+pub fn fetch_and_index_activity(
+    activity_id: String,
+    sport_type: String,
+) -> Result<crate::FfiIndexActivitySummary, String> {
+    init_logging();
+    let started = Instant::now();
+
+    let fetcher = crate::http::ActivityFetcher::from_credentials()?;
+
+    // One id, and narrow: the extra series a wide fetch brings are for the
+    // chart screens, and this call is paying a push's budget for a track and
+    // an index. `fetch_activity_maps` resolves the upstream id itself.
+    let mut results = crate::runtime::block_on(fetcher.fetch_activity_maps(
+        vec![activity_id.clone()],
+        Default::default(),
+        None,
+    ));
+    let result = results
+        .pop()
+        .ok_or_else(|| format!("no result for {}", activity_id))?;
+
+    let coords = match usable_track(&result) {
+        Ok(coords) => coords,
+        Err(TrackRefusal::Fetch(e)) => return Err(e),
+        Err(TrackRefusal::NoTrack) => return Err("no track".to_string()),
+        Err(TrackRefusal::TooShort) => return Err("track too short".to_string()),
+    };
+
+    let point_count = coords.len();
+    let (stored, _attached) = store_downloaded_track(
+        &activity_id,
+        coords,
+        sport_type,
+        &result.streams,
+        &result.times,
+    );
+    if !stored {
+        return Err("store failed".to_string());
+    }
+
+    let summary = crate::persistence::with_persistent_engine(|engine| {
+        engine.index_new_activity(&activity_id)
+    })
+    .ok_or_else(|| "no engine".to_string())?
+    .map_err(|e| e)?;
+
+    info!(
+        "[RUST: fetch_and_index_activity] {} ({} points) in {} ms",
+        activity_id,
+        point_count,
+        crate::elapsed_ms(started)
+    );
+    Ok(crate::FfiIndexActivitySummary::from(summary))
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    /// Scenario: a push names one activity and the fetch comes back. Three
+    /// answers are not a track, and a caller with one notification to write
+    /// needs to tell them apart.
+    mod usable_track {
+        use super::*;
+
+        fn result(latlngs: Option<Vec<[f64; 2]>>, success: bool) -> crate::http::ActivityMapResult {
+            crate::http::ActivityMapResult {
+                activity_id: "a1".to_string(),
+                latlngs,
+                elevations: None,
+                body_bytes: 0,
+                streams: Vec::new(),
+                times: Vec::new(),
+                success,
+                error: if success {
+                    None
+                } else {
+                    Some("HTTP 503".to_string())
+                },
+            }
+        }
+
+        #[test]
+        fn a_two_point_track_is_usable() {
+            let r = result(Some(vec![[-37.81, 144.96], [-37.82, 144.97]]), true);
+            assert_eq!(usable_track(&r).unwrap().len(), 2);
+        }
+
+        #[test]
+        fn a_failed_fetch_carries_what_the_transport_said() {
+            let r = result(None, false);
+            assert_eq!(
+                usable_track(&r),
+                Err(TrackRefusal::Fetch("HTTP 503".to_string()))
+            );
+        }
+
+        #[test]
+        fn a_failed_fetch_with_a_track_is_still_a_failed_fetch() {
+            // A partial response must not be read as data: success is the gate.
+            let r = result(Some(vec![[-37.81, 144.96], [-37.82, 144.97]]), false);
+            assert!(matches!(usable_track(&r), Err(TrackRefusal::Fetch(_))));
+        }
+
+        #[test]
+        fn no_latlng_series_is_an_indoor_ride_not_a_failure() {
+            assert_eq!(
+                usable_track(&result(None, true)),
+                Err(TrackRefusal::NoTrack)
+            );
+        }
+
+        #[test]
+        fn one_point_is_too_short_to_be_a_line() {
+            let r = result(Some(vec![[-37.81, 144.96]]), true);
+            assert_eq!(usable_track(&r), Err(TrackRefusal::TooShort));
+        }
+
+        #[test]
+        fn an_empty_series_is_too_short_rather_than_absent() {
+            assert_eq!(
+                usable_track(&result(Some(vec![]), true)),
+                Err(TrackRefusal::TooShort)
+            );
+        }
+
+        /// The length check runs twice on purpose. A series long enough to be a
+        /// line can filter down to nothing: `is_storable`
+        /// (`net/types.rs:174-179`) drops a non-finite coordinate and one
+        /// outside the world, and a caller that trusted the first check would
+        /// hand the engine one point or none. The null island passes that gate
+        /// and is stored, which is why it is not the case used here.
+        #[test]
+        fn a_long_series_of_unstorable_points_is_too_short() {
+            let r = result(
+                Some(vec![[999.0, 999.0], [f64::NAN, 0.0], [0.0, -181.0]]),
+                true,
+            );
+            assert_eq!(usable_track(&r), Err(TrackRefusal::TooShort));
+        }
+
+        /// And a mixed series keeps what is storable, so one bad sample does
+        /// not cost the ride its map.
+        #[test]
+        fn one_unstorable_sample_does_not_cost_the_track() {
+            let r = result(
+                Some(vec![[-37.81, 144.96], [999.0, 999.0], [-37.82, 144.97]]),
+                true,
+            );
+            assert_eq!(usable_track(&r).unwrap().len(), 2);
+        }
+    }
+
     use std::sync::{Arc, Mutex};
 
     use super::{elevation_state_of, store_downloaded_track, track_points};

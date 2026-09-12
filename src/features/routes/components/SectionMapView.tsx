@@ -97,6 +97,11 @@ interface SectionMapViewProps {
   onNearbyPress?: (sectionId: string) => void;
 }
 
+// Stable identities, so the closed-modal memos below return the same empty set
+// every render rather than a new one the surface would re-stringify.
+const EMPTY_SOURCES: ReturnType<typeof buildSectionSources> = {};
+const EMPTY_LAYERS: ReturnType<typeof buildSectionLayers> = [];
+
 export const SectionMapView = memo(function SectionMapView({
   section,
   height = 200,
@@ -391,13 +396,16 @@ export const SectionMapView = memo(function SectionMapView({
     [specInput]
   );
 
+  // Only the modal reads these, and a chart scrub sends a new `specInput` per
+  // index, so building them while it is shut is a whole spec set thrown away
+  // every frame of the gesture.
   const fullscreenSources = useMemo(
-    () => buildSectionSources(fullscreenSpecArgs),
-    [fullscreenSpecArgs]
+    () => (isFullscreen ? buildSectionSources(fullscreenSpecArgs) : EMPTY_SOURCES),
+    [isFullscreen, fullscreenSpecArgs]
   );
   const fullscreenLayers = useMemo(
-    () => buildSectionLayers(fullscreenSpecArgs),
-    [fullscreenSpecArgs]
+    () => (isFullscreen ? buildSectionLayers(fullscreenSpecArgs) : EMPTY_LAYERS),
+    [isFullscreen, fullscreenSpecArgs]
   );
 
   const handleSurfacePress = useCallback(

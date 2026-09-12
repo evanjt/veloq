@@ -18,7 +18,17 @@ import {
   formatCalories,
   formatTemperature,
 } from '@/shared/format/format';
-import { colors, darkColors, typography, spacing, shadows, brand, layout } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  shadows,
+  brand,
+  layout,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { ActivityCardContextMenu } from '@/features/activity/components/ActivityCardContextMenu';
 import { SkylineBar } from '@/features/activity/components/SkylineBar';
@@ -85,7 +95,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
 
   const compactTextColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const compactMutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const compactDividerColor = isDark ? darkColors.border : 'rgba(0,0,0,0.1)';
+  const compactDividerColor = isDark ? darkColors.border : colorWithOpacity(ink.black, 0.1);
 
   const secondaryStatsRow = (
     <ScrollView

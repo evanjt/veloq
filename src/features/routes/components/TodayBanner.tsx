@@ -23,6 +23,7 @@ import {
 } from '@/theme';
 import type { CalendarEvent, ActivityPattern } from '@/types';
 import type { WorkoutSection } from '@/features/home/hooks/useWorkoutSections';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 
 const PR_RECENCY_DAYS = 7;
 
@@ -63,7 +64,8 @@ export const TodayBanner = React.memo(function TodayBanner({ todayPattern }: Tod
   const ctl = latestWellness?.ctl ?? latestWellness?.ctlLoad ?? 0;
   const atl = latestWellness?.atl ?? latestWellness?.atlLoad ?? 0;
   const tsb = ctl - atl;
-  const formZone = getFormZone(tsb);
+  const asPercent = useFormPreference((s) => s.formAsPercent) === true;
+  const formZone = getFormZone(tsb, ctl, asPercent);
   const formColor = FORM_ZONE_COLORS[formZone];
   const formLabel = formZoneLabel(formZone);
 

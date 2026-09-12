@@ -12,6 +12,13 @@ interface UsePowerCurveOptions {
   enabled?: boolean;
 }
 
+/** A parsed curve with the time the body behind it was fetched. */
+interface DatedPowerCurve {
+  curve: PowerCurve;
+  /** Epoch milliseconds, or null when the curve has never been fetched. */
+  fetchedAt: number | null;
+}
+
 export function usePowerCurve(options: UsePowerCurveOptions = {}) {
   const { sport = 'Ride', days = 365, enabled = true } = options;
   const queryKey = queryKeys.charts.powerCurve.bySport(sport, days);
@@ -19,11 +26,15 @@ export function usePowerCurve(options: UsePowerCurveOptions = {}) {
   // The query is the only reader of the stored body. `null` is "never
   // fetched", which is the cue to ask Rust for it; the empty curve is what the
   // chart draws in the meantime.
-  const query = useQuery<PowerCurve | null>({
+  const query = useQuery<DatedPowerCurve | null>({
     queryKey,
     queryFn: () => {
-      const stored = getEngine()?.getPowerCurveBody(sport, days);
-      return stored ? parsePowerCurveBody(stored, sport) : null;
+      const stored = getEngine()?.getPowerCurve(sport, days);
+      if (!stored) return null;
+      // A body that will not parse is not a curve, and reporting it as one
+      // would draw an empty chart under a date saying it is current.
+      const curve = parsePowerCurveBody(stored.raw, sport);
+      return curve ? { curve, fetchedAt: stored.fetchedAt } : null;
     },
     enabled,
     // SQLite is the source, so a sync decides freshness, not a clock.
@@ -37,7 +48,11 @@ export function usePowerCurve(options: UsePowerCurveOptions = {}) {
     enabled && query.data !== undefined
   );
 
-  return { ...query, data: query.data ?? emptyPowerCurve(sport) };
+  return {
+    ...query,
+    data: query.data?.curve ?? emptyPowerCurve(sport),
+    fetchedAt: query.data?.fetchedAt ?? null,
+  };
 }
 
 /** Rendered as "no data yet" rather than an error while the fetch is in flight. */

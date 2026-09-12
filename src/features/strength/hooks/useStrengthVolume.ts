@@ -27,21 +27,26 @@ import type {
  * point. Idempotent - bulk_insert_exercise_sets uses INSERT OR REPLACE.
  */
 let demoStrengthSeedAttempted = false;
-function ensureDemoStrengthSeeded(): void {
-  if (demoStrengthSeedAttempted) return;
-  if (!useAuthStore.getState().isDemoMode) return;
+
+/** Whether anything was written, so a caller knows if there is news to announce. */
+function ensureDemoStrengthSeeded(): boolean {
+  if (demoStrengthSeedAttempted) return false;
+  if (!useAuthStore.getState().isDemoMode) return false;
   const engine = getEngine();
-  if (!engine || typeof engine.bulkInsertExerciseSets !== 'function') return;
+  if (!engine || typeof engine.bulkInsertExerciseSets !== 'function') return false;
   demoStrengthSeedAttempted = true;
+  let wrote = false;
   try {
     for (const [activityId, sets] of Object.entries(demoStrengthSets)) {
       if (engine.getExerciseSets(activityId).length === 0) {
         engine.bulkInsertExerciseSets(activityId, sets);
+        wrote = true;
       }
     }
   } catch (err) {
     console.warn('[StrengthVolume] demo seed failed:', err);
   }
+  return wrote;
 }
 
 /**
@@ -144,48 +149,72 @@ export function useStrengthVolume(period: StrengthPeriod) {
   });
 }
 
+/** How many trailing weeks a progression series covers. */
+const PROGRESSION_WEEKS = 4;
+
+interface TrailingWeeks {
+  ranges: ReturnType<typeof getTrailingWeekRanges>;
+  summaries: StrengthSummary[];
+}
+
 /**
- * Fetch a trailing 4-week progression series for one muscle group.
- * Compares the recent two weeks against the prior two weeks.
+ * The trailing weeks behind every muscle's progression, read once.
+ *
+ * `getStrengthSummaryBatch` returns each range grouped by muscle already, so
+ * the read never depended on which muscle was selected. Keying it on the muscle
+ * meant a drag across the body diagram paid four range reads for every muscle
+ * it crossed, each one re-reading the same weeks, for four numbers the previous
+ * read had already returned.
  */
-export function useStrengthProgression(muscleSlug: string | null) {
-  return useQuery<StrengthProgression | null>({
-    queryKey: queryKeys.strength.progression(muscleSlug),
+function useTrailingWeekSummaries(enabled: boolean) {
+  return useQuery<TrailingWeeks | null>({
+    queryKey: queryKeys.strength.trailingWeeks(PROGRESSION_WEEKS),
     queryFn: () => {
       const engine = getEngine();
-      if (!engine || !muscleSlug || typeof engine.getStrengthSummaryBatch !== 'function') {
-        return null;
-      }
+      if (!engine || typeof engine.getStrengthSummaryBatch !== 'function') return null;
 
       try {
-        const ranges = getTrailingWeekRanges(4);
+        const ranges = getTrailingWeekRanges(PROGRESSION_WEEKS);
         const rawSummaries = engine.getStrengthSummaryBatch(
           ranges.map((r) => ({ startTs: r.startTs, endTs: r.endTs }))
         );
-        const summaries = rawSummaries.map((raw) => normalizeStrengthSummary(raw));
-
-        const points = ranges.map((range, idx) => {
-          const summary = summaries[idx];
-          const match = summary.muscleVolumes.find((volume) => volume.slug === muscleSlug);
-          return {
-            label: range.label,
-            startTs: range.startTs,
-            endTs: range.endTs,
-            weightedSets: match?.weightedSets ?? 0,
-            activityCount: summary.activityCount,
-          };
-        });
-
-        return buildStrengthProgression(muscleSlug, points);
+        return { ranges, summaries: rawSummaries.map((raw) => normalizeStrengthSummary(raw)) };
       } catch (err) {
         console.error('[StrengthProgression] Error:', err);
         return null;
       }
     },
-    enabled: !!muscleSlug,
+    enabled,
     staleTime: CACHE.SHORT,
     gcTime: CACHE.LONG,
   });
+}
+
+/**
+ * A trailing 4-week progression series for one muscle group, compared two weeks
+ * against the prior two, derived from the one trailing-weeks read above.
+ */
+export function useStrengthProgression(muscleSlug: string | null) {
+  const query = useTrailingWeekSummaries(!!muscleSlug);
+
+  const data = useMemo<StrengthProgression | null>(() => {
+    if (!muscleSlug || !query.data) return null;
+    const { ranges, summaries } = query.data;
+    const points = ranges.map((range, idx) => {
+      const summary = summaries[idx];
+      const match = summary?.muscleVolumes.find((volume) => volume.slug === muscleSlug);
+      return {
+        label: range.label,
+        startTs: range.startTs,
+        endTs: range.endTs,
+        weightedSets: match?.weightedSets ?? 0,
+        activityCount: summary?.activityCount ?? 0,
+      };
+    });
+    return buildStrengthProgression(muscleSlug, points);
+  }, [muscleSlug, query.data]);
+
+  return { ...query, data };
 }
 
 /**
@@ -304,22 +333,38 @@ export function useStrengthTabState(): StrengthTabState {
 
     // No bump on arrival: `engine` changing is itself a render, and the memo
     // below reads it.
-    const unsubscribe = engine.subscribe('activities', () => {
+    const wake = () => {
       if (!cancelled) setEngineVersion((v) => v + 1);
-    });
+    };
+    // `fitParsed` as well as `activities`: a FIT landing is what turns an
+    // awaiting tab into a ready one, and it is the only signal the demo seed
+    // below sends.
+    const unsubscribes = [
+      engine.subscribe('activities', wake),
+      engine.subscribe('fitParsed', wake),
+    ];
 
     return () => {
       cancelled = true;
-      unsubscribe?.();
+      unsubscribes.forEach((u) => u?.());
     };
+  }, [engine]);
+
+  // The demo seed is a write, and a write does not belong in a render. It still
+  // has to land before the first `hasStrengthData` answer or the tab never
+  // appears, so it runs here instead: the memo reads 'hidden' for one render,
+  // the seed announces on `fitParsed`, and the subscription above brings the
+  // real answer. `bulk_insert_exercise_sets` notifies for exactly this reason
+  // and says so (`objects/strength.rs:572-574`), so nothing has to be wired up
+  // by hand. Non-demo sessions, and every mount after the first in a process,
+  // do nothing at all.
+  useEffect(() => {
+    if (!engine) return;
+    ensureDemoStrengthSeeded();
   }, [engine]);
 
   return useMemo(() => {
     if (!engine || typeof engine.hasStrengthData !== 'function') return 'hidden';
-    // Seed demo fixtures before the first hasStrengthData check, otherwise
-    // the Strength tab never appears (and useStrengthVolume - which also
-    // seeds - never mounts).
-    ensureDemoStrengthSeeded();
     try {
       // The empty list asks the engine for its own queue: every strength
       // activity with no recorded FIT outcome.

@@ -26,7 +26,6 @@ import {
   useChartGestures,
 } from '@/shared/charts';
 import {
-  calculateTSB,
   getFormZone,
   FORM_ZONE_COLORS,
   formZoneLabel,
@@ -36,6 +35,7 @@ import {
 import { sortByDateId } from '@/features/activity/lib/activityUtils';
 import { formatShortDate } from '@/shared/format/format';
 import type { WellnessData } from '@/types';
+import { formFromLoads } from '@/shared/math';
 
 interface FormZoneChartProps {
   data: WellnessData[];
@@ -86,16 +86,12 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    const withTSB = calculateTSB(data);
-    const sorted = sortByDateId(withTSB);
+    const sorted = sortByDateId(data);
 
     return sorted.map((day, idx) => {
-      const fitnessRaw = day.ctl ?? day.ctlLoad ?? 0;
-      const fatigueRaw = day.atl ?? day.atlLoad ?? 0;
-      // Use rounded values for form calculation to match intervals.icu display
-      const fitness = Math.round(fitnessRaw);
-      const fatigue = Math.round(fatigueRaw);
-      const form = fitness - fatigue;
+      const fitness = Math.round(day.ctl ?? day.ctlLoad ?? 0);
+      const fatigue = Math.round(day.atl ?? day.atlLoad ?? 0);
+      const form = formFromLoads(day.ctl ?? day.ctlLoad, day.atl ?? day.atlLoad);
       return {
         x: idx,
         date: day.id,

@@ -14,6 +14,7 @@ import {
   colorWithOpacity,
   layout,
   insightToneColor,
+  ink,
 } from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
@@ -155,7 +156,7 @@ const styles = StyleSheet.create({
   },
   backdropFill: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
   },
   sheet: {
     position: 'absolute',

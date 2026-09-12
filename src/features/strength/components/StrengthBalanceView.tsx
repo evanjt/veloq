@@ -15,6 +15,8 @@ import {
   verdictColor,
   verdictFill,
   typography,
+  colorWithOpacity,
+  ink,
 } from '@/theme';
 import type { VerdictRung } from '@/theme';
 import type { StrengthBalancePair } from '@/types';
@@ -378,7 +380,7 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: colorWithOpacity(ink.black, 0.55),
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,

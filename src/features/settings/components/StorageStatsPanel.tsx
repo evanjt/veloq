@@ -8,7 +8,16 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { TILE_CACHE_BUDGET_CHOICES_MB } from '@/features/maps/lib/tileCacheBudget';
 import { useTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
 import { mapCacheTotal } from '../lib/mapCacheTotal';
-import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  opacity,
+  spacing,
+  layout,
+  typography,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 
 import { StreamBackfillRow } from './StreamBackfillRow';
 import { StreamHistoryRow } from './StreamHistoryRow';
@@ -103,7 +112,7 @@ function StorageBreakdownBar({
 
   if (totalCacheBytes === 0) return null;
 
-  const freeColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
+  const freeColor = isDark ? colorWithOpacity(ink.white, 0.12) : colorWithOpacity(ink.black, 0.08);
   const totalDevice = freeStorage !== null ? totalCacheBytes + freeStorage : 0;
   const deviceUsagePct = totalDevice > 0 ? (totalCacheBytes / totalDevice) * 100 : 0;
 

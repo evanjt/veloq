@@ -13,6 +13,8 @@ import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
+import { updateWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 import type { Athlete } from '@/types';
 
 function readAthlete(): Athlete | null {
@@ -30,6 +32,7 @@ function readAthlete(): Athlete | null {
 export function useAthlete() {
   const setAthlete = useAuthStore((state) => state.setAthlete);
   const setIntervalsPreferences = useUnitPreference((state) => state.setIntervalsPreferences);
+  const setFormAsPercent = useFormPreference((state) => state.setFormAsPercent);
   useEngineChannel('activities', queryKeys.profile.athlete);
 
   const query = useQuery({
@@ -55,8 +58,18 @@ export function useAthlete() {
           windSpeed: (athleteData.wind_speed as 'KMH' | 'MPH' | 'MS') || 'KMH',
         });
       }
+      // What the form number on every screen means, absolute TSB or a share of
+      // fitness. Absent on a record from before the setting existed, which
+      // reads as absolute.
+      if ('icu_form_as_percent' in athleteData) {
+        // The widget colours from zones stored in its snapshot, so a flag that
+        // moved reaches it only when the snapshot is rebuilt. Rebuilding on
+        // the data alone left it a sync behind.
+        const moved = setFormAsPercent(Boolean(athleteData.icu_form_as_percent));
+        if (moved) updateWidgetSnapshot();
+      }
     }
-  }, [query.data, setAthlete, setIntervalsPreferences]);
+  }, [query.data, setAthlete, setIntervalsPreferences, setFormAsPercent]);
 
   return query;
 }

@@ -238,7 +238,7 @@ impl PersistentEngine {
         // Refresh the materialised activity_indicators table so feed cards
         // pick up section_pr / section_trend chips for the new section without
         // requiring an app restart.
-        if let Err(e) = self.recompute_activity_indicators() {
+        if let Err(e) = self.recompute_indicators_for_section(&id) {
             log::warn!(
                 "veloqrs: [create_section] indicator recompute failed: {}",
                 e
@@ -630,12 +630,12 @@ impl PersistentEngine {
             .map_err(|e| format!("Failed to clear section activities: {}", e))?;
 
         // Re-add only activities that still match, with full portion details (all laps)
-        for aid in &activity_ids {
-            if let Some(track) = self.get_gps_track(aid) {
-                for portion in
-                    compute_section_portions(aid, &track, new_polyline, &self.section_config)
-                {
-                    self.add_section_activity_with_portion(section_id, &portion)?;
+        if let Some(line) = tracematch::PreparedLine::new(new_polyline, &self.section_config) {
+            for aid in &activity_ids {
+                if let Some(track) = self.get_gps_track(aid) {
+                    for portion in line.portions(aid, &track) {
+                        self.add_section_activity_with_portion(section_id, &portion)?;
+                    }
                 }
             }
         }
@@ -1032,11 +1032,15 @@ impl PersistentEngine {
         // One track at a time. Holding every candidate's points at once is a
         // whole second copy of the library in memory for no gain: each is read
         // once and used once.
+        let line = tracematch::PreparedLine::new(polyline, &self.section_config);
         for aid in &activity_ids {
             let Some(track) = self.get_gps_track(aid) else {
                 continue;
             };
-            let portions = compute_section_portions(aid, &track, polyline, &self.section_config);
+            let portions = line
+                .as_ref()
+                .map(|l| l.portions(aid, &track))
+                .unwrap_or_default();
             if !portions.is_empty() {
                 for portion in &portions {
                     self.add_section_activity_with_portion(section_id, portion)?;
@@ -1113,7 +1117,7 @@ impl PersistentEngine {
         // Drop the now-orphaned section_pr / section_trend rows from the
         // materialised indicators table so feed cards stop showing chips
         // for a section the user just removed.
-        if let Err(e) = self.recompute_activity_indicators() {
+        if let Err(e) = self.recompute_indicators_for_section(section_id) {
             log::warn!(
                 "veloqrs: [delete_section] indicator recompute failed: {}",
                 e

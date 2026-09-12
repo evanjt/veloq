@@ -16,6 +16,7 @@ import type { Activity, WellnessData } from '@/types';
 import type { StatDetail } from './types';
 import { colors, darkColors } from '@/theme';
 import { TEMPERATURE_THRESHOLDS, FEELS_LIKE_THRESHOLD } from '@/constants';
+import { formAsPercent } from '@/shared/app/FormPreferenceStore';
 
 // Explanation keys for each metric - educational, not interpretive
 const METRIC_EXPLANATION_KEYS: Record<string, string> = {
@@ -314,7 +315,7 @@ export function useActivityStats({
     // Form from wellness (TSB = CTL - ATL)
     if (wellness?.ctl != null && wellness?.atl != null) {
       const tsb = wellness.ctl - wellness.atl;
-      const formColor = FORM_ZONE_COLORS[getFormZone(tsb)];
+      const formColor = FORM_ZONE_COLORS[getFormZone(tsb, wellness.ctl, formAsPercent())];
 
       result.push({
         title: t('activity.stats.yourForm'),

@@ -1484,10 +1484,18 @@ impl PersistentEngine {
     /// fails costs one cold rebatch on the next open and nothing else. It is
     /// never allowed to fail an apply that already saved its catalogue.
     ///
-    /// Cost scales with the pool: measured on the lifecycle corpus at roughly
-    /// 5 KB and 0.07 ms per activity, so a 1,000-activity library pays about
-    /// 5 MB and 75 ms per apply. The apply already runs off the main thread,
-    /// and the alternative it buys back is a whole cold rebatch.
+    /// Cost scales worse than the pool, so it is quoted at a size rather than
+    /// per activity. Measured on the lifecycle corpus in release, desktop:
+    /// 271 KB at 24 activities, 1.4 MB at 120 and 6.3 MB at 480, which is 11.3,
+    /// 11.6 and 13.2 KB each. The write itself is 0.7 to 0.9 ms at 24, 5.3 to
+    /// 8.6 at 120 and 25.7 to 28.8 at 480. A 1,000-activity library pays about
+    /// 13 MB and 60 ms per apply on this hardware. The apply already runs off
+    /// the main thread, and the alternative it buys back is a whole cold
+    /// rebatch.
+    ///
+    /// `tests/evidence_cache_write_cost.rs` takes the write figures and
+    /// `tests/evidence_cache_decode_cost.rs` the sizes and what the launch
+    /// pays to read them back.
     pub(crate) fn persist_evidence_cache(&mut self) {
         if self.cache_folded_ids.is_empty() {
             self.clear_persisted_evidence_cache();

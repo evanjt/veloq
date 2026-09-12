@@ -117,11 +117,19 @@ impl FitnessManager {
         })
     }
 
-    /// A stored power curve body, or `None` when that sport and window have
-    /// never been fetched. `None` means "ask for it", not "no data".
-    fn get_power_curve_body(&self, sport: String, days: i64) -> Result<Option<String>, VeloqError> {
+    /// A stored power curve, or `None` when that sport and window have never
+    /// been fetched. `None` means "ask for it", not "no data".
+    ///
+    /// The fetch time rides along with the body rather than answering a second
+    /// call, because a curve drawn offline says nothing about its own age and
+    /// the screens that draw one already make an FFI hop per mount.
+    fn get_power_curve(
+        &self,
+        sport: String,
+        days: i64,
+    ) -> Result<Option<crate::persistence::bodies::FfiStoredCurve>, VeloqError> {
         with_engine(|e| {
-            e.get_curve_body(
+            e.get_stored_curve(
                 crate::persistence::bodies::CurveKind::Power,
                 &sport,
                 days,
@@ -133,15 +141,16 @@ impl FitnessManager {
         })?
     }
 
-    /// A stored pace curve body, keyed by sport, window and the gap flag.
-    fn get_pace_curve_body(
+    /// A stored pace curve, keyed by sport, window and the gap flag, with the
+    /// time it was fetched.
+    fn get_pace_curve(
         &self,
         sport: String,
         days: i64,
         gap: bool,
-    ) -> Result<Option<String>, VeloqError> {
+    ) -> Result<Option<crate::persistence::bodies::FfiStoredCurve>, VeloqError> {
         with_engine(|e| {
-            e.get_curve_body(
+            e.get_stored_curve(
                 crate::persistence::bodies::CurveKind::Pace,
                 &sport,
                 days,

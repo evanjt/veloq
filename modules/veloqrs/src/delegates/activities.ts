@@ -251,6 +251,35 @@ export function getActivityBodies(
   );
 }
 
+/** One activity's display name, as the engine knows it. */
+export interface ActivityName {
+  activityId: string;
+  name: string;
+  /** Start time as epoch seconds. */
+  date: number;
+}
+
+/**
+ * Display names for a batch of activity ids, in the order asked for.
+ *
+ * Ids the engine has no name for are absent rather than carrying an empty
+ * string, so a caller can tell "no name" from "a blank name" and fall back to
+ * the id. Batched because the callers draw a row at a time and a call per id
+ * is a blocking FFI hop each.
+ */
+export function getActivityNames(host: DelegateHost, activityIds: string[]): ActivityName[] {
+  if (!host.ready || activityIds.length === 0) return [];
+  return (
+    host
+      .timed('getActivityNames', () => host.engine.activities().getActivityNames(activityIds))
+      ?.map((row) => ({
+        activityId: row.activityId,
+        name: row.name,
+        date: Number(row.date),
+      })) ?? []
+  );
+}
+
 /**
  * A stored stream payload for an activity and series selection, or null when
  * it has not been fetched or has aged out of the bounded cache.

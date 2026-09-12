@@ -8,7 +8,6 @@ import { useWellness } from '@/features/wellness';
 
 import { useInsightsStore, computeInsightFingerprint, diffInsights } from '../store';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from '../lib/computeInsightsData';
-import type { InsightsData, SummaryCardData } from 'veloqrs';
 import type { ActivityPattern } from '@/types';
 import type { Insight } from '../types';
 
@@ -22,19 +21,15 @@ const RECOMPUTE_SETTLE_MS = 400;
 /**
  * Compute ranked insights from FFI data.
  *
- * When `preComputedInsightsData` is provided (from getStartupData), skips the
- * separate getInsightsData FFI call entirely. Falls back to its own deferred
- * FFI call when no pre-computed data is available (e.g., on routes tab).
+ * Makes its own deferred `getInsightsData` call. It used to take pre-computed
+ * data and a flag to suppress that call, for a caller that handed it
+ * `getStartupData`'s bundle; no caller has passed either since that path went,
+ * and the one caller left is the Insights tab.
  *
  * Uses computeInsightsFromData() - the shared pure function that can also run
  * in background tasks without React.
  */
-export function useInsights(
-  preComputedInsightsData?: InsightsData | null,
-  /** When true, never make own getInsightsData FFI call - wait for preComputedInsightsData */
-  skipOwnFfiCall = false,
-  preComputedSummaryCardData?: SummaryCardData | null
-): {
+export function useInsights(): {
   insights: Insight[];
   /** Today's pattern out of the same bundle, so no caller recomputes it */
   todayPattern: ActivityPattern | null;
@@ -123,15 +118,9 @@ export function useInsights(
       handle = InteractionManager.runAfterInteractions(() => {
         if (!isMountedRef.current) return;
 
-        // Use pre-computed data from getStartupData when available
-        let data = preComputedInsightsData;
-        let summaryData = preComputedSummaryCardData;
-        if (!data) {
-          if (skipOwnFfiCall) return;
-          const fetched = fetchInsightsDataFromEngine();
-          data = fetched?.insightsData ?? null;
-          summaryData = fetched?.summaryCardData ?? null;
-        }
+        const fetched = fetchInsightsDataFromEngine();
+        const data = fetched?.insightsData ?? null;
+        const summaryData = fetched?.summaryCardData ?? null;
 
         if (!data || !isMountedRef.current) return;
 
@@ -160,15 +149,7 @@ export function useInsights(
       clearTimeout(settle);
       handle?.cancel();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    trigger,
-    focusTrigger,
-    preComputedInsightsData,
-    preComputedSummaryCardData,
-    stableWellness,
-    t,
-  ]);
+  }, [trigger, focusTrigger, stableWellness, t]);
 
   // Stabilise reference -- only update when insight IDs actually change
   const prevInsightsRef = useRef<Insight[]>([]);

@@ -10,7 +10,16 @@ import {
   requestNotificationPermission,
   hasNotificationPermission,
 } from '@/features/settings/lib/notificationService';
-import { colors, darkColors, spacing, typography, layout, shadows, ink } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  typography,
+  layout,
+  shadows,
+  ink,
+  colorWithOpacity,
+} from '@/theme';
 import { settingsStyles } from './settingsStyles';
 
 /**
@@ -218,7 +227,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,

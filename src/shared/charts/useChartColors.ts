@@ -8,7 +8,7 @@
  */
 
 import { useMemo } from 'react';
-import { brand, colors, darkColors, zoneColors } from '@/theme';
+import { brand, colors, darkColors, zoneColors, colorWithOpacity, ink } from '@/theme';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
 
 export interface ChartColorScheme {
@@ -116,7 +116,7 @@ export function useChartColors(): ChartColorScheme {
       accent: isDark ? brand.tealDark : brand.tealLight,
 
       // Chart UI elements
-      grid: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+      grid: isDark ? colorWithOpacity(ink.white, 0.08) : colorWithOpacity(ink.black, 0.08),
       gridFaint: isDark ? darkColors.chartGridFaint : colors.chartGridFaint,
       axis: isDark ? darkColors.textMuted : colors.textSecondary,
       label: isDark ? darkColors.textSecondary : colors.textSecondary,

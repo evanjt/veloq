@@ -3,6 +3,7 @@ import { TERRAIN_3D_CONFIG } from '@/features/maps/components/mapStyles';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { resolveStyleExpression, TERRAIN_STYLE_OPTIONS } from './styleResolution';
 import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
+import { colors, colorWithOpacity } from '@/theme';
 
 /**
  * JPEG quality for a captured preview.
@@ -303,7 +304,7 @@ export function buildRenderSnapshotScript(
                   id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
                   paint: {
                     'circle-radius': 5,
-                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'],
+                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.75))}, ${jsLiteral(colorWithOpacity(colors.error, 0.75))}],
                   },
                 });
                 window._rn_log('Route layers added via API');
@@ -490,7 +491,7 @@ export function buildRenderSnapshotScript(
                   id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
                   paint: {
                     'circle-radius': 5,
-                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'],
+                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.75))}, ${jsLiteral(colorWithOpacity(colors.error, 0.75))}],
                   },
                 });
               }

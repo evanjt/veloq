@@ -11,7 +11,7 @@ import { WebView } from 'react-native-webview';
 
 import { veloqWebViewNativeConfig } from '@/features/maps/lib/veloqWebView';
 
-import { colors, darkColors, mapLayerColors } from '@/theme';
+import { colors, darkColors, mapLayerColors, colorWithOpacity } from '@/theme';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { useMap3DBridge } from '@/features/maps/hooks/useMap3DBridge';
 import { planHighlightSend } from '@/features/maps/lib/highlightThrottle';
@@ -417,7 +417,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
                   paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(mapLayerColors.casing)} } },
                 { id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
                   paint: { 'circle-radius': 5,
-                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'] } }
+                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.75))}, ${jsLiteral(colorWithOpacity(colors.error, 0.75))}] } }
               );
             }
 
@@ -638,7 +638,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               });
               window.map.addLayer({
                 id: 'section-creation-marker-fill', type: 'circle', source: 'section-creation-markers',
-                paint: { 'circle-radius': 8, 'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.9)', 'rgba(239,68,68,0.9)'] },
+                paint: { 'circle-radius': 8, 'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.9))}, ${jsLiteral(colorWithOpacity(colors.error, 0.9))}] },
               });
               window.map.addLayer({
                 id: 'section-creation-marker-icon', type: 'symbol', source: 'section-creation-markers',

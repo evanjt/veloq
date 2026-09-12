@@ -20,6 +20,7 @@ import { secretsMatch } from "./secrets";
 import { dedupeKey, exchangeKey, rateKey, stateKey } from "./keys";
 import { authoriseDevice, intervalsAthleteResolver } from "./deviceAuth";
 import { isValidVerifier, newOpaqueToken, verifierMatches } from "./pkce";
+import { buildPushMessages } from "./pushMessages";
 
 interface Env {
   INTERVALS_CLIENT_ID: string;
@@ -796,61 +797,7 @@ async function sendExpoPush(
   visible: { title: string; body: string } | null,
   platform?: string
 ): Promise<boolean> {
-  const channelId = "veloq-insights";
-
-  // On Android, Expo maps title/body → FCM `notification` block (auto-displayed
-  // by the OS, app never invoked) and data-only → FCM `data` block (delivered
-  // to ExpoFirebaseMessagingService → wakes our TaskManager task). These are
-  // mutually exclusive per FCM message. To get both a tray entry when the app
-  // is stopped AND a background wake when the app is warm, send two pushes:
-  //   1. Visible push: always-on tray entry, generic text. OS handles it.
-  //   2. Silent data push: wakes the task so it can enrich the notification
-  //      by replacing the visible one in place via activity-${activityId} tag.
-  // When the app is FLAG_STOPPED the silent push is dropped by the OS and
-  // only the visible one shows, exactly what we want.
-  const activityId = typeof data.activity_id === "string" ? data.activity_id : null;
-
-  const messages: Record<string, unknown>[] = [];
-
-  if (visible) {
-    // Include deep-link data on the VISIBLE push too. Expo forwards this
-    // `data` field as FCM notification message extras, which the
-    // NotificationResponseHandler on the device reads from
-    // response.notification.request.content.data when the user taps.
-    // Without this, tapping just opens MainActivity with no deep-link
-    // context and the user lands on Home instead of the activity.
-    const tapData = activityId
-      ? {
-          activityId,
-          route: `/activity/${activityId}`,
-          ...data,
-        }
-      : data;
-
-    messages.push({
-      to: token,
-      title: visible.title,
-      body: visible.body,
-      data: tapData,
-      priority: "high",
-      channelId,
-    });
-  }
-
-  // Silent data-only push: no title, body, channelId, sound, or any field
-  // that would make Expo emit an FCM notification message. We want a pure
-  // `data` FCM message so ExpoFirebaseMessagingService delivers it to the
-  // TaskManager task instead of the OS rendering a blank tray entry.
-  // iOS: APNs requires apns-priority 5 for content-available background
-  // pushes, "high" (10) risks throttling or silent drops. Expo derives
-  // apns-push-type: background from _contentAvailable. Android keeps high
-  // priority so aggressive OEMs deliver the data message promptly.
-  messages.push({
-    to: token,
-    data,
-    priority: platform === "ios" ? "normal" : "high",
-    _contentAvailable: true,
-  });
+  const messages = buildPushMessages(token, data, visible, platform);
 
   let alive = true;
   for (const payload of messages) {

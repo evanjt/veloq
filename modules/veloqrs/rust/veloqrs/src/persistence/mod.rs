@@ -20,7 +20,7 @@
 //!    - Detected sections
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -741,6 +741,74 @@ impl CancelToken {
     }
 }
 
+/// Every tile sweep that is running, so a cancel reaches all of them.
+///
+/// A sweep is detached and returns no handle, so unlike the tile pass it has
+/// nowhere of its own to keep its token. One slot held one, and two sweeps are
+/// reachable at once: `add_activities_batch` spawns one for new and mutated
+/// activities, the removal path spawns another, and the elevation backfill
+/// stores through the same batch while a GPS sync stores its own. The second
+/// spawn overwrote the first, so the first swept its whole bounds list with
+/// nobody able to stop it, and whichever thread ended first cleared the slot.
+///
+/// A set rather than a guard refusing the second sweep. Refusing it would drop
+/// the invalidation that sweep was spawned to do, and the tiles it would have
+/// taken stay on disk claiming ground that has changed.
+static TILE_SWEEPS: LazyLock<Mutex<Vec<(u64, CancelToken)>>> =
+    LazyLock::new(|| Mutex::new(Vec::new()));
+
+static NEXT_TILE_SWEEP_ID: AtomicU64 = AtomicU64::new(0);
+
+/// One sweep's place in [`TILE_SWEEPS`]. Dropping it takes that sweep's
+/// registration and leaves every sibling's, so a sweep that ends cannot make
+/// another unstoppable.
+pub struct TileSweepRegistration {
+    id: u64,
+    token: CancelToken,
+}
+
+impl TileSweepRegistration {
+    /// The token the sweep checks at its safe points.
+    pub fn token(&self) -> CancelToken {
+        self.token.clone()
+    }
+}
+
+impl Drop for TileSweepRegistration {
+    fn drop(&mut self) {
+        if let Ok(mut sweeps) = TILE_SWEEPS.lock() {
+            sweeps.retain(|(id, _)| *id != self.id);
+        }
+    }
+}
+
+/// Register a sweep about to start. Hold the registration for as long as the
+/// sweep runs.
+pub fn register_tile_sweep() -> TileSweepRegistration {
+    let id = NEXT_TILE_SWEEP_ID.fetch_add(1, Ordering::SeqCst);
+    let token = CancelToken::new();
+    if let Ok(mut sweeps) = TILE_SWEEPS.lock() {
+        sweeps.push((id, token.clone()));
+    }
+    TileSweepRegistration { id, token }
+}
+
+/// Stop every sweep that is running. Answers whether there was one, so the
+/// caller can tell a cancel that reached something from one that did not.
+///
+/// The registrations stay: each sweep takes its own when it winds down, and
+/// taking them here would leave a still-running sweep unreachable by a second
+/// cancel, which is the bug this replaced.
+pub fn cancel_tile_sweeps() -> bool {
+    let Ok(sweeps) = TILE_SWEEPS.lock() else {
+        return false;
+    };
+    for (_, token) in sweeps.iter() {
+        token.cancel();
+    }
+    !sweeps.is_empty()
+}
+
 /// Handle for background heatmap tile generation with progress tracking.
 pub struct TileGenerationHandle {
     receiver: mpsc::Receiver<u32>,
@@ -1274,6 +1342,10 @@ impl PersistentEngine {
                 e
             );
         }
+
+        // Before anything can read a badge, and once. The version is a build
+        // constant, so the open is the only moment it can have moved.
+        engine.recompute_indicators_if_stale();
 
         Ok(engine)
     }
@@ -2372,15 +2444,6 @@ pub mod persistent_engine_ffi {
     /// Handle for tracking background section detection progress.
     /// Used by DetectionManager.
     pub static SECTION_DETECTION_HANDLE: LazyLock<Mutex<Option<SectionDetectionHandle>>> =
-        LazyLock::new(|| Mutex::new(None));
-
-    /// Handle for tracking background tile generation.
-    /// The stop the running tile invalidation sweep checks, if one is running.
-    ///
-    /// The sweep is detached and returns no handle, so unlike the tile pass it
-    /// has nowhere of its own to keep this. Set when it spawns, cleared when
-    /// it ends.
-    pub static TILE_SWEEP_CANCEL: LazyLock<Mutex<Option<CancelToken>>> =
         LazyLock::new(|| Mutex::new(None));
 
     pub static TILE_GENERATION_HANDLE: LazyLock<Mutex<Option<TileGenerationHandle>>> =

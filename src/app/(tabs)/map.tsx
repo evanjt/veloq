@@ -23,7 +23,7 @@ import {
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { colors, darkColors, ink, spacing, typography, layout } from '@/theme';
+import { colors, darkColors, ink, spacing, typography, layout, colorWithOpacity } from '@/theme';
 import {
   groupTypesByCategory,
   ACTIVITY_CATEGORIES,
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: colorWithOpacity(ink.white, 0.92),
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
@@ -431,10 +431,10 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadius,
   },
   chipInactive: {
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    backgroundColor: colorWithOpacity(ink.black, 0.08),
   },
   chipDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: colorWithOpacity(ink.white, 0.15),
   },
   chipText: {
     fontSize: typography.bodySmall.fontSize,
@@ -447,20 +447,20 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   chipTextDark: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: colorWithOpacity(ink.white, 0.8),
   },
   chipCount: {
     fontSize: typography.caption.fontSize,
     fontWeight: '400',
   },
   chipCountActive: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: colorWithOpacity(ink.white, 0.7),
   },
   chipCountInactive: {
-    color: 'rgba(0, 0, 0, 0.35)',
+    color: colorWithOpacity(ink.black, 0.35),
   },
   chipCountDark: {
-    color: 'rgba(255, 255, 255, 0.45)',
+    color: colorWithOpacity(ink.white, 0.45),
   },
   infoRow: {
     flexDirection: 'row',
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -19,
     right: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: colorWithOpacity(ink.white, 0.8),
     paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderTopLeftRadius: spacing.sm,

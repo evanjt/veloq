@@ -20,6 +20,8 @@ import {
   bodyDiagram,
   loupeChrome,
   layout,
+  colorWithOpacity,
+  ink,
 } from '@/theme';
 import type { ActivityDetail } from '@/types';
 
@@ -219,7 +221,7 @@ export function MuscleGroupView({
 
       {/* Bottom gradient + activity info overlay */}
       <LinearGradient
-        colors={isDark ? ['transparent', 'rgba(0,0,0,0.7)'] : ['transparent', 'rgba(0,0,0,0.15)']}
+        colors={['transparent', colorWithOpacity(ink.black, isDark ? 0.7 : 0.15)]}
         style={styles.gradient}
         pointerEvents="none"
       />
@@ -262,7 +264,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: 'rgba(128,128,128,0.3)',
+    backgroundColor: colorWithOpacity(colors.neutralLine, 0.3),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -301,7 +303,7 @@ const styles = StyleSheet.create({
   detailDivider: {
     width: '100%',
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: colorWithOpacity(ink.black, 0.15),
     marginVertical: spacing.xs,
   },
   detailHeaderRow: {
@@ -385,7 +387,7 @@ const styles = StyleSheet.create({
     fontSize: typography.statsValue.fontSize,
     fontWeight: '700',
     color: colors.textOnDark,
-    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowColor: colorWithOpacity(ink.black, 0.6),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
@@ -401,7 +403,7 @@ const styles = StyleSheet.create({
   },
   activityDate: {
     fontSize: typography.bodyCompact.fontSize,
-    color: 'rgba(255,255,255,0.85)',
+    color: colorWithOpacity(ink.white, 0.85),
   },
   activityDateLight: {
     color: colors.textSecondary,
@@ -410,7 +412,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textOnDark,
-    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowColor: colorWithOpacity(ink.black, 0.5),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },

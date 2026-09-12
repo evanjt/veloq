@@ -319,28 +319,40 @@ export function findStalePrOpportunities(
   );
 }
 
-/** A stored power curve body, or null when it has never been fetched. */
-export function getPowerCurveBody(host: DelegateHost, sport: string, days: number): string | null {
+/** A stored curve: the body the server sent, and when it was fetched. */
+export interface StoredCurve {
+  raw: string;
+  /** Epoch milliseconds, so callers compare it against `Date.now()`. */
+  fetchedAt: number;
+}
+
+function toStoredCurve(row: { raw: string; fetchedAt: bigint } | undefined): StoredCurve | null {
+  // The column is epoch seconds, which is what every other body table stores.
+  return row ? { raw: row.raw, fetchedAt: Number(row.fetchedAt) * 1000 } : null;
+}
+
+/** A stored power curve, or null when it has never been fetched. */
+export function getPowerCurve(
+  host: DelegateHost,
+  sport: string,
+  days: number
+): StoredCurve | null {
   if (!host.ready) return null;
-  return (
-    (host.timed('getPowerCurveBody', () =>
-      host.engine.fitness().getPowerCurveBody(sport, BigInt(days))
-    ) as string | undefined) ?? null
+  return toStoredCurve(
+    host.timed('getPowerCurve', () => host.engine.fitness().getPowerCurve(sport, BigInt(days)))
   );
 }
 
-/** A stored pace curve body, keyed by sport, window and the gap flag. */
-export function getPaceCurveBody(
+/** A stored pace curve, keyed by sport, window and the gap flag. */
+export function getPaceCurve(
   host: DelegateHost,
   sport: string,
   days: number,
   gap: boolean
-): string | null {
+): StoredCurve | null {
   if (!host.ready) return null;
-  return (
-    (host.timed('getPaceCurveBody', () =>
-      host.engine.fitness().getPaceCurveBody(sport, BigInt(days), gap)
-    ) as string | undefined) ?? null
+  return toStoredCurve(
+    host.timed('getPaceCurve', () => host.engine.fitness().getPaceCurve(sport, BigInt(days), gap))
   );
 }
 

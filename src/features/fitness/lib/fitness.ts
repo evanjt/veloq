@@ -26,11 +26,22 @@ export function calculateTSB(wellness: WellnessData[]): (WellnessData & { tsb: n
  */
 export type FormZone = 'highRisk' | 'optimal' | 'greyZone' | 'fresh' | 'transition';
 
-export function getFormZone(tsb: number): FormZone {
-  if (tsb < -30) return 'highRisk';
-  if (tsb < -10) return 'optimal';
-  if (tsb < 5) return 'greyZone';
-  if (tsb < 25) return 'fresh';
+/**
+ * The band a form number falls in, on the denominator the athlete chose.
+ *
+ * `icu_form_as_percent` decides what form means: absolute TSB, or TSB as a
+ * share of fitness. The thresholds are the same either way, applied to
+ * whichever number the athlete reads. A percentage needs a denominator, so an
+ * athlete with no fitness yet, a sport with no load, or any day before the
+ * first activity falls back to the absolute band: that is what the number
+ * means when there is no fitness to be a percentage of.
+ */
+export function getFormZone(tsb: number, fitness?: number | null, asPercent?: boolean): FormZone {
+  const value = asPercent && fitness ? (tsb / fitness) * 100 : tsb;
+  if (value < -30) return 'highRisk';
+  if (value < -10) return 'optimal';
+  if (value < 5) return 'greyZone';
+  if (value < 25) return 'fresh';
   return 'transition';
 }
 

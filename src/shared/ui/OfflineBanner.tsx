@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useNetwork } from '@/shared/app/NetworkContext';
-import { colors, darkColors, typography, spacing } from '@/theme';
+import { colors, darkColors, typography, spacing, colorWithOpacity, ink } from '@/theme';
 
 export function OfflineBanner() {
   const { t } = useTranslation();
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   subtitleText: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: colorWithOpacity(ink.white, 0.7),
     fontSize: typography.caption.fontSize,
   },
 });

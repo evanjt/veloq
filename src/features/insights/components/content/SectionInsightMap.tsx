@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Canvas, Path, Circle } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
-import { colors, opacity, ink, layout } from '@/theme';
+import { colors, opacity, ink, layout, colorWithOpacity } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { RoutePoint } from '@/types';
 import type { LayoutChangeEvent } from 'react-native';
@@ -117,7 +117,7 @@ export const SectionInsightMap = React.memo(function SectionInsightMap({
               path={linePath}
               style="stroke"
               strokeWidth={5}
-              color={isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.12)'}
+              color={colorWithOpacity(ink.black, isDark ? 0.4 : 0.12)}
               strokeCap="round"
               strokeJoin="round"
             />

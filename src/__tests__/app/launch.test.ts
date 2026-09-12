@@ -57,6 +57,10 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockEngine,
   getRouteDbPath: () => '/data/routes.db',
   isEngineReady: () => mockEngineOpen,
+  resolveRouteDbPath: () => {
+    calls.push({ name: 'resolveRouteDbPath' });
+    return Promise.resolve('/data/routes.db');
+  },
 }));
 
 jest.mock('expo-file-system/legacy', () => ({
@@ -126,6 +130,20 @@ describe('initializeApp', () => {
     expect(mockEngine.initWithPath).toHaveBeenCalledTimes(1);
     expect(getItem).not.toHaveBeenCalled();
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
+  });
+
+  it('settles where the database lives before opening it', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    migratedLibrary();
+
+    await expect(initializeApp()).resolves.toBeNull();
+
+    // The move is only a consistent snapshot of the database and its journal
+    // while no connection is open, so it cannot follow initWithPath.
+    const resolve = calls.findIndex((c) => c.name === 'resolveRouteDbPath');
+    const open = calls.findIndex((c) => c.name === 'initWithPath');
+    expect(resolve).toBeGreaterThanOrEqual(0);
+    expect(open).toBeGreaterThan(resolve);
   });
 
   it('falls back to storage only for a key the engine does not hold', async () => {

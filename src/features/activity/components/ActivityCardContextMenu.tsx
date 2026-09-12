@@ -19,6 +19,8 @@ import {
   mapStyleSwatchIcon,
   layout,
   typography,
+  ink,
+  colorWithOpacity,
 } from '@/theme';
 import type { Activity } from '@/types';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
@@ -117,7 +119,7 @@ export function ActivityCardContextMenu({
   const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const dividerColor = isDark ? darkColors.border : 'rgba(0,0,0,0.08)';
+  const dividerColor = isDark ? darkColors.border : colorWithOpacity(ink.black, 0.08);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
@@ -233,7 +235,7 @@ export function ActivityCardContextMenu({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
   },

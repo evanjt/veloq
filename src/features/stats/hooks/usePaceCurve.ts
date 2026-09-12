@@ -3,6 +3,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { parsePaceCurveBody } from '@/features/stats/lib/curveBodies';
+import { paceSnapshotDate } from '@/features/stats/lib/paceSnapshot';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { PaceCurve } from '@/types';
 
@@ -15,6 +16,13 @@ interface UsePaceCurveOptions {
   enabled?: boolean;
 }
 
+/** A parsed curve with the time the body behind it was fetched. */
+interface DatedPaceCurve {
+  curve: PaceCurve;
+  /** Epoch milliseconds, or null when the curve has never been fetched. */
+  fetchedAt: number | null;
+}
+
 export function usePaceCurve(options: UsePaceCurveOptions = {}) {
   const { sport = 'Run', days = 42, gap = false, enabled = true } = options;
 
@@ -23,11 +31,15 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
   // The query is the only reader of the stored body. `null` is "never
   // fetched", which is the cue to ask Rust for it; the empty curve is what the
   // chart draws in the meantime.
-  const query = useQuery<PaceCurve | null>({
+  const query = useQuery<DatedPaceCurve | null>({
     queryKey,
     queryFn: () => {
-      const stored = getEngine()?.getPaceCurveBody(sport, days, gap);
-      return stored ? parsePaceCurveBody(stored, sport) : null;
+      const stored = getEngine()?.getPaceCurve(sport, days, gap);
+      if (!stored) return null;
+      // A body that will not parse is not a curve, and reporting it as one
+      // would draw an empty chart under a date saying it is current.
+      const curve = parsePaceCurveBody(stored.raw, sport);
+      return curve ? { curve, fetchedAt: stored.fetchedAt } : null;
     },
     enabled,
     // SQLite is the source, so a sync decides freshness, not a clock.
@@ -40,10 +52,15 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
     queryKey,
     enabled && query.data !== undefined
   );
-  const result = { ...query, data: query.data ?? emptyPaceCurve(sport) };
+  const result = {
+    ...query,
+    data: query.data?.curve ?? emptyPaceCurve(sport),
+    fetchedAt: query.data?.fetchedAt ?? null,
+  };
 
   // Snapshot critical speed for trend tracking (idempotent: INSERT OR REPLACE by date+sport)
   const lastSnapshotted = useRef<string | null>(null);
+  const endDate = result.data?.endDate;
   useEffect(() => {
     const cs = result.data?.criticalSpeed;
     if (cs == null || cs <= 0) return;
@@ -52,9 +69,14 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
     lastSnapshotted.current = key;
     const engine = getEngine();
     if (!engine) return;
-    const todayTs = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
-    engine.savePaceSnapshot(sport, cs, result.data?.dPrime, result.data?.r2, todayTs);
-  }, [result.data?.criticalSpeed, sport, result.data?.dPrime, result.data?.r2]);
+    engine.savePaceSnapshot(
+      sport,
+      cs,
+      result.data?.dPrime,
+      result.data?.r2,
+      paceSnapshotDate(endDate)
+    );
+  }, [result.data?.criticalSpeed, sport, result.data?.dPrime, result.data?.r2, endDate]);
 
   return result;
 }

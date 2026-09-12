@@ -18,6 +18,7 @@ import { resolveStyleExpression, LIGHT_STYLE_URL, TERRAIN_STYLE_OPTIONS } from '
 import { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared';
 import { getTileCacheBudgetMb } from '@/features/maps/lib/storage/tileCacheSettings';
 import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
+import { colors, colorWithOpacity } from '@/theme';
 
 export interface Map3DHtmlConfig {
   /** Route coordinates as [lng, lat] pairs. Empty array = no route layer. */
@@ -396,7 +397,7 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
           layout: { visibility: hasRoute ? 'visible' : 'none' },
           paint: {
             'circle-radius': 5,
-            'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'],
+            'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.75))}, ${jsLiteral(colorWithOpacity(colors.error, 0.75))}],
           },
         });
       }
@@ -485,8 +486,8 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
         paint: {
           'circle-radius': 8,
           'circle-color': ['case',
-            ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.9)',
-            'rgba(239,68,68,0.9)'],
+            ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.9))},
+            ${jsLiteral(colorWithOpacity(colors.error, 0.9))}],
         },
         layout: { visibility: 'none' },
       });

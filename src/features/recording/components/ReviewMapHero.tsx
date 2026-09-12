@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { spacing, ink, layout } from '@/theme';
+import { spacing, ink, layout, colorWithOpacity } from '@/theme';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
 import { TrimSlider } from '@/features/recording/components/TrimSlider';
 
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: colorWithOpacity(ink.black, 0.4),
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,

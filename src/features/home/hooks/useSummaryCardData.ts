@@ -15,6 +15,7 @@ import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { colors } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import {
   trendGlyph,
   trendOfMetric,
@@ -258,7 +259,8 @@ export function useSummaryCardData(
     [wellnessStats, engineStats]
   );
 
-  const formZone = getFormZone(quickStats.form);
+  const asPercent = useFormPreference((state) => state.formAsPercent) === true;
+  const formZone = getFormZone(quickStats.form, quickStats.fitness, asPercent);
   const formColor = formZone ? FORM_ZONE_COLORS[formZone] : colors.success;
 
   // Build hero metric data based on summaryCard preferences

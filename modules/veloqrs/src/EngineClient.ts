@@ -1174,6 +1174,9 @@ class EngineClient implements DelegateHost {
   upsertActivityBodies = (rows: activityDelegates.ActivityBodyInput[]): void =>
     activityDelegates.upsertActivityBodies(this, rows);
 
+  getActivityNames = (activityIds: string[]): activityDelegates.ActivityName[] =>
+    activityDelegates.getActivityNames(this, activityIds);
+
   setIntervalBody = (activityId: string, raw: string): void =>
     activityDelegates.setIntervalBody(this, activityId, raw);
 
@@ -1194,11 +1197,11 @@ class EngineClient implements DelegateHost {
   getStreamBody = (activityId: string, types: string): string | null =>
     activityDelegates.getStreamBody(this, activityId, types);
 
-  getPowerCurveBody = (sport: string, days: number): string | null =>
-    fitnessDelegates.getPowerCurveBody(this, sport, days);
+  getPowerCurve = (sport: string, days: number): fitnessDelegates.StoredCurve | null =>
+    fitnessDelegates.getPowerCurve(this, sport, days);
 
-  getPaceCurveBody = (sport: string, days: number, gap: boolean): string | null =>
-    fitnessDelegates.getPaceCurveBody(this, sport, days, gap);
+  getPaceCurve = (sport: string, days: number, gap: boolean): fitnessDelegates.StoredCurve | null =>
+    fitnessDelegates.getPaceCurve(this, sport, days, gap);
 
   getIntervalBody = (activityId: string): string | null =>
     fitnessDelegates.getIntervalBody(this, activityId);

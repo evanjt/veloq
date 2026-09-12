@@ -31,49 +31,121 @@ impl PersistentEngine {
     /// 3. For each route group: find PR + compute per-activity trends
     /// 4. Bulk-insert all indicators
     pub fn recompute_activity_indicators(&self) -> SqlResult<()> {
+        self.rewrite_indicators(None)
+    }
+
+    /// Rewrite one section's badges and nothing else.
+    ///
+    /// A record and a trend are earned inside one `(section, direction, sport)`
+    /// group, so editing one section cannot move another's. The editors each
+    /// touch one section, and the whole-table pass was measured at 31 to 39 ms
+    /// of each of them on a 589-activity library.
+    ///
+    /// The lap-time backfill is skipped here: it is a library-wide read of the
+    /// time streams and its result does not depend on which section is being
+    /// edited, so it belongs to the passes that run off the UI thread.
+    pub fn recompute_indicators_for_section(&self, section_id: &str) -> SqlResult<()> {
+        self.rewrite_indicators(Some(section_id))
+    }
+
+    fn rewrite_indicators(&self, only_section: Option<&str>) -> SqlResult<()> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
 
-        // Step 0: Backfill any NULL lap_time values from time_streams.
-        // This ensures section_activities has real recorded times wherever possible,
-        // so the indicator computation uses actual data instead of estimates.
-        let backfilled = self.backfill_null_lap_times()?;
-        if backfilled > 0 {
-            log::info!(
-                "veloqrs: [indicators] Backfilled lap_time for {} section portions from time streams",
-                backfilled
-            );
+        if only_section.is_none() {
+            // Step 0: Backfill any NULL lap_time values from time_streams.
+            // This ensures section_activities has real recorded times wherever possible,
+            // so the indicator computation uses actual data instead of estimates.
+            let backfilled = self.backfill_null_lap_times()?;
+            if backfilled > 0 {
+                log::info!(
+                    "veloqrs: [indicators] Backfilled lap_time for {} section portions from time streams",
+                    backfilled
+                );
+            }
         }
 
         let tx = self.db.unchecked_transaction()?;
-        tx.execute("DELETE FROM activity_indicators", [])?;
+        match only_section {
+            Some(id) => tx.execute(
+                "DELETE FROM activity_indicators WHERE target_id = ?",
+                params![id],
+            )?,
+            None => tx.execute("DELETE FROM activity_indicators", [])?,
+        };
 
         // Section indicators only - route highlights are computed inline
         // from in-memory groups + activity_metrics (no table needed).
-        let section_count = self.compute_section_indicators(&tx, now)?;
+        let section_count = self.compute_section_indicators(&tx, now, only_section)?;
 
-        // Stamp the algorithm version so we don't recompute until it changes
-        tx.execute(
-            "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('indicator_version', ?)",
-            params![INDICATOR_ALGORITHM_VERSION.to_string()],
-        )?;
+        // Stamp the algorithm version so we don't recompute until it changes.
+        // A scoped pass covers one section, so it cannot claim the table is
+        // current: only the whole-table pass earns the stamp.
+        if only_section.is_none() {
+            tx.execute(
+                "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('indicator_version', ?)",
+                params![INDICATOR_ALGORITHM_VERSION.to_string()],
+            )?;
+        }
 
         tx.commit()?;
 
         log::info!(
-            "veloqrs: [indicators] Recomputed {} section indicators (v{})",
+            "veloqrs: [indicators] Recomputed {} section indicators for {} (v{})",
             section_count,
+            only_section.unwrap_or("every section"),
             INDICATOR_ALGORITHM_VERSION
         );
 
         Ok(())
     }
 
+    /// Bring the indicator table up to the current algorithm, if it is behind.
+    ///
+    /// Once per open, not once per read. The pass rewrites every row under the
+    /// write lock, and the feed reached it from inside a render memo, so the
+    /// first paint after any build that bumps the version paid for the whole
+    /// library on the JS thread. The version is a build constant: it cannot
+    /// move while the process is running, so there is nothing for a read to
+    /// re-check.
+    ///
+    /// Failure is logged, not propagated. Stale indicators are a wrong badge,
+    /// and refusing to open the database over one would cost the athlete
+    /// everything else.
+    pub(super) fn recompute_indicators_if_stale(&self) {
+        let stored_version: i32 = self
+            .db
+            .query_row(
+                "SELECT CAST(value AS INTEGER) FROM schema_info WHERE key = 'indicator_version'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+
+        if stored_version >= INDICATOR_ALGORITHM_VERSION {
+            return;
+        }
+
+        log::info!(
+            "veloqrs: [indicators] Version mismatch (stored={}, current={}) - recomputing",
+            stored_version,
+            INDICATOR_ALGORITHM_VERSION
+        );
+        if let Err(e) = self.recompute_activity_indicators() {
+            log::warn!("veloqrs: [indicators] Recomputation failed: {}", e);
+        }
+    }
+
     /// Compute section PRs and trends, insert into activity_indicators.
     /// Returns total number of indicators inserted.
-    fn compute_section_indicators(&self, tx: &rusqlite::Transaction, now: i64) -> SqlResult<usize> {
+    fn compute_section_indicators(
+        &self,
+        tx: &rusqlite::Transaction,
+        now: i64,
+        only_section: Option<&str>,
+    ) -> SqlResult<usize> {
         // Effective time: use lap_time if available, otherwise estimate from
         // activity duration proportional to section distance.
         // This handles the common case where lap_time is NULL (not yet populated
@@ -109,6 +181,7 @@ impl PersistentEngine {
                AND s.superseded_by IS NULL
                AND sa.direction != 'partial'
                AND ({complete})
+               AND (? IS NULL OR sa.section_id = ?)
              GROUP BY sa.section_id, sa.direction, a.sport_type
              HAVING cnt >= 2",
             effective_time_expr,
@@ -118,7 +191,7 @@ impl PersistentEngine {
         let mut pair_stmt = tx.prepare(&pair_sql)?;
 
         let pairs: Vec<(String, String, String)> = pair_stmt
-            .query_map([], |row| {
+            .query_map(params![only_section, only_section], |row| {
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
@@ -293,35 +366,16 @@ impl PersistentEngine {
     }
 
     /// Read pre-computed indicators for a batch of activity IDs.
-    /// Version check: if the stored algorithm version doesn't match the current
-    /// constant, triggers a full clean recompute before returning results.
+    ///
+    /// A read only reads. The version cannot change while the process runs, so
+    /// `recompute_indicators_if_stale` settles it once at the open and this
+    /// serves whatever is stored.
     pub fn get_activity_indicators(
         &self,
         activity_ids: &[String],
     ) -> Vec<crate::FfiActivityIndicator> {
         if activity_ids.is_empty() {
             return vec![];
-        }
-
-        // Version-based invalidation: recompute if algorithm changed
-        let stored_version: i32 = self
-            .db
-            .query_row(
-                "SELECT CAST(value AS INTEGER) FROM schema_info WHERE key = 'indicator_version'",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap_or(0);
-
-        if stored_version < INDICATOR_ALGORITHM_VERSION {
-            log::info!(
-                "veloqrs: [indicators] Version mismatch (stored={}, current={}) - recomputing",
-                stored_version,
-                INDICATOR_ALGORITHM_VERSION
-            );
-            if let Err(e) = self.recompute_activity_indicators() {
-                log::warn!("veloqrs: [indicators] Recomputation failed: {}", e);
-            }
         }
 
         let placeholders: String = activity_ids

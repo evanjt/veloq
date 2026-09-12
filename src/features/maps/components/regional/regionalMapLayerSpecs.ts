@@ -7,7 +7,7 @@
  * the selected id rather than a rebuilt FeatureCollection, so panning with a
  * selection active does not re-upload every point.
  */
-import { brand, colors, mapLayerColors } from '@/theme';
+import { brand, colors, mapLayerColors, colorWithOpacity, ink } from '@/theme';
 import type { MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import { HEATMAP_TILE_PROTOCOL_URL } from '@/features/maps/hooks/useHeatmapTiles';
 import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
@@ -212,7 +212,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: 'selected-route',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': 'rgba(0, 0, 0, 0.4)',
+        'line-color': colorWithOpacity(ink.black, 0.4),
         'line-width': 8,
         'line-opacity': hasRouteData ? 1 : 0,
       },
@@ -276,8 +276,8 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
           : 0,
         'circle-stroke-width': selectedActivityId ? ['case', isSelectedActivity, 2.5, 1.5] : 1.5,
         'circle-stroke-color': selectedActivityId
-          ? ['case', isSelectedActivity, colors.primary, 'rgba(255, 255, 255, 0.8)']
-          : 'rgba(255, 255, 255, 0.8)',
+          ? ['case', isSelectedActivity, colors.primary, colorWithOpacity(ink.white, 0.8)]
+          : colorWithOpacity(ink.white, 0.8),
         'circle-stroke-opacity': showActivities ? 1 : 0,
       },
       visible: showActivities,
@@ -287,7 +287,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       type: 'line',
       source: 'spider-legs',
       paint: {
-        'line-color': isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
+        'line-color': isDark ? colorWithOpacity(ink.white, 0.5) : colorWithOpacity(ink.black, 0.3),
         'line-width': 1.5,
         'line-opacity': spiderVisible ? 1 : 0,
       },

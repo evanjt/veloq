@@ -5,6 +5,8 @@ import { type PrimarySport } from '@/features/fitness/stores';
 import type { WellnessData, ZoneDistribution, eFTPPoint } from '@/types';
 import { getFormZone, type FormZone } from '../lib';
 import { trendOfMetric, type TrendDirection } from '@/shared/format/trend';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
+import { formFromLoads } from '@/shared/math';
 
 interface DecouplingStreams {
   watts?: number[];
@@ -95,12 +97,15 @@ export function useFitnessComputations({
     // Use rounded values for form calculation to match intervals.icu display
     const fitness = Math.round(fitnessRaw);
     const fatigue = Math.round(fatigueRaw);
-    return { fitness, fatigue, form: fitness - fatigue, date: latest.id };
+    return { fitness, fatigue, form: formFromLoads(fitnessRaw, fatigueRaw), date: latest.id };
   }, [wellness]);
 
   const displayValues = selectedValues || currentValues;
   const displayDate = selectedDate || currentValues?.date;
-  const formZone = displayValues ? getFormZone(displayValues.form) : null;
+  const asPercent = useFormPreference((s) => s.formAsPercent) === true;
+  const formZone = displayValues
+    ? getFormZone(displayValues.form, displayValues.fitness, asPercent)
+    : null;
 
   // Ramp rate sourced from intervals.icu's wellness payload - keep our
   // representation aligned with what the web UI shows.

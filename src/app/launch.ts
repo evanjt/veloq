@@ -20,7 +20,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { basemapStore } from 'veloqrs';
 
 import { excludeFromBackup } from '@/shared/native/backupExclusion';
-import { getEngine, getRouteDbPath } from '@/shared/native/engine';
+import { getEngine, getRouteDbPath, resolveRouteDbPath } from '@/shared/native/engine';
 import { initializeI18n } from '@/i18n';
 
 /** A `launch:` mark survives a release build, so a trace can split the JS window. */
@@ -82,6 +82,9 @@ export async function initializeApp(): Promise<string | null> {
   markLaunch('auth');
   await useAuthStore.getState().initialize();
   markLaunch('engine');
+  // Before the engine, never after: the move is only a consistent snapshot of
+  // the database and its journal while no connection is open.
+  await resolveRouteDbPath();
   openEngine();
   openBasemapStore();
   markLaunch('stores');

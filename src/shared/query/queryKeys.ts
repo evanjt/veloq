@@ -37,6 +37,10 @@ export const queryKeys = {
     // selection. The query is disabled then, but the key is still built, so a
     // non-null type here only moved the missing value behind an assertion.
     progression: (muscleSlug: string | null) => ['strength', 'progression', muscleSlug] as const,
+    // The trailing weeks behind every muscle's progression. The read does not
+    // depend on the muscle, so it is keyed on the week count alone and one
+    // entry serves a drag across the whole diagram.
+    trailingWeeks: (weekCount: number) => ['strength', 'trailing-weeks', weekCount] as const,
     exercisesForMuscle: (period: string, muscleSlug: string | null) =>
       ['strength', 'exercises-for-muscle', period, muscleSlug] as const,
     activitiesForExercise: (

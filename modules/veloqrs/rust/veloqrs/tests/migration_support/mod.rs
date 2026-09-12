@@ -76,6 +76,45 @@ pub fn stamp_app_schema_version(conn: &Connection, version: u32) {
     .expect("stamp schema_version");
 }
 
+/// Lower `PRAGMA user_version` to the version `schema_info` says was applied,
+/// when the pragma claims more.
+///
+/// A database whose pragma overstates what it holds cannot be migrated: the
+/// chain resumes past migrations it never ran, and the first statement that
+/// alters a table those migrations were meant to create fails. The owner's
+/// private corpus is in that state, `user_version` 25 against
+/// `schema_info.schema_version` 21, so migration 026 runs
+/// `ALTER TABLE recordings` against no such table.
+///
+/// Only ever lowers. `schema_info` is the app's own record and is written after
+/// the migration it describes, so where the two disagree the lower of the two is
+/// what the file actually holds. A pragma at or below `schema_info` is left
+/// alone: raising one would skip migrations rather than repeat them.
+pub fn align_user_version(path: &Path) {
+    let conn = Connection::open(path).expect("open database to align");
+    let pragma = user_version(&conn);
+    let Some(recorded) = app_schema_version(&conn) else {
+        return;
+    };
+    if pragma <= recorded {
+        return;
+    }
+    conn.pragma_update(None, "user_version", recorded)
+        .expect("lower user_version");
+}
+
+/// The app-level version in `schema_info`, or `None` where the table or the row
+/// is absent, which is every database older than 012.
+pub fn app_schema_version(conn: &Connection) -> Option<u32> {
+    conn.query_row(
+        "SELECT value FROM schema_info WHERE key = 'schema_version'",
+        [],
+        |row| row.get::<_, String>(0),
+    )
+    .ok()
+    .and_then(|v| v.parse().ok())
+}
+
 /// Sorted user table names, SQLite internals excluded.
 pub fn tables_at(conn: &Connection) -> Vec<String> {
     let mut stmt = conn

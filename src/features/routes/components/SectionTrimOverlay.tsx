@@ -274,7 +274,6 @@ export function SectionTrimOverlay({
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const trackReady = trackWidthSV.value > 0 || true;
 
   return (
     <View testID="section-trim-overlay" style={styles.container}>
@@ -341,24 +340,20 @@ export function SectionTrimOverlay({
           />
         )}
         <Animated.View style={[styles.trackActive, trackActiveStyle]} />
-        {trackReady && (
-          <GestureDetector gesture={startGesture}>
-            <Animated.View style={[styles.handle, startHandleStyle]}>
-              <View style={styles.handleInner}>
-                <View style={styles.handleBar} />
-              </View>
-            </Animated.View>
-          </GestureDetector>
-        )}
-        {trackReady && (
-          <GestureDetector gesture={endGesture}>
-            <Animated.View style={[styles.handle, endHandleStyle]}>
-              <View style={styles.handleInner}>
-                <View style={styles.handleBar} />
-              </View>
-            </Animated.View>
-          </GestureDetector>
-        )}
+        <GestureDetector gesture={startGesture}>
+          <Animated.View style={[styles.handle, startHandleStyle]}>
+            <View style={styles.handleInner}>
+              <View style={styles.handleBar} />
+            </View>
+          </Animated.View>
+        </GestureDetector>
+        <GestureDetector gesture={endGesture}>
+          <Animated.View style={[styles.handle, endHandleStyle]}>
+            <View style={styles.handleInner}>
+              <View style={styles.handleBar} />
+            </View>
+          </Animated.View>
+        </GestureDetector>
       </View>
 
       {/* Step buttons */}

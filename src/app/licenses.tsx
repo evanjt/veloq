@@ -12,7 +12,7 @@ import { ScreenSafeAreaView } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ParseKeys } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import { useTheme } from '@/shared/app';
 
@@ -515,7 +515,7 @@ const styles = {
   },
   entryCount: {
     ...typography.caption,
-    backgroundColor: 'rgba(128, 128, 128, 0.2)',
+    backgroundColor: colorWithOpacity(colors.neutralLine, 0.2),
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,
@@ -561,7 +561,7 @@ const styles = {
   licenseTextContainer: (isDark: boolean) => ({
     marginTop: spacing.sm,
     padding: spacing.sm,
-    backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
+    backgroundColor: colorWithOpacity(ink.black, isDark ? 0.3 : 0.05),
     borderRadius: layout.borderRadiusXs,
   }),
   licenseText: {

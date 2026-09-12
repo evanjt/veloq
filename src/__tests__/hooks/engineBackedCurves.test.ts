@@ -21,8 +21,8 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 const engine = {
-  getPowerCurveBody: jest.fn(),
-  getPaceCurveBody: jest.fn(),
+  getPowerCurve: jest.fn(),
+  getPaceCurve: jest.fn(),
   syncPowerCurve: jest.fn(),
   syncPaceCurve: jest.fn(),
   savePaceSnapshot: jest.fn(),
@@ -44,8 +44,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  engine.getPowerCurveBody.mockReturnValue(null);
-  engine.getPaceCurveBody.mockReturnValue(null);
+  engine.getPowerCurve.mockReturnValue(null);
+  engine.getPaceCurve.mockReturnValue(null);
   engine.getWeeklySummaries.mockReturnValue([]);
   useAuthStore.setState({ isAuthenticated: true });
 });
@@ -88,6 +88,9 @@ describe('curve body parsing', () => {
   });
 });
 
+/** A stored curve carries the time it was fetched, epoch millis. */
+const FETCHED_AT = Date.UTC(2026, 7, 8);
+
 describe('usePowerCurve', () => {
   it('asks Rust for a curve it has never stored', async () => {
     renderHook(() => usePowerCurve({ sport: 'Ride', days: 90 }), { wrapper });
@@ -96,14 +99,43 @@ describe('usePowerCurve', () => {
   });
 
   it('does not re-request a curve it already holds', async () => {
-    engine.getPowerCurveBody.mockReturnValue(
-      JSON.stringify({ list: [{ secs: [1], values: [9] }] })
-    );
+    engine.getPowerCurve.mockReturnValue({
+      raw: JSON.stringify({ list: [{ secs: [1], values: [9] }] }),
+      fetchedAt: FETCHED_AT,
+    });
 
     const { result } = renderHook(() => usePowerCurve({ sport: 'Ride', days: 90 }), { wrapper });
 
     await waitFor(() => expect(result.current.data?.watts).toEqual([9]));
     expect(engine.syncPowerCurve).not.toHaveBeenCalled();
+  });
+
+  it('hands back the time the stored body was fetched', async () => {
+    engine.getPowerCurve.mockReturnValue({
+      raw: JSON.stringify({ list: [{ secs: [1], values: [9] }] }),
+      fetchedAt: FETCHED_AT,
+    });
+
+    const { result } = renderHook(() => usePowerCurve({ sport: 'Ride', days: 90 }), { wrapper });
+
+    await waitFor(() => expect(result.current.fetchedAt).toBe(FETCHED_AT));
+  });
+
+  it('has no fetch time for a curve it has never stored', async () => {
+    const { result } = renderHook(() => usePowerCurve({ sport: 'Ride' }), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.fetchedAt).toBeNull();
+  });
+
+  it('reports nothing stored when the body will not parse', async () => {
+    engine.getPowerCurve.mockReturnValue({ raw: 'not json', fetchedAt: FETCHED_AT });
+
+    const { result } = renderHook(() => usePowerCurve({ sport: 'Ride' }), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.fetchedAt).toBeNull();
+    expect(result.current.data?.watts).toEqual([]);
   });
 
   it('renders an empty curve while the fetch is in flight', async () => {
@@ -134,11 +166,12 @@ describe('usePaceCurve', () => {
   });
 
   it('snapshots critical speed once the curve is stored', async () => {
-    engine.getPaceCurveBody.mockReturnValue(
-      JSON.stringify({
+    engine.getPaceCurve.mockReturnValue({
+      raw: JSON.stringify({
         list: [{ distance: [100], values: [20], paceModels: [{ type: 'CS', criticalSpeed: 3.4 }] }],
-      })
-    );
+      }),
+      fetchedAt: FETCHED_AT,
+    });
 
     renderHook(() => usePaceCurve({ sport: 'Run' }), { wrapper });
 
@@ -151,6 +184,32 @@ describe('usePaceCurve', () => {
         expect.any(Number)
       )
     );
+  });
+
+  /// A curve fetched weeks ago is still the reading it was, so opening the app
+  /// must not date it to today: the row is keyed on the date, and a new date
+  /// is a new point on the Lactate Threshold trend.
+  it('dates the snapshot from the curve, not from the day it was read', async () => {
+    engine.getPaceCurve.mockReturnValue({
+      raw: JSON.stringify({
+        list: [
+          {
+            distance: [100],
+            values: [20],
+            paceModels: [{ type: 'CS', criticalSpeed: 3.4 }],
+            start_date_local: '2026-06-27T00:00:00',
+            end_date_local: '2026-08-08T00:00:00',
+          },
+        ],
+      }),
+      fetchedAt: FETCHED_AT,
+    });
+
+    renderHook(() => usePaceCurve({ sport: 'Run' }), { wrapper });
+
+    await waitFor(() => expect(engine.savePaceSnapshot).toHaveBeenCalled());
+    const stampedAt = engine.savePaceSnapshot.mock.calls[0][4];
+    expect(stampedAt).toBe(Math.floor(new Date(2026, 7, 8).getTime() / 1000));
   });
 });
 

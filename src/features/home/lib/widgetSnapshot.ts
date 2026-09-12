@@ -286,6 +286,13 @@ export interface RawWidgetData {
    * a ride taken today.
    */
   nowWallSeconds: number;
+  /**
+   * Whether the athlete reads form as a share of fitness (`icu_form_as_percent`).
+   * Injected rather than read, because this transform is pure and because the
+   * native widget colours from the zones stored here and never bands anything
+   * itself. Absent reads as absolute.
+   */
+  formAsPercent?: boolean;
   /** i18n lookup; falls back to the raw key when absent (pure-test safe). */
   translate?: (key: string) => string;
   /** Recent sports, most recent first. Blanks and repeats are dropped here. */
@@ -351,6 +358,8 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
   const hrv = sp?.hrv ?? [];
   const rhr = sp?.rhr ?? [];
 
+  const asPercent = raw.formAsPercent === true;
+
   const curTss = num(raw.summary?.currentWeek.totalTss);
   const prevTss = num(raw.summary?.prevWeek.totalTss);
   const weeklyDistanceM = num(raw.summary?.currentWeek.totalDistance);
@@ -358,7 +367,7 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
   const deltaPct = prevTss > 0 ? Math.round(((curTss - prevTss) / prevTss) * 100) : null;
 
   const latest = composeLatest(raw);
-  const impact = composeImpact(raw, fitness, fatigue, form, latest);
+  const impact = composeImpact(raw, fitness, fatigue, form, latest, asPercent);
   const t = raw.translate ?? ((k: string) => k);
   const shortcuts = composeRecordShortcuts(raw.recentRecordingTypes, t);
 
@@ -367,7 +376,7 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
     generatedAt: raw.nowSeconds,
     locale: raw.locale,
     metrics: {
-      form: formMetricFrom(form),
+      form: formMetricFrom(form, fitness, asPercent),
       fitness: metricFrom(fitness),
       fatigue: metricFrom(fatigue),
       rampRate: { value: rampRateFrom(fitness) },
@@ -380,7 +389,10 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
       fitness: [...fitness],
       fatigue: [...fatigue],
       hrv: [...hrv],
-      formZones: form.map((v) => getFormZone(num(v))),
+      // Positional: `fitness[i]` is the same day as `form[i]`, both oldest
+      // first from Rust. An index out by one colours the sparkline a day
+      // wrong and nothing on screen would say so.
+      formZones: form.map((v, i) => getFormZone(num(v), num(fitness[i]), asPercent)),
     },
     weekly: {
       tss: Math.round(curTss),
@@ -394,7 +406,11 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
     latest,
     impact,
     summaryCard: composeSummaryCard(raw, t),
-    display: buildDisplay(t, impact, getFormZone(num(form[form.length - 1]))),
+    display: buildDisplay(
+      t,
+      impact,
+      getFormZone(num(form[form.length - 1]), num(fitness[fitness.length - 1]), asPercent)
+    ),
     theme: { light: widgetPalette.light, dark: widgetPalette.dark },
     recordShortcuts: shortcuts,
     launcherShortcuts: shortcuts.slice(0, RECORD_SHORTCUT_LIMIT),
@@ -430,9 +446,12 @@ function composeRecordShortcuts(
 }
 
 /** Form metric with its zone, so natives colour by enum and never do TSB maths. */
-function formMetricFrom(series: number[]): FormMetricValue {
+function formMetricFrom(series: number[], fitness: number[], asPercent: boolean): FormMetricValue {
   const base = metricFrom(series);
-  return { ...base, zone: getFormZone(base.value) };
+  return {
+    ...base,
+    zone: getFormZone(base.value, num(fitness[series.length - 1]), asPercent),
+  };
 }
 
 /**
@@ -639,7 +658,8 @@ function composeImpact(
   fitness: number[],
   fatigue: number[],
   form: number[],
-  latest: WidgetLatest | null
+  latest: WidgetLatest | null,
+  asPercent: boolean
 ): WidgetImpact | null {
   if (!latest) return null;
   if (form.length < 2 || fitness.length < 2 || fatigue.length < 2) return null;
@@ -652,8 +672,8 @@ function composeImpact(
   return {
     formBefore,
     formAfter,
-    formBeforeZone: getFormZone(formBefore),
-    formAfterZone: getFormZone(formAfter),
+    formBeforeZone: getFormZone(formBefore, num(fitness[today - 1]), asPercent),
+    formAfterZone: getFormZone(formAfter, num(fitness[today]), asPercent),
     ctlDelta: num(fitness[fitness.length - 1]) - num(fitness[fitness.length - 2]),
     atlDelta: num(fatigue[fatigue.length - 1]) - num(fatigue[fatigue.length - 2]),
     tssAdded: latest.trainingLoad,
@@ -685,6 +705,7 @@ function relativeDateLabel(unixSeconds: number): string {
 export function gatherWidgetSnapshot(opts: {
   locale: string;
   isMetric: boolean;
+  formAsPercent?: boolean;
   now?: Date;
   translate?: (key: string) => string;
 }): WidgetSnapshot | null {
@@ -733,6 +754,7 @@ export function gatherWidgetSnapshot(opts: {
     summaryPrefs,
     locale: opts.locale,
     isMetric: opts.isMetric,
+    formAsPercent: opts.formAsPercent,
     nowSeconds,
     nowWallSeconds,
     translate: opts.translate,

@@ -813,10 +813,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    backgroundColor: colorWithOpacity(colors.warning, 0.08),
   },
   warningRowDark: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    backgroundColor: colorWithOpacity(colors.warning, 0.12),
   },
   warningText: {
     flex: 1,
@@ -825,7 +825,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colorWithOpacity(ink.black, 0.4),
     justifyContent: 'center',
     alignItems: 'center',
   },

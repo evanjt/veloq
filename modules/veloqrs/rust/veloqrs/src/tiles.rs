@@ -374,6 +374,29 @@ fn sweep_line_tiles<F>(
     }
 }
 
+/// The x and y bounds of a box at one zoom, as `(x_min, x_max, y_min, y_max)`.
+///
+/// Shared by the enumeration and by the invalidation sweep, which intersects a
+/// directory listing with this rather than walking the rectangle. Two readings
+/// of "which tiles does this box cover" would drift, and a sweep that deleted
+/// a different set from the one the renderer draws is the failure nobody sees
+/// until ground stays stale.
+fn tile_range_for_bounds(
+    min_lat: f64,
+    max_lat: f64,
+    min_lng: f64,
+    max_lng: f64,
+    zoom: u8,
+) -> (u32, u32, u32, u32) {
+    (
+        lon_to_tile_x(min_lng, zoom).floor() as u32,
+        lon_to_tile_x(max_lng, zoom).floor() as u32,
+        // Y is inverted: the northern edge is the smaller row.
+        lat_to_tile_y(max_lat, zoom).floor() as u32,
+        lat_to_tile_y(min_lat, zoom).floor() as u32,
+    )
+}
+
 /// Enumerate tile coordinates for a bounding box at a given zoom level
 pub fn tiles_for_bounds(
     min_lat: f64,
@@ -382,10 +405,8 @@ pub fn tiles_for_bounds(
     max_lng: f64,
     zoom: u8,
 ) -> Vec<(u32, u32)> {
-    let x_min = lon_to_tile_x(min_lng, zoom).floor() as u32;
-    let x_max = lon_to_tile_x(max_lng, zoom).floor() as u32;
-    let y_min = lat_to_tile_y(max_lat, zoom).floor() as u32; // Y is inverted
-    let y_max = lat_to_tile_y(min_lat, zoom).floor() as u32;
+    let (x_min, x_max, y_min, y_max) =
+        tile_range_for_bounds(min_lat, max_lat, min_lng, max_lng, zoom);
 
     let mut tiles = Vec::new();
     for x in x_min..=x_max {
@@ -725,7 +746,17 @@ pub fn tile_exists(base_path: &Path, z: u8, x: u32, y: u32) -> bool {
         || tile_path(base_path, z, x, y, EMPTY_MARKER_EXT).exists()
 }
 
-/// Delete tile files within a bounding box across all zoom levels
+/// Delete tile files within a bounding box across all zoom levels.
+///
+/// Enumerated from the disk rather than from the box: each zoom's directory is
+/// read and what is in it is intersected with the box's tile range. The box is
+/// the ride's extent, so probing it tile by tile costs the ride's area whether
+/// or not anything was ever drawn there, and a touring day's box is 883,001
+/// tiles over the default zoom span. Measured, a long ride's box over a cache
+/// 1.6 per cent dense takes 450 ms probed and 9 ms listed, and listing wins at
+/// every density, including a full one, because the probe's cost does not
+/// depend on density at all. `tests/tile_sweep_enumeration.rs` is that
+/// measurement.
 pub fn invalidate_tiles_in_bounds(
     base_path: &Path,
     min_lat: f64,
@@ -737,20 +768,47 @@ pub fn invalidate_tiles_in_bounds(
 ) -> u32 {
     let mut deleted = 0u32;
     for z in min_zoom..=max_zoom {
-        let tiles = tiles_for_bounds(min_lat, max_lat, min_lng, max_lng, z);
-        for (x, y) in tiles {
-            // The marker has to go with the tile. Left behind it claims the
-            // ground is drawn, and the redraw the invalidation asked for is
-            // then skipped for ever.
-            let mut gone = false;
-            for extension in ["png", EMPTY_MARKER_EXT] {
-                let path = tile_path(base_path, z, x, y, extension);
-                if path.exists() && std::fs::remove_file(&path).is_ok() {
-                    gone = true;
-                }
+        let (x_min, x_max, y_min, y_max) =
+            tile_range_for_bounds(min_lat, max_lat, min_lng, max_lng, z);
+        // A zoom nothing was ever drawn at has no directory, which is one
+        // failed open instead of the whole rectangle.
+        let Ok(columns) = std::fs::read_dir(base_path.join(z.to_string())) else {
+            continue;
+        };
+        for column in columns.flatten() {
+            let Ok(x) = column.file_name().to_string_lossy().parse::<u32>() else {
+                continue;
+            };
+            if x < x_min || x > x_max {
+                continue;
             }
-            if gone {
-                deleted += 1;
+            let Ok(rows) = std::fs::read_dir(column.path()) else {
+                continue;
+            };
+            // A tile can hold a PNG and an empty marker at once, and it is one
+            // tile either way. Counting files would report ground twice.
+            let mut gone: std::collections::HashSet<u32> = std::collections::HashSet::new();
+            for row in rows.flatten() {
+                let name = row.file_name();
+                let name = name.to_string_lossy();
+                let Some((stem, extension)) = name.rsplit_once('.') else {
+                    continue;
+                };
+                if extension != "png" && extension != EMPTY_MARKER_EXT {
+                    continue;
+                }
+                let Ok(y) = stem.parse::<u32>() else {
+                    continue;
+                };
+                if y < y_min || y > y_max {
+                    continue;
+                }
+                // The marker has to go with the tile. Left behind it claims the
+                // ground is drawn, and the redraw the invalidation asked for is
+                // then skipped for ever.
+                if std::fs::remove_file(row.path()).is_ok() && gone.insert(y) {
+                    deleted += 1;
+                }
             }
         }
     }
@@ -1037,6 +1095,87 @@ mod tests {
             !tile_exists(base, 14, x, y),
             "a marker left behind claims ground that was asked to be redrawn is drawn"
         );
+    }
+
+    /// The contract the enumeration is swapped under: what the sweep deletes,
+    /// what it leaves, and what it counts. Each of these passes against a
+    /// rectangle walk as well, which is the point of them.
+    mod invalidation_contract {
+        use super::*;
+
+        const Z: u8 = 14;
+        const BOX: (f64, f64, f64, f64) = (46.49, 46.51, 7.49, 7.51);
+
+        fn sweep(base: &Path) -> u32 {
+            invalidate_tiles_in_bounds(base, BOX.0, BOX.1, BOX.2, BOX.3, Z, Z)
+        }
+
+        fn inside() -> (u32, u32) {
+            (
+                lon_to_tile_x(7.50, Z).floor() as u32,
+                lat_to_tile_y(46.50, Z).floor() as u32,
+            )
+        }
+
+        #[test]
+        fn ground_outside_the_box_is_left_alone() {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let base = dir.path();
+            let (x, y) = inside();
+            save_tile(base, Z, x, y, b"in").expect("inside");
+            // Far enough out in both axes that no rounding puts it in the box.
+            save_tile(base, Z, x + 50, y, b"east").expect("east");
+            save_tile(base, Z, x, y + 50, b"south").expect("south");
+
+            assert_eq!(sweep(base), 1);
+            assert!(!tile_exists(base, Z, x, y));
+            assert!(tile_exists(base, Z, x + 50, y), "east of the box");
+            assert!(tile_exists(base, Z, x, y + 50), "south of the box");
+        }
+
+        #[test]
+        fn a_tile_holding_both_a_png_and_a_marker_counts_once() {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let base = dir.path();
+            let (x, y) = inside();
+            save_tile(base, Z, x, y, b"drawn").expect("png");
+            mark_tile_empty(base, Z, x, y).expect("marker");
+
+            assert_eq!(sweep(base), 1, "one tile went, not two files");
+            assert!(!tile_exists(base, Z, x, y));
+        }
+
+        #[test]
+        fn a_zoom_with_nothing_on_disk_deletes_nothing() {
+            let dir = tempfile::tempdir().expect("tempdir");
+            assert_eq!(
+                invalidate_tiles_in_bounds(dir.path(), BOX.0, BOX.1, BOX.2, BOX.3, 1, 17),
+                0
+            );
+        }
+
+        #[test]
+        fn an_entry_that_is_not_a_tile_number_is_left_where_it_is() {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let base = dir.path();
+            let (x, y) = inside();
+            save_tile(base, Z, x, y, b"drawn").expect("png");
+
+            // A read_dir enumeration sees these and the rectangle walk never
+            // could, so they are only a hazard for the one that replaces it.
+            let zoom_dir = base.join(Z.to_string());
+            std::fs::write(zoom_dir.join("notes.txt"), b"x").expect("stray file");
+            std::fs::create_dir_all(zoom_dir.join("scratch")).expect("stray dir");
+            let x_dir = zoom_dir.join(x.to_string());
+            std::fs::write(x_dir.join("README"), b"x").expect("extensionless");
+            std::fs::write(x_dir.join("y.png"), b"x").expect("unparseable stem");
+
+            assert_eq!(sweep(base), 1);
+            assert!(zoom_dir.join("notes.txt").exists());
+            assert!(zoom_dir.join("scratch").exists());
+            assert!(x_dir.join("README").exists());
+            assert!(x_dir.join("y.png").exists());
+        }
     }
 
     #[test]

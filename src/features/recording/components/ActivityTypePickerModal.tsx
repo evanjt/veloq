@@ -5,7 +5,16 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  typography,
+  brand,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import { ACTIVITY_CATEGORIES } from '@/features/recording/lib/recordingModes';
 import type { ActivityType } from '@/types';
@@ -97,7 +106,9 @@ function ActivityTypePickerModalInner({
   const selectedRowStyle = isRecording
     ? styles.rowSelectedRecording
     : {
-        backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+        backgroundColor: isDark
+          ? colorWithOpacity(ink.white, 0.08)
+          : colorWithOpacity(ink.black, 0.04),
       };
 
   const titleKey = isRecording ? 'recording.changeType' : 'recording.activityType';
@@ -180,7 +191,7 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
   },
   sheet: {
     maxHeight: '60%',
@@ -223,7 +234,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   rowSelectedRecording: {
-    backgroundColor: 'rgba(20, 184, 166, 0.08)',
+    backgroundColor: colorWithOpacity(brand.teal, 0.08),
   },
   iconRecording: {
     marginRight: spacing.sm,

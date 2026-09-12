@@ -1429,6 +1429,17 @@ pub struct FfiActivityBody {
     pub raw: String,
 }
 
+/// One activity's display name, for a caller that holds ids and has to draw
+/// something an athlete recognises. Only the ids the engine knows are
+/// answered, so the caller falls back to the id itself.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivityName {
+    pub activity_id: String,
+    pub name: String,
+    /// Start time as epoch seconds, so a caller can order what it draws.
+    pub date: i64,
+}
+
 /// One wellness row passed in from TS (intervals.icu sync). Fields outside
 /// this subset (sleepQuality, spO2, etc.) aren't persisted yet - the TS
 /// sync helper only forwards the fields the Rust atomics consume.

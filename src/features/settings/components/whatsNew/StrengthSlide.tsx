@@ -5,7 +5,7 @@ import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import type { ParseKeys } from 'i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
 
 // Illustrative values. The four groups are the coarse ones the body diagram
 // rolls its fifteen muscle slugs up into, so `MUSCLE_DISPLAY_NAMES` has no key
@@ -31,7 +31,7 @@ export function StrengthSlide() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
-  const trackColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const trackColor = isDark ? colorWithOpacity(ink.white, 0.08) : colorWithOpacity(ink.black, 0.06);
 
   return (
     <View style={styles.container}>

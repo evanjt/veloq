@@ -955,7 +955,6 @@ export interface TranslationResource {
     noMatchingRoutes: string;
     routesWithTwoPlus: string;
     match: string;
-    more: string;
     noFrequentSections: string;
     sectionsDescription: string;
     noSectionsMatchFilter: string;

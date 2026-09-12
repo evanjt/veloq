@@ -29,6 +29,7 @@ import {
   brand,
   ink,
   verdict,
+  colorWithOpacity,
 } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
@@ -85,19 +86,19 @@ interface ActivityCardProps {
 // White text theme (used on any dark/satellite map, or dark theme + light map)
 const WHITE_TEXT = {
   text: ink.white,
-  textMuted: 'rgba(255,255,255,0.85)',
-  dot: 'rgba(255,255,255,0.5)',
-  divider: 'rgba(255,255,255,0.15)',
-  secondaryText: 'rgba(255,255,255,0.9)',
-  shadow: 'rgba(0,0,0,0.8)',
+  textMuted: colorWithOpacity(ink.white, 0.85),
+  dot: colorWithOpacity(ink.white, 0.5),
+  divider: colorWithOpacity(ink.white, 0.15),
+  secondaryText: colorWithOpacity(ink.white, 0.9),
+  shadow: colorWithOpacity(ink.black, 0.8),
 };
 
 // Dark text theme (only for light theme + light map)
 const DARK_TEXT = {
   text: colors.textPrimary,
   textMuted: colors.textSecondary,
-  dot: 'rgba(0,0,0,0.25)',
-  divider: 'rgba(0,0,0,0.1)',
+  dot: colorWithOpacity(ink.black, 0.25),
+  divider: colorWithOpacity(ink.black, 0.1),
   secondaryText: colors.textSecondary,
   shadow: 'transparent',
 };
@@ -106,26 +107,58 @@ const DARK_TEXT = {
 const GRADIENT = {
   // Light theme + light map: white wash blends into light UI
   lightLight: {
-    top: ['rgba(255,255,255,0.92)', 'rgba(255,255,255,0.5)', 'transparent'] as const,
-    bottom: ['transparent', 'rgba(255,255,255,0.6)', 'rgba(255,255,255,0.95)'] as const,
+    top: [
+      colorWithOpacity(ink.white, 0.92),
+      colorWithOpacity(ink.white, 0.5),
+      'transparent',
+    ] as const,
+    bottom: [
+      'transparent',
+      colorWithOpacity(ink.white, 0.6),
+      colorWithOpacity(ink.white, 0.95),
+    ] as const,
     ...DARK_TEXT,
   },
   // Light theme + dark map: subtle scrim, map already provides contrast
   lightDark: {
-    top: ['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.2)', 'transparent'] as const,
-    bottom: ['transparent', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.55)'] as const,
+    top: [
+      colorWithOpacity(ink.black, 0.5),
+      colorWithOpacity(ink.black, 0.2),
+      'transparent',
+    ] as const,
+    bottom: [
+      'transparent',
+      colorWithOpacity(ink.black, 0.25),
+      colorWithOpacity(ink.black, 0.55),
+    ] as const,
     ...WHITE_TEXT,
   },
   // Dark theme + light map: strong dark scrim to blend into dark UI
   darkLight: {
-    top: ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.3)', 'transparent'] as const,
-    bottom: ['transparent', 'rgba(0,0,0,0.35)', 'rgba(0,0,0,0.72)'] as const,
+    top: [
+      colorWithOpacity(ink.black, 0.7),
+      colorWithOpacity(ink.black, 0.3),
+      'transparent',
+    ] as const,
+    bottom: [
+      'transparent',
+      colorWithOpacity(ink.black, 0.35),
+      colorWithOpacity(ink.black, 0.72),
+    ] as const,
     ...WHITE_TEXT,
   },
   // Dark theme + dark map: subtle scrim, everything already dark
   darkDark: {
-    top: ['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.2)', 'transparent'] as const,
-    bottom: ['transparent', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.6)'] as const,
+    top: [
+      colorWithOpacity(ink.black, 0.5),
+      colorWithOpacity(ink.black, 0.2),
+      'transparent',
+    ] as const,
+    bottom: [
+      'transparent',
+      colorWithOpacity(ink.black, 0.25),
+      colorWithOpacity(ink.black, 0.6),
+    ] as const,
     ...WHITE_TEXT,
   },
 };
@@ -195,8 +228,10 @@ export const ActivityCard = React.memo(
 
     const compactTextColor = isDark ? darkColors.textPrimary : colors.textPrimary;
     const compactMutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-    const compactDotColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)';
-    const compactDividerColor = isDark ? darkColors.border : 'rgba(0,0,0,0.1)';
+    const compactDotColor = isDark
+      ? colorWithOpacity(ink.white, 0.3)
+      : colorWithOpacity(ink.black, 0.25);
+    const compactDividerColor = isDark ? darkColors.border : colorWithOpacity(ink.black, 0.1);
 
     // Shared secondary stats row used by both compact and full card
     const secondaryStatsRow = (textColor: string) => (
@@ -761,9 +796,9 @@ const styles = StyleSheet.create({
     backgroundColor: brand.gold,
   },
   routeTrendBadgeDelta: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: colorWithOpacity(ink.black, 0.55),
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: colorWithOpacity(ink.white, 0.2),
   },
   routeTrendBadgeText: {
     color: ink.white,

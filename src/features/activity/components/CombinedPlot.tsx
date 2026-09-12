@@ -18,7 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import { colors, typography, layout, chartStyles } from '@/theme';
+import { colors, typography, layout, chartStyles, ink, colorWithOpacity } from '@/theme';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
@@ -452,7 +452,11 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                         <React.Fragment key={`line-${series.id}`}>
                           <CurveLine
                             points={points[series.id] ?? []}
-                            color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                            color={
+                              isDark
+                                ? colorWithOpacity(ink.black, 0.5)
+                                : colorWithOpacity(ink.black, 0.15)
+                            }
                             strokeWidth={width + 0.75}
                           />
                           <CurveLine
@@ -566,11 +570,11 @@ const styles = StyleSheet.create({
     top: 8,
     bottom: 20,
     width: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: colorWithOpacity(ink.black, 0.4),
     borderRadius: layout.borderRadiusFull,
   },
   crosshairDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: colorWithOpacity(ink.white, 0.5),
   },
   placeholder: {
     backgroundColor: colors.background,

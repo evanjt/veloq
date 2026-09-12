@@ -29,7 +29,16 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { getEngine } from '@/shared/native/engine';
 import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
-import { colors, darkColors, spacing, typography, layout, shadows } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  typography,
+  layout,
+  shadows,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 
 export function ElevationBackfillStatus() {
   const { t } = useTranslation();
@@ -232,7 +241,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,

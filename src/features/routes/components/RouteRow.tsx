@@ -3,7 +3,7 @@
  * Displays the route with activity count and preview polyline.
  */
 
-import React, { memo, useState, useMemo, useId } from 'react';
+import React, { memo, useMemo, useId } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
@@ -167,7 +167,6 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
-  const [expanded, setExpanded] = useState(false);
 
   // Use pre-loaded consensus points if available (from batch FFI), otherwise lazy-load
   const preloadedConsensus =
@@ -197,17 +196,6 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
     }
   }, [route, consensusPoints]);
 
-  // Get activity names for expansion
-  const activityNames = useMemo(() => {
-    if (isRouteGroup(route)) {
-      // RouteGroup doesn't have activity names, just IDs
-      return route.activityIds.map(
-        (_, i) => t('routes.defaultActivityName' as never, { number: i + 1 }) as string
-      );
-    }
-    return route.activityNames || [];
-  }, [route, t]);
-
   const getTypeIcon = (): 'bike' | 'run' | 'swim' | 'walk' | 'map-marker' => {
     const routeType = route.type?.toLowerCase() || '';
     if (routeType.includes('ride') || routeType.includes('cycling')) return 'bike';
@@ -236,12 +224,11 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
     return showPace ? formatPace(bestPace, isMetric) : formatSpeed(bestPace, isMetric);
   }, [bestPace, showPace, isMetric]);
 
+  // The expandable form is gone: its activity list was fed by `activityIds`,
+  // which `batchGroupToRouteGroup` always builds empty, so it never had a row
+  // to draw. Every row the list renders is navigable.
   const handlePress = () => {
-    if (navigable) {
-      navigateTo(`/route/${route.id}`);
-    } else {
-      setExpanded(!expanded);
-    }
+    if (navigable) navigateTo(`/route/${route.id}`);
   };
 
   return (
@@ -325,7 +312,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
         <View style={styles.countBadge}>
           <Text style={styles.countText}>{route.activityCount}</Text>
           <MaterialCommunityIcons
-            name={navigable ? 'chevron-right' : expanded ? 'chevron-up' : 'chevron-down'}
+            name={navigable ? 'chevron-right' : 'chevron-down'}
             size={16}
             color={
               navigable ? colors.textOnDark : isDark ? colors.neutralLine : colors.textSecondary
@@ -333,29 +320,6 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
           />
         </View>
       </TouchableOpacity>
-
-      {/* Expanded activity list - only show when not navigable */}
-      {expanded && !navigable && (
-        <View style={[styles.expandedList, isDark && styles.expandedListDark]}>
-          {activityNames.slice(0, 5).map((name, idx) => (
-            <View key={route.activityIds[idx] || idx} style={styles.activityItem}>
-              <MaterialCommunityIcons
-                name="checkbox-marked-circle-outline"
-                size={14}
-                color={isDark ? darkColors.successDeep : colors.successDeep}
-              />
-              <Text style={[styles.activityName, isDark && styles.textMuted]} numberOfLines={1}>
-                {name}
-              </Text>
-            </View>
-          ))}
-          {route.activityCount > 5 && (
-            <Text style={[styles.moreText, isDark && styles.textMuted]}>
-              {t('routes.more', { count: route.activityCount - 5 })}
-            </Text>
-          )}
-        </View>
-      )}
     </View>
   );
 }

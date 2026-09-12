@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, typography, spacing } from '@/theme';
+import { colors, darkColors, typography, spacing, colorWithOpacity, ink } from '@/theme';
 
 interface TimelineLegendProps {
   isDark?: boolean;
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   legendStripe: {
     width: 8,
     height: '100%',
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: colorWithOpacity(ink.white, 0.8),
   },
   legendEmpty: {
     backgroundColor: colors.border,

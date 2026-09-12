@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { getFormZone, FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
 import { debug } from '@/shared/debug/debug';
 import type { TrendGlyph } from '@/shared/format/trend';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 
 const log = debug.create('SummaryCard');
 
@@ -153,7 +154,8 @@ export const SummaryCard = React.memo(function SummaryCard({
   const currentFitness = scrubValues ? scrubValues.fitness : (fitnessData?.[lastIdx] ?? 0);
   const currentFatigue = scrubValues ? scrubValues.fatigue : (fatigueData?.[lastIdx] ?? null);
   const currentForm = scrubValues ? scrubValues.form : (formData?.[lastIdx] ?? 0);
-  const currentFormZone = getFormZone(currentForm);
+  const asPercent = useFormPreference((s) => s.formAsPercent) === true;
+  const currentFormZone = getFormZone(currentForm, currentFitness, asPercent);
   const currentFormColor = FORM_ZONE_COLORS[currentFormZone];
 
   // Current HRV sparkline values (latest or scrubbed)

@@ -2,7 +2,16 @@ import React, { useImperativeHandle, useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, typography, shadows, layout, spacing } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  shadows,
+  layout,
+  spacing,
+  ink,
+  colorWithOpacity,
+} from '@/theme';
 import { formatDuration } from '@/shared/format/format';
 
 interface ChartDistanceIndicatorProps {
@@ -101,7 +110,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: colorWithOpacity(ink.white, 0.9),
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm,
@@ -113,10 +122,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xs,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderColor: colorWithOpacity(ink.black, 0.1),
   },
   distanceIndicatorTappableDark: {
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: colorWithOpacity(ink.white, 0.15),
   },
   distanceIndicatorDark: {
     backgroundColor: darkColors.surfaceOverlay,

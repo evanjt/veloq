@@ -133,6 +133,39 @@ impl ActivityManager {
         })?
     }
 
+    /// Display names for a batch of activity ids, for a caller that holds ids
+    /// and has to draw something an athlete recognises.
+    ///
+    /// Batched rather than one call per id: a caller drawing a row of chips
+    /// would otherwise make a blocking FFI hop each, on a screen where a
+    /// transition is already running. Ids the engine has no name for are
+    /// absent from the answer rather than carrying an empty string, so the
+    /// caller can tell "no name" from "a blank name" and fall back to the id.
+    fn get_activity_names(
+        &self,
+        activity_ids: Vec<String>,
+    ) -> Result<Vec<crate::FfiActivityName>, VeloqError> {
+        with_engine(|e| {
+            let named =
+                e.get_activity_names(&activity_ids)
+                    .map_err(|err| VeloqError::Database {
+                        msg: format!("{}", err),
+                    })?;
+            // In the order asked for, so the caller does not re-sort what it
+            // already had in the right order.
+            Ok(activity_ids
+                .iter()
+                .filter_map(|id| {
+                    named.get(id).map(|(name, date)| crate::FfiActivityName {
+                        activity_id: id.clone(),
+                        name: name.clone(),
+                        date: *date,
+                    })
+                })
+                .collect())
+        })?
+    }
+
     /// Store an activity's interval payload directly, for demo seeding.
     fn set_interval_body(&self, activity_id: String, raw: String) -> Result<(), VeloqError> {
         with_engine(|e| {

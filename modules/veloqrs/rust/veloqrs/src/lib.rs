@@ -57,6 +57,9 @@ pub mod patterns;
 // The one three-way better/worse/same verdict every trend reads
 pub mod trend;
 
+/// Pearson's r with the sample size and the interval that travel with it.
+pub mod correlation;
+
 /// The one sport taxonomy, three questions of an open sport string.
 pub mod sport;
 

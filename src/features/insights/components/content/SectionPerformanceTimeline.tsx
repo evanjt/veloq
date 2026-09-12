@@ -13,7 +13,16 @@ import {
 } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity, ink, layout, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  opacity,
+  ink,
+  layout,
+  typography,
+  colorWithOpacity,
+} from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import type { LayoutChangeEvent } from 'react-native';
@@ -135,8 +144,8 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
   if (sorted.length < 2 || !linePath) return null;
 
   const textMuted = isDark ? darkColors.textMuted : colors.textMuted;
-  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-  const dotColor = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.2)';
+  const gridColor = isDark ? colorWithOpacity(ink.white, 0.06) : colorWithOpacity(ink.black, 0.06);
+  const dotColor = isDark ? colorWithOpacity(ink.white, 0.4) : colorWithOpacity(ink.black, 0.2);
   const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
   const yRange = yMax - yMin || 1;
 
