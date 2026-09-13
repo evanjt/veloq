@@ -5,6 +5,7 @@
 
 use super::error::{VeloqError, with_engine};
 use super::observer;
+use super::observer::Announcement;
 use super::sync;
 use crate::fit;
 use crate::http::ActivityFetcher;
@@ -73,7 +74,7 @@ async fn store_parsed_sets(activity_id: &str, data: &[u8]) {
     // parked on that is a worker not polling the rest of the batch.
     let announced = activity_id.to_string();
     let _ = tokio::task::spawn_blocking(move || {
-        observer::notify(|o| o.fit_parsed(announced.clone()));
+        observer::notify(Announcement::FitParsed(announced.clone()));
     })
     .await;
 }
@@ -123,7 +124,7 @@ async fn settle_failed_download(activity_id: &str, error: NetError) -> Result<()
     // calls into JS, and a parked worker is a worker not polling the batch.
     let announced = activity_id.to_string();
     let _ = tokio::task::spawn_blocking(move || {
-        observer::notify(|o| o.fit_parsed(announced.clone()));
+        observer::notify(Announcement::FitParsed(announced.clone()));
     })
     .await;
     Ok(())
@@ -521,7 +522,7 @@ impl StrengthManager {
         // The caller reads the count back on this tick, so the card that asked
         // is served. Every other card on the same activity is not, and the
         // reader carries no timer to find out on its own.
-        observer::notify(|o| o.fit_parsed(activity_id.clone()));
+        observer::notify(Announcement::FitParsed(activity_id.clone()));
 
         Ok(count)
     }
@@ -571,7 +572,7 @@ impl StrengthManager {
 
         // Same reason as the import above, and it is the demo seed's only
         // signal that its synthetic sets have landed.
-        observer::notify(|o| o.fit_parsed(activity_id.clone()));
+        observer::notify(Announcement::FitParsed(activity_id.clone()));
 
         Ok(())
     }

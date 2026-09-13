@@ -5,6 +5,7 @@
 //! naming conflicts with the internal API.
 
 use crate::init_logging;
+use crate::objects::observer::Announcement;
 use log::info;
 
 /// How many leftover time streams are asked for at once.
@@ -120,15 +121,32 @@ pub struct ActivitySportMapping {
     pub start_date: Option<i64>,
 }
 
+/// What a picked backup file says about itself, read without touching the
+/// global engine.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiBackupValidation {
+    /// The file's own schema version, as it stores it. `"0"` when the file
+    /// carries no `schema_info` row at all.
+    pub schema_version: String,
+    /// Who the backup belongs to, or `None` for a file that stored no athlete.
+    pub athlete_id: Option<String>,
+    pub activity_count: u32,
+    /// What the athlete recognises the file by. `None` for a backup whose
+    /// activities carry no date, which reads as "unknown" rather than as new.
+    pub newest_activity: Option<i64>,
+    /// This build's own version, not the file's. It is the only honest thing
+    /// to compare a backup against: the live database is the other candidate
+    /// and a fresh install cannot read one.
+    pub supported_schema_version: i32,
+}
+
 /// Validate a backup database file without touching the global engine.
-/// Opens the file read-only and returns JSON: {"schema_version", "athlete_id",
-/// "activity_count", "newest_activity", "supported_schema_version"}.
 ///
-/// The supported version is this build's own, not the file's. It is the only
-/// honest thing to compare a backup against: the live database is the other
-/// candidate and a fresh install cannot read one.
+/// Opens the file read-only. A record rather than a JSON document, so a field
+/// renamed here is a compile error in TypeScript rather than a valid backup
+/// reported as invalid at runtime.
 #[uniffi::export]
-pub fn validate_backup_database(path: String) -> Result<String, crate::VeloqError> {
+pub fn validate_backup_database(path: String) -> Result<FfiBackupValidation, crate::VeloqError> {
     use rusqlite::{Connection, OpenFlags};
 
     let conn =
@@ -166,14 +184,13 @@ pub fn validate_backup_database(path: String) -> Result<String, crate::VeloqErro
         })
         .unwrap_or(None);
 
-    let metadata = serde_json::json!({
-        "schema_version": schema_version,
-        "athlete_id": athlete_id,
-        "activity_count": activity_count,
-        "newest_activity": newest_activity,
-        "supported_schema_version": crate::persistence::SUPPORTED_SCHEMA_VERSION,
-    });
-    Ok(metadata.to_string())
+    Ok(FfiBackupValidation {
+        schema_version,
+        athlete_id,
+        activity_count: activity_count.max(0) as u32,
+        newest_activity,
+        supported_schema_version: crate::persistence::SUPPORTED_SCHEMA_VERSION,
+    })
 }
 
 /// Stored points for one fetched track.
@@ -332,12 +349,12 @@ fn store_downloaded_track(
     .unwrap_or((false, 0));
 
     if stored {
-        crate::objects::observer::notify(|o| o.gps_track_stored(activity_id.to_string()));
+        crate::objects::observer::notify(Announcement::GpsTrackStored(activity_id.to_string()));
         // Announced with the write lock released, the same reason the track is.
         if !times.is_empty() {
-            crate::objects::observer::notify(|o| {
-                o.time_streams_stored(vec![activity_id.to_string()])
-            });
+            crate::objects::observer::notify(Announcement::TimeStreamsStored(vec![
+                activity_id.to_string(),
+            ]));
         }
     }
 
@@ -622,9 +639,9 @@ pub fn start_fetch_and_store(
                             // Announced with the engine lock released, and only
                             // when the write landed.
                             if stored.is_some() {
-                                crate::objects::observer::notify(|o| {
-                                    o.time_streams_stored(vec![activity_id.clone()])
-                                });
+                                crate::objects::observer::notify(Announcement::TimeStreamsStored(
+                                    vec![activity_id.clone()],
+                                ));
                             } else {
                                 crate::objects::sync::discarded("time_stream", &activity_id);
                             }

@@ -557,9 +557,13 @@ impl PersistentEngine {
         let mut arc_sigs: Vec<std::sync::Arc<RouteSignature>> =
             Vec::with_capacity(activity_ids.len());
 
+        // One statement for the whole library. The signature cache holds 200,
+        // so asking it per activity evicts what the same walk just loaded and
+        // decodes every blob again on any library past that size.
+        let signatures = self.load_all_signatures();
         for id in &activity_ids {
-            if let Some(sig) = self.get_signature(id) {
-                arc_sigs.push(sig);
+            if let Some(sig) = signatures.get(id) {
+                arc_sigs.push(std::sync::Arc::clone(sig));
             }
         }
         let sig_ms = sig_start.elapsed().as_millis();
@@ -1999,5 +2003,98 @@ mod tests {
             .unwrap();
 
         assert_eq!(engine.get_section("s1").unwrap().route_ids, Some(vec![]));
+    }
+}
+
+/// Counting the statements a regroup runs is how the signature load proves it
+/// reads the table once rather than once per activity.
+#[cfg(test)]
+mod regroup_signature_reads {
+    use std::sync::Mutex;
+
+    use super::PersistentEngine;
+    use tracematch::GpsPoint;
+
+    static SQL: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+    fn record(sql: &str) {
+        SQL.lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(sql.to_string());
+    }
+
+    fn reset() {
+        SQL.lock().unwrap_or_else(|e| e.into_inner()).clear();
+    }
+
+    /// Statements that read one activity's signature row, the per-activity
+    /// shape the LRU miss runs.
+    fn per_activity_reads() -> usize {
+        SQL.lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .filter(|sql| sql.contains("FROM signatures WHERE activity_id ="))
+            .count()
+    }
+
+    fn track(seed: f64) -> Vec<GpsPoint> {
+        (0..12)
+            .map(|i| GpsPoint {
+                latitude: 46.0 + seed * 0.01 + f64::from(i) * 0.0005,
+                longitude: 7.0 + seed * 0.01,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    fn engine_with(activities: usize) -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let batch: Vec<(String, Vec<GpsPoint>, String)> = (0..activities)
+            .map(|i| {
+                (
+                    format!("a{i}"),
+                    track(f64::from(i as u32)),
+                    "Ride".to_string(),
+                )
+            })
+            .collect();
+        engine.add_activities_batch(batch).unwrap();
+        engine
+    }
+
+    /// Scenario: the signature cache holds 200 entries and a regroup walks
+    /// every activity through it, so past 200 the walk evicts what it just
+    /// loaded and every regroup decodes every blob one row at a time.
+    ///
+    /// Expected behaviour: the regroup reads the signatures it needs in one
+    /// statement, so a library twice the cache size costs no per-row reads.
+    #[test]
+    fn a_regroup_past_the_cache_size_reads_no_signature_row_by_itself() {
+        let mut engine = engine_with(400);
+        engine.db.trace(Some(record));
+
+        reset();
+        let grouped = engine.get_groups().len();
+
+        assert_eq!(
+            per_activity_reads(),
+            0,
+            "the regroup read signatures one row at a time"
+        );
+        assert!(grouped > 0, "the regroup produced no groups at all");
+
+        // The second pass is the one the cache was supposed to serve, and the
+        // one that used to pay the whole walk again.
+        reset();
+        engine.groups_dirty = true;
+        let again = engine.get_groups().len();
+
+        assert_eq!(
+            per_activity_reads(),
+            0,
+            "the second regroup read row by row"
+        );
+        assert_eq!(again, grouped, "the same library grouped differently");
+        engine.db.trace(None);
     }
 }

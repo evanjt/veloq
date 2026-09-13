@@ -77,6 +77,15 @@ impl ActivityManager {
         with_engine(|e| e.get_activity_ids())
     }
 
+    /// Whether the library already holds this activity.
+    ///
+    /// An in-memory `contains_key`, so the answer is one boolean rather than
+    /// the whole id list. The push task asked `get_ids().includes(id)`, which
+    /// lifted every id string across the bridge to decide one thing.
+    fn has(&self, activity_id: String) -> Result<bool, VeloqError> {
+        with_engine(|e| e.has_activity(&activity_id))
+    }
+
     fn get_count(&self) -> Result<u32, VeloqError> {
         with_engine(|e| e.activity_count() as u32)
     }

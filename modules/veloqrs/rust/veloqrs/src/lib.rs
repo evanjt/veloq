@@ -17,6 +17,7 @@ pub use ffi_types::*;
 
 // Persistence layer with SQLite storage
 pub mod persistence;
+pub use persistence::sections::{EvidenceRow, encode_evidence_row};
 pub use persistence::{
     CacheUpdate, ExportPrivacyPreview, FitOutcome, GroupSummary, PERSISTENT_ENGINE,
     PersistentEngine, PersistentEngineStats, SectionDetectionHandle, mint_local_activity_id,

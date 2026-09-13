@@ -365,7 +365,7 @@ impl super::PersistentEngine {
             activity_count: self.activity_count() as u32,
             section_count: self.get_section_count(),
             route_groups,
-            matched_sections: matched.into_iter().map(crate::FfiSection::from).collect(),
+            matched_sections: matched.into_iter().map(Self::matched_section).collect(),
             custom_sections: custom.into_iter().map(crate::FfiSection::from).collect(),
             encounters: self.get_activity_section_encounters(activity_id),
             highlights: crate::FfiActivityHighlightsBundle {
@@ -374,6 +374,57 @@ impl super::PersistentEngine {
             },
             section_traces,
             pr_section_ids,
+        }
+    }
+
+    /// A matched section in the light record the detail screen draws from.
+    ///
+    /// `bounds` is the polyline's own extent rather than the catalogue's stored
+    /// one, and `sport_types` is the section's own sport: the screen reads
+    /// neither, and computing them here keeps the record one shape everywhere.
+    fn matched_section(s: crate::sections::Section) -> crate::FfiSectionWithPolyline {
+        let bounds = s
+            .polyline
+            .iter()
+            .fold(None, |acc: Option<crate::FfiBounds>, p| {
+                Some(match acc {
+                    None => crate::FfiBounds {
+                        min_lat: p.latitude,
+                        max_lat: p.latitude,
+                        min_lng: p.longitude,
+                        max_lng: p.longitude,
+                    },
+                    Some(b) => crate::FfiBounds {
+                        min_lat: b.min_lat.min(p.latitude),
+                        max_lat: b.max_lat.max(p.latitude),
+                        min_lng: b.min_lng.min(p.longitude),
+                        max_lng: b.max_lng.max(p.longitude),
+                    },
+                })
+            });
+        crate::FfiSectionWithPolyline {
+            id: s.id,
+            name: s.name,
+            sport_types: vec![s.sport_type.clone()],
+            sport_type: s.sport_type,
+            visit_count: s.visit_count,
+            distance_meters: s.distance_meters,
+            activity_count: s.activity_ids.len() as u32,
+            confidence: s.confidence.unwrap_or(0.0),
+            scale: s.scale,
+            bounds,
+            encoded_polyline: crate::coords::encode(&s.polyline),
+            is_user_defined: s.is_user_defined,
+            disabled: s.disabled,
+            superseded_by: s.superseded_by,
+            elevation_gain_m: s.elevation_gain_m,
+            elevation_loss_m: s.elevation_loss_m,
+            avg_grade_percent: s.avg_grade_percent,
+            max_grade_percent: s.max_grade_percent,
+            klass: s.klass,
+            is_lift: s.is_lift,
+            rank_score: s.rank_score,
+            sport_rank_score: s.sport_rank_score,
         }
     }
 
@@ -599,6 +650,10 @@ impl super::PersistentEngine {
         max_gps_points: u32,
     ) -> crate::FfiWidgetSnapshotData {
         let sparklines = self.get_wellness_sparklines(sparkline_days).ok().flatten();
+        // The stored figure, not one derived from the sparkline: the widget and
+        // the fitness tab have to agree, and only one of them can be right about
+        // a number intervals.icu already computed.
+        let ramp_rate = self.latest_ramp_rate(sparkline_days);
 
         let summary = crate::FfiSummaryCardData {
             current_week: self.get_period_stats(current_start, current_end),
@@ -649,6 +704,7 @@ impl super::PersistentEngine {
             latest: latest.map(crate::FfiActivityMetrics::from),
             latest_is_pr,
             latest_gps,
+            ramp_rate,
         }
     }
 

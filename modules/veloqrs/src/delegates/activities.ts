@@ -55,6 +55,19 @@ export function getActivityIds(host: DelegateHost): string[] {
   return host.timed('getActivityIds', () => host.engine.activities().getIds());
 }
 
+/**
+ * Whether the library already holds this activity.
+ *
+ * One boolean, answered from the engine's in-memory metadata. Asking
+ * `getActivityIds().includes(id)` lifted every id string across the bridge to
+ * decide the same thing.
+ */
+export function hasActivity(host: DelegateHost, activityId: string): boolean {
+  if (!host.ready) return false;
+  validateId(activityId, 'activity ID');
+  return host.timed('hasActivity', () => host.engine.activities().has(activityId));
+}
+
 export function getActivityCount(host: DelegateHost): number {
   if (!host.ready) return 0;
   return host.timed('getActivityCount', () => host.engine.activities().getCount());

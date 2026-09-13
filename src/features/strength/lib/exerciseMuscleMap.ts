@@ -1,9 +1,15 @@
 /**
- * Static exercise-to-muscle-group mapping.
- * Mirrors modules/veloqrs/rust/veloqrs/src/fit.rs exercise_muscle_groups().
+ * The English name each muscle slug is shown under.
  *
- * Category IDs follow the Garmin FIT SDK Profile v21.133 ExerciseCategory enum.
- * See FIT SDK Profile.xlsx -> Types -> ExerciseCategory for authoritative values.
+ * The mapping from an exercise to its muscles belongs to the engine:
+ * `exercise_muscle_groups` in `modules/veloqrs/rust/veloqrs/src/fit.rs` decides
+ * which slugs a set reports, and nothing here repeats that table. What stays
+ * here is the label, which is a UI concern and is translated nowhere else.
+ *
+ * The slugs are the engine's, so the two lists have to agree:
+ * `src/__tests__/bugs/muscleSlugParity.test.ts` fails when they do not. Every
+ * call site falls back to the raw slug, so a missing name is `lower-back` on
+ * screen rather than a crash.
  *
  * Used by both the activity detail muscle tap feature and the strength insights tab.
  */

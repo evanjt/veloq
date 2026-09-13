@@ -568,17 +568,12 @@ fn the_probe_reports_the_version_a_fresh_database_gets() {
         .unwrap();
     assert_eq!(stamped, veloqrs::persistence::SUPPORTED_SCHEMA_VERSION);
 
-    let probed: serde_json::Value =
-        serde_json::from_str(&veloqrs::ffi::validate_backup_database(db_str).unwrap()).unwrap();
+    let probed = veloqrs::ffi::validate_backup_database(db_str).unwrap();
     assert_eq!(
-        probed["supported_schema_version"].as_i64(),
-        Some(i64::from(stamped)),
+        probed.supported_schema_version, stamped,
         "the probe must report this build's version, not the file's"
     );
-    assert_eq!(
-        probed["schema_version"].as_str(),
-        Some(stamped.to_string().as_str())
-    );
+    assert_eq!(probed.schema_version, stamped.to_string());
 }
 
 /// Scenario: a library is quarantined and replaced. Init then reports success,

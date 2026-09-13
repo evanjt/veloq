@@ -576,15 +576,15 @@ export function takeFetchAndStoreResult(
 }
 /**
  * Validate a backup database file without touching the global engine.
- * Opens the file read-only and returns JSON: {"schema_version", "athlete_id",
- * "activity_count", "newest_activity", "supported_schema_version"}.
  *
- * The supported version is this build's own, not the file's. It is the only
- * honest thing to compare a backup against: the live database is the other
- * candidate and a fresh install cannot read one.
+ * Opens the file read-only. A record rather than a JSON document, so a field
+ * renamed here is a compile error in TypeScript rather than a valid backup
+ * reported as invalid at runtime.
  */
-export function validateBackupDatabase(path: string): string /*throws*/ {
-  return FfiConverterString.lift(
+export function validateBackupDatabase(
+  path: string,
+): FfiBackupValidation /*throws*/ {
+  return FfiConverterTypeFfiBackupValidation.lift(
     uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
         FfiConverterTypeVeloqError,
@@ -1457,9 +1457,13 @@ export type FfiActivityDetailData = {
    */
   routeGroups: Array<FfiRouteGroup>;
   /**
-   * Visible sections this activity traverses, most-visited first
+   * Visible sections this activity traverses, most-visited first.
+   *
+   * The light record: the screen draws the line, the name and the counts
+   * and never reads the member list, which on a 30-section activity was
+   * several hundred id strings lifted across JSI on the mount.
    */
-  matchedSections: Array<FfiSection>;
+  matchedSections: Array<FfiSectionWithPolyline>;
   /**
    * Visible custom sections naming this activity that `matched_sections`
    * does not already carry. Not the whole custom catalogue: the screen
@@ -1510,7 +1514,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         activityCount: FfiConverterUInt32.read(from),
         sectionCount: FfiConverterUInt32.read(from),
         routeGroups: FfiConverterArrayTypeFfiRouteGroup.read(from),
-        matchedSections: FfiConverterArrayTypeFfiSection.read(from),
+        matchedSections: FfiConverterArrayTypeFfiSectionWithPolyline.read(from),
         customSections: FfiConverterArrayTypeFfiSection.read(from),
         encounters: FfiConverterArrayTypeFfiSectionEncounter.read(from),
         highlights: FfiConverterTypeFfiActivityHighlightsBundle.read(from),
@@ -1522,7 +1526,10 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
       FfiConverterUInt32.write(value.activityCount, into);
       FfiConverterUInt32.write(value.sectionCount, into);
       FfiConverterArrayTypeFfiRouteGroup.write(value.routeGroups, into);
-      FfiConverterArrayTypeFfiSection.write(value.matchedSections, into);
+      FfiConverterArrayTypeFfiSectionWithPolyline.write(
+        value.matchedSections,
+        into,
+      );
       FfiConverterArrayTypeFfiSection.write(value.customSections, into);
       FfiConverterArrayTypeFfiSectionEncounter.write(value.encounters, into);
       FfiConverterTypeFfiActivityHighlightsBundle.write(value.highlights, into);
@@ -1534,7 +1541,9 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         FfiConverterUInt32.allocationSize(value.activityCount) +
         FfiConverterUInt32.allocationSize(value.sectionCount) +
         FfiConverterArrayTypeFfiRouteGroup.allocationSize(value.routeGroups) +
-        FfiConverterArrayTypeFfiSection.allocationSize(value.matchedSections) +
+        FfiConverterArrayTypeFfiSectionWithPolyline.allocationSize(
+          value.matchedSections,
+        ) +
         FfiConverterArrayTypeFfiSection.allocationSize(value.customSections) +
         FfiConverterArrayTypeFfiSectionEncounter.allocationSize(
           value.encounters,
@@ -2159,6 +2168,83 @@ const FfiConverterTypeFfiActivitySectionHighlight = (() => {
         FfiConverterInt8.allocationSize(value.trend) +
         FfiConverterUInt32.allocationSize(value.startIndex) +
         FfiConverterUInt32.allocationSize(value.endIndex)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What a picked backup file says about itself, read without touching the
+ * global engine.
+ */
+export type FfiBackupValidation = {
+  /**
+   * The file's own schema version, as it stores it. `"0"` when the file
+   * carries no `schema_info` row at all.
+   */
+  schemaVersion: string;
+  /**
+   * Who the backup belongs to, or `None` for a file that stored no athlete.
+   */
+  athleteId?: string;
+  activityCount: /*u32*/ number;
+  /**
+   * What the athlete recognises the file by. `None` for a backup whose
+   * activities carry no date, which reads as "unknown" rather than as new.
+   */
+  newestActivity?: /*i64*/ bigint;
+  /**
+   * This build's own version, not the file's. It is the only honest thing
+   * to compare a backup against: the live database is the other candidate
+   * and a fresh install cannot read one.
+   */
+  supportedSchemaVersion: /*i32*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiBackupValidation} record objects.
+ */
+export const FfiBackupValidation = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiBackupValidation, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiBackupValidation>,
+  });
+})();
+
+const FfiConverterTypeFfiBackupValidation = (() => {
+  type TypeName = FfiBackupValidation;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        schemaVersion: FfiConverterString.read(from),
+        athleteId: FfiConverterOptionalString.read(from),
+        activityCount: FfiConverterUInt32.read(from),
+        newestActivity: FfiConverterOptionalInt64.read(from),
+        supportedSchemaVersion: FfiConverterInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.schemaVersion, into);
+      FfiConverterOptionalString.write(value.athleteId, into);
+      FfiConverterUInt32.write(value.activityCount, into);
+      FfiConverterOptionalInt64.write(value.newestActivity, into);
+      FfiConverterInt32.write(value.supportedSchemaVersion, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.schemaVersion) +
+        FfiConverterOptionalString.allocationSize(value.athleteId) +
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterOptionalInt64.allocationSize(value.newestActivity) +
+        FfiConverterInt32.allocationSize(value.supportedSchemaVersion)
       );
     }
   }
@@ -9853,6 +9939,13 @@ export type FfiWidgetSnapshotData = {
    * The latest activity's GPS track, empty for indoor activities
    */
   latestGps: Array<FfiGpsPoint>;
+  /**
+   * The ramp rate intervals.icu computed, off the newest wellness day that
+   * carries one. `None` before wellness has synced. The widget derived its
+   * own from the fitness sparkline, which is a different number from the
+   * same data.
+   */
+  rampRate?: /*f64*/ number;
 };
 
 /**
@@ -9883,6 +9976,7 @@ const FfiConverterTypeFfiWidgetSnapshotData = (() => {
         latest: FfiConverterOptionalTypeFfiActivityMetrics.read(from),
         latestIsPr: FfiConverterBool.read(from),
         latestGps: FfiConverterArrayTypeFfiGpsPoint.read(from),
+        rampRate: FfiConverterOptionalFloat64.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -9894,6 +9988,7 @@ const FfiConverterTypeFfiWidgetSnapshotData = (() => {
       FfiConverterOptionalTypeFfiActivityMetrics.write(value.latest, into);
       FfiConverterBool.write(value.latestIsPr, into);
       FfiConverterArrayTypeFfiGpsPoint.write(value.latestGps, into);
+      FfiConverterOptionalFloat64.write(value.rampRate, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -9905,7 +10000,8 @@ const FfiConverterTypeFfiWidgetSnapshotData = (() => {
           value.latest,
         ) +
         FfiConverterBool.allocationSize(value.latestIsPr) +
-        FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.latestGps)
+        FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.latestGps) +
+        FfiConverterOptionalFloat64.allocationSize(value.rampRate)
       );
     }
   }
@@ -11815,6 +11911,14 @@ export interface ActivityManagerLike {
     types: string,
   ) /*throws*/ : string | undefined;
   /**
+   * Whether the library already holds this activity.
+   *
+   * An in-memory `contains_key`, so the answer is one boolean rather than
+   * the whole id list. The push task asked `get_ids().includes(id)`, which
+   * lifted every id string across the bridge to decide one thing.
+   */
+  has(activityId: string) /*throws*/ : boolean;
+  /**
    * A key for a ride this device recorded and no server has named. The key
    * never moves: `record_upload` writes the server's id beside it.
    */
@@ -12187,6 +12291,31 @@ export class ActivityManager
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
             FfiConverterString.lower(types),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Whether the library already holds this activity.
+   *
+   * An in-memory `contains_key`, so the answer is one boolean rather than
+   * the whole id list. The push task asked `get_ids().includes(id)`, which
+   * lifted every id string across the bridge to decide one thing.
+   */
+  has(activityId: string): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_has(
+            uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
             callStatus,
           );
         },
@@ -21966,7 +22095,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_validate_backup_database() !==
-    53210
+    35540
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_validate_backup_database",
@@ -22090,6 +22219,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_get_stream_body",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_has() !==
+    32151
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_has",
     );
   }
   if (
@@ -24333,6 +24470,7 @@ export default Object.freeze({
     FfiConverterTypeFfiActivityPattern,
     FfiConverterTypeFfiActivityRouteHighlight,
     FfiConverterTypeFfiActivitySectionHighlight,
+    FfiConverterTypeFfiBackupValidation,
     FfiConverterTypeFfiBatchTrace,
     FfiConverterTypeFfiBounds,
     FfiConverterTypeFfiCalendarDirectionBest,

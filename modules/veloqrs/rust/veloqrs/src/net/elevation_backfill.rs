@@ -60,6 +60,7 @@ use crate::net::transport::{NetError, Transport};
 use crate::net::types::ParsedStreams;
 use crate::objects::FfiStartOutcome;
 use crate::objects::detection::{SlotWait, wait_on_slot};
+use crate::objects::observer::Announcement;
 use crate::persistence::cutover::CutoverOutcome;
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::{
@@ -387,7 +388,7 @@ pub(crate) fn set_phase(phase: &'static str) {
     *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner()) = phase;
     // The guard above is a temporary of the statement it is in, so the
     // announcement is made with the phase lock already released.
-    crate::objects::observer::notify(|o| o.backfill_phase(phase.to_string()));
+    crate::objects::observer::notify(Announcement::BackfillPhase(phase.to_string()));
 }
 
 /// What a poller sees while the backfill runs and after it settles.

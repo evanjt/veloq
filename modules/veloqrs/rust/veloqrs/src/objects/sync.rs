@@ -15,6 +15,7 @@
 
 use super::error::VeloqError;
 use super::observer;
+use super::observer::Announcement;
 use super::start::FfiStartOutcome;
 #[cfg(test)]
 use crate::governor;
@@ -489,7 +490,7 @@ impl SyncService {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
             inner.completed = (inner.completed + 1).min(inner.total);
         }
-        observer::notify(|o| o.sync_progress());
+        observer::notify(Announcement::SyncProgress);
     }
 
     /// Terminal transition for a finished job. The one place a job ends, so it
@@ -504,7 +505,7 @@ impl SyncService {
                 inner.running = false;
                 inner.in_flight = 0;
                 drop(inner);
-                observer::notify(|o| o.sync_settled());
+                observer::notify(Announcement::SyncSettled);
                 return;
             }
             inner.state = state;
@@ -516,7 +517,7 @@ impl SyncService {
             inner.last_error_reason = failure.as_ref().map(|f| f.reason);
             inner.last_error = failure.map(|f| f.message);
         }
-        observer::notify(|o| o.sync_settled());
+        observer::notify(Announcement::SyncSettled);
     }
 
     /// Park the service on a credential the profile confirmed as rejected.
@@ -717,7 +718,10 @@ where
         .await;
     if landed(stored) {
         BODIES_STORED.fetch_add(1, Ordering::Relaxed);
-        observer::notify(|o| o.body_stored(kind.to_string(), activity_id));
+        observer::notify(Announcement::BodyStored {
+            kind: kind.to_string(),
+            activity_id,
+        });
         return Ok(());
     }
     if stored.is_none() {
@@ -741,7 +745,7 @@ pub(crate) async fn store_time_stream(activity_id: String, times: Vec<u32>) {
     })
     .await;
     if stored.is_some() {
-        observer::notify(|o| o.time_streams_stored(vec![activity_id]));
+        observer::notify(Announcement::TimeStreamsStored(vec![activity_id]));
     } else {
         discarded("time_stream", &activity_id);
     }
@@ -4382,6 +4386,7 @@ mod body_count_tests {
         crate::runtime::block_on(store_body("fixture", String::new(), |_engine| {
             Err(rusqlite::Error::InvalidQuery)
         }));
+        observer::flush();
 
         assert!(
             recorder.seen().is_empty(),
@@ -4398,6 +4403,7 @@ mod body_count_tests {
 
         crate::runtime::block_on(store_body("fixture", "f1".into(), |_engine| Ok(())));
         crate::runtime::block_on(store_body("fixture", "f2".into(), |_engine| Ok(())));
+        observer::flush();
 
         assert_eq!(recorder.seen(), vec!["fixture:f1", "fixture:f2"]);
         set_observer(None);

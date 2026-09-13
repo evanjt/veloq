@@ -107,30 +107,21 @@ impl RouteManager {
     }
 
     fn exclude_activity(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
+        // No indicator rebuild: the flag lands on `activity_matches` and the
+        // indicator table holds section rows read from `section_activities`,
+        // so a route edit cannot move a row the rebuild would rewrite. The
+        // rebuild was 31 to 39 ms of the JS thread plus a time-stream read,
+        // for nothing.
         with_engine(|e| {
             e.exclude_activity_from_route(&route_id, &activity_id)
-                .map_err(|e| VeloqError::Database { msg: e })?;
-            if let Err(err) = e.recompute_activity_indicators() {
-                log::warn!(
-                    "veloqrs: [exclude_route_activity] Indicator recomputation failed: {}",
-                    err
-                );
-            }
-            Ok(())
+                .map_err(|e| VeloqError::Database { msg: e })
         })?
     }
 
     fn include_activity(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.include_activity_in_route(&route_id, &activity_id)
-                .map_err(|e| VeloqError::Database { msg: e })?;
-            if let Err(err) = e.recompute_activity_indicators() {
-                log::warn!(
-                    "veloqrs: [include_route_activity] Indicator recomputation failed: {}",
-                    err
-                );
-            }
-            Ok(())
+                .map_err(|e| VeloqError::Database { msg: e })
         })?
     }
 
@@ -209,6 +200,70 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    /// Statements SQLite ran. `Connection::trace` takes a function pointer,
+    /// so the sink is a static rather than a captured counter.
+    mod traced {
+        use std::sync::Mutex;
+
+        static SQL: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+        pub fn record(sql: &str) {
+            SQL.lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .push(sql.to_string());
+        }
+
+        pub fn reset() {
+            SQL.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        }
+
+        pub fn count(fragment: &str) -> usize {
+            SQL.lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .iter()
+                .filter(|sql| sql.contains(fragment))
+                .count()
+        }
+    }
+
+    /// Scenario: the athlete excludes one activity from a route, then puts it
+    /// back.
+    ///
+    /// Expected behaviour: neither edit rewrites the indicator table. The
+    /// table holds section rows read from `section_activities`, the edit
+    /// writes a flag on `activity_matches`, and the rebuild it used to run
+    /// cost 31 to 39 ms of the JS thread plus a library-wide lap backfill.
+    #[test]
+    fn a_route_exclusion_leaves_the_indicator_table_alone() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("routes.db");
+        let routes = RouteManager::new();
+        crate::persistence::with_persistent_engine(|engine| {
+            engine.db.trace(Some(traced::record));
+        })
+        .expect("engine");
+
+        traced::reset();
+        routes.exclude_activity("g1".into(), "a1".into()).unwrap();
+        routes.include_activity("g1".into(), "a1".into()).unwrap();
+
+        assert_eq!(
+            traced::count("UPDATE activity_matches SET excluded"),
+            2,
+            "both edits wrote their flag"
+        );
+        assert_eq!(
+            traced::count("DELETE FROM activity_indicators"),
+            0,
+            "neither edit rewrote the indicators"
+        );
+
+        crate::persistence::with_persistent_engine(|engine| {
+            engine.db.trace(None);
+        })
+        .expect("engine");
     }
 
     #[test]

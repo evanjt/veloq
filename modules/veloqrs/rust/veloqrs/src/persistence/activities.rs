@@ -287,6 +287,35 @@ fn bounds_needing_tile_sweep(
         .collect()
 }
 
+/// One signature from the columns its row carries. A corrupt points blob names
+/// itself in the log before the read gives up, so route grouping never drops an
+/// activity in silence.
+fn signature_from_parts(
+    id: &str,
+    points_blob: &[u8],
+    start_point: GpsPoint,
+    end_point: GpsPoint,
+    total_distance: f64,
+) -> Option<RouteSignature> {
+    let points = TrackRead::from_blob(points_blob).into_option("load_signature_from_db", id)?;
+    let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
+        min_lat: 0.0,
+        max_lat: 0.0,
+        min_lng: 0.0,
+        max_lng: 0.0,
+    });
+    let center = bounds.center();
+    Some(RouteSignature {
+        activity_id: id.to_string(),
+        points,
+        total_distance,
+        start_point,
+        end_point,
+        bounds,
+        center,
+    })
+}
+
 impl PersistentEngine {
     // ========================================================================
     // Loading
@@ -1554,13 +1583,68 @@ impl PersistentEngine {
         Some(arc)
     }
 
+    /// Every activity's signature the catalogue claims, in one statement.
+    ///
+    /// The regroup wants all of them at once and the LRU holds 200, so walking
+    /// them through `get_signature` evicts what it has just loaded and reads
+    /// every blob back a row at a time on any library past that size. Bypasses
+    /// the cache for the same reason `get_all_map_signatures` does, and leaves
+    /// what the cache already holds alone.
+    pub(crate) fn load_all_signatures(&self) -> HashMap<String, Arc<RouteSignature>> {
+        let mut out = HashMap::with_capacity(self.activity_metadata.len());
+        let mut stmt = match self.db.prepare(
+            "SELECT activity_id, points, start_point_lat, start_point_lng,
+                    end_point_lat, end_point_lng, total_distance
+             FROM signatures",
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("[load_all_signatures] query failed: {}", e);
+                return out;
+            }
+        };
+        let rows = match stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Vec<u8>>(1)?,
+                GpsPoint::new(row.get(2)?, row.get(3)?),
+                GpsPoint::new(row.get(4)?, row.get(5)?),
+                row.get::<_, f64>(6)?,
+            ))
+        }) {
+            Ok(rows) => rows,
+            Err(e) => {
+                log::warn!("[load_all_signatures] row walk failed: {}", e);
+                return out;
+            }
+        };
+        for row in rows.flatten() {
+            let (id, blob, start_point, end_point, total_distance) = row;
+            // A signature whose activity the catalogue no longer holds is not
+            // the regroup's business, and decoding its blob is the cost this
+            // is here to avoid.
+            if !self.activity_metadata.contains_key(&id) {
+                continue;
+            }
+            let Some(signature) =
+                signature_from_parts(&id, &blob, start_point, end_point, total_distance)
+            else {
+                continue;
+            };
+            out.insert(id, Arc::new(signature));
+        }
+        out
+    }
+
     /// Load a stored signature. A corrupt points blob names itself in the log
     /// before the read gives up, so route grouping never drops an activity in
     /// silence.
     fn load_signature_from_db(&self, id: &str) -> Option<RouteSignature> {
+        // Cached, because a regroup runs this once per activity and the parse
+        // is the whole cost of a row that decodes in microseconds.
         let mut stmt = match self
             .db
-            .prepare(
+            .prepare_cached(
                 "SELECT points, start_point_lat, start_point_lng, end_point_lat, end_point_lng, total_distance
                  FROM signatures WHERE activity_id = ?",
             ) {
@@ -1595,26 +1679,7 @@ impl PersistentEngine {
             }
         };
 
-        let points =
-            TrackRead::from_blob(&points_blob).into_option("load_signature_from_db", id)?;
-
-        let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
-            min_lat: 0.0,
-            max_lat: 0.0,
-            min_lng: 0.0,
-            max_lng: 0.0,
-        });
-        let center = bounds.center();
-
-        Some(RouteSignature {
-            activity_id: id.to_string(),
-            points,
-            total_distance,
-            start_point,
-            end_point,
-            bounds,
-            center,
-        })
+        signature_from_parts(id, &points_blob, start_point, end_point, total_distance)
     }
 
     /// Get all map signatures in a single query.
@@ -2106,7 +2171,7 @@ impl PersistentEngine {
     pub(super) fn load_time_stream(&self, activity_id: &str) -> Option<Vec<u32>> {
         let mut stmt = self
             .db
-            .prepare("SELECT times FROM time_streams WHERE activity_id = ?")
+            .prepare_cached("SELECT times FROM time_streams WHERE activity_id = ?")
             .ok()?;
 
         stmt.query_row(params![activity_id], |row| {
@@ -2892,5 +2957,112 @@ mod tests {
 
         assert_eq!(commit_counter::count(&commits), 1);
         assert!(engine.db.is_autocommit());
+    }
+}
+
+#[cfg(test)]
+mod statement_cache_tests {
+    //! Scenario: the per-row loaders call `prepare`, which parses the SQL
+    //! afresh every time. A regroup over 750 activities parses the same
+    //! `SELECT` 750 times, under the write lock.
+    //!
+    //! Expected behaviour: they go through the connection's statement cache,
+    //! so the SQL is parsed once and the rest of the walk reuses it. The
+    //! authorizer is what counts parses: SQLite runs it while a statement is
+    //! being prepared and not when a prepared one runs again.
+
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use rusqlite::hooks::{AuthContext, Authorization};
+
+    use super::*;
+
+    static PREPARES: AtomicUsize = AtomicUsize::new(0);
+
+    /// One column, because the authorizer runs once per column a statement
+    /// reads and the count wanted here is of statements.
+    fn count_prepares(engine: &PersistentEngine, table: &'static str, column: &'static str) {
+        PREPARES.store(0, Ordering::Relaxed);
+        engine.db.authorizer(Some(move |ctx: AuthContext<'_>| {
+            if let rusqlite::hooks::AuthAction::Read {
+                table_name,
+                column_name,
+                ..
+            } = ctx.action
+            {
+                if table_name == table && column_name == column {
+                    PREPARES.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+            Authorization::Allow
+        }));
+    }
+
+    fn stop_counting(engine: &PersistentEngine) {
+        engine
+            .db
+            .authorizer(None::<fn(AuthContext<'_>) -> Authorization>);
+    }
+
+    fn engine_with(ids: &[&str]) -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        for (i, id) in ids.iter().enumerate() {
+            let base = 46.0 + i as f64 * 0.01;
+            let coords = vec![
+                GpsPoint {
+                    latitude: base,
+                    longitude: 7.0,
+                    elevation: None,
+                },
+                GpsPoint {
+                    latitude: base + 0.005,
+                    longitude: 7.0,
+                    elevation: None,
+                },
+            ];
+            engine
+                .add_activity((*id).to_string(), coords, "Ride".to_string())
+                .unwrap();
+        }
+        engine
+    }
+
+    #[test]
+    fn a_walk_of_the_signatures_parses_the_select_once() {
+        let ids = ["a1", "a2", "a3", "a4"];
+        let engine = engine_with(&ids);
+
+        count_prepares(&engine, "signatures", "points");
+        for id in ids {
+            engine.load_signature_from_db(id);
+        }
+        let parses = PREPARES.load(Ordering::Relaxed);
+        stop_counting(&engine);
+
+        assert_eq!(
+            parses, 1,
+            "four signature loads parsed the same SELECT {parses} times"
+        );
+    }
+
+    #[test]
+    fn a_walk_of_the_time_streams_parses_the_select_once() {
+        let ids = ["a1", "a2", "a3", "a4"];
+        let mut engine = engine_with(&ids);
+        for id in ids {
+            engine.set_time_streams_flat(&[(*id).to_string()], &[1, 2], &[2]);
+        }
+
+        count_prepares(&engine, "time_streams", "times");
+        for id in ids {
+            engine.load_time_stream(id);
+        }
+        let parses = PREPARES.load(Ordering::Relaxed);
+        stop_counting(&engine);
+
+        assert_eq!(
+            parses, 1,
+            "four time-stream loads parsed the same SELECT {parses} times"
+        );
     }
 }

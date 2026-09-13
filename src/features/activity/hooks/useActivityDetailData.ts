@@ -7,6 +7,7 @@ import type {
   RouteGroup,
   Section as NativeSection,
   SectionEncounter,
+  SectionWithPolyline,
 } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
 
@@ -25,8 +26,8 @@ export interface ActivityDetailBundle {
   /** Route groups above the requested minimum, most attempts first */
   routeGroups: RouteGroup[];
   /** Route group total before the minimum-activity filter */
-  /** Visible sections this activity traverses */
-  matchedSections: NativeSection[];
+  /** Visible sections this activity traverses, in the light record */
+  matchedSections: SectionWithPolyline[];
   /** Every visible custom section, matched or not */
   customSections: NativeSection[];
   /** One entry per (section, direction) this activity encountered */

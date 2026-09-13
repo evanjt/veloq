@@ -14,6 +14,7 @@ import { restoreBackup, restoreDatabaseBackup } from '@/features/settings/lib/ba
 import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
 import * as FileSystem from 'expo-file-system/legacy';
 import { queryClient } from '@/shared/query/QueryProvider';
+import type { BackupValidation } from 'veloqrs';
 
 // Mock the route engine
 const mockEngine = {
@@ -305,15 +306,17 @@ describe('backup corruption resilience', () => {
 });
 
 describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
-  const LIVE_META = JSON.stringify({
-    schema_version: '12',
-    athlete_id: 'athlete-1',
-    activity_count: 100,
-  });
+  const LIVE_META = {
+    schemaVersion: '12',
+    athleteId: 'athlete-1',
+    activityCount: 100,
+    newestActivity: undefined,
+    supportedSchemaVersion: 32,
+  };
 
   // validateBackupDatabase is called for both the backup temp file and the live
   // DB. Route by path: the live DB path contains 'veloq.db'.
-  function mockProbe(backupMeta: string | (() => never)) {
+  function mockProbe(backupMeta: BackupValidation | (() => never)) {
     mockNativeModule.validateBackupDatabase.mockImplementation((path: string) => {
       if (path.includes('veloq.db')) return LIVE_META;
       if (typeof backupMeta === 'function') return backupMeta();
@@ -339,8 +342,34 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
     (FileSystem.readDirectoryAsync as jest.Mock).mockReset().mockResolvedValue([]);
   });
 
+  /// Scenario: the probe used to answer with a JSON document that TypeScript
+  /// parsed and re-validated, so a field renamed in Rust reported a valid
+  /// backup as corrupt at runtime.
+  ///
+  /// Expected behaviour: the probe answers with the typed record and the
+  /// restore reads it directly.
+  it('reads the typed record the probe answers with', async () => {
+    mockNativeModule.validateBackupDatabase.mockImplementation((path: string) => ({
+      schemaVersion: path.includes('veloq.db') ? '12' : '13',
+      athleteId: 'athlete-1',
+      activityCount: 50,
+      newestActivity: 1_760_000_000,
+      supportedSchemaVersion: 32,
+    }));
+
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(result.success).toBe(true);
+  });
+
   it('refuses an empty backup (activity_count 0) without destroying the engine', async () => {
-    mockProbe(JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 0 }));
+    mockProbe({
+      schemaVersion: '12',
+      athleteId: 'athlete-1',
+      activityCount: 0,
+      newestActivity: undefined,
+      supportedSchemaVersion: 32,
+    });
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
     expect(result.success).toBe(false);
     expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
@@ -351,14 +380,13 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   });
 
   it('refuses a backup stamped past what this build supports', async () => {
-    mockProbe(
-      JSON.stringify({
-        schema_version: '22',
-        athlete_id: 'athlete-1',
-        activity_count: 50,
-        supported_schema_version: 21,
-      })
-    );
+    mockProbe({
+      schemaVersion: '22',
+      athleteId: 'athlete-1',
+      activityCount: 50,
+      newestActivity: undefined,
+      supportedSchemaVersion: 21,
+    });
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/newer version/i);
@@ -366,14 +394,13 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   });
 
   it('restores a backup older than this build, which migrations carry forward', async () => {
-    mockProbe(
-      JSON.stringify({
-        schema_version: '13',
-        athlete_id: 'athlete-1',
-        activity_count: 50,
-        supported_schema_version: 21,
-      })
-    );
+    mockProbe({
+      schemaVersion: '13',
+      athleteId: 'athlete-1',
+      activityCount: 50,
+      newestActivity: undefined,
+      supportedSchemaVersion: 21,
+    });
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
     expect(result.success).toBe(true);
   });
@@ -381,12 +408,13 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   it('refuses a forward backup on a fresh install, where the live database cannot be read', async () => {
     mockNativeModule.validateBackupDatabase.mockImplementation((path: string) => {
       if (path.includes('veloq.db')) throw new Error('Cannot open backup: no such table');
-      return JSON.stringify({
-        schema_version: '22',
-        athlete_id: 'athlete-1',
-        activity_count: 50,
-        supported_schema_version: 21,
-      });
+      return {
+        schemaVersion: '22',
+        athleteId: 'athlete-1',
+        activityCount: 50,
+        newestActivity: undefined,
+        supportedSchemaVersion: 21,
+      };
     });
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
     expect(result.success).toBe(false);
@@ -395,9 +423,12 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   });
 
   it('falls back to the live database when an older binary reports no supported version', async () => {
-    mockProbe(
-      JSON.stringify({ schema_version: '13', athlete_id: 'athlete-1', activity_count: 50 })
-    );
+    mockProbe({
+      schemaVersion: '13',
+      athleteId: 'athlete-1',
+      activityCount: 50,
+      newestActivity: undefined,
+    } as unknown as BackupValidation);
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/newer version/i);
@@ -415,7 +446,13 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   });
 
   it('refuses a backup belonging to a different athlete', async () => {
-    mockProbe(JSON.stringify({ schema_version: '12', athlete_id: 'other', activity_count: 50 }));
+    mockProbe({
+      schemaVersion: '12',
+      athleteId: 'other',
+      activityCount: 50,
+      newestActivity: undefined,
+      supportedSchemaVersion: 32,
+    });
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
     expect(result.success).toBe(false);
     expect(result.athleteIdMismatch).toBe(true);
@@ -423,9 +460,13 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   });
 
   it('restores a valid backup and clears the rollback snapshot', async () => {
-    mockProbe(
-      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
-    );
+    mockProbe({
+      schemaVersion: '12',
+      athleteId: 'athlete-1',
+      activityCount: 80,
+      newestActivity: undefined,
+      supportedSchemaVersion: 32,
+    });
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
     expect(result.success).toBe(true);
     expect(mockEngine.destroyEngine).toHaveBeenCalled();
@@ -452,9 +493,13 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
    * app whose database was fine on disk and closed in memory until relaunch.
    */
   it('reports a failure and reopens the engine when the snapshot cannot be taken', async () => {
-    mockProbe(
-      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
-    );
+    mockProbe({
+      schemaVersion: '12',
+      athleteId: 'athlete-1',
+      activityCount: 80,
+      newestActivity: undefined,
+      supportedSchemaVersion: 32,
+    });
     (FileSystem.copyAsync as jest.Mock).mockImplementation(async ({ to }: { to: string }) => {
       if (to === 'file:///data/veloq.db.bak') throw new Error('No space left on device');
     });
@@ -466,9 +511,13 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   });
 
   it('leaves the live database alone when the snapshot cannot be taken', async () => {
-    mockProbe(
-      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
-    );
+    mockProbe({
+      schemaVersion: '12',
+      athleteId: 'athlete-1',
+      activityCount: 80,
+      newestActivity: undefined,
+      supportedSchemaVersion: 32,
+    });
     (FileSystem.copyAsync as jest.Mock).mockImplementation(async ({ to }: { to: string }) => {
       if (to === 'file:///data/veloq.db.bak') throw new Error('No space left on device');
     });
@@ -481,9 +530,13 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   });
 
   it('never rolls back from a snapshot it did not take', async () => {
-    mockProbe(
-      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
-    );
+    mockProbe({
+      schemaVersion: '12',
+      athleteId: 'athlete-1',
+      activityCount: 80,
+      newestActivity: undefined,
+      supportedSchemaVersion: 32,
+    });
     (FileSystem.copyAsync as jest.Mock).mockImplementation(async ({ to }: { to: string }) => {
       if (to === 'file:///data/veloq.db.bak') throw new Error('No space left on device');
     });
@@ -496,9 +549,13 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   });
 
   it('rolls back to the snapshot when initWithPath fails after overwrite', async () => {
-    mockProbe(
-      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
-    );
+    mockProbe({
+      schemaVersion: '12',
+      athleteId: 'athlete-1',
+      activityCount: 80,
+      newestActivity: undefined,
+      supportedSchemaVersion: 32,
+    });
     mockNativeModule.engine.initWithPath
       .mockImplementationOnce(() => {
         throw new Error('init failed on restored DB');
@@ -517,9 +574,13 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
     // The engine's failover renames an unopenable DB aside and starts fresh,
     // so initWithPath returns true with an empty engine. The restore must
     // detect the new quarantine file and treat this as a failed restore.
-    mockProbe(
-      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
-    );
+    mockProbe({
+      schemaVersion: '12',
+      athleteId: 'athlete-1',
+      activityCount: 80,
+      newestActivity: undefined,
+      supportedSchemaVersion: 32,
+    });
     (FileSystem.readDirectoryAsync as jest.Mock)
       .mockResolvedValueOnce([])
       .mockResolvedValue(['veloq.db.corrupt-1700000000']);
@@ -561,11 +622,13 @@ describe('getLastBackupTimestamp', () => {
  * the engine's refusal to detect freezes the catalogue for good.
  */
 describe('restoreDatabaseBackup re-arms the migration', () => {
-  const LIVE_META = JSON.stringify({
-    schema_version: '12',
-    athlete_id: 'athlete-1',
-    activity_count: 100,
-  });
+  const LIVE_META = {
+    schemaVersion: '12',
+    athleteId: 'athlete-1',
+    activityCount: 100,
+    newestActivity: undefined,
+    supportedSchemaVersion: 32,
+  };
 
   const { startElevationBackfillAfterUpdate } = jest.requireMock(
     '@/features/routes/lib/elevationBackfillTrigger'
@@ -634,7 +697,13 @@ describe('restoreDatabaseBackup re-arms the migration', () => {
   it('re-arms nothing when the restore was refused', async () => {
     mockNativeModule.validateBackupDatabase.mockImplementation((path: string) => {
       if (path.includes('veloq.db')) return LIVE_META;
-      return JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 0 });
+      return {
+        schemaVersion: '12',
+        athleteId: 'athlete-1',
+        activityCount: 0,
+        newestActivity: undefined,
+        supportedSchemaVersion: 32,
+      };
     });
 
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
@@ -688,11 +757,13 @@ describe('restoreBackup leaves the migration markers alone', () => {
  * detection worker each hold one of their own.
  */
 describe('restoreDatabaseBackup carries the database sidecars', () => {
-  const LIVE_META = JSON.stringify({
-    schema_version: '12',
-    athlete_id: 'athlete-1',
-    activity_count: 100,
-  });
+  const LIVE_META = {
+    schemaVersion: '12',
+    athleteId: 'athlete-1',
+    activityCount: 100,
+    newestActivity: undefined,
+    supportedSchemaVersion: 32,
+  };
   const DB = '/data/veloq.db';
 
   /** Every path the run copied to, in order. */

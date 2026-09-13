@@ -108,6 +108,11 @@ interface NativeModuleInterface {
     types: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_has(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_mint_local_id(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1900,6 +1905,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_missing_time_streams(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_preview_track(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_stream_body(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_has(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_mint_local_id(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_record_upload(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_remove(): number;

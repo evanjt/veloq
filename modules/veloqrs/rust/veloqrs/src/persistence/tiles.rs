@@ -6,6 +6,7 @@
 
 use super::codec::TrackRead;
 use super::{PersistentEngine, TileGenerationHandle};
+use crate::objects::observer::Announcement;
 use crate::tiles;
 use log::info;
 use rayon::prelude::*;
@@ -242,7 +243,7 @@ impl PersistentEngine {
             // The worker owns no engine lock, so the announcement is safe to
             // make from here. A screen waiting on the pass hears it instead of
             // draining this receiver on a timer.
-            crate::objects::observer::notify(|o| o.tiles_generated());
+            crate::objects::observer::notify(Announcement::TilesGenerated);
         });
 
         Some(TileGenerationHandle {

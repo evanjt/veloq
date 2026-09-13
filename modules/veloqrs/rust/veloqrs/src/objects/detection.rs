@@ -295,8 +295,15 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
             // as this returns. The cache is adopted only if the save succeeds
             // and dropped if it fails, so it never outruns the applied
             // catalogue.
+            // Off the lock: a 1,000-activity cache is about 13 MB to encode and
+            // every reader used to wait it out inside the apply.
+            let encoded = crate::persistence::sections::detection::encode_cache_for_apply(
+                cache_update.as_ref(),
+            );
             with_engine(|e| {
-                if let Err(err) = e.apply_sections_save_with_cache(sections, cache_update) {
+                if let Err(err) =
+                    e.apply_sections_save_with_cache_row(sections, cache_update, encoded)
+                {
                     log::error!("apply_sections_save failed: {}", err);
                     return Err(VeloqError::Database {
                         msg: format!("apply_sections_save failed: {}", err),

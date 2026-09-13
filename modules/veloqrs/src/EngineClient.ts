@@ -582,6 +582,9 @@ class EngineClient implements DelegateHost {
 
   getActivityIds = (): string[] => activityDelegates.getActivityIds(this);
 
+  hasActivity = (activityId: string): boolean =>
+    activityDelegates.hasActivity(this, activityId);
+
   getActivityMetricIds = (): string[] => fitnessDelegates.getActivityMetricIds(this);
 
   getActivityCount = (): number => activityDelegates.getActivityCount(this);

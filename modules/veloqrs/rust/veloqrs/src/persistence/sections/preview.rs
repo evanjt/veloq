@@ -6,6 +6,7 @@
 //! evidence cache are untouched; the result leaves as one JSON payload.
 
 use crate::FrequentSection;
+use crate::objects::observer::Announcement;
 use base64::Engine as _;
 use rusqlite::{Connection, OpenFlags};
 use std::collections::{HashMap, HashSet};
@@ -25,7 +26,7 @@ use super::super::{PersistentEngine, SectionDetectionProgress};
 /// The call blocks on JavaScript, so every site is on the worker thread and
 /// none is under the engine lock or the preview slot lock.
 fn notify_phase(phase: &str) {
-    crate::objects::observer::notify(|o| o.preview_phase(phase.to_string()));
+    crate::objects::observer::notify(Announcement::PreviewPhase(phase.to_string()));
 }
 
 fn announce_phase(progress: &SectionDetectionProgress, phase: &str, total: u32) {
@@ -190,7 +191,7 @@ struct PreviewFinished;
 
 impl Drop for PreviewFinished {
     fn drop(&mut self) {
-        crate::objects::observer::notify(|o| o.preview_finished());
+        crate::objects::observer::notify(Announcement::PreviewFinished);
     }
 }
 

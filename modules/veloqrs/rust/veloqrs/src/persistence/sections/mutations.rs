@@ -897,6 +897,10 @@ impl PersistentEngine {
             return Ok((0, 0));
         }
 
+        // Every portion of this activity reads the same series, so it is read
+        // once here rather than once per row inside the insert.
+        let heartrate = self.load_heartrate_series(activity_id);
+
         // One transaction for the whole activity. Each statement below used to
         // autocommit with its own fsync, under the write lock every reader
         // waits on, and a sync pays that once per stored activity.
@@ -913,20 +917,21 @@ impl PersistentEngine {
                 let exclusions = engine.capture_exclusions(section_id);
                 engine
                     .db
-                    .execute(
+                    .prepare_cached(
                         "DELETE FROM section_activities WHERE section_id = ? AND activity_id = ?",
-                        params![section_id, activity_id],
                     )
+                    .and_then(|mut stmt| stmt.execute(params![section_id, activity_id]))
                     .map_err(|e| format!("Failed to clear section_activities: {}", e))?;
 
                 for portion in portions {
-                    engine.insert_section_activity(
+                    engine.insert_section_activity_with_heartrate(
                         section_id,
                         activity_id,
                         &portion.direction,
                         portion.start_index,
                         portion.end_index,
                         portion.distance_meters,
+                        heartrate.as_deref(),
                     )?;
                     inserted_portions += 1;
                 }
@@ -1148,7 +1153,10 @@ impl PersistentEngine {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     use super::*;
+    use crate::net::types::StreamDto;
     use crate::persistence::commit_counter;
 
     /// A straight run of points, long enough that the matcher takes it for a
@@ -1216,5 +1224,84 @@ mod tests {
 
         assert_eq!((matched, portions), (0, 0));
         assert_eq!(commit_counter::count(&commits), 0);
+    }
+
+    /// A straight line the activity runs up and down, so one pass of the
+    /// section is one leg and the track carries several.
+    fn leg(up: bool) -> Vec<GpsPoint> {
+        (0..40)
+            .map(|i| {
+                let step = if up { i } else { 39 - i };
+                GpsPoint {
+                    latitude: 46.0 + f64::from(step) * 0.0002,
+                    longitude: 7.0,
+                    elevation: None,
+                }
+            })
+            .collect()
+    }
+
+    /// Counts every statement the traced connection runs against
+    /// `activity_streams`. A `trace` callback is a plain function pointer and
+    /// cannot capture, so the count is a static.
+    static STREAM_READS: AtomicUsize = AtomicUsize::new(0);
+
+    fn count_stream_reads(sql: &str) {
+        if sql.contains("FROM activity_streams") {
+            STREAM_READS.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    /// Scenario: an activity that passes the same section several times. Each
+    /// junction row's `avg_hr` came from its own read and decode of the whole
+    /// heart-rate blob, under the write lock.
+    ///
+    /// Expected behaviour: the series is read once for the activity, whatever
+    /// the portion count.
+    #[test]
+    fn the_attach_reads_the_heart_rate_series_once_for_the_whole_activity() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let points: Vec<GpsPoint> = (0..6).flat_map(|i| leg(i % 2 == 0)).collect();
+        let samples = points.len();
+        engine
+            .add_activity("a1".to_string(), points, "Ride".to_string())
+            .unwrap();
+        engine
+            .store_activity_streams(
+                "a1",
+                &[StreamDto {
+                    kind: "heartrate".to_string(),
+                    data: (0..samples).map(|i| Some(100.0 + i as f64)).collect(),
+                    data2: None,
+                }],
+            )
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                    distance_meters, is_user_defined, version, created_at,
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                 VALUES ('s1', 'auto', 'Section 1', 'Ride', ?, 800.0, 0, 1,
+                    '2026-01-01T00:00:00Z', 46.0, 46.008, 7.0, 7.0)",
+                params![serde_json::to_string(&leg(true)).unwrap()],
+            )
+            .unwrap();
+        engine.load_sections().unwrap();
+
+        STREAM_READS.store(0, Ordering::Relaxed);
+        engine.db.trace(Some(count_stream_reads));
+        let (_, portions) = engine.attach_activity_junctions("a1").unwrap();
+        engine.db.trace(None);
+
+        let reads = STREAM_READS.load(Ordering::Relaxed);
+        assert!(
+            portions >= 2,
+            "the track has to pass the section more than once for the count to mean anything, got {portions}"
+        );
+        assert_eq!(
+            reads, 1,
+            "{portions} portions decoded the same blob {reads} times"
+        );
     }
 }

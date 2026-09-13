@@ -1735,8 +1735,12 @@ pub struct FfiActivityDetailData {
     /// minimum. At most one: the screen asks which group holds this activity,
     /// so the catalogue was what it searched rather than what it needed.
     pub route_groups: Vec<FfiRouteGroup>,
-    /// Visible sections this activity traverses, most-visited first
-    pub matched_sections: Vec<FfiSection>,
+    /// Visible sections this activity traverses, most-visited first.
+    ///
+    /// The light record: the screen draws the line, the name and the counts
+    /// and never reads the member list, which on a 30-section activity was
+    /// several hundred id strings lifted across JSI on the mount.
+    pub matched_sections: Vec<FfiSectionWithPolyline>,
     /// Visible custom sections naming this activity that `matched_sections`
     /// does not already carry. Not the whole custom catalogue: the screen
     /// filtered it to exactly this on the far side of the call.
@@ -1849,6 +1853,11 @@ pub struct FfiWidgetSnapshotData {
     pub latest_is_pr: bool,
     /// The latest activity's GPS track, empty for indoor activities
     pub latest_gps: Vec<FfiGpsPoint>,
+    /// The ramp rate intervals.icu computed, off the newest wellness day that
+    /// carries one. `None` before wellness has synced. The widget derived its
+    /// own from the fitness sparkline, which is a different number from the
+    /// same data.
+    pub ramp_rate: Option<f64>,
 }
 
 // ============================================================================

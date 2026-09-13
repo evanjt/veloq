@@ -1,5 +1,6 @@
 //! Background section detection and application.
 
+use crate::objects::observer::Announcement;
 use crate::persistence::codec;
 use crate::persistence::codec::TrackRead;
 use crate::{FrequentSection, GpsPoint, SectionEvidenceCache};
@@ -628,8 +629,11 @@ fn apply_on_worker(
     activity_ids: &[String],
     progress: &SectionDetectionProgress,
 ) -> bool {
+    // Off the lock: a 1,000-activity cache is about 13 MB to encode and every
+    // reader used to wait it out inside the apply.
+    let encoded = encode_cache_for_apply(update.as_ref());
     let saved = super::super::with_persistent_engine(|e| {
-        if let Err(err) = e.apply_sections_save_with_cache(sections, update) {
+        if let Err(err) = e.apply_sections_save_with_cache_row(sections, update, encoded) {
             log::error!(
                 "veloqrs: [SectionDetection] apply_sections_save failed on the worker: {}",
                 err
@@ -703,7 +707,7 @@ impl<S> DetectionEnded<S> {
 impl<S> Drop for DetectionEnded<S> {
     fn drop(&mut self) {
         drop(self.senders.take());
-        crate::objects::observer::notify(|o| o.detection_applied());
+        crate::objects::observer::notify(Announcement::DetectionApplied);
     }
 }
 
@@ -1449,6 +1453,28 @@ impl PersistentEngine {
         sections: Vec<FrequentSection>,
         update: Option<CacheUpdate>,
     ) -> SqlResult<()> {
+        self.apply_sections_save_with_cache_row(sections, update, None)
+    }
+
+    /// The same save, with the cache blob already encoded.
+    ///
+    /// The encode is the expensive half, about 13 KB and 60 ms per 1,000
+    /// activities, and it ran here under the write lock while every reader
+    /// waited it out. `encode_cache_for_apply` pays it on the worker before the
+    /// lock is taken and hands the row in, so what is left under the lock is the
+    /// save, the in-memory adoption and one `INSERT`. That is the shape the
+    /// checkpoint path has used since it was measured.
+    ///
+    /// `encoded` is `None` for the harness path, which has no worker to encode
+    /// on, and for a run with no cache to persist. A `None` beside a `Some`
+    /// update falls back to encoding here, so the contract is unchanged and only
+    /// the cost moves.
+    pub fn apply_sections_save_with_cache_row(
+        &mut self,
+        sections: Vec<FrequentSection>,
+        update: Option<CacheUpdate>,
+        encoded: Option<EvidenceRow>,
+    ) -> SqlResult<()> {
         // A checkpoint is a mid-fold snapshot, never the record of what was
         // persisted: adopting one as the final cache silently poisons the next
         // detect. The callers drain to the real update, so reaching here with
@@ -1468,7 +1494,15 @@ impl PersistentEngine {
                 if let Some(u) = update {
                     self.section_evidence_cache = u.cache;
                     self.cache_folded_ids = u.folded_ids;
-                    self.persist_evidence_cache();
+                    match encoded {
+                        // An empty fold has nothing to file, and the row that
+                        // is there describes a cache this apply just replaced.
+                        _ if self.cache_folded_ids.is_empty() => {
+                            self.clear_persisted_evidence_cache()
+                        }
+                        Some(row) => self.write_evidence_row(&row),
+                        None => self.persist_evidence_cache(),
+                    }
                 }
                 Ok(())
             }
@@ -1542,6 +1576,33 @@ impl PersistentEngine {
 /// read as a miss rather than decoded into something that no longer means
 /// what it says.
 const EVIDENCE_CACHE_BLOB_VERSION: u8 = 1;
+
+/// Encode a finished run's evidence cache on the calling thread, ready to hand
+/// to the apply.
+///
+/// The digest is read under a lock of its own and the encode runs with that
+/// lock released, which is what `persist_checkpoint` does every two seconds for
+/// the length of a detect. The final apply did it under the write lock instead,
+/// so a 1,000-activity library held every reader out for the 60 ms the encode
+/// took, on top of the save.
+///
+/// `None` when there is no cache to file, no engine to read a digest from, or
+/// nothing encodable. Each leaves the apply to its own path, which is a cold
+/// rebatch on the next open at worst.
+///
+/// Call this before the apply takes its lock, never inside it: the digest read
+/// takes the write lock itself, and `PERSISTENT_ENGINE` is a plain `RwLock`, so
+/// a re-entrant take on one thread deadlocks rather than warns. That is what
+/// keeps the encode off the lock, and it is why this is a free function and not
+/// a method on the engine.
+pub(crate) fn encode_cache_for_apply(update: Option<&CacheUpdate>) -> Option<EvidenceRow> {
+    let update = update?;
+    if update.folded_ids.is_empty() {
+        return None;
+    }
+    let digest = super::super::with_persistent_engine(|e| e.evidence_config_digest())?;
+    encode_evidence_row(&update.cache, &update.folded_ids, digest)
+}
 
 /// One encoded `evidence_cache` row, ready to write.
 pub struct EvidenceRow {

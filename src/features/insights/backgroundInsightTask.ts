@@ -212,7 +212,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
     // a pointless 150–15000ms network roundtrip.
     const alreadyIngested = (() => {
       try {
-        return engine.getActivityIds().includes(activityId);
+        return engine.hasActivity(activityId);
       } catch {
         return false;
       }

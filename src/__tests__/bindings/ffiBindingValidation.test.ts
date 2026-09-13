@@ -335,6 +335,60 @@ describe('FFI Binding Validation', () => {
     });
   });
 
+  // The manifest is extracted from Rust source and the bindings are generated
+  // from a compiled library, so the two can disagree and nothing noticed. An
+  // export whose signature the generator refuses leaves the manifest naming a
+  // function the bindings do not have: it is callable from no TypeScript, the
+  // app still starts because a uniffi checksum is per item, and the suite passed.
+  describe('Generated bindings cover the manifest', () => {
+    const GENERATED_PATH = path.join(VELOQRS_SRC_DIR, 'generated', 'veloqrs.ts');
+
+    /** Every function the generated module exports, by name. */
+    function generatedFunctions(): Set<string> {
+      const source = fs.readFileSync(GENERATED_PATH, 'utf-8');
+      const names = new Set<string>();
+      for (const m of source.matchAll(/^export (?:async )?function (\w+)/gm)) {
+        names.add(m[1]);
+      }
+      return names;
+    }
+
+    // Only standalone exports. A method lives on a generated class and is not a
+    // module-level function, so the manifest's own `object` field is what
+    // separates the two rather than a guess from the name.
+    const standalone = FFI_EXPORTS.filter((exp) => !exp.object);
+
+    it('generates a function for every standalone export in the manifest', () => {
+      const generated = generatedFunctions();
+      const missing = standalone
+        .filter((exp) => !generated.has(exp.camelName))
+        .map((exp) => `${exp.camelName} (${exp.file}:${exp.line})`);
+
+      if (missing.length > 0) {
+        console.error(
+          'In the manifest and absent from the generated bindings. Run `npm run ffi:generate`; ' +
+            'if it fails, the export signature is what it refuses:'
+        );
+        missing.forEach((name) => console.error(`  - ${name}`));
+      }
+
+      expect(missing).toEqual([]);
+    });
+
+    it('generates no standalone function the manifest does not name', () => {
+      const named = new Set(standalone.map((exp) => exp.camelName));
+      // The generated module also exports its own helpers and converters, which
+      // are not FFI functions. Only names the manifest has ever used are
+      // compared, so a deleted export is caught and a helper is not reported.
+      const rustNames = new Set(Object.values(RUST_TO_TS_NAME));
+      const orphans = [...generatedFunctions()].filter(
+        (name) => rustNames.has(name) && !named.has(name)
+      );
+
+      expect(orphans).toEqual([]);
+    });
+  });
+
   // The manifest carries each export's arity and return type so `npm run
   // ffi:check` can detect signature drift, not just added/removed names.
   describe('Signature manifest', () => {

@@ -8,6 +8,10 @@
 
 pub mod conditioning;
 pub(crate) mod detection;
+// The encode is the caller's now, not the apply's: a worker pays it before it
+// takes the write lock and hands the row in. Both halves are re-exported so a
+// gate can put the two encodes side by side.
+pub use detection::{EvidenceRow, encode_evidence_row};
 mod editing;
 pub(crate) mod geometry;
 pub(super) mod history;
@@ -973,7 +977,9 @@ impl PersistentEngine {
             Option<u32>,
             Option<u32>,
         )> = {
-            let mut stmt = match self.db.prepare(
+            // Cached: the attach loop refreshes one section per match and the
+            // parse of these twenty-two columns is the cost, not the row.
+            let mut stmt = match self.db.prepare_cached(
                 "SELECT section_type, sport_type, name, polyline_json, distance_meters,
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
@@ -1650,6 +1656,36 @@ impl PersistentEngine {
         end_index: u32,
         distance_meters: f64,
     ) -> Result<(), String> {
+        let heartrate = self.load_heartrate_series(activity_id);
+        self.insert_section_activity_with_heartrate(
+            section_id,
+            activity_id,
+            direction,
+            start_index,
+            end_index,
+            distance_meters,
+            heartrate.as_deref(),
+        )
+    }
+
+    /// The same insert for a caller that already holds the activity's heart
+    /// rate series.
+    ///
+    /// One activity's portions all read the same blob, so the attach loop
+    /// decoded it once per portion, under the write lock. The series belongs
+    /// to the activity and not to the portion, so the caller loads it once and
+    /// hands it down.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn insert_section_activity_with_heartrate(
+        &self,
+        section_id: &str,
+        activity_id: &str,
+        direction: &tracematch::Direction,
+        start_index: u32,
+        end_index: u32,
+        distance_meters: f64,
+        heartrate: Option<&[Option<f64>]>,
+    ) -> Result<(), String> {
         let dir_str = direction.to_string();
 
         // Compute lap_time from time_stream when available (in-memory or DB)
@@ -1657,18 +1693,16 @@ impl PersistentEngine {
             self.load_lap_time(activity_id, start_index, end_index, distance_meters);
         // The effort the lap was ridden at, from the same slice, so the
         // efficiency trend has both halves of its ratio for this pass.
-        let avg_hr = mean_over_traversal(
-            self.load_heartrate_series(activity_id).as_deref(),
-            start_index,
-            end_index,
-        );
+        let avg_hr = mean_over_traversal(heartrate, start_index, end_index);
 
+        // Cached: an activity with twelve portions runs this insert twelve
+        // times, and an attach runs it once per portion of every match.
         self.db
-            .execute(
+            .prepare_cached(
                 "INSERT OR IGNORE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                rusqlite::params![section_id, activity_id, dir_str, start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr],
             )
+            .and_then(|mut stmt| stmt.execute(rusqlite::params![section_id, activity_id, dir_str, start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr]))
             .map_err(|e| format!("Failed to insert section_activity: {}", e))?;
         Ok(())
     }
@@ -1680,11 +1714,11 @@ impl PersistentEngine {
     pub(super) fn load_heartrate_series(&self, activity_id: &str) -> Option<Vec<Option<f64>>> {
         let blob: Vec<u8> = self
             .db
-            .query_row(
+            .prepare_cached(
                 "SELECT data FROM activity_streams WHERE activity_id = ? AND kind = 'heartrate'",
-                rusqlite::params![activity_id],
-                |row| row.get(0),
             )
+            .ok()?
+            .query_row(rusqlite::params![activity_id], |row| row.get(0))
             .ok()?;
         codec::decode_series(&blob)
     }
@@ -1701,15 +1735,14 @@ impl PersistentEngine {
             Some(ts.clone())
         } else {
             self.db
-                .query_row(
-                    "SELECT times FROM time_streams WHERE activity_id = ?",
-                    rusqlite::params![activity_id],
-                    |row| {
+                .prepare_cached("SELECT times FROM time_streams WHERE activity_id = ?")
+                .and_then(|mut stmt| {
+                    stmt.query_row(rusqlite::params![activity_id], |row| {
                         let bytes: Vec<u8> = row.get(0)?;
                         codec::deserialize::<Vec<u32>>(&bytes)
                             .map_err(|_| rusqlite::Error::InvalidQuery)
-                    },
-                )
+                    })
+                })
                 .ok()
         };
 

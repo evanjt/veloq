@@ -49,6 +49,7 @@ import {
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
   type FfiStalePrOpportunity,
+  type FfiBackupValidation,
 } from './generated/veloqrs';
 
 import { EngineClient } from './EngineClient';
@@ -175,6 +176,8 @@ export { FfiGroupSort as GroupSort, FfiSectionSort as SectionSort };
 export type GroupWithPolyline = FfiGroupWithPolyline;
 export type SectionWithPolyline = FfiSectionWithPolyline;
 export type StalePrOpportunity = FfiStalePrOpportunity;
+/** What the native probe reports about a picked backup file. */
+export type BackupValidation = FfiBackupValidation;
 export type {
   FfiSectionMatch as SectionMatch,
   FfiMergeCandidate as MergeCandidate,

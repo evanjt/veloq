@@ -269,6 +269,15 @@ export interface RawWidgetData {
   latest: RawLatestActivity | null;
   /** GPS track of the latest activity (null for indoor / unavailable). */
   latestGps?: RawGpsPoint[] | null;
+  /**
+   * The ramp rate intervals.icu computed, off the newest wellness day that
+   * carries one. Null before wellness has synced.
+   *
+   * Read rather than derived. The widget used to take the change in the fitness
+   * sparkline across its trailing seven entries, which is a different number
+   * from the same data, so the widget and the fitness tab disagreed.
+   */
+  rampRate?: number | null;
   /** In-app summary card settings; null hides the widget summary block. */
   summaryPrefs?: SummaryCardPreferences | null;
   locale: string;
@@ -310,6 +319,11 @@ function num(v: number | bigint | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** One decimal, which is what the ramp rate has always been shown to. */
+function round1(v: number): number {
+  return Math.round(v * 10) / 10;
+}
+
 function trendOf(today: number, yesterday: number, deadband: number = POINT_DEADBAND): TrendDir {
   return trendDirection(today, yesterday, deadband);
 }
@@ -334,15 +348,6 @@ function metricFrom(series: number[], deadband: number = POINT_DEADBAND): Metric
     trendDir: trendOf(today, yesterday, deadband),
     deltaVsYesterday: today - yesterday,
   };
-}
-
-/** CTL ramp: change in fitness across the trailing ~7 days of the series. */
-function rampRateFrom(fitness: number[]): number {
-  if (!fitness || fitness.length < 2) return 0;
-  const last = fitness.length - 1;
-  const today = num(fitness[last]);
-  const past = num(fitness[Math.max(0, last - 6)]);
-  return Math.round((today - past) * 10) / 10;
 }
 
 /**
@@ -379,7 +384,7 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
       form: formMetricFrom(form, fitness, asPercent),
       fitness: metricFrom(fitness),
       fatigue: metricFrom(fatigue),
-      rampRate: { value: rampRateFrom(fitness) },
+      rampRate: { value: round1(num(raw.rampRate)) },
       hrv: metricFrom(hrv),
       rhr: metricFrom(rhr),
     },
@@ -751,6 +756,7 @@ export function gatherWidgetSnapshot(opts: {
     summary: (data.summary as RawSummary | undefined) ?? null,
     latest,
     latestGps: latest ? ((data.latestGps as RawGpsPoint[]) ?? null) : null,
+    rampRate: data.rampRate ?? null,
     summaryPrefs,
     locale: opts.locale,
     isMetric: opts.isMetric,

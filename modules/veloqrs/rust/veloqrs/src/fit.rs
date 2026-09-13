@@ -241,7 +241,8 @@ pub struct MuscleActivation {
 /// Returns slugs matching react-native-body-highlighter's data format.
 ///
 /// Category IDs follow FIT SDK Profile v21.133 ExerciseCategory enum.
-/// Keep in sync with exerciseMuscleMap.ts EXERCISE_MUSCLE_MAP.
+/// A slug added here needs its English name in `exerciseMuscleMap.ts`, which
+/// `muscleSlugParity.test.ts` checks.
 pub fn exercise_muscle_groups(category: u16) -> Vec<MuscleActivation> {
     let (primary, secondary): (&[&str], &[&str]) = match category {
         0 => (&["chest", "triceps"], &["deltoids"]), // Bench Press

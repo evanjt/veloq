@@ -279,6 +279,25 @@ impl PersistentEngine {
         }))
     }
 
+    /// The ramp rate intervals.icu computed, off the newest day in the window
+    /// that carries one.
+    ///
+    /// Forward-filled like the sparklines rather than read off today alone: a
+    /// day the athlete has not synced has no row, and the last figure they
+    /// actually had is the honest answer where a zero is not.
+    pub fn latest_ramp_rate(&self, days: u32) -> Option<f64> {
+        self.latest_ramp_rate_to(days, &today_iso())
+    }
+
+    /// The same read ending on `today`, which the tests pin.
+    pub fn latest_ramp_rate_to(&self, days: u32, today: &str) -> Option<f64> {
+        self.daily_wellness_window(days, today)
+            .ok()?
+            .iter()
+            .rev()
+            .find_map(|w| w.ramp_rate)
+    }
+
     /// The window with a row for every calendar day it spans, starting at the
     /// athlete's first row inside it. A day with no row of its own carries no
     /// values, so the forward fill below stands in for it.

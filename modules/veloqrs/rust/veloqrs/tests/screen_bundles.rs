@@ -207,6 +207,36 @@ fn activity_detail_matches_the_calls_it_replaces() {
     );
 }
 
+/// Scenario: the detail screen opens on an activity that traverses a section
+/// with members.
+///
+/// Expected behaviour: the record carries the member count and the line, not
+/// the member list. The screen never reads the ids, and an activity crossing
+/// thirty sections lifted several hundred id strings across JSI on the mount.
+#[test]
+fn activity_detail_sends_the_member_count_and_not_the_member_list() {
+    let mut s = populated();
+    let bundle = s.engine.activity_detail_data("a1", 2);
+
+    let auto = bundle
+        .matched_sections
+        .iter()
+        .find(|sec| sec.id == "auto1")
+        .expect("auto1 is matched");
+    let members = s
+        .engine
+        .get_section_by_id("auto1")
+        .expect("section")
+        .activity_ids
+        .len() as u32;
+
+    assert!(members > 0, "the fixture section has members to count");
+    assert_eq!(auto.activity_count, members);
+    assert!(!auto.encoded_polyline.is_empty(), "the line still rides");
+    assert_eq!(auto.sport_types, vec![auto.sport_type.clone()]);
+    assert!(auto.bounds.is_some(), "the line's own extent");
+}
+
 #[test]
 fn activity_detail_traces_match_per_section_extraction() {
     let mut s = populated();

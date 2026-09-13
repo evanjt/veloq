@@ -14,6 +14,7 @@
 //! archive. There is no other detector to go back to, so the config stays as
 //! it is.
 
+use crate::objects::observer::Announcement;
 use crate::persistence::sections::geometry;
 use crate::persistence::{
     PersistentEngine, codec, settings_keys, suspend_detection, with_persistent_engine,
@@ -800,7 +801,7 @@ fn run_cutover_claimed(
         fn drop(&mut self) {
             CUTOVER_RUNNING.store(false, Ordering::SeqCst);
             if self.announce {
-                crate::objects::observer::notify(|o| o.cutover_settled());
+                crate::objects::observer::notify(Announcement::CutoverSettled);
             }
         }
     }

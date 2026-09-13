@@ -40,6 +40,7 @@ import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevati
 import { clearDatabaseStamps } from '@/shared/storage/databaseStamps';
 import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 import { z } from 'zod';
+import type { BackupValidation } from 'veloqrs';
 import { debug } from '@/shared/debug/debug';
 import { rememberCachedAthleteId } from '@/shared/storage/cachedAthleteId';
 
@@ -87,26 +88,17 @@ export async function reinitializeAllStores(): Promise<void> {
   });
 }
 
-const BackupValidationSchema = z.object({
-  schema_version: z.coerce.string(),
-  athlete_id: z.string().nullable(),
-  activity_count: z.number(),
-  // Absent on a binary older than the field. The live database is then the
-  // only comparison left, which is what this replaced.
-  supported_schema_version: z.number().optional(),
-  // Older binaries answer without it, and an undated backup reads as unknown.
-  newest_activity: z.number().nullable().optional(),
-});
+/** What the native probe answers with, the record Rust returns. */
+type ValidateFn = (path: string) => BackupValidation;
 
 /**
  * The live database's schema version, for a binary too old to report its own.
  * Null when the file cannot be read, which is every fresh install.
  */
-function liveSchemaVersion(validateFn: (path: string) => string, dbPath: string): number | null {
+function liveSchemaVersion(validateFn: ValidateFn, dbPath: string): number | null {
   const livePlainPath = dbPath.startsWith('file://') ? dbPath.slice(7) : dbPath;
   try {
-    const liveMeta = BackupValidationSchema.parse(JSON.parse(validateFn(livePlainPath)));
-    return Number(liveMeta.schema_version);
+    return Number(validateFn(livePlainPath).schemaVersion);
   } catch {
     return null;
   }
@@ -229,20 +221,18 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
 
     const currentAthleteId = useAuthStore.getState().athleteId;
     let backupAthleteId: string | null = null;
-    let backupMeta: z.infer<typeof BackupValidationSchema> | null = null;
+    let backupMeta: BackupValidation | null = null;
 
     const nativeModule = getNativeModule();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const validateFn = (nativeModule as any)?.validateBackupDatabase as
-      | ((path: string) => string)
-      | undefined;
+    const validateFn = (nativeModule as any)?.validateBackupDatabase as ValidateFn | undefined;
 
     // Only skip validation when the native probe is entirely absent (older
     // binary). If it exists and rejects or throws, refuse - never overwrite the
     // live DB on a bad backup.
     if (validateFn) {
       try {
-        backupMeta = BackupValidationSchema.parse(JSON.parse(validateFn(plainTempPath)));
+        backupMeta = validateFn(plainTempPath);
       } catch (e) {
         await cleanupTemp();
         log.warn('Backup validation failed - refusing to restore', e);
@@ -253,11 +243,11 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
         };
       }
 
-      backupAthleteId = backupMeta.athlete_id;
+      backupAthleteId = backupMeta.athleteId ?? null;
 
-      // An empty/garbage SQLite file reports activity_count 0 - refuse so a bad
+      // An empty/garbage SQLite file reports activityCount 0 - refuse so a bad
       // file can't silently wipe the live database.
-      if (backupMeta.activity_count <= 0) {
+      if (backupMeta.activityCount <= 0) {
         await cleanupTemp();
         log.warn('Backup contains no activities - refusing to restore');
         return {
@@ -272,9 +262,13 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       // newer code added and fails at query time rather than at open. The
       // comparison is against this build's own version, which a fresh install
       // can answer and an unreadable live database cannot.
-      const supported =
-        backupMeta.supported_schema_version ?? liveSchemaVersion(validateFn, dbPath);
-      if (supported !== null && Number(backupMeta.schema_version) > supported) {
+      // The field rides the record, so a shipped build always carries it. A
+      // development bundle can still meet a stale `.so` that answers without
+      // one, and the live database is then the only comparison left.
+      const supported = Number.isFinite(backupMeta.supportedSchemaVersion)
+        ? backupMeta.supportedSchemaVersion
+        : liveSchemaVersion(validateFn, dbPath);
+      if (supported !== null && Number(backupMeta.schemaVersion) > supported) {
         await cleanupTemp();
         log.warn('Backup schema is newer than this app supports - refusing to restore');
         return {
@@ -307,8 +301,8 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     // nothing on it has nothing to trade and is not asked.
     if ((engine?.getActivityCount() ?? 0) > 0) {
       const accepted = await confirmDatabaseReplacement({
-        backupActivityCount: backupMeta?.activity_count ?? null,
-        backupNewestActivity: backupMeta?.newest_activity ?? null,
+        backupActivityCount: backupMeta?.activityCount ?? null,
+        backupNewestActivity: toEpochSeconds(backupMeta?.newestActivity),
         liveActivityCount: engine?.getActivityCount() ?? 0,
         liveNewestActivity: toEpochSeconds(engine?.getStats()?.newestDate),
       });
