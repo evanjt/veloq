@@ -19,6 +19,7 @@
  * Shared and not under a feature: the clear-cache button is `activity`'s and
  * the detection switch is `routes`', so either home is a cross-feature import.
  */
+import { createAwakeClock } from '@/shared/app/awakeClock';
 
 /** Cheap enough to poll at, short enough that a small wipe still returns promptly. */
 const POLL_INTERVAL_MS = 50;
@@ -60,7 +61,10 @@ async function awaitClear<T extends { state: string }>(
 ): Promise<T> {
   start();
 
-  const deadline = Date.now() + timeoutMs;
+  // A suspension stops the polling and not the wipe, so the wall clock it
+  // spends is not budget the wipe used up.
+  const awake = createAwakeClock(POLL_INTERVAL_MS);
+  const deadline = awake() + timeoutMs;
   for (;;) {
     await wait(POLL_INTERVAL_MS);
     const poll = read();
@@ -68,7 +72,7 @@ async function awaitClear<T extends { state: string }>(
     if (poll.state !== 'running') {
       throw new Error(`${label} stopped without finishing (${poll.state})`);
     }
-    if (Date.now() > deadline) {
+    if (awake() > deadline) {
       throw new Error(`${label} did not finish in time`);
     }
   }

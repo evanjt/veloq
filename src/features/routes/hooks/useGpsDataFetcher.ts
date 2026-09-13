@@ -40,6 +40,7 @@ import {
   pollDownloadProgress,
   runProgressReader,
 } from '@/features/routes/lib/gpsDownloadPoll';
+import { endGpsSync, type GpsSyncEnding } from '@/features/routes/lib/gpsSyncEnding';
 
 const log = debug.create('GpsDataFetcher');
 
@@ -390,20 +391,23 @@ export function useGpsDataFetcher() {
 
       const { isMountedRef, abortSignal, updateProgress } = deps;
 
+      const ending = (reason: GpsSyncEnding) =>
+        endGpsSync(reason, {
+          updateProgress,
+          isMounted: isMountedRef.current,
+          withGpsCount: activities.length,
+        });
+
       const nativeModule = getNativeModule();
       if (!nativeModule) {
         if (__DEV__) {
           console.warn('[fetchApiGps] Native module not available!');
         }
-        return {
-          syncedIds: [],
-          withGpsCount: 0,
-          message: 'Engine not available',
-        };
+        return ending('no-engine');
       }
 
       if (!isMountedRef.current || abortSignal.aborted) {
-        return { syncedIds: [], withGpsCount: 0, message: 'Cancelled' };
+        return ending('cancelled');
       }
 
       // Update progress
@@ -521,12 +525,11 @@ export function useGpsDataFetcher() {
       });
 
       if (!result) {
+        // The store thread died: the poll saw the download go inactive and the
+        // engine held no result. Nothing was stored, so the run has to say so
+        // or its last `fetching` stands on three surfaces until the next sync.
         console.warn('[fetchApiGps] Result was null - Rust may have failed');
-        return {
-          syncedIds: [],
-          withGpsCount: activities.length,
-          message: 'Cancelled',
-        };
+        return ending('no-result');
       }
 
       // Surface in production. A route whose GPS never arrives is the athlete's
@@ -548,11 +551,7 @@ export function useGpsDataFetcher() {
 
       // Check mount state and abort signal
       if (!isMountedRef.current || abortSignal.aborted) {
-        return {
-          syncedIds: [],
-          withGpsCount: activities.length,
-          message: 'Cancelled',
-        };
+        return ending('cancelled');
       }
 
       // Check if sync generation has changed
@@ -563,11 +562,7 @@ export function useGpsDataFetcher() {
             `[fetchApiGps] DISCARDING stale results: generation ${startGeneration} -> ${currentGeneration}`
           );
         }
-        return {
-          syncedIds: [],
-          withGpsCount: 0,
-          message: 'Sync reset - results discarded',
-        };
+        return ending('superseded');
       }
 
       // Activities already stored in Rust engine by startFetchAndStore

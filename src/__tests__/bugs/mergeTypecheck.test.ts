@@ -43,8 +43,8 @@ describe('a merge cannot carry a type error', () => {
 describe('the reason the merge battery is narrow', () => {
   /**
    * The battery said twice that its scope was narrow because it holds the build
-   * lock. It does not: `merge-audit-branch.sh` takes the merge lock and nothing
-   * else, and the android lock is taken by the build's own wrapper. A stale
+   * lock. It never did, and there is no merge lock at all now: a merge is plain
+   * git, and the android lock is taken by the build's own wrapper. A stale
    * reason is what keeps a gate out.
    */
   it('no longer claims the merge holds the build lock', () => {
@@ -55,11 +55,5 @@ describe('the reason the merge battery is narrow', () => {
     ]) {
       expect(read(path)).not.toMatch(/build lock/);
     }
-  });
-
-  it('is true of the merge script, which takes the merge lock alone', () => {
-    const script = read('scripts/merge-audit-branch.sh');
-    expect(script).toMatch(/veloq-merge\.lock/);
-    expect(script).not.toMatch(/veloq-build\.lock/);
   });
 });

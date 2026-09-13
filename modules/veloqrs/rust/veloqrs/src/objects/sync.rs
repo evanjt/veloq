@@ -151,7 +151,7 @@ impl From<&NetError> for SyncFailure {
             NetError::RateLimited => FfiSyncErrorReason::RateLimited,
             NetError::Http { .. } | NetError::Decode(_) => FfiSyncErrorReason::Server,
             NetError::Transport(_) => FfiSyncErrorReason::Network,
-            NetError::Io(_) => FfiSyncErrorReason::Storage,
+            NetError::Io(_) | NetError::Storage(_) => FfiSyncErrorReason::Storage,
             NetError::EngineClosed => FfiSyncErrorReason::EngineClosed,
         };
         SyncFailure::new(reason, e.to_string())
@@ -236,9 +236,10 @@ impl FfiCallOutcome {
             NetError::Transport(_) => (FfiCallKind::Network, None, None),
             // A decode or file failure is local. Calling it a network error
             // would queue the item for a connectivity retry that cannot help.
-            NetError::Decode(_) | NetError::Io(_) | NetError::EngineClosed => {
-                (FfiCallKind::Internal, None, None)
-            }
+            NetError::Decode(_)
+            | NetError::Io(_)
+            | NetError::Storage(_)
+            | NetError::EngineClosed => (FfiCallKind::Internal, None, None),
         };
         FfiCallOutcome {
             kind,
@@ -746,6 +747,54 @@ pub(crate) async fn store_time_stream(activity_id: String, times: Vec<u32>) {
     }
 }
 
+/// The walk over the activities missing a `time` stream, with the fetch, the
+/// store and the sign-in read handed in so every stop condition can be
+/// exercised without a transport.
+///
+/// The sign-in read is at the boundary and not only before the walk. The
+/// transport was built before the job was spawned, so it carries a token the
+/// athlete can sign out of part way through: a list of a hundred would
+/// otherwise keep fetching on a revoked credential until it was exhausted,
+/// spending the governor's budget and writing streams into a library that is
+/// about to be cleared. Signing out is not a failure, so the pass ends `Ok`
+/// and the job key releases rather than backing off against whoever signs in
+/// next.
+async fn drain_time_streams_with<S, F, Fut, St, StFut>(
+    missing: Vec<String>,
+    mut still_signed_in: S,
+    mut fetch: F,
+    mut store: St,
+) -> Result<(), NetError>
+where
+    S: FnMut() -> bool,
+    F: FnMut(String) -> Fut,
+    Fut: std::future::Future<Output = Result<Vec<u32>, NetError>>,
+    St: FnMut(String, Vec<u32>) -> StFut,
+    StFut: std::future::Future<Output = ()>,
+{
+    for activity_id in missing {
+        if !still_signed_in() {
+            log::info!("[Sync] abandoning a time-stream pass, the athlete has signed out");
+            return Ok(());
+        }
+        match fetch(activity_id.clone()).await {
+            // An empty answer is stored too, as a zero-length row. This lane
+            // asked for exactly one thing and upstream said there is none, so
+            // the row records that the question was put. Dropping it left the
+            // activity named by `get_activities_missing_time_streams` on every
+            // pass for the life of the install, and left the section screens
+            // waiting out `TIME_STREAM_TIMEOUT_MS` for an announcement that
+            // never came.
+            Ok(times) => store(activity_id, times).await,
+            // One activity without streams must not stop the batch; the
+            // section list would stay stuck on "loading".
+            Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+            Err(e) => log::warn!("[Sync] time stream {} failed: {}", activity_id, e),
+        }
+    }
+    Ok(())
+}
+
 /// Whether a store attempt put a body where a reader can find it. `None` is a
 /// cold start with nowhere to write, `Some(false)` is a write that failed.
 fn landed(stored: Option<bool>) -> bool {
@@ -1114,12 +1163,14 @@ pub(crate) async fn perform_window_sync(
 /// Persist the athlete profile body.
 async fn sync_athlete(transport: &Transport, athlete_id: &str) -> Result<(), NetError> {
     let body = endpoints::fetch_athlete_body(transport, athlete_id, Lane::Interactive).await?;
+    // A dropped write leaves the previous athlete's profile, FTP and zones
+    // standing with nothing to say so, and the step above counts as done.
     crate::persistence::with_persistent_engine_blocking(move |engine| {
         engine.set_athlete_profile(&body)
     })
     .await
-    .ok_or(NetError::EngineClosed)?;
-    Ok(())
+    .ok_or(NetError::EngineClosed)?
+    .map_err(|e| NetError::Io(format!("athlete profile write failed: {}", e)))
 }
 
 /// Persist the sport settings body.
@@ -1130,8 +1181,8 @@ async fn sync_sport_settings(transport: &Transport, athlete_id: &str) -> Result<
         engine.set_sport_settings(&body)
     })
     .await
-    .ok_or(NetError::EngineClosed)?;
-    Ok(())
+    .ok_or(NetError::EngineClosed)?
+    .map_err(|e| NetError::Io(format!("sport settings write failed: {}", e)))
 }
 
 /// `start_date_local` as epoch seconds. intervals.icu sends local wall-clock
@@ -1253,11 +1304,15 @@ async fn sync_activity_window(
     // column instead is what stops an activity the device minted and later
     // uploaded from being stored a second time.
     let named: Vec<String> = items.iter().map(|(record, _)| record.id.clone()).collect();
+    // A lookup that failed reads the same as an id no row claims, so the page
+    // is not written at all: storing it under the server's key is what puts a
+    // ride the device uploaded into the feed twice.
     let local = crate::persistence::with_persistent_engine_blocking(move |engine| {
         engine.local_ids_for_intervals_ids(&named)
     })
     .await
-    .unwrap_or_default();
+    .ok_or(NetError::EngineClosed)?
+    .map_err(|e| NetError::Storage(format!("activity id reconcile failed: {e}")))?;
 
     let mut bodies = Vec::with_capacity(items.len());
     let mut metrics = Vec::with_capacity(items.len());
@@ -1400,11 +1455,16 @@ async fn sync_curves(
     athlete_id: &str,
     cancelled: &(dyn Fn() -> bool + Sync),
 ) -> Result<(), NetError> {
+    // A failed read used to read as "no sports", so the sweep fetched nothing
+    // and the run reported success: the athlete gets "No power data" offline
+    // for a library full of rides, with nothing logged and nothing in
+    // `last_error`.
     let sports = crate::persistence::with_persistent_engine_blocking(|engine| {
-        engine.get_available_sport_types()
+        engine.try_available_sport_types()
     })
     .await
-    .unwrap_or_default();
+    .ok_or(NetError::EngineClosed)?
+    .map_err(|e| NetError::Io(format!("sport type read failed: {}", e)))?;
     if sports.is_empty() {
         return Ok(());
     }
@@ -1810,34 +1870,29 @@ impl SyncManager {
             return FfiStartOutcome::NotOwed;
         }
         let key = JobKey::over("timestreams", &activity_ids);
-        spawn_once(key, move |transport, _athlete_id| async move {
+        spawn_once(key, move |transport, athlete_id| async move {
             let missing = crate::persistence::with_persistent_engine_blocking(move |engine| {
                 engine.get_activities_missing_time_streams(&activity_ids)
             })
             .await
             .unwrap_or_default();
 
-            for activity_id in missing {
-                let upstream = upstream_id(&activity_id).await;
-                match endpoints::fetch_time_stream(&transport, &upstream, Lane::Backfill).await {
-                    // An empty answer is stored too, as a zero-length row. This
-                    // lane asked for exactly one thing and upstream said there
-                    // is none, so the row records that the question was put.
-                    // Dropping it left the activity named by
-                    // `get_activities_missing_time_streams` on every pass for
-                    // the life of the install, and left the section screens
-                    // waiting out `TIME_STREAM_TIMEOUT_MS` for an announcement
-                    // that never came.
-                    Ok(times) => {
-                        store_time_stream(activity_id, times).await;
+            drain_time_streams_with(
+                missing,
+                || SYNC_SERVICE.still_signed_in(&athlete_id),
+                |activity_id| {
+                    // Cloned per activity because the walk holds the fetch as
+                    // an `FnMut`: the transport is an `Arc` inside, which is
+                    // what `spawn_once` clones for the confirmation too.
+                    let transport = transport.clone();
+                    async move {
+                        let upstream = upstream_id(&activity_id).await;
+                        endpoints::fetch_time_stream(&transport, &upstream, Lane::Backfill).await
                     }
-                    // One activity without streams must not stop the batch;
-                    // the section list would stay stuck on "loading".
-                    Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
-                    Err(e) => log::warn!("[Sync] time stream {} failed: {}", activity_id, e),
-                }
-            }
-            Ok(())
+                },
+                store_time_stream,
+            )
+            .await
         })
     }
 
@@ -1963,6 +2018,167 @@ mod tests {
     fn transport_to(base: String) -> Transport {
         let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
         Transport::with_governor(base, AuthMethod::ApiKey("k"), gov).unwrap()
+    }
+
+    /// Scenario: the athlete signs out part way through a time-stream pass
+    /// over a long list. The transport in the job's hand was built before the
+    /// spawn, so it still carries the token they signed out of.
+    ///
+    /// Expected behaviour: the walk stops at the next activity rather than
+    /// fetching the rest of the list on a revoked credential.
+    mod time_stream_walk {
+        use super::*;
+        use std::cell::RefCell;
+
+        fn ids(n: usize) -> Vec<String> {
+            (0..n).map(|i| format!("a{i}")).collect()
+        }
+
+        /// The walk, with the sign-in read flipping false after `signed_in_for`
+        /// activities. Answers what was fetched and what was stored.
+        fn walk_signing_out_after(
+            signed_in_for: usize,
+        ) -> (Vec<String>, Vec<String>, Result<(), NetError>) {
+            let fetched = RefCell::new(Vec::new());
+            let stored = RefCell::new(Vec::new());
+            let reads = RefCell::new(0usize);
+
+            let outcome = crate::runtime::block_on(drain_time_streams_with(
+                ids(5),
+                || {
+                    let mut n = reads.borrow_mut();
+                    *n += 1;
+                    *n <= signed_in_for
+                },
+                |activity_id| {
+                    fetched.borrow_mut().push(activity_id);
+                    async { Ok(vec![0u32, 1, 2]) }
+                },
+                |activity_id, _times| {
+                    stored.borrow_mut().push(activity_id);
+                    async {}
+                },
+            ));
+
+            (fetched.into_inner(), stored.into_inner(), outcome)
+        }
+
+        #[test]
+        fn stops_at_the_activity_after_the_sign_out() {
+            let (fetched, stored, _) = walk_signing_out_after(2);
+
+            assert_eq!(fetched, vec!["a0".to_string(), "a1".to_string()]);
+            assert_eq!(stored, vec!["a0".to_string(), "a1".to_string()]);
+        }
+
+        #[test]
+        fn calls_a_sign_out_done_rather_than_failed() {
+            // A failure backs the job key off, which would hold it against
+            // whoever signs in next.
+            assert!(walk_signing_out_after(2).2.is_ok());
+        }
+
+        #[test]
+        fn fetches_nothing_at_all_when_the_sign_out_beat_the_first_read() {
+            let (fetched, stored, outcome) = walk_signing_out_after(0);
+
+            assert!(fetched.is_empty());
+            assert!(stored.is_empty());
+            assert!(outcome.is_ok());
+        }
+
+        #[test]
+        fn walks_the_whole_list_while_the_athlete_stays_signed_in() {
+            let (fetched, stored, outcome) = walk_signing_out_after(usize::MAX);
+
+            assert_eq!(fetched.len(), 5);
+            assert_eq!(stored.len(), 5);
+            assert!(outcome.is_ok());
+        }
+
+        #[test]
+        fn reads_the_flag_once_per_activity_and_not_once_per_pass() {
+            // Five activities, five reads. A pass that read once could not
+            // notice a sign-out at all.
+            let reads = RefCell::new(0usize);
+            crate::runtime::block_on(drain_time_streams_with(
+                ids(5),
+                || {
+                    *reads.borrow_mut() += 1;
+                    true
+                },
+                |_id| async { Ok(vec![]) },
+                |_id, _times| async {},
+            ))
+            .unwrap();
+
+            assert_eq!(reads.into_inner(), 5);
+        }
+
+        #[test]
+        fn a_rejected_credential_stops_the_walk_and_says_so() {
+            let fetched = RefCell::new(0usize);
+            let outcome = crate::runtime::block_on(drain_time_streams_with(
+                ids(5),
+                || true,
+                |_id| {
+                    *fetched.borrow_mut() += 1;
+                    async { Err(NetError::Unauthorized) }
+                },
+                |_id, _times| async {},
+            ));
+
+            assert!(matches!(outcome, Err(NetError::Unauthorized)));
+            assert_eq!(fetched.into_inner(), 1, "the rest of the list is not asked");
+        }
+
+        #[test]
+        fn one_activity_without_a_stream_does_not_stop_the_rest() {
+            let stored = RefCell::new(Vec::new());
+            let outcome = crate::runtime::block_on(drain_time_streams_with(
+                ids(3),
+                || true,
+                |activity_id| async move {
+                    if activity_id == "a1" {
+                        Err(NetError::Http {
+                            status: 500,
+                            body: String::new(),
+                        })
+                    } else {
+                        Ok(vec![1u32])
+                    }
+                },
+                |activity_id, _times| {
+                    stored.borrow_mut().push(activity_id);
+                    async {}
+                },
+            ));
+
+            assert_eq!(
+                stored.into_inner(),
+                vec!["a0".to_string(), "a2".to_string()]
+            );
+            assert!(outcome.is_ok());
+        }
+
+        #[test]
+        fn an_empty_answer_is_still_stored() {
+            // The row records that the question was put, or the activity comes
+            // back on every pass for the life of the install.
+            let stored = RefCell::new(Vec::new());
+            crate::runtime::block_on(drain_time_streams_with(
+                ids(1),
+                || true,
+                |_id| async { Ok(vec![]) },
+                |activity_id, times| {
+                    stored.borrow_mut().push((activity_id, times));
+                    async {}
+                },
+            ))
+            .unwrap();
+
+            assert_eq!(stored.into_inner(), vec![("a0".to_string(), vec![])]);
+        }
     }
 
     #[test]
@@ -2316,6 +2532,86 @@ mod tests {
         assert_eq!(s.completed, SYNC_STEPS);
         assert_eq!(s.in_flight, 0);
         assert!(s.last_error.is_none());
+    }
+
+    /// Scenario: the profile write fails, the shape a busy connection or a
+    /// constraint takes, here a table that is not there.
+    ///
+    /// Expected behaviour: the step fails with a storage reason. It used to
+    /// count as complete, so the run reported success and every reader kept
+    /// the previous athlete's profile, FTP and zones with nothing to say so.
+    #[test]
+    fn a_failed_profile_write_fails_its_step() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .db
+                .execute_batch("DROP TABLE athlete_profile")
+                .expect("drop");
+        })
+        .expect("engine");
+        let server = MockServer::start();
+        mock_profile_slice(&server, 200);
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+        let s = svc.snapshot();
+        assert_eq!(
+            s.completed,
+            SYNC_STEPS - 1,
+            "the failed step is not counted"
+        );
+        assert_eq!(s.last_error_reason, Some(FfiSyncErrorReason::Storage));
+        assert!(
+            s.last_error
+                .as_deref()
+                .is_some_and(|e| e.contains("athlete profile write failed")),
+            "the reason names the write: {:?}",
+            s.last_error
+        );
+    }
+
+    /// Scenario: the sport-type read fails during the curve sweep.
+    ///
+    /// Expected behaviour: the step reports a storage failure. An empty list
+    /// used to mean both "no sports" and "the read failed", so the sweep
+    /// fetched nothing and the run still reported success.
+    #[test]
+    fn a_failed_sport_type_read_fails_the_curve_step() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .db
+                .execute_batch("DROP TABLE activity_metrics")
+                .expect("drop");
+        })
+        .expect("engine");
+        let server = MockServer::start();
+        mock_profile_slice(&server, 200);
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+        let s = svc.snapshot();
+        assert_eq!(s.last_error_reason, Some(FfiSyncErrorReason::Storage));
+        assert!(
+            s.last_error
+                .as_deref()
+                .is_some_and(|e| e.contains("sport type read failed")),
+            "the reason names the read: {:?}",
+            s.last_error
+        );
     }
 
     #[test]
@@ -3001,6 +3297,54 @@ mod tests {
         ))
         .expect("window sync");
         mock.assert();
+    }
+
+    /// Scenario: the reconcile that matches a server record against the row
+    /// the device already minted for it reads the `activities` table. A failed
+    /// read used to answer with an empty map, which reads as "nothing claims
+    /// this id" and stores the same ride again under the server's key.
+    ///
+    /// Expected behaviour: the page is not written at all, and the step fails
+    /// so the next sync fetches it again.
+    #[test]
+    fn a_window_whose_id_reconcile_fails_stores_nothing() {
+        let _guard = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("reconcile-fail.db");
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .db
+                .execute_batch("DROP TABLE activities")
+                .expect("drop");
+        });
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities");
+            then.status(200).json_body(json!([
+                {"id": "a1", "type": "Ride", "name": "Loop",
+                 "start_date_local": "2025-01-15T08:30:00", "distance": 28400.0}
+            ]));
+        });
+
+        let outcome = crate::runtime::block_on(sync_activity_window(
+            &transport_to(server.base_url()),
+            "i1",
+            "2025-01-01",
+            "2025-01-31",
+            &|| false,
+        ));
+
+        assert!(
+            outcome.is_err(),
+            "a reconcile it never got is not a success"
+        );
+        let stored = crate::runtime::block_on(crate::persistence::with_persistent_engine_blocking(
+            |engine| engine.get_activity_body("a1"),
+        ))
+        .flatten();
+        assert!(
+            stored.is_none(),
+            "the page was written without its reconcile"
+        );
     }
 
     /// Expected behaviour: a cancel that lands before the job runs stops the

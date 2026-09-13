@@ -4,7 +4,12 @@
  * The copy takes over a second on a full library. Started synchronously it
  * froze the frame that asked for it, so Rust runs it on its own thread and
  * connection and this only polls the outcome.
+ *
+ * The deadline runs on the awake clock: a suspension stops the polling and not
+ * the copy, so the wall clock it spends is not time the copy failed to finish
+ * in.
  */
+import { createAwakeClock } from '@/shared/app/awakeClock';
 
 /** Cheap enough to poll at, short enough that a small copy still returns promptly. */
 const POLL_INTERVAL_MS = 50;
@@ -26,7 +31,8 @@ export async function runDatabaseBackup(
 ): Promise<void> {
   engine.startBackup(destPlainPath);
 
-  const deadline = Date.now() + timeoutMs;
+  const awake = createAwakeClock(POLL_INTERVAL_MS);
+  const deadline = awake() + timeoutMs;
   for (;;) {
     await wait(POLL_INTERVAL_MS);
     // A failed copy throws out of pollBackup, carrying the Rust message.
@@ -35,7 +41,7 @@ export async function runDatabaseBackup(
     if (state !== 'running') {
       throw new Error(`Backup stopped without finishing (${state})`);
     }
-    if (Date.now() > deadline) {
+    if (awake() > deadline) {
       throw new Error('Backup did not finish in time');
     }
   }

@@ -9,6 +9,7 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
+import { createAwakeClock } from '@/shared/app/awakeClock';
 import { getEngine } from '@/shared/native/engine';
 import { formatLocalDate } from '@/shared/format/format';
 import { shareExistingFile } from '@/features/settings/lib/shareFile';
@@ -62,7 +63,11 @@ export async function runExport(
   engine.startBulkExport(format, plainPath);
   onProgress?.({ phase: 'generating', current: 0, total: 0, sizeBytes: 0 });
 
-  const deadline = Date.now() + timeoutMs;
+  // The budget is on the awake clock: a suspension stops the polling and not
+  // the Rust worker, so the time the app was away is not time the export
+  // failed to finish in.
+  const awake = createAwakeClock(POLL_INTERVAL_MS);
+  const deadline = awake() + timeoutMs;
   for (;;) {
     const poll = engine.pollBulkExport();
     if (poll.state === 'complete') {
@@ -81,7 +86,7 @@ export async function runExport(
     // A worker that neither finishes nor frees its slot would otherwise be
     // polled at 4 Hz for the life of the screen, behind a spinner that never
     // stops.
-    if (Date.now() > deadline) throw new Error('Export did not finish in time');
+    if (awake() > deadline) throw new Error('Export did not finish in time');
     await delay(POLL_INTERVAL_MS);
   }
 }

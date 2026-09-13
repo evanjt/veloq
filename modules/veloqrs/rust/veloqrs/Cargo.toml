@@ -74,7 +74,7 @@ uniffi = { version = "0.31", features = ["build"] }
 tempfile = "3.27"
 # The commit hook counts transactions, which is how a page write proves it
 # is one commit and not one per row.
-rusqlite = { version = "0.31", features = ["hooks"] }
+rusqlite = { version = "0.31", features = ["hooks", "trace"] }
 env_logger = "0.11"
 criterion = { version = "0.5", features = ["html_reports"] }
 sha2 = "0.11"

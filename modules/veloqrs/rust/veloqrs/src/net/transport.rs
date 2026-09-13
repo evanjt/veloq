@@ -92,6 +92,10 @@ pub enum NetError {
     /// A local file backing a request body could not be read. Not a network
     /// failure, so it must never be queued for a connectivity retry.
     Io(String),
+    /// A local read the step depended on failed. Not a network failure and
+    /// never worth a connectivity retry: what the step needed is in the
+    /// database, and the page it fetched is not written without it.
+    Storage(String),
     /// The engine was gone when the step went to write what it had fetched.
     /// A restore or a clear-and-sync destroys it mid-run, and the bytes are
     /// then dropped. Not a network failure and never worth a retry: the
@@ -109,6 +113,7 @@ impl std::fmt::Display for NetError {
             NetError::Transport(e) => write!(f, "transport error: {}", e),
             NetError::Decode(e) => write!(f, "decode error: {}", e),
             NetError::Io(e) => write!(f, "file error: {}", e),
+            NetError::Storage(e) => write!(f, "local read failed: {}", e),
         }
     }
 }

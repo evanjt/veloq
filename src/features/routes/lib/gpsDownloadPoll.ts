@@ -13,7 +13,11 @@
  * download is bounded rather than one instance of it. The deadline is on
  * progress, not on wall clock, because a download of a thousand activities is
  * slow but moving and a download of one that has stopped moving is stuck.
+ *
+ * Progress is measured on the awake clock, because a suspended app runs no
+ * polls at all and the counters cannot move while it is away.
  */
+import { createAwakeClock } from '@/shared/app/awakeClock';
 
 /** What one poll of the engine reports. */
 export interface DownloadProgressRead {
@@ -85,7 +89,10 @@ export async function pollDownloadProgress(options: PollOptions): Promise<PollOu
     stallMs = DEFAULT_STALL_MS,
   } = options;
 
-  let lastMoved = now();
+  // A suspension is not the download standing still: nothing polls while the
+  // app is away, so the gap it leaves in the clock is not budget spent.
+  const awake = createAwakeClock(intervalMs, now);
+  let lastMoved = awake();
   let lastCompleted = -1;
   let lastTotal = -1;
 
@@ -96,11 +103,12 @@ export async function pollDownloadProgress(options: PollOptions): Promise<PollOu
     const progress = read();
     if (!progress.active) return 'settled';
 
+    const at = awake();
     if (progress.completed !== lastCompleted || progress.total !== lastTotal) {
       lastCompleted = progress.completed;
       lastTotal = progress.total;
-      lastMoved = now();
-    } else if (now() - lastMoved >= stallMs) {
+      lastMoved = at;
+    } else if (at - lastMoved >= stallMs) {
       return 'stalled';
     }
 

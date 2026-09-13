@@ -316,7 +316,10 @@ fn store_downloaded_track(
             // one activity at a time. Empty for a narrow fetch, which carries
             // no `time` at all and still owes that pass.
             if !times.is_empty() {
-                engine.set_time_streams_flat(&[activity_id.to_string()], times, &[0]);
+                // Deferred: the attach below fills this activity's lap times
+                // at insert, and the batch's backfill runs once in
+                // `attach_finalize`.
+                engine.store_time_streams_flat(&[activity_id.to_string()], times, &[0]);
             }
         }
         let portions = if ok {
@@ -610,7 +613,11 @@ pub fn start_fetch_and_store(
                         // and the activity leaves the missing list for good.
                         Ok(times) => {
                             let stored = crate::persistence::with_persistent_engine(|engine| {
-                                engine.set_time_streams_flat(&[activity_id.clone()], &times, &[0]);
+                                engine.store_time_streams_flat(
+                                    &[activity_id.clone()],
+                                    &times,
+                                    &[0],
+                                );
                             });
                             // Announced with the engine lock released, and only
                             // when the write landed.

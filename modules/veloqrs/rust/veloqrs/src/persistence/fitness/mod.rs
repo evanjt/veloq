@@ -273,15 +273,20 @@ impl PersistentEngine {
     // =========================================================================
 
     /// Store athlete profile JSON blob for instant startup rendering.
-    pub fn set_athlete_profile(&self, json: &str) {
+    ///
+    /// The error is the caller's: a dropped write leaves every reader of the
+    /// profile, FTP and zones on the previous athlete's values, and the sync
+    /// step above this has to fail rather than stamp a success over them.
+    pub fn set_athlete_profile(&self, json: &str) -> SqlResult<()> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
-        let _ = self.db.execute(
+        self.db.execute(
             "INSERT OR REPLACE INTO athlete_profile (id, data, updated_at) VALUES ('current', ?1, ?2)",
             rusqlite::params![json, now],
-        );
+        )?;
+        Ok(())
     }
 
     /// Get cached athlete profile JSON blob. Returns None if not cached.
@@ -296,15 +301,16 @@ impl PersistentEngine {
     }
 
     /// Store sport settings JSON blob for instant startup rendering.
-    pub fn set_sport_settings(&self, json: &str) {
+    pub fn set_sport_settings(&self, json: &str) -> SqlResult<()> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
-        let _ = self.db.execute(
+        self.db.execute(
             "INSERT OR REPLACE INTO sport_settings (id, data, updated_at) VALUES ('current', ?1, ?2)",
             rusqlite::params![json, now],
-        );
+        )?;
+        Ok(())
     }
 
     /// Get cached sport settings JSON blob. Returns None if not cached.
@@ -465,6 +471,37 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM ftp_history", [], |r| r.get(0))
             .unwrap();
         assert_eq!(rows, 0);
+    }
+
+    /// Scenario: the profile write hits a broken table, the shape a busy
+    /// connection or a constraint takes.
+    ///
+    /// Expected behaviour: the writer says so, so the sync step above it can
+    /// fail rather than stamp a success over the previous athlete's values.
+    #[test]
+    fn a_failed_profile_write_is_reported() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine.set_athlete_profile("{\"id\":\"i1\"}").unwrap();
+
+        engine
+            .db
+            .execute_batch("DROP TABLE athlete_profile")
+            .unwrap();
+
+        assert!(engine.set_athlete_profile("{\"id\":\"i2\"}").is_err());
+    }
+
+    #[test]
+    fn a_failed_sport_settings_write_is_reported() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine.set_sport_settings("{\"ftp\":200}").unwrap();
+
+        engine
+            .db
+            .execute_batch("DROP TABLE sport_settings")
+            .unwrap();
+
+        assert!(engine.set_sport_settings("{\"ftp\":210}").is_err());
     }
 
     #[test]

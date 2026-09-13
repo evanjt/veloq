@@ -1458,31 +1458,33 @@ impl PersistentEngine {
     /// is found rather than stored a second time. A server id nothing claims
     /// is absent, and the caller then uses it as the key, which is what every
     /// row an older build stored already did.
+    ///
+    /// A failed read is an error and not an empty map. The two read the same
+    /// to the caller, and taking a failure for "nothing claims this id" is
+    /// what stores an uploaded ride a second time.
     pub fn local_ids_for_intervals_ids(
         &self,
         intervals_ids: &[String],
-    ) -> std::collections::HashMap<String, String> {
+    ) -> SqlResult<std::collections::HashMap<String, String>> {
         let mut out = std::collections::HashMap::with_capacity(intervals_ids.len());
         if intervals_ids.is_empty() {
-            return out;
+            return Ok(out);
         }
         let placeholders = vec!["?"; intervals_ids.len()].join(",");
         let sql = format!(
             "SELECT intervals_id, id FROM activities
              WHERE intervals_id IN ({placeholders})"
         );
-        let Ok(mut stmt) = self.db.prepare(&sql) else {
-            return out;
-        };
+        let mut stmt = self.db.prepare(&sql)?;
         let params = rusqlite::params_from_iter(intervals_ids.iter());
-        if let Ok(rows) = stmt.query_map(params, |row| {
+        let rows = stmt.query_map(params, |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        }) {
-            for row in rows.flatten() {
-                out.insert(row.0, row.1);
-            }
+        })?;
+        for row in rows {
+            let (intervals_id, local_id) = row?;
+            out.insert(intervals_id, local_id);
         }
-        out
+        Ok(out)
     }
 
     pub fn get_activity_ids(&self) -> Vec<String> {
@@ -2800,6 +2802,34 @@ mod tests {
                 elevation: None,
             },
         ]
+    }
+
+    /// Scenario: the id reconcile answered a failed query with an empty map,
+    /// which the sync reads as "no row claims this server id" and stores the
+    /// activity a second time under a fresh key.
+    ///
+    /// Expected behaviour: the failure is the answer, so the caller can tell
+    /// an unclaimed id from a lookup it never got.
+    #[test]
+    fn a_failed_id_reconcile_is_an_error_and_not_an_empty_map() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine.db.execute_batch("DROP TABLE activities").unwrap();
+
+        let looked_up = engine.local_ids_for_intervals_ids(&["i1".to_string()]);
+
+        assert!(looked_up.is_err(), "the lookup had no table to read");
+    }
+
+    /// An empty request needs no query, and answers with an empty map rather
+    /// than an error.
+    #[test]
+    fn an_empty_id_reconcile_answers_without_a_query() {
+        let engine = PersistentEngine::in_memory().unwrap();
+
+        assert_eq!(
+            engine.local_ids_for_intervals_ids(&[]).expect("no query"),
+            std::collections::HashMap::new()
+        );
     }
 
     /// Scenario: `add_activities_batch` opened `BEGIN IMMEDIATE` and propagated

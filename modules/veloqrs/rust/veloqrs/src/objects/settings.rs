@@ -26,8 +26,11 @@ impl SettingsManager {
 
     fn set_athlete_profile(&self, json: String) -> Result<(), VeloqError> {
         with_engine(|e| {
-            e.set_athlete_profile(&json);
-        })
+            e.set_athlete_profile(&json)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
     }
 
     fn get_sport_settings(&self) -> Result<Option<String>, VeloqError> {
@@ -36,8 +39,11 @@ impl SettingsManager {
 
     fn set_sport_settings(&self, json: String) -> Result<(), VeloqError> {
         with_engine(|e| {
-            e.set_sport_settings(&json);
-        })
+            e.set_sport_settings(&json)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
     }
 
     /// Clear the cached athlete profile and sport settings blobs without

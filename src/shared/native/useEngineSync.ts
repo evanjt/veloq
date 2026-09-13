@@ -87,6 +87,10 @@ export function useEngineSync(): void {
     }
     if (!wasSyncingRef.current) return;
     wasSyncingRef.current = false;
+    // A start refused because this sync held the exclusive slot never latched,
+    // and the error path below clears the latch for a different reason, so the
+    // two are told apart before it runs.
+    const startWasRefused = !startedRef.current;
     // An expired credential is not a network problem, so it stays latched and
     // waits for the re-auth rather than hammering a 401 on every foreground.
     if (state === SyncState.Idle && status?.lastError) startedRef.current = false;
@@ -96,6 +100,10 @@ export function useEngineSync(): void {
     // The exclusive slot is free again. Anything the sync refused while it held
     // it gets its one chance to ask now.
     emitSyncSettled();
+    // Logging out and in as another athlete mid-sync leaves the new athlete's
+    // first `syncNow` refused, and nothing else asks again until a
+    // backgrounding or a network change. The slot is free now, so ask.
+    if (startWasRefused) retry();
     // The widget's other writers are backgrounding and the silent-push task, so
     // without this a foreground sync leaves the home screen on yesterday's
     // numbers. A sync that failed part-way still wrote what it did fetch, so the

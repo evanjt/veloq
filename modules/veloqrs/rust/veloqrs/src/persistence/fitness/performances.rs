@@ -46,6 +46,28 @@ impl PersistentEngine {
         all_times: &[u32],
         offsets: &[u32],
     ) {
+        self.store_time_streams_flat(activity_ids, all_times, offsets);
+        // Backfill NULL lap_time/lap_pace rows that newly-arrived streams can now resolve.
+        // Without this, the in-DB junction stays NULL until the next engine init / load_sections call.
+        self.backfill_section_performance_cache();
+    }
+
+    /// `set_time_streams_flat` without the backfill, for a caller that runs
+    /// one for the whole batch.
+    ///
+    /// The ingest path stores a stream per activity inside the write-lock
+    /// hold and attaches the activity immediately after, which fills
+    /// `lap_time` at insert. The backfill's scan of `section_activities` is
+    /// whole-table, so a 490-activity sync ran 490 of them under the lock and
+    /// every one found nothing. The caller owes one
+    /// `backfill_section_performance_cache` after the batch, which is what
+    /// `attach_finalize` now runs.
+    pub fn store_time_streams_flat(
+        &mut self,
+        activity_ids: &[String],
+        all_times: &[u32],
+        offsets: &[u32],
+    ) {
         let mut persisted_count = 0;
         // Activities whose stream actually moved. The section evidence cache
         // holds each cluster's last cut and the lift veto reads the stream
@@ -98,9 +120,6 @@ impl PersistentEngine {
         // stream whose length disagrees with its track: the wrong lap times
         // must not survive the replacement.
         self.clear_lap_times_for(&moved);
-        // Backfill NULL lap_time/lap_pace rows that newly-arrived streams can now resolve.
-        // Without this, the in-DB junction stays NULL until the next engine init / load_sections call.
-        self.backfill_section_performance_cache();
     }
 
     /// Empty the lap columns for these activities, so the backfill recomputes
@@ -1368,6 +1387,59 @@ mod tests {
                 .unwrap();
         }
         engine
+    }
+
+    /// Statements SQLite ran, for counting the whole-table scan the backfill
+    /// makes. `Connection::trace` takes a plain function pointer, so the sink
+    /// is a static rather than a captured counter.
+    mod traced {
+        use std::sync::Mutex;
+
+        static SQL: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+        pub fn record(sql: &str) {
+            SQL.lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .push(sql.to_string());
+        }
+
+        pub fn reset() {
+            SQL.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        }
+
+        /// How many statements ran the backfill's own scan. Its predicate,
+        /// rather than any mention of the column: the lap sensor enrichment
+        /// pass reads the same table on `lap_time IS NULL OR avg_hr IS NULL`.
+        pub fn lap_scans() -> usize {
+            SQL.lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .iter()
+                .filter(|sql| sql.contains("WHERE sa.lap_time IS NULL AND sa.excluded = 0"))
+                .count()
+        }
+    }
+
+    /// Scenario: a GPS sync stores one activity's stream, then finalises the
+    /// batch.
+    ///
+    /// Expected behaviour: the per-activity store runs no lap scan. The
+    /// backfill's query has no index leading on `lap_time`, so a 490-activity
+    /// sync paid 490 whole-table scans under the write lock, each finding
+    /// nothing, because the attach fills `lap_time` at insert anyway.
+    #[test]
+    fn storing_a_stream_leaves_the_lap_scan_to_the_batch_tail() {
+        let mut engine = engine_with_null_laps(1);
+        engine.db.trace(Some(traced::record));
+
+        traced::reset();
+        engine.store_time_streams_flat(&["a1".to_string()], &[0, 10, 20, 30, 40, 50, 60, 70], &[0]);
+        assert_eq!(traced::lap_scans(), 0, "the ingest path scans nothing");
+
+        traced::reset();
+        engine.attach_finalize(0);
+        assert_eq!(traced::lap_scans(), 1, "the batch tail scans once");
+
+        engine.db.trace(None);
     }
 
     /// The lazy populate the section screen triggers had the same one-commit-

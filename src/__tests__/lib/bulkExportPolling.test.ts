@@ -150,3 +150,40 @@ describe('an export that never ends', () => {
     );
   });
 });
+
+/**
+ * Scenario: iOS suspends the app while an export runs. No timer fires while it
+ * is away, so the first poll on resume finds the whole budget spent on a wall
+ * clock nobody was watching.
+ *
+ * Expected behaviour: the deadline counts the time the app was awake, so a
+ * suspension costs the export nothing.
+ */
+describe('an export the app was suspended during', () => {
+  it('is not failed by the clock the resume brings back', async () => {
+    let polls = 0;
+    const engine = jest.requireMock('@/shared/native/engine');
+    const original = engine.getEngine;
+    engine.getEngine = () => ({
+      startBulkExport: mockStartBulkExport,
+      // The app is away for three minutes between the second poll and the
+      // third, and the export finishes as it was going to.
+      pollBulkExport: () => {
+        polls += 1;
+        if (polls === 2) jest.advanceTimersByTime(180_000);
+        return polls < 4
+          ? running(polls, 3)
+          : { state: 'complete', exported: 3, total: 3, skipped: 0, totalBytes: 512 };
+      },
+    });
+
+    const promise = runExport(BulkExportFormat.Gpx, '/cache/all.zip', undefined, 60_000);
+
+    await expect(settle(promise)).resolves.toEqual({
+      exported: 3,
+      skipped: 0,
+      totalBytes: 512,
+    });
+    engine.getEngine = original;
+  });
+});

@@ -819,6 +819,9 @@ impl PersistentEngine {
         activity_id: &str,
     ) -> Result<IndexActivitySummary, String> {
         let mut summary = IndexActivitySummary::default();
+        // The push path stores its stream through `store_time_streams_flat`,
+        // which leaves the backfill owed. One activity, so one scan.
+        self.backfill_section_performance_cache();
         let (matched, portions) = self.attach_activity_junctions(activity_id)?;
         summary.matched_sections = matched;
         summary.inserted_portions = portions;
@@ -890,41 +893,51 @@ impl PersistentEngine {
             .filter(|(_, portions)| !portions.is_empty())
             .collect();
 
-        let mut matched_sections = 0;
-        let mut inserted_portions = 0;
-        for (section_id, portions) in &matched {
-            matched_sections += 1;
-
-            // Replace any rows a previous run (or a later full detection) left
-            // for this pair, so near-duplicate start_index rows can't stack up.
-            // The exclusion state is a user decision and rides across the
-            // rewrite (whole snapshot: reapplying untouched pairs is a no-op).
-            let exclusions = self.capture_exclusions(section_id);
-            self.db
-                .execute(
-                    "DELETE FROM section_activities WHERE section_id = ? AND activity_id = ?",
-                    params![section_id, activity_id],
-                )
-                .map_err(|e| format!("Failed to clear section_activities: {}", e))?;
-
-            for portion in portions {
-                self.insert_section_activity(
-                    section_id,
-                    activity_id,
-                    &portion.direction,
-                    portion.start_index,
-                    portion.end_index,
-                    portion.distance_meters,
-                )?;
-                inserted_portions += 1;
-            }
-            self.reapply_exclusions(section_id, &exclusions)?;
-            self.refresh_section_in_memory(section_id);
-            self.invalidate_section_cache(section_id);
-            self.invalidate_perf_cache();
+        if matched.is_empty() {
+            return Ok((0, 0));
         }
 
-        Ok((matched_sections, inserted_portions))
+        // One transaction for the whole activity. Each statement below used to
+        // autocommit with its own fsync, under the write lock every reader
+        // waits on, and a sync pays that once per stored activity.
+        self.in_write_txn(|engine| {
+            let mut matched_sections = 0;
+            let mut inserted_portions = 0;
+            for (section_id, portions) in &matched {
+                matched_sections += 1;
+
+                // Replace any rows a previous run (or a later full detection) left
+                // for this pair, so near-duplicate start_index rows can't stack up.
+                // The exclusion state is a user decision and rides across the
+                // rewrite (whole snapshot: reapplying untouched pairs is a no-op).
+                let exclusions = engine.capture_exclusions(section_id);
+                engine
+                    .db
+                    .execute(
+                        "DELETE FROM section_activities WHERE section_id = ? AND activity_id = ?",
+                        params![section_id, activity_id],
+                    )
+                    .map_err(|e| format!("Failed to clear section_activities: {}", e))?;
+
+                for portion in portions {
+                    engine.insert_section_activity(
+                        section_id,
+                        activity_id,
+                        &portion.direction,
+                        portion.start_index,
+                        portion.end_index,
+                        portion.distance_meters,
+                    )?;
+                    inserted_portions += 1;
+                }
+                engine.reapply_exclusions(section_id, &exclusions)?;
+                engine.refresh_section_in_memory(section_id);
+                engine.invalidate_section_cache(section_id);
+                engine.invalidate_perf_cache();
+            }
+
+            Ok((matched_sections, inserted_portions))
+        })
     }
 
     /// Per-add half of the attach tier: junction rows for one just-stored
@@ -943,7 +956,12 @@ impl PersistentEngine {
     /// Batch tail of the attach tier: one regroup (ingest marks groups
     /// dirty) or, failing that, one indicator recompute when any junction
     /// rows landed. Returns (regrouped, indicators_recomputed).
+    ///
+    /// The lap backfill runs here, once, for whatever streams the batch
+    /// landed. `store_time_streams_flat` leaves it owed rather than paying a
+    /// whole-table scan per activity under the write lock.
     pub fn attach_finalize(&mut self, inserted_portions: u32) -> (bool, bool) {
+        self.backfill_section_performance_cache();
         if self.groups_dirty {
             self.get_groups();
             (true, true)
@@ -1125,5 +1143,78 @@ impl PersistentEngine {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence::commit_counter;
+
+    /// A straight run of points, long enough that the matcher takes it for a
+    /// traversal of a section cut from the same ground.
+    fn track() -> Vec<GpsPoint> {
+        (0..200)
+            .map(|i| GpsPoint {
+                latitude: 46.2 + f64::from(i) * 0.0001,
+                longitude: 7.3,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    /// One activity over ground that `sections` sections already cover.
+    fn engine_over_sections(sections: usize) -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let points = track();
+        engine
+            .add_activity("a1".to_string(), points.clone(), "Ride".to_string())
+            .unwrap();
+        let json = serde_json::to_string(&points).unwrap();
+        for s in 0..sections {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                        distance_meters, is_user_defined, version, created_at,
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                     VALUES (?, 'auto', ?, 'Ride', ?, 2200.0, 0, 1, '2026-01-01T00:00:00Z',
+                        46.2, 46.22, 7.3, 7.3)",
+                    params![format!("s{s}"), format!("Section {s}"), json],
+                )
+                .unwrap();
+        }
+        engine.load_sections().unwrap();
+        engine
+    }
+
+    /// Scenario: attach ran a DELETE, an INSERT per portion and an UPDATE per
+    /// exclusion with no transaction, so each statement autocommitted with its
+    /// own fsync, under the write lock, once per activity a sync stored.
+    ///
+    /// Expected behaviour: one commit for the whole attach.
+    #[test]
+    fn attaching_an_activity_across_many_sections_commits_once() {
+        let mut engine = engine_over_sections(12);
+        let commits = commit_counter::watch(&engine);
+
+        let (matched, portions) = engine.attach_activity_junctions("a1").unwrap();
+
+        assert_eq!(matched, 12, "every section covers the same ground");
+        assert!(portions >= 12, "each match writes at least one portion");
+        assert_eq!(commit_counter::count(&commits), 1);
+    }
+
+    /// An activity the matcher finds nothing for writes nothing, so it takes
+    /// no transaction either.
+    #[test]
+    fn an_activity_that_matches_nothing_commits_nothing() {
+        let mut engine = engine_over_sections(0);
+        let commits = commit_counter::watch(&engine);
+
+        let (matched, portions) = engine.attach_activity_junctions("a1").unwrap();
+
+        assert_eq!((matched, portions), (0, 0));
+        assert_eq!(commit_counter::count(&commits), 0);
     }
 }

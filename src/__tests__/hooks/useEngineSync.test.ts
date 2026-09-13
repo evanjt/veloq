@@ -362,4 +362,45 @@ describe('useEngineSync', () => {
 
     expect(mockCancelSyncRefresh).toHaveBeenCalledTimes(1);
   });
+
+  /**
+   * Scenario: the athlete logs out and back in as someone else while a sync is
+   * in flight. `clear_credentials` only soft-cancels, so the old sync still
+   * holds the exclusive slot and the new athlete's first `syncNow` is refused.
+   *
+   * Expected behaviour: the refused start is asked again when the slot frees,
+   * rather than waiting for a backgrounding or a network change.
+   */
+  it('starts again when a sync that refused the start settles', () => {
+    const syncNow = jest
+      .fn()
+      .mockReturnValueOnce(StartOutcome.Busy)
+      .mockReturnValue(StartOutcome.Started);
+    mockGetEngine.mockReturnValue(engineWith(syncNow));
+
+    const { rerender } = renderHook(() => useEngineSync());
+    expect(syncNow).toHaveBeenCalledTimes(1);
+
+    mockStatus = { state: SyncState.Syncing, inFlight: 1, completed: 0, total: 1 };
+    act(() => rerender(undefined));
+    mockStatus = settled();
+    act(() => rerender(undefined));
+
+    expect(syncNow).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves a sync that settled with an error to the reconnect, not an immediate retry', () => {
+    // The credential may be the thing that failed, and asking again straight
+    // away hammers a 401 on every settle.
+    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    mockGetEngine.mockReturnValue(engineWith(syncNow));
+
+    const { rerender } = renderHook(() => useEngineSync());
+    mockStatus = { state: SyncState.Syncing, inFlight: 1, completed: 0, total: 1 };
+    act(() => rerender(undefined));
+    mockStatus = settled('connection reset');
+    act(() => rerender(undefined));
+
+    expect(syncNow).toHaveBeenCalledTimes(1);
+  });
 });

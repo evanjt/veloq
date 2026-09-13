@@ -5,7 +5,7 @@
 //! which records a trend sample.
 
 use chrono::{DateTime, Datelike};
-use rusqlite::params;
+use rusqlite::{Result as SqlResult, params};
 use std::collections::{HashMap, HashSet};
 
 use super::super::PersistentEngine;
@@ -417,19 +417,22 @@ impl PersistentEngine {
     }
 
     /// Get distinct sport types from stored activities.
+    ///
+    /// Empty and failed are the same answer here, and a caller that can tell
+    /// them apart wants `try_available_sport_types`: a sync that fetches
+    /// nothing because the read failed leaves the athlete a chart saying
+    /// there is no power data for years of rides.
     pub fn get_available_sport_types(&self) -> Vec<String> {
-        let mut stmt = match self
-            .db
-            .prepare("SELECT DISTINCT sport_type FROM activity_metrics ORDER BY sport_type")
-        {
-            Ok(s) => s,
-            Err(_) => return Vec::new(),
-        };
+        self.try_available_sport_types().unwrap_or_default()
+    }
 
-        stmt.query_map([], |row| row.get(0))
-            .ok()
-            .map(|iter| iter.flatten().collect())
-            .unwrap_or_default()
+    /// Distinct sport types, or the error the read failed with.
+    pub fn try_available_sport_types(&self) -> SqlResult<Vec<String>> {
+        let mut stmt = self
+            .db
+            .prepare("SELECT DISTINCT sport_type FROM activity_metrics ORDER BY sport_type")?;
+        let rows = stmt.query_map([], |row| row.get(0))?;
+        rows.collect()
     }
 
     // =========================================================================
@@ -1712,5 +1715,26 @@ mod tests {
         assert_eq!(trend.previous_pace, Some(3.0));
         assert_eq!(engine.get_pace_trend("Swim").latest_pace, Some(1.2));
         assert!(engine.get_pace_trend("Pogo").latest_pace.is_none());
+    }
+
+    /// Scenario: the read behind the sport filter hits a broken table.
+    ///
+    /// Expected behaviour: the fallible reader says so, because "no sports"
+    /// and "the read failed" are the same empty list to everything above it.
+    #[test]
+    fn a_failed_sport_type_read_is_reported() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        assert_eq!(
+            engine.try_available_sport_types().unwrap(),
+            Vec::<String>::new()
+        );
+
+        engine
+            .db
+            .execute_batch("DROP TABLE activity_metrics")
+            .unwrap();
+
+        assert!(engine.try_available_sport_types().is_err());
+        assert!(engine.get_available_sport_types().is_empty());
     }
 }
