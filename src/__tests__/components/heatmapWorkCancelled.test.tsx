@@ -25,7 +25,7 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
 jest.mock('@/features/maps/hooks/useHeatmapTiles', () => ({
   HEATMAP_TILES_DIR: '/cache/heatmap-tiles/',
-  getHeatmapTilesCacheSize: () => 0,
+  readHeatmapTilesCacheSize: async () => 0,
 }));
 
 const mockPreference = { enabled: true, setEnabled: jest.fn() };

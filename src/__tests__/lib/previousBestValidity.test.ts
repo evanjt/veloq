@@ -4,8 +4,8 @@
  * traversal reads as, and 0 compares faster than every real time.
  *
  * Expected behaviour: only a finite, positive time is a candidate, matching the
- * filter `computeSectionPrDelta` already applies to the same records. Direction
- * is deliberately not considered here; that is an open question.
+ * filter `computeSectionPrDelta` already applies to the same records. The
+ * direction filter is held in its own file.
  */
 
 import { findPreviousBest } from '@/features/insights/lib/previousBest';

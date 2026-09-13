@@ -1388,7 +1388,17 @@
     "exportPrivacyCount": "Encurta {{touched}} de {{total}} treinos a {{radius}} m. Nada é apagado.",
     "exportPrivacyNothingTrimmed": "Nada é cortado. As exportações levam o percurso completo.",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "Toca no mapa para mover a casa."
+    "exportPrivacyMoveHint": "Toca no mapa para mover a casa.",
+    "previewRouteGrouping": "Pré-visualizar agrupamento de percursos",
+    "groupingMatchShare": "Mesmo percurso se {{percent}}% coincidir",
+    "groupingEndsApart": "Mesmas extremidades dentro de {{distance}}",
+    "groupingRunning": "A agrupar as tuas atividades…",
+    "groupingNothingToGroup": "Ainda não há atividades com trajeto para agrupar",
+    "groupingSummary": "{{count}} percursos com esta definição",
+    "groupingMerged": "{{count}} dos teus percursos seriam fundidos",
+    "groupingDropped": "{{count}} ficariam sozinhos",
+    "groupingLegendMostRidden": "Mais percorrido",
+    "groupingLegendOther": "Outros percursos"
   },
   "stats": {
     "activities": "Atividades",

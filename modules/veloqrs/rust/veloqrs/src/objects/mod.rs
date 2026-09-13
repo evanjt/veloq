@@ -29,5 +29,5 @@ pub use start::FfiStartOutcome;
 pub(crate) use sync::test_credentials;
 pub use sync::{
     FfiCallKind, FfiCallOutcome, FfiManualActivity, FfiSyncStatus, SYNC_SERVICE, SyncManager,
-    SyncState, current_session, current_transport, park_auth_expired,
+    SyncState, current_session, current_transport, park_auth_expired, set_credentials_from_native,
 };

@@ -705,6 +705,41 @@ impl BackupHandle {
     }
 }
 
+/// Handle for a background heatmap cache-size walk.
+///
+/// The walk is linear in cached tiles and reads nothing but the filesystem,
+/// so it takes no engine lock and no connection. What it does take is time:
+/// 40,061 tiles measured 170 ms on the CPH2653, and the mount that asks for
+/// it has 100 ms for the whole screen.
+pub struct CacheSizeHandle {
+    receiver: mpsc::Receiver<u64>,
+}
+
+impl CacheSizeHandle {
+    /// Non-blocking poll that also reports a dead worker thread.
+    pub fn poll_state(&self) -> WorkerPoll<u64> {
+        match self.receiver.try_recv() {
+            Ok(v) => WorkerPoll::Ready(v),
+            Err(mpsc::TryRecvError::Empty) => WorkerPoll::Running,
+            Err(mpsc::TryRecvError::Disconnected) => WorkerPoll::Died,
+        }
+    }
+
+    /// Block until the walk finishes. Test and bench path; production polls.
+    pub fn recv_blocking(&self) -> Option<u64> {
+        self.receiver.recv().ok()
+    }
+}
+
+/// Start a cache-size walk on its own thread.
+pub fn walk_cache_size_background(base_path: String, walk: fn(&str) -> u64) -> CacheSizeHandle {
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        tx.send(walk(&base_path)).ok();
+    });
+    CacheSizeHandle { receiver: rx }
+}
+
 /// Handle for a background bulk export.
 pub struct BulkExportHandle {
     receiver: mpsc::Receiver<Result<export::BulkExportResult, String>>,
@@ -2504,6 +2539,16 @@ pub mod persistent_engine_ffi {
     /// Handle for the running bulk export, if any.
     pub static BULK_EXPORT_HANDLE: LazyLock<Mutex<Option<BulkExportHandle>>> =
         LazyLock::new(|| Mutex::new(None));
+
+    /// Handle for the running heatmap cache-size walk, if any.
+    pub static CACHE_SIZE_HANDLE: LazyLock<Mutex<Option<CacheSizeHandle>>> =
+        LazyLock::new(|| Mutex::new(None));
+
+    /// The figure the last walk produced. Three mount effects poll for one
+    /// walk, and only the first poll to observe completion gets the message
+    /// off the channel, so the other two read the figure from here or read
+    /// nothing at all. Cleared by `clear_tiles`, which makes it wrong.
+    pub static CACHE_SIZE_LAST: LazyLock<Mutex<Option<u64>>> = LazyLock::new(|| Mutex::new(None));
 
     /// Handle for the running derived-catalogue wipe, if any.
     pub static CLEAR_HANDLE: LazyLock<Mutex<Option<ClearHandle>>> =

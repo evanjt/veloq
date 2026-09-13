@@ -133,6 +133,39 @@ export function cancelFetchAndStore(): boolean {
   );
 }
 /**
+ * Fetch one activity's track, store it, and index it against the catalogue.
+ *
+ * One blocking call, for a caller with no run loop. A push handler in Kotlin
+ * or Swift holds an activity id, a budget measured in seconds and no way to
+ * poll: `start_fetch_and_store` arms a global slot and hands back a run id,
+ * which is the right shape for a screen watching a progress bar and the wrong
+ * one here. This returns what happened, or says why nothing did.
+ *
+ * The three steps each already exist and were only ever composed by the batch
+ * path, in a thread that reports through that slot. Composing them here is
+ * what lets a native caller hold an id and get a sentence out of it.
+ */
+export function fetchAndIndexActivity(
+  activityId: string,
+  sportType: string,
+): FfiIndexActivitySummary /*throws*/ {
+  return FfiConverterTypeFfiIndexActivitySummary.lift(
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_fetch_and_index_activity(
+          FfiConverterString.lower(activityId),
+          FfiConverterString.lower(sportType),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Which claims the change card may make on this build.
  */
 export function getChangeCardSupport(): FfiChangeCardSupport {
@@ -842,6 +875,55 @@ const FfiConverterTypeBulkExportResult = (() => {
 })();
 
 /**
+ * What one poll of the cache-size walk says. `bytes` is meaningful only
+ * while `state` is "complete".
+ */
+export type CacheSizePoll = {
+  state: string;
+  bytes: /*u64*/ bigint;
+};
+
+/**
+ * Generated factory for {@link CacheSizePoll} record objects.
+ */
+export const CacheSizePoll = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<CacheSizePoll, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<CacheSizePoll>,
+  });
+})();
+
+const FfiConverterTypeCacheSizePoll = (() => {
+  type TypeName = CacheSizePoll;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        state: FfiConverterString.read(from),
+        bytes: FfiConverterUInt64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.state, into);
+      FfiConverterUInt64.write(value.bytes, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.state) +
+        FfiConverterUInt64.allocationSize(value.bytes)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * How far a detector cutover has got. The phase is the whole story: a cut has
  * no unit of work to count, unlike the elevation queue.
  */
@@ -1245,18 +1327,6 @@ export type FetchAndStoreResult = {
    * Total GPS points stored
    */
   totalPoints: /*u32*/ number;
-  /**
-   * Time to fetch all GPS data (ms)
-   */
-  fetchTimeMs: /*u32*/ number;
-  /**
-   * Time to store in SQLite (ms)
-   */
-  storageTimeMs: /*u32*/ number;
-  /**
-   * Total thread time (ms)
-   */
-  totalTimeMs: /*u32*/ number;
 };
 
 /**
@@ -1286,9 +1356,6 @@ const FfiConverterTypeFetchAndStoreResult = (() => {
         total: FfiConverterUInt32.read(from),
         successCount: FfiConverterUInt32.read(from),
         totalPoints: FfiConverterUInt32.read(from),
-        fetchTimeMs: FfiConverterUInt32.read(from),
-        storageTimeMs: FfiConverterUInt32.read(from),
-        totalTimeMs: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -1297,9 +1364,6 @@ const FfiConverterTypeFetchAndStoreResult = (() => {
       FfiConverterUInt32.write(value.total, into);
       FfiConverterUInt32.write(value.successCount, into);
       FfiConverterUInt32.write(value.totalPoints, into);
-      FfiConverterUInt32.write(value.fetchTimeMs, into);
-      FfiConverterUInt32.write(value.storageTimeMs, into);
-      FfiConverterUInt32.write(value.totalTimeMs, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -1307,10 +1371,7 @@ const FfiConverterTypeFetchAndStoreResult = (() => {
         FfiConverterArrayString.allocationSize(value.failedIds) +
         FfiConverterUInt32.allocationSize(value.total) +
         FfiConverterUInt32.allocationSize(value.successCount) +
-        FfiConverterUInt32.allocationSize(value.totalPoints) +
-        FfiConverterUInt32.allocationSize(value.fetchTimeMs) +
-        FfiConverterUInt32.allocationSize(value.storageTimeMs) +
-        FfiConverterUInt32.allocationSize(value.totalTimeMs)
+        FfiConverterUInt32.allocationSize(value.totalPoints)
       );
     }
   }
@@ -1864,10 +1925,6 @@ export type FfiActivityPattern = {
    */
   confidence: /*f32*/ number;
   /**
-   * Silhouette score for cluster quality (0.0-1.0)
-   */
-  silhouetteScore: /*f32*/ number;
-  /**
    * Days since the most recent activity in this cluster
    */
   daysSinceLast: /*u32*/ number;
@@ -1905,7 +1962,6 @@ const FfiConverterTypeFfiActivityPattern = (() => {
         avgDistanceMeters: FfiConverterFloat32.read(from),
         frequencyPerMonth: FfiConverterFloat32.read(from),
         confidence: FfiConverterFloat32.read(from),
-        silhouetteScore: FfiConverterFloat32.read(from),
         daysSinceLast: FfiConverterUInt32.read(from),
       };
     }
@@ -1920,7 +1976,6 @@ const FfiConverterTypeFfiActivityPattern = (() => {
       FfiConverterFloat32.write(value.avgDistanceMeters, into);
       FfiConverterFloat32.write(value.frequencyPerMonth, into);
       FfiConverterFloat32.write(value.confidence, into);
-      FfiConverterFloat32.write(value.silhouetteScore, into);
       FfiConverterUInt32.write(value.daysSinceLast, into);
     }
     allocationSize(value: TypeName): number {
@@ -1935,7 +1990,6 @@ const FfiConverterTypeFfiActivityPattern = (() => {
         FfiConverterFloat32.allocationSize(value.avgDistanceMeters) +
         FfiConverterFloat32.allocationSize(value.frequencyPerMonth) +
         FfiConverterFloat32.allocationSize(value.confidence) +
-        FfiConverterFloat32.allocationSize(value.silhouetteScore) +
         FfiConverterUInt32.allocationSize(value.daysSinceLast)
       );
     }
@@ -2240,14 +2294,6 @@ export type FfiCalendarDirectionBest = {
    * Name of best activity
    */
   bestActivityName: string;
-  /**
-   * Unix timestamp of best activity
-   */
-  bestActivityDate: /*i64*/ bigint;
-  /**
-   * True if time was estimated
-   */
-  isEstimated: boolean;
 };
 
 /**
@@ -2279,8 +2325,6 @@ const FfiConverterTypeFfiCalendarDirectionBest = (() => {
         bestPace: FfiConverterFloat64.read(from),
         bestActivityId: FfiConverterString.read(from),
         bestActivityName: FfiConverterString.read(from),
-        bestActivityDate: FfiConverterInt64.read(from),
-        isEstimated: FfiConverterBool.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -2289,8 +2333,6 @@ const FfiConverterTypeFfiCalendarDirectionBest = (() => {
       FfiConverterFloat64.write(value.bestPace, into);
       FfiConverterString.write(value.bestActivityId, into);
       FfiConverterString.write(value.bestActivityName, into);
-      FfiConverterInt64.write(value.bestActivityDate, into);
-      FfiConverterBool.write(value.isEstimated, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -2298,9 +2340,7 @@ const FfiConverterTypeFfiCalendarDirectionBest = (() => {
         FfiConverterFloat64.allocationSize(value.bestTime) +
         FfiConverterFloat64.allocationSize(value.bestPace) +
         FfiConverterString.allocationSize(value.bestActivityId) +
-        FfiConverterString.allocationSize(value.bestActivityName) +
-        FfiConverterInt64.allocationSize(value.bestActivityDate) +
-        FfiConverterBool.allocationSize(value.isEstimated)
+        FfiConverterString.allocationSize(value.bestActivityName)
       );
     }
   }
@@ -3888,7 +3928,6 @@ export type FfiIndexActivitySummary = {
   matchedSections: /*u32*/ number;
   insertedPortions: /*u32*/ number;
   regrouped: boolean;
-  indicatorsRecomputed: boolean;
 };
 
 /**
@@ -3918,21 +3957,18 @@ const FfiConverterTypeFfiIndexActivitySummary = (() => {
         matchedSections: FfiConverterUInt32.read(from),
         insertedPortions: FfiConverterUInt32.read(from),
         regrouped: FfiConverterBool.read(from),
-        indicatorsRecomputed: FfiConverterBool.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterUInt32.write(value.matchedSections, into);
       FfiConverterUInt32.write(value.insertedPortions, into);
       FfiConverterBool.write(value.regrouped, into);
-      FfiConverterBool.write(value.indicatorsRecomputed, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterUInt32.allocationSize(value.matchedSections) +
         FfiConverterUInt32.allocationSize(value.insertedPortions) +
-        FfiConverterBool.allocationSize(value.regrouped) +
-        FfiConverterBool.allocationSize(value.indicatorsRecomputed)
+        FfiConverterBool.allocationSize(value.regrouped)
       );
     }
   }
@@ -6442,74 +6478,6 @@ const FfiConverterTypeFfiRoutePerformanceResult = (() => {
 })();
 
 /**
- * Route signature for FFI
- */
-export type FfiRouteSignature = {
-  activityId: string;
-  encodedPoints: ArrayBuffer;
-  totalDistance: /*f64*/ number;
-  startPoint: FfiGpsPoint;
-  endPoint: FfiGpsPoint;
-  bounds: FfiBounds;
-  center: FfiGpsPoint;
-};
-
-/**
- * Generated factory for {@link FfiRouteSignature} record objects.
- */
-export const FfiRouteSignature = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiRouteSignature, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiRouteSignature>,
-  });
-})();
-
-const FfiConverterTypeFfiRouteSignature = (() => {
-  type TypeName = FfiRouteSignature;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        activityId: FfiConverterString.read(from),
-        encodedPoints: FfiConverterArrayBuffer.read(from),
-        totalDistance: FfiConverterFloat64.read(from),
-        startPoint: FfiConverterTypeFfiGpsPoint.read(from),
-        endPoint: FfiConverterTypeFfiGpsPoint.read(from),
-        bounds: FfiConverterTypeFfiBounds.read(from),
-        center: FfiConverterTypeFfiGpsPoint.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterString.write(value.activityId, into);
-      FfiConverterArrayBuffer.write(value.encodedPoints, into);
-      FfiConverterFloat64.write(value.totalDistance, into);
-      FfiConverterTypeFfiGpsPoint.write(value.startPoint, into);
-      FfiConverterTypeFfiGpsPoint.write(value.endPoint, into);
-      FfiConverterTypeFfiBounds.write(value.bounds, into);
-      FfiConverterTypeFfiGpsPoint.write(value.center, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterArrayBuffer.allocationSize(value.encodedPoints) +
-        FfiConverterFloat64.allocationSize(value.totalDistance) +
-        FfiConverterTypeFfiGpsPoint.allocationSize(value.startPoint) +
-        FfiConverterTypeFfiGpsPoint.allocationSize(value.endPoint) +
-        FfiConverterTypeFfiBounds.allocationSize(value.bounds) +
-        FfiConverterTypeFfiGpsPoint.allocationSize(value.center)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * All data needed by the Routes screen in a single FFI call.
  * Supports pagination via limit/offset for groups and sections.
  */
@@ -6642,7 +6610,6 @@ export type FfiSection = {
   supersededBy?: string;
   elevationLossM?: /*f64*/ number;
   maxGradePercent?: /*f64*/ number;
-  straightness?: /*f64*/ number;
   klass?: string;
   isLift: boolean;
   rankScore?: /*f64*/ number;
@@ -6701,7 +6668,6 @@ const FfiConverterTypeFfiSection = (() => {
         supersededBy: FfiConverterOptionalString.read(from),
         elevationLossM: FfiConverterOptionalFloat64.read(from),
         maxGradePercent: FfiConverterOptionalFloat64.read(from),
-        straightness: FfiConverterOptionalFloat64.read(from),
         klass: FfiConverterOptionalString.read(from),
         isLift: FfiConverterBool.read(from),
         rankScore: FfiConverterOptionalFloat64.read(from),
@@ -6742,7 +6708,6 @@ const FfiConverterTypeFfiSection = (() => {
       FfiConverterOptionalString.write(value.supersededBy, into);
       FfiConverterOptionalFloat64.write(value.elevationLossM, into);
       FfiConverterOptionalFloat64.write(value.maxGradePercent, into);
-      FfiConverterOptionalFloat64.write(value.straightness, into);
       FfiConverterOptionalString.write(value.klass, into);
       FfiConverterBool.write(value.isLift, into);
       FfiConverterOptionalFloat64.write(value.rankScore, into);
@@ -6784,7 +6749,6 @@ const FfiConverterTypeFfiSection = (() => {
         FfiConverterOptionalString.allocationSize(value.supersededBy) +
         FfiConverterOptionalFloat64.allocationSize(value.elevationLossM) +
         FfiConverterOptionalFloat64.allocationSize(value.maxGradePercent) +
-        FfiConverterOptionalFloat64.allocationSize(value.straightness) +
         FfiConverterOptionalString.allocationSize(value.klass) +
         FfiConverterBool.allocationSize(value.isLift) +
         FfiConverterOptionalFloat64.allocationSize(value.rankScore) +
@@ -8346,7 +8310,6 @@ const FfiConverterTypeFfiSectionPortion = (() => {
  */
 export type FfiSectionRecalcResult = {
   sectionId: string;
-  polylinePointCount: /*u32*/ number;
   distanceMeters: /*f64*/ number;
 };
 
@@ -8375,19 +8338,16 @@ const FfiConverterTypeFfiSectionRecalcResult = (() => {
     read(from: RustBuffer): TypeName {
       return {
         sectionId: FfiConverterString.read(from),
-        polylinePointCount: FfiConverterUInt32.read(from),
         distanceMeters: FfiConverterFloat64.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.sectionId, into);
-      FfiConverterUInt32.write(value.polylinePointCount, into);
       FfiConverterFloat64.write(value.distanceMeters, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.sectionId) +
-        FfiConverterUInt32.allocationSize(value.polylinePointCount) +
         FfiConverterFloat64.allocationSize(value.distanceMeters)
       );
     }
@@ -8682,6 +8642,58 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
         FfiConverterBool.allocationSize(value.isLift) +
         FfiConverterOptionalFloat64.allocationSize(value.rankScore) +
         FfiConverterOptionalFloat64.allocationSize(value.sportRankScore)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One sport's contribution to a day's load, as intervals.icu's `sportInfo`
+ * carries it. The fitness chart's daily load bar is the sum of these.
+ */
+export type FfiSportLoad = {
+  /**
+   * The sport the entry stands for, as the API spells it ("Ride", "Run").
+   */
+  sportGroup?: string;
+  load?: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiSportLoad} record objects.
+ */
+export const FfiSportLoad = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSportLoad, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSportLoad>,
+  });
+})();
+
+const FfiConverterTypeFfiSportLoad = (() => {
+  type TypeName = FfiSportLoad;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sportGroup: FfiConverterOptionalString.read(from),
+        load: FfiConverterOptionalFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterOptionalString.write(value.sportGroup, into);
+      FfiConverterOptionalFloat64.write(value.load, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalString.allocationSize(value.sportGroup) +
+        FfiConverterOptionalFloat64.allocationSize(value.load)
       );
     }
   }
@@ -9075,54 +9087,6 @@ const FfiConverterTypeFfiSummaryCardData = (() => {
 })();
 
 /**
- * Entry for importing superseded section mappings from AsyncStorage migration.
- */
-export type FfiSupersededEntry = {
-  customSectionId: string;
-  autoSectionIds: Array<string>;
-};
-
-/**
- * Generated factory for {@link FfiSupersededEntry} record objects.
- */
-export const FfiSupersededEntry = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiSupersededEntry, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiSupersededEntry>,
-  });
-})();
-
-const FfiConverterTypeFfiSupersededEntry = (() => {
-  type TypeName = FfiSupersededEntry;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        customSectionId: FfiConverterString.read(from),
-        autoSectionIds: FfiConverterArrayString.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterString.write(value.customSectionId, into);
-      FfiConverterArrayString.write(value.autoSectionIds, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.customSectionId) +
-        FfiConverterArrayString.allocationSize(value.autoSectionIds)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * The status fields TypeScript reads / subscribes to.
  */
 export type FfiSyncStatus = {
@@ -9377,6 +9341,118 @@ const FfiConverterTypeFfiWeeklySummary = (() => {
         FfiConverterInt64.allocationSize(value.movingTime) +
         FfiConverterFloat64.allocationSize(value.distance) +
         FfiConverterFloat64.allocationSize(value.trainingLoad)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One stored wellness day, typed. This is what the wellness and fitness
+ * screens read: every field they render, and nothing else.
+ *
+ * The untyped body stays in the `raw` column for the Rust-side eFTP
+ * derivation, which reads fields no screen does. It no longer crosses the
+ * FFI, so no screen parses JSON to draw a chart.
+ */
+export type FfiWellnessDay = {
+  /**
+   * ISO-8601 YYYY-MM-DD
+   */
+  date: string;
+  ctl?: /*f64*/ number;
+  atl?: /*f64*/ number;
+  rampRate?: /*f64*/ number;
+  hrv?: /*f64*/ number;
+  restingHr?: /*f64*/ number;
+  weight?: /*f64*/ number;
+  sleepSecs?: /*i64*/ bigint;
+  sleepScore?: /*f64*/ number;
+  soreness?: /*i32*/ number;
+  fatigue?: /*i32*/ number;
+  stress?: /*i32*/ number;
+  mood?: /*i32*/ number;
+  motivation?: /*i32*/ number;
+  /**
+   * Empty for a day synced before the body column existed, and for a day
+   * the API sent no per-sport breakdown for.
+   */
+  sportLoad: Array<FfiSportLoad>;
+};
+
+/**
+ * Generated factory for {@link FfiWellnessDay} record objects.
+ */
+export const FfiWellnessDay = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiWellnessDay, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiWellnessDay>,
+  });
+})();
+
+const FfiConverterTypeFfiWellnessDay = (() => {
+  type TypeName = FfiWellnessDay;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        date: FfiConverterString.read(from),
+        ctl: FfiConverterOptionalFloat64.read(from),
+        atl: FfiConverterOptionalFloat64.read(from),
+        rampRate: FfiConverterOptionalFloat64.read(from),
+        hrv: FfiConverterOptionalFloat64.read(from),
+        restingHr: FfiConverterOptionalFloat64.read(from),
+        weight: FfiConverterOptionalFloat64.read(from),
+        sleepSecs: FfiConverterOptionalInt64.read(from),
+        sleepScore: FfiConverterOptionalFloat64.read(from),
+        soreness: FfiConverterOptionalInt32.read(from),
+        fatigue: FfiConverterOptionalInt32.read(from),
+        stress: FfiConverterOptionalInt32.read(from),
+        mood: FfiConverterOptionalInt32.read(from),
+        motivation: FfiConverterOptionalInt32.read(from),
+        sportLoad: FfiConverterArrayTypeFfiSportLoad.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.date, into);
+      FfiConverterOptionalFloat64.write(value.ctl, into);
+      FfiConverterOptionalFloat64.write(value.atl, into);
+      FfiConverterOptionalFloat64.write(value.rampRate, into);
+      FfiConverterOptionalFloat64.write(value.hrv, into);
+      FfiConverterOptionalFloat64.write(value.restingHr, into);
+      FfiConverterOptionalFloat64.write(value.weight, into);
+      FfiConverterOptionalInt64.write(value.sleepSecs, into);
+      FfiConverterOptionalFloat64.write(value.sleepScore, into);
+      FfiConverterOptionalInt32.write(value.soreness, into);
+      FfiConverterOptionalInt32.write(value.fatigue, into);
+      FfiConverterOptionalInt32.write(value.stress, into);
+      FfiConverterOptionalInt32.write(value.mood, into);
+      FfiConverterOptionalInt32.write(value.motivation, into);
+      FfiConverterArrayTypeFfiSportLoad.write(value.sportLoad, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.date) +
+        FfiConverterOptionalFloat64.allocationSize(value.ctl) +
+        FfiConverterOptionalFloat64.allocationSize(value.atl) +
+        FfiConverterOptionalFloat64.allocationSize(value.rampRate) +
+        FfiConverterOptionalFloat64.allocationSize(value.hrv) +
+        FfiConverterOptionalFloat64.allocationSize(value.restingHr) +
+        FfiConverterOptionalFloat64.allocationSize(value.weight) +
+        FfiConverterOptionalInt64.allocationSize(value.sleepSecs) +
+        FfiConverterOptionalFloat64.allocationSize(value.sleepScore) +
+        FfiConverterOptionalInt32.allocationSize(value.soreness) +
+        FfiConverterOptionalInt32.allocationSize(value.fatigue) +
+        FfiConverterOptionalInt32.allocationSize(value.stress) +
+        FfiConverterOptionalInt32.allocationSize(value.mood) +
+        FfiConverterOptionalInt32.allocationSize(value.motivation) +
+        FfiConverterArrayTypeFfiSportLoad.allocationSize(value.sportLoad)
       );
     }
   }
@@ -10121,10 +10197,6 @@ export type SectionSummary = {
    */
   maxGradePercent?: /*f64*/ number;
   /**
-   * Chord over arc, 0..1.
-   */
-  straightness?: /*f64*/ number;
-  /**
    * climb, descent, rolling, flat or loop; None when nothing says.
    */
   klass?: string;
@@ -10196,7 +10268,6 @@ const FfiConverterTypeSectionSummary = (() => {
         avgGradePercent: FfiConverterOptionalFloat64.read(from),
         elevationLossM: FfiConverterOptionalFloat64.read(from),
         maxGradePercent: FfiConverterOptionalFloat64.read(from),
-        straightness: FfiConverterOptionalFloat64.read(from),
         klass: FfiConverterOptionalString.read(from),
         isLift: FfiConverterBool.read(from),
         rankScore: FfiConverterOptionalFloat64.read(from),
@@ -10224,7 +10295,6 @@ const FfiConverterTypeSectionSummary = (() => {
       FfiConverterOptionalFloat64.write(value.avgGradePercent, into);
       FfiConverterOptionalFloat64.write(value.elevationLossM, into);
       FfiConverterOptionalFloat64.write(value.maxGradePercent, into);
-      FfiConverterOptionalFloat64.write(value.straightness, into);
       FfiConverterOptionalString.write(value.klass, into);
       FfiConverterBool.write(value.isLift, into);
       FfiConverterOptionalFloat64.write(value.rankScore, into);
@@ -10254,7 +10324,6 @@ const FfiConverterTypeSectionSummary = (() => {
         FfiConverterOptionalFloat64.allocationSize(value.avgGradePercent) +
         FfiConverterOptionalFloat64.allocationSize(value.elevationLossM) +
         FfiConverterOptionalFloat64.allocationSize(value.maxGradePercent) +
-        FfiConverterOptionalFloat64.allocationSize(value.straightness) +
         FfiConverterOptionalString.allocationSize(value.klass) +
         FfiConverterBool.allocationSize(value.isLift) +
         FfiConverterOptionalFloat64.allocationSize(value.rankScore) +
@@ -13629,11 +13698,14 @@ export interface FitnessManagerLike {
     weekLengthSecs: /*i64*/ bigint,
   ) /*throws*/ : Array<FfiWeeklySummary>;
   /**
-   * Untyped wellness bodies over an inclusive date window, oldest first.
-   * The wellness screens read fields the typed row does not model, so they
-   * parse these rather than a reconstruction.
+   * Stored wellness days over an inclusive date window, oldest first.
+   * Typed: every field the wellness and fitness screens render, so nothing
+   * parses a body to draw a chart.
    */
-  getWellnessBodies(oldest: string, newest: string) /*throws*/ : Array<string>;
+  getWellnessDays(
+    oldest: string,
+    newest: string,
+  ) /*throws*/ : Array<FfiWellnessDay>;
   /**
    * Sparkline arrays (fitness/fatigue/form/hrv/rhr) over the trailing
    * `days` window. Returns `None` until wellness has been synced at
@@ -14115,18 +14187,21 @@ export class FitnessManager
   }
 
   /**
-   * Untyped wellness bodies over an inclusive date window, oldest first.
-   * The wellness screens read fields the typed row does not model, so they
-   * parse these rather than a reconstruction.
+   * Stored wellness days over an inclusive date window, oldest first.
+   * Typed: every field the wellness and fitness screens render, so nothing
+   * parses a body to draw a chart.
    */
-  getWellnessBodies(oldest: string, newest: string): Array<string> /*throws*/ {
-    return FfiConverterArrayString.lift(
+  getWellnessDays(
+    oldest: string,
+    newest: string,
+  ): Array<FfiWellnessDay> /*throws*/ {
+    return FfiConverterArrayTypeFfiWellnessDay.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
         ),
         /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_bodies(
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_days(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(oldest),
             FfiConverterString.lower(newest),
@@ -14377,6 +14452,11 @@ export interface HeatmapManagerLike {
   /**
    * Get total size of heatmap tile cache in bytes.
    * Walks the z/x/y directory tree natively - much faster than JS filesystem calls.
+   *
+   * Blocking, and linear in cached tiles: 40,061 of them measured 170 ms on
+   * the CPH2653, against a 100 ms mount budget. Every mount path uses
+   * `start_cache_size` and `poll_cache_size` instead. This stays for the
+   * callers that are already off the JS thread and for the tests.
    */
   getCacheSize(basePath: string) /*throws*/ : /*u64*/ bigint;
   /**
@@ -14388,10 +14468,34 @@ export interface HeatmapManagerLike {
    */
   poll() /*throws*/ : string;
   /**
+   * Poll the running walk. `state` is "idle", "running" or "complete", and
+   * `bytes` is the last figure walked, whichever of the three it is.
+   *
+   * The figure outlives the poll that observed it. Only one poll gets the
+   * message off the channel, and three mount effects share one walk, so a
+   * figure that vanished with the first reader would leave the other two
+   * showing nothing.
+   *
+   * A walk that died reports "complete" against whatever was last known
+   * rather than erroring: this is a storage readout, and a screen that
+   * cannot show one is not a screen that should refuse to open.
+   */
+  pollCacheSize() /*throws*/ : CacheSizePoll;
+  /**
    * Set the filesystem path for heatmap tile storage.
    * Called once at engine init from JS (documentDirectory + "heatmap-tiles/").
    */
   setTilesPath(path: string) /*throws*/ : void;
+  /**
+   * Start the cache-size walk on its own thread. Poll `poll_cache_size`
+   * for the figure.
+   *
+   * A walk already running is not an error: the answer it will give is the
+   * answer this caller wants, and three settings mount effects ask for it
+   * at once. Starting a second one would walk the same tree twice for one
+   * number.
+   */
+  startCacheSize(basePath: string) /*throws*/ : void;
 }
 /**
  * @deprecated Use `HeatmapManagerLike` instead.
@@ -14488,6 +14592,11 @@ export class HeatmapManager
   /**
    * Get total size of heatmap tile cache in bytes.
    * Walks the z/x/y directory tree natively - much faster than JS filesystem calls.
+   *
+   * Blocking, and linear in cached tiles: 40,061 of them measured 170 ms on
+   * the CPH2653, against a 100 ms mount budget. Every mount path uses
+   * `start_cache_size` and `poll_cache_size` instead. This stays for the
+   * callers that are already off the JS thread and for the tests.
    */
   getCacheSize(basePath: string): /*u64*/ bigint /*throws*/ {
     return FfiConverterUInt64.lift(
@@ -14548,6 +14657,36 @@ export class HeatmapManager
   }
 
   /**
+   * Poll the running walk. `state` is "idle", "running" or "complete", and
+   * `bytes` is the last figure walked, whichever of the three it is.
+   *
+   * The figure outlives the poll that observed it. Only one poll gets the
+   * message off the channel, and three mount effects share one walk, so a
+   * figure that vanished with the first reader would leave the other two
+   * showing nothing.
+   *
+   * A walk that died reports "complete" against whatever was last known
+   * rather than erroring: this is a storage readout, and a screen that
+   * cannot show one is not a screen that should refuse to open.
+   */
+  pollCacheSize(): CacheSizePoll /*throws*/ {
+    return FfiConverterTypeCacheSizePoll.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_poll_cache_size(
+            uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
    * Set the filesystem path for heatmap tile storage.
    * Called once at engine init from JS (documentDirectory + "heatmap-tiles/").
    */
@@ -14560,6 +14699,31 @@ export class HeatmapManager
         nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
           uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(path),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Start the cache-size walk on its own thread. Poll `poll_cache_size`
+   * for the figure.
+   *
+   * A walk already running is not an error: the answer it will give is the
+   * answer this caller wants, and three settings mount effects ask for it
+   * at once. Starting a second one would walk the same tree twice for one
+   * number.
+   */
+  startCacheSize(basePath: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_start_cache_size(
+          uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(basePath),
           callStatus,
         );
       },
@@ -21193,6 +21357,11 @@ const FfiConverterArrayTypeFfiSectionWithPolyline = new FfiConverterArray(
   FfiConverterTypeFfiSectionWithPolyline,
 );
 
+// FfiConverter for Array<FfiSportLoad>
+const FfiConverterArrayTypeFfiSportLoad = new FfiConverterArray(
+  FfiConverterTypeFfiSportLoad,
+);
+
 // FfiConverter for Array<FfiStalePrOpportunity>
 const FfiConverterArrayTypeFfiStalePrOpportunity = new FfiConverterArray(
   FfiConverterTypeFfiStalePrOpportunity,
@@ -21211,6 +21380,11 @@ const FfiConverterArrayTypeFfiTimestampRange = new FfiConverterArray(
 // FfiConverter for Array<FfiWeeklySummary>
 const FfiConverterArrayTypeFfiWeeklySummary = new FfiConverterArray(
   FfiConverterTypeFfiWeeklySummary,
+);
+
+// FfiConverter for Array<FfiWellnessDay>
+const FfiConverterArrayTypeFfiWellnessDay = new FfiConverterArray(
+  FfiConverterTypeFfiWellnessDay,
 );
 
 // FfiConverter for Array<FfiWellnessRow>
@@ -21309,6 +21483,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_cancel_fetch_and_store",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_fetch_and_index_activity() !==
+    50331
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_fetch_and_index_activity",
     );
   }
   if (
@@ -22256,11 +22438,11 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_bodies() !==
-    17656
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_days() !==
+    57838
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_bodies",
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_days",
     );
   }
   if (
@@ -23657,7 +23839,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size() !==
-    11524
+    63017
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size",
@@ -23680,11 +23862,27 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll_cache_size() !==
+    48950
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_heatmapmanager_poll_cache_size",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path() !==
     1770
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_start_cache_size() !==
+    14282
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_heatmapmanager_start_cache_size",
     );
   }
   if (
@@ -23821,6 +24019,7 @@ export default Object.freeze({
     FfiConverterTypeBulkExportFormat,
     FfiConverterTypeBulkExportPoll,
     FfiConverterTypeBulkExportResult,
+    FfiConverterTypeCacheSizePoll,
     FfiConverterTypeCutoverProgress,
     FfiConverterTypeDerivedClear,
     FfiConverterTypeDerivedClearPoll,
@@ -23897,7 +24096,6 @@ export default Object.freeze({
     FfiConverterTypeFfiRouteGroupPreview,
     FfiConverterTypeFfiRoutePerformance,
     FfiConverterTypeFfiRoutePerformanceResult,
-    FfiConverterTypeFfiRouteSignature,
     FfiConverterTypeFfiRoutesScreenData,
     FfiConverterTypeFfiSection,
     FfiConverterTypeFfiSectionChange,
@@ -23924,6 +24122,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionSummariesResult,
     FfiConverterTypeFfiSectionTrace,
     FfiConverterTypeFfiSectionWithPolyline,
+    FfiConverterTypeFfiSportLoad,
     FfiConverterTypeFfiStalePrOpportunity,
     FfiConverterTypeFfiStartOutcome,
     FfiConverterTypeFfiStartupData,
@@ -23931,12 +24130,12 @@ export default Object.freeze({
     FfiConverterTypeFfiStrengthInsightSeries,
     FfiConverterTypeFfiStrengthSummary,
     FfiConverterTypeFfiSummaryCardData,
-    FfiConverterTypeFfiSupersededEntry,
     FfiConverterTypeFfiSyncErrorReason,
     FfiConverterTypeFfiSyncStatus,
     FfiConverterTypeFfiTimestampRange,
     FfiConverterTypeFfiWeekLoadShape,
     FfiConverterTypeFfiWeeklySummary,
+    FfiConverterTypeFfiWellnessDay,
     FfiConverterTypeFfiWellnessRow,
     FfiConverterTypeFfiWellnessSparklines,
     FfiConverterTypeFfiWidgetSnapshotData,

@@ -1388,7 +1388,17 @@
     "exportPrivacyCount": "Forkorter {{touched}} af {{total}} ture ved {{radius}} m. Intet slettes.",
     "exportPrivacyNothingTrimmed": "Intet beskæres. Eksporter indeholder hele sporet.",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "Tryk på kortet for at flytte hjemmet."
+    "exportPrivacyMoveHint": "Tryk på kortet for at flytte hjemmet.",
+    "previewRouteGrouping": "Forhåndsvis rutegruppering",
+    "groupingMatchShare": "Samme rute hvis {{percent}}% overlapper",
+    "groupingEndsApart": "Samme endepunkter inden for {{distance}}",
+    "groupingRunning": "Grupperer dine ture…",
+    "groupingNothingToGroup": "Ingen ture med spor at gruppere endnu",
+    "groupingSummary": "{{count}} ruter med denne indstilling",
+    "groupingMerged": "{{count}} af dine ruter ville blive slået sammen",
+    "groupingDropped": "{{count}} ville stå alene",
+    "groupingLegendMostRidden": "Mest kørte",
+    "groupingLegendOther": "Andre ruter"
   },
   "stats": {
     "activities": "Aktiviteter",

@@ -3,6 +3,16 @@ export * from './components';
 export * from './hooks';
 export * from './constants';
 export { rescanRefusalKey, type RescanRefusalKey } from './lib/rescanRefusal';
+export {
+  GROUPING_DEFAULTS,
+  GROUPING_PARAM_RANGES,
+  paintPreview,
+  parseGroupingInput,
+  type GroupingParamKey,
+  type GroupingParams,
+  type GroupingPreviewDiff,
+  type PaintedRoute,
+} from './lib/groupingParams';
 export * from './types';
 
 // types.ts and the route-engine hook both declare RouteSignature (full record vs

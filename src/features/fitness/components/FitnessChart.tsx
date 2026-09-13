@@ -123,9 +123,9 @@ export const FitnessChart = React.memo(function FitnessChart({
     let maxFm = 0;
 
     sorted.forEach((day, idx) => {
-      const fitness = Math.round(day.ctl ?? day.ctlLoad ?? 0);
-      const fatigue = Math.round(day.atl ?? day.atlLoad ?? 0);
-      const form = formFromLoads(day.ctl ?? day.ctlLoad, day.atl ?? day.atlLoad);
+      const fitness = Math.round(day.ctl ?? 0);
+      const fatigue = Math.round(day.atl ?? 0);
+      const form = formFromLoads(day.ctl, day.atl);
       // Estimate daily load from the difference in fatigue (rough approximation)
       const load = day.sportInfo?.reduce((sum, s) => sum + (s.load || 0), 0) || 0;
 

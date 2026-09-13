@@ -11,12 +11,13 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { debug } from '@/shared/debug/debug';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
-import { getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
+import { readHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
 import {
   clearTerrainPreviews,
   getTerrainPreviewCacheSize,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { forgetCachedAthleteId, forgetStoredActivityCount } from './cachedAthleteId';
+import { forgetInsightFingerprint } from '@/features/insights/lib/fingerprintStore';
 
 const log = debug.create('GpsStorage');
 
@@ -144,7 +145,7 @@ async function bucketSize(read: () => number | bigint | Promise<number>): Promis
 export async function getAppStorageSize(): Promise<number> {
   const sizes = await Promise.all([
     bucketSize(estimateRoutesDatabaseSize),
-    bucketSize(getHeatmapTilesCacheSize),
+    bucketSize(readHeatmapTilesCacheSize),
     bucketSize(() => {
       // Required lazily, not imported: `veloqrs` reaches the Turbo Module at
       // import time, and this module is imported by cleanup paths that run in
@@ -192,6 +193,8 @@ export async function clearAuthOnly(queryClient: { clear: () => void }): Promise
  * - Persisted query cache in AsyncStorage
  * - Rust engine cache including athlete_profile + sport_settings (engine.clear())
  * - FileSystem GPS tracks, bounds, route names, terrain previews
+ * - The insight fingerprint, whose constant ids would otherwise hide the next
+ *   athlete's own cards from them
  *
  * Does NOT clear:
  * - AuthStore (caller handles this)
@@ -217,6 +220,7 @@ export async function clearAccountData(queryClient: { clear: () => void }): Prom
     clearTerrainPreviews(),
     forgetCachedAthleteId(),
     forgetStoredActivityCount(),
+    forgetInsightFingerprint(),
   ]);
 
   log.log('Cleared all app caches');

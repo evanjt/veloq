@@ -20,6 +20,7 @@ import { awaitActivityBody } from './lib/awaitActivityBody';
 import { writeRouteLineAttachment } from './lib/routeLineImage';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
 import type { WellnessInput } from './lib/computeInsightsData';
+import type { WellnessDay } from 'veloqrs';
 import { wellnessWindow } from './lib/wellnessWindow';
 import {
   filterInsightsForNotificationPreferences,
@@ -359,16 +360,14 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     try {
       const { engine } = require('veloqrs');
       const range = wellnessWindow(new Date(), WELLNESS_WINDOW_DAYS);
-      const bodies: string[] = engine.getWellnessBodies(range.oldest, range.newest);
-      wellnessData = bodies
-        .map((body) => {
-          try {
-            return JSON.parse(body) as WellnessInput;
-          } catch {
-            return null;
-          }
-        })
-        .filter((row): row is WellnessInput => row !== null);
+      wellnessData = engine.getWellnessDays(range.oldest, range.newest).map((day: WellnessDay) => ({
+        id: day.date,
+        ctl: day.ctl,
+        atl: day.atl,
+        hrv: day.hrv,
+        restingHR: day.restingHr,
+        sleepSecs: day.sleepSecs,
+      }));
     } catch (e) {
       log.warn('Could not read wellness data:', e);
     }

@@ -24,7 +24,10 @@ import {
   clearTerrainPreviews,
   getTerrainPreviewCacheSize,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
-import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
+import {
+  HEATMAP_TILES_DIR,
+  readHeatmapTilesCacheSize,
+} from '@/features/maps/hooks/useHeatmapTiles';
 import { getEngine } from '@/shared/native/engine';
 import { useQueryCacheCount } from '../hooks/useQueryCacheCount';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
@@ -67,8 +70,16 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   const [freeStorage, setFreeStorage] = useState<number | null>(null);
 
   useEffect(() => {
+    let live = true;
     getTerrainPreviewCacheSize().then(setTerrainCacheSize);
-    setHeatmapCacheSize(getHeatmapTilesCacheSize());
+    // Walked on a Rust thread and polled: on the mount thread it was 170 ms
+    // for 40,061 tiles, against a 100 ms budget for the whole screen.
+    readHeatmapTilesCacheSize().then((bytes) => {
+      if (live) setHeatmapCacheSize(bytes);
+    });
+    return () => {
+      live = false;
+    };
   }, []);
 
   useEffect(() => {

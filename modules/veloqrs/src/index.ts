@@ -122,6 +122,9 @@ export type {
   PreviewSectionStatus,
 } from './delegates/preview';
 
+// The typed wellness day the fitness and wellness screens read
+export type { WellnessDay, SportLoad } from './delegates/fitness';
+
 // Delegate-shaped bundles returned by the façade
 export type { ActivityHighlightsBundle } from './delegates/activities';
 export type { RouteDetailData } from './delegates/routes';

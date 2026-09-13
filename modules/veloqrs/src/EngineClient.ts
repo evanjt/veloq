@@ -70,6 +70,7 @@ import * as cutoverDelegates from './delegates/cutover';
 import type { CutoverDiff, CutoverProgress } from './delegates/cutover';
 import * as fitnessDelegates from './delegates/fitness';
 import * as previewDelegates from './delegates/preview';
+import * as routeGroupingPreviewDelegates from './delegates/routeGroupingPreview';
 import type {
   PreviewCentre,
   PreviewPollStatus,
@@ -625,6 +626,22 @@ class EngineClient implements DelegateHost {
 
   cancelPreviewDetect = (): void => previewDelegates.cancelPreviewDetect(this);
 
+  startRouteGroupingPreview = (minMatchPercentage: number, endpointThreshold: number): boolean =>
+    routeGroupingPreviewDelegates.startRouteGroupingPreview(
+      this,
+      minMatchPercentage,
+      endpointThreshold
+    );
+
+  pollRouteGroupingPreview = (): routeGroupingPreviewDelegates.RouteGroupingPollStatus =>
+    routeGroupingPreviewDelegates.pollRouteGroupingPreview(this);
+
+  takeRouteGroupingPreviewResult = (): routeGroupingPreviewDelegates.RouteGroupPreview[] | null =>
+    routeGroupingPreviewDelegates.takeRouteGroupingPreviewResult(this);
+
+  cancelRouteGroupingPreview = (): void =>
+    routeGroupingPreviewDelegates.cancelRouteGroupingPreview(this);
+
   setNetworkOnline = (online: boolean): void =>
     connectivityDelegates.setNetworkOnline(this, online);
 
@@ -1074,6 +1091,12 @@ class EngineClient implements DelegateHost {
   getHeatmapCacheSize = (basePath: string): number =>
     heatmapDelegates.getHeatmapCacheSize(this, basePath);
 
+  startHeatmapCacheSize = (basePath: string): void =>
+    heatmapDelegates.startHeatmapCacheSize(this, basePath);
+
+  pollHeatmapCacheSize = (): heatmapDelegates.HeatmapCacheSizePoll =>
+    heatmapDelegates.pollHeatmapCacheSize(this);
+
   /** Clear all heatmap tiles from disk. */
   clearHeatmapTiles = (basePath: string): number =>
     heatmapDelegates.clearHeatmapTiles(this, basePath);
@@ -1162,8 +1185,8 @@ class EngineClient implements DelegateHost {
   upsertWellness = (rows: fitnessDelegates.WellnessRowInput[]): void =>
     fitnessDelegates.upsertWellness(this, rows);
 
-  getWellnessBodies = (oldest: string, newest: string): string[] =>
-    fitnessDelegates.getWellnessBodies(this, oldest, newest);
+  getWellnessDays = (oldest: string, newest: string): fitnessDelegates.WellnessDay[] =>
+    fitnessDelegates.getWellnessDays(this, oldest, newest);
 
   getActivityBody = (activityId: string): string | null =>
     activityDelegates.getActivityBody(this, activityId);

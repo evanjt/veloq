@@ -224,6 +224,31 @@ export interface WellnessRowInput {
   raw?: string;
 }
 
+/** One sport's contribution to a day's load, from the API's `sportInfo`. */
+export interface SportLoad {
+  sportGroup?: string;
+  load?: number;
+}
+
+/** One stored wellness day: every field the screens render, and nothing else. */
+export interface WellnessDay {
+  date: string;
+  ctl?: number;
+  atl?: number;
+  rampRate?: number;
+  hrv?: number;
+  restingHr?: number;
+  weight?: number;
+  sleepSecs?: number;
+  sleepScore?: number;
+  soreness?: number;
+  fatigue?: number;
+  stress?: number;
+  mood?: number;
+  motivation?: number;
+  sportLoad: SportLoad[];
+}
+
 export interface WellnessSparklines {
   fitness: number[];
   fatigue: number[];
@@ -271,19 +296,21 @@ export function upsertWellness(host: DelegateHost, rows: WellnessRowInput[]): vo
 }
 
 /**
- * Untyped wellness bodies over an inclusive date window, oldest first.
+ * Stored wellness days over an inclusive date window, oldest first.
  *
- * The wellness screens read fields the typed row does not model (hrr,
- * hrvSDNN), so they parse these rather than a lossy reconstruction. Days
- * synced before the body column existed are absent rather than partial.
+ * Typed, so nothing parses a body to draw a chart. A day synced before the
+ * body column existed carries its columns and no per-sport breakdown.
  */
-export function getWellnessBodies(host: DelegateHost, oldest: string, newest: string): string[] {
+export function getWellnessDays(host: DelegateHost, oldest: string, newest: string): WellnessDay[] {
   if (!host.ready) return [];
-  return (
-    host.timed('getWellnessBodies', () =>
-      host.engine.fitness().getWellnessBodies(oldest, newest)
-    ) ?? []
-  );
+  const days =
+    host.timed('getWellnessDays', () => host.engine.fitness().getWellnessDays(oldest, newest)) ?? [];
+  // Sleep is an i64 the whole way down and reaches JS as a bigint; every
+  // screen reading it does arithmetic against plain numbers.
+  return days.map((d) => ({
+    ...d,
+    sleepSecs: d.sleepSecs !== undefined ? Number(d.sleepSecs) : undefined,
+  }));
 }
 
 export function getWellnessSparklines(host: DelegateHost, days: number): WellnessSparklines | null {

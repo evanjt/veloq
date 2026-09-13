@@ -72,6 +72,9 @@ pub mod tiles;
 // The Rust-owned basemap tile store: one z/x/y tree per source on disk
 pub mod basemap;
 
+// What an Android push handler with no JavaScript calls, over hand-written JNI
+pub mod push;
+
 /// Captured log lines, for the tests that assert a path says something rather
 /// than dropping silently. The logger is process-wide and the lib tests share
 /// one process, so the buffer is never cleared: a test filters it for a

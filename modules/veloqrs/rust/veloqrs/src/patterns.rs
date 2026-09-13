@@ -700,7 +700,6 @@ fn build_pattern(
         avg_distance_meters: avg_distance as f32,
         frequency_per_month,
         confidence,
-        silhouette_score: cluster.silhouette as f32,
         days_since_last,
     })
 }

@@ -27,9 +27,9 @@ const listeners = new Map<string, Set<Listener>>();
 
 const engine = {
   reads: 0,
-  getWellnessBodies: jest.fn(() => {
+  getWellnessDays: jest.fn(() => {
     engine.reads += 1;
-    return [JSON.stringify({ id: '2026-03-01', ctl: 50 })];
+    return [{ date: '2026-03-01', ctl: 50, sportLoad: [] }];
   }),
   subscribe: jest.fn((event: string, callback: Listener) => {
     const set = listeners.get(event) ?? new Set<Listener>();

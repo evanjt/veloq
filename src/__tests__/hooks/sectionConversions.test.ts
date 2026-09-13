@@ -339,10 +339,9 @@ describe('convertNativeSectionToApp', () => {
 
 // ---------------------------------------------------------------------------
 // One builder per engine record, each spreading rather than listing, so an
-// enrichment column reaches every screen the day it lands. `straightness` is
-// the case in point: it has been on the engine's records with no app field
-// at all, which is what a listed builder does to the fourth column nobody
-// remembered to add.
+// enrichment column reaches every screen the day it lands. `isLift` is the case
+// in point: a listed builder had it on the detail screen and not on the list,
+// which is what listing does to the column nobody remembered to add.
 // ---------------------------------------------------------------------------
 
 describe('every builder carries the enrichment columns', () => {
@@ -351,7 +350,6 @@ describe('every builder carries the enrichment columns', () => {
     elevationLossM: 60.25,
     avgGradePercent: 4.2,
     maxGradePercent: 11.7,
-    straightness: 0.83,
     klass: 'climb',
     isLift: true,
     rankScore: 0.91,

@@ -17,13 +17,6 @@ pub struct FfiBatchTrace {
     pub encoded_coords: Vec<u8>,
 }
 
-/// Entry for importing superseded section mappings from AsyncStorage migration.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiSupersededEntry {
-    pub custom_section_id: String,
-    pub auto_section_ids: Vec<String>,
-}
-
 /// Extension track for expanding section bounds.
 /// Contains the representative activity's full GPS track with section start/end indices.
 #[derive(Debug, Clone, uniffi::Record)]
@@ -313,46 +306,6 @@ pub struct FfiGroupSummariesResult {
 // Route Types
 // ============================================================================
 
-/// Route signature for FFI
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiRouteSignature {
-    pub activity_id: String,
-    pub encoded_points: Vec<u8>,
-    pub total_distance: f64,
-    pub start_point: FfiGpsPoint,
-    pub end_point: FfiGpsPoint,
-    pub bounds: FfiBounds,
-    pub center: FfiGpsPoint,
-}
-
-impl From<tracematch::RouteSignature> for FfiRouteSignature {
-    fn from(s: tracematch::RouteSignature) -> Self {
-        Self {
-            activity_id: s.activity_id,
-            encoded_points: crate::coords::encode(&s.points),
-            total_distance: s.total_distance,
-            start_point: FfiGpsPoint::from(s.start_point),
-            end_point: FfiGpsPoint::from(s.end_point),
-            bounds: FfiBounds::from(s.bounds),
-            center: FfiGpsPoint::from(s.center),
-        }
-    }
-}
-
-impl From<FfiRouteSignature> for tracematch::RouteSignature {
-    fn from(s: FfiRouteSignature) -> Self {
-        Self {
-            activity_id: s.activity_id,
-            points: crate::coords::decode(&s.encoded_points),
-            total_distance: s.total_distance,
-            start_point: tracematch::GpsPoint::from(s.start_point),
-            end_point: tracematch::GpsPoint::from(s.end_point),
-            bounds: tracematch::Bounds::from(s.bounds),
-            center: tracematch::GpsPoint::from(s.center),
-        }
-    }
-}
-
 /// Route group for FFI
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -581,7 +534,6 @@ pub struct FfiSection {
     pub superseded_by: Option<String>,
     pub elevation_loss_m: Option<f64>,
     pub max_grade_percent: Option<f64>,
-    pub straightness: Option<f64>,
     pub klass: Option<String>,
     pub is_lift: bool,
     pub rank_score: Option<f64>,
@@ -612,7 +564,6 @@ impl From<crate::sections::Section> for FfiSection {
             avg_grade_percent: s.avg_grade_percent,
             elevation_loss_m: s.elevation_loss_m,
             max_grade_percent: s.max_grade_percent,
-            straightness: s.straightness,
             klass: s.klass,
             is_lift: s.is_lift,
             rank_score: s.rank_score,
@@ -672,7 +623,6 @@ impl From<&tracematch::FrequentSection> for FfiSection {
             superseded_by: None,
             elevation_loss_m: s.enrichment.elevation_loss_m,
             max_grade_percent: s.enrichment.max_grade_percent,
-            straightness: s.enrichment.straightness,
             klass: s.enrichment.klass.map(|k| k.as_str().to_string()),
             is_lift: s.enrichment.is_lift,
             rank_score: s.rank.as_ref().map(|r| r.score),
@@ -932,7 +882,6 @@ pub struct FfiSectionPerformanceBatchEntry {
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionRecalcResult {
     pub section_id: String,
-    pub polyline_point_count: u32,
     pub distance_meters: f64,
 }
 
@@ -1283,10 +1232,6 @@ pub struct FfiCalendarDirectionBest {
     pub best_activity_id: String,
     /// Name of best activity
     pub best_activity_name: String,
-    /// Unix timestamp of best activity
-    pub best_activity_date: i64,
-    /// True if time was estimated
-    pub is_estimated: bool,
 }
 
 impl From<crate::CalendarDirectionBest> for FfiCalendarDirectionBest {
@@ -1297,8 +1242,6 @@ impl From<crate::CalendarDirectionBest> for FfiCalendarDirectionBest {
             best_pace: d.best_pace,
             best_activity_id: d.best_activity_id,
             best_activity_name: d.best_activity_name,
-            best_activity_date: d.best_activity_date,
-            is_estimated: d.is_estimated,
         }
     }
 }
@@ -1465,6 +1408,43 @@ pub struct FfiWellnessRow {
     pub raw: Option<String>,
 }
 
+/// One sport's contribution to a day's load, as intervals.icu's `sportInfo`
+/// carries it. The fitness chart's daily load bar is the sum of these.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSportLoad {
+    /// The sport the entry stands for, as the API spells it ("Ride", "Run").
+    pub sport_group: Option<String>,
+    pub load: Option<f64>,
+}
+
+/// One stored wellness day, typed. This is what the wellness and fitness
+/// screens read: every field they render, and nothing else.
+///
+/// The untyped body stays in the `raw` column for the Rust-side eFTP
+/// derivation, which reads fields no screen does. It no longer crosses the
+/// FFI, so no screen parses JSON to draw a chart.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiWellnessDay {
+    /// ISO-8601 YYYY-MM-DD
+    pub date: String,
+    pub ctl: Option<f64>,
+    pub atl: Option<f64>,
+    pub ramp_rate: Option<f64>,
+    pub hrv: Option<f64>,
+    pub resting_hr: Option<f64>,
+    pub weight: Option<f64>,
+    pub sleep_secs: Option<i64>,
+    pub sleep_score: Option<f64>,
+    pub soreness: Option<i32>,
+    pub fatigue: Option<i32>,
+    pub stress: Option<i32>,
+    pub mood: Option<i32>,
+    pub motivation: Option<i32>,
+    /// Empty for a day synced before the body column existed, and for a day
+    /// the API sent no per-sport breakdown for.
+    pub sport_load: Vec<FfiSportLoad>,
+}
+
 /// Sparkline payload for the SummaryCard: rounded integer arrays, oldest
 /// first, forward-filled where needed so renderers produce continuous lines.
 /// Empty arrays mean "not enough data" (TS renders `undefined` / skips).
@@ -1519,8 +1499,6 @@ pub struct FfiActivityPattern {
     pub frequency_per_month: f32,
     /// Weighted confidence score (0.0-1.0)
     pub confidence: f32,
-    /// Silhouette score for cluster quality (0.0-1.0)
-    pub silhouette_score: f32,
     /// Days since the most recent activity in this cluster
     pub days_since_last: u32,
 }
@@ -2575,7 +2553,6 @@ pub struct FfiIndexActivitySummary {
     pub matched_sections: u32,
     pub inserted_portions: u32,
     pub regrouped: bool,
-    pub indicators_recomputed: bool,
 }
 
 impl From<crate::sections::IndexActivitySummary> for FfiIndexActivitySummary {
@@ -2584,7 +2561,6 @@ impl From<crate::sections::IndexActivitySummary> for FfiIndexActivitySummary {
             matched_sections: s.matched_sections,
             inserted_portions: s.inserted_portions,
             regrouped: s.regrouped,
-            indicators_recomputed: s.indicators_recomputed,
         }
     }
 }

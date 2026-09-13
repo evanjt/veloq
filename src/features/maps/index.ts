@@ -9,6 +9,9 @@ export {
   type HomeRadiusMapProps,
 } from './components/HomeRadiusMap';
 export type { LngLat } from './lib/coordinates';
+export { EMPTY_FEATURE_COLLECTION, boundsOfLngLat } from './lib/coordinates';
+export { MapSurface, type MapSurfaceRef } from './components';
+export type { MapCameraSpec, MapLayerSpec, MapSourceSpec } from './lib/htmlBuilders';
 export { offlineMapStyle } from './lib/offlineStyleFallback';
 export { getNextStyle } from './components/mapStyles';
 export type { MapStyleType } from './components/mapStyles';

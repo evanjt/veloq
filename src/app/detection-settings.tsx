@@ -103,6 +103,18 @@ export default function DetectionSettingsScreen() {
           </Pressable>
 
           <Pressable
+            style={[styles.previewRow, { backgroundColor: surface, borderColor: border }]}
+            onPress={() => router.push('/route-grouping-preview' as Href)}
+            testID="route-grouping-preview-row"
+          >
+            <MaterialCommunityIcons name="source-branch" size={20} color={textSecondary} />
+            <Text style={[styles.previewRowText, { color: textPrimary }]}>
+              {t('settings.previewRouteGrouping')}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={22} color={textSecondary} />
+          </Pressable>
+
+          <Pressable
             style={[
               styles.rescanBtn,
               isScanning

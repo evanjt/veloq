@@ -89,9 +89,9 @@ export const FormZoneChart = React.memo(function FormZoneChart({
     const sorted = sortByDateId(data);
 
     return sorted.map((day, idx) => {
-      const fitness = Math.round(day.ctl ?? day.ctlLoad ?? 0);
-      const fatigue = Math.round(day.atl ?? day.atlLoad ?? 0);
-      const form = formFromLoads(day.ctl ?? day.ctlLoad, day.atl ?? day.atlLoad);
+      const fitness = Math.round(day.ctl ?? 0);
+      const fatigue = Math.round(day.atl ?? 0);
+      const form = formFromLoads(day.ctl, day.atl);
       return {
         x: idx,
         date: day.id,

@@ -73,9 +73,7 @@ function recentSectionChanges(): SectionChangeInput[] {
 export interface WellnessInput {
   id: string; // date string YYYY-MM-DD
   ctl?: number | null;
-  ctlLoad?: number | null;
   atl?: number | null;
-  atlLoad?: number | null;
   hrv?: number | null;
   restingHR?: number | null;
   sleepSecs?: number | null;
@@ -238,8 +236,8 @@ export function computeInsightsFromData(
     const sortedWellness = [...(wellnessData ?? [])].sort((a, b) => a.id.localeCompare(b.id));
     const latestWellness =
       sortedWellness.length > 0 ? sortedWellness[sortedWellness.length - 1] : null;
-    const ctl = latestWellness?.ctl ?? latestWellness?.ctlLoad ?? 0;
-    const atl = latestWellness?.atl ?? latestWellness?.atlLoad ?? 0;
+    const ctl = latestWellness?.ctl ?? 0;
+    const atl = latestWellness?.atl ?? 0;
     const tsb = ctl - atl;
 
     // Section readiness check - skip when route matching is disabled

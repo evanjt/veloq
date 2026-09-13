@@ -10,9 +10,12 @@ import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectio
  * to the whole PR. `computeSectionPrDelta` applies the same filter to the same
  * records.
  *
- * Direction is deliberately not considered: whether a traversal the other way
- * is comparable at all is an open question, and this answers only the validity
- * of the times.
+ * Only the PR's own direction counts. A personal record here is a beat over
+ * the same section and direction pair, which is what the engine writes in
+ * `persistence/records.rs`, so a traversal the other way is a different
+ * effort however fast it was. `computeSectionPrDelta` filters on the same
+ * field, and the two disagreeing is what let one card name an attempt the
+ * other did not.
  */
 export function findPreviousBest(
   records: SectionPerformanceRecord[],
@@ -23,6 +26,7 @@ export function findPreviousBest(
   let secondBest: SectionPerformanceRecord | null = null;
   for (const r of records) {
     if (r.activityId === bestRecord.activityId) continue;
+    if (r.direction !== bestRecord.direction) continue;
     if (!Number.isFinite(r.bestTime) || r.bestTime <= 0) continue;
     if (!secondBest || r.bestTime < secondBest.bestTime) {
       secondBest = r;

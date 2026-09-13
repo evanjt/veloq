@@ -59,7 +59,6 @@ function makePattern(
     avgDistanceMeters: 40_000,
     frequencyPerMonth: 4,
     confidence,
-    silhouetteScore: 0.7,
     daysSinceLast: 3,
   };
 }

@@ -28,7 +28,7 @@ export interface WellnessStats {
   weightTrend: Trend;
 }
 
-const trainingLoad = (row: WellnessData) => row.ctl ?? row.ctlLoad;
+const trainingLoad = (row: WellnessData) => row.ctl;
 
 function trend(current: number | null, previous: number | null, metric: TrendMetric): Trend {
   if (current == null || previous == null) return undefined;
@@ -45,9 +45,9 @@ export function computeWellnessStats(wellness: WellnessData[] | undefined): Well
   const sorted = wellness ? [...wellness].sort((a, b) => b.id.localeCompare(a.id)) : [];
   const latest = sorted[0];
 
-  const fitness = Math.round(latest?.ctl ?? latest?.ctlLoad ?? 0);
-  const fatigue = Math.round(latest?.atl ?? latest?.atlLoad ?? 0);
-  const form = formFromLoads(latest?.ctl ?? latest?.ctlLoad, latest?.atl ?? latest?.atlLoad);
+  const fitness = Math.round(latest?.ctl ?? 0);
+  const fatigue = Math.round(latest?.atl ?? 0);
+  const form = formFromLoads(latest?.ctl, latest?.atl);
   const hrv = latest?.hrv ?? null;
   const rhr = latest?.restingHR ?? null;
   const weight = latest?.weight ?? null;
@@ -57,9 +57,7 @@ export function computeWellnessStats(wellness: WellnessData[] | undefined): Well
 
   const loadBaseline = on(1, trainingLoad);
   const prevFitness = loadBaseline ? Math.round(trainingLoad(loadBaseline) ?? fitness) : null;
-  const prevFatigue = loadBaseline
-    ? Math.round(loadBaseline.atl ?? loadBaseline.atlLoad ?? fatigue)
-    : null;
+  const prevFatigue = loadBaseline ? Math.round(loadBaseline.atl ?? fatigue) : null;
 
   return {
     fitness,

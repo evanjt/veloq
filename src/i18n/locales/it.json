@@ -1388,7 +1388,17 @@
     "exportPrivacyCount": "Accorcia {{touched}} uscite su {{total}} a {{radius}} m. Non viene eliminato nulla.",
     "exportPrivacyNothingTrimmed": "Non viene accorciato nulla. Gli export contengono la traccia intera.",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "Tocca la mappa per spostare casa."
+    "exportPrivacyMoveHint": "Tocca la mappa per spostare casa.",
+    "previewRouteGrouping": "Anteprima raggruppamento percorsi",
+    "groupingMatchShare": "Stesso percorso se combacia il {{percent}}%",
+    "groupingEndsApart": "Stesse estremità entro {{distance}}",
+    "groupingRunning": "Raggruppamento delle attività…",
+    "groupingNothingToGroup": "Nessuna attività con traccia da raggruppare",
+    "groupingSummary": "{{count}} percorsi con questa impostazione",
+    "groupingMerged": "{{count}} dei tuoi percorsi verrebbero uniti",
+    "groupingDropped": "{{count}} resterebbero da soli",
+    "groupingLegendMostRidden": "Più percorso",
+    "groupingLegendOther": "Altri percorsi"
   },
   "stats": {
     "activities": "Attività",

@@ -61,8 +61,8 @@ export const TodayBanner = React.memo(function TodayBanner({ todayPattern }: Tod
   const latestWellness = wellnessData
     ? [...wellnessData].sort((a, b) => b.id.localeCompare(a.id))[0]
     : null;
-  const ctl = latestWellness?.ctl ?? latestWellness?.ctlLoad ?? 0;
-  const atl = latestWellness?.atl ?? latestWellness?.atlLoad ?? 0;
+  const ctl = latestWellness?.ctl ?? 0;
+  const atl = latestWellness?.atl ?? 0;
   const tsb = ctl - atl;
   const asPercent = useFormPreference((s) => s.formAsPercent) === true;
   const formZone = getFormZone(tsb, ctl, asPercent);

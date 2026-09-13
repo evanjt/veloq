@@ -287,6 +287,16 @@ export interface TranslationResource {
     elevationBackfillResume: string;
     elevationBackfillPaused: string;
     previewSections: string;
+    previewRouteGrouping: string;
+    groupingMatchShare: string;
+    groupingEndsApart: string;
+    groupingRunning: string;
+    groupingNothingToGroup: string;
+    groupingSummary: string;
+    groupingMerged: string;
+    groupingDropped: string;
+    groupingLegendMostRidden: string;
+    groupingLegendOther: string;
     cutoverRebuilding: string;
     cutoverFailed: string;
     cutoverStop: string;

@@ -1388,7 +1388,17 @@
     "exportPrivacyCount": "Raccourcit {{touched}} sorties sur {{total}} à {{radius}} m. Rien n'est supprimé.",
     "exportPrivacyNothingTrimmed": "Rien n'est raccourci. Les exports contiennent la trace complète.",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "Touchez la carte pour déplacer le domicile."
+    "exportPrivacyMoveHint": "Touchez la carte pour déplacer le domicile.",
+    "previewRouteGrouping": "Aperçu du regroupement des parcours",
+    "groupingMatchShare": "Même parcours si {{percent}}% se recoupe",
+    "groupingEndsApart": "Mêmes extrémités à moins de {{distance}}",
+    "groupingRunning": "Regroupement de tes sorties…",
+    "groupingNothingToGroup": "Aucune sortie avec tracé à regrouper",
+    "groupingSummary": "{{count}} parcours avec ce réglage",
+    "groupingMerged": "{{count}} de tes parcours fusionneraient",
+    "groupingDropped": "{{count}} resteraient seuls",
+    "groupingLegendMostRidden": "Le plus parcouru",
+    "groupingLegendOther": "Autres parcours"
   },
   "stats": {
     "activities": "Activités",

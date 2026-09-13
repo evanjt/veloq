@@ -823,6 +823,22 @@ impl Drop for TestCredentials {
     }
 }
 
+/// Set the process-wide credential from a native handler, which reached Rust
+/// without JavaScript and so without `SyncManager`.
+///
+/// Its own function rather than the `SyncManager` method because that method is
+/// part of the UniFFI surface and a JNI caller has no object to call it on. The
+/// method name is the same on purpose: one credential slot, two doors.
+pub fn set_credentials_from_native(
+    method: &str,
+    secret: &str,
+    athlete_id: &str,
+) -> Result<(), String> {
+    let kind = AuthKind::parse(method).ok_or_else(|| format!("unknown auth method: {method}"))?;
+    SYNC_SERVICE.set_credentials(kind, secret.to_string(), athlete_id.to_string());
+    Ok(())
+}
+
 pub fn current_transport() -> Option<Result<Transport, String>> {
     current_session().map(|r| r.map(|(t, _athlete)| t))
 }
@@ -1062,15 +1078,21 @@ async fn sync_activities(
     // The outcome is dropped because the loop's own gate owns the terminal
     // state: an abandoned window is followed by a step check that finishes
     // the job unsuccessfully, so reporting it twice would say nothing new.
-    sync_activity_window(
+    let outcome = sync_activity_window(
         transport,
         athlete_id,
         &oldest.to_string(),
         &newest.to_string(),
         cancelled,
     )
-    .await
-    .map(|_| ())
+    .await?;
+    // After the window, so a page whose metrics write failed a moment ago is
+    // repaired by the same sync rather than by the next one. Nothing was
+    // written for an abandoned window, so there is nothing new to repair.
+    if outcome == WindowOutcome::Stored {
+        repair_missing_activity_metrics().await;
+    }
+    Ok(())
 }
 
 /// One activity's metrics row from the record the page carried. The stats
@@ -1178,11 +1200,95 @@ async fn sync_activity_window(
             log::warn!("[Sync] activity body upsert failed: {}", e);
         }
         if let Err(e) = engine.set_activity_metrics(metrics) {
-            log::warn!("[Sync] activity metrics upsert failed: {}", e);
+            metrics_write_failed(&e);
         }
     })
     .await;
     Ok(WindowOutcome::Stored)
+}
+
+/// How many page metrics writes have failed this session.
+///
+/// The page write warns and carries on rather than failing, so before this
+/// counter nothing said whether the loss ever happens in the field. The
+/// running total rides on the warning, which is the only reader outside the
+/// test that proves it moves.
+static METRICS_WRITES_FAILED: AtomicU64 = AtomicU64::new(0);
+
+/// The count of page metrics writes that failed this session.
+#[cfg(test)]
+pub(crate) fn metrics_writes_failed() -> u64 {
+    METRICS_WRITES_FAILED.load(Ordering::Relaxed)
+}
+
+/// Record a page whose metrics write failed while its bodies landed.
+fn metrics_write_failed(e: &rusqlite::Error) {
+    let total = METRICS_WRITES_FAILED.fetch_add(1, Ordering::Relaxed) + 1;
+    log::warn!("[Sync] activity metrics upsert failed ({total} this session): {e}");
+}
+
+/// Fill the metrics rows of activities that hold a body and nothing else, and
+/// answer how many were written.
+///
+/// `sync_activity_window` writes both tables in one closure and warns rather
+/// than failing when the metrics half does not land, so an activity can keep
+/// its body and lose its row. It is then absent from every aggregate reading
+/// `activity_metrics`, which is the whole Health tab, until a later window
+/// happens to carry it again. The body is the payload the row was built from,
+/// so the repair needs no network.
+///
+/// Once per sync, not once per page: the ordinary answer is an empty list, and
+/// the TypeScript pass this replaces read every stored id back over the FFI on
+/// every `activities` announcement and filtered a whole-library parsed array
+/// against it.
+async fn repair_missing_activity_metrics() -> usize {
+    let orphans = crate::persistence::with_persistent_engine_blocking(|engine| {
+        engine.activity_bodies_without_metrics()
+    })
+    .await
+    .and_then(|r| r.ok())
+    .unwrap_or_default();
+    if orphans.is_empty() {
+        return 0;
+    }
+
+    let mut metrics = Vec::with_capacity(orphans.len());
+    for (activity_id, date, raw) in orphans {
+        // One unreadable payload is not the sweep's problem: failing here
+        // would leave every other activity out of the Health tab.
+        let Ok(mut record) = serde_json::from_str::<ActivityRecord>(&raw) else {
+            log::warn!("[Sync] metrics repair could not read the body for {activity_id}");
+            continue;
+        };
+        // The body is keyed by the local id, and the payload carries the
+        // intervals one. They differ for an activity the device minted and
+        // later uploaded, and the row belongs to the key.
+        record.id = activity_id;
+        metrics.push(activity_metrics_row(record, date));
+    }
+    if metrics.is_empty() {
+        return 0;
+    }
+
+    let filled = metrics.len();
+    let stored = crate::persistence::with_persistent_engine_blocking(move |engine| {
+        engine.set_activity_metrics(metrics)
+    })
+    .await;
+    match stored {
+        Some(Ok(())) => {
+            // No announcement of its own: the repair runs inside the activity
+            // step, and `sync_settled` at the end of the job is what wakes the
+            // screens that read `activity_metrics`.
+            log::info!("[Sync] metrics repair filled {filled} activities");
+            filled
+        }
+        Some(Err(e)) => {
+            metrics_write_failed(&e);
+            0
+        }
+        None => 0,
+    }
 }
 
 /// Midnight for a YYYY-MM-DD day, as epoch seconds.
@@ -3884,5 +3990,162 @@ mod write_auth_tests {
         profile.assert();
         assert_ne!(SYNC_SERVICE.snapshot().state, SyncState::AuthExpired);
         restore_service();
+    }
+}
+
+#[cfg(test)]
+mod metrics_repair_tests {
+    use super::*;
+    use crate::test_globals::serial_global_state;
+    use serde_json::json;
+
+    /// Scenario: `sync_activity_window` writes the bodies and the metrics rows
+    /// in one closure and only warns when the metrics write fails, so an
+    /// activity can end up with a body and no metrics row. It is then absent
+    /// from every aggregate that reads `activity_metrics`, which is the whole
+    /// Health tab.
+    ///
+    /// Expected behaviour: the repair reads the bodies nothing holds metrics
+    /// for and fills them from the stored payload, once per sync.
+    #[test]
+    fn a_body_stored_without_its_metrics_is_repaired_from_the_payload() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("metrics_repair.db");
+        let raw = json!({
+            "id": "i-77",
+            "name": "Morning Ride",
+            "type": "Ride",
+            "start_date_local": "2026-01-02T08:00:00",
+            "distance": 24_000.0,
+            "moving_time": 3_600,
+            "elapsed_time": 3_900,
+            "total_elevation_gain": 310.0,
+            "average_heartrate": 142.4,
+            "icu_average_watts": 187.6,
+            "icu_training_load": 62.0,
+        })
+        .to_string();
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .upsert_activity_bodies(&[("a77".to_string(), 1_767_340_800, raw)])
+                .expect("body");
+        })
+        .expect("engine");
+
+        let filled = crate::runtime::block_on(repair_missing_activity_metrics());
+
+        assert_eq!(filled, 1, "the one body with no metrics row");
+        let row = crate::persistence::with_persistent_engine(|engine| {
+            engine.activity_metrics.get("a77").cloned()
+        })
+        .expect("engine")
+        .expect("the repaired row");
+        // Keyed by the row the body is stored under, not by the id inside the
+        // payload: `sync_activity_window` remaps an uploaded activity's id to
+        // the local key before it writes either table.
+        assert_eq!(row.activity_id, "a77");
+        assert_eq!(row.name, "Morning Ride");
+        assert_eq!(row.date, 1_767_340_800);
+        assert_eq!(row.moving_time, 3_600);
+        assert_eq!(row.avg_hr, Some(142));
+        assert_eq!(row.avg_power, Some(188));
+        assert_eq!(row.training_load, Some(62.0));
+    }
+
+    /// A body that already has its metrics row is not rewritten. The repair
+    /// runs on every sync, so a pass that rewrote the whole library would pay
+    /// a full `activity_metrics` transaction each time.
+    #[test]
+    fn the_repair_leaves_a_body_that_already_has_its_metrics_alone() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("metrics_repair_noop.db");
+        let raw = json!({
+            "id": "a78",
+            "name": "From the payload",
+            "start_date_local": "2026-01-02T08:00:00",
+        })
+        .to_string();
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .upsert_activity_bodies(&[("a78".to_string(), 1_767_340_800, raw)])
+                .expect("body");
+            engine
+                .set_activity_metrics(vec![activity_metrics_row(
+                    serde_json::from_value(json!({"id": "a78", "name": "Already stored"}))
+                        .expect("record"),
+                    1_767_340_800,
+                )])
+                .expect("metrics");
+        })
+        .expect("engine");
+
+        let filled = crate::runtime::block_on(repair_missing_activity_metrics());
+
+        assert_eq!(filled, 0, "nothing is missing its metrics row");
+        let row = crate::persistence::with_persistent_engine(|engine| {
+            engine.activity_metrics.get("a78").cloned()
+        })
+        .expect("engine")
+        .expect("the row it already had");
+        assert_eq!(row.name, "Already stored");
+    }
+
+    /// A body that cannot be parsed back into a record is skipped and the rest
+    /// of the sweep still lands. Failing the sweep on one unreadable payload
+    /// would leave every other activity absent from the Health tab.
+    #[test]
+    fn an_unreadable_body_does_not_cost_the_sweep_the_rest() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("metrics_repair_junk.db");
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .upsert_activity_bodies(&[
+                    ("a79".to_string(), 1_767_340_800, "not json".to_string()),
+                    (
+                        "a80".to_string(),
+                        1_767_340_800,
+                        json!({"id": "a80", "name": "Readable"}).to_string(),
+                    ),
+                ])
+                .expect("bodies");
+        })
+        .expect("engine");
+
+        let filled = crate::runtime::block_on(repair_missing_activity_metrics());
+
+        assert_eq!(filled, 1, "the readable one");
+        let row = crate::persistence::with_persistent_engine(|engine| {
+            engine.activity_metrics.get("a80").cloned()
+        })
+        .expect("engine")
+        .expect("the readable row");
+        assert_eq!(row.name, "Readable");
+    }
+    /// The page write warns and carries on rather than failing, so nothing said
+    /// whether the loss happens in the field. The counter on the warning is
+    /// what says, and the repair runs on the rows it leaves behind.
+    #[test]
+    fn a_failed_page_metrics_write_is_counted() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("metrics_write_failure.db");
+        let before = metrics_writes_failed();
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .db
+                .execute_batch("DROP TABLE activity_metrics")
+                .expect("drop the table the write needs");
+            let row = activity_metrics_row(
+                serde_json::from_value(json!({"id": "a81"})).expect("record"),
+                1_767_340_800,
+            );
+            if let Err(e) = engine.set_activity_metrics(vec![row]) {
+                metrics_write_failed(&e);
+            } else {
+                panic!("the write must fail with the table gone");
+            }
+        })
+        .expect("engine");
+
+        assert_eq!(metrics_writes_failed(), before + 1);
     }
 }

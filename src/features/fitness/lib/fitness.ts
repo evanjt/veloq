@@ -4,14 +4,13 @@ import { colors } from '@/theme/colors';
 import { tsbFromLoads } from '@/shared/math';
 
 /**
- * Calculate TSB (Form) per day from wellness data, for chart rendering.
- * Handles both field name variants (ctl/atl and ctlLoad/atlLoad). A day missing
- * either load renders as 0 rather than a distorted -atl.
+ * Calculate TSB (Form) per day from wellness data, for chart rendering. A day
+ * missing either load renders as 0 rather than a distorted -atl.
  */
 export function calculateTSB(wellness: WellnessData[]): (WellnessData & { tsb: number })[] {
   return wellness.map((day) => ({
     ...day,
-    tsb: tsbFromLoads(day.ctl ?? day.ctlLoad, day.atl ?? day.atlLoad) ?? 0,
+    tsb: tsbFromLoads(day.ctl, day.atl) ?? 0,
   }));
 }
 

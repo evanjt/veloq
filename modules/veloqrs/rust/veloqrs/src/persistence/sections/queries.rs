@@ -408,7 +408,6 @@ impl PersistentEngine {
                 avg_grade_percent: row.get(18)?,
                 elevation_loss_m: row.get(19)?,
                 max_grade_percent: row.get(20)?,
-                straightness: row.get(21)?,
                 klass: row.get(22)?,
                 is_lift: row.get::<_, Option<i32>>(23)?.unwrap_or(0) != 0,
                 rank_score: row.get(24)?,

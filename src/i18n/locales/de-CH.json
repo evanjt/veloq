@@ -1388,7 +1388,17 @@
     "exportPrivacyCount": "Kürzt {{touched}} von {{total}} Fahrten bei {{radius}} m. Es wird nichts gelöscht.",
     "exportPrivacyNothingTrimmed": "Es wird nichts gekürzt. Exporte enthalten den vollständigen Track.",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "Tippe auf die Karte, um das Zuhause zu verschieben."
+    "exportPrivacyMoveHint": "Tippe auf die Karte, um das Zuhause zu verschieben.",
+    "previewRouteGrouping": "Routengruppierung testen",
+    "groupingMatchShare": "Gleiche Route bei {{percent}}% Überlappung",
+    "groupingEndsApart": "Gleiche Enden innerhalb von {{distance}}",
+    "groupingRunning": "Deine Touren werden gruppiert…",
+    "groupingNothingToGroup": "Noch keine Touren mit Track zum Gruppieren",
+    "groupingSummary": "{{count}} Routen mit dieser Einstellung",
+    "groupingMerged": "{{count}} deiner Routen würden zusammengeführt",
+    "groupingDropped": "{{count}} blieben allein",
+    "groupingLegendMostRidden": "Am häufigsten gefahren",
+    "groupingLegendOther": "Andere Routen"
   },
   "stats": {
     "activities": "Aktivitäte",

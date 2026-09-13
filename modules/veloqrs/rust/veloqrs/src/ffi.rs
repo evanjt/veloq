@@ -104,12 +104,6 @@ pub struct FetchAndStoreResult {
     pub success_count: u32,
     /// Total GPS points stored
     pub total_points: u32,
-    /// Time to fetch all GPS data (ms)
-    pub fetch_time_ms: u32,
-    /// Time to store in SQLite (ms)
-    pub storage_time_ms: u32,
-    /// Total thread time (ms)
-    pub total_time_ms: u32,
 }
 
 /// Sport type mapping for activities.
@@ -394,9 +388,6 @@ pub fn start_fetch_and_store(
                 total: activity_count as u32,
                 success_count: 0,
                 total_points: 0,
-                fetch_time_ms: 0,
-                storage_time_ms: 0,
-                total_time_ms: 0,
             },
         );
         return run;
@@ -686,9 +677,7 @@ pub fn start_fetch_and_store(
             total_points,
             elapsed_ms(storage_start)
         );
-        let fetch_time = elapsed_ms(fetch_start) as u32;
-        let storage_time = elapsed_ms(storage_start) as u32;
-        let total_time = elapsed_ms(thread_start) as u32;
+        let total_time = elapsed_ms(thread_start);
 
         // Spawn background heatmap tile generation with the new GPS data
         if success_count > 0 {
@@ -714,9 +703,6 @@ pub fn start_fetch_and_store(
                 total,
                 success_count,
                 total_points: total_points as u32,
-                fetch_time_ms: fetch_time,
-                storage_time_ms: storage_time,
-                total_time_ms: total_time,
             },
         );
 
@@ -1099,11 +1085,15 @@ pub fn get_cutover_diff() -> Option<String> {
 pub fn fetch_and_index_activity(
     activity_id: String,
     sport_type: String,
-) -> Result<crate::FfiIndexActivitySummary, String> {
+) -> Result<crate::FfiIndexActivitySummary, crate::VeloqError> {
     init_logging();
     let started = Instant::now();
 
-    let fetcher = crate::http::ActivityFetcher::from_credentials()?;
+    let fetcher = crate::http::ActivityFetcher::from_credentials().map_err(|msg| {
+        crate::VeloqError::NotFound {
+            msg: format!("credentials: {}", msg),
+        }
+    })?;
 
     // One id, and narrow: the extra series a wide fetch brings are for the
     // chart screens, and this call is paying a push's budget for a track and
@@ -1113,16 +1103,19 @@ pub fn fetch_and_index_activity(
         Default::default(),
         None,
     ));
-    let result = results
-        .pop()
-        .ok_or_else(|| format!("no result for {}", activity_id))?;
+    let result = results.pop().ok_or_else(|| crate::VeloqError::NotFound {
+        msg: format!("no result for {}", activity_id),
+    })?;
 
-    let coords = match usable_track(&result) {
-        Ok(coords) => coords,
-        Err(TrackRefusal::Fetch(e)) => return Err(e),
-        Err(TrackRefusal::NoTrack) => return Err("no track".to_string()),
-        Err(TrackRefusal::TooShort) => return Err("track too short".to_string()),
-    };
+    // Every refusal is the same answer to the caller, there is no track to
+    // index, and the message is which of the four it was.
+    let coords = usable_track(&result).map_err(|refusal| crate::VeloqError::NotFound {
+        msg: match refusal {
+            TrackRefusal::Fetch(e) => e,
+            TrackRefusal::NoTrack => "no track".to_string(),
+            TrackRefusal::TooShort => "track too short".to_string(),
+        },
+    })?;
 
     let point_count = coords.len();
     let (stored, _attached) = store_downloaded_track(
@@ -1133,14 +1126,16 @@ pub fn fetch_and_index_activity(
         &result.times,
     );
     if !stored {
-        return Err("store failed".to_string());
+        return Err(crate::VeloqError::Database {
+            msg: format!("store failed for {}", activity_id),
+        });
     }
 
     let summary = crate::persistence::with_persistent_engine(|engine| {
         engine.index_new_activity(&activity_id)
     })
-    .ok_or_else(|| "no engine".to_string())?
-    .map_err(|e| e)?;
+    .ok_or(crate::VeloqError::NotInitialized)?
+    .map_err(|msg| crate::VeloqError::Database { msg })?;
 
     info!(
         "[RUST: fetch_and_index_activity] {} ({} points) in {} ms",
@@ -1540,9 +1535,6 @@ mod fetch_and_store_results {
             total: 1,
             success_count: 1,
             total_points: 100,
-            fetch_time_ms: 1,
-            storage_time_ms: 1,
-            total_time_ms: 2,
         }
     }
 

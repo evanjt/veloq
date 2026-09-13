@@ -669,15 +669,40 @@ fn apply_on_worker(
 }
 
 /// Announces the end of a detection run to the observer, whatever the run's
-/// outcome. Held by the worker and dropped last, so the sender is already
-/// gone when the notice lands and the poll behind it reads a result or a dead
-/// worker rather than "running". A run that ends without announcing leaves
-/// the bar frozen where it stood: `Died` is only ever visible to a drain, and
-/// the screens no longer tick one.
-struct DetectionEnded;
+/// outcome, once the senders it holds are gone. The poll behind the notice
+/// then reads a result or a dead worker rather than "running". A run that
+/// ends without announcing leaves the bar frozen where it stood: `Died` is
+/// only ever visible to a drain, and the screens no longer tick one.
+///
+/// It holds the senders rather than relying on being declared before them.
+/// A sender the worker closure captures belongs to the closure environment,
+/// and the environment drops after every body local, so a guard written as
+/// the first local drops *first*, not last: the notice went out with the
+/// channel still connected, the follower's one poll read `Running`, and the
+/// handle stayed installed until relaunch. Holding them makes the order
+/// structural, so no later edit can put it back.
+struct DetectionEnded<S> {
+    senders: Option<S>,
+}
 
-impl Drop for DetectionEnded {
+impl<S> DetectionEnded<S> {
+    fn holding(senders: S) -> Self {
+        Self {
+            senders: Some(senders),
+        }
+    }
+
+    /// The senders, for as long as the run is still going.
+    fn senders(&self) -> &S {
+        self.senders
+            .as_ref()
+            .expect("senders are taken only by drop")
+    }
+}
+
+impl<S> Drop for DetectionEnded<S> {
     fn drop(&mut self) {
+        drop(self.senders.take());
         crate::objects::observer::notify(|o| o.detection_applied());
     }
 }
@@ -927,14 +952,14 @@ impl PersistentEngine {
                     let flag = Arc::clone(flag);
                     let echo_progress = progress.clone();
                     thread::spawn(move || {
-                        // First local, so it drops after `tx`: the notice
-                        // lands once the outcome is readable.
-                        let _ended = DetectionEnded;
+                        // The guard holds the sender, so the notice lands
+                        // once the outcome is readable.
+                        let ended = DetectionEnded::holding(tx);
                         echo_progress.set_phase("saving", 1);
                         if apply_on_worker(sections_copy, None, &all_ids, &echo_progress) {
                             flag.store(true, Ordering::SeqCst);
                         }
-                        tx.send((Vec::new(), Vec::new())).ok();
+                        ended.senders().send((Vec::new(), Vec::new())).ok();
                     });
                 }
                 None => {
@@ -993,10 +1018,10 @@ impl PersistentEngine {
 
         DETECTION_WORKERS_STARTED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         thread::spawn(move || {
-            // First local, so it drops after `tx` and `cache_tx`: whether the
-            // run applied, aborted or panicked, the notice lands after the
-            // outcome the poll behind it will read.
-            let _ended = DetectionEnded;
+            // The guard holds both senders, so whether the run applied,
+            // aborted or panicked the notice lands after the outcome the poll
+            // behind it will read.
+            let ended = DetectionEnded::holding((tx, cache_tx));
             log::info!(
                 "veloqrs: [SectionDetection] Background thread started with {} activity IDs",
                 ids_to_load.len()
@@ -1010,7 +1035,7 @@ impl PersistentEngine {
                 }
                 Err(e) => {
                     log::info!("veloqrs: [SectionDetection] Failed to open DB: {:?}", e);
-                    tx.send((Vec::new(), Vec::new())).ok();
+                    ended.senders().0.send((Vec::new(), Vec::new())).ok();
                     return;
                 }
             };
@@ -1131,7 +1156,7 @@ impl PersistentEngine {
             if tracks.is_empty() {
                 log::info!("veloqrs: [SectionDetection] No tracks loaded, skipping detection");
                 progress_clone.set_phase("complete", 0);
-                tx.send((Vec::new(), all_activity_ids)).ok();
+                ended.senders().0.send((Vec::new(), all_activity_ids)).ok();
                 return;
             }
 
@@ -1277,14 +1302,18 @@ impl PersistentEngine {
                         ) {
                             flag.store(true, Ordering::SeqCst);
                         }
-                        tx.send((Vec::new(), Vec::new())).ok();
+                        ended.senders().0.send((Vec::new(), Vec::new())).ok();
                     }
                     // Ship the cache update BEFORE the main result. `recv`/`poll_state`
                     // on the main channel is the caller's signal to `take_cache`, so
                     // sending the cache first guarantees it is present by then.
                     None => {
-                        cache_tx.send(update).ok();
-                        tx.send((sections_to_send, all_activity_ids)).ok();
+                        ended.senders().1.send(update).ok();
+                        ended
+                            .senders()
+                            .0
+                            .send((sections_to_send, all_activity_ids))
+                            .ok();
                     }
                 }
             }
@@ -1853,8 +1882,9 @@ mod tests {
         let recorder = Recorder::new();
         set_observer(Some(recorder.clone()));
 
-        let worker = thread::spawn(|| {
-            let _ended = DetectionEnded;
+        let (tx, _rx) = std::sync::mpsc::channel::<()>();
+        let worker = thread::spawn(move || {
+            let _ended = DetectionEnded::holding(tx);
             panic!("the detector fell over");
         });
         assert!(worker.join().is_err(), "the worker panicked");
@@ -1869,6 +1899,12 @@ mod tests {
 
     /// The notice must not outrun the outcome: a subscriber that only polls
     /// on the event has one chance to read it.
+    ///
+    /// Written in the shape the workers actually have. A sender the closure
+    /// captures is part of the environment, and an environment drops after
+    /// every body local, so a guard declared first drops *before* it. Binding
+    /// `tx` to a local of its own was what made this pass while the workers it
+    /// stands for were the other way round.
     #[test]
     fn the_notice_lands_after_the_sender_is_gone() {
         let _guard = serial_global_state();
@@ -1877,8 +1913,7 @@ mod tests {
 
         let (tx, rx) = std::sync::mpsc::channel::<()>();
         thread::spawn(move || {
-            let _ended = DetectionEnded;
-            let _tx = tx;
+            let _ended = DetectionEnded::holding(tx);
         })
         .join()
         .expect("worker");
@@ -1892,6 +1927,118 @@ mod tests {
             "the sender is already gone when the notice lands"
         );
         set_observer(None);
+    }
+
+    /// Scenario: a run that returns early, which a cancel and a panic both
+    /// do, announced `detection_applied` with the channel still connected.
+    /// The follower polls once on that event, read `Running`, and nothing
+    /// polled again: the spinner ran to its 420 s deadline and the handle
+    /// stayed installed, so every later start answered Busy until relaunch.
+    ///
+    /// Expected behaviour: the channel is already disconnected at the moment
+    /// the notice lands, whichever way the body left. The observer is what
+    /// reads it, because the end state after the thread joins is the same
+    /// either way and says nothing about the order.
+    #[test]
+    fn a_run_that_returns_early_closes_its_channel_before_it_announces() {
+        for early in [true, false] {
+            let _guard = serial_global_state();
+            let (tx, rx) = std::sync::mpsc::channel::<()>();
+            let (cache_tx, cache_rx) = std::sync::mpsc::channel::<()>();
+            let seen = ChannelAtNotice::new(rx, cache_rx);
+            set_observer(Some(seen.clone()));
+
+            thread::spawn(move || {
+                let ended = DetectionEnded::holding((tx, cache_tx));
+                if early {
+                    return;
+                }
+                ended.senders().0.send(()).ok();
+                ended.senders().1.send(()).ok();
+            })
+            .join()
+            .expect("worker");
+
+            set_observer(None);
+            assert_eq!(
+                seen.result_disconnected(),
+                Some(true),
+                "the result sender is gone when the notice lands, early={early}"
+            );
+            assert_eq!(
+                seen.cache_disconnected(),
+                Some(true),
+                "the cache sender is gone when the notice lands, early={early}"
+            );
+        }
+    }
+
+    /// An observer that reads both channels the instant the run announces its
+    /// end, which is the only moment the order is visible. A result already
+    /// sent is drained first: what must never happen is a poll that reads
+    /// neither a result nor a dead worker, which is what `Empty` means.
+    use std::sync::Mutex;
+
+    struct ChannelAtNotice {
+        results: Mutex<std::sync::mpsc::Receiver<()>>,
+        cache: Mutex<std::sync::mpsc::Receiver<()>>,
+        result_gone: Mutex<Option<bool>>,
+        cache_gone: Mutex<Option<bool>>,
+    }
+
+    impl ChannelAtNotice {
+        fn new(
+            results: std::sync::mpsc::Receiver<()>,
+            cache: std::sync::mpsc::Receiver<()>,
+        ) -> Arc<Self> {
+            Arc::new(Self {
+                results: Mutex::new(results),
+                cache: Mutex::new(cache),
+                result_gone: Mutex::new(None),
+                cache_gone: Mutex::new(None),
+            })
+        }
+
+        fn result_disconnected(&self) -> Option<bool> {
+            *self.result_gone.lock().unwrap_or_else(|e| e.into_inner())
+        }
+
+        fn cache_disconnected(&self) -> Option<bool> {
+            *self.cache_gone.lock().unwrap_or_else(|e| e.into_inner())
+        }
+    }
+
+    fn drained_to_disconnected(rx: &std::sync::mpsc::Receiver<()>) -> bool {
+        loop {
+            match rx.try_recv() {
+                Ok(()) => continue,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => return true,
+                Err(std::sync::mpsc::TryRecvError::Empty) => return false,
+            }
+        }
+    }
+
+    impl crate::objects::observer::EngineObserver for ChannelAtNotice {
+        fn sync_progress(&self) {}
+        fn sync_settled(&self) {}
+        fn body_stored(&self, _kind: String, _activity_id: String) {}
+        fn time_streams_stored(&self, _activity_ids: Vec<String>) {}
+        fn gps_track_stored(&self, _activity_id: String) {}
+        fn fit_parsed(&self, _activity_id: String) {}
+        fn tiles_generated(&self) {}
+        fn backfill_phase(&self, _phase: String) {}
+        fn cutover_settled(&self) {}
+        fn preview_phase(&self, _phase: String) {}
+        fn preview_finished(&self) {}
+
+        fn detection_applied(&self) {
+            *self.result_gone.lock().unwrap_or_else(|e| e.into_inner()) = Some(
+                drained_to_disconnected(&self.results.lock().unwrap_or_else(|e| e.into_inner())),
+            );
+            *self.cache_gone.lock().unwrap_or_else(|e| e.into_inner()) = Some(
+                drained_to_disconnected(&self.cache.lock().unwrap_or_else(|e| e.into_inner())),
+            );
+        }
     }
 
     fn group(id: &str, members: &[&str]) -> RouteGroup {

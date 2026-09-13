@@ -6,7 +6,6 @@ import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/engine';
 import { engine, hasStarted } from 'veloqrs';
-import { hasMetricsRow, toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 import type { Activity } from '@/types';
@@ -133,24 +132,6 @@ export function useRouteDataSync(
               `${totalGps} with GPS, ${withGps.length} new to sync, ` +
               `${engineActivityIds.size} already in engine, isDemo: ${isDemo}`
           );
-        }
-
-        // Sync metrics only for activities not already in the engine.
-        // Uses metric IDs (all activities) not GPS activity IDs (GPS-only) to avoid
-        // re-writing indoor/non-GPS activities on every startup.
-        const cachedMetricIds = new Set(nativeModule.engine.getActivityMetricIds());
-        const newActivities = activitiesToSync.filter((a) => !cachedMetricIds.has(a.id));
-        if (__DEV__) {
-          log.log(
-            `[RouteDataSync] Metrics: ${cachedMetricIds.size} cached, ${newActivities.length} new`
-          );
-        }
-        if (newActivities.length > 0) {
-          const newMetrics = newActivities.filter(hasMetricsRow).map(toActivityMetrics);
-          if (newMetrics.length > 0) {
-            nativeModule.engine.setActivityMetrics(newMetrics);
-            engine.triggerRefresh('activities');
-          }
         }
 
         // Offline only the fetching half has nothing to do. The seeding, the

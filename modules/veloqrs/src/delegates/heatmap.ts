@@ -55,13 +55,52 @@ export function cancelHeatmapWork(host: DelegateHost): boolean {
   }
 }
 
-/** Get total size of heatmap tile cache in bytes (fast native scan). */
+/**
+ * Get total size of heatmap tile cache in bytes (fast native scan).
+ *
+ * Blocking, and linear in cached tiles: 40,061 of them measured 170 ms on the
+ * CPH2653, past the 100 ms a mount has for the whole screen. Anything on a
+ * mount path uses `startHeatmapCacheSize` and `pollHeatmapCacheSize`.
+ */
 export function getHeatmapCacheSize(host: DelegateHost, basePath: string): number {
   if (!host.ready) return 0;
-  const normalizedPath = basePath.startsWith('file://') ? basePath.slice(7) : basePath;
   return Number(
-    host.timed('getHeatmapCacheSize', () => host.engine.heatmap().getCacheSize(normalizedPath))
+    host.timed('getHeatmapCacheSize', () =>
+      host.engine.heatmap().getCacheSize(nativePath(basePath))
+    )
   );
+}
+
+/**
+ * Start the cache-size walk on its own thread. Poll it with
+ * `pollHeatmapCacheSize`.
+ *
+ * Starting one while a walk is already running joins that walk rather than
+ * beginning a second, so three mount effects asking at once cost one pass.
+ */
+export function startHeatmapCacheSize(host: DelegateHost, basePath: string): void {
+  if (!host.ready) return;
+  host.timed('startHeatmapCacheSize', () =>
+    host.engine.heatmap().startCacheSize(nativePath(basePath))
+  );
+}
+
+/** What one poll of the walk says. `bytes` is meaningful only when complete. */
+export interface HeatmapCacheSizePoll {
+  state: 'idle' | 'running' | 'complete';
+  bytes: number;
+}
+
+/** Poll the running cache-size walk. */
+export function pollHeatmapCacheSize(host: DelegateHost): HeatmapCacheSizePoll {
+  if (!host.ready) return { state: 'idle', bytes: 0 };
+  const poll = host.timed('pollHeatmapCacheSize', () => host.engine.heatmap().pollCacheSize());
+  return { state: poll.state as HeatmapCacheSizePoll['state'], bytes: Number(poll.bytes) };
+}
+
+/** Rust wants a filesystem path, and expo hands out `file://` URLs. */
+function nativePath(basePath: string): string {
+  return basePath.startsWith('file://') ? basePath.slice(7) : basePath;
 }
 
 /** Clear all heatmap tiles from disk. */

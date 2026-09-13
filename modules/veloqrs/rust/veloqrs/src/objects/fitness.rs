@@ -295,16 +295,16 @@ impl FitnessManager {
         })?
     }
 
-    /// Untyped wellness bodies over an inclusive date window, oldest first.
-    /// The wellness screens read fields the typed row does not model, so they
-    /// parse these rather than a reconstruction.
-    fn get_wellness_bodies(
+    /// Stored wellness days over an inclusive date window, oldest first.
+    /// Typed: every field the wellness and fitness screens render, so nothing
+    /// parses a body to draw a chart.
+    fn get_wellness_days(
         &self,
         oldest: String,
         newest: String,
-    ) -> Result<Vec<String>, VeloqError> {
+    ) -> Result<Vec<crate::FfiWellnessDay>, VeloqError> {
         with_engine(|e| {
-            e.get_wellness_bodies(&oldest, &newest)
+            e.get_wellness_days(&oldest, &newest)
                 .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
                 })

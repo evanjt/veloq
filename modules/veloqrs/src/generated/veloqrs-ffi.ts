@@ -551,7 +551,7 @@ interface NativeModuleInterface {
     weekLengthSecs: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_bodies(
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_days(
     ptr: bigint,
     oldest: Uint8Array,
     newest: Uint8Array,
@@ -1626,9 +1626,18 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_heatmapmanager_poll_cache_size(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
     ptr: bigint,
     path: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_heatmapmanager_start_cache_size(
+    ptr: bigint,
+    basePath: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_func_cancel_detector_cutover(
@@ -1637,6 +1646,11 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_cancel_fetch_and_store(
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_func_fetch_and_index_activity(
+    activityId: Uint8Array,
+    sportType: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_get_change_card_support(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -1855,6 +1869,7 @@ interface NativeModuleInterface {
   ): void;
   ubrn_uniffi_veloqrs_checksum_func_cancel_detector_cutover(): number;
   ubrn_uniffi_veloqrs_checksum_func_cancel_fetch_and_store(): number;
+  ubrn_uniffi_veloqrs_checksum_func_fetch_and_index_activity(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_change_card_support(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_cutover_diff(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_cutover_progress(): number;
@@ -1973,7 +1988,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_week_load_shape(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_weekly_summaries(): number;
-  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_bodies(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_days(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_sparklines(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_widget_snapshot(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution(): number;
@@ -2151,7 +2166,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll(): number;
+  ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll_cache_size(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(): number;
+  ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_start_cache_size(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_activitymanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_basemapmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_detectionmanager_new(): number;

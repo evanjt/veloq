@@ -1388,7 +1388,17 @@
     "exportPrivacyCount": "{{radius}} m で {{total}} 件中 {{touched}} 件のライドを短縮します。削除はされません。",
     "exportPrivacyNothingTrimmed": "短縮しません。エクスポートには全トラックが含まれます。",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "地図をタップして自宅を移動します。"
+    "exportPrivacyMoveHint": "地図をタップして自宅を移動します。",
+    "previewRouteGrouping": "ルートのグループ化をプレビュー",
+    "groupingMatchShare": "{{percent}}% 重なれば同じルート",
+    "groupingEndsApart": "発着点の差が {{distance}} 以内なら同じ",
+    "groupingRunning": "アクティビティをグループ化中…",
+    "groupingNothingToGroup": "グループ化できる軌跡付きのアクティビティがありません",
+    "groupingSummary": "この設定でルート {{count}} 件",
+    "groupingMerged": "ルート {{count}} 件が統合されます",
+    "groupingDropped": "{{count}} 件が単独のまま残ります",
+    "groupingLegendMostRidden": "最多走行",
+    "groupingLegendOther": "その他のルート"
   },
   "stats": {
     "activities": "アクティビティ",

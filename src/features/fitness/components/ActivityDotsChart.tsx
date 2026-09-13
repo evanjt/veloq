@@ -123,8 +123,8 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     const sorted = sortByDateId(data);
 
     return sorted.map((day, idx) => {
-      const fitnessRaw = day.ctl ?? day.ctlLoad ?? 0;
-      const fatigueRaw = day.atl ?? day.atlLoad ?? 0;
+      const fitnessRaw = day.ctl ?? 0;
+      const fatigueRaw = day.atl ?? 0;
       const fitness = Math.round(fitnessRaw);
       const fatigue = Math.round(fatigueRaw);
       const dayActivities = activitiesByDate.get(day.id) || [];

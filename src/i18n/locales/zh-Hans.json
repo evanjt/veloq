@@ -1388,7 +1388,17 @@
     "exportPrivacyCount": "在 {{radius}} 米范围内缩短 {{total}} 次骑行中的 {{touched}} 次。不会删除任何内容。",
     "exportPrivacyNothingTrimmed": "不做任何裁剪，导出包含完整轨迹。",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "点按地图移动住所位置。"
+    "exportPrivacyMoveHint": "点按地图移动住所位置。",
+    "previewRouteGrouping": "预览路线分组",
+    "groupingMatchShare": "重合 {{percent}}% 即视为同一路线",
+    "groupingEndsApart": "起终点相距 {{distance}} 以内视为相同",
+    "groupingRunning": "正在分组你的活动…",
+    "groupingNothingToGroup": "暂无带轨迹的活动可供分组",
+    "groupingSummary": "此设置下有 {{count}} 条路线",
+    "groupingMerged": "你的 {{count}} 条路线会被合并",
+    "groupingDropped": "{{count}} 条会单独留下",
+    "groupingLegendMostRidden": "骑行最多",
+    "groupingLegendOther": "其他路线"
   },
   "stats": {
     "activities": "活动",

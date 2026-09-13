@@ -1388,7 +1388,17 @@
     "exportPrivacyCount": "Shortens {{touched}} of {{total}} rides at {{radius}} m. Nothing is deleted.",
     "exportPrivacyNothingTrimmed": "Nothing is trimmed. Exports carry the full track.",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "Tap the map to move home."
+    "exportPrivacyMoveHint": "Tap the map to move home.",
+    "previewRouteGrouping": "Preview route grouping",
+    "groupingMatchShare": "Same route if {{percent}}% overlaps",
+    "groupingEndsApart": "Same ends within {{distance}}",
+    "groupingRunning": "Grouping your rides…",
+    "groupingNothingToGroup": "No rides with a track to group yet",
+    "groupingSummary": "{{count}} routes at this setting",
+    "groupingMerged": "{{count}} of your routes would merge",
+    "groupingDropped": "{{count}} would be left on their own",
+    "groupingLegendMostRidden": "Most ridden",
+    "groupingLegendOther": "Other routes"
   },
   "stats": {
     "activities": "Activities",

@@ -1388,7 +1388,17 @@
     "exportPrivacyCount": "Kort {{touched}} van {{total}} ritten in bij {{radius}} m. Er wordt niets verwijderd.",
     "exportPrivacyNothingTrimmed": "Er wordt niets ingekort. Exports bevatten het volledige spoor.",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "Tik op de kaart om thuis te verplaatsen."
+    "exportPrivacyMoveHint": "Tik op de kaart om thuis te verplaatsen.",
+    "previewRouteGrouping": "Routegroepering voorbeeld",
+    "groupingMatchShare": "Zelfde route bij {{percent}}% overlap",
+    "groupingEndsApart": "Zelfde uiteinden binnen {{distance}}",
+    "groupingRunning": "Je activiteiten worden gegroepeerd…",
+    "groupingNothingToGroup": "Nog geen activiteiten met track om te groeperen",
+    "groupingSummary": "{{count}} routes met deze instelling",
+    "groupingMerged": "{{count}} van je routes zouden samengevoegd worden",
+    "groupingDropped": "{{count}} zouden alleen blijven",
+    "groupingLegendMostRidden": "Meest gereden",
+    "groupingLegendOther": "Andere routes"
   },
   "stats": {
     "activities": "Activiteiten",

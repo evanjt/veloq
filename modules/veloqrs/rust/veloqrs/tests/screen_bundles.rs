@@ -928,11 +928,10 @@ fn pattern_shape(patterns: &[veloqrs::FfiActivityPattern]) -> Vec<String> {
                 avg_distance_meters,
                 frequency_per_month,
                 confidence,
-                silhouette_score,
                 days_since_last,
             } = p;
             format!(
-                "{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}",
+                "{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}",
                 sport_type,
                 cluster_id,
                 primary_day,
@@ -943,7 +942,6 @@ fn pattern_shape(patterns: &[veloqrs::FfiActivityPattern]) -> Vec<String> {
                 avg_distance_meters,
                 frequency_per_month,
                 confidence,
-                silhouette_score,
                 days_since_last
             )
         })

@@ -2057,6 +2057,33 @@ impl PersistentEngine {
         rows.collect()
     }
 
+    /// Every stored body whose activity has no `activity_metrics` row, as
+    /// `(activity_id, date, raw)`.
+    ///
+    /// The sync writes both tables in one closure and only warns when the
+    /// metrics half fails, so an activity can hold a body and no metrics row.
+    /// It is then absent from every aggregate reading `activity_metrics`, which
+    /// is the whole Health tab, until an unrelated resync carries it again.
+    /// This is what the repair sweep reads. Ordinarily it answers nothing, so
+    /// the cost is the anti-join and no rows.
+    pub fn activity_bodies_without_metrics(&self) -> SqlResult<Vec<(String, i64, String)>> {
+        let mut stmt = self.db.prepare(
+            "SELECT b.activity_id, b.date, b.raw FROM activity_bodies b
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM activity_metrics m WHERE m.activity_id = b.activity_id
+             )
+             ORDER BY b.date DESC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, String>(2)?,
+            ))
+        })?;
+        rows.collect()
+    }
+
     // ========================================================================
     // Time Streams (for section performance calculations)
     // ========================================================================

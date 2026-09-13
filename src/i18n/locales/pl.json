@@ -1390,7 +1390,17 @@
     "exportPrivacyCount": "Skraca {{touched}} z {{total}} przejazdów przy {{radius}} m. Nic nie jest usuwane.",
     "exportPrivacyNothingTrimmed": "Nic nie jest skracane. Eksporty zawierają pełny ślad.",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "Dotknij mapy, aby przesunąć dom."
+    "exportPrivacyMoveHint": "Dotknij mapy, aby przesunąć dom.",
+    "previewRouteGrouping": "Podgląd grupowania tras",
+    "groupingMatchShare": "Ta sama trasa przy {{percent}}% pokrycia",
+    "groupingEndsApart": "Te same końce w promieniu {{distance}}",
+    "groupingRunning": "Grupowanie Twoich aktywności…",
+    "groupingNothingToGroup": "Brak aktywności ze śladem do pogrupowania",
+    "groupingSummary": "{{count}} tras przy tym ustawieniu",
+    "groupingMerged": "{{count}} Twoich tras zostałoby połączonych",
+    "groupingDropped": "{{count}} zostałoby osobno",
+    "groupingLegendMostRidden": "Najczęściej pokonywana",
+    "groupingLegendOther": "Pozostałe trasy"
   },
   "stats": {
     "activities": "Aktywności",

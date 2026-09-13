@@ -3,9 +3,9 @@
  *
  * One builder per record and no more, each spreading rather than listing its
  * fields, so an enrichment column reaches every screen the day the engine
- * starts sending it. Listing is what left `straightness` on three engine
- * records with no app field at all, and `isLift` off the sections list while
- * the detail screen had it.
+ * starts sending it. Listing is what kept `isLift` off the sections list while
+ * the detail screen had it, and what left a fourth column on three engine
+ * records with no app field at all until it was cut for want of a reader.
  */
 
 import {

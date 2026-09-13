@@ -1388,7 +1388,17 @@
     "exportPrivacyCount": "Acorta {{touched}} de {{total}} salidas a {{radius}} m. No se borra nada.",
     "exportPrivacyNothingTrimmed": "No se recorta nada. Las exportaciones llevan el track completo.",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "Toca el mapa para mover tu casa."
+    "exportPrivacyMoveHint": "Toca el mapa para mover tu casa.",
+    "previewRouteGrouping": "Previsualizar agrupación de rutas",
+    "groupingMatchShare": "Misma ruta si coincide un {{percent}}%",
+    "groupingEndsApart": "Mismos extremos dentro de {{distance}}",
+    "groupingRunning": "Agrupando tus actividades…",
+    "groupingNothingToGroup": "Aún no hay actividades con trazado para agrupar",
+    "groupingSummary": "{{count}} rutas con este ajuste",
+    "groupingMerged": "{{count}} de tus rutas se fusionarían",
+    "groupingDropped": "{{count}} quedarían sueltas",
+    "groupingLegendMostRidden": "Más recorrida",
+    "groupingLegendOther": "Otras rutas"
   },
   "stats": {
     "activities": "Actividades",

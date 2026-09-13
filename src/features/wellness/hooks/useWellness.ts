@@ -1,9 +1,9 @@
 /**
  * Wellness reads come from SQLite, not the API.
  *
- * Rust's sync service fetches the year of wellness and stores each day both
- * typed (what Rust computes on) and as its untyped body (what these screens
- * read). The query key is woken by the sync-complete invalidation in
+ * Rust's sync service fetches the year of wellness and stores each day typed,
+ * and the engine answers typed, so nothing here parses a body. The query key
+ * is woken by the sync-complete invalidation in
  * GlobalDataSync and by the engine's own change channel, so a finished sync
  * refreshes the charts without a second network call.
  */
@@ -16,6 +16,7 @@ import { queryKeys } from '@/shared/query/queryKeys';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { WellnessData } from '@/types';
+import type { WellnessDay } from 'veloqrs';
 import type { TimeRange } from '@/shared/app/timeRange';
 
 export type { TimeRange };
@@ -52,22 +53,33 @@ function getDateRange(range: TimeRange): { oldest: string; newest: string } {
 }
 
 /**
- * Read stored wellness bodies over a date window. A body that will not parse
- * is dropped rather than surfaced as a half-populated day.
+ * Read stored wellness days over a date window. The engine answers typed, so
+ * this is a rename of its fields onto the shape the screens read.
  */
+export function toWellnessData(day: WellnessDay): WellnessData {
+  return {
+    id: day.date,
+    ctl: day.ctl,
+    atl: day.atl,
+    rampRate: day.rampRate,
+    hrv: day.hrv,
+    restingHR: day.restingHr,
+    weight: day.weight,
+    sleepSecs: day.sleepSecs,
+    sleepScore: day.sleepScore,
+    soreness: day.soreness,
+    fatigue: day.fatigue,
+    stress: day.stress,
+    mood: day.mood,
+    motivation: day.motivation,
+    sportInfo: day.sportLoad.map((s) => ({ sportGroup: s.sportGroup, load: s.load })),
+  };
+}
+
 function readWellness(oldest: string, newest: string): WellnessData[] {
   const engine = getEngine();
-  if (!engine?.getWellnessBodies) return [];
-
-  const out: WellnessData[] = [];
-  for (const body of engine.getWellnessBodies(oldest, newest)) {
-    try {
-      out.push(JSON.parse(body) as WellnessData);
-    } catch {
-      // A body we cannot parse is a corrupt row, not a day with no data.
-    }
-  }
-  return out;
+  if (!engine?.getWellnessDays) return [];
+  return engine.getWellnessDays(oldest, newest).map(toWellnessData);
 }
 
 export function useWellness(range: TimeRange = '3m') {

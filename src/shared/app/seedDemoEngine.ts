@@ -49,8 +49,8 @@ export function seedDemoEngine(): void {
       engine.upsertWellness(
         wellness.map((w) => ({
           date: w.id,
-          ctl: w.ctl ?? w.ctlLoad,
-          atl: w.atl ?? w.atlLoad,
+          ctl: w.ctl,
+          atl: w.atl,
           rampRate: w.rampRate,
           hrv: w.hrv,
           restingHr: w.restingHR,

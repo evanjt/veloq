@@ -26,10 +26,10 @@ jest.mock('expo-file-system/legacy', () => ({
   makeDirectoryAsync: jest.fn(async () => {}),
 }));
 
-const mockHeatmapSize = jest.fn(() => 0);
+const mockHeatmapSize = jest.fn(async () => 0);
 jest.mock('@/features/maps/hooks/useHeatmapTiles', () => ({
   HEATMAP_TILES_DIR: '/mock/cache/heatmap-tiles/',
-  getHeatmapTilesCacheSize: () => mockHeatmapSize(),
+  readHeatmapTilesCacheSize: () => mockHeatmapSize(),
 }));
 
 const mockBasemapSize = jest.fn((): bigint => 0n);
@@ -54,14 +54,14 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockReadDirectory.mockResolvedValue([]);
   mockGetInfo.mockResolvedValue({ exists: false, isDirectory: false });
-  mockHeatmapSize.mockReturnValue(0);
+  mockHeatmapSize.mockResolvedValue(0);
   mockBasemapSize.mockReturnValue(0n);
   mockTerrainSize.mockResolvedValue(0);
 });
 
 describe('getAppStorageSize', () => {
   it('sums the four buckets that know their own size', async () => {
-    mockHeatmapSize.mockReturnValue(100);
+    mockHeatmapSize.mockResolvedValue(100);
     mockBasemapSize.mockReturnValue(200n);
     mockTerrainSize.mockResolvedValue(10);
 

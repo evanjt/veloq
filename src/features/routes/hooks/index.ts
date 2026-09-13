@@ -1,4 +1,5 @@
 export { useRouteGroups } from './useRouteGroups';
+export { useRouteGroupingPreview, type RouteGroupingPreviewState } from './useRouteGroupingPreview';
 export { useRouteMatch } from './useRouteMatch';
 export { useRoutePerformances } from './useRoutePerformances';
 export { useRouteProcessing } from './useRouteProcessing';

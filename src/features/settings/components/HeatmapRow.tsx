@@ -3,7 +3,7 @@
  *
  * The size beside the toggle is the cost of the thing being switched. The same
  * number appears in the storage table, which is the inventory, and both read
- * `getHeatmapTilesCacheSize` so there is one measurement rather than two.
+ * `readHeatmapTilesCacheSize` so there is one measurement rather than two.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -16,7 +16,10 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme } from '@/shared/app';
 import { getEngine } from '@/shared/native/engine';
 import { formatFileSize } from '@/shared/format/format';
-import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
+import {
+  HEATMAP_TILES_DIR,
+  readHeatmapTilesCacheSize,
+} from '@/features/maps/hooks/useHeatmapTiles';
 import { useHeatmapPreference } from '@/features/maps/stores/HeatmapPreferenceStore';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
@@ -29,7 +32,7 @@ export function HeatmapRow() {
   const [size, setSize] = useState(0);
 
   const refreshSize = useCallback(() => {
-    setSize(getHeatmapTilesCacheSize());
+    readHeatmapTilesCacheSize().then(setSize);
   }, []);
 
   useEffect(() => {

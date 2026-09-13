@@ -31,8 +31,8 @@ describe('Demo data integrity', () => {
       expect(day.tsb).toBeGreaterThanOrEqual(-150);
       expect(day.tsb).toBeLessThanOrEqual(150);
 
-      const ctl = day.ctl ?? day.ctlLoad ?? 0;
-      const atl = day.atl ?? day.atlLoad ?? 0;
+      const ctl = day.ctl ?? 0;
+      const atl = day.atl ?? 0;
       expect(Math.abs(day.tsb - (ctl - atl))).toBeLessThanOrEqual(1);
 
       if (i > 0) {

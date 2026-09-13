@@ -595,7 +595,6 @@ impl PersistentEngine {
             let distance = tracematch::matching::calculate_route_distance(&polyline);
             let result = crate::FfiSectionRecalcResult {
                 section_id: section.id.clone(),
-                polyline_point_count: polyline.len() as u32,
                 distance_meters: distance,
             };
             let unchanged = section.polyline == polyline;
@@ -637,7 +636,6 @@ impl PersistentEngine {
 
         let result = crate::FfiSectionRecalcResult {
             section_id: recalced.id.clone(),
-            polyline_point_count: recalced.polyline.len() as u32,
             distance_meters: recalced.distance_meters,
         };
 
@@ -1277,7 +1275,6 @@ impl PersistentEngine {
                     avg_grade_percent: row.get(18)?,
                     elevation_loss_m: row.get(21)?,
                     max_grade_percent: row.get(22)?,
-                    straightness: row.get(23)?,
                     klass: row.get(24)?,
                     is_lift: row.get::<_, Option<i32>>(25)?.unwrap_or(0) != 0,
                     rank_score: row.get(26)?,

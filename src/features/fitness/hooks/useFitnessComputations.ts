@@ -92,8 +92,8 @@ export function useFitnessComputations({
     if (!wellness || wellness.length === 0) return null;
     const sorted = [...wellness].sort((a, b) => b.id.localeCompare(a.id));
     const latest = sorted[0];
-    const fitnessRaw = latest.ctl ?? latest.ctlLoad ?? 0;
-    const fatigueRaw = latest.atl ?? latest.atlLoad ?? 0;
+    const fitnessRaw = latest.ctl ?? 0;
+    const fatigueRaw = latest.atl ?? 0;
     // Use rounded values for form calculation to match intervals.icu display
     const fitness = Math.round(fitnessRaw);
     const fatigue = Math.round(fatigueRaw);

@@ -543,6 +543,25 @@ fn median_of(values: &[f64]) -> f64 {
     }
 }
 
+/// The chart's personal best, as an index into `points` ranked by speed.
+///
+/// A personal record here is a beat over the same section and direction pair,
+/// which is what `persistence/records.rs` writes, so a faster traversal the
+/// other way is a different effort and cannot be the best. `by_speed` is the
+/// point indices already sorted fastest first.
+///
+/// A section only ever ridden in reverse still has a best: with no forward
+/// traversal to pick from, the rule applies to the direction that exists
+/// rather than answering nothing.
+fn best_point_index(points: &[crate::FfiSectionChartPoint], by_speed: &[usize]) -> u32 {
+    by_speed
+        .iter()
+        .find(|&&i| points[i].direction != "reverse")
+        .or_else(|| by_speed.first())
+        .copied()
+        .unwrap_or(0) as u32
+}
+
 impl PersistentEngine {
     /// Section-detail chart payload. Iterates performance records + lap
     /// traversals already in Rust to emit one chart point per lap, plus
@@ -683,13 +702,12 @@ impl PersistentEngine {
             (min, max)
         };
 
-        // Fastest lap index (0 when empty).
-        let best_index = by_speed.first().copied().unwrap_or(0) as u32;
+        // Fastest lap in the section's own direction (0 when empty).
+        let best_index = best_point_index(&points, &by_speed);
 
-        let (best_activity_id, best_time_secs, best_pace) = by_speed
-            .first()
-            .map(|&i| {
-                let p = &points[i];
+        let (best_activity_id, best_time_secs, best_pace) = points
+            .get(best_index as usize)
+            .map(|p| {
                 (
                     Some(p.activity_id.clone()),
                     Some(p.section_time as f64),
@@ -833,7 +851,6 @@ mod workout_trend_encoding_tests {
             avg_grade_percent: None,
             elevation_loss_m: None,
             max_grade_percent: None,
-            straightness: None,
             klass: None,
             is_lift: false,
             rank_score: None,
@@ -886,6 +903,77 @@ mod workout_trend_encoding_tests {
             ..empty_performances()
         };
         assert_eq!(enrich_from_summary(summary(), perf).trend, Some(1));
+    }
+
+    /// Scenario: the chart's best ring was the fastest lap of any direction,
+    /// while the PR card and the notification both filter on the PR's own
+    /// direction. The two could name different attempts on the same section.
+    ///
+    /// Expected behaviour: a personal record is a beat over the same section
+    /// and direction pair, so the ring is the fastest forward traversal.
+    mod the_charts_best_takes_the_direction {
+        use super::super::best_point_index;
+
+        fn point(activity: &str, speed: f64, direction: &str) -> crate::FfiSectionChartPoint {
+            crate::FfiSectionChartPoint {
+                lap_id: format!("{activity}-lap"),
+                activity_id: activity.to_string(),
+                activity_name: activity.to_string(),
+                activity_date: 1_700_000,
+                speed,
+                section_time: (1000.0 / speed) as u32,
+                section_distance: 1000.0,
+                direction: direction.to_string(),
+                rank: 0,
+            }
+        }
+
+        fn by_speed(points: &[crate::FfiSectionChartPoint]) -> Vec<usize> {
+            let mut order: Vec<usize> = (0..points.len()).collect();
+            order.sort_by(|&a, &b| {
+                points[b]
+                    .speed
+                    .partial_cmp(&points[a].speed)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            order
+        }
+
+        #[test]
+        fn skips_a_faster_traversal_the_other_way() {
+            let points = vec![
+                point("slow-forward", 4.0, "same"),
+                point("fast-reverse", 9.0, "reverse"),
+                point("quick-forward", 6.0, "same"),
+            ];
+
+            let best = best_point_index(&points, &by_speed(&points));
+            assert_eq!(points[best as usize].activity_id, "quick-forward");
+        }
+
+        #[test]
+        fn takes_the_fastest_reverse_when_nothing_went_forward() {
+            let points = vec![
+                point("slow-reverse", 4.0, "reverse"),
+                point("fast-reverse", 9.0, "reverse"),
+            ];
+
+            let best = best_point_index(&points, &by_speed(&points));
+            assert_eq!(points[best as usize].activity_id, "fast-reverse");
+        }
+
+        #[test]
+        fn is_the_outright_fastest_when_every_traversal_went_forward() {
+            let points = vec![point("a", 4.0, "same"), point("b", 9.0, "same")];
+
+            let best = best_point_index(&points, &by_speed(&points));
+            assert_eq!(points[best as usize].activity_id, "b");
+        }
+
+        #[test]
+        fn answers_zero_for_a_section_with_no_traversals_at_all() {
+            assert_eq!(best_point_index(&[], &[]), 0);
+        }
     }
 
     #[test]
