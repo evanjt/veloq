@@ -475,11 +475,11 @@
     "toBuildFitness": "表示有效的训练负荷。",
     "toPreventOvertraining": "表示高累积疲劳。",
     "guidance": {
-      "highRisk": "TSB低于-30。累积疲劳显著超过近期体能增长。",
-      "optimal": "TSB在-30到-10之间。训练负荷正在产生体能适应。",
-      "greyZone": "TSB在-10到5之间。体能与疲劳之间适度平衡。",
-      "fresh": "TSB在5到25之间。相对于体能而言疲劳较低。长时间处于此状态通常对应体能下降。",
-      "transition": "TSB高于25。近期训练刺激最小。体能下降中。"
+      "highRisk": "累积疲劳显著超过近期体能增长。",
+      "optimal": "训练负荷正在产生体能适应。",
+      "greyZone": "体能与疲劳之间适度平衡。",
+      "fresh": "相对于体能而言疲劳较低。长时间处于此状态通常对应体能下降。",
+      "transition": "近期训练刺激最小。体能下降中。"
     },
     "tsb": "TSB",
     "understandingMetrics": "了解指标",
@@ -950,6 +950,7 @@
     "slideToUnlock": "滑动解锁",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "开始活动",
+    "startingIn": "{{seconds}} 秒后开始",
     "status": {
       "paused": "已暂停",
       "recording": "录制中"

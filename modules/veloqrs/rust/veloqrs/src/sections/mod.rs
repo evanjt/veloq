@@ -138,7 +138,7 @@ pub struct CreateSectionParams {
 
 /// Lightweight section summary without polyline data.
 /// Unified type used by both the persistence layer and sections CRUD.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, uniffi::Record)]
 pub struct SectionSummary {
     /// Unique section ID
     pub id: String,

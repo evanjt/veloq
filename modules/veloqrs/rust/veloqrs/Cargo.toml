@@ -416,3 +416,7 @@ name = "tile_sweep_enumeration"
 
 [[test]]
 name = "detection_cluster_spread"
+
+[[test]]
+name = "detection_narrowed_pool"
+required-features = ["synthetic"]

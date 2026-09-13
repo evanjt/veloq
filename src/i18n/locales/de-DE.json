@@ -475,11 +475,11 @@
     "toBuildFitness": "zeigt produktive Trainingsbelastung an. Die",
     "toPreventOvertraining": "zeigt hohe angesammelte Ermüdung an.",
     "guidance": {
-      "highRisk": "TSB unter -30. Angesammelte Ermüdung übersteigt die jüngsten Fitnessgewinne deutlich.",
-      "optimal": "TSB zwischen -30 und -10. Trainingsbelastung erzeugt Fitnessanpassungen.",
-      "greyZone": "TSB zwischen -10 und 5. Moderates Gleichgewicht zwischen Fitness und Ermüdung.",
-      "fresh": "TSB zwischen 5 und 25. Geringe Ermüdung im Verhältnis zur Fitness. Längere Zeit hier entspricht typisch abnehmender Fitness.",
-      "transition": "TSB über 25. Minimaler Trainingsreiz in letzter Zeit. Fitness nimmt ab."
+      "highRisk": "Angesammelte Ermüdung übersteigt die jüngsten Fitnessgewinne deutlich.",
+      "optimal": "Trainingsbelastung erzeugt Fitnessanpassungen.",
+      "greyZone": "Moderates Gleichgewicht zwischen Fitness und Ermüdung.",
+      "fresh": "Geringe Ermüdung im Verhältnis zur Fitness. Längere Zeit hier entspricht typisch abnehmender Fitness.",
+      "transition": "Minimaler Trainingsreiz in letzter Zeit. Fitness nimmt ab."
     },
     "tsb": "TSB",
     "understandingMetrics": "Die Metriken verstehen",
@@ -950,6 +950,7 @@
     "slideToUnlock": "Zum Entsperren schieben",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Aktivität starten",
+    "startingIn": "Start in {{seconds}} s",
     "status": {
       "paused": "PAUSIERT",
       "recording": "Aufnahme"

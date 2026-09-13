@@ -874,13 +874,19 @@ fn run_cutover_claimed(
         with_persistent_engine(|e| e.detect_sections_background_unchecked()).ok_or("no engine")?;
 
     // Drive the detect to completion.
-    let (main, cache_update) = handle.recv_with_cache();
+    let (main, cache_update) = handle.recv_state_with_cache();
     // A cancel arriving inside the detect discards the result rather than
     // shortening the run, the same honest caveat the preview carries: the
     // detect is one call and it does not read this flag. Discarding is safe
     // because nothing has been applied, so the next launch redoes it.
     stop_if_cancelled!(PHASE_DETECTING, clock.finish(PHASE_IDLE));
-    let (sections, processed_ids) = main.ok_or("detect failed")?;
+    let (sections, processed_ids) = match main {
+        crate::persistence::WorkerPoll::Ready(v) => v,
+        // A panic inside the fold drops the sender, which used to be
+        // indistinguishable from a run with nothing to report.
+        crate::persistence::WorkerPoll::Died => return Err("detect died".to_string()),
+        crate::persistence::WorkerPoll::Running => return Err("detect never answered".to_string()),
+    };
 
     with_persistent_engine(|e| {
         e.apply_sections_with_cache(sections, cache_update)

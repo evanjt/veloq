@@ -160,7 +160,18 @@ fn insights_data_split_by_part() {
 
     let (_, total) = time("insights_data (whole bundle)", || engine.insights_data(&p));
 
-    let (summaries, per_sport) = time("  get_section_summaries_for_sport x sports", || {
+    // The bundle reads the summaries once and fans out in memory. The per-sport
+    // shape is timed beside it because it is what the bundle used to do, and the
+    // gap between the two is what the rewrite bought.
+    let (summaries, fanout) = time("  summaries once, fanned out in memory", || {
+        veloqrs::persistence::sections::summaries_by_sport(
+            &engine.get_section_summaries(),
+            &sports,
+            3,
+        )
+    });
+
+    let (_, _per_sport_old) = time("  (was: the same query once per sport)", || {
         sports
             .iter()
             .flat_map(|sport| {
@@ -220,7 +231,7 @@ fn insights_data_split_by_part() {
         survivors.len(),
         ranked_lists.len()
     );
-    let parts = per_sport + junction_scan + ranked + performances;
+    let parts = fanout + junction_scan + ranked + performances;
     println!(
         "parts {:.2} ms of a {:.2} ms bundle ({:.0}%); the rest is period stats, trends, \
          patterns, efficiency and strength",

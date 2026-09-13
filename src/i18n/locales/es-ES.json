@@ -475,11 +475,11 @@
     "toBuildFitness": "indica carga de entrenamiento productiva. La",
     "toPreventOvertraining": "indica alta fatiga acumulada.",
     "guidance": {
-      "highRisk": "TSB por debajo de -30. La fatiga acumulada supera significativamente las ganancias de fitness recientes.",
-      "optimal": "TSB entre -30 y -10. La carga de entrenamiento está produciendo adaptaciones de fitness.",
-      "greyZone": "TSB entre -10 y 5. Equilibrio moderado entre fitness y fatiga.",
-      "fresh": "TSB entre 5 y 25. Baja fatiga en relación al fitness. El tiempo prolongado aquí corresponde típicamente con un fitness en descenso.",
-      "transition": "TSB por encima de 25. Estímulo de entrenamiento reciente mínimo. Fitness en descenso."
+      "highRisk": "La fatiga acumulada supera significativamente las ganancias de fitness recientes.",
+      "optimal": "La carga de entrenamiento está produciendo adaptaciones de fitness.",
+      "greyZone": "Equilibrio moderado entre fitness y fatiga.",
+      "fresh": "Baja fatiga en relación al fitness. El tiempo prolongado aquí corresponde típicamente con un fitness en descenso.",
+      "transition": "Estímulo de entrenamiento reciente mínimo. Fitness en descenso."
     },
     "tsb": "TSB",
     "understandingMetrics": "Entendiendo las métricas",
@@ -950,6 +950,7 @@
     "slideToUnlock": "Desliza para desbloquear",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Iniciar actividad",
+    "startingIn": "Empieza en {{seconds}} s",
     "status": {
       "paused": "EN PAUSA",
       "recording": "Grabando"

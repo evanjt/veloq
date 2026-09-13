@@ -475,11 +475,11 @@
     "toBuildFitness": "indikerer produktiv træningsbelastning. Den",
     "toPreventOvertraining": "indikerer høj akkumuleret træthed.",
     "guidance": {
-      "highRisk": "TSB under -30. Akkumuleret træthed overstiger markant de seneste konditionsgevinster.",
-      "optimal": "TSB mellem -30 og -10. Træningsbelastning producerer konditionstilpasninger.",
-      "greyZone": "TSB mellem -10 og 5. Moderat balance mellem kondition og træthed.",
-      "fresh": "TSB mellem 5 og 25. Lav træthed i forhold til kondition. Længere tid her svarer typisk til faldende kondition.",
-      "transition": "TSB over 25. Minimal nylig træningsstimulus. Kondition faldende."
+      "highRisk": "Akkumuleret træthed overstiger markant de seneste konditionsgevinster.",
+      "optimal": "Træningsbelastning producerer konditionstilpasninger.",
+      "greyZone": "Moderat balance mellem kondition og træthed.",
+      "fresh": "Lav træthed i forhold til kondition. Længere tid her svarer typisk til faldende kondition.",
+      "transition": "Minimal nylig træningsstimulus. Kondition faldende."
     },
     "tsb": "TSB",
     "understandingMetrics": "Forstå målingerne",
@@ -950,6 +950,7 @@
     "slideToUnlock": "Skub for at låse op",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Start aktivitet",
+    "startingIn": "Starter om {{seconds}} s",
     "status": {
       "paused": "PAUSERET",
       "recording": "Optager"

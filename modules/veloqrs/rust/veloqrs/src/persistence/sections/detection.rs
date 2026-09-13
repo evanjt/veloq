@@ -124,6 +124,72 @@ fn pool_digest(activity_ids: &[String]) -> u64 {
     hash
 }
 
+/// The tracks the fold has to be given, or None to load the whole library.
+///
+/// None is the honest answer in three cases, and each of them is the safe one:
+/// a cold cache, where every id is new and the plan is the pool anyway; a new
+/// id whose metadata carries no bounds, where nothing can be routed for it; and
+/// a plan that saves nothing, where narrowing costs a branch and buys a track.
+///
+/// The bucket key mirrors the fold's own: one pooled bucket under
+/// `pool_sports`, which is the default, and the activity's own sport otherwise.
+/// A sport the cache has never seen answers with no clusters, which is right:
+/// its first activity routes into a cluster that does not exist yet.
+fn plan_pool(
+    activity_ids: &[String],
+    folded: &HashSet<String>,
+    cache: &SectionEvidenceCache,
+    metadata: &HashMap<String, super::super::ActivityMetadata>,
+    config: &tracematch::SectionConfig,
+) -> Option<Vec<String>> {
+    let new_ids: Vec<&String> = activity_ids
+        .iter()
+        .filter(|id| !folded.contains(*id))
+        .collect();
+    if new_ids.is_empty() || new_ids.len() == activity_ids.len() {
+        return None;
+    }
+
+    // Grouped by bucket so each bucket's footprints are read once.
+    let mut by_bucket: HashMap<String, Vec<(String, (f64, f64, f64, f64))>> = HashMap::new();
+    for id in new_ids {
+        let m = metadata.get(id)?;
+        let bucket = if config.pool_sports {
+            tracematch::sections::POOLED_SPORT.to_string()
+        } else {
+            m.sport_type.clone()
+        };
+        by_bucket.entry(bucket).or_default().push((
+            id.clone(),
+            (
+                m.bounds.min_lat,
+                m.bounds.max_lat,
+                m.bounds.min_lng,
+                m.bounds.max_lng,
+            ),
+        ));
+    }
+
+    let mut wanted: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for (bucket, new) in &by_bucket {
+        wanted.extend(tracematch::sections::pool_for_fold(
+            &cache.cluster_footprints(bucket),
+            new,
+        ));
+    }
+
+    // The plan can name an id the pool does not carry, from a cluster whose
+    // member was deleted since it was folded. The load is keyed on the pool, so
+    // the intersection is what can actually be read, and the order is the
+    // pool's own, which the detector is given deterministically.
+    let planned: Vec<String> = activity_ids
+        .iter()
+        .filter(|id| wanted.contains(*id))
+        .cloned()
+        .collect();
+    (planned.len() < activity_ids.len()).then_some(planned)
+}
+
 /// True when this exact pool was abandoned recently enough that loading it
 /// again can only reach the same verdict.
 fn abandon_window_active(conn: &Connection, activity_ids: &[String]) -> bool {
@@ -888,12 +954,33 @@ impl PersistentEngine {
             };
         }
 
-        // Load every activity's track. Both detection paths need the full pool:
-        // the Unified incremental re-batches it (converging to the batch), and
-        // the legacy detectors run full detection each sync. The old bbox
-        // pre-filter only made sense for the deleted threshold-incremental path,
-        // which loaded just the new + geographically-nearby subset.
-        let ids_to_load = activity_ids.clone();
+        // What the fold will actually read, asked before anything is read.
+        //
+        // Phase one routes on the new ids, phase two recomputes only a dirty
+        // cluster and reads only its own members, and phase three tolerates a
+        // missing id. So a track outside every touched cluster is loaded and
+        // decoded for nothing, which at a real library's size is most of them
+        // on a sync that stores one activity.
+        //
+        // The plan is a superset by construction and the bbox comes from the
+        // metadata rather than the track, so it can never be short: that would
+        // panic a recompute rather than answer worse. An empty plan, a cold
+        // cache or a non-Unified path all fall back to the whole pool.
+        let ids_to_load = plan_pool(
+            &activity_ids,
+            &folded_at_spawn,
+            &cache_at_spawn,
+            &self.activity_metadata,
+            &section_config,
+        )
+        .unwrap_or_else(|| activity_ids.clone());
+        if ids_to_load.len() < activity_ids.len() {
+            log::info!(
+                "veloqrs: [SectionDetection] pool narrowed to {} of {} tracks by the clusters the new ids touch",
+                ids_to_load.len(),
+                activity_ids.len()
+            );
+        }
         progress.set_phase("loading", ids_to_load.len() as u32);
 
         // Clone activity_ids for the background thread (to persist as processed after detection)

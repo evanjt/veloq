@@ -1431,3 +1431,102 @@ fn an_activity_with_no_signature_has_no_preview_track() {
 
     assert!(s.engine.preview_track("nope").is_none());
 }
+
+// ============================================================================
+// One bundle computes one section's performances once
+// ============================================================================
+
+/// Twelve sections all travelled inside the recent window, which is more than
+/// the performance cache holds. Every one qualifies for a PR slot, so the
+/// recent-PR loop asks about all twelve, and the efficiency loop asks again.
+fn populated_with_many_recent_sections(latest: i64) -> Setup {
+    const SECTIONS: usize = 12;
+    let mut s = setup();
+    let track = line(46.2, 7.35, 60);
+
+    for n in 0..3 {
+        let id = format!("act{n}");
+        s.engine
+            .add_activity(id.clone(), track.clone(), "Ride".to_string())
+            .unwrap_or_else(|e| panic!("add {id}: {e}"));
+        // An efficiency trend is heart rate against pace, so the outings carry
+        // a falling heart rate as well as a falling lap time.
+        let mut m = metrics(&id, latest - (n as i64) * 86_400);
+        m.avg_hr = Some(150 + n as u16 * 6);
+        s.engine
+            .set_activity_metrics_extended(vec![m])
+            .expect("set metrics");
+    }
+
+    let polyline = line(46.2, 7.35, 30);
+    for i in 0..SECTIONS {
+        let section = format!("auto{i}");
+        insert_section(
+            &s.raw,
+            &section,
+            "auto",
+            &format!("Climb {i}"),
+            &polyline,
+            None,
+        );
+        // Getting faster each outing, so each section holds a recent record.
+        for n in 0..3 {
+            insert_traversal(
+                &s.raw,
+                &section,
+                &format!("act{n}"),
+                240.0 - (n as f64) * 10.0,
+            );
+        }
+    }
+    // The sections went in behind the engine, and the efficiency loop reads the
+    // in-memory catalogue rather than the table.
+    s.engine.load().expect("load the catalogue");
+    s
+}
+
+#[test]
+fn one_insights_bundle_computes_each_section_at_most_once() {
+    let mut s = populated_with_many_recent_sections(1_700_150_000);
+    let p = insights_params_ending(1_700_200_000);
+
+    let bundle = s.engine.insights_data(&p);
+
+    // Twelve sections in one sport, so twelve is every computation the bundle
+    // can honestly need. Above that a section was computed, evicted by its
+    // neighbours, and computed again inside the one call.
+    assert!(
+        s.engine.performance_computations() > 0,
+        "the fixture must reach the performance path at all"
+    );
+    assert!(
+        s.engine.performance_computations() <= 12,
+        "{} computations for 12 sections inside one bundle",
+        s.engine.performance_computations()
+    );
+    assert!(
+        !bundle.recent_prs.is_empty(),
+        "the fixture must earn records"
+    );
+}
+
+/// Reopening the Insights tab, and the re-read the bundle takes on every
+/// `activities` or `sections` event while it is open.
+#[test]
+fn a_second_identical_bundle_computes_no_performances_again() {
+    let mut s = populated_with_many_recent_sections(1_700_150_000);
+    let p = insights_params_ending(1_700_200_000);
+
+    let _ = s.engine.insights_data(&p);
+    let after_first = s.engine.performance_computations();
+    assert!(after_first > 0, "the first bundle must compute something");
+
+    let _ = s.engine.insights_data(&p);
+
+    assert_eq!(
+        s.engine.performance_computations(),
+        after_first,
+        "nothing changed between the two calls, so the second must be served from \
+         the cache; a cache too small for one bundle's working set holds none of it"
+    );
+}

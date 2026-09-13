@@ -2,8 +2,8 @@
 // The tracematch pointer and the tracematch working tree are two facts, and
 // nothing keeps them together.
 //
-// `git ls-tree HEAD` says which commit this branch wants. The submodule's own
-// HEAD says which one is on disk. A merge moves the first and leaves the second
+// The index says which commit a commit made now would record. The submodule's
+// own HEAD says which one is on disk. A merge moves the first and leaves the second
 // where it was, and every Rust build from that tree then compiles the detector
 // on disk rather than the one the commit names: `cargo test` passes, a bitwise
 // gate goes green, and a release build ships it. `git status` shows one line,
@@ -71,8 +71,23 @@ console.error('If the tree is the one you want, move the pointer instead, with a
 console.error('says so.');
 process.exit(1);
 
-/** The commit the tree records for the submodule, or null when it records none. */
+/**
+ * The commit a commit made now would record for the submodule, or null when it
+ * would record none.
+ *
+ * The index, not `HEAD`: a commit records the index, and a **merge** is the one
+ * moment the two differ, because `HEAD` is still the commit before the merge
+ * while the index already holds the branch's pointer. Reading `HEAD` there
+ * refuses whichever sha is on disk, at the old one because the Rust build fails
+ * on the symbol the branch adds and at the new one because this guard calls it
+ * wrong, and `scripts/merge-gates.sh` has no skip to get past it. Outside a
+ * merge the two agree, so nothing else changes.
+ */
 function pointer() {
+  const staged = git(['ls-files', '-s', '--', SUB], root);
+  const fromIndex = /^160000 ([0-9a-f]{40}) /.exec(staged ?? '');
+  if (fromIndex) return fromIndex[1];
+  // No index entry at all, which is a path the submodule was removed from.
   const line = git(['ls-tree', 'HEAD', SUB], root);
   if (!line) return null;
   const match = /^160000 commit ([0-9a-f]{40})\t/.exec(line);

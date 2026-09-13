@@ -163,6 +163,26 @@ describe('a group that trained without load', () => {
     expect(markFills(mark, MUTED, colorOf)).toEqual([{ color: MUTED, fraction: 1 }]);
   });
 
+  it('mutes every mark when no group in the window carries load', () => {
+    const marks = stripMarks(
+      [
+        day(0, [{ type: 'Ride', load: 0 }]),
+        day(1, [{ type: 'Run', load: 0 }]),
+        day(2, [{ type: 'Walk', load: 0 }]),
+      ],
+      WIDTH
+    );
+
+    expect(marks).toHaveLength(3);
+    expect(marks.every((m) => m.noLoad)).toBe(true);
+    expect(marks.every((m) => m.height === MIN_MARK_HEIGHT)).toBe(true);
+    // The window an athlete whose device reports no load sees always. Every
+    // bar the same height is honest only while none of them is a sport colour.
+    for (const mark of marks) {
+      expect(markFills(mark, MUTED, colorOf)).toEqual([{ color: MUTED, fraction: 1 }]);
+    }
+  });
+
   it('does not invent a split across the sports it holds', () => {
     const [mark] = stripMarks(
       [

@@ -66,17 +66,16 @@ impl super::PersistentEngine {
         // One candidate per (section, sport): shared ground holds a record in
         // each sport that travels it, and neither may be measured against the
         // other's laps.
-        let mut all_summaries: Vec<(String, crate::SectionSummary)> = available_sports
-            .iter()
-            .flat_map(|sport| {
-                self.get_section_summaries_for_sport(sport)
-                    .into_iter()
-                    .map(move |s| (sport.clone(), s))
-            })
+        // One read, then the fan-out in memory. Asking per sport runs the whole
+        // summary query once per sport and throws away every row belonging to
+        // the others, which on a fourteen-sport library is thirteen wasted
+        // scans and a third of this bundle.
+        let all_summaries = crate::persistence::sections::summaries_by_sport(
+            &self.get_section_summaries(),
+            &available_sports,
             // Outings, not passes: a PR slot is earned by returning.
-            .filter(|(_, s)| s.activity_count >= 3)
-            .collect();
-        all_summaries.sort_by_key(|(_, s)| std::cmp::Reverse(s.visit_count));
+            3,
+        );
 
         let recent_visits = self.sections_visited_since(seven_days_ago);
 

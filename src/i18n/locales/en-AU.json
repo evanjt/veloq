@@ -475,11 +475,11 @@
     "toBuildFitness": "indicates productive training load. The",
     "toPreventOvertraining": "indicates high accumulated fatigue.",
     "guidance": {
-      "highRisk": "TSB below -30. Accumulated fatigue significantly exceeds recent fitness gains.",
-      "optimal": "TSB between -30 and -10. Training load is producing fitness adaptations.",
-      "greyZone": "TSB between -10 and 5. Moderate balance between fitness and fatigue.",
-      "fresh": "TSB between 5 and 25. Low fatigue relative to fitness. Extended time here typically corresponds with declining fitness.",
-      "transition": "TSB above 25. Minimal recent training stimulus. Fitness declining."
+      "highRisk": "Accumulated fatigue significantly exceeds recent fitness gains.",
+      "optimal": "Training load is producing fitness adaptations.",
+      "greyZone": "Moderate balance between fitness and fatigue.",
+      "fresh": "Low fatigue relative to fitness. Extended time here typically corresponds with declining fitness.",
+      "transition": "Minimal recent training stimulus. Fitness declining."
     },
     "tsb": "TSB",
     "understandingMetrics": "Understanding the Metrics",
@@ -950,6 +950,7 @@
     "slideToUnlock": "Slide to unlock",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Start Activity",
+    "startingIn": "Starting in {{seconds}}s",
     "status": {
       "paused": "PAUSED",
       "recording": "Recording"

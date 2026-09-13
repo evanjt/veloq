@@ -475,11 +475,11 @@
     "toBuildFitness": "indica un carico di allenamento produttivo. La",
     "toPreventOvertraining": "indica alto affaticamento accumulato.",
     "guidance": {
-      "highRisk": "TSB sotto -30. L'affaticamento accumulato supera significativamente i recenti guadagni di forma.",
-      "optimal": "TSB tra -30 e -10. Il carico di allenamento sta producendo adattamenti di forma.",
-      "greyZone": "TSB tra -10 e 5. Equilibrio moderato tra forma e affaticamento.",
-      "fresh": "TSB tra 5 e 25. Basso affaticamento rispetto alla forma. Il tempo prolungato qui corrisponde tipicamente a una forma in calo.",
-      "transition": "TSB sopra 25. Stimolo di allenamento recente minimo. Forma in calo."
+      "highRisk": "L'affaticamento accumulato supera significativamente i recenti guadagni di forma.",
+      "optimal": "Il carico di allenamento sta producendo adattamenti di forma.",
+      "greyZone": "Equilibrio moderato tra forma e affaticamento.",
+      "fresh": "Basso affaticamento rispetto alla forma. Il tempo prolungato qui corrisponde tipicamente a una forma in calo.",
+      "transition": "Stimolo di allenamento recente minimo. Forma in calo."
     },
     "tsb": "TSB",
     "understandingMetrics": "Capire le metriche",
@@ -950,6 +950,7 @@
     "slideToUnlock": "Scorri per sbloccare",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Avvia attività",
+    "startingIn": "Inizia tra {{seconds}} s",
     "status": {
       "paused": "IN PAUSA",
       "recording": "Registrazione"

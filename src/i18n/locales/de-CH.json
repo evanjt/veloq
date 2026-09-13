@@ -475,11 +475,11 @@
     "toBuildFitness": "zeigt produktivi Trainingsbelastig a. D'",
     "toPreventOvertraining": "zeigt hohi aagsammlet Müedigkeit a.",
     "guidance": {
-      "highRisk": "TSB under -30. D'Müedigkeit isch massiv höcher als d'letzte Fitnessgewinne.",
-      "optimal": "TSB zwüsche -30 und -10. D'Trainingsbelastig bringt Fitnessapassige.",
-      "greyZone": "TSB zwüsche -10 und 5. Moderats Gliichgwicht zwüsche Fitness und Müedigkeit.",
-      "fresh": "TSB zwüsche 5 und 25. Wenig Müedigkeit im Verhältnis zur Fitness. Wenn'd z'lang da bliibsch, gaht d'Fitness abe.",
-      "transition": "TSB über 25. Wenig Trainingsreiz i letschter Zyt. D'Fitness gaht abe."
+      "highRisk": "D'Müedigkeit isch massiv höcher als d'letzte Fitnessgewinne.",
+      "optimal": "D'Trainingsbelastig bringt Fitnessapassige.",
+      "greyZone": "Moderats Gliichgwicht zwüsche Fitness und Müedigkeit.",
+      "fresh": "Wenig Müedigkeit im Verhältnis zur Fitness. Wenn'd z'lang da bliibsch, gaht d'Fitness abe.",
+      "transition": "Wenig Trainingsreiz i letschter Zyt. D'Fitness gaht abe."
     },
     "tsb": "TSB",
     "understandingMetrics": "D Zahle verstaa",
@@ -950,6 +950,7 @@
     "slideToUnlock": "Zum Entsperre schiebe",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Aktivität starte",
+    "startingIn": "Start in {{seconds}} s",
     "status": {
       "paused": "PAUSIERT",
       "recording": "Am Ufnäh"

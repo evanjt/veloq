@@ -475,11 +475,11 @@
     "toBuildFitness": "duidt op productieve trainingsbelasting. De",
     "toPreventOvertraining": "duidt op hoge opgehoopte vermoeidheid.",
     "guidance": {
-      "highRisk": "TSB onder -30. Opgehoopte vermoeidheid overschrijdt de recente fitnesswinst aanzienlijk.",
-      "optimal": "TSB tussen -30 en -10. Trainingsbelasting produceert fitnessaanpassingen.",
-      "greyZone": "TSB tussen -10 en 5. Matige balans tussen fitness en vermoeidheid.",
-      "fresh": "TSB tussen 5 en 25. Lage vermoeidheid ten opzichte van fitness. Langere tijd hier correspondeert doorgaans met afnemende fitness.",
-      "transition": "TSB boven 25. Minimale recente trainingsprikkel. Fitness dalend."
+      "highRisk": "Opgehoopte vermoeidheid overschrijdt de recente fitnesswinst aanzienlijk.",
+      "optimal": "Trainingsbelasting produceert fitnessaanpassingen.",
+      "greyZone": "Matige balans tussen fitness en vermoeidheid.",
+      "fresh": "Lage vermoeidheid ten opzichte van fitness. Langere tijd hier correspondeert doorgaans met afnemende fitness.",
+      "transition": "Minimale recente trainingsprikkel. Fitness dalend."
     },
     "tsb": "TSB",
     "understandingMetrics": "De statistieken begrijpen",
@@ -950,6 +950,7 @@
     "slideToUnlock": "Schuif om te ontgrendelen",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Activiteit starten",
+    "startingIn": "Start over {{seconds}} s",
     "status": {
       "paused": "GEPAUZEERD",
       "recording": "Opnemen"

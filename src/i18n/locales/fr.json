@@ -475,11 +475,11 @@
     "toBuildFitness": "indique une charge d'entraînement productive. La",
     "toPreventOvertraining": "indique une fatigue accumulée élevée.",
     "guidance": {
-      "highRisk": "TSB en dessous de -30. La fatigue accumulée dépasse significativement les gains de forme récents.",
-      "optimal": "TSB entre -30 et -10. La charge d'entraînement produit des adaptations de forme.",
-      "greyZone": "TSB entre -10 et 5. Équilibre modéré entre forme et fatigue.",
-      "fresh": "TSB entre 5 et 25. Faible fatigue par rapport à la forme. Un temps prolongé ici correspond typiquement à une forme en baisse.",
-      "transition": "TSB au-dessus de 25. Stimulus d'entraînement récent minimal. Forme en baisse."
+      "highRisk": "La fatigue accumulée dépasse significativement les gains de forme récents.",
+      "optimal": "La charge d'entraînement produit des adaptations de forme.",
+      "greyZone": "Équilibre modéré entre forme et fatigue.",
+      "fresh": "Faible fatigue par rapport à la forme. Un temps prolongé ici correspond typiquement à une forme en baisse.",
+      "transition": "Stimulus d'entraînement récent minimal. Forme en baisse."
     },
     "tsb": "TSB",
     "understandingMetrics": "Comprendre les métriques",
@@ -950,6 +950,7 @@
     "slideToUnlock": "Glissez pour déverrouiller",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Démarrer l'activité",
+    "startingIn": "Départ dans {{seconds}} s",
     "status": {
       "paused": "EN PAUSE",
       "recording": "Enregistrement"

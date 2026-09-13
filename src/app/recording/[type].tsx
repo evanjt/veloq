@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
@@ -34,6 +34,7 @@ import { useHrZoneColorEffect } from '@/features/recording/hooks/useHrZoneColorE
 import { useGpsSessionEffect } from '@/features/recording/hooks/useGpsSessionEffect';
 import { useInitRecordingEffect } from '@/features/recording/hooks/useInitRecordingEffect';
 import {
+  ArmedCountdownOverlay,
   RecordingGate,
   useAlwaysLocationPrompt,
   useCanRecord,
@@ -133,7 +134,21 @@ export default function RecordingScreen() {
     setGpsWarning,
     onDiscard: handleDiscard,
   });
-  useInitRecordingEffect(status, activityType, mode, pairedEventId, canRecord);
+  const { countdown, cancelCountdown } = useInitRecordingEffect(
+    status,
+    activityType,
+    mode,
+    pairedEventId,
+    canRecord,
+    from
+  );
+
+  // Cancelling undoes the tap rather than leaving the screen: nothing has
+  // started, and the control bar has no idle state to strand the athlete in.
+  const cancelArmedStart = useCallback(() => {
+    cancelCountdown();
+    router.replace('/');
+  }, [cancelCountdown]);
   // Nothing to ask for on a ride that never started.
   useAlwaysLocationPrompt(canRecord && from === 'quickstart', status);
   useSensorSession();
@@ -253,6 +268,14 @@ export default function RecordingScreen() {
         splitBanner={splitBanner}
         onDismissGpsWarning={dismissGpsWarning}
       />
+
+      {countdown !== null && (
+        <ArmedCountdownOverlay
+          secondsLeft={countdown}
+          activityType={currentActivityType}
+          onCancel={cancelArmedStart}
+        />
+      )}
 
       {/* Main Content Area */}
       <View style={styles.mainContent} pointerEvents={isLocked ? 'none' : 'auto'}>

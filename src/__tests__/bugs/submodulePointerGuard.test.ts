@@ -134,6 +134,42 @@ it('fails when the submodule is ahead of the pointer too', () => {
   expect(runGuard(root).status).toBe(1);
 });
 
+/**
+ * A merge is the one moment the pointer moves, and during it `HEAD` is still the
+ * commit before the merge while the index already holds the branch's pointer. A
+ * guard reading `HEAD` then refuses whichever sha is on disk: at the old one the
+ * Rust build fails on the symbol the branch adds, at the new one the guard
+ * itself refuses. There is no third state, and `scripts/merge-gates.sh` has no
+ * skip, so the merge can only be concluded with `--no-verify`.
+ */
+it('reads the pointer the merge will record, not the one HEAD still holds', () => {
+  const sub = submoduleRepo();
+  // Recorded in HEAD: the older commit. Staged by the merge: the newer one, and
+  // the tree is at the newer one to match.
+  const root = superproject(sub, sub.parent);
+  runGit(['update-index', '--cacheinfo', `160000,${sub.parent},${SUB}`], root);
+  commit(root, 'record the older pointer');
+  runGit(['update-index', '--cacheinfo', `160000,${sub.head},${SUB}`], root);
+  runGit(['-C', SUB, 'checkout', '-q', sub.head], root);
+
+  expect(runGuard(root).status).toBe(0);
+});
+
+it('still fails when the staged pointer and the tree disagree', () => {
+  const sub = submoduleRepo();
+  const root = superproject(sub, sub.parent);
+  runGit(['update-index', '--cacheinfo', `160000,${sub.parent},${SUB}`], root);
+  commit(root, 'record the older pointer');
+  // A merge staging the newer pointer while the tree stays behind is the
+  // original defect, and it must still be caught.
+  runGit(['update-index', '--cacheinfo', `160000,${sub.head},${SUB}`], root);
+
+  const { status, output } = runGuard(root);
+  expect(status).toBe(1);
+  expect(output).toContain(sub.head.slice(0, 7));
+  expect(output).toContain(sub.parent.slice(0, 7));
+});
+
 it('says nothing when the submodule directory is absent, which is a fresh worktree', () => {
   const sub = submoduleRepo();
   const root = superproject(sub, sub.head);

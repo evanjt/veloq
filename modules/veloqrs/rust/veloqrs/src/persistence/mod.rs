@@ -35,6 +35,23 @@ use rstar::{AABB, RTree, RTreeObject};
 use rusqlite::{Connection, Result as SqlResult};
 use std::sync::LazyLock;
 
+/// How many section performance results the engine keeps warm.
+///
+/// The insights bundle asks about every section travelled in the recent window,
+/// once for the record loop and again through the per-sport ranked lists. On the
+/// athlete's own library, 152 sections, that working set is 23 and the whole
+/// bundle computes each of them exactly once. At eight entries nothing of it
+/// survives to the next call, so reopening the tab recomputed all 23; the cache
+/// was sized for hopping between a few section screens, not for a bundle.
+///
+/// Sixty-four covers the measured working set nearly threefold. A result
+/// serialises to about 8 KB, so a full cache is around 500 KB, against 1.2 MB
+/// for the whole library's worth.
+const PERF_CACHE_ENTRIES: std::num::NonZeroUsize = match std::num::NonZeroUsize::new(64) {
+    Some(n) => n,
+    None => unreachable!(),
+};
+
 mod activities;
 pub mod attempts;
 pub use activities::{
@@ -524,7 +541,35 @@ impl SectionDetectionHandle {
         Option<(Vec<FrequentSection>, Vec<String>)>,
         Option<CacheUpdate>,
     ) {
-        let main = self.receiver.recv().ok();
+        let (state, cache) = self.recv_state_with_cache();
+        match state {
+            WorkerPoll::Ready(v) => (Some(v), cache),
+            _ => (None, cache),
+        }
+    }
+
+    /// The same read, keeping the one distinction `recv_with_cache` throws
+    /// away: a worker that died without sending against a run with nothing to
+    /// report.
+    ///
+    /// A panic inside the fold drops the sender, and `recv().ok()` then answers
+    /// `None`, which every caller treats as an empty catalogue and applies. The
+    /// previous catalogue stands and nothing says the detect never happened.
+    /// `poll_state` has reported `Died` since the failover work; this is the
+    /// blocking read catching up with it.
+    ///
+    /// `Running` is never returned: the read blocks until the channel answers
+    /// one way or the other.
+    pub fn recv_state_with_cache(
+        self,
+    ) -> (
+        WorkerPoll<(Vec<FrequentSection>, Vec<String>)>,
+        Option<CacheUpdate>,
+    ) {
+        let main = match self.receiver.recv() {
+            Ok(v) => WorkerPoll::Ready(v),
+            Err(_) => WorkerPoll::Died,
+        };
         let stashed = self
             .final_update
             .lock()
@@ -1118,10 +1163,13 @@ pub struct PersistentEngine {
     /// Path for heatmap tile output (set from JS at init)
     pub(crate) heatmap_tiles_path: Option<String>,
 
-    /// Small LRU cache for get_section_performances, keyed by section id (+ sport
+    /// LRU cache for get_section_performances, keyed by section id (+ sport
     /// filter). A section detail load calls it twice for the same section (buckets
     /// + calendar); navigating between a handful of sections keeps them all warm
     /// where the old single entry evicted on every hop.
+    ///
+    /// Sized for a whole insights bundle rather than a handful of screens, so
+    /// reopening the tab is free. See [`PERF_CACHE_ENTRIES`].
     perf_cache: LruCache<String, SectionPerformanceResult>,
 
     /// Full computations of `get_section_performances_filtered`, cache hits
@@ -1327,7 +1375,7 @@ impl PersistentEngine {
             match_config: MatchConfig::default(),
             section_config: SectionConfig::default(),
             heatmap_tiles_path: None,
-            perf_cache: LruCache::new(std::num::NonZeroUsize::new(8).unwrap()),
+            perf_cache: LruCache::new(PERF_CACHE_ENTRIES),
             perf_computations: 0,
             pattern_cache: None,
             pattern_computations: 0,
@@ -2635,6 +2683,50 @@ fn whole_points(name: &str, coords: &[f64]) -> Result<(), VeloqError> {
 mod tests {
     use super::*;
     use crate::Direction;
+
+    /// A handle whose worker sent nothing and then died, the shape a panic
+    /// inside the fold leaves behind.
+    fn handle_with_a_dead_worker() -> SectionDetectionHandle {
+        let (tx, rx) = mpsc::channel();
+        let (cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
+        drop(tx);
+        drop(cache_tx);
+        SectionDetectionHandle {
+            receiver: rx,
+            final_update: std::sync::Mutex::new(None),
+            cache_receiver: cache_rx,
+            checkpoint: Arc::new(CheckpointSlot::default()),
+            progress: SectionDetectionProgress::new(),
+            worker_applied: None,
+            cancel: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    /// A worker that panics inside the fold drops its sender without sending,
+    /// which reads on the main channel exactly like a run with nothing to
+    /// report. The catalogue from the previous detect then stands, and on a
+    /// device that is a sync that looks finished and leaves the section list
+    /// silently stale.
+    #[test]
+    fn a_dead_detection_worker_is_not_a_run_that_found_nothing() {
+        let (state, cache) = handle_with_a_dead_worker().recv_state_with_cache();
+
+        assert!(
+            matches!(state, WorkerPoll::Died),
+            "a dead worker must not read as a detect that found nothing"
+        );
+        assert!(cache.is_none());
+    }
+
+    /// `poll_state` has reported a dead worker since the failover work, and the
+    /// blocking read is the one that did not.
+    #[test]
+    fn the_blocking_read_agrees_with_the_poll_about_a_dead_worker() {
+        let handle = handle_with_a_dead_worker();
+
+        assert!(matches!(handle.poll_state(), WorkerPoll::Died));
+        assert!(matches!(handle.recv_state_with_cache().0, WorkerPoll::Died));
+    }
 
     fn sample_coords() -> Vec<GpsPoint> {
         (0..50)

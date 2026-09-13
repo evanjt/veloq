@@ -1461,6 +1461,7 @@ export interface TranslationResource {
     rpe: string;
     saveError: string;
     startActivity: string;
+    startingIn: string;
     status: {
       paused: string;
       recording: string;

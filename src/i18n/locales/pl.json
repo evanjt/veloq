@@ -475,11 +475,11 @@
     "toBuildFitness": "oznacza produktywne obciążenie treningowe. Strefa",
     "toPreventOvertraining": "oznacza wysokie skumulowane zmęczenie.",
     "guidance": {
-      "highRisk": "TSB poniżej -30. Skumulowane zmęczenie znacząco przekracza ostatnie zyski kondycyjne.",
-      "optimal": "TSB między -30 a -10. Obciążenie treningowe produkuje adaptacje kondycyjne.",
-      "greyZone": "TSB między -10 a 5. Umiarkowana równowaga między kondycją a zmęczeniem.",
-      "fresh": "TSB między 5 a 25. Niskie zmęczenie w stosunku do kondycji. Dłuższy czas tutaj zazwyczaj odpowiada spadkowi kondycji.",
-      "transition": "TSB powyżej 25. Minimalny ostatni bodziec treningowy. Kondycja spada."
+      "highRisk": "Skumulowane zmęczenie znacząco przekracza ostatnie zyski kondycyjne.",
+      "optimal": "Obciążenie treningowe produkuje adaptacje kondycyjne.",
+      "greyZone": "Umiarkowana równowaga między kondycją a zmęczeniem.",
+      "fresh": "Niskie zmęczenie w stosunku do kondycji. Dłuższy czas tutaj zazwyczaj odpowiada spadkowi kondycji.",
+      "transition": "Minimalny ostatni bodziec treningowy. Kondycja spada."
     },
     "tsb": "TSB",
     "understandingMetrics": "Zrozumienie metryk",
@@ -952,6 +952,7 @@
     "slideToUnlock": "Przesuń, aby odblokować",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Rozpocznij aktywność",
+    "startingIn": "Start za {{seconds}} s",
     "status": {
       "paused": "WSTRZYMANO",
       "recording": "Nagrywanie"

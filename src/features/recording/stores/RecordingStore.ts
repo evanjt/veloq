@@ -228,9 +228,11 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     });
   },
 
+  // Idle is every moment before a start, including a one-tap entry sitting on
+  // its arm countdown. A finished recording is `stopped`, not idle, so the
+  // guard that used to sit here never protected one: it only refused the sport
+  // change the athlete most needs, the one that fixes a wrong tap.
   changeActivityType: (type) => {
-    const { status } = get();
-    if (status === 'idle') return;
     set({ activityType: type });
   },
 
