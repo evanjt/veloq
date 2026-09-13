@@ -1201,7 +1201,9 @@
     "rescanRefusedNotReady": "Silnik jeszcze się uruchamia. Spróbuj za chwilę.",
     "rescanRefusedOff": "Dopasowywanie tras jest wyłączone. Włącz je w Ustawieniach, aby skanować.",
     "rescanRefusedNothingOwed": "Wszystko zostało już przeskanowane.",
-    "rescanRefusedFailed": "Nie udało się rozpocząć skanowania."
+    "rescanRefusedFailed": "Nie udało się rozpocząć skanowania.",
+    "unflagLift": "Usunąć oznaczenie wyciągu?",
+    "unflagLiftConfirm": "Detektor oznaczył ten odcinek jako wyciąg. Oznaczenia nie da się przywrócić."
   },
   "settings": {
     "account": "Konto",

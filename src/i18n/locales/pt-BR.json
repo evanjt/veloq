@@ -1199,7 +1199,9 @@
     "rescanRefusedNotReady": "O motor ainda está abrindo. Tente de novo em instantes.",
     "rescanRefusedOff": "A correspondência de rotas está desativada. Ative-a nas Configurações para analisar.",
     "rescanRefusedNothingOwed": "Tudo já foi analisado.",
-    "rescanRefusedFailed": "Não foi possível iniciar a análise."
+    "rescanRefusedFailed": "Não foi possível iniciar a análise.",
+    "unflagLift": "Remover a marca de teleférico?",
+    "unflagLiftConfirm": "O detector marcou este trecho como teleférico. A marca não pode ser restaurada."
   },
   "settings": {
     "account": "Conta",

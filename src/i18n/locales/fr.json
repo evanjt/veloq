@@ -1199,7 +1199,9 @@
     "rescanRefusedNotReady": "Le moteur est en cours d'ouverture. Réessaie dans un instant.",
     "rescanRefusedOff": "La correspondance d'itinéraires est désactivée. Active-la dans les réglages pour analyser.",
     "rescanRefusedNothingOwed": "Tout a déjà été analysé.",
-    "rescanRefusedFailed": "L'analyse n'a pas pu démarrer."
+    "rescanRefusedFailed": "L'analyse n'a pas pu démarrer.",
+    "unflagLift": "Retirer le marquage remontée ?",
+    "unflagLiftConfirm": "Le détecteur a marqué ce tronçon comme remontée. Le marquage ne peut pas être rétabli."
   },
   "settings": {
     "account": "Compte",

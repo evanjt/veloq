@@ -309,6 +309,11 @@ struct SyncInner {
     last_error_reason: Option<FfiSyncErrorReason>,
     running: bool,
     cancel: bool,
+    /// A credential the profile confirmed as rejected. Set by the park and
+    /// cleared only by a credential change, so the running sync's own
+    /// terminal transition cannot write `Idle` over it and nothing new
+    /// begins on the dead token.
+    auth_expired: bool,
 }
 
 impl Default for SyncInner {
@@ -322,6 +327,7 @@ impl Default for SyncInner {
             last_error_reason: None,
             running: false,
             cancel: false,
+            auth_expired: false,
         }
     }
 }
@@ -344,12 +350,17 @@ impl SyncService {
     }
 
     fn set_credentials(&self, method: AuthKind, secret: String, athlete_id: String) {
-        let mut g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
-        *g = Some(Credentials {
-            method,
-            secret,
-            athlete_id,
-        });
+        {
+            let mut g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
+            *g = Some(Credentials {
+                method,
+                secret,
+                athlete_id,
+            });
+        }
+        // A credential the athlete just gave is not the one that was
+        // rejected, so the park is released here and nowhere else.
+        self.release_auth_park();
     }
 
     fn clear_credentials(&self) {
@@ -357,6 +368,9 @@ impl SyncService {
             let mut g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
             *g = None;
         }
+        // A sign-out leaves nothing to be rejected, and the next sign-in must
+        // not find the park still standing.
+        self.release_auth_park();
         // A running sync built its transport before it spawned, with the token
         // already baked in, so clearing the credential does not stop it on its
         // own. Stop the dispatch as well, or the signed-out athlete's next step
@@ -418,7 +432,7 @@ impl SyncService {
     /// sync is already in flight (so commands are idempotent under rapid taps).
     fn try_begin(&self) -> bool {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-        if inner.running {
+        if inner.running || inner.auth_expired {
             return false;
         }
         inner.running = true;
@@ -475,6 +489,16 @@ impl SyncService {
     pub fn finish(&self, state: SyncState, failure: Option<SyncFailure>, success: bool) {
         {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            // A park outlives whatever was running when it landed. Without
+            // this the interrupted run's own tail wrote `Idle` over it and
+            // the athlete was never told the session was gone.
+            if inner.auth_expired && state != SyncState::AuthExpired {
+                inner.running = false;
+                inner.in_flight = 0;
+                drop(inner);
+                observer::notify(|o| o.sync_settled());
+                return;
+            }
             inner.state = state;
             inner.running = false;
             inner.in_flight = 0;
@@ -487,9 +511,36 @@ impl SyncService {
         observer::notify(|o| o.sync_settled());
     }
 
+    /// Park the service on a credential the profile confirmed as rejected.
+    ///
+    /// The running slot is released, since nothing more will succeed on this
+    /// token, but the latch is what keeps the state: a sync that was already
+    /// mid-step reaches its own `finish` afterwards, and that call used to
+    /// overwrite `AuthExpired` with `Idle`.
+    pub fn park_auth_expired_now(&self) {
+        {
+            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            inner.auth_expired = true;
+        }
+        self.finish(
+            SyncState::AuthExpired,
+            Some(SyncFailure::unauthorized()),
+            false,
+        );
+    }
+
+    /// Release the park. Only a credential change does this.
+    fn release_auth_park(&self) {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner.auth_expired = false;
+        if inner.state == SyncState::AuthExpired {
+            inner.state = SyncState::Idle;
+        }
+    }
+
     /// Soft cancel: flag the loop so it stops dispatching new work. An in-flight
     /// request is allowed to finish.
-    fn request_cancel(&self) {
+    pub(crate) fn request_cancel(&self) {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.cancel = true;
         // Pause dispatch while a request is in flight; the job's terminal
@@ -548,11 +599,7 @@ async fn credential_is_rejected(transport: &Transport, athlete_id: &str) -> bool
 /// error, so a single refusal never signs anybody out.
 pub async fn park_auth_expired(transport: &Transport, athlete_id: &str) {
     if credential_is_rejected(transport, athlete_id).await {
-        SYNC_SERVICE.finish(
-            SyncState::AuthExpired,
-            Some(SyncFailure::unauthorized()),
-            false,
-        );
+        SYNC_SERVICE.park_auth_expired_now();
     } else {
         log::info!("[Sync] a 401 was not confirmed by the profile, the session stands");
     }
@@ -3966,6 +4013,65 @@ mod write_auth_tests {
         profile.assert();
         assert_eq!(SYNC_SERVICE.snapshot().state, SyncState::AuthExpired);
         restore_service();
+    }
+
+    /// Scenario: a token expires while a sync is running. An on-demand fetch
+    /// confirms the 401 and parked the service by calling `finish`, which
+    /// releases the running slot. A second sync then started on the dead
+    /// token, and the first sync's own tail wrote `Idle` over `AuthExpired`,
+    /// so the athlete was never told the session was gone.
+    ///
+    /// Expected behaviour: the park is a latch. It survives the running
+    /// sync's own terminal transition, and nothing new begins behind it until
+    /// a credential is set or cleared.
+    #[test]
+    fn a_park_survives_the_running_syncs_own_finish() {
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin(), "a sync is running");
+
+        svc.park_auth_expired_now();
+        assert_eq!(svc.snapshot().state, SyncState::AuthExpired);
+        assert!(
+            !svc.try_begin(),
+            "nothing new starts on a credential already rejected"
+        );
+
+        // The run that was already going reaches its own end and reports it.
+        svc.finish(SyncState::Idle, None, true);
+        assert_eq!(
+            svc.snapshot().state,
+            SyncState::AuthExpired,
+            "the parked state is not overwritten by the tail of the run it interrupted"
+        );
+        assert_eq!(
+            svc.snapshot().last_error_reason,
+            Some(FfiSyncErrorReason::Unauthorized)
+        );
+        assert!(!svc.try_begin(), "still parked after the run ended");
+    }
+
+    #[test]
+    fn a_re_auth_releases_the_park_and_a_sign_out_does_too() {
+        for sign_out in [false, true] {
+            let svc = SyncService::new();
+            svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+            assert!(svc.try_begin());
+            svc.park_auth_expired_now();
+            svc.finish(SyncState::Idle, None, true);
+            assert!(!svc.try_begin());
+
+            if sign_out {
+                svc.clear_credentials();
+            }
+            svc.set_credentials(AuthKind::ApiKey, "fresh".into(), "i1".into());
+
+            assert!(
+                svc.try_begin(),
+                "a credential the athlete just gave is not the one that was rejected"
+            );
+            assert_eq!(svc.snapshot().state, SyncState::Syncing);
+        }
     }
 
     #[test]

@@ -695,14 +695,15 @@ fn upgrading_keeps_wellness_days_written_before_the_body_column() {
 #[test]
 fn the_wellness_body_column_survives_a_typed_only_rewrite() {
     // The write-through path still upserts typed values without a body. That
-    // must not erase a body an earlier sync stored, or the wellness screens
-    // lose the fields only the body carries.
+    // must not erase a body an earlier sync stored: the day's per-sport loads
+    // are lifted out of it, and the eFTP derivation reads it too.
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     seed_one_version_behind_db(&db_path).expect("seed");
 
     let mut engine = PersistentEngine::new(db_path.to_str().unwrap()).expect("migrate");
-    let body = r#"{"id":"2026-07-04","ctl":62.4,"hrr":18}"#;
+    let body = r#"{"id":"2026-07-04","ctl":62.4,"hrr":18,
+        "sportInfo":[{"type":"Ride","load":63.0}]}"#;
 
     engine
         .upsert_wellness(&[veloqrs::persistence::wellness::WellnessRow {
@@ -744,18 +745,28 @@ fn the_wellness_body_column_survives_a_typed_only_rewrite() {
         }])
         .expect("typed-only rewrite");
 
-    let bodies = engine
-        .get_wellness_bodies(WELLNESS_DATE, WELLNESS_DATE)
-        .expect("read bodies");
-    assert_eq!(bodies, vec![body.to_string()]);
+    let days = engine
+        .get_wellness_days(WELLNESS_DATE, WELLNESS_DATE)
+        .expect("read days");
+    assert_eq!(days.len(), 1);
+    assert_eq!(
+        days[0].sport_load.len(),
+        1,
+        "the stored body still carries the day's per-sport load"
+    );
+    assert_eq!(days[0].sport_load[0].sport_group.as_deref(), Some("Ride"));
+    assert_eq!(days[0].sport_load[0].load, Some(63.0));
 }
 
 /// Scenario: a user upgrades with a year of wellness rows the old TypeScript
 /// mirror wrote, none of which carry a body.
 /// Expected behaviour: the fitness charts still have data to draw before the
-/// first sync of the new build lands, including offline.
+/// first sync of the new build lands, including offline. The typed columns are
+/// what the screens read now, so a bodyless row is a whole day rather than a
+/// day that has to be reconstructed; what it has none of is the per-sport
+/// breakdown, which only the body carries.
 #[test]
-fn rows_without_a_body_are_rebuilt_from_the_typed_columns() {
+fn rows_without_a_body_still_read_as_a_whole_day() {
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     seed_one_version_behind_db(&db_path).expect("seed");
@@ -782,24 +793,28 @@ fn rows_without_a_body_are_rebuilt_from_the_typed_columns() {
         }])
         .expect("store typed-only row");
 
-    let bodies = engine
-        .get_wellness_bodies(WELLNESS_DATE, WELLNESS_DATE)
-        .expect("read bodies");
-    assert_eq!(bodies.len(), 1, "the bodyless row must not be skipped");
+    let days = engine
+        .get_wellness_days(WELLNESS_DATE, WELLNESS_DATE)
+        .expect("read days");
+    assert_eq!(days.len(), 1, "the bodyless row must not be skipped");
 
-    let parsed: serde_json::Value = serde_json::from_str(&bodies[0]).expect("valid json");
-    assert_eq!(parsed["id"], WELLNESS_DATE);
-    assert_eq!(parsed["ctl"], WELLNESS_CTL);
-    assert_eq!(parsed["atl"], 48.0);
-    assert_eq!(parsed["hrv"], WELLNESS_HRV);
-    assert_eq!(parsed["restingHR"], 52.0);
-    assert_eq!(parsed["sleepSecs"], 27000);
-    assert_eq!(parsed["fatigue"], 2);
+    let day = &days[0];
+    assert_eq!(day.date, WELLNESS_DATE);
+    assert_eq!(day.ctl, Some(WELLNESS_CTL));
+    assert_eq!(day.atl, Some(48.0));
+    assert_eq!(day.hrv, Some(WELLNESS_HRV));
+    assert_eq!(day.resting_hr, Some(52.0));
+    assert_eq!(day.sleep_secs, Some(27000));
+    assert_eq!(day.fatigue, Some(2));
 
-    // Absent values stay absent rather than becoming null, so optional fields
-    // read as undefined in TypeScript exactly as they do from a real body.
-    assert!(parsed.get("weight").is_none());
-    assert!(parsed.get("rampRate").is_none());
+    // A value the row never carried stays absent rather than becoming a zero a
+    // chart would plot.
+    assert_eq!(day.weight, None);
+    assert_eq!(day.ramp_rate, None);
+    assert!(
+        day.sport_load.is_empty(),
+        "a row with no body has no per-sport breakdown to lift"
+    );
 }
 
 /// Reproduce the interrupted pre-0.3.0 beta: half of migration 12's column

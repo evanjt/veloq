@@ -20118,6 +20118,14 @@ export interface VeloqEngineLike {
   /**
    * Drop the persistent engine entirely, closing the SQLite connection.
    * The next call to `create()` will re-initialise from scratch.
+   *
+   * Every running job is asked to stop first. Nothing here waits for them:
+   * a cancel is cooperative and read between stages, so a worker already
+   * past its last check still finishes, and a detection that finishes
+   * after this applies into whatever database is open by then. What the
+   * cancel buys is that a job with any of its work left ahead of it stops
+   * before reaching the new library, which is the window the restore path
+   * opens when it calls this and then `initWithPath` on the restored file.
    */
   destroy(): void;
   detection(): DetectionManagerLike;
@@ -20328,6 +20336,14 @@ export class VeloqEngine
   /**
    * Drop the persistent engine entirely, closing the SQLite connection.
    * The next call to `create()` will re-initialise from scratch.
+   *
+   * Every running job is asked to stop first. Nothing here waits for them:
+   * a cancel is cooperative and read between stages, so a worker already
+   * past its last check still finishes, and a detection that finishes
+   * after this applies into whatever database is open by then. What the
+   * cancel buys is that a job with any of its work left ahead of it stops
+   * before reaching the new library, which is the window the restore path
+   * opens when it calls this and then `initWithPath` on the restored file.
    */
   destroy(): void {
     uniffiCaller.rustCall(
@@ -22071,7 +22087,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_destroy() !==
-    60067
+    54214
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_destroy",

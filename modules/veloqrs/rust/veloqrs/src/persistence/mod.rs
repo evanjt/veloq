@@ -689,6 +689,13 @@ pub struct BackupHandle {
 }
 
 impl BackupHandle {
+    /// A handle around a channel the caller already owns. Test path: it is
+    /// how a worker that died without sending is staged.
+    #[cfg(test)]
+    pub fn from_receiver(receiver: mpsc::Receiver<Result<(), String>>) -> Self {
+        Self { receiver }
+    }
+
     /// Non-blocking poll that also reports a dead worker thread.
     pub fn poll_state(&self) -> WorkerPoll<Result<(), String>> {
         match self.receiver.try_recv() {

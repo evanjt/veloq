@@ -1199,7 +1199,9 @@
     "rescanRefusedNotReady": "Motoren er ved at åbne. Prøv igen om et øjeblik.",
     "rescanRefusedOff": "Rutematchning er slået fra. Slå den til i Indstillinger for at scanne.",
     "rescanRefusedNothingOwed": "Alt er allerede scannet.",
-    "rescanRefusedFailed": "Scanningen kunne ikke starte."
+    "rescanRefusedFailed": "Scanningen kunne ikke starte.",
+    "unflagLift": "Fjern liftmarkeringen?",
+    "unflagLiftConfirm": "Detektoren markerede dette som liftterræn. Markeringen kan ikke sættes tilbage."
   },
   "settings": {
     "account": "Konto",

@@ -19,6 +19,50 @@ pub struct DerivedClearPoll {
     pub activities_kept: u32,
 }
 
+/// Whether a job slot is still held by a worker that is running, reaping it
+/// when it is not.
+///
+/// A finished worker's result sits in its channel until something polls it,
+/// and only the poll exports do. Every JS caller polls behind a deadline and
+/// stops when the deadline runs out, so one copy that outlived five minutes
+/// left the slot occupied for the life of the process and every later start
+/// refused. The auto-backup path swallows that refusal, so the athlete got no
+/// backups and no message until relaunch.
+///
+/// Reaping discards the outcome, which is right: the only caller of the poll
+/// is the deadline that already gave up on it.
+fn slot_still_running<H>(guard: &mut Option<H>, running: impl FnOnce(&H) -> bool) -> bool {
+    let still = guard.as_ref().is_some_and(running);
+    if !still {
+        *guard = None;
+    }
+    still
+}
+
+/// Ask every running job to stop, without waiting for any of them.
+///
+/// Called before the engine goes away. Each is a latch the worker reads
+/// between stages, so this returns immediately and the workers wind down on
+/// their own.
+fn cancel_every_job() {
+    if let Some(handle) = crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+    {
+        handle.request_cancel();
+    }
+    if let Some(handle) = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+    {
+        handle.cancel();
+    }
+    crate::persistence::cancel_tile_sweeps();
+    crate::objects::sync::SYNC_SERVICE.request_cancel();
+}
+
 impl DerivedClearPoll {
     fn idle() -> Self {
         DerivedClearPoll {
@@ -140,7 +184,9 @@ impl VeloqEngine {
     /// athlete flipped freezing the app.
     fn start_clear_routes_and_sections(&self) -> Result<(), VeloqError> {
         let mut guard = CLEAR_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
-        if guard.is_some() {
+        if slot_still_running(&mut guard, |h| {
+            matches!(h.poll_state(), WorkerPoll::Running)
+        }) {
             return Err(VeloqError::Database {
                 msg: "A clear is already running".to_string(),
             });
@@ -187,7 +233,9 @@ impl VeloqEngine {
         let mut guard = CLEAR_DERIVED_HANDLE
             .lock()
             .unwrap_or_else(|e| e.into_inner());
-        if guard.is_some() {
+        if slot_still_running(&mut guard, |h| {
+            matches!(h.poll_state(), WorkerPoll::Running)
+        }) {
             return Err(VeloqError::Database {
                 msg: "A clear is already running".to_string(),
             });
@@ -243,7 +291,9 @@ impl VeloqEngine {
     /// keeps the re-open ordered after the wipe rather than racing it.
     fn start_clear_all(&self) -> Result<(), VeloqError> {
         let mut guard = CLEAR_ALL_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
-        if guard.is_some() {
+        if slot_still_running(&mut guard, |h| {
+            matches!(h.poll_state(), WorkerPoll::Running)
+        }) {
             return Err(VeloqError::Database {
                 msg: "A clear is already running".to_string(),
             });
@@ -291,7 +341,16 @@ impl VeloqEngine {
 
     /// Drop the persistent engine entirely, closing the SQLite connection.
     /// The next call to `create()` will re-initialise from scratch.
+    ///
+    /// Every running job is asked to stop first. Nothing here waits for them:
+    /// a cancel is cooperative and read between stages, so a worker already
+    /// past its last check still finishes, and a detection that finishes
+    /// after this applies into whatever database is open by then. What the
+    /// cancel buys is that a job with any of its work left ahead of it stops
+    /// before reaching the new library, which is the window the restore path
+    /// opens when it calls this and then `initWithPath` on the restored file.
     fn destroy(&self) {
+        cancel_every_job();
         let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
         info!("[VeloqEngine] Destroying persistent engine");
         *guard = None;
@@ -360,7 +419,9 @@ impl VeloqEngine {
     /// so neither the engine lock nor the calling thread waits for it.
     fn start_backup(&self, dest_path: String) -> Result<(), VeloqError> {
         let mut guard = BACKUP_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
-        if guard.is_some() {
+        if slot_still_running(&mut guard, |h| {
+            matches!(h.poll_state(), WorkerPoll::Running)
+        }) {
             return Err(VeloqError::Database {
                 msg: "A backup is already running".to_string(),
             });
@@ -436,7 +497,9 @@ impl VeloqEngine {
         dest_path: String,
     ) -> Result<(), VeloqError> {
         let mut guard = BULK_EXPORT_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
-        if guard.is_some() {
+        if slot_still_running(&mut guard, |h| {
+            matches!(h.poll_state(), WorkerPoll::Running)
+        }) {
             return Err(VeloqError::Database {
                 msg: "An export is already running".to_string(),
             });
@@ -494,6 +557,7 @@ impl VeloqEngine {
 mod tests {
     use super::*;
     use crate::persistence::export::BulkExportFormat;
+    use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
     use crate::test_globals::{init_global_engine, serial_global_state};
     use crate::with_persistent_engine;
     use tracematch::GpsPoint;
@@ -709,6 +773,161 @@ mod tests {
         let _ = engine.strength();
         let _ = engine.heatmap();
         let _ = engine.sync();
+    }
+
+    /// Scenario: a copy on a full library outran `runBackup.ts`'s five-minute
+    /// deadline, or a wipe queued behind a long lock hold. The JS threw and
+    /// stopped polling, so nothing ever observed the worker finishing and the
+    /// slot stayed occupied. Every later backup in that process answered "A
+    /// backup is already running", and the auto-backup path swallows that, so
+    /// the athlete had no backups and no message until relaunch.
+    ///
+    /// Expected behaviour: a start reaps a slot whose worker has finished.
+    /// Nobody is waiting on that result any more, by definition: the only
+    /// callers of the poll exports are the deadlines that gave up.
+    /// Scenario: the restore path calls `destroy` and then `initWithPath` on
+    /// the restored file, with no cancel of anything first. A detection,
+    /// a tile pass or a sync that was running kept running, and the detection
+    /// applied a catalogue computed from the old library into the new one.
+    ///
+    /// Expected behaviour: every job is asked to stop before the engine goes.
+    /// The cancel is cooperative, so this is what stops a worker with work
+    /// still ahead of it rather than a guarantee about one already past its
+    /// last check, which is an open question.
+    #[test]
+    fn destroy_asks_every_running_job_to_stop() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("destroy-cancels.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+
+        let detection = with_persistent_engine(|e| e.detect_sections_background()).expect("engine");
+        let cancelled_before = detection.cancel_requested();
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(detection);
+
+        engine.destroy();
+
+        assert!(!cancelled_before, "nothing was cancelled before destroy");
+        let handle = SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        assert!(
+            handle.as_ref().expect("handle").cancel_requested(),
+            "the detection was asked to stop"
+        );
+        drop(handle);
+
+        // Leave nothing running behind this test: a detached worker holds the
+        // engine write lock and the next test's backup then reads as one
+        // already running.
+        let finished = SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take()
+            .expect("handle");
+        finished.recv();
+    }
+
+    #[test]
+    fn a_start_reaps_a_finished_worker_rather_than_refusing_behind_it() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("reap.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+
+        let dest = tmp.path().join("first.db").to_string_lossy().into_owned();
+        engine.start_backup(dest.clone()).expect("first start");
+        wait_for_backup(&engine);
+
+        // Nobody polled the outcome, which is what an overrun deadline leaves
+        // behind. Put the finished handle back to stand for that.
+        let finished = with_engine(|e| e.backup_database_background(&dest)).expect("engine");
+        assert!(finished.recv_blocking().is_some(), "the worker finished");
+        *BACKUP_HANDLE.lock().unwrap_or_else(|e| e.into_inner()) = Some(finished);
+
+        let second = tmp.path().join("second.db").to_string_lossy().into_owned();
+        engine
+            .start_backup(second.clone())
+            .expect("a finished worker does not block the next backup");
+        wait_for_backup(&engine);
+        assert!(std::path::Path::new(&second).exists());
+    }
+
+    /// The same for a worker that died without sending, which a panic leaves.
+    #[test]
+    fn a_start_reaps_a_worker_that_died_without_a_result() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("reap-died.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+
+        let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
+        drop(tx);
+        *BACKUP_HANDLE.lock().unwrap_or_else(|e| e.into_inner()) =
+            Some(crate::persistence::BackupHandle::from_receiver(rx));
+
+        let dest = tmp
+            .path()
+            .join("after-death.db")
+            .to_string_lossy()
+            .into_owned();
+        engine
+            .start_backup(dest.clone())
+            .expect("a dead worker does not block the next backup");
+        wait_for_backup(&engine);
+        assert!(std::path::Path::new(&dest).exists());
+    }
+
+    /// A wipe is the same slot in a different shape, and the clears are three
+    /// of the five sites.
+    #[test]
+    fn a_clear_start_reaps_a_finished_wipe_too() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("reap-clear.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+
+        engine.start_clear_derived().expect("first clear");
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while engine
+            .poll_clear_derived()
+            .map(|p| p.state)
+            .unwrap_or_default()
+            == "running"
+        {
+            assert!(std::time::Instant::now() < deadline, "clear never finished");
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+
+        // Nobody polls this one, which is what an overrun `awaitClear` leaves.
+        let finished = crate::persistence::clear_derived_background();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while matches!(finished.poll_state(), WorkerPoll::Running) {
+            assert!(std::time::Instant::now() < deadline, "wipe never finished");
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let finished = crate::persistence::clear_derived_background();
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        *CLEAR_DERIVED_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(finished);
+
+        engine
+            .start_clear_derived()
+            .expect("a finished wipe does not block the next one");
+    }
+
+    fn wait_for_backup(engine: &VeloqEngine) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while engine.poll_backup().unwrap_or_default() == "running" {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "backup never finished"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
     }
 
     #[test]

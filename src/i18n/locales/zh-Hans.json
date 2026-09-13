@@ -1199,7 +1199,9 @@
     "rescanRefusedNotReady": "引擎仍在启动，请稍后再试。",
     "rescanRefusedOff": "路线匹配已关闭。请在设置中开启后再扫描。",
     "rescanRefusedNothingOwed": "所有内容都已扫描。",
-    "rescanRefusedFailed": "无法开始扫描。"
+    "rescanRefusedFailed": "无法开始扫描。",
+    "unflagLift": "要移除缆车标记吗？",
+    "unflagLiftConfirm": "检测功能将此处标记为缆车路段。移除后无法恢复。"
   },
   "settings": {
     "account": "账户",

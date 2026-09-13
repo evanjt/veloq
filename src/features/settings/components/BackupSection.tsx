@@ -108,11 +108,15 @@ export function BackupSection() {
   const [showBackendPicker, setShowBackendPicker] = useState(false);
   const [offerableBackends, setOfferableBackends] = useState<BackupBackend[]>([]);
 
-  // WebDAV config state
-  const [webdavUrl, setWebdavUrl] = useState('');
-  const [webdavUser, setWebdavUser] = useState('');
-  const [webdavPass, setWebdavPass] = useState('');
-  const [webdavPlainLan, setWebdavPlainLan] = useState(false);
+  // WebDAV config state, read at first render so the fields paint filled in
+  // rather than empty and then replaced a frame later. `getWebdavConfig` is the
+  // in-memory cache `initWebdavConfig` filled at startup, so this is a property
+  // read and not a SecureStore round trip.
+  const [storedWebdav] = useState(getWebdavConfig);
+  const [webdavUrl, setWebdavUrl] = useState(storedWebdav?.url ?? '');
+  const [webdavUser, setWebdavUser] = useState(storedWebdav?.username ?? '');
+  const [webdavPass, setWebdavPass] = useState(storedWebdav?.password ?? '');
+  const [webdavPlainLan, setWebdavPlainLan] = useState(storedWebdav?.plainLan ?? false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionResult, setConnectionResult] = useState<'success' | 'error' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -120,13 +124,6 @@ export function BackupSection() {
 
   useEffect(() => {
     getOfferableBackends().then(setOfferableBackends);
-    const config = getWebdavConfig();
-    if (config) {
-      setWebdavUrl(config.url);
-      setWebdavUser(config.username);
-      setWebdavPass(config.password);
-      setWebdavPlainLan(config.plainLan);
-    }
   }, []);
 
   const handleSelectBackend = useCallback((backend: BackupBackend) => {

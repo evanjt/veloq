@@ -1235,7 +1235,9 @@
     "rescanRefusedNotReady": "The engine is still opening. Try again in a moment.",
     "rescanRefusedOff": "Route matching is off. Turn it on in Settings to scan.",
     "rescanRefusedNothingOwed": "Everything has been scanned already.",
-    "rescanRefusedFailed": "The scan could not start."
+    "rescanRefusedFailed": "The scan could not start.",
+    "unflagLift": "Remove the lift flag?",
+    "unflagLiftConfirm": "The detector marked this as lift ground. Removing the flag cannot be undone."
   },
   "settings": {
     "account": "Account",

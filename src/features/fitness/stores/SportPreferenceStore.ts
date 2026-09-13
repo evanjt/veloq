@@ -1,15 +1,20 @@
 import { create } from 'zustand';
 import { getSetting, setSetting } from '@/shared/storage';
+import { colors } from '@/theme';
 
 const SPORT_PREFERENCE_KEY = 'veloq-primary-sport';
 
 export type PrimarySport = 'Cycling' | 'Running' | 'Swimming';
 
-// Sport-specific colors
+/**
+ * The palette's activity colours under the names the preference uses. These
+ * were three hex literals byte for byte equal to the palette, so a palette fix
+ * reached every surface except the ones reading this store.
+ */
 export const SPORT_COLORS: Record<PrimarySport, string> = {
-  Cycling: '#3B82F6', // Blue-500 - Royal blue
-  Running: '#10B981', // Emerald-500
-  Swimming: '#06B6D4', // Cyan-500
+  Cycling: colors.ride,
+  Running: colors.run,
+  Swimming: colors.swim,
 };
 
 interface SportPreferenceState {

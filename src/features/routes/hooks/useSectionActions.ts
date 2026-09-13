@@ -380,17 +380,29 @@ export function useSectionActions({
   // The write is an intent, not the derived column, so it outlives the next
   // enrichment pass. A refusal leaves the badge up rather than hiding a flag
   // that is still set.
+  // Asks first, the way removing a section does. Nothing in the app puts the
+  // flag back, and the badge sits in a header the athlete scrolls, so a tap
+  // that spends it has to be a deliberate one.
   const handleUnflagLift = useCallback(() => {
     if (!id) return;
     const engine = getEngine();
     if (!engine) return;
-    if (!engine.setSectionIsLift(id, false)) {
-      log.warn('unflag refused', id);
-      return;
-    }
-    queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
-    onSectionRefresh();
-  }, [id, queryClient, onSectionRefresh]);
+    Alert.alert(t('sections.unflagLift'), t('sections.unflagLiftConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.remove'),
+        style: 'destructive',
+        onPress: () => {
+          if (!engine.setSectionIsLift(id, false)) {
+            log.warn('unflag refused', id);
+            return;
+          }
+          queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
+          onSectionRefresh();
+        },
+      },
+    ]);
+  }, [id, t, queryClient, onSectionRefresh]);
 
   // --- rematch ---
   const handleRematchActivities = useCallback(() => {

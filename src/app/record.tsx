@@ -83,7 +83,13 @@ export default function RecordScreen() {
   const isLoaded = useRecordingPreferences((s) => s.isLoaded);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [showAllActivities, setShowAllActivities] = useState(false);
-  const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>([]);
+  // Read at first render rather than in an effect. An engine that is not open
+  // yet answers empty either way, and the `activities` subscription below is
+  // what recovers that case, as it was before.
+  const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>(() => {
+    const today = formatLocalDate(new Date());
+    return readCalendarEvents(today, today);
+  });
 
   // GPS readiness state
   const [gpsState, setGpsState] = useState<'checking' | 'ready' | 'weak' | 'none'>('checking');
@@ -223,13 +229,13 @@ export default function RecordScreen() {
     })();
   }, [t]);
 
-  // Today's planned workouts. Ask Rust to refresh the day, then read what is
-  // stored; the engine event brings in anything the refresh adds.
+  // Today's planned workouts. The stored day is read in the initialiser above,
+  // so the first paint has it; this asks Rust to refresh the day and the engine
+  // event brings in anything the refresh adds.
   useEffect(() => {
     const today = formatLocalDate(new Date());
     const engine = getEngine();
     engine?.syncCalendarEvents(today, today);
-    setTodayEvents(readCalendarEvents(today, today));
 
     if (!engine) return undefined;
     return engine.subscribe('activities', () => {

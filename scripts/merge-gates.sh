@@ -39,7 +39,12 @@ set -e
 # is incremental (`tsconfig.json` sets `incremental` and `tsBuildInfoFile`), so
 # it is seconds warm. It goes before the suites so a merge fails on the cheap
 # check.
-npm run lint
+# The lint ratchet, over the tree this merge commits rather than the one on
+# disk. `npm run lint` globs the working tree, and every worktree merges into
+# this one checkout, so one session's unsaved warning failed every merge anyone
+# attempted, on a file the merge had never touched, with the ceiling sitting
+# exactly on the count so nothing absorbed it.
+./scripts/check-merge-lint.sh
 npx tsc --noEmit
 # The format half of `npm run audit`, scoped to the merge. `format:check` globs
 # the working tree, and every worktree merges into this one checkout, so one
@@ -49,4 +54,10 @@ npx tsc --noEmit
 ./scripts/check-merge-format.sh
 npm run audit:guards
 (cd modules/veloqrs/rust && cargo fmt -p veloqrs -- --check)
+# The test tree, which nothing else builds. `cargo check` of the library passes
+# when the only caller of a deleted method is a test, and the suite run below is
+# scoped to what the merge touched, so a deletion on one branch and its caller on
+# another combine here and nowhere earlier. Warm it is 0.2 s; the cold 1 m 10 s
+# is paid once per target directory and only after Rust has changed.
+(cd modules/veloqrs/rust && cargo check --tests -p veloqrs)
 ./scripts/check-merge-tests.sh

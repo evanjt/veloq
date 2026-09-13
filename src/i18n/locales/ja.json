@@ -1199,7 +1199,9 @@
     "rescanRefusedNotReady": "エンジンを準備中です。しばらくしてからもう一度お試しください。",
     "rescanRefusedOff": "ルートマッチングがオフです。設定でオンにするとスキャンできます。",
     "rescanRefusedNothingOwed": "すべてスキャン済みです。",
-    "rescanRefusedFailed": "スキャンを開始できませんでした。"
+    "rescanRefusedFailed": "スキャンを開始できませんでした。",
+    "unflagLift": "リフト判定を解除しますか？",
+    "unflagLiftConfirm": "検出機能がここをリフト区間と判定しました。解除すると元に戻せません。"
   },
   "settings": {
     "account": "アカウント",

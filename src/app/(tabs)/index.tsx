@@ -72,6 +72,10 @@ export default function FeedScreen() {
   // Performance timing - tracks total render time and sub-component costs
   const renderStart = PERF_DEBUG ? performance.now() : 0;
   const perfEndRef = useRef<(() => void) | null>(null);
+  // The screen's render timer starts in render because the render is what it
+  // measures. Scoped by line rather than by file: this file also holds the
+  // render-time identity caches, which are a real hazard and stay reported.
+  // eslint-disable-next-line react-hooks/refs
   perfEndRef.current = logScreenRender('FeedScreen');
   useEffect(() => {
     perfEndRef.current?.();
@@ -516,6 +520,10 @@ export default function FeedScreen() {
     dataRef: null as unknown,
     filteredRef: null as unknown,
   });
+  // The render-state diff is instrumentation over the render, so every read and
+  // write of it is a render-time ref access by construction. `PERF_DEBUG` is
+  // `__DEV__`. Scoped by region for the same reason as the timer above.
+  /* eslint-disable react-hooks/refs */
   if (PERF_DEBUG) {
     const prev = prevRenderState.current;
     const changes: string[] = [];
@@ -539,6 +547,7 @@ export default function FeedScreen() {
       );
     if (changes.length > 0) log.log(`  🔄 State changes: ${changes.join(', ')}`);
   }
+  /* eslint-enable react-hooks/refs */
 
   // Single layout path - no separate loading tree to avoid component tree swap and layout bounce
   return (

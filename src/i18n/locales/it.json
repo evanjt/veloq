@@ -1199,7 +1199,9 @@
     "rescanRefusedNotReady": "Il motore si sta ancora aprendo. Riprova tra un momento.",
     "rescanRefusedOff": "La corrispondenza dei percorsi è disattivata. Attivala nelle impostazioni per analizzare.",
     "rescanRefusedNothingOwed": "È già stato analizzato tutto.",
-    "rescanRefusedFailed": "Non è stato possibile avviare la scansione."
+    "rescanRefusedFailed": "Non è stato possibile avviare la scansione.",
+    "unflagLift": "Rimuovere il contrassegno impianto?",
+    "unflagLiftConfirm": "Il rilevatore ha segnato questo tratto come impianto di risalita. Il contrassegno non si può ripristinare."
   },
   "settings": {
     "account": "Account",

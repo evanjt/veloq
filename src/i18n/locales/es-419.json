@@ -1199,7 +1199,9 @@
     "rescanRefusedNotReady": "El motor todavía se está abriendo. Inténtalo de nuevo en un momento.",
     "rescanRefusedOff": "La coincidencia de rutas está desactivada. Actívala en Ajustes para analizar.",
     "rescanRefusedNothingOwed": "Ya se ha analizado todo.",
-    "rescanRefusedFailed": "No se pudo iniciar el análisis."
+    "rescanRefusedFailed": "No se pudo iniciar el análisis.",
+    "unflagLift": "¿Quitar la marca de remonte?",
+    "unflagLiftConfirm": "El detector marcó esto como tramo de remonte. La marca no se puede restaurar."
   },
   "settings": {
     "account": "Cuenta",

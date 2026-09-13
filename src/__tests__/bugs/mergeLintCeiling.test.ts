@@ -26,7 +26,16 @@ describe('a merge is gated the way a commit is', () => {
   });
 
   it('checks the lint ceiling, which is what drifted', () => {
-    expect(merge()).toMatch(/npm run lint\b/);
+    // Through the merge-scoped script, which counts the tree the merge
+    // commits rather than the shared checkout on disk. Matched as a
+    // command line, not anywhere in the file: the prose above it names the
+    // working-tree invocation it replaced.
+    const commands = merge()
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith('#'));
+    expect(commands).toContain('./scripts/check-merge-lint.sh');
+    expect(commands.some((line) => /^npm run lint\b/.test(line))).toBe(false);
   });
 
   it('checks the ceiling uncached, so a merge cannot replay a stale pass', () => {

@@ -1106,6 +1106,8 @@ export interface TranslationResource {
     disabled: string;
     removeSection: string;
     removeSectionConfirm: string;
+    unflagLift: string;
+    unflagLiftConfirm: string;
     removed: string;
     restoreSection: string;
     forward: string;

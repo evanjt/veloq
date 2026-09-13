@@ -1199,7 +1199,9 @@
     "rescanRefusedNotReady": "De engine wordt nog geopend. Probeer het zo opnieuw.",
     "rescanRefusedOff": "Routematching staat uit. Zet het aan in Instellingen om te scannen.",
     "rescanRefusedNothingOwed": "Alles is al gescand.",
-    "rescanRefusedFailed": "De scan kon niet starten."
+    "rescanRefusedFailed": "De scan kon niet starten.",
+    "unflagLift": "Liftmarkering verwijderen?",
+    "unflagLiftConfirm": "De detector markeerde dit als liftterrein. De markering kan niet worden teruggezet."
   },
   "settings": {
     "account": "Account",

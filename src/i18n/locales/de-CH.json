@@ -1199,7 +1199,9 @@
     "rescanRefusedNotReady": "Die Engine startet noch. Versuche es gleich noch einmal.",
     "rescanRefusedOff": "Routenabgleich ist aus. Schalte ihn in den Einstellungen ein, um zu scannen.",
     "rescanRefusedNothingOwed": "Es ist bereits alles gescannt.",
-    "rescanRefusedFailed": "Der Scan konnte nicht gestartet werden."
+    "rescanRefusedFailed": "Der Scan konnte nicht gestartet werden.",
+    "unflagLift": "Liftmarkierung entfernen?",
+    "unflagLiftConfirm": "Der Detektor hat dies als Liftstrecke markiert. Die Markierung lässt sich nicht wiederherstellen."
   },
   "settings": {
     "account": "Konto",

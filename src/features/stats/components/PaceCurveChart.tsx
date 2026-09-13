@@ -321,6 +321,21 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         onInteractionChange={handleInteractionChange}
       />
 
+      {/* The rule the chart draws, named. The power and swim curves carry the
+          same row; without it the dashed line crosses the curve saying nothing,
+          and the figure sits in the model line among D' and R². */}
+      {criticalSpeedPace && (
+        <View style={styles.legend}>
+          <View style={[styles.legendDash, { backgroundColor: CS_LINE_COLOR }]} />
+          <Text
+            testID="pace-curve-cs-legend"
+            style={[styles.legendText, isDark && chartStyles.textDark]}
+          >
+            CS {formatPaceFromSecsPerKm(criticalSpeedPace)}/km
+          </Text>
+        </View>
+      )}
+
       {/* Model info */}
       <View style={styles.footer}>
         <View style={styles.modelInfo}>
@@ -425,6 +440,22 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: typography.bodyCompact.fontSize,
+    color: colors.textSecondary,
+  },
+  legend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+    gap: spacing.xsPlus,
+  },
+  legendDash: {
+    width: spacing.md,
+    height: 2,
+    borderRadius: layout.borderRadiusFull,
+  },
+  legendText: {
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   footer: {
