@@ -363,7 +363,8 @@
         "network": "intervals.icu に接続できませんでした",
         "storage": "この端末のファイルを読み取れませんでした",
         "notConfigured": "この端末に intervals.icu のログイン情報がありません",
-        "internal": "原因を特定できないまま同期が止まりました"
+        "internal": "原因を特定できないまま同期が止まりました",
+        "engineClosed": "途中でライブラリが閉じられたため、同期が停止しました"
       }
     }
   },
@@ -1238,6 +1239,8 @@
     "maxMetricsHint": "最大4つの指標",
     "appTour": "アプリツアー",
     "appTourDescription": "機能を探索して使い方を学ぶ",
+    "rangeLockedMessage": "ローカルデータ範囲は最初の同期が完了すると開きます。同期が始まらない場合は、オンラインかどうかとログイン状態を確認してください。",
+    "rangeLockedTitle": "準備中です",
     "terrain3D": "3D地形",
     "terrain3DOff": "オフ",
     "terrain3DSmart": "スマート",
@@ -1400,7 +1403,8 @@
     "groupingMerged": "ルート {{count}} 件が統合されます",
     "groupingDropped": "{{count}} 件が単独のまま残ります",
     "groupingLegendMostRidden": "最多走行",
-    "groupingLegendOther": "その他のルート"
+    "groupingLegendOther": "その他のルート",
+    "groupingFailed": "グループ化が完了しませんでした。つまみを動かすともう一度実行します。"
   },
   "stats": {
     "activities": "アクティビティ",

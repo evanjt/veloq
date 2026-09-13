@@ -363,7 +363,8 @@
         "network": "Kunne ikke naa intervals.icu",
         "storage": "En fil paa denne enhed kunne ikke laeses",
         "notConfigured": "Der er ikke gemt noget intervals.icu-login paa denne enhed",
-        "internal": "Synkroniseringen stoppede af en grund, appen ikke kan navngive"
+        "internal": "Synkroniseringen stoppede af en grund, appen ikke kan navngive",
+        "engineClosed": "Synkroniseringen stoppede, fordi biblioteket blev lukket undervejs"
       }
     }
   },
@@ -1238,6 +1239,8 @@
     "maxMetricsHint": "Maksimalt 4 metrikker",
     "appTour": "App-tour",
     "appTourDescription": "Udforsk funktioner og lær at bruge dem",
+    "rangeLockedMessage": "Det lokale dataområde åbner, når den første synkronisering er færdig. Hvis den aldrig starter, så tjek at du er online og logget ind.",
+    "rangeLockedTitle": "Klargør stadig",
     "terrain3D": "3D Terræn",
     "terrain3DOff": "Fra",
     "terrain3DSmart": "Intelligent",
@@ -1400,7 +1403,8 @@
     "groupingMerged": "{{count}} af dine ruter ville blive slået sammen",
     "groupingDropped": "{{count}} ville stå alene",
     "groupingLegendMostRidden": "Mest kørte",
-    "groupingLegendOther": "Andre ruter"
+    "groupingLegendOther": "Andre ruter",
+    "groupingFailed": "Grupperingen blev ikke færdig. Flyt en indstilling for at prøve igen."
   },
   "stats": {
     "activities": "Aktiviteter",

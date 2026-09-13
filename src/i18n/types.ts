@@ -291,6 +291,7 @@ export interface TranslationResource {
     groupingMatchShare: string;
     groupingEndsApart: string;
     groupingRunning: string;
+    groupingFailed: string;
     groupingNothingToGroup: string;
     groupingSummary: string;
     groupingMerged: string;
@@ -396,6 +397,8 @@ export interface TranslationResource {
     largeHistoryConfirm: string;
     largeHistoryMessage: string;
     largeHistoryTitle: string;
+    rangeLockedMessage: string;
+    rangeLockedTitle: string;
     localDataRange: string;
     summaryCard: string;
     showSummaryCard: string;
@@ -1204,6 +1207,7 @@ export interface TranslationResource {
         storage: string;
         notConfigured: string;
         internal: string;
+        engineClosed: string;
       };
     };
   };

@@ -12,14 +12,19 @@ import {
 } from '@/shared/ui';
 import { aboutInsightsBody, InsightsPanel, StrengthTab, useInsights } from '@/features/insights';
 import { DateRangeSummary } from '@/features/routes/components/DateRangeSummary';
-import { RoutesList } from '@/features/routes/components/RoutesList';
-import { SectionsList } from '@/features/routes/components/SectionsList';
+import { RoutesList, type RoutesSortOption } from '@/features/routes/components/RoutesList';
+import { SectionsList, type SectionsSortOption } from '@/features/routes/components/SectionsList';
 import { SyncDebugTab } from '@/features/routes/components/SyncDebugTab';
-import type { RoutesSortOption } from '@/features/routes/components/RoutesList';
-import type { SectionsSortOption } from '@/features/routes/components/SectionsList';
 import { useActivityBoundsCache } from '@/features/activity/hooks';
 import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
 import { useRoutesScreenData } from '@/features/routes/hooks/useRoutesScreenData';
+import {
+  DEFAULT_SECTION_HIDE_FLAGS,
+  groupSortFor,
+  sectionFiltersFor,
+  sectionSortFor,
+  type SectionHideFlags,
+} from '@/features/routes/lib/routesScreenQuery';
 import { useTheme } from '@/shared/app';
 import { useUserLocation } from '@/shared/app/useUserLocation';
 import { useStrengthTabState } from '@/features/strength';
@@ -154,6 +159,14 @@ export default function InsightsScreen() {
     userLocation ? 'nearby' : 'visits'
   );
 
+  // The sort, the search and the hide flags are the engine's query, not the
+  // list's own state: it orders, filters and counts the catalogue before it
+  // pages it.
+  const [routeSearch, setRouteSearch] = useState('');
+  const [sectionSearch, setSectionSearch] = useState('');
+  const [sectionHidden, setSectionHidden] = useState<SectionHideFlags>(DEFAULT_SECTION_HIDE_FLAGS);
+  const sectionFilters = useMemo(() => sectionFiltersFor(sectionHidden), [sectionHidden]);
+
   const routeSettings = useRouteSettings((s) => s.settings);
   const isRouteMatchingEnabled = routeSettings.enabled;
 
@@ -171,8 +184,11 @@ export default function InsightsScreen() {
   } = useRoutesScreenData({
     groupLimit: 50,
     sectionLimit: 100,
-    prioritizeNearestGroups: routeSort === 'nearby',
-    prioritizeNearestSections: sectionSort === 'nearby',
+    groupSort: groupSortFor(routeSort),
+    groupSearch: routeSearch,
+    sectionSort: sectionSortFor(sectionSort),
+    sectionSearch,
+    sectionFilters,
     userLocation,
   });
 
@@ -418,6 +434,8 @@ export default function InsightsScreen() {
             totalGroupCount={routeGroupCount}
             sortOption={routeSort}
             onSortChange={handleRouteSortChange}
+            searchQuery={routeSearch}
+            onSearchChange={setRouteSearch}
             isLoading={!routesData}
           />
         ) : (
@@ -435,6 +453,7 @@ export default function InsightsScreen() {
       userLocation,
       routeGroupCount,
       routeSort,
+      routeSearch,
       handleRouteSortChange,
       isRouteMatchingEnabled,
       isDark,
@@ -453,6 +472,12 @@ export default function InsightsScreen() {
             userLocation={userLocation}
             sortOption={sectionSort}
             onSortChange={handleSectionSortChange}
+            searchQuery={sectionSearch}
+            onSearchChange={setSectionSearch}
+            hiddenFilters={sectionHidden}
+            onHiddenFiltersChange={setSectionHidden}
+            unacceptedAutoCount={routesData?.unacceptedAutoCount ?? 0}
+            acceptedAutoCount={routesData?.acceptedAutoCount ?? 0}
           />
         ) : (
           <RouteTabDisabledState isDark={isDark} />
@@ -466,6 +491,10 @@ export default function InsightsScreen() {
       totalSections,
       userLocation,
       sectionSort,
+      sectionSearch,
+      sectionHidden,
+      routesData?.unacceptedAutoCount,
+      routesData?.acceptedAutoCount,
       handleSectionSortChange,
       isRouteMatchingEnabled,
       isDark,

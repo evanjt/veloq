@@ -17,7 +17,7 @@ import {
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 
 const MAX_CACHED_PREVIEWS = 150;
-const DIR = '/mock/cache/terrain_previews/';
+const DIR = '/mock/docs/terrain_previews/';
 
 const mockFileStore = new Map<string, string>();
 const mockDirStore = new Set<string>([DIR]);
@@ -27,6 +27,7 @@ let mockDirListing: string[] | null = null;
 
 jest.mock('expo-file-system/legacy', () => ({
   cacheDirectory: '/mock/cache/',
+  documentDirectory: '/mock/docs/',
   EncodingType: { Base64: 'base64' },
   getInfoAsync: jest.fn(async (path: string) => ({
     exists: mockDirStore.has(path) || mockFileStore.has(path),

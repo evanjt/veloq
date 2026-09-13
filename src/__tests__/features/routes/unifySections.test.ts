@@ -56,12 +56,12 @@ describe('unifySections', () => {
     expect(unify([engineRow()], [storeRow()])).toHaveLength(1);
   });
 
-  it('takes a section the engine has not seen from the custom store', () => {
+  it('puts a section the engine has not seen first, where it was just drawn', () => {
     const fresh = storeRow({ id: 'custom_new', name: 'Just made' });
 
     const ids = unify([engineRow()], [storeRow(), fresh]).map((s) => s.id);
 
-    expect(ids).toEqual(['custom_1', 'custom_new']);
+    expect(ids).toEqual(['custom_new', 'custom_1']);
   });
 
   it('reads a prefixed id as custom even when the engine calls it auto', () => {
@@ -80,7 +80,7 @@ describe('unifySections', () => {
     expect(result.map((s) => s.id)).toEqual(['auto_1']);
   });
 
-  it('puts custom before auto and hidden last', () => {
+  it("regroups nothing, because the order it was given is the query's answer", () => {
     const result = unify([
       engineRow({ id: 'auto_1', sectionType: 'auto' }),
       engineRow({ id: 'custom_1' }),
@@ -88,11 +88,10 @@ describe('unifySections', () => {
       engineRow({ id: 'custom_2', supersededBy: 'auto_1' }),
     ]);
 
-    // Hidden last, and custom before auto inside each group.
-    expect(result.map((s) => s.id)).toEqual(['custom_1', 'auto_1', 'custom_2', 'auto_2']);
+    expect(result.map((s) => s.id)).toEqual(['auto_1', 'custom_1', 'auto_2', 'custom_2']);
   });
 
-  it('keeps the engine order within a group, which is what nearby relies on', () => {
+  it('keeps the engine order, which is every sort and not just nearby', () => {
     const result = unify([
       engineRow({ id: 'auto_2', sectionType: 'auto' }),
       engineRow({ id: 'auto_1', sectionType: 'auto' }),

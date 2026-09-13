@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import type { ExpandRangeResult } from '@/shared/app/SyncDateRangeStore';
 import { clearAllGpsTracks, clearBoundsCache } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
@@ -31,7 +32,7 @@ interface UseActivityBoundsCacheReturn {
   /** Whether engine data is available */
   isReady: boolean;
   /** Expand sync date range (triggers GlobalDataSync to fetch more data) */
-  syncDateRange: (oldest: string, newest: string) => void;
+  syncDateRange: (oldest: string, newest: string) => ExpandRangeResult;
   /** Clear the cache */
   clearCache: () => Promise<void>;
   /** Cache statistics */
@@ -154,9 +155,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const expandRange = useSyncDateRange((s) => s.expandRange);
 
   const syncDateRange = useCallback(
-    (oldest: string, newest: string) => {
-      expandRange(oldest, newest);
-    },
+    (oldest: string, newest: string) => expandRange(oldest, newest),
     [expandRange]
   );
 

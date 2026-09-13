@@ -363,7 +363,8 @@
         "network": "无法连接 intervals.icu",
         "storage": "无法读取此设备上的文件",
         "notConfigured": "此设备未保存 intervals.icu 登录信息",
-        "internal": "同步中断，应用无法说明原因"
+        "internal": "同步中断，应用无法说明原因",
+        "engineClosed": "同步已停止，因为资料库在中途被关闭"
       }
     }
   },
@@ -1238,6 +1239,8 @@
     "maxMetricsHint": "最多 4 个指标",
     "appTour": "应用导览",
     "appTourDescription": "探索功能并学习如何使用",
+    "rangeLockedMessage": "首次同步完成后即可调整本地数据范围。如果同步始终没有开始，请检查网络连接和登录状态。",
+    "rangeLockedTitle": "仍在准备中",
     "terrain3D": "3D 地形",
     "terrain3DOff": "关闭",
     "terrain3DSmart": "智能",
@@ -1400,7 +1403,8 @@
     "groupingMerged": "你的 {{count}} 条路线会被合并",
     "groupingDropped": "{{count}} 条会单独留下",
     "groupingLegendMostRidden": "骑行最多",
-    "groupingLegendOther": "其他路线"
+    "groupingLegendOther": "其他路线",
+    "groupingFailed": "分组未能完成。移动滑块可再试一次。"
   },
   "stats": {
     "activities": "活动",

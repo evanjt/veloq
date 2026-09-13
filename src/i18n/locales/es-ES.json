@@ -363,7 +363,8 @@
         "network": "No se pudo conectar con intervals.icu",
         "storage": "No se pudo leer un archivo de este dispositivo",
         "notConfigured": "No hay ninguna sesion de intervals.icu guardada en este dispositivo",
-        "internal": "La sincronizacion se detuvo por un motivo que la aplicacion no puede nombrar"
+        "internal": "La sincronizacion se detuvo por un motivo que la aplicacion no puede nombrar",
+        "engineClosed": "La sincronizacion se detuvo porque la biblioteca se cerro a mitad"
       }
     }
   },
@@ -1238,6 +1239,8 @@
     "maxMetricsHint": "Máximo 4 métricas",
     "appTour": "Tour de la app",
     "appTourDescription": "Explora funciones y aprende a usarlas",
+    "rangeLockedMessage": "El rango de datos locales se abre cuando termina la primera sincronización. Si nunca empieza, comprueba que tienes conexión y has iniciado sesión.",
+    "rangeLockedTitle": "Aún preparándose",
     "terrain3D": "Terreno 3D",
     "terrain3DOff": "Apagado",
     "terrain3DSmart": "Inteligente",
@@ -1400,7 +1403,8 @@
     "groupingMerged": "{{count}} de tus rutas se fusionarían",
     "groupingDropped": "{{count}} quedarían sueltas",
     "groupingLegendMostRidden": "Más recorrida",
-    "groupingLegendOther": "Otras rutas"
+    "groupingLegendOther": "Otras rutas",
+    "groupingFailed": "La agrupación no terminó. Mueve un control para intentarlo de nuevo."
   },
   "stats": {
     "activities": "Actividades",

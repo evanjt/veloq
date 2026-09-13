@@ -14,6 +14,7 @@ import { act, renderHook } from '@testing-library/react-native';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
+import { cancelSyncRefresh } from '@/shared/native/syncRefresh';
 import { useEngineSync } from '@/shared/native/useEngineSync';
 import { useSyncSettled } from '@/shared/app/useRetryTriggers';
 import { updateWidgetSnapshot } from '@/features/home/lib/widgetBridge';
@@ -52,6 +53,9 @@ jest.mock('@/features/home/lib/widgetBridge', () => ({
   updateWidgetSnapshot: jest.fn(),
 }));
 
+jest.mock('@/shared/native/syncRefresh', () => ({ cancelSyncRefresh: jest.fn() }));
+
+const mockCancelSyncRefresh = cancelSyncRefresh as jest.MockedFunction<typeof cancelSyncRefresh>;
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 const mockUpdateWidgetSnapshot = updateWidgetSnapshot as jest.MockedFunction<
   typeof updateWidgetSnapshot
@@ -328,5 +332,34 @@ describe('useEngineSync', () => {
     act(() => rerender(undefined));
 
     expect(mockUpdateWidgetSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Scenario: a pull to refresh is refused while a sync runs and held for the
+   * next settle. The athlete then signs out, or clears the library, and the
+   * hold outlives the account it was made for.
+   */
+  it('drops a held refresh on sign-out', () => {
+    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    mockGetEngine.mockReturnValue(engineWith(syncNow));
+
+    const { rerender } = renderHook(() => useEngineSync());
+    expect(mockCancelSyncRefresh).not.toHaveBeenCalled();
+
+    act(() => useAuthStore.setState({ isAuthenticated: false }));
+    rerender(undefined);
+
+    expect(mockCancelSyncRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops a held refresh when the library is cleared', () => {
+    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    mockGetEngine.mockReturnValue(engineWith(syncNow));
+
+    renderHook(() => useEngineSync());
+
+    act(() => resetListeners.forEach((fire) => fire()));
+
+    expect(mockCancelSyncRefresh).toHaveBeenCalledTimes(1);
   });
 });

@@ -23,6 +23,7 @@ import { useTheme } from '@/shared/app/useTheme';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
+import { GroupSort, SectionSort } from 'veloqrs';
 import {
   GROUPING_DEFAULTS,
   GroupingParamPanel,
@@ -47,7 +48,26 @@ interface RouteRow extends GroupingRoute {
 function readRoutes(): RouteRow[] {
   const engine = getEngine();
   if (!engine?.getRoutesScreenData) return [];
-  const data = engine.getRoutesScreenData(ROUTES_DRAWN, 0, 0, 0, 2, false, false, NaN, NaN);
+  const data = engine.getRoutesScreenData({
+    groupLimit: ROUTES_DRAWN,
+    groupOffset: 0,
+    sectionLimit: 0,
+    sectionOffset: 0,
+    minGroupActivityCount: 2,
+    groupSort: GroupSort.Activities,
+    groupSearch: '',
+    sectionSort: SectionSort.Visits,
+    sectionSearch: '',
+    sectionFilters: {
+      hideCustom: false,
+      hideAuto: false,
+      hideDisabled: false,
+      hideUnaccepted: false,
+    },
+    sectionSportType: undefined,
+    userLat: Number.NaN,
+    userLng: Number.NaN,
+  });
   return (data?.groups ?? []).map((g) => ({
     groupId: g.groupId,
     representativeId: g.representativeId,
@@ -94,6 +114,19 @@ export default function RouteGroupingPreviewScreen() {
 
   const onChange = useCallback((next: GroupingParams) => setParams(next), []);
 
+  // A run that timed out has been cancelled and nothing is coming, so the row
+  // has to say so: without its own branch the text stayed on "grouping" with
+  // the spinner gone, which reads as a run that will never end. A cancel is a
+  // knob that moved and the next run is already asked for, so that one keeps
+  // the working text.
+  const statusText = refused
+    ? t('settings.groupingNothingToGroup')
+    : status === 'error'
+      ? t('settings.groupingFailed')
+      : status === 'running' || diff === null
+        ? t('settings.groupingRunning')
+        : t('settings.groupingSummary', { count: diff.previewGroupCount });
+
   return (
     <ScreenSafeAreaView
       hasNativeHeader
@@ -118,11 +151,7 @@ export default function RouteGroupingPreviewScreen() {
             ]}
             testID="grouping-status"
           >
-            {refused
-              ? t('settings.groupingNothingToGroup')
-              : status === 'running' || diff === null
-                ? t('settings.groupingRunning')
-                : t('settings.groupingSummary', { count: diff.previewGroupCount })}
+            {statusText}
           </Text>
         </View>
 

@@ -363,7 +363,8 @@
         "network": "Impossible de joindre intervals.icu",
         "storage": "Un fichier de cet appareil n'a pas pu etre lu",
         "notConfigured": "Aucune connexion intervals.icu n'est enregistree sur cet appareil",
-        "internal": "La synchronisation s'est arretee pour une raison que l'app ne sait pas nommer"
+        "internal": "La synchronisation s'est arretee pour une raison que l'app ne sait pas nommer",
+        "engineClosed": "La synchronisation s'est arretee car la bibliotheque a ete fermee en cours de route"
       }
     }
   },
@@ -1238,6 +1239,8 @@
     "maxMetricsHint": "Maximum 4 métriques",
     "appTour": "Visite guidée",
     "appTourDescription": "Explorez les fonctionnalités et apprenez à les utiliser",
+    "rangeLockedMessage": "La plage de données locales s'ouvre une fois la première synchronisation terminée. Si elle ne démarre jamais, vérifiez votre connexion et que vous êtes connecté.",
+    "rangeLockedTitle": "Préparation en cours",
     "terrain3D": "Terrain 3D",
     "terrain3DOff": "Désactivé",
     "terrain3DSmart": "Intelligent",
@@ -1400,7 +1403,8 @@
     "groupingMerged": "{{count}} de tes parcours fusionneraient",
     "groupingDropped": "{{count}} resteraient seuls",
     "groupingLegendMostRidden": "Le plus parcouru",
-    "groupingLegendOther": "Autres parcours"
+    "groupingLegendOther": "Autres parcours",
+    "groupingFailed": "Le regroupement n'a pas abouti. Déplace un curseur pour réessayer."
   },
   "stats": {
     "activities": "Activités",

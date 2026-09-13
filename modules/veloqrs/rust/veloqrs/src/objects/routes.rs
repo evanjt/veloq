@@ -83,29 +83,9 @@ impl RouteManager {
 
     fn get_screen_data(
         &self,
-        group_limit: u32,
-        group_offset: u32,
-        section_limit: u32,
-        section_offset: u32,
-        min_group_activity_count: u32,
-        prioritize_nearest_groups: bool,
-        prioritize_nearest_sections: bool,
-        user_lat: f64,
-        user_lng: f64,
+        query: crate::FfiRoutesScreenQuery,
     ) -> Result<crate::FfiRoutesScreenData, VeloqError> {
-        with_engine(|e| {
-            e.get_routes_screen_data(
-                group_limit,
-                group_offset,
-                section_limit,
-                section_offset,
-                min_group_activity_count,
-                prioritize_nearest_groups,
-                prioritize_nearest_sections,
-                user_lat,
-                user_lng,
-            )
-        })
+        with_engine(|e| e.get_routes_screen_data(query.clone()))
     }
 
     fn set_name(&self, route_id: String, name: String) -> Result<(), VeloqError> {

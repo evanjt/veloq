@@ -276,7 +276,12 @@ fn no_screen_read_grows_faster_than_the_library() {
         e.map_screen_data(NOW - 365 * DAY, NOW, vec![])
     });
     holds("routes_screen_data", FLAT, &mut small, &mut large, |e| {
-        e.get_routes_screen_data(20, 0, 20, 0, 2, false, false, f64::NAN, f64::NAN)
+        e.get_routes_screen_data(veloqrs::FfiRoutesScreenQuery {
+            group_limit: 20,
+            section_limit: 20,
+            min_group_activity_count: 2,
+            ..Default::default()
+        })
     });
     holds("startup_data", FLAT, &mut small, &mut large, |e| {
         e.startup_data(NOW - week, NOW, NOW - 2 * week, NOW - week, &[])

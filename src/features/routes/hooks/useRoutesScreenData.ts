@@ -12,7 +12,13 @@ import { InteractionManager } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from './useEngine';
-import type { RoutesScreenData, GroupWithPolyline, SectionWithPolyline } from 'veloqrs';
+import type {
+  RoutesScreenData,
+  GroupWithPolyline,
+  SectionWithPolyline,
+  SectionHiddenFilters,
+} from 'veloqrs';
+import { GroupSort, SectionSort } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/distance';
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -34,17 +40,32 @@ interface UseRoutesScreenDataResult {
   hasMoreSections: boolean;
 }
 
+const NO_FILTERS: SectionHiddenFilters = {
+  hideCustom: false,
+  hideAuto: false,
+  hideDisabled: false,
+  hideUnaccepted: false,
+};
+
 export function useRoutesScreenData(opts?: {
   groupLimit?: number;
   sectionLimit?: number;
-  prioritizeNearestGroups?: boolean;
-  prioritizeNearestSections?: boolean;
+  groupSort?: GroupSort;
+  groupSearch?: string;
+  sectionSort?: SectionSort;
+  sectionSearch?: string;
+  sectionFilters?: SectionHiddenFilters;
+  sectionSportType?: string;
   userLocation?: LatLng | null;
 }): UseRoutesScreenDataResult {
   const groupLimit = opts?.groupLimit ?? DEFAULT_PAGE_SIZE;
   const sectionLimit = opts?.sectionLimit ?? DEFAULT_PAGE_SIZE;
-  const prioritizeNearestGroups = opts?.prioritizeNearestGroups ?? false;
-  const prioritizeNearestSections = opts?.prioritizeNearestSections ?? false;
+  const groupSort = opts?.groupSort ?? GroupSort.Activities;
+  const groupSearch = opts?.groupSearch ?? '';
+  const sectionSort = opts?.sectionSort ?? SectionSort.Visits;
+  const sectionSearch = opts?.sectionSearch ?? '';
+  const sectionFilters = opts?.sectionFilters ?? NO_FILTERS;
+  const sectionSportType = opts?.sectionSportType;
   const userLat = opts?.userLocation?.lat ?? Number.NaN;
   const userLng = opts?.userLocation?.lng ?? Number.NaN;
 
@@ -99,10 +120,20 @@ export function useRoutesScreenData(opts?: {
 
   // Reset pagination on engine events (new sync, etc.)
   useEffect(() => {
+    // Every part of the query that changes what a page holds resets the paging,
+    // because an accumulated page taken under a different order or search is
+    // not the head of this one.
     const queryConfig = [
       combinedTrigger,
-      prioritizeNearestGroups ? 1 : 0,
-      prioritizeNearestSections ? 1 : 0,
+      groupSort,
+      groupSearch,
+      sectionSort,
+      sectionSearch,
+      sectionFilters.hideCustom ? 1 : 0,
+      sectionFilters.hideAuto ? 1 : 0,
+      sectionFilters.hideDisabled ? 1 : 0,
+      sectionFilters.hideUnaccepted ? 1 : 0,
+      sectionSportType ?? '',
       Number.isFinite(userLat) ? userLat.toFixed(6) : 'nan',
       Number.isFinite(userLng) ? userLng.toFixed(6) : 'nan',
     ].join(':');
@@ -117,7 +148,17 @@ export function useRoutesScreenData(opts?: {
       setGroupOffset(0);
       setSectionOffset(0);
     }
-  }, [combinedTrigger, prioritizeNearestGroups, prioritizeNearestSections, userLat, userLng]);
+  }, [
+    combinedTrigger,
+    groupSort,
+    groupSearch,
+    sectionSort,
+    sectionSearch,
+    sectionFilters,
+    sectionSportType,
+    userLat,
+    userLng,
+  ]);
 
   // Compute data from engine. getRoutesScreenData routes through
   // get_section_summaries (~277-325ms with real data) plus polyline batch loads,
@@ -128,17 +169,21 @@ export function useRoutesScreenData(opts?: {
       const engine = getEngine();
       if (!engine) return lastResultRef.current;
 
-      const result = engine.getRoutesScreenData(
+      const result = engine.getRoutesScreenData({
         groupLimit,
         groupOffset,
         sectionLimit,
         sectionOffset,
-        2,
-        prioritizeNearestGroups,
-        prioritizeNearestSections,
+        minGroupActivityCount: 2,
+        groupSort,
+        groupSearch,
+        sectionSort,
+        sectionSearch,
+        sectionFilters,
+        sectionSportType,
         userLat,
-        userLng
-      );
+        userLng,
+      });
       if (!result) return lastResultRef.current;
 
       // Accumulate groups
@@ -174,6 +219,8 @@ export function useRoutesScreenData(opts?: {
         sectionCount: result.sectionCount,
         oldestDate: result.oldestDate,
         newestDate: result.newestDate,
+        unacceptedAutoCount: result.unacceptedAutoCount,
+        acceptedAutoCount: result.acceptedAutoCount,
         groups: [...groupsRef.current],
         sections: [...sectionsRef.current],
         hasMoreGroups: result.hasMoreGroups,
@@ -198,8 +245,12 @@ export function useRoutesScreenData(opts?: {
     sectionOffset,
     groupLimit,
     sectionLimit,
-    prioritizeNearestGroups,
-    prioritizeNearestSections,
+    groupSort,
+    groupSearch,
+    sectionSort,
+    sectionSearch,
+    sectionFilters,
+    sectionSportType,
     userLat,
     userLng,
   ]);

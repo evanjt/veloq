@@ -22,6 +22,7 @@ const KEYS = [
   'storage',
   'notConfigured',
   'internal',
+  'engineClosed',
 ] as const;
 
 const ENGLISH_LOCALES = ['en-AU', 'en-GB', 'en-US'];

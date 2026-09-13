@@ -55,7 +55,13 @@ export function SyncRangePanel() {
   const handleRangeChange = useCallback(
     (start: Date, _end: Date) => {
       if (start >= cachedStartDate) return;
-      const expand = () => syncDateRange(formatLocalDate(start), formatLocalDate(new Date()));
+      // A refused drag has to say why. The latch comes off when the first sync
+      // settles, and until then the slider springs back with nothing on screen.
+      const expand = () => {
+        if (syncDateRange(formatLocalDate(start), formatLocalDate(new Date())) === 'locked') {
+          Alert.alert(t('settings.rangeLockedTitle'), t('settings.rangeLockedMessage'));
+        }
+      };
 
       // An upper bound, and zero when the sync has not stored the counts yet.
       // Neither may hold the user behind a figure the app cannot produce.

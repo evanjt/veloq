@@ -233,6 +233,16 @@ describe('initializeApp', () => {
     );
   });
 
+  it('keeps the terrain previews out of the backup too, on every launch', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
+
+    await initializeApp();
+
+    const marked = excludeFromBackup.mock.calls.map(([path]: [string]) => path);
+    expect(marked).toContain('/data/documents/terrain_previews/');
+  });
+
   it('does not mark a directory the store refused', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     const basemap = jest.requireMock('veloqrs').basemapStore();
@@ -243,7 +253,10 @@ describe('initializeApp', () => {
 
     await initializeApp();
 
-    expect(excludeFromBackup).not.toHaveBeenCalled();
+    // The terrain previews are excluded on every launch and have nothing to do
+    // with the tile store, so the assertion is about the tile tree's path.
+    const marked = excludeFromBackup.mock.calls.map(([path]: [string]) => path);
+    expect(marked).not.toContain('/data/documents/basemap-tiles');
   });
 
   it('still resolves, with the first message, when an initialiser rejects', async () => {

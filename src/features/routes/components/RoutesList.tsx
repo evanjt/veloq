@@ -6,7 +6,7 @@
  * Full group data is only loaded on detail page.
  */
 
-import React, { memo, useMemo, useState } from 'react';
+import React, { memo, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -32,8 +32,9 @@ import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
 import type { RouteGroup } from '@/types';
 import { batchGroupToRouteGroup } from '@/features/routes/lib/batchGroupToRouteGroup';
+import type { RoutesSortOption } from '@/features/routes/lib/routesScreenQuery';
 
-export type RoutesSortOption = 'activities' | 'distance' | 'name' | 'nearby';
+export type { RoutesSortOption };
 
 interface RoutesListProps {
   /** Callback when list is pulled to refresh */
@@ -54,6 +55,10 @@ interface RoutesListProps {
   sortOption: RoutesSortOption;
   /** Called when sort changes */
   onSortChange: (next: RoutesSortOption) => void;
+  /** The search term the engine filtered on */
+  searchQuery: string;
+  /** Called when the search term changes */
+  onSearchChange: (next: string) => void;
   /** Engine data still loading - show skeletons instead of an empty state */
   isLoading?: boolean;
 }
@@ -81,35 +86,19 @@ export const RoutesList = memo(function RoutesList({
   sortOption,
   onSortChange,
   isLoading = false,
+  searchQuery,
+  onSearchChange,
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const [searchQuery, setSearchQuery] = useState('');
 
-  // Convert batch groups to RouteGroup format for RouteRow
+  // The engine searched and ordered the catalogue before it paged it, so the
+  // rows arrive ready to render. Searching or sorting again here would read one
+  // page and call it the library.
   const allGroups = useMemo(() => {
     return batchGroups.map(batchGroupToRouteGroup);
   }, [batchGroups]);
-
-  // Filter groups by search query, then sort
-  const groups = useMemo(() => {
-    let filtered = [...allGroups];
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((g) => g.name?.toLowerCase().includes(query));
-    }
-    // Apply sort
-    if (sortOption === 'activities') {
-      filtered.sort((a, b) => b.activityCount - a.activityCount);
-    } else if (sortOption === 'distance') {
-      filtered.sort((a, b) => (b.distance ?? 0) - (a.distance ?? 0));
-    } else if (sortOption === 'name') {
-      filtered.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
-    }
-
-    // Preserve native order for nearby sorting so pagination stays correct.
-    return filtered;
-  }, [allGroups, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
+  const groups = allGroups;
 
   // Pre-compute distance from user for each route (used for display on every row)
   const distanceMap = useMemo(() => {
@@ -311,13 +300,13 @@ export const RoutesList = memo(function RoutesList({
               placeholder={t('routes.searchRoutes' as never) as string}
               placeholderTextColor={isDark ? darkColors.textDisabled : colors.textDisabled}
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={onSearchChange}
               returnKeyType="search"
               autoCorrect={false}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity
-                onPress={() => setSearchQuery('')}
+                onPress={() => onSearchChange('')}
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={t('common.clearSearch')}

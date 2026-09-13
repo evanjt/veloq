@@ -13,6 +13,26 @@ const TREND_DEADBAND: f64 = 0.02;
 /// because it compares five-effort medians rather than three.
 const WORKOUT_TREND_DEADBAND: f64 = 0.03;
 
+/// The same traversal join the per-sport read runs, with no sport filter and
+/// the sport carried on each row, so one statement answers every sport.
+const TRAVERSALS_BY_SPORT: &str = "SELECT s.id, s.name, sa.lap_time, am.date, a.sport_type
+                 FROM sections s
+                 JOIN section_activities sa ON s.id = sa.section_id
+                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
+                 JOIN activities a ON sa.activity_id = a.id
+                 WHERE sa.excluded = 0 AND sa.lap_time IS NOT NULL
+                   AND s.disabled = 0 AND s.superseded_by IS NULL";
+
+/// One section traversal, as the ranking query answers it. Rank is within one
+/// sport: a run's lap and a ride's over the same ground are not comparable
+/// efforts, so the rows are grouped by sport before any of them are scored.
+struct TraversalRow {
+    section_id: String,
+    section_name: String,
+    lap_time: f64,
+    activity_date: i64,
+}
+
 impl PersistentEngine {
     /// Get sections ranked by ML-driven composite relevance score.
     ///
@@ -52,6 +72,77 @@ impl PersistentEngine {
         self.ranked_sections(sport_type, u32::MAX, Some(cutoff))
     }
 
+    /// Every sport's ranked sections, from one pass over the traversal join.
+    ///
+    /// The ranking is per sport and stays per sport: a run's lap and a ride's
+    /// over the same ground are not comparable efforts. What was per sport and
+    /// need not be is the read. Asking sport by sport walked
+    /// `sections`-`section_activities`-`activity_metrics` once per sport for
+    /// the same rows, so the cost grew with the number of sports an athlete
+    /// has rather than with the number of sections.
+    ///
+    /// A sport with no traversals is still answered, with an empty list, so the
+    /// caller's chips do not come and go with the data.
+    pub fn get_ranked_sections_by_sports(
+        &self,
+        sport_types: &[String],
+        limit: u32,
+    ) -> Vec<crate::FfiRankedSectionsBySport> {
+        let start = std::time::Instant::now();
+        let mut by_sport = self.traversals_by_sport();
+
+        let ranked: Vec<crate::FfiRankedSectionsBySport> = sport_types
+            .iter()
+            .map(|sport| crate::FfiRankedSectionsBySport {
+                sections: self.score_traversals(by_sport.remove(sport).unwrap_or_default(), limit),
+                sport_type: sport.clone(),
+            })
+            .collect();
+
+        log::info!(
+            "veloqrs: [RankedSections] Ranked {} sports from one read in {:?}",
+            sport_types.len(),
+            start.elapsed()
+        );
+        ranked
+    }
+
+    /// Every traversal the ranking scores, grouped by the sport it was ridden
+    /// as. One statement, whatever the athlete's sports.
+    fn traversals_by_sport(&self) -> HashMap<String, Vec<TraversalRow>> {
+        let sql = format!("{} ORDER BY s.id, am.date ASC", TRAVERSALS_BY_SPORT);
+        let mut stmt = match self.db.prepare(&sql) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("veloqrs: [RankedSections] Failed to prepare query: {}", e);
+                return HashMap::new();
+            }
+        };
+
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(4)?,
+                TraversalRow {
+                    section_id: row.get(0)?,
+                    section_name: row.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                    lap_time: row.get(2)?,
+                    activity_date: row.get(3)?,
+                },
+            ))
+        });
+
+        let mut by_sport: HashMap<String, Vec<TraversalRow>> = HashMap::new();
+        match rows {
+            Ok(iter) => {
+                for (sport, row) in iter.filter_map(|r| r.ok()) {
+                    by_sport.entry(sport).or_default().push(row);
+                }
+            }
+            Err(e) => log::error!("veloqrs: [RankedSections] Query failed: {}", e),
+        }
+        by_sport
+    }
+
     fn ranked_sections(
         &self,
         sport_type: &str,
@@ -59,15 +150,6 @@ impl PersistentEngine {
         last_traversal_at_or_before: Option<i64>,
     ) -> Vec<crate::FfiRankedSection> {
         let start = std::time::Instant::now();
-
-        // Rank within one sport: a run's lap and a ride's over the same ground
-        // are not comparable efforts.
-        struct TraversalRow {
-            section_id: String,
-            section_name: String,
-            lap_time: f64,
-            activity_date: i64,
-        }
 
         // The same traversal join either way. With a cutoff it is narrowed to the
         // sections whose newest traversal is already that old, by a GROUP BY over
@@ -125,6 +207,26 @@ impl PersistentEngine {
             }
         };
 
+        let ranked = self.score_traversals(rows, limit);
+        log::info!(
+            "veloqrs: [RankedSections] Ranked sport_type={} in {:?} (returning top {})",
+            sport_type,
+            start.elapsed(),
+            ranked.len()
+        );
+        ranked
+    }
+
+    /// One sport's traversals, scored and cut to `limit`.
+    ///
+    /// Separate from the read because the insights bundle takes every sport's
+    /// rows out of one query and scores each sport's share: the ranking is
+    /// per sport, the scan does not have to be.
+    fn score_traversals(
+        &self,
+        rows: Vec<TraversalRow>,
+        limit: u32,
+    ) -> Vec<crate::FfiRankedSection> {
         // Corridor names outrank generated row names on the ranked cards.
         let mut rows = rows;
         self.ensure_named_overlay();
@@ -138,10 +240,6 @@ impl PersistentEngine {
         }
 
         if rows.is_empty() {
-            log::info!(
-                "veloqrs: [RankedSections] No traversals found for sport_type={}",
-                sport_type
-            );
             return Vec::new();
         }
 
@@ -328,14 +426,6 @@ impl PersistentEngine {
 
         // Limit results
         ranked.truncate(limit as usize);
-
-        log::info!(
-            "veloqrs: [RankedSections] Ranked {} sections for sport_type={} in {:?} (returning top {})",
-            sections.len(),
-            sport_type,
-            start.elapsed(),
-            ranked.len()
-        );
 
         ranked
     }

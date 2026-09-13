@@ -91,7 +91,12 @@ fn clear_geometry_cache(db: &Connection) {
 /// Every section the routes bundle renders, as (id, encoded polyline).
 fn bundle_lines(engine: &mut PersistentEngine) -> Vec<(String, Vec<u8>)> {
     let mut lines: Vec<(String, Vec<u8>)> = engine
-        .get_routes_screen_data(0, 0, 500, 0, 1, false, false, f64::NAN, f64::NAN)
+        .get_routes_screen_data(veloqrs::FfiRoutesScreenQuery {
+            group_limit: 0,
+            section_limit: 500,
+            min_group_activity_count: 1,
+            ..Default::default()
+        })
         .sections
         .into_iter()
         .map(|s| (s.id, s.encoded_polyline))

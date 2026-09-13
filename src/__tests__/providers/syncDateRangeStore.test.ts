@@ -209,6 +209,28 @@ describe('SyncDateRangeStore', () => {
     });
   });
 
+  describe('the refusal expandRange gives back', () => {
+    it('names the lock rather than returning silently', () => {
+      useSyncDateRange.setState({ isExpansionLocked: true });
+
+      expect(useSyncDateRange.getState().expandRange(daysFromToday(-365), daysFromToday(0))).toBe(
+        'locked'
+      );
+    });
+
+    it('reports an expansion that widened the range', () => {
+      expect(useSyncDateRange.getState().expandRange(daysFromToday(-365), daysFromToday(0))).toBe(
+        'expanded'
+      );
+    });
+
+    it('reports a request already inside the range', () => {
+      expect(useSyncDateRange.getState().expandRange(daysFromToday(-30), daysFromToday(0))).toBe(
+        'unchanged'
+      );
+    });
+  });
+
   describe('Generation Counter', () => {
     it('getSyncGeneration() returns current generation', () => {
       useSyncDateRange.setState({ syncGeneration: 42 });

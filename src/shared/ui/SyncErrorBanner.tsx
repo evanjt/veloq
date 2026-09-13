@@ -40,6 +40,7 @@ const REASON_KEY = {
   [SyncErrorReason.Storage]: 'emptyState.syncError.reason.storage',
   [SyncErrorReason.NotConfigured]: 'emptyState.syncError.reason.notConfigured',
   [SyncErrorReason.Internal]: 'emptyState.syncError.reason.internal',
+  [SyncErrorReason.EngineClosed]: 'emptyState.syncError.reason.engineClosed',
 } as const satisfies Record<SyncErrorReason, string>;
 
 export function SyncErrorBanner() {

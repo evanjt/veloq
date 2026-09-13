@@ -363,7 +363,8 @@
         "network": "Could not reach intervals.icu",
         "storage": "A file on this device could not be read",
         "notConfigured": "No intervals.icu login is stored on this device",
-        "internal": "Sync stopped for a reason the app cannot name"
+        "internal": "Sync stopped for a reason the app cannot name",
+        "engineClosed": "Sync stopped because the library was closed partway through"
       }
     }
   },
@@ -1238,6 +1239,8 @@
     "maxMetricsHint": "Maximum 4 metrics",
     "appTour": "App Tour",
     "appTourDescription": "Explore features and learn how to use them",
+    "rangeLockedMessage": "The local data range opens once the first sync has finished. If it never starts, check you are online and signed in.",
+    "rangeLockedTitle": "Still setting up",
     "terrain3D": "3D Terrain",
     "terrain3DOff": "Off",
     "terrain3DSmart": "Smart",
@@ -1400,7 +1403,8 @@
     "groupingMerged": "{{count}} of your routes would merge",
     "groupingDropped": "{{count}} would be left on their own",
     "groupingLegendMostRidden": "Most ridden",
-    "groupingLegendOther": "Other routes"
+    "groupingLegendOther": "Other routes",
+    "groupingFailed": "The grouping did not finish. Move a knob to try again."
   },
   "stats": {
     "activities": "Activities",

@@ -1881,17 +1881,27 @@ impl PersistentEngine {
     /// Supports pagination via limit/offset for both groups and sections.
     pub fn get_routes_screen_data(
         &mut self,
-        group_limit: u32,
-        group_offset: u32,
-        section_limit: u32,
-        section_offset: u32,
-        min_group_activity_count: u32,
-        prioritize_nearest_groups: bool,
-        prioritize_nearest_sections: bool,
-        user_lat: f64,
-        user_lng: f64,
+        query: crate::FfiRoutesScreenQuery,
     ) -> crate::FfiRoutesScreenData {
+        let crate::FfiRoutesScreenQuery {
+            group_limit,
+            group_offset,
+            section_limit,
+            section_offset,
+            min_group_activity_count,
+            group_sort,
+            group_search,
+            section_sort,
+            section_search,
+            section_filters,
+            section_sport_type,
+            user_lat,
+            user_lng,
+        } = query;
         let has_user_location = user_lat.is_finite() && user_lng.is_finite();
+        let group_needle = group_search.trim().to_lowercase();
+        let section_needle = section_search.trim().to_lowercase();
+        let within_sport = section_sport_type.is_some();
 
         // Get date range from activity_metrics
         let (oldest_date, newest_date): (Option<i64>, Option<i64>) = self
@@ -1903,30 +1913,69 @@ impl PersistentEngine {
             )
             .unwrap_or((None, None));
 
-        // Get group summaries, filter by min activity count, sort by activity_count DESC, apply limit/offset
+        // Every group the catalogue holds, then the search and the minimum
+        // activity count, then the order, and only then the page. Doing any of
+        // it after the page would order fifty rows and call it the library.
         let mut raw_summaries = self.get_group_summaries();
+        let total_groups = raw_summaries.len();
         if min_group_activity_count > 0 {
             raw_summaries.retain(|g| g.activity_count >= min_group_activity_count);
         }
-        if prioritize_nearest_groups && has_user_location {
-            raw_summaries.sort_by(|a, b| {
-                let dist_a = bounds_center_distance_meters(a.bounds.as_ref(), user_lat, user_lng);
-                let dist_b = bounds_center_distance_meters(b.bounds.as_ref(), user_lat, user_lng);
-                dist_a
-                    .partial_cmp(&dist_b)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-                    .then_with(|| b.activity_count.cmp(&a.activity_count))
+        if !group_needle.is_empty() {
+            raw_summaries.retain(|g| {
+                g.custom_name
+                    .as_deref()
+                    .is_some_and(|n| n.to_lowercase().contains(&group_needle))
             });
-        } else {
-            raw_summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count));
         }
-        let total_groups = raw_summaries.len();
+        // The representative's distance is what the list shows, so it is what
+        // the distance order has to read.
+        let group_distance = |id: &str| -> f64 {
+            self.activity_metrics
+                .get(id)
+                .map(|m| m.distance)
+                .unwrap_or(0.0)
+        };
+        match group_sort {
+            crate::FfiGroupSort::Nearby if has_user_location => {
+                raw_summaries.sort_by(|a, b| {
+                    let dist_a =
+                        bounds_center_distance_meters(a.bounds.as_ref(), user_lat, user_lng);
+                    let dist_b =
+                        bounds_center_distance_meters(b.bounds.as_ref(), user_lat, user_lng);
+                    dist_a
+                        .partial_cmp(&dist_b)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| b.activity_count.cmp(&a.activity_count))
+                });
+            }
+            crate::FfiGroupSort::Distance => {
+                raw_summaries.sort_by(|a, b| {
+                    group_distance(&b.representative_id)
+                        .partial_cmp(&group_distance(&a.representative_id))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| a.group_id.cmp(&b.group_id))
+                });
+            }
+            crate::FfiGroupSort::Name => {
+                raw_summaries.sort_by(|a, b| {
+                    a.custom_name
+                        .as_deref()
+                        .unwrap_or("")
+                        .cmp(b.custom_name.as_deref().unwrap_or(""))
+                        .then_with(|| a.group_id.cmp(&b.group_id))
+                });
+            }
+            _ => raw_summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count)),
+        }
+        let filtered_group_count = raw_summaries.len();
         let paged_summaries: Vec<_> = raw_summaries
             .into_iter()
             .skip(group_offset as usize)
             .take(group_limit as usize)
             .collect();
-        let has_more_groups = total_groups > (group_offset as usize + paged_summaries.len());
+        let has_more_groups =
+            filtered_group_count > (group_offset as usize + paged_summaries.len());
 
         // Batch-load representative polylines from signatures table (1 query instead of N)
         let rep_ids: Vec<&str> = paged_summaries
@@ -1961,27 +2010,93 @@ impl PersistentEngine {
             })
             .collect();
 
-        // Get section summaries, sort by visit_count DESC, apply limit/offset
         let mut raw_sections = self.get_section_summaries();
-        if prioritize_nearest_sections && has_user_location {
-            raw_sections.sort_by(|a, b| {
-                let dist_a = bounds_center_distance_meters(a.bounds.as_ref(), user_lat, user_lng);
-                let dist_b = bounds_center_distance_meters(b.bounds.as_ref(), user_lat, user_lng);
-                dist_a
-                    .partial_cmp(&dist_b)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-                    .then_with(|| b.visit_count.cmp(&a.visit_count))
-            });
-        } else {
-            raw_sections.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
-        }
         let total_sections = raw_sections.len();
+
+        // The two review counters are the catalogue's, not the page's, so they
+        // are taken before anything is hidden or paged.
+        let mut unaccepted_auto_count: u32 = 0;
+        let mut accepted_auto_count: u32 = 0;
+        for s in &raw_sections {
+            if is_visible_auto(s) {
+                if s.is_user_defined {
+                    accepted_auto_count += 1;
+                } else {
+                    unaccepted_auto_count += 1;
+                }
+            }
+        }
+
+        raw_sections.retain(|s| !section_filters_hide(&section_filters, s));
+        if !section_needle.is_empty() {
+            raw_sections.retain(|s| {
+                s.name
+                    .as_deref()
+                    .is_some_and(|n| n.to_lowercase().contains(&section_needle))
+            });
+        }
+        match section_sort {
+            crate::FfiSectionSort::Nearby if has_user_location => {
+                raw_sections.sort_by(|a, b| {
+                    let dist_a =
+                        bounds_center_distance_meters(a.bounds.as_ref(), user_lat, user_lng);
+                    let dist_b =
+                        bounds_center_distance_meters(b.bounds.as_ref(), user_lat, user_lng);
+                    dist_a
+                        .partial_cmp(&dist_b)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| b.visit_count.cmp(&a.visit_count))
+                });
+            }
+            crate::FfiSectionSort::Signature => {
+                // A section the engine has not ranked sorts last, which is what
+                // the list did with -1.
+                let score = |s: &SectionSummary| -> f64 {
+                    let pooled = s.rank_score;
+                    if within_sport {
+                        s.sport_rank_score.or(pooled).unwrap_or(-1.0)
+                    } else {
+                        pooled.unwrap_or(-1.0)
+                    }
+                };
+                raw_sections.sort_by(|a, b| {
+                    score(b)
+                        .partial_cmp(&score(a))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| a.id.cmp(&b.id))
+                });
+            }
+            crate::FfiSectionSort::Distance => {
+                raw_sections.sort_by(|a, b| {
+                    b.distance_meters
+                        .partial_cmp(&a.distance_meters)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| a.id.cmp(&b.id))
+                });
+            }
+            crate::FfiSectionSort::Name => {
+                raw_sections.sort_by(|a, b| {
+                    a.name
+                        .as_deref()
+                        .unwrap_or("")
+                        .cmp(b.name.as_deref().unwrap_or(""))
+                        .then_with(|| a.id.cmp(&b.id))
+                });
+            }
+            _ => raw_sections.sort_by(|a, b| {
+                b.visit_count
+                    .cmp(&a.visit_count)
+                    .then_with(|| a.id.cmp(&b.id))
+            }),
+        }
+        let filtered_section_count = raw_sections.len();
         let paged_sections: Vec<_> = raw_sections
             .into_iter()
             .skip(section_offset as usize)
             .take(section_limit as usize)
             .collect();
-        let has_more_sections = total_sections > (section_offset as usize + paged_sections.len());
+        let has_more_sections =
+            filtered_section_count > (section_offset as usize + paged_sections.len());
 
         // Batch-load section polylines (1 query instead of N)
         let section_ids: Vec<&str> = paged_sections.iter().map(|s| s.id.as_str()).collect();
@@ -2031,6 +2146,10 @@ impl PersistentEngine {
             has_more_groups,
             has_more_sections,
             groups_dirty: self.groups_dirty,
+            filtered_group_count: filtered_group_count as u32,
+            filtered_section_count: filtered_section_count as u32,
+            unaccepted_auto_count,
+            accepted_auto_count,
         }
     }
 }
@@ -3978,4 +4097,24 @@ mod write_pragma_tests {
             1
         );
     }
+}
+
+/// An auto section the athlete can see: not disabled and not superseded. The
+/// two review counters and the hide filters both turn on this.
+fn is_visible_auto(s: &SectionSummary) -> bool {
+    s.section_type == "auto" && !s.disabled && s.superseded_by.is_none()
+}
+
+/// Whether the sections list hides this section. The four kinds are the ones
+/// the filter bar offers and they are mutually exclusive by construction.
+fn section_filters_hide(filters: &crate::FfiSectionFilters, s: &SectionSummary) -> bool {
+    let visible_auto = is_visible_auto(s);
+    let custom = s.section_type == "custom";
+    let disabled_auto = s.section_type == "auto" && (s.disabled || s.superseded_by.is_some());
+    let unaccepted_auto = visible_auto && !s.is_user_defined;
+
+    (custom && filters.hide_custom)
+        || (visible_auto && filters.hide_auto)
+        || (disabled_auto && filters.hide_disabled)
+        || (unaccepted_auto && filters.hide_unaccepted)
 }

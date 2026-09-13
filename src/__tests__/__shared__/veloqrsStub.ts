@@ -38,6 +38,24 @@ export enum SyncErrorReason {
   Storage = 5,
   NotConfigured = 6,
   Internal = 7,
+  EngineClosed = 8,
+}
+
+/** `FfiGroupSort` as generated, held to the source by the same test. */
+export enum GroupSort {
+  Nearby = 0,
+  Activities = 1,
+  Distance = 2,
+  Name = 3,
+}
+
+/** `FfiSectionSort` as generated, held to the source by the same test. */
+export enum SectionSort {
+  Nearby = 0,
+  Signature = 1,
+  Visits = 2,
+  Distance = 3,
+  Name = 4,
 }
 
 /** `BulkExportFormat` as generated, held to the source by the same test. */
@@ -150,6 +168,8 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     SyncState,
     SyncErrorReason,
     BulkExportFormat,
+    GroupSort,
+    SectionSort,
     StartOutcome,
     InitOutcome,
     isRetryableInit,

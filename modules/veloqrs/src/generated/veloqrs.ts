@@ -6501,6 +6501,25 @@ export type FfiRoutesScreenData = {
    * Whether route groups need recomputation (stale after activity removal)
    */
   groupsDirty: boolean;
+  /**
+   * How many groups the search and the minimum activity count leave. This is
+   * what the page is taken out of, and what `has_more_groups` is measured
+   * against. `group_count` stays the whole catalogue.
+   */
+  filteredGroupCount: /*u32*/ number;
+  /**
+   * How many sections the search and the hidden filters leave.
+   */
+  filteredSectionCount: /*u32*/ number;
+  /**
+   * Auto sections the athlete has not accepted, over the whole catalogue and
+   * not the page, because this is the "N to review" figure.
+   */
+  unacceptedAutoCount: /*u32*/ number;
+  /**
+   * Auto sections the athlete has accepted, over the whole catalogue.
+   */
+  acceptedAutoCount: /*u32*/ number;
 };
 
 /**
@@ -6535,6 +6554,10 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
         hasMoreGroups: FfiConverterBool.read(from),
         hasMoreSections: FfiConverterBool.read(from),
         groupsDirty: FfiConverterBool.read(from),
+        filteredGroupCount: FfiConverterUInt32.read(from),
+        filteredSectionCount: FfiConverterUInt32.read(from),
+        unacceptedAutoCount: FfiConverterUInt32.read(from),
+        acceptedAutoCount: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -6548,6 +6571,10 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
       FfiConverterBool.write(value.hasMoreGroups, into);
       FfiConverterBool.write(value.hasMoreSections, into);
       FfiConverterBool.write(value.groupsDirty, into);
+      FfiConverterUInt32.write(value.filteredGroupCount, into);
+      FfiConverterUInt32.write(value.filteredSectionCount, into);
+      FfiConverterUInt32.write(value.unacceptedAutoCount, into);
+      FfiConverterUInt32.write(value.acceptedAutoCount, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -6562,7 +6589,118 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
         ) +
         FfiConverterBool.allocationSize(value.hasMoreGroups) +
         FfiConverterBool.allocationSize(value.hasMoreSections) +
-        FfiConverterBool.allocationSize(value.groupsDirty)
+        FfiConverterBool.allocationSize(value.groupsDirty) +
+        FfiConverterUInt32.allocationSize(value.filteredGroupCount) +
+        FfiConverterUInt32.allocationSize(value.filteredSectionCount) +
+        FfiConverterUInt32.allocationSize(value.unacceptedAutoCount) +
+        FfiConverterUInt32.allocationSize(value.acceptedAutoCount)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Everything the Routes screen asks for in one call. The order, the search and
+ * the filters are arguments because they have to be applied before the page is
+ * taken: a sort over the page returns the longest route of the first fifty,
+ * not of the library.
+ */
+export type FfiRoutesScreenQuery = {
+  groupLimit: /*u32*/ number;
+  groupOffset: /*u32*/ number;
+  sectionLimit: /*u32*/ number;
+  sectionOffset: /*u32*/ number;
+  minGroupActivityCount: /*u32*/ number;
+  groupSort: FfiGroupSort;
+  /**
+   * Case-insensitive substring of the group name. Empty matches everything.
+   */
+  groupSearch: string;
+  sectionSort: FfiSectionSort;
+  /**
+   * Case-insensitive substring of the section name. Empty matches everything.
+   */
+  sectionSearch: string;
+  sectionFilters: FfiSectionFilters;
+  /**
+   * Set when the list is already narrowed to one sport, so `Signature` reads
+   * the within-sport percentile rather than the pooled one. It does not
+   * filter.
+   */
+  sectionSportType?: string;
+  userLat: /*f64*/ number;
+  userLng: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiRoutesScreenQuery} record objects.
+ */
+export const FfiRoutesScreenQuery = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiRoutesScreenQuery,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRoutesScreenQuery>,
+  });
+})();
+
+const FfiConverterTypeFfiRoutesScreenQuery = (() => {
+  type TypeName = FfiRoutesScreenQuery;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        groupLimit: FfiConverterUInt32.read(from),
+        groupOffset: FfiConverterUInt32.read(from),
+        sectionLimit: FfiConverterUInt32.read(from),
+        sectionOffset: FfiConverterUInt32.read(from),
+        minGroupActivityCount: FfiConverterUInt32.read(from),
+        groupSort: FfiConverterTypeFfiGroupSort.read(from),
+        groupSearch: FfiConverterString.read(from),
+        sectionSort: FfiConverterTypeFfiSectionSort.read(from),
+        sectionSearch: FfiConverterString.read(from),
+        sectionFilters: FfiConverterTypeFfiSectionFilters.read(from),
+        sectionSportType: FfiConverterOptionalString.read(from),
+        userLat: FfiConverterFloat64.read(from),
+        userLng: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.groupLimit, into);
+      FfiConverterUInt32.write(value.groupOffset, into);
+      FfiConverterUInt32.write(value.sectionLimit, into);
+      FfiConverterUInt32.write(value.sectionOffset, into);
+      FfiConverterUInt32.write(value.minGroupActivityCount, into);
+      FfiConverterTypeFfiGroupSort.write(value.groupSort, into);
+      FfiConverterString.write(value.groupSearch, into);
+      FfiConverterTypeFfiSectionSort.write(value.sectionSort, into);
+      FfiConverterString.write(value.sectionSearch, into);
+      FfiConverterTypeFfiSectionFilters.write(value.sectionFilters, into);
+      FfiConverterOptionalString.write(value.sectionSportType, into);
+      FfiConverterFloat64.write(value.userLat, into);
+      FfiConverterFloat64.write(value.userLng, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.groupLimit) +
+        FfiConverterUInt32.allocationSize(value.groupOffset) +
+        FfiConverterUInt32.allocationSize(value.sectionLimit) +
+        FfiConverterUInt32.allocationSize(value.sectionOffset) +
+        FfiConverterUInt32.allocationSize(value.minGroupActivityCount) +
+        FfiConverterTypeFfiGroupSort.allocationSize(value.groupSort) +
+        FfiConverterString.allocationSize(value.groupSearch) +
+        FfiConverterTypeFfiSectionSort.allocationSize(value.sectionSort) +
+        FfiConverterString.allocationSize(value.sectionSearch) +
+        FfiConverterTypeFfiSectionFilters.allocationSize(value.sectionFilters) +
+        FfiConverterOptionalString.allocationSize(value.sectionSportType) +
+        FfiConverterFloat64.allocationSize(value.userLat) +
+        FfiConverterFloat64.allocationSize(value.userLng)
       );
     }
   }
@@ -7452,6 +7590,63 @@ const FfiConverterTypeFfiSectionFilter = (() => {
         FfiConverterOptionalUInt32.allocationSize(value.minVisits) +
         FfiConverterOptionalString.allocationSize(value.sectionType) +
         FfiConverterOptionalString.allocationSize(value.activityId)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The four kinds the sections list can hide. Each is true when that kind is
+ * hidden, which is how the screen holds them.
+ */
+export type FfiSectionFilters = {
+  hideCustom: boolean;
+  hideAuto: boolean;
+  hideDisabled: boolean;
+  hideUnaccepted: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiSectionFilters} record objects.
+ */
+export const FfiSectionFilters = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSectionFilters, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionFilters>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionFilters = (() => {
+  type TypeName = FfiSectionFilters;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        hideCustom: FfiConverterBool.read(from),
+        hideAuto: FfiConverterBool.read(from),
+        hideDisabled: FfiConverterBool.read(from),
+        hideUnaccepted: FfiConverterBool.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterBool.write(value.hideCustom, into);
+      FfiConverterBool.write(value.hideAuto, into);
+      FfiConverterBool.write(value.hideDisabled, into);
+      FfiConverterBool.write(value.hideUnaccepted, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterBool.allocationSize(value.hideCustom) +
+        FfiConverterBool.allocationSize(value.hideAuto) +
+        FfiConverterBool.allocationSize(value.hideDisabled) +
+        FfiConverterBool.allocationSize(value.hideUnaccepted)
       );
     }
   }
@@ -10687,6 +10882,55 @@ const FfiConverterTypeFfiCallKind = (() => {
 })();
 
 /**
+ * The order the routes list is in. `Nearby` is the engine's own distance
+ * ranking, which is why the order is an argument rather than something the
+ * list redoes after it has been paged.
+ */
+export enum FfiGroupSort {
+  Nearby,
+  Activities,
+  Distance,
+  Name,
+}
+
+const FfiConverterTypeFfiGroupSort = (() => {
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = FfiGroupSort;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      switch (ordinalConverter.read(from)) {
+        case 1:
+          return FfiGroupSort.Nearby;
+        case 2:
+          return FfiGroupSort.Activities;
+        case 3:
+          return FfiGroupSort.Distance;
+        case 4:
+          return FfiGroupSort.Name;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value) {
+        case FfiGroupSort.Nearby:
+          return ordinalConverter.write(1, into);
+        case FfiGroupSort.Activities:
+          return ordinalConverter.write(2, into);
+        case FfiGroupSort.Distance:
+          return ordinalConverter.write(3, into);
+        case FfiGroupSort.Name:
+          return ordinalConverter.write(4, into);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return ordinalConverter.allocationSize(0);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * How the last engine init ended.
  *
  * The wire carries the variant's position, so the order here is the contract:
@@ -10764,6 +11008,59 @@ const FfiConverterTypeFfiInitOutcome = (() => {
           return ordinalConverter.write(5, into);
         case FfiInitOutcome.Failed:
           return ordinalConverter.write(6, into);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return ordinalConverter.allocationSize(0);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The order the sections list is in. `Signature` is the engine's
+ * interestingness percentile, pooled or within one sport.
+ */
+export enum FfiSectionSort {
+  Nearby,
+  Signature,
+  Visits,
+  Distance,
+  Name,
+}
+
+const FfiConverterTypeFfiSectionSort = (() => {
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = FfiSectionSort;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      switch (ordinalConverter.read(from)) {
+        case 1:
+          return FfiSectionSort.Nearby;
+        case 2:
+          return FfiSectionSort.Signature;
+        case 3:
+          return FfiSectionSort.Visits;
+        case 4:
+          return FfiSectionSort.Distance;
+        case 5:
+          return FfiSectionSort.Name;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value) {
+        case FfiSectionSort.Nearby:
+          return ordinalConverter.write(1, into);
+        case FfiSectionSort.Signature:
+          return ordinalConverter.write(2, into);
+        case FfiSectionSort.Visits:
+          return ordinalConverter.write(3, into);
+        case FfiSectionSort.Distance:
+          return ordinalConverter.write(4, into);
+        case FfiSectionSort.Name:
+          return ordinalConverter.write(5, into);
       }
     }
     allocationSize(value: TypeName): number {
@@ -10918,6 +11215,12 @@ export enum FfiSyncErrorReason {
    * The sync stopped in a way it has no case for, including a panic.
    */
   Internal = 7,
+  /**
+   * The engine went away while the run was going: a restore, or clear and
+   * sync. Whatever the run had fetched had nowhere to land, so the run is
+   * a failure however many steps had already succeeded.
+   */
+  EngineClosed = 8,
 }
 
 const FfiConverterTypeFfiSyncErrorReason = (() => {
@@ -10940,6 +11243,8 @@ const FfiConverterTypeFfiSyncErrorReason = (() => {
           return FfiSyncErrorReason.NotConfigured;
         case 7:
           return FfiSyncErrorReason.Internal;
+        case 8:
+          return FfiSyncErrorReason.EngineClosed;
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -10960,6 +11265,8 @@ const FfiConverterTypeFfiSyncErrorReason = (() => {
           return ordinalConverter.write(6, into);
         case FfiSyncErrorReason.Internal:
           return ordinalConverter.write(7, into);
+        case FfiSyncErrorReason.EngineClosed:
+          return ordinalConverter.write(8, into);
       }
     }
     allocationSize(value: TypeName): number {
@@ -15997,17 +16304,7 @@ export interface RouteManagerLike {
     currentActivityId: string | undefined,
     sportType: string | undefined,
   ) /*throws*/ : FfiRoutePerformanceResult;
-  getScreenData(
-    groupLimit: /*u32*/ number,
-    groupOffset: /*u32*/ number,
-    sectionLimit: /*u32*/ number,
-    sectionOffset: /*u32*/ number,
-    minGroupActivityCount: /*u32*/ number,
-    prioritizeNearestGroups: boolean,
-    prioritizeNearestSections: boolean,
-    userLat: /*f64*/ number,
-    userLng: /*f64*/ number,
-  ) /*throws*/ : FfiRoutesScreenData;
+  getScreenData(query: FfiRoutesScreenQuery) /*throws*/ : FfiRoutesScreenData;
   /**
    * Group summaries with the total count beside them.
    *
@@ -16257,17 +16554,7 @@ export class RouteManager
     );
   }
 
-  getScreenData(
-    groupLimit: /*u32*/ number,
-    groupOffset: /*u32*/ number,
-    sectionLimit: /*u32*/ number,
-    sectionOffset: /*u32*/ number,
-    minGroupActivityCount: /*u32*/ number,
-    prioritizeNearestGroups: boolean,
-    prioritizeNearestSections: boolean,
-    userLat: /*f64*/ number,
-    userLng: /*f64*/ number,
-  ): FfiRoutesScreenData /*throws*/ {
+  getScreenData(query: FfiRoutesScreenQuery): FfiRoutesScreenData /*throws*/ {
     return FfiConverterTypeFfiRoutesScreenData.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -16276,15 +16563,7 @@ export class RouteManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_screen_data(
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
-            FfiConverterUInt32.lower(groupLimit),
-            FfiConverterUInt32.lower(groupOffset),
-            FfiConverterUInt32.lower(sectionLimit),
-            FfiConverterUInt32.lower(sectionOffset),
-            FfiConverterUInt32.lower(minGroupActivityCount),
-            FfiConverterBool.lower(prioritizeNearestGroups),
-            FfiConverterBool.lower(prioritizeNearestSections),
-            FfiConverterFloat64.lower(userLat),
-            FfiConverterFloat64.lower(userLng),
+            FfiConverterTypeFfiRoutesScreenQuery.lower(query),
             callStatus,
           );
         },
@@ -22967,7 +23246,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_screen_data() !==
-    9639
+    20631
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_routemanager_get_screen_data",
@@ -24076,6 +24355,7 @@ export default Object.freeze({
     FfiConverterTypeFfiExerciseSummary,
     FfiConverterTypeFfiFtpTrend,
     FfiConverterTypeFfiGpsPoint,
+    FfiConverterTypeFfiGroupSort,
     FfiConverterTypeFfiGroupSummariesResult,
     FfiConverterTypeFfiGroupWithPolyline,
     FfiConverterTypeFfiHeatmapDay,
@@ -24113,6 +24393,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRoutePerformance,
     FfiConverterTypeFfiRoutePerformanceResult,
     FfiConverterTypeFfiRoutesScreenData,
+    FfiConverterTypeFfiRoutesScreenQuery,
     FfiConverterTypeFfiSection,
     FfiConverterTypeFfiSectionChange,
     FfiConverterTypeFfiSectionChartData,
@@ -24122,6 +24403,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionEncounter,
     FfiConverterTypeFfiSectionExtensionTrack,
     FfiConverterTypeFfiSectionFilter,
+    FfiConverterTypeFfiSectionFilters,
     FfiConverterTypeFfiSectionGeometryVersion,
     FfiConverterTypeFfiSectionHistoryEvent,
     FfiConverterTypeFfiSectionLap,
@@ -24135,6 +24417,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionPortion,
     FfiConverterTypeFfiSectionRecalcResult,
     FfiConverterTypeFfiSectionReferenceInfo,
+    FfiConverterTypeFfiSectionSort,
     FfiConverterTypeFfiSectionSummariesResult,
     FfiConverterTypeFfiSectionTrace,
     FfiConverterTypeFfiSectionWithPolyline,

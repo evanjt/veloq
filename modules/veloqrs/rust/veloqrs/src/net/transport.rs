@@ -92,6 +92,11 @@ pub enum NetError {
     /// A local file backing a request body could not be read. Not a network
     /// failure, so it must never be queued for a connectivity retry.
     Io(String),
+    /// The engine was gone when the step went to write what it had fetched.
+    /// A restore or a clear-and-sync destroys it mid-run, and the bytes are
+    /// then dropped. Not a network failure and never worth a retry: the
+    /// library the run was writing into no longer exists.
+    EngineClosed,
 }
 
 impl std::fmt::Display for NetError {
@@ -100,6 +105,7 @@ impl std::fmt::Display for NetError {
             NetError::Unauthorized => write!(f, "unauthorized (401)"),
             NetError::RateLimited => write!(f, "rate limited (429) after retries"),
             NetError::Http { status, body } => write!(f, "HTTP {}: {}", status, body),
+            NetError::EngineClosed => write!(f, "the engine closed during the run"),
             NetError::Transport(e) => write!(f, "transport error: {}", e),
             NetError::Decode(e) => write!(f, "decode error: {}", e),
             NetError::Io(e) => write!(f, "file error: {}", e),

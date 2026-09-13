@@ -45,6 +45,7 @@ import type {
   FfiWeekLoadShape,
   FfiWidgetSnapshotData,
   FfiRoutesScreenData,
+  FfiRoutesScreenQuery,
   FfiSectionConfig,
   FfiIndexActivitySummary,
   DownloadProgressResult,
@@ -965,29 +966,8 @@ class EngineClient implements DelegateHost {
     }
   }
 
-  getRoutesScreenData = (
-    groupLimit = 20,
-    groupOffset = 0,
-    sectionLimit = 20,
-    sectionOffset = 0,
-    minGroupActivityCount = 2,
-    prioritizeNearestGroups = false,
-    prioritizeNearestSections = false,
-    userLat = Number.NaN,
-    userLng = Number.NaN
-  ): FfiRoutesScreenData | undefined =>
-    routeDelegates.getRoutesScreenData(
-      this,
-      groupLimit,
-      groupOffset,
-      sectionLimit,
-      sectionOffset,
-      minGroupActivityCount,
-      prioritizeNearestGroups,
-      prioritizeNearestSections,
-      userLat,
-      userLng
-    );
+  getRoutesScreenData = (query: FfiRoutesScreenQuery): FfiRoutesScreenData | undefined =>
+    routeDelegates.getRoutesScreenData(this, query);
 
   getSummaryCardData = (
     currentStart: number,
@@ -1606,8 +1586,35 @@ class EngineClient implements DelegateHost {
     };
   }
 
+  /**
+   * Hand one event to everyone listening for it.
+   *
+   * Over a copy, because `Set.forEach` visits entries added during its own
+   * iteration and a listener that re-subscribes from inside its callback,
+   * which `requestSyncRefresh` does whenever the outcome is retryable, was
+   * then visited again for as long as it kept doing so. `NotReady` is
+   * retryable and holds for the whole window between `destroy` and
+   * `initWithPath`, so pull to refresh followed by Clear and Sync span it and
+   * the loop never ends.
+   *
+   * A listener that unsubscribed earlier in the same delivery is skipped: the
+   * copy says who was listening when the event arrived, and the live set says
+   * who still is.
+   *
+   * Each call is wrapped, because one listener throwing used to skip every
+   * listener behind it on that channel and nothing said so.
+   */
   private deliver(event: string, payload?: EnginePayload): void {
-    this.listeners.get(event)?.forEach((cb) => cb(payload));
+    const listeners = this.listeners.get(event);
+    if (!listeners || listeners.size === 0) return;
+    for (const cb of [...listeners]) {
+      if (!listeners.has(cb)) continue;
+      try {
+        cb(payload);
+      } catch (e) {
+        console.warn(`[EngineClient] a ${event} listener threw:`, e);
+      }
+    }
   }
 
   /**

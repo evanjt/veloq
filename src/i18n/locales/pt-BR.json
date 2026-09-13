@@ -363,7 +363,8 @@
         "network": "Nao foi possivel acessar o intervals.icu",
         "storage": "Nao foi possivel ler um arquivo deste aparelho",
         "notConfigured": "Nenhum login do intervals.icu esta salvo neste aparelho",
-        "internal": "A sincronizacao parou por um motivo que o app nao sabe nomear"
+        "internal": "A sincronizacao parou por um motivo que o app nao sabe nomear",
+        "engineClosed": "A sincronizacao parou porque a biblioteca foi fechada no meio"
       }
     }
   },
@@ -1238,6 +1239,8 @@
     "maxMetricsHint": "Máximo 4 métricas",
     "appTour": "Tour do app",
     "appTourDescription": "Explore funcionalidades e aprenda a usá-las",
+    "rangeLockedMessage": "O intervalo de dados locais abre quando a primeira sincronização terminar. Se ela nunca começar, verifique se você está online e conectado.",
+    "rangeLockedTitle": "Ainda preparando",
     "terrain3D": "Terreno 3D",
     "terrain3DOff": "Desligado",
     "terrain3DSmart": "Inteligente",
@@ -1400,7 +1403,8 @@
     "groupingMerged": "{{count}} das suas rotas seriam mescladas",
     "groupingDropped": "{{count}} ficariam sozinhas",
     "groupingLegendMostRidden": "Mais percorrida",
-    "groupingLegendOther": "Outras rotas"
+    "groupingLegendOther": "Outras rotas",
+    "groupingFailed": "O agrupamento não terminou. Mova um controle para tentar de novo."
   },
   "stats": {
     "activities": "Atividades",

@@ -20,6 +20,7 @@ import { useSyncAuthExpiry } from '@/shared/native/useSyncAuthExpiry';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
 import { PICKUP_DEADLINE_MS } from '@/shared/app/extendedFetch';
+import { syncSettledForExpansion } from '@/shared/app/expansionLock';
 
 export function GlobalDataSync() {
   const queryClient = useQueryClient();
@@ -130,12 +131,16 @@ export function GlobalDataSync() {
     }
   }, [progress.status, queryClient]);
 
-  // Unlock expansion after sync completes (with delay to let UI stabilize)
+  // Unlock expansion once the sync has stopped, however it stopped (with a
+  // delay to let the UI stabilise). A pass that errors, and an athlete with
+  // nothing in the window, both have to release the latch: neither ever
+  // reaches 'complete', and the slider would stay locked for the session.
+  const activityCount = activities ? activities.length : null;
   useEffect(() => {
-    if (progress.status === 'complete' && isExpansionLocked) {
+    if (isExpansionLocked && syncSettledForExpansion(progress.status, activityCount)) {
       delayedUnlockExpansion();
     }
-  }, [progress.status, isExpansionLocked, delayedUnlockExpansion]);
+  }, [progress.status, activityCount, isExpansionLocked, delayedUnlockExpansion]);
 
   return null;
 }

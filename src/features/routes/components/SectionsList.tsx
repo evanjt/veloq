@@ -30,7 +30,8 @@ import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useSections, generateSectionName } from '@/features/routes/hooks/useSections';
-import { sortSections, type SectionsSortOption } from '@/features/routes/lib/sectionRanking';
+import { type SectionsSortOption } from '@/features/routes/lib/sectionRanking';
+import type { SectionHideFlags } from '@/features/routes/lib/routesScreenQuery';
 import { Shimmer } from '@/shared/ui';
 import { SectionRow } from './SectionRow';
 import { DataRangeFooter } from './DataRangeFooter';
@@ -75,14 +76,19 @@ interface SectionsListProps {
   sortOption: SectionsSortOption;
   /** Called when sort changes */
   onSortChange: (next: SectionsSortOption) => void;
+  /** The search term the engine filtered on */
+  searchQuery: string;
+  /** Called when the search term changes */
+  onSearchChange: (next: string) => void;
+  /** Which kinds the engine is hiding */
+  hiddenFilters: SectionHideFlags;
+  /** Called when a filter chip is pressed */
+  onHiddenFiltersChange: (next: SectionHideFlags) => void;
+  /** Auto sections awaiting review, over the catalogue rather than the page */
+  unacceptedAutoCount: number;
+  /** Auto sections already accepted, over the catalogue rather than the page */
+  acceptedAutoCount: number;
 }
-
-type HiddenFilters = {
-  custom: boolean;
-  auto: boolean;
-  disabled: boolean;
-  unaccepted: boolean;
-};
 
 export type { SectionsSortOption };
 
@@ -229,16 +235,15 @@ export const SectionsList = memo(function SectionsList({
   userLocation,
   sortOption,
   onSortChange,
+  searchQuery,
+  onSearchChange,
+  hiddenFilters,
+  onHiddenFiltersChange,
+  unacceptedAutoCount,
+  acceptedAutoCount,
 }: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const [hiddenFilters, setHiddenFilters] = useState<HiddenFilters>({
-    custom: false,
-    auto: false,
-    disabled: true, // Hidden sections are hidden by default
-    unaccepted: false,
-  });
-  const [searchQuery, setSearchQuery] = useState('');
 
   // The list record already carries its polyline, so a row needs no call of
   // its own. The centre is the list's proximity sort and the name fallback is
@@ -293,49 +298,11 @@ export const SectionsList = memo(function SectionsList({
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays();
 
-  // Apply filter, search, and sort
-  const { regularSections, unacceptedAutoCount, acceptedAutoCount } = useMemo(() => {
-    const regular: FrequentSection[] = [];
-    let unaccepted = 0;
-    let accepted = 0;
-    const query = searchQuery.toLowerCase();
-
-    for (const section of unifiedSections) {
-      {
-        const isVisibleAuto =
-          section.sectionType === 'auto' && !section.disabled && !section.supersededBy;
-        if (isVisibleAuto && !section.isUserDefined) unaccepted++;
-        if (isVisibleAuto && section.isUserDefined) accepted++;
-
-        // Apply hide filters
-        const isCustom = section.sectionType === 'custom';
-        const isDisabledAuto =
-          section.sectionType === 'auto' && !!(section.disabled || section.supersededBy);
-        const isUnacceptedAuto = isVisibleAuto && !section.isUserDefined;
-
-        if (
-          (isCustom && hiddenFilters.custom) ||
-          (isVisibleAuto && hiddenFilters.auto) ||
-          (isDisabledAuto && hiddenFilters.disabled) ||
-          (isUnacceptedAuto && hiddenFilters.unaccepted)
-        ) {
-          continue;
-        }
-
-        if (query && !section.name?.toLowerCase().includes(query)) {
-          continue;
-        }
-
-        regular.push(section);
-      }
-    }
-
-    return {
-      regularSections: sortSections(regular, sortOption, !!sportType),
-      unacceptedAutoCount: unaccepted,
-      acceptedAutoCount: accepted,
-    };
-  }, [unifiedSections, hiddenFilters, searchQuery, sortOption, sportType]); // userLocation excluded: nearby sorting is Rust-side
+  // The engine ordered, searched, filtered and counted the catalogue before it
+  // paged it, so the rows arrive ready to render and the two review counts come
+  // with them. Doing any of it again here would read one page and call it the
+  // library.
+  const regularSections = unifiedSections;
 
   // Pre-compute distance from user for each section (used for display on every row)
   const distanceMap = useMemo(() => {
@@ -350,12 +317,12 @@ export const SectionsList = memo(function SectionsList({
   }, [regularSections, userLocation]);
 
   // Toggle filter - pressing hides/shows that type
-  const handleFilterPress = useCallback((filterType: keyof HiddenFilters) => {
-    setHiddenFilters((current) => ({
-      ...current,
-      [filterType]: !current[filterType],
-    }));
-  }, []);
+  const handleFilterPress = useCallback(
+    (filterType: keyof SectionHideFlags) => {
+      onHiddenFiltersChange({ ...hiddenFilters, [filterType]: !hiddenFilters[filterType] });
+    },
+    [hiddenFilters, onHiddenFiltersChange]
+  );
 
   const isReady = !isLoading;
 
@@ -599,7 +566,7 @@ export const SectionsList = memo(function SectionsList({
       <View style={styles.header}>
         <SectionsListHeader
           searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
+          onSearchChange={onSearchChange}
           displaySectionCount={displaySectionCount}
           unacceptedAutoCount={unacceptedAutoCount}
           acceptAllResult={acceptAllResult}

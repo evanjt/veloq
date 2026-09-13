@@ -604,11 +604,7 @@ RustBuffer uniffi_veloqrs_fn_method_routemanager_get_performances(
     RustBuffer current_activity_id, RustBuffer sport_type,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_screen_data(
-    /*handle*/ uint64_t ptr, uint32_t group_limit, uint32_t group_offset,
-    uint32_t section_limit, uint32_t section_offset,
-    uint32_t min_group_activity_count, int8_t prioritize_nearest_groups,
-    int8_t prioritize_nearest_sections, double user_lat, double user_lng,
-    RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer query, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_summaries(
     /*handle*/ uint64_t ptr, RustBuffer min_activities, RustBuffer sort_key,
     RustCallStatus *uniffi_out_err);
@@ -6994,7 +6990,7 @@ NativeVeloqrs::NativeVeloqrs(
           rt,
           jsi::PropNameID::forAscii(
               rt, "ubrn_uniffi_veloqrs_fn_method_routemanager_get_screen_data"),
-          10,
+          2,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -16783,15 +16779,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_screen_data(
   auto value = uniffi_veloqrs_fn_method_routemanager_get_screen_data(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
-      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
-      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
-      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[3]),
-      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[4]),
-      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[5]),
-      uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[6]),
-      uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[7]),
-      uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[8]),
-      uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[9]), &status);
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 

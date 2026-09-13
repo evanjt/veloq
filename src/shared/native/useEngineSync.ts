@@ -27,6 +27,8 @@ import { emitSyncSettled, useForeground, useReconnect } from '@/shared/app/useRe
 
 import { updateWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 
+import { cancelSyncRefresh } from './syncRefresh';
+
 import { getEngine } from './engine';
 import { useSyncStatus } from './useSyncStatus';
 
@@ -52,9 +54,14 @@ export function useEngineSync(): void {
     startedRef.current = hasStarted(engine.syncNow());
   }, [isAuthenticated, isDemoMode, engineReadyNonce, retryNonce]);
 
-  // Re-arm on logout so the next session syncs again.
+  // Re-arm on logout so the next session syncs again. A pull-to-refresh held
+  // for the settle that never came goes with it: the next athlete did not ask
+  // for it.
   useEffect(() => {
-    if (!isAuthenticated) startedRef.current = false;
+    if (!isAuthenticated) {
+      startedRef.current = false;
+      cancelSyncRefresh();
+    }
   }, [isAuthenticated]);
 
   // Re-arm when the library is wiped. "Clear & Sync" empties SQLite and
@@ -65,6 +72,9 @@ export function useEngineSync(): void {
   useEffect(() => {
     const unsubscribe = getEngine()?.subscribe('syncReset', () => {
       startedRef.current = false;
+      // The wipe is the sync this hook is about to start, so a pull held from
+      // before it has nothing left to refresh.
+      cancelSyncRefresh();
       retry();
     });
     return () => unsubscribe?.();

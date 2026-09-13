@@ -954,15 +954,7 @@ interface NativeModuleInterface {
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_screen_data(
     ptr: bigint,
-    groupLimit: number,
-    groupOffset: number,
-    sectionLimit: number,
-    sectionOffset: number,
-    minGroupActivityCount: number,
-    prioritizeNearestGroups: number,
-    prioritizeNearestSections: number,
-    userLat: number,
-    userLng: number,
+    query: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_summaries(

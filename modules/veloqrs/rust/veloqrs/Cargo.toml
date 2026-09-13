@@ -420,3 +420,6 @@ name = "detection_cluster_spread"
 [[test]]
 name = "detection_narrowed_pool"
 required-features = ["synthetic"]
+
+[[test]]
+name = "routes_screen_query"

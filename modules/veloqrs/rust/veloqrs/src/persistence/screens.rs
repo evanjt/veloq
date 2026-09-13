@@ -151,14 +151,11 @@ impl super::PersistentEngine {
         let section_count = self.get_section_count();
         let sections_ready = p.include_sections && section_count > 0;
 
+        // One read for every sport, then one ranking per sport. The ranking is
+        // within a sport and stays there; the scan it used to repeat per sport
+        // grew with the number of sports rather than with the sections.
         let ranked_sections: Vec<crate::FfiRankedSectionsBySport> = if sections_ready {
-            sport_types
-                .iter()
-                .map(|sport| crate::FfiRankedSectionsBySport {
-                    sections: self.get_ranked_sections(sport, p.ranked_limit),
-                    sport_type: sport.clone(),
-                })
-                .collect()
+            self.get_ranked_sections_by_sports(&sport_types, p.ranked_limit)
         } else {
             Vec::new()
         };

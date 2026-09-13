@@ -20,6 +20,10 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { basemapStore } from 'veloqrs';
 
 import { excludeFromBackup } from '@/shared/native/backupExclusion';
+import {
+  TERRAIN_PREVIEW_DIR,
+  discardLegacyTerrainPreviews,
+} from '@/shared/storage/terrainPreviewRoot';
 import { getEngine, getRouteDbPath, resolveRouteDbPath } from '@/shared/native/engine';
 import { initializeI18n } from '@/i18n';
 
@@ -70,6 +74,26 @@ function openBasemapStore(): void {
   }
 }
 
+/**
+ * Keep the terrain previews out of the device backup, and clear the root they
+ * used to live under.
+ *
+ * Every launch, for the same reason the tile tree is: the attribute lives on the
+ * directory and the cache clear makes a new one. The previews redraw from local
+ * data, so an iCloud backup carrying 150 JPEGs of them is pure cost.
+ */
+function openTerrainPreviews(): void {
+  const plain = TERRAIN_PREVIEW_DIR.startsWith('file://')
+    ? TERRAIN_PREVIEW_DIR.slice(7)
+    : TERRAIN_PREVIEW_DIR;
+  if (excludeFromBackup(plain) === false) {
+    console.warn('[launch] terrain previews are not excluded from the device backup');
+  }
+  // Fire and forget: a directory a previous build filled is not something the
+  // first screen waits on.
+  void discardLegacyTerrainPreviews();
+}
+
 function errorMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason ?? 'Unknown startup error');
 }
@@ -87,6 +111,7 @@ export async function initializeApp(): Promise<string | null> {
   await resolveRouteDbPath();
   openEngine();
   openBasemapStore();
+  openTerrainPreviews();
   markLaunch('stores');
   const results = await Promise.allSettled([
     initializeLanguage().then(initializeI18n),

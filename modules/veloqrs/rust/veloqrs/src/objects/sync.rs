@@ -114,6 +114,10 @@ pub enum FfiSyncErrorReason {
     NotConfigured = 6,
     /// The sync stopped in a way it has no case for, including a panic.
     Internal = 7,
+    /// The engine went away while the run was going: a restore, or clear and
+    /// sync. Whatever the run had fetched had nowhere to land, so the run is
+    /// a failure however many steps had already succeeded.
+    EngineClosed = 8,
 }
 
 /// A terminal failure: the kind, and the message that describes it.
@@ -148,6 +152,7 @@ impl From<&NetError> for SyncFailure {
             NetError::Http { .. } | NetError::Decode(_) => FfiSyncErrorReason::Server,
             NetError::Transport(_) => FfiSyncErrorReason::Network,
             NetError::Io(_) => FfiSyncErrorReason::Storage,
+            NetError::EngineClosed => FfiSyncErrorReason::EngineClosed,
         };
         SyncFailure::new(reason, e.to_string())
     }
@@ -231,7 +236,9 @@ impl FfiCallOutcome {
             NetError::Transport(_) => (FfiCallKind::Network, None, None),
             // A decode or file failure is local. Calling it a network error
             // would queue the item for a connectivity retry that cannot help.
-            NetError::Decode(_) | NetError::Io(_) => (FfiCallKind::Internal, None, None),
+            NetError::Decode(_) | NetError::Io(_) | NetError::EngineClosed => {
+                (FfiCallKind::Internal, None, None)
+            }
         };
         FfiCallOutcome {
             kind,
@@ -679,6 +686,25 @@ async fn store_body<F>(kind: &'static str, activity_id: String, write: F)
 where
     F: FnOnce(&mut PersistentEngine) -> SqlResult<()> + Send + 'static,
 {
+    // An on-demand fetch reports its own outcome to its own caller, so the
+    // engine's absence is counted and logged here and goes no further.
+    let _ = store_body_or_fail(kind, activity_id, write).await;
+}
+
+/// `store_body` for a caller that is a step of a sync run.
+///
+/// A step whose write found no engine used to count as a success: the run
+/// reported `Idle` with no error and the health row stamped `lastSuccessAt`,
+/// so a clear-and-sync or a restore mid-run left the athlete told the library
+/// was fresh as of now while every remaining write had been dropped.
+async fn store_body_or_fail<F>(
+    kind: &'static str,
+    activity_id: String,
+    write: F,
+) -> Result<(), NetError>
+where
+    F: FnOnce(&mut PersistentEngine) -> SqlResult<()> + Send + 'static,
+{
     let stored =
         crate::persistence::with_persistent_engine_blocking(move |engine| match write(engine) {
             Ok(()) => true,
@@ -691,11 +717,15 @@ where
     if landed(stored) {
         BODIES_STORED.fetch_add(1, Ordering::Relaxed);
         observer::notify(|o| o.body_stored(kind.to_string(), activity_id));
-    } else if stored.is_none() {
+        return Ok(());
+    }
+    if stored.is_none() {
         // A write that failed already logged its SQL error. This is the other
         // half: no engine answered, so nothing was even attempted.
         discarded(kind, &activity_id);
+        return Err(NetError::EngineClosed);
     }
+    Ok(())
 }
 
 /// Store one activity's `time` stream, then tell whoever is waiting for it.
@@ -1087,7 +1117,8 @@ async fn sync_athlete(transport: &Transport, athlete_id: &str) -> Result<(), Net
     crate::persistence::with_persistent_engine_blocking(move |engine| {
         engine.set_athlete_profile(&body)
     })
-    .await;
+    .await
+    .ok_or(NetError::EngineClosed)?;
     Ok(())
 }
 
@@ -1098,7 +1129,8 @@ async fn sync_sport_settings(transport: &Transport, athlete_id: &str) -> Result<
     crate::persistence::with_persistent_engine_blocking(move |engine| {
         engine.set_sport_settings(&body)
     })
-    .await;
+    .await
+    .ok_or(NetError::EngineClosed)?;
     Ok(())
 }
 
@@ -1250,7 +1282,8 @@ async fn sync_activity_window(
             metrics_write_failed(&e);
         }
     })
-    .await;
+    .await
+    .ok_or(NetError::EngineClosed)?;
     Ok(WindowOutcome::Stored)
 }
 
@@ -1396,10 +1429,10 @@ async fn sync_curves(
             {
                 Ok(body) => {
                     let sport = sport.clone();
-                    store_body("power_curve", String::new(), move |engine| {
+                    store_body_or_fail("power_curve", String::new(), move |engine| {
                         engine.set_curve_body(CurveKind::Power, &sport, days, false, &body)
                     })
-                    .await;
+                    .await?;
                 }
                 Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
                 Err(e) => last_error = Some(e),
@@ -1429,10 +1462,10 @@ async fn sync_curves(
                 {
                     Ok(body) => {
                         let sport = sport.clone();
-                        store_body("pace_curve", String::new(), move |engine| {
+                        store_body_or_fail("pace_curve", String::new(), move |engine| {
                             engine.set_curve_body(CurveKind::Pace, &sport, days, gap, &body)
                         })
-                        .await;
+                        .await?;
                     }
                     Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
                     Err(e) => last_error = Some(e),
@@ -1473,7 +1506,8 @@ async fn sync_activity_history_summary(
                 );
             }
         })
-        .await;
+        .await
+        .ok_or(NetError::EngineClosed)?;
     }
 
     let Some(oldest) = summary.oldest else {
@@ -1498,7 +1532,8 @@ async fn sync_activity_history_summary(
             }
         }
     })
-    .await;
+    .await
+    .ok_or(NetError::EngineClosed)?;
     Ok(())
 }
 
@@ -1544,10 +1579,10 @@ async fn sync_wellness(transport: &Transport, athlete_id: &str) -> Result<(), Ne
     // channel, which fires per synced page while wellness is written once. The
     // activity id is empty because wellness is a day and not an activity; the
     // kind is what a reader filters on.
-    store_body("wellness", String::new(), move |engine| {
+    store_body_or_fail("wellness", String::new(), move |engine| {
         engine.upsert_wellness(&rows)
     })
-    .await;
+    .await?;
     Ok(())
 }
 
@@ -2940,6 +2975,11 @@ mod tests {
 
     #[test]
     fn activity_window_sync_stores_bodies_and_metrics() {
+        // The window writes what it fetched, so it needs a library to write
+        // into: without one the step now fails the run rather than reporting
+        // a success that stored nothing.
+        let _guard = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("window-sync.db");
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
             when.method(GET)
@@ -3056,6 +3096,8 @@ mod tests {
     fn activity_without_a_start_time_is_skipped() {
         // A row with no start time cannot be windowed or ordered, and a
         // fabricated timestamp would sort it into the wrong week.
+        let _guard = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("window-no-start.db");
         let server = MockServer::start();
         server.mock(|when, then| {
             when.method(GET).path("/athlete/i1/activities");
@@ -3562,6 +3604,82 @@ mod body_count_tests {
     /// air, so the bytes come back with nowhere to be written.
     ///
     /// Expected behaviour: the loss is counted and named. Both counts staying
+    /// Scenario: Clear and Sync, or a restore, destroys the engine while a
+    /// sync is running. Every remaining write was dropped, each step still
+    /// answered `Ok`, and `finish` reported the run a success, so the health
+    /// row stamped `lastSuccessAt` and told the athlete the library was fresh
+    /// as of that moment.
+    ///
+    /// Expected behaviour: a step whose write found no engine fails the run,
+    /// with a reason that names what happened rather than the catch-all.
+    #[test]
+    fn a_step_that_found_no_engine_fails_the_run() {
+        let _guard = serial_global_state();
+        *crate::persistence::PERSISTENT_ENGINE
+            .write()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+
+        let outcome = crate::runtime::block_on(store_body_or_fail(
+            "fixture",
+            "no-engine".into(),
+            |_engine| Ok(()),
+        ));
+
+        assert!(matches!(outcome, Err(NetError::EngineClosed)));
+        let failure = SyncFailure::from(&NetError::EngineClosed);
+        assert_eq!(failure.reason, FfiSyncErrorReason::EngineClosed);
+        assert_eq!(failure.message, "the engine closed during the run");
+    }
+
+    /// The same for a step that writes through the engine directly rather
+    /// than through `store_body`.
+    #[test]
+    fn a_direct_step_write_with_no_engine_fails_the_run_too() {
+        let _guard = serial_global_state();
+        *crate::persistence::PERSISTENT_ENGINE
+            .write()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+
+        let answered = crate::runtime::block_on(
+            crate::persistence::with_persistent_engine_blocking(|_engine| ()),
+        );
+
+        assert!(
+            answered.is_none(),
+            "no engine answers, which is what the step maps to EngineClosed"
+        );
+    }
+
+    /// A run that never lost its engine still reports success, or the fix
+    /// would have turned every sync into a failure.
+    #[test]
+    fn a_step_with_an_engine_still_succeeds() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("engine-closed.db");
+
+        let outcome =
+            crate::runtime::block_on(store_body_or_fail("fixture", "present".into(), |_engine| {
+                Ok(())
+            }));
+
+        assert!(outcome.is_ok());
+    }
+
+    /// A write that reached the engine and failed in SQL is not the same
+    /// thing, and must keep reporting itself the way it did.
+    #[test]
+    fn a_sql_failure_is_not_reported_as_a_closed_engine() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("engine-closed-sql.db");
+
+        let outcome =
+            crate::runtime::block_on(store_body_or_fail("fixture", "sql".into(), |_engine| {
+                Err(rusqlite::Error::ExecuteReturnedResults)
+            }));
+
+        assert!(outcome.is_ok(), "the engine was there; the write was not");
+    }
+
     /// still is what made a dropped body and a body nobody asked for look the
     /// same in a log.
     #[test]

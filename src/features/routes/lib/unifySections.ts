@@ -9,6 +9,11 @@
  *
  * So the engine wins wherever it has the id, and the custom store only fills
  * in a section the engine has not seen yet, which is one just created.
+ *
+ * The engine's rows arrive already ordered, filtered and paged for the query
+ * the screen asked, so their order is kept exactly. A section the
+ * engine has never seen has no place in that order, and goes first: it is one
+ * the athlete has only just drawn, and the list is where they look for it.
  */
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import type { FrequentSection, Section } from '@/features/routes/types';
@@ -52,35 +57,25 @@ export function unifySections({
   customSections,
   includeCustom,
 }: UnifyInput): FrequentSection[] {
-  const result: FrequentSection[] = [];
-  const seenIds = new Set<string>();
+  const engineIds = new Set(engineSections.map((s) => s.id));
 
-  for (const engine of engineSections) {
-    if (seenIds.has(engine.id)) continue;
-    seenIds.add(engine.id);
-    result.push(fromEngine(engine));
-  }
-
+  const unseen: FrequentSection[] = [];
   if (includeCustom) {
+    const takenIds = new Set(engineIds);
     for (const custom of customSections) {
-      if (seenIds.has(custom.id)) continue;
-      seenIds.add(custom.id);
-      result.push(fromCustomStore(custom));
+      if (takenIds.has(custom.id)) continue;
+      takenIds.add(custom.id);
+      unseen.push(fromCustomStore(custom));
     }
   }
 
-  // Disabled and superseded last, then custom before auto. Stable within each
-  // group, so the engine's own nearest-distance pre-sort survives, which is
-  // what the 'nearby' ordering relies on.
-  result.sort((a, b) => {
-    const aHidden = !!(a.disabled || a.supersededBy);
-    const bHidden = !!(b.disabled || b.supersededBy);
-    if (aHidden && !bHidden) return 1;
-    if (!aHidden && bHidden) return -1;
+  const seenIds = new Set<string>();
+  const fromEngineRows: FrequentSection[] = [];
+  for (const engine of engineSections) {
+    if (seenIds.has(engine.id)) continue;
+    seenIds.add(engine.id);
+    fromEngineRows.push(fromEngine(engine));
+  }
 
-    const typePriority: Record<string, number> = { custom: 0, auto: 1 };
-    return (typePriority[a.sectionType] ?? 1) - (typePriority[b.sectionType] ?? 1);
-  });
-
-  return result;
+  return [...unseen, ...fromEngineRows];
 }

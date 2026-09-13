@@ -363,7 +363,8 @@
         "network": "intervals.icu was niet bereikbaar",
         "storage": "Een bestand op dit toestel kon niet worden gelezen",
         "notConfigured": "Er is geen intervals.icu-login op dit toestel opgeslagen",
-        "internal": "De synchronisatie stopte om een reden die de app niet kan benoemen"
+        "internal": "De synchronisatie stopte om een reden die de app niet kan benoemen",
+        "engineClosed": "De synchronisatie is gestopt omdat de bibliotheek halverwege werd gesloten"
       }
     }
   },
@@ -1238,6 +1239,8 @@
     "maxMetricsHint": "Maximaal 4 metrieken",
     "appTour": "App-tour",
     "appTourDescription": "Ontdek functies en leer hoe je ze gebruikt",
+    "rangeLockedMessage": "Het lokale gegevensbereik gaat open zodra de eerste synchronisatie klaar is. Start die nooit, controleer dan je verbinding en of je bent ingelogd.",
+    "rangeLockedTitle": "Nog aan het instellen",
     "terrain3D": "3D Terrein",
     "terrain3DOff": "Uit",
     "terrain3DSmart": "Slim",
@@ -1400,7 +1403,8 @@
     "groupingMerged": "{{count}} van je routes zouden samengevoegd worden",
     "groupingDropped": "{{count}} zouden alleen blijven",
     "groupingLegendMostRidden": "Meest gereden",
-    "groupingLegendOther": "Andere routes"
+    "groupingLegendOther": "Andere routes",
+    "groupingFailed": "De groepering is niet afgerond. Verschuif een regelaar om het opnieuw te proberen."
   },
   "stats": {
     "activities": "Activiteiten",

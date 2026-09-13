@@ -1085,6 +1085,91 @@ pub struct FfiSectionWithPolyline {
     pub sport_rank_score: Option<f64>,
 }
 
+/// The order the routes list is in. `Nearby` is the engine's own distance
+/// ranking, which is why the order is an argument rather than something the
+/// list redoes after it has been paged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiGroupSort {
+    Nearby,
+    Activities,
+    Distance,
+    Name,
+}
+
+/// The order the sections list is in. `Signature` is the engine's
+/// interestingness percentile, pooled or within one sport.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiSectionSort {
+    Nearby,
+    Signature,
+    Visits,
+    Distance,
+    Name,
+}
+
+/// The four kinds the sections list can hide. Each is true when that kind is
+/// hidden, which is how the screen holds them.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionFilters {
+    pub hide_custom: bool,
+    pub hide_auto: bool,
+    pub hide_disabled: bool,
+    pub hide_unaccepted: bool,
+}
+
+/// Everything the Routes screen asks for in one call. The order, the search and
+/// the filters are arguments because they have to be applied before the page is
+/// taken: a sort over the page returns the longest route of the first fifty,
+/// not of the library.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiRoutesScreenQuery {
+    pub group_limit: u32,
+    pub group_offset: u32,
+    pub section_limit: u32,
+    pub section_offset: u32,
+    pub min_group_activity_count: u32,
+    pub group_sort: FfiGroupSort,
+    /// Case-insensitive substring of the group name. Empty matches everything.
+    pub group_search: String,
+    pub section_sort: FfiSectionSort,
+    /// Case-insensitive substring of the section name. Empty matches everything.
+    pub section_search: String,
+    pub section_filters: FfiSectionFilters,
+    /// Set when the list is already narrowed to one sport, so `Signature` reads
+    /// the within-sport percentile rather than the pooled one. It does not
+    /// filter.
+    pub section_sport_type: Option<String>,
+    pub user_lat: f64,
+    pub user_lng: f64,
+}
+
+impl Default for FfiRoutesScreenQuery {
+    /// The screen's own defaults: a page of fifty in the order the lists open
+    /// in, nothing searched and nothing hidden.
+    fn default() -> Self {
+        Self {
+            group_limit: 50,
+            group_offset: 0,
+            section_limit: 50,
+            section_offset: 0,
+            min_group_activity_count: 0,
+            group_sort: FfiGroupSort::Activities,
+            group_search: String::new(),
+            section_sort: FfiSectionSort::Visits,
+            section_search: String::new(),
+            section_filters: FfiSectionFilters {
+                hide_custom: false,
+                hide_auto: false,
+                hide_disabled: false,
+                hide_unaccepted: false,
+            },
+            section_sport_type: None,
+            user_lat: f64::NAN,
+            user_lng: f64::NAN,
+        }
+    }
+}
+
 /// All data needed by the Routes screen in a single FFI call.
 /// Supports pagination via limit/offset for groups and sections.
 #[derive(Debug, Clone, uniffi::Record)]
@@ -1102,6 +1187,17 @@ pub struct FfiRoutesScreenData {
     pub has_more_sections: bool,
     /// Whether route groups need recomputation (stale after activity removal)
     pub groups_dirty: bool,
+    /// How many groups the search and the minimum activity count leave. This is
+    /// what the page is taken out of, and what `has_more_groups` is measured
+    /// against. `group_count` stays the whole catalogue.
+    pub filtered_group_count: u32,
+    /// How many sections the search and the hidden filters leave.
+    pub filtered_section_count: u32,
+    /// Auto sections the athlete has not accepted, over the whole catalogue and
+    /// not the page, because this is the "N to review" figure.
+    pub unaccepted_auto_count: u32,
+    /// Auto sections the athlete has accepted, over the whole catalogue.
+    pub accepted_auto_count: u32,
 }
 
 // ============================================================================

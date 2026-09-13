@@ -128,6 +128,24 @@ describe('the history slider gate', () => {
     expect(mockSyncDateRange).toHaveBeenCalledTimes(1);
   });
 
+  it('says why when the expansion latch refuses the drag', () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockSyncDateRange.mockReturnValue('locked');
+    mockYearCounts = { '2025': 40, '2026': 60 };
+    dragTo(2025);
+
+    expect(alert).toHaveBeenCalledWith('settings.rangeLockedTitle', 'settings.rangeLockedMessage');
+  });
+
+  it('stays quiet when the expansion goes through', () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockSyncDateRange.mockReturnValue('expanded');
+    mockYearCounts = { '2025': 40, '2026': 60 };
+    dragTo(2025);
+
+    expect(alert).not.toHaveBeenCalled();
+  });
+
   it('ignores a drag that does not widen the range', () => {
     mockYearCounts = { '2015': 700 };
     render(<SyncRangePanel />);

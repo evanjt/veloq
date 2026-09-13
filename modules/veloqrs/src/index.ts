@@ -42,6 +42,10 @@ import {
   type FfiSectionDetailData,
   type FfiSectionPerformanceData,
   type FfiRoutesScreenData,
+  type FfiRoutesScreenQuery,
+  type FfiSectionFilters,
+  FfiGroupSort,
+  FfiSectionSort,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
   type FfiStalePrOpportunity,
@@ -165,6 +169,9 @@ export type SectionDetailData = FfiSectionDetailData;
 export type SectionPerformanceData = FfiSectionPerformanceData;
 // Routes screen batch types
 export type RoutesScreenData = FfiRoutesScreenData;
+export type RoutesScreenQuery = FfiRoutesScreenQuery;
+export type SectionHiddenFilters = FfiSectionFilters;
+export { FfiGroupSort as GroupSort, FfiSectionSort as SectionSort };
 export type GroupWithPolyline = FfiGroupWithPolyline;
 export type SectionWithPolyline = FfiSectionWithPolyline;
 export type StalePrOpportunity = FfiStalePrOpportunity;

@@ -363,7 +363,8 @@
         "network": "Nie udalo sie polaczyc z intervals.icu",
         "storage": "Nie udalo sie odczytac pliku na tym urzadzeniu",
         "notConfigured": "Na tym urzadzeniu nie zapisano logowania do intervals.icu",
-        "internal": "Synchronizacja zatrzymala sie z powodu, ktorego aplikacja nie potrafi nazwac"
+        "internal": "Synchronizacja zatrzymala sie z powodu, ktorego aplikacja nie potrafi nazwac",
+        "engineClosed": "Synchronizacja zostala zatrzymana, poniewaz biblioteka zostala zamknieta w trakcie"
       }
     }
   },
@@ -1240,6 +1241,8 @@
     "maxMetricsHint": "Maksymalnie 4 metryki",
     "appTour": "Tour po aplikacji",
     "appTourDescription": "Odkryj funkcje i dowiedz się, jak ich używać",
+    "rangeLockedMessage": "Lokalny zakres danych otworzy się po zakończeniu pierwszej synchronizacji. Jeśli nigdy się nie zacznie, sprawdź połączenie i czy jesteś zalogowany.",
+    "rangeLockedTitle": "Trwa przygotowywanie",
     "terrain3D": "Teren 3D",
     "terrain3DOff": "Wyłączone",
     "terrain3DSmart": "Inteligentny",
@@ -1402,7 +1405,8 @@
     "groupingMerged": "{{count}} Twoich tras zostałoby połączonych",
     "groupingDropped": "{{count}} zostałoby osobno",
     "groupingLegendMostRidden": "Najczęściej pokonywana",
-    "groupingLegendOther": "Pozostałe trasy"
+    "groupingLegendOther": "Pozostałe trasy",
+    "groupingFailed": "Grupowanie nie zakończyło się. Przesuń suwak, aby spróbować ponownie."
   },
   "stats": {
     "activities": "Aktywności",

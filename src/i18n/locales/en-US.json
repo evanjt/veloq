@@ -351,7 +351,8 @@
         "network": "Couldn't reach intervals.icu",
         "storage": "A file on this device couldn't be read",
         "notConfigured": "No intervals.icu login is stored on this device",
-        "internal": "Sync stopped for a reason the app can't name"
+        "internal": "Sync stopped for a reason the app can't name",
+        "engineClosed": "Sync stopped because the library was closed partway through"
       }
     }
   },
@@ -1279,6 +1280,8 @@
     "primarySportHintCycling": "FTP shown in feed header. Performance page shows Power Curve, power zones, eFTP trend, and decoupling.",
     "primarySportHintRunning": "Threshold pace and LTHR shown in feed header. Performance page shows Pace Curve, running power, and HR zones.",
     "primarySportHintSwimming": "CSS (Critical Swim Speed) shown in feed header. Performance page shows Swim Pace Curve and HR zones.",
+    "rangeLockedMessage": "The local data range opens once the first sync has finished. If it never starts, check you are online and signed in.",
+    "rangeLockedTitle": "Still setting up",
     "routeMatching": "Route Matching",
     "routesCount": "Routes",
     "satellite": "Satellite",
@@ -1436,7 +1439,8 @@
     "groupingMerged": "{{count}} of your routes would merge",
     "groupingDropped": "{{count}} would be left on their own",
     "groupingLegendMostRidden": "Most ridden",
-    "groupingLegendOther": "Other routes"
+    "groupingLegendOther": "Other routes",
+    "groupingFailed": "The grouping did not finish. Move a knob to try again."
   },
   "stats": {
     "activities": "Activities",

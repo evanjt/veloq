@@ -9,7 +9,7 @@
  * `{activityId}_{style}_3d` for the terrain drape, so neither a style change
  * nor a 3D toggle serves the previous render.
  *
- * Storage location: cacheDirectory/terrain_previews/
+ * Storage location: documentDirectory/terrain_previews/
  *
  * ## The generation policy this cache serves
  *
@@ -53,7 +53,10 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const TERRAIN_DIR = `${FileSystem.cacheDirectory}terrain_previews/`;
+import { TERRAIN_PREVIEW_DIR } from '@/shared/storage/terrainPreviewRoot';
+
+const TERRAIN_DIR = TERRAIN_PREVIEW_DIR;
+
 const MAX_CACHED_PREVIEWS = 150;
 
 /**

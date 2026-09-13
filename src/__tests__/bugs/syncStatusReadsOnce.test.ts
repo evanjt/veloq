@@ -52,7 +52,7 @@ it('reads once per announcement with seven components mounted', () => {
 
   const mounted = Array.from({ length: 7 }, () => renderHook(() => useSyncStatus()));
   expect(engine.getSyncStatus).toHaveBeenCalledTimes(1);
-  expect(engine.subscribe).toHaveBeenCalledTimes(3);
+  expect(engine.subscribe).toHaveBeenCalledTimes(4);
 
   engine.setSnapshot(status(SyncState.Syncing, 4));
   act(() => engine.announce('syncProgress'));
@@ -91,4 +91,33 @@ it('attaches on a later subscriber when the engine was not open yet', () => {
   expect(late.result.current?.completed).toBe(2);
   early.unmount();
   late.unmount();
+});
+
+/**
+ * Scenario: a sync fails and the banner shows its `lastError`. The athlete
+ * restores a backup to recover, which replaces the database and announces
+ * `syncReset`, but no sync step runs afterwards.
+ *
+ * Expected behaviour: the snapshot follows the database. A restore is a new
+ * library, so the counts and the error from before it are gone.
+ */
+it('re-reads after a restore, which announces syncReset and no sync step', () => {
+  const failed = {
+    ...status(SyncState.Idle, 3),
+    lastError: 'connection reset',
+  } as unknown as SyncStatus;
+  const engine = fakeEngine(failed);
+  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
+
+  const mounted = renderHook(() => useSyncStatus());
+  expect(mounted.result.current?.lastError).toBe('connection reset');
+
+  engine.setSnapshot(status(SyncState.Idle, 0));
+  act(() => engine.announce('syncReset'));
+
+  expect(mounted.result.current?.lastError).toBeUndefined();
+  expect(mounted.result.current?.completed).toBe(0);
+
+  mounted.unmount();
+  expect(engine.liveListeners()).toBe(0);
 });

@@ -20,7 +20,7 @@ import {
   TERRAIN_PREVIEW_VERSION_KEY,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 
-const DIR = '/mock/cache/terrain_previews/';
+const DIR = '/mock/docs/terrain_previews/';
 const ORDER_KEY = 'terrain-preview-order';
 const FLAT = false;
 
@@ -31,6 +31,7 @@ let mockStatted: string[] = [];
 
 jest.mock('expo-file-system/legacy', () => ({
   cacheDirectory: '/mock/cache/',
+  documentDirectory: '/mock/docs/',
   EncodingType: { Base64: 'base64' },
   getInfoAsync: jest.fn(async (path: string) => {
     mockStatted.push(path);

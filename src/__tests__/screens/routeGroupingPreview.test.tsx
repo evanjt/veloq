@@ -119,6 +119,24 @@ it('counts the routes the setting produces once the answer lands', () => {
   expect(screen.getByTestId('grouping-status').props.children).toBe('2 routes at this setting');
 });
 
+it('says the grouping did not finish rather than that it is still running', () => {
+  mockPreviewStatus = 'error';
+  render(<RouteGroupingPreviewScreen />);
+
+  expect(screen.getByTestId('grouping-status').props.children).toBe(
+    'The grouping did not finish. Move a knob to try again.'
+  );
+});
+
+it('says nothing was cancelled when a knob change supersedes a run', () => {
+  mockPreviewStatus = 'cancelled';
+  render(<RouteGroupingPreviewScreen />);
+
+  // A cancel is a knob that moved, and the next run is already being asked
+  // for, so the row reads as working rather than as a failure.
+  expect(screen.getByTestId('grouping-status').props.children).toBe('Grouping your rides…');
+});
+
 it('names the routes a setting would leave on their own', async () => {
   mockPreviewStatus = 'complete';
   mockPreviewGroups = [{ key: 'p1', activityIds: ['a1'] }];

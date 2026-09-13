@@ -29,6 +29,12 @@ export interface GpsSyncProgress {
   message: string;
 }
 
+/**
+ * What `expandRange` did with the request. A refusal is named so the caller
+ * can say why, rather than the drag producing nothing visible.
+ */
+export type ExpandRangeResult = 'expanded' | 'unchanged' | 'locked';
+
 export interface TerrainSnapshotProgress {
   status: 'idle' | 'rendering';
   completed: number;
@@ -58,7 +64,8 @@ interface SyncDateRangeState {
   lastSyncTimestamp: string | null;
   /**
    * Whether expansion is locked (after reset/clear).
-   * When locked, expandRange() is ignored until initial sync completes.
+   * When locked, expandRange() refuses with 'locked' until the GPS sync
+   * settles, which `expansionLock.ts` decides.
    * This prevents race conditions where old cached data triggers unwanted expansion.
    */
   isExpansionLocked: boolean;
@@ -70,7 +77,7 @@ interface SyncDateRangeState {
   syncGeneration: number;
 
   /** Update the sync date range - expands to include requested range */
-  expandRange: (oldest: string, newest: string) => void;
+  expandRange: (oldest: string, newest: string) => ExpandRangeResult;
   /** Restore range from engine without triggering re-computation */
   initializeRange: (oldest: string, newest: string) => void;
   /** Reset to default 90 days and lock expansion */
@@ -151,7 +158,7 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
           `[SyncDateRange] Expansion BLOCKED (locked): requested ${requestedOldest} - ${requestedNewest}`
         );
       }
-      return;
+      return 'locked';
     }
 
     // Expand range if requested dates are outside current range
@@ -172,7 +179,10 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
           `[SyncDateRange] Expanded range: ${current.oldest} - ${current.newest} -> ${newOldest} - ${newNewest}`
         );
       }
+      return 'expanded';
     }
+
+    return 'unchanged';
   },
 
   initializeRange: (oldest: string, newest: string) => {
@@ -201,6 +211,12 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
       ...range,
       extendedFetch: IDLE_EXTENDED_FETCH,
       hasExpanded: false,
+      // These three belong to the account that just went away: an error status
+      // or a last sync time left standing reads as the new athlete's.
+      gpsSyncProgress: defaultGpsSyncProgress,
+      isGpsSyncing: false,
+      lastSyncTimestamp: null,
+      terrainSnapshotProgress: defaultTerrainSnapshotProgress,
       isExpansionLocked: true, // Lock expansion until initial sync completes
       syncGeneration: newGeneration, // Invalidate in-flight fetches
     });

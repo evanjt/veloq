@@ -17,11 +17,12 @@ import {
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 
 const mockFileStore = new Map<string, string>();
-const mockDirStore = new Set<string>(['/mock/cache/terrain_previews/']);
+const mockDirStore = new Set<string>(['/mock/docs/terrain_previews/']);
 let mockDeleteGate: (() => Promise<void>) | null = null;
 
 jest.mock('expo-file-system/legacy', () => ({
   cacheDirectory: '/mock/cache/',
+  documentDirectory: '/mock/docs/',
   EncodingType: { Base64: 'base64' },
   getInfoAsync: jest.fn(async (path: string) => ({
     exists: mockDirStore.has(path) || mockFileStore.has(path),
@@ -53,7 +54,7 @@ describe('terrain preview cache keys the render, not just the style', () => {
     await clearTerrainPreviews();
     mockFileStore.clear();
     mockDirStore.clear();
-    mockDirStore.add('/mock/cache/terrain_previews/');
+    mockDirStore.add('/mock/docs/terrain_previews/');
     await initTerrainPreviewCache();
   });
 
@@ -117,6 +118,6 @@ describe('terrain preview cache keys the render, not just the style', () => {
     await saveTerrainPreview('a1', 'light', DRAPED, 'second');
 
     expect(mockFileStore.get(getTerrainPreviewUri('a1', 'light', DRAPED))).toBe('second');
-    expect(await FileSystem.readDirectoryAsync('/mock/cache/terrain_previews/')).toHaveLength(1);
+    expect(await FileSystem.readDirectoryAsync('/mock/docs/terrain_previews/')).toHaveLength(1);
   });
 });

@@ -15,8 +15,13 @@ import { useSyncExternalStore } from 'react';
 import { getEngine } from './engine';
 import type { SyncStatus } from 'veloqrs';
 
-/** What the sync service announces: every step, and the terminal transition. */
-const CHANNELS = ['sync', 'syncProgress', 'syncSettled'] as const;
+/**
+ * What the sync service announces: every step, and the terminal transition.
+ * `syncReset` is not a sync at all, it is the database being replaced under
+ * one, by a wipe or a restore. The counts and the error describe the database
+ * that went, so the snapshot has to be re-read even though nothing synced.
+ */
+const CHANNELS = ['sync', 'syncProgress', 'syncSettled', 'syncReset'] as const;
 
 let snapshot: SyncStatus | null = null;
 let unsubscribes: (() => void)[] = [];
