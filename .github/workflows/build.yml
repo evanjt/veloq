@@ -584,7 +584,8 @@ jobs:
         if: steps.app-cache.outputs.cache-hit != 'true' || (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.2"
+          # excon 1.7.1 in the fastlane lockfile needs Ruby 3.3 or later
+          ruby-version: "3.4"
           bundler-cache: true
           working-directory: config/fastlane
 

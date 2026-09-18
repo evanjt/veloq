@@ -241,7 +241,7 @@ jobs:
         if: steps.check_creds.outputs.skip != 'true'
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.2"
+          ruby-version: "3.4"
           working-directory: config/fastlane
           bundler-cache: true
 
@@ -321,7 +321,7 @@ jobs:
         if: steps.check_creds.outputs.skip != 'true'
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.2"
+          ruby-version: "3.4"
           working-directory: config/fastlane
           bundler-cache: true
 
