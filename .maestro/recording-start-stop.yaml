@@ -16,6 +16,11 @@ onFlowComplete:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+# Discard a session an earlier flow left running: `record-fab` hides while one
+# is active, and the return pill covers the feed.
+- runFlow:
+    file: helpers/discard-recording.yaml
+
 # Tap the record FAB on the home screen
 - tapOn:
     id: "record-fab"
@@ -64,40 +69,22 @@ onFlowComplete:
 - takeScreenshot: "screenshots/recording-active"
 
 # Unlock by sliding the track handle right
-# Swipe the full width of the track. A direction swipe anchored to the handle
-# only travels the handle's own width, far short of the unlock threshold, so
-# the sweep is explicit. The track sits above the bottom inset, which differs
-# per platform: measured centre is 82% on Android and 85% on iOS.
 - runFlow:
-    when:
-      platform: Android
-    commands:
-      - swipe:
-          start: 12%, 82%
-          end: 90%, 82%
-          duration: 800
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - swipe:
-          start: 12%, 85%
-          end: 90%, 85%
-          duration: 800
-
-# Wait for controls to appear after unlock
-- extendedWaitUntil:
-    visible:
-      id: "control-pause"
-    timeout: 5000
+    file: helpers/unlock-recording.yaml
 
 - takeScreenshot: "screenshots/recording-unlocked"
 
-# Tap pause (recording → paused state)
-- tapOn:
-    id: "control-pause"
+# The bar shows Pause or Resume, never both, and a phone on a desk has usually
+# auto-paused itself by now. Tapping Pause only where Pause is on screen leaves
+# the ride paused either way, which is what the next step reads.
+- runFlow:
+    when:
+      visible:
+        id: "control-pause"
+    commands:
+      - tapOn:
+          id: "control-pause"
 
-# Wait for paused state (resume + stop buttons)
 - extendedWaitUntil:
     visible:
       id: "control-resume"
@@ -109,33 +96,17 @@ onFlowComplete:
 - tapOn:
     id: "control-resume"
 
-# Wait for recording to resume (pause button reappears)
-- extendedWaitUntil:
-    visible:
-      id: "control-pause"
-    timeout: 5000
+# Resumed is Resume gone. Reading it as Pause arriving is the same fact, but it
+# comes back the moment auto-pause re-engages three seconds later, so the
+# assertion would pass or fail on the poll's timing rather than on the tap.
+- assertNotVisible:
+    id: "control-resume"
 
 - takeScreenshot: "screenshots/recording-resumed"
 
-# Pause again before stopping
-- tapOn:
-    id: "control-pause"
-
-# Wait for paused state again
-- extendedWaitUntil:
-    visible:
-      id: "control-resume"
-    timeout: 5000
-
-# Long-press stop to end recording (paused-state stop requires hold)
-- longPressOn:
-    id: "control-stop"
-
-# Wait for review screen
-- extendedWaitUntil:
-    visible:
-      id: "review-save-button"
-    timeout: 10000
+# Back to paused, then stop and review.
+- runFlow:
+    file: helpers/end-recording.yaml
 
 - assertVisible:
     id: "review-discard-button"

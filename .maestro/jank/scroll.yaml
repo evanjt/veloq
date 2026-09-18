@@ -1,0 +1,19 @@
+# Down and back, so the feed ends where it started and the next run is the
+# same gesture. The return swipe stops short of the status bar: one that
+# starts at the top edge pulls the notification shade instead.
+appId: com.veloq.app.dev
+---
+- repeat:
+    times: 12
+    commands:
+      - swipe:
+          start: "50%, 75%"
+          end: "50%, 30%"
+          duration: 400
+- repeat:
+    times: 12
+    commands:
+      - swipe:
+          start: "50%, 30%"
+          end: "50%, 75%"
+          duration: 400

@@ -38,7 +38,15 @@ tags:
 - assertVisible:
     id: "backup-now-button"
 
-# US-X2: tap the button and wait for success.
+# US-X2: tap the button and wait for success. The button sits below the fold
+# since the export privacy map joined the section, and the tab bar draws over
+# the bottom of the stack screen, so an unscrolled tap lands on Health.
+- scrollUntilVisible:
+    element:
+      id: "backup-now-button"
+    direction: DOWN
+    centerElement: true
+
 - tapOn:
     id: "backup-now-button"
 

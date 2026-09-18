@@ -1,0 +1,28 @@
+# Take an unlocked recording to the review screen.
+#
+# Stop is a long press and only ends the ride from the paused state. A phone on
+# a desk has usually auto-paused itself already, so pausing is conditional: the
+# bar shows Pause or Resume, never both.
+
+appId: com.veloq.app.dev
+---
+- runFlow:
+    when:
+      visible:
+        id: "control-pause"
+    commands:
+      - tapOn:
+          id: "control-pause"
+
+- extendedWaitUntil:
+    visible:
+      id: "control-resume"
+    timeout: 5000
+
+- longPressOn:
+    id: "control-stop"
+
+- extendedWaitUntil:
+    visible:
+      id: "review-save-button"
+    timeout: 10000
