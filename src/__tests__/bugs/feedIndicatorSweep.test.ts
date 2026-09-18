@@ -3,10 +3,10 @@
  * all. It did that by falling through to `demo-test-1` when `demo-test-0`
  * carried nothing, after one swipe.
  *
- * Expected behaviour: the sweep names no card. The demo feed is sorted by date
- * and the generated fillers share the stable activities' days, so the card
- * below `demo-test-0` is a filler and `demo-test-1` is two cards further down
- * than the flow assumed.
+ * Expected behaviour: the sweep names no card, and the flow reaches
+ * `demo-test-0` by scrolling until it is visible rather than by position. The
+ * generated fillers are dated from today, so a stable activity's position in
+ * the feed moves with the calendar and nothing here may depend on it.
  */
 
 import fs from 'fs';
@@ -20,18 +20,27 @@ const FLOW = fs.readFileSync(
 );
 
 describe('the demo feed the flow scrolls', () => {
-  const order = getActivities().map((a) => a.id);
+  const activities = getActivities();
+  const order = activities.map((a) => a.id);
 
-  it('does not put the stable activities at the top', () => {
-    expect(order[0]).not.toBe('demo-test-0');
+  it('is sorted newest first, so a sweep from the top walks recent cards', () => {
+    const times = activities.map((a) => new Date(a.start_date_local).getTime());
+    for (let i = 1; i < times.length; i++) {
+      expect(times[i]).toBeLessThanOrEqual(times[i - 1]);
+    }
   });
 
-  it('separates demo-test-0 from demo-test-1 with a generated filler', () => {
-    const zero = order.indexOf('demo-test-0');
-    const one = order.indexOf('demo-test-1');
-    expect(zero).toBeGreaterThanOrEqual(0);
-    expect(one).toBeGreaterThan(zero + 1);
-    expect(order.slice(zero + 1, one).every((id) => !id.startsWith('demo-test-'))).toBe(true);
+  it('carries the stable activities the flow taps by id', () => {
+    expect(order).toContain('demo-test-0');
+    expect(order).toContain('demo-test-1');
+  });
+
+  it('interleaves the stable activities with generated fillers rather than grouping them', () => {
+    // The fillers share the stable activities' days, so both kinds appear
+    // among the recent cards. Which sits first is the calendar's to decide.
+    const recent = order.slice(0, 8);
+    expect(recent.some((id) => id.startsWith('demo-test-'))).toBe(true);
+    expect(recent.some((id) => !id.startsWith('demo-test-'))).toBe(true);
   });
 });
 
@@ -48,5 +57,9 @@ describe('the coverage sweep in feed-card-indicators', () => {
 
   it('sweeps more than one swipe, since the fillers push the cards down', () => {
     expect(FLOW).toMatch(/repeat:\n\s+times: [2-9]/);
+  });
+
+  it('reaches demo-test-0 by scrolling until it is visible, never by position', () => {
+    expect(FLOW).toMatch(/scrollUntilVisible:\n\s+element:\n\s+id: "activity-card-demo-test-0"/);
   });
 });
