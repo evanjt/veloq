@@ -16,6 +16,11 @@ onFlowComplete:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+# Discard a session an earlier flow left running: `record-fab` hides while one
+# is active, and the return pill covers the feed.
+- runFlow:
+    file: helpers/discard-recording.yaml
+
 # Start recording
 - tapOn:
     id: "record-fab"

@@ -16,6 +16,11 @@ onFlowComplete:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+# Discard a session an earlier flow left running: `record-fab` hides while one
+# is active, and the return pill covers the feed.
+- runFlow:
+    file: helpers/discard-recording.yaml
+
 # Start recording
 - tapOn:
     id: "record-fab"
@@ -70,31 +75,16 @@ onFlowComplete:
 - takeScreenshot: "screenshots/recording-locked"
 
 # Unlock by sliding the handle right
-# Swipe the full width of the track. A direction swipe anchored to the handle
-# only travels the handle's own width, far short of the unlock threshold, so
-# the sweep is explicit. The track sits above the bottom inset, which differs
-# per platform: measured centre is 82% on Android and 85% on iOS.
 - runFlow:
-    when:
-      platform: Android
-    commands:
-      - swipe:
-          start: 12%, 82%
-          end: 90%, 82%
-          duration: 800
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - swipe:
-          start: 12%, 85%
-          end: 90%, 85%
-          duration: 800
+    file: helpers/unlock-recording.yaml
 
-# Controls should now be visible
+# Controls should now be visible. Which ones depends on the recording state:
+# auto-pause engages after three seconds under 2 km/h, so a bench-tested phone
+# shows Resume rather than Pause. Stop is in both bars and in neither while
+# locked, so it is what proves the controls came back.
 - extendedWaitUntil:
     visible:
-      id: "control-pause"
+      id: "control-stop"
     timeout: 5000
 
 - takeScreenshot: "screenshots/recording-unlocked"
@@ -112,47 +102,17 @@ onFlowComplete:
 - takeScreenshot: "screenshots/recording-relocked"
 
 # Clean up: unlock, pause, stop, discard
-# Swipe the full width of the track. A direction swipe anchored to the handle
-# only travels the handle's own width, far short of the unlock threshold, so
-# the sweep is explicit. The track sits above the bottom inset, which differs
-# per platform: measured centre is 82% on Android and 85% on iOS.
 - runFlow:
-    when:
-      platform: Android
-    commands:
-      - swipe:
-          start: 12%, 82%
-          end: 90%, 82%
-          duration: 800
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - swipe:
-          start: 12%, 85%
-          end: 90%, 85%
-          duration: 800
+    file: helpers/unlock-recording.yaml
 
 - extendedWaitUntil:
     visible:
-      id: "control-pause"
+      id: "control-stop"
     timeout: 5000
 
-- tapOn:
-    id: "control-pause"
-
-- extendedWaitUntil:
-    visible:
-      id: "control-resume"
-    timeout: 5000
-
-- longPressOn:
-    id: "control-stop"
-
-- extendedWaitUntil:
-    visible:
-      id: "review-save-button"
-    timeout: 10000
+# Stop wants a paused recording. Pause only if auto-pause has not already.
+- runFlow:
+    file: helpers/end-recording.yaml
 
 - longPressOn:
     id: "review-discard-button"

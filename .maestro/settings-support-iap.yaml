@@ -24,6 +24,102 @@ tags:
   # debug-dashboard nav that had it quarantined.
   - tier1
   - pack-settings
+
+# The five-tap unlock and the 31d preset both persist, so without this every
+# later flow opens the feed on "Enjoying Veloq?" and scrolls one card low.
+# It runs on failure too, where the flow may never have reached either.
+onFlowComplete:
+  - openLink: "veloq://settings"
+  - runFlow:
+      when:
+        visible: "Open"
+      commands:
+        - tapOn: "Open"
+  - runFlow:
+      when:
+        visible:
+          id: "settings-screen"
+      commands:
+        - scroll
+        - scrollUntilVisible:
+            element:
+              id: "settings-version-text"
+            direction: DOWN
+            timeout: 20000
+            speed: 40
+        # The footer sits under the translucent tab bar, where an element reads
+        # as visible and its tap opens a tab instead. Centre every control.
+        - swipe:
+            start: 50%, 75%
+            end: 50%, 45%
+            duration: 800
+        - runFlow:
+            when:
+              visible:
+                id: "settings-developer-dashboard-link"
+            commands:
+              - scrollUntilVisible:
+                  element:
+                    id: "settings-developer-dashboard-link"
+                  direction: DOWN
+                  timeout: 20000
+                  centerElement: true
+              - tapOn:
+                  id: "settings-developer-dashboard-link"
+              - extendedWaitUntil:
+                  visible:
+                    id: "debug-screen"
+                  timeout: 30000
+              # Same edge swipes as the body: the FFI table eats centred ones.
+              - repeat:
+                  times: 10
+                  commands:
+                    - swipe:
+                        start: 90%, 80%
+                        end: 90%, 25%
+                        duration: 400
+                    - runFlow:
+                        when:
+                          visible:
+                            id: "debug-section-support-card"
+                        commands:
+                          - assertVisible:
+                              id: "debug-section-support-card"
+              - runFlow:
+                  when:
+                    visible:
+                      id: "debug-section-support-card"
+                  commands:
+                    - tapOn:
+                        id: "debug-section-support-card"
+                    - scrollUntilVisible:
+                        element:
+                          id: "debug-support-preset-0d"
+                        direction: DOWN
+                        timeout: 20000
+                        centerElement: true
+                    # Last shown today, so shouldShow() is false again.
+                    - tapOn:
+                        id: "debug-support-preset-0d"
+              - openLink: "veloq://settings"
+              - extendedWaitUntil:
+                  visible:
+                    id: "settings-screen"
+                  timeout: 15000
+              - scroll
+              - scrollUntilVisible:
+                  element:
+                    id: "settings-debug-switch"
+                  direction: DOWN
+                  timeout: 20000
+                  centerElement: true
+              - runFlow:
+                  when:
+                    visible:
+                      id: "settings-developer-dashboard-link"
+                  commands:
+                    - tapOn:
+                        id: "settings-debug-switch"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml

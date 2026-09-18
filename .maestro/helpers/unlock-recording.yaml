@@ -1,0 +1,37 @@
+# Unlock the live recording screen and wait for the control bar.
+#
+# The lock auto-engages on recording start, and the whole bar is swapped for
+# the slide track while it holds (`src/app/recording/[type].tsx`), so nothing
+# is tappable until this runs.
+
+appId: com.veloq.app.dev
+---
+# Swipe the full width of the track. A direction swipe anchored to the handle
+# only travels the handle's own width, far short of the unlock threshold, so
+# the sweep is explicit. The track sits above the bottom inset, which differs
+# per platform: measured centre is 82% on Android and 85% on iOS.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - swipe:
+          start: 12%, 82%
+          end: 90%, 82%
+          duration: 800
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: 12%, 85%
+          end: 90%, 85%
+          duration: 800
+
+# Which buttons come back depends on the recording state: auto-pause engages
+# after three seconds under 2 km/h, so a phone on a desk shows Resume rather
+# than Pause. Stop is in both bars and in neither while locked, so it is what
+# proves the controls are back.
+- extendedWaitUntil:
+    visible:
+      id: "control-stop"
+    timeout: 5000

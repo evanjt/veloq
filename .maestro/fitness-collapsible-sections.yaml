@@ -12,13 +12,17 @@ tags:
 - runFlow:
     file: helpers/navigate-to-fitness.yaml
 
-# Scroll down to find performance section (below the charts)
+# Scroll down to find performance section (below the charts). Centre it: the
+# tab bar draws over the bottom of the screen, so a header that stops at the
+# edge is visible to the accessibility tree and covered on screen, and the tap
+# lands on whichever tab is under it.
 - scrollUntilVisible:
     element:
       id: "fitness-section-performance"
     direction: DOWN
     timeout: 10000
     speed: 40
+    centerElement: true
 
 # Tap to collapse performance section
 - tapOn:

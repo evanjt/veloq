@@ -1,0 +1,83 @@
+# Discard a recording session an earlier flow left running.
+# Runs at the top of every recording flow, because cleanup at the bottom only
+# runs when the flow reaches it: one death mid-ride hides `record-fab` from
+# every later flow and draws the return pill over the feed.
+
+appId: com.veloq.app.dev
+---
+# The return pill is the only handle on someone else's session: the live route
+# is `/recording/<type>` and this flow does not know the type.
+- runFlow:
+    when:
+      visible:
+        id: "recording-return-pill"
+    commands:
+      - tapOn:
+          id: "recording-return-pill"
+
+      # The lock re-engages on every entry to the live screen. Swipe the full
+      # width of the track; a direction swipe anchored to the handle travels
+      # only the handle's width. Track centre is 82% on Android, 85% on iOS.
+      - runFlow:
+          when:
+            visible:
+              id: "unlock-track"
+          commands:
+            - runFlow:
+                when:
+                  platform: Android
+                commands:
+                  - swipe:
+                      start: 12%, 82%
+                      end: 90%, 82%
+                      duration: 800
+            - runFlow:
+                when:
+                  platform: iOS
+                commands:
+                  - swipe:
+                      start: 12%, 85%
+                      end: 90%, 85%
+                      duration: 800
+
+      # Stop is a long press and only offers itself once paused.
+      - runFlow:
+          when:
+            visible:
+              id: "control-pause"
+          commands:
+            - tapOn:
+                id: "control-pause"
+
+      - extendedWaitUntil:
+          visible:
+            id: "control-stop"
+          timeout: 5000
+          optional: true
+
+      - runFlow:
+          when:
+            visible:
+              id: "control-stop"
+          commands:
+            - longPressOn:
+                id: "control-stop"
+
+      - extendedWaitUntil:
+          visible:
+            id: "review-discard-button"
+          timeout: 10000
+          optional: true
+
+# Also the landing place of a flow that died on the review screen.
+- runFlow:
+    when:
+      visible:
+        id: "review-discard-button"
+    commands:
+      - longPressOn:
+          id: "review-discard-button"
+      - extendedWaitUntil:
+          visible:
+            id: "home-screen"
+          timeout: 10000

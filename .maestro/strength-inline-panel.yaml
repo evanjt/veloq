@@ -48,10 +48,13 @@ tags:
 - assertVisible:
     id: "strength-body-diagram"
 
-# Period selector present (default is 4weeks; the buttons are week / 4weeks
-# / 3months / 6months).
+# Period selector present. The ids are `strength-period-${p.id}` over
+# STRENGTH_PERIODS, which is `['7d', '1m', '3m', '6m']`, and the tab opens on
+# DEFAULT_PERIOD, which is `6m`. The old `4weeks` vocabulary was renamed on
+# 2026-09-05 and no flow was touched, so this assertion failed before the two
+# things the flow exists to check.
 - assertVisible:
-    id: "strength-period-4weeks"
+    id: "strength-period-6m"
 
 # Tap the body diagram to select a muscle. The inline panel appears next to
 # the body card (US-T1). Keep the assertion tolerant, whether Maestro's tap

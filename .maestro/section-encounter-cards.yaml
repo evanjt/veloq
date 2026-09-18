@@ -1,5 +1,5 @@
 # Section Encounter Cards
-# US-S1: one card per (section, direction); reverse shows ↩ suffix
+# US-S1: one card per section, with a row per direction inside it
 # US-S2: trophy only when current activity is a PR for that direction
 # US-S4: Sections tab badge count equals card count
 # Verifies the encounters refactor end-to-end on a real device/emulator.
@@ -48,7 +48,7 @@ tags:
 
 - takeScreenshot: "screenshots/section-encounter-cards-list"
 
-# Scroll to confirm multiple cards render (per-direction splitting)
+# Scroll to confirm multiple cards render, one per section
 - scroll
 - takeScreenshot: "screenshots/section-encounter-cards-scrolled"
 
