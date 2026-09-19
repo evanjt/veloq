@@ -17,8 +17,19 @@ private const val STROKE = 10f
  * and handed over as a bitmap. Mercator is not worth it at this size; the
  * latitude scale is corrected by the cosine of the trace's own middle so a
  * north-south leg is not stretched against an east-west one.
+ *
+ * One bitmap is kept and redrawn. At 1024x448 ARGB it is 1.8 MB, and a ride
+ * re-renders once per location batch, so allocating per render was 1.8 MB of
+ * garbage every few seconds for the whole ride. `notify` copies the bitmap
+ * across the binder, so the one held here is free to be redrawn once that call
+ * has returned.
+ *
+ * That makes this object single-threaded: it is only ever touched from the
+ * module's own serial worker.
  */
 object RecordingTrace {
+  private var scratch: Bitmap? = null
+
   fun render(flatLatLng: DoubleArray, color: Int): Bitmap? {
     if (flatLatLng.size < 4) return null
 
@@ -56,9 +67,12 @@ object RecordingTrace {
       i += 2
     }
 
-    val bitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888)
+    val bitmap = scratch
+      ?: Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888).also { scratch = it }
+    // A reused bitmap still holds the last trace, and drawing over it src-over
+    // would leave both on screen.
+    bitmap.eraseColor(Color.TRANSPARENT)
     val canvas = Canvas(bitmap)
-    canvas.drawColor(Color.TRANSPARENT)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
       style = Paint.Style.STROKE
       strokeWidth = STROKE

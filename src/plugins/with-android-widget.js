@@ -35,13 +35,17 @@ const RECEIVERS = [
   },
 ];
 
-function copyDir(src, dest) {
+// Resources carry `__PKG__` too, not only the Kotlin: `android:configure` on a
+// provider info takes a class name in full, and the package is only known here.
+function copyDir(src, dest, pkg) {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     const from = path.join(src, entry.name);
     const to = path.join(dest, entry.name);
     if (entry.isDirectory()) {
-      copyDir(from, to);
+      copyDir(from, to, pkg);
+    } else if (entry.name.endsWith(".xml")) {
+      fs.writeFileSync(to, fs.readFileSync(from, "utf8").replace(/__PKG__/g, pkg));
     } else {
       fs.copyFileSync(from, to);
     }
@@ -67,7 +71,7 @@ function writeWidgetSources(projectRoot, androidRoot, pkg) {
   const widgetSrc = path.join(projectRoot, "widget", "android");
   const mainSrc = path.join(androidRoot, "app", "src", "main");
 
-      copyDir(path.join(widgetSrc, "res"), path.join(mainSrc, "res"));
+      copyDir(path.join(widgetSrc, "res"), path.join(mainSrc, "res"), pkg);
       writeFlags(path.join(mainSrc, "res"));
 
       const javaDest = path.join(mainSrc, "java", pkg.replace(/\./g, "/"), "widget");
@@ -158,11 +162,37 @@ function applyServices(app, include = INCLUDE_RECORD_WIDGET) {
   });
 }
 
+// The configure activity rides the same gate as the widget it configures.
+// Removed rather than skipped, so an incremental prebuild cannot keep a stale
+// registration pointing at a class that is no longer compiled.
+const CONFIGURE_ACTIVITY = ".widget.RecordWidgetConfigureActivity";
+
+function applyActivities(app, include = INCLUDE_RECORD_WIDGET) {
+  app.activity = app.activity || [];
+  app.activity = app.activity.filter((a) => a.$?.["android:name"] !== CONFIGURE_ACTIVITY);
+  if (!include) return;
+  app.activity.push({
+    $: {
+      "android:name": CONFIGURE_ACTIVITY,
+      // The launcher starts it, so it is reachable from outside the app.
+      "android:exported": "true",
+      "android:excludeFromRecents": "true",
+      "android:label": "@string/app_name",
+    },
+    "intent-filter": [
+      {
+        action: [{ $: { "android:name": "android.appwidget.action.APPWIDGET_CONFIGURE" } }],
+      },
+    ],
+  });
+}
+
 function withWidgetReceiver(config) {
   return withAndroidManifest(config, (mod) => {
     const app = AndroidConfig.Manifest.getMainApplicationOrThrow(mod.modResults);
     applyReceivers(app);
     applyServices(app);
+    applyActivities(app);
     return mod;
   });
 }
@@ -175,5 +205,6 @@ module.exports = function withAndroidWidget(config) {
 
 module.exports.INCLUDE_RECORD_WIDGET = INCLUDE_RECORD_WIDGET;
 module.exports.applyReceivers = applyReceivers;
+module.exports.applyActivities = applyActivities;
 module.exports.applyServices = applyServices;
 module.exports.writeWidgetSources = writeWidgetSources;
