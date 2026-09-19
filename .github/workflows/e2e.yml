@@ -322,7 +322,13 @@ jobs:
             # only holds the last few minutes (ring buffer) and returns nothing
             # if the emulator dies mid-suite, which is the failure being chased.
             nohup sh -c 'adb logcat -v threadtime > /tmp/logcat.txt 2>&1' &
-            "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=${{ inputs.tier || 'tier0,tier1,tier2,tier3' }} --debug-output /tmp/maestro-debug --format junit --output maestro-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+            # Through run-suite.sh, as the gate runs it: under software GL a
+            # MapLibre surface starves the driver, and every flow queued behind
+            # that death reports in milliseconds. Bare, the sweep called those
+            # failures: 78 of 85 on 2026-09-13, 103 of 103 on 08-23. The script
+            # tells a death from a failed step, restarts the device once and
+            # gives those flows a clean shot.
+            .maestro/run-suite.sh maestro-report.xml /tmp/maestro-debug --include-tags=${{ inputs.tier || 'tier0,tier1,tier2,tier3' }} || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
             adb devices -l > /tmp/device-state.txt 2>&1 || true
             pgrep -af qemu >> /tmp/device-state.txt 2>&1 || true
 
@@ -353,7 +359,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: maestro-android-report
-          path: maestro-report.xml
+          path: |
+            maestro-report.xml
+            retry-reports/
           retention-days: 7
 
       - name: Upload diagnostic logs
@@ -387,7 +395,10 @@ jobs:
 
     name: E2E iOS (Maestro)
     runs-on: macos-26
-    timeout-minutes: 120
+    # 85 flows at the measured 1.4 minutes each, plus about a quarter hour of
+    # setup. At 120 the sweep was cancelled three times running, reaching 77,
+    # 60 and 59 flows, so no complete iOS result had ever been seen.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
 
@@ -549,3 +560,25 @@ jobs:
             echo "_See check annotations and artifacts for details_"
           } > summary.md
           cat summary.md >> $GITHUB_STEP_SUMMARY
+
+      # A platform job that was cancelled on its timeout is neither `failure`
+      # nor `skipped`, and the summary used to exit 0 through it, so a sweep in
+      # which iOS never finished read as an Android-only failure.
+      - name: Fail unless every platform job succeeded
+        if: always()
+        env:
+          IOS_RESULT: ${{ needs.e2e-ios.result }}
+          ANDROID_RESULT: ${{ needs.e2e-android.result }}
+        run: |
+          red=0
+          for platform in ios android; do
+            case "$platform" in
+              ios) result="$IOS_RESULT" ;;
+              android) result="$ANDROID_RESULT" ;;
+            esac
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+              echo "E2E $platform: $result"
+              red=1
+            fi
+          done
+          [ "$red" = "0" ] || exit 1
