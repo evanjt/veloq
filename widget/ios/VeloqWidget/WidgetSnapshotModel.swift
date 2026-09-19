@@ -128,6 +128,11 @@ struct WidgetPaletteData: Codable {
   let formGreyZone: String?
   let formFresh: String?
   let formTransition: String?
+  let formHighRiskText: String?
+  let formOptimalText: String?
+  let formGreyZoneText: String?
+  let formFreshText: String?
+  let formTransitionText: String?
   let trendUp: String
   let trendDown: String
   let trendFlat: String
@@ -157,6 +162,10 @@ struct WidgetSnapshot: Codable {
   /// both of which send a tap to the picker instead. The uncapped list is
   /// `recordShortcuts`, which only the App Shortcut's sport parameter needs.
   let launcherShortcuts: [WidgetRecordShortcut]?
+  /// Every sport the athlete records, uncapped. The launcher takes the head of
+  /// it; the widget's configure picker takes all of it, because a rider who
+  /// swims once a month still wants that widget.
+  let recordShortcuts: [WidgetRecordShortcut]?
 }
 
 /// One recent sport: the id, the name a surface shows, and the link that starts it.

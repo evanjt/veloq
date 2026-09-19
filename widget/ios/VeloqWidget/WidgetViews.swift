@@ -23,6 +23,11 @@ struct WidgetPalette {
   var formGreyZone: Color
   var formFresh: Color
   var formTransition: Color
+  var formHighRiskText: Color
+  var formOptimalText: Color
+  var formGreyZoneText: Color
+  var formFreshText: Color
+  var formTransitionText: Color
   var trendUp: Color
   var trendDown: Color
   var trendFlat: Color
@@ -47,6 +52,11 @@ struct WidgetPalette {
       formGreyZone: d.formGreyZone.map { Color(hex: $0) } ?? f.formGreyZone,
       formFresh: d.formFresh.map { Color(hex: $0) } ?? f.formFresh,
       formTransition: d.formTransition.map { Color(hex: $0) } ?? f.formTransition,
+      formHighRiskText: d.formHighRiskText.map { Color(hex: $0) } ?? f.formHighRiskText,
+      formOptimalText: d.formOptimalText.map { Color(hex: $0) } ?? f.formOptimalText,
+      formGreyZoneText: d.formGreyZoneText.map { Color(hex: $0) } ?? f.formGreyZoneText,
+      formFreshText: d.formFreshText.map { Color(hex: $0) } ?? f.formFreshText,
+      formTransitionText: d.formTransitionText.map { Color(hex: $0) } ?? f.formTransitionText,
       trendUp: Color(hex: d.trendUp),
       trendDown: Color(hex: d.trendDown),
       trendFlat: Color(hex: d.trendFlat),
@@ -62,7 +72,7 @@ struct WidgetPalette {
     return fallback
   }
 
-  /// Colour for a form zone enum from the snapshot; unknown or missing zones read
+  /// Fill for a form zone enum from the snapshot; unknown or missing zones read
   /// as plain primary text (older snapshots carry no zone).
   func formColor(_ zone: String?) -> Color {
     switch zone {
@@ -75,12 +85,25 @@ struct WidgetPalette {
     }
   }
 
+  /// Text for a form zone: the form value, which the fills reach 2.1:1 to 2.7:1
+  /// on the light widget ground and 4.5:1 is the bar for text.
+  func formTextColor(_ zone: String?) -> Color {
+    switch zone {
+    case "highRisk": return formHighRiskText
+    case "optimal": return formOptimalText
+    case "greyZone": return formGreyZoneText
+    case "fresh": return formFreshText
+    case "transition": return formTransitionText
+    default: return textPrimary
+    }
+  }
+
   /// Colour for a summary entry's palette role.
   func summaryColor(_ colorKey: String, formZone: String?) -> Color {
     switch colorKey {
     case "blue": return blue
     case "fatigue": return fatigue
-    case "formZone": return formColor(formZone)
+    case "formZone": return formTextColor(formZone)
     default: return textPrimary
     }
   }
@@ -95,6 +118,11 @@ struct WidgetPalette {
     formHighRisk: WidgetTheme.Light.formHighRisk, formOptimal: WidgetTheme.Light.formOptimal,
     formGreyZone: WidgetTheme.Light.formGreyZone, formFresh: WidgetTheme.Light.formFresh,
     formTransition: WidgetTheme.Light.formTransition,
+    formHighRiskText: WidgetTheme.Light.formHighRiskText,
+    formOptimalText: WidgetTheme.Light.formOptimalText,
+    formGreyZoneText: WidgetTheme.Light.formGreyZoneText,
+    formFreshText: WidgetTheme.Light.formFreshText,
+    formTransitionText: WidgetTheme.Light.formTransitionText,
     trendUp: WidgetTheme.Light.trendUp, trendDown: WidgetTheme.Light.trendDown,
     trendFlat: WidgetTheme.Light.trendFlat, border: WidgetTheme.Light.border)
 
@@ -108,6 +136,11 @@ struct WidgetPalette {
     formHighRisk: WidgetTheme.Dark.formHighRisk, formOptimal: WidgetTheme.Dark.formOptimal,
     formGreyZone: WidgetTheme.Dark.formGreyZone, formFresh: WidgetTheme.Dark.formFresh,
     formTransition: WidgetTheme.Dark.formTransition,
+    formHighRiskText: WidgetTheme.Dark.formHighRiskText,
+    formOptimalText: WidgetTheme.Dark.formOptimalText,
+    formGreyZoneText: WidgetTheme.Dark.formGreyZoneText,
+    formFreshText: WidgetTheme.Dark.formFreshText,
+    formTransitionText: WidgetTheme.Dark.formTransitionText,
     trendUp: WidgetTheme.Dark.trendUp, trendDown: WidgetTheme.Dark.trendDown,
     trendFlat: WidgetTheme.Dark.trendFlat, border: WidgetTheme.Dark.border)
 }
@@ -174,7 +207,7 @@ func heroSpec(_ snapshot: WidgetSnapshot?, key: String, palette: WidgetPalette) 
       label: labels?.rhr ?? "RHR", metric: m?.rhr, valueColor: palette.textPrimary,
       zoneLabel: nil)
   default:
-    let zoneColor = palette.formColor(m?.form.zone)
+    let zoneColor = palette.formTextColor(m?.form.zone)
     return HeroSpec(
       label: labels?.form ?? "Form", metric: m?.form,
       valueColor: m?.form.zone != nil ? zoneColor : palette.textPrimary,
@@ -479,13 +512,13 @@ struct ImpactView: View {
       HStack(spacing: 3) {
         Text(metricValue(i.formBefore))
           .fontWeight(.semibold)
-          .foregroundColor(palette.formColor(i.formBeforeZone))
+          .foregroundColor(palette.formTextColor(i.formBeforeZone))
         Image(systemName: "arrow.right")
           .font(.system(size: WidgetTheme.TypeScale.caption))
           .foregroundColor(palette.textSecondary)
         Text(metricValue(i.formAfter))
           .fontWeight(.semibold)
-          .foregroundColor(palette.formColor(i.formAfterZone))
+          .foregroundColor(palette.formTextColor(i.formAfterZone))
         if let tss = i.tssAdded {
           Text("\(signedInt(tss)) TSS")
             .foregroundColor(palette.textSecondary)
@@ -817,7 +850,7 @@ struct LargeWidgetView: View {
   private var content: some View {
     let m = snapshot?.metrics
     let labels = snapshot?.display.metricLabels
-    let zoneColor = palette.formColor(m?.form.zone)
+    let zoneColor = palette.formTextColor(m?.form.zone)
     return VStack(alignment: .leading, spacing: WidgetTheme.Layout.gap) {
       HStack(alignment: .top) {
         if let f = m?.form {

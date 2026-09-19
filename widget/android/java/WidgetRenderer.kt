@@ -66,7 +66,7 @@ object WidgetRenderer {
   )
 
   private fun heroSpec(context: Context, snap: WidgetSnapshot?, key: String): HeroSpec {
-    val zoneColor = zoneColor(context, snap?.form?.zone)
+    val formTextColor = zoneTextColor(context, snap?.form?.zone)
     return when (key) {
       "fitness" ->
         HeroSpec(
@@ -97,7 +97,7 @@ object WidgetRenderer {
       else ->
         HeroSpec(
           label(snap, "form"), value(snap?.form),
-          if (snap?.form?.zone != null) zoneColor else res(context, R.color.widget_text_primary),
+          if (snap?.form?.zone != null) formTextColor else res(context, R.color.widget_text_primary),
           snap?.formZoneLabel, snap?.form?.trendDir ?: "flat", delta(snap?.form))
     }
   }
@@ -256,11 +256,11 @@ object WidgetRenderer {
 
   private fun renderLarge(context: Context, snap: WidgetSnapshot?, minWidthDp: Int): RemoteViews {
     val v = RemoteViews(context.packageName, R.layout.widget_large)
-    val zoneColor = zoneColor(context, snap?.form?.zone)
+    val formTextColor = zoneTextColor(context, snap?.form?.zone)
 
     v.setTextViewText(R.id.large_form_label, label(snap, "form"))
     v.setTextViewText(R.id.large_form_value, value(snap?.form))
-    v.setTextColor(R.id.large_form_value, zoneColor)
+    v.setTextColor(R.id.large_form_value, formTextColor)
     bindTrend(context, v, R.id.large_form_trend, snap?.form)
 
     v.setTextViewText(R.id.large_fitness_label, label(snap, "fitness"))
@@ -382,8 +382,19 @@ object WidgetRenderer {
   fun recordUrl(snap: WidgetSnapshot?): String =
     snap?.recordShortcuts?.firstOrNull()?.url ?: RECORD_PICKER_URL
 
+  /** A configured instance keeps its own sport; an unconfigured one follows the last. */
+  fun recordUrl(snap: WidgetSnapshot?, configured: String?): String =
+    configured ?: recordUrl(snap)
+
   fun recordIntent(context: Context, snap: WidgetSnapshot?): PendingIntent =
     deepLink(context, recordUrl(snap), 0)
+
+  fun recordIntent(
+    context: Context,
+    snap: WidgetSnapshot?,
+    configured: String?,
+    requestCode: Int
+  ): PendingIntent = deepLink(context, recordUrl(snap, configured), requestCode)
 
   private fun deepLink(context: Context, url: String, requestCode: Int): PendingIntent {
     val intent =
@@ -529,9 +540,9 @@ object WidgetRenderer {
       v.setViewVisibility(rowId, View.VISIBLE)
       v.setViewVisibility(flatId, View.GONE)
       v.setTextViewText(beforeId, impact.formBefore.roundToInt().toString())
-      v.setTextColor(beforeId, zoneColor(context, impact.beforeZone))
+      v.setTextColor(beforeId, zoneTextColor(context, impact.beforeZone))
       v.setTextViewText(afterId, impact.formAfter.roundToInt().toString())
-      v.setTextColor(afterId, zoneColor(context, impact.afterZone))
+      v.setTextColor(afterId, zoneTextColor(context, impact.afterZone))
       val tss = impact.tssAdded
       if (tss == null) {
         v.setViewVisibility(tssId, View.GONE)
@@ -593,6 +604,7 @@ object WidgetRenderer {
     return res(context, colorRes)
   }
 
+  /** Fill: the form bar under the trend chart, a ground with no text in it. */
   private fun zoneColor(context: Context, zone: String?): Int {
     val colorRes =
       when (zone) {
@@ -606,11 +618,28 @@ object WidgetRenderer {
     return res(context, colorRes)
   }
 
+  /**
+   * Text: the hero value and the impact numbers, which the widget draws with no
+   * zone label beside them, so the fill's 2.1:1 to 2.7:1 is all the reader gets.
+   */
+  private fun zoneTextColor(context: Context, zone: String?): Int {
+    val colorRes =
+      when (zone) {
+        "highRisk" -> R.color.widget_form_high_risk_text
+        "optimal" -> R.color.widget_form_optimal_text
+        "greyZone" -> R.color.widget_form_grey_zone_text
+        "fresh" -> R.color.widget_form_fresh_text
+        "transition" -> R.color.widget_form_transition_text
+        else -> R.color.widget_text_primary
+      }
+    return res(context, colorRes)
+  }
+
   private fun summaryColor(context: Context, colorKey: String, formZone: String?): Int =
     when (colorKey) {
       "blue" -> res(context, R.color.widget_blue)
       "fatigue" -> res(context, R.color.widget_fatigue)
-      "formZone" -> zoneColor(context, formZone)
+      "formZone" -> zoneTextColor(context, formZone)
       else -> res(context, R.color.widget_text_primary)
     }
 

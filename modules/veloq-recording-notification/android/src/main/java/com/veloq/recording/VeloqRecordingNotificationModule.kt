@@ -6,12 +6,15 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
-import android.os.Handler
-import android.os.Looper
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 import org.json.JSONObject
 
 // Must match BACKGROUND_LOCATION_TASK in src/features/recording/lib/backgroundLocation.ts.
@@ -41,8 +44,20 @@ class VeloqRecordingNotificationModule : Module() {
   private val context: Context
     get() = appContext.reactContext ?: throw Exceptions.ReactContextLost()
 
-  private val handler = Handler(Looper.getMainLooper())
-  private var pendingRetry: Runnable? = null
+  // One thread for every post, retry and cancel.
+  //
+  // `build` rasterises a 1024x448 trace before `notify`, which is 1.8 MB and a
+  // path draw, and `update` is called once per location batch and on every lap.
+  // As a synchronous `Function` all of that ran on the JS thread.
+  //
+  // Serial rather than pooled, for two reasons. Two posts must not land out of
+  // order, or the notification shows the older ride. And the scratch bitmap
+  // `RecordingTrace` reuses belongs to whichever thread draws it, so there must
+  // only ever be one.
+  private val worker = Executors.newSingleThreadScheduledExecutor { runnable ->
+    Thread(runnable, "veloq-recording-notification").apply { isDaemon = true }
+  }
+  private var pendingRetry: ScheduledFuture<*>? = null
 
   override fun definition() = ModuleDefinition {
     Name("VeloqRecordingNotification")
@@ -52,18 +67,24 @@ class VeloqRecordingNotificationModule : Module() {
     OnCreate { live = this@VeloqRecordingNotificationModule }
 
     OnDestroy {
-      cancelRetry()
       if (live === this@VeloqRecordingNotificationModule) live = null
+      onWorker { cancelRetry() }
+      worker.shutdown()
     }
 
-    Function("update") { json: String -> post(JSONObject(json), 0) }
+    // The JSON is parsed on the worker too. A trace of several hundred points
+    // is a page of parsing, and doing it here to hand over a `JSONObject` would
+    // leave the JS thread paying for the half that is cheapest to move.
+    Function("update") { json: String -> onWorker { post(JSONObject(json), 0) } }
 
     // `manager.notify` took ownership of the id from the service, so nothing in
     // the service's lifecycle takes the notification down. Cancelling is the
     // only thing that does.
     Function("clear") {
-      cancelRetry()
-      cancelNotification()
+      onWorker {
+        cancelRetry()
+        cancelNotification()
+      }
     }
 
     Function("drainPendingActions") { RecordingActionReceiver.drainPending(context) }
@@ -105,8 +126,30 @@ class VeloqRecordingNotificationModule : Module() {
   }
 
   private fun cancelRetry() {
-    pendingRetry?.let { handler.removeCallbacks(it) }
+    pendingRetry?.cancel(false)
     pendingRetry = null
+  }
+
+  /**
+   * Run `block` on the worker, swallowing what it throws.
+   *
+   * A `Function` body throws back into JavaScript, which the caller catches
+   * (`updateRecordingNotification`). Off the thread there is nobody to catch
+   * it, and an uncaught throw on an executor takes the process down, so the one
+   * that matters, a react context lost mid-ride, is caught here instead.
+   */
+  private fun onWorker(block: () -> Unit) {
+    try {
+      worker.execute {
+        try {
+          block()
+        } catch (e: Exception) {
+          Log.w(TAG, "recording notification update failed", e)
+        }
+      }
+    } catch (e: RejectedExecutionException) {
+      // The module is being torn down. There is nothing left to draw on.
+    }
   }
 
   private fun post(payload: JSONObject, attempt: Int) {
@@ -115,9 +158,11 @@ class VeloqRecordingNotificationModule : Module() {
     val target = serviceNotification()
     if (target == null) {
       if (attempt >= MAX_RETRIES) return
-      val retry = Runnable { post(payload, attempt + 1) }
-      pendingRetry = retry
-      handler.postDelayed(retry, RETRY_DELAY_MS)
+      pendingRetry = worker.schedule(
+        { onWorker { post(payload, attempt + 1) } },
+        RETRY_DELAY_MS,
+        TimeUnit.MILLISECONDS
+      )
       return
     }
     manager.notify(target.id, build(payload, target.notification.channelId))
@@ -219,6 +264,8 @@ class VeloqRecordingNotificationModule : Module() {
     }
 
   companion object {
+    private const val TAG = "VeloqRecordingNotif"
+
     // The receiver runs in this process but is constructed by the system, so the
     // live module is reached through here rather than through an injection.
     private var live: VeloqRecordingNotificationModule? = null

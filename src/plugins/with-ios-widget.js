@@ -21,6 +21,7 @@ const path = require("path");
  */
 
 const { INCLUDE_RECORD_WIDGET } = require("./widgetFlags");
+const { ensureTargetDependencySections } = require("./xcodeTargetDependency");
 
 const TARGET = "VeloqWidget";
 
@@ -84,12 +85,19 @@ function writeWidgetBundles(destDir, includeRecord = INCLUDE_RECORD_WIDGET) {
   // The Control rides the same gate as the widget: one record surface off means
   // every record surface off. It is iOS 18 and the bundle body is not, so it is
   // gated inside the result builder, the way the Live Activity is gated at 16.2.
-  const record = includeRecord
-    ? `
-    VeloqRecordWidget()
+  const control = `
     if #available(iOS 18.0, *) {
       VeloqRecordControl()
-    }`
+    }`;
+  const record = includeRecord
+    ? `
+    VeloqRecordWidget()${control}`
+    : "";
+  // iOS 17 takes the configurable one, at the same kind, so a widget placed
+  // before the upgrade keeps its place and gains the sport picker.
+  const configurableRecord = includeRecord
+    ? `
+    VeloqConfigurableRecordWidget()${control}`
     : "";
   const liveActivity = `
     if #available(iOS 16.2, *) {
@@ -113,7 +121,7 @@ struct VeloqWidgets: WidgetBundle {
 struct VeloqWidgetsConfigurable: WidgetBundle {
   var body: some Widget {
     VeloqConfigurableWidget()
-    VeloqLatestActivityWidget()${record}${liveActivity}
+    VeloqLatestActivityWidget()${configurableRecord}${liveActivity}
   }
 }
 `
@@ -277,6 +285,9 @@ function compileExistingSource(proj, name, targetUuid) {
 
 /** Create the extension target, its phases, its group and its build settings. */
 function createWidgetTarget(proj, { bundleId, version, buildNumber }) {
+  // Before the target, not after: `addTarget` makes the app depend on it, and
+  // that write is dropped when the two sections are absent.
+  ensureTargetDependencySections(proj);
   const target = proj.addTarget(TARGET, "app_extension", TARGET, `${bundleId}.${TARGET}`);
 
   proj.addBuildPhase([], "PBXSourcesBuildPhase", "Sources", target.uuid);
@@ -293,7 +304,6 @@ function createWidgetTarget(proj, { bundleId, version, buildNumber }) {
     applyWidgetBuildSettings(settings, version, buildNumber);
   }
 
-  proj.addTargetDependency(proj.getFirstTarget().uuid, [target.uuid]);
   return target.uuid;
 }
 
@@ -388,3 +398,4 @@ module.exports.SHARED_DIR = SHARED_DIR;
 module.exports.addMissingSourceFiles = addMissingSourceFiles;
 module.exports.compiledSourceNames = compiledSourceNames;
 module.exports.configureWidgetProject = configureWidgetProject;
+module.exports.targetUuidByName = targetUuidByName;

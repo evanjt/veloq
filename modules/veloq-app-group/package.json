@@ -1,0 +1,17 @@
+{
+  "name": "veloq-app-group",
+  "version": "0.1.0",
+  "description": "Answers the path of the shared App Group container, so the database sits where an extension can open it",
+  "main": "index.ts",
+  "author": "Evan Thomas <evan@evanjt.com>",
+  "homepage": "https://github.com/evanjt/veloq",
+  "license": "MIT",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "expo-modules-core": "*"
+  }
+}
