@@ -80,11 +80,27 @@ jobs:
       # per-test timeout (`.config/nextest.toml`), where `cargo test` runs the
       # binaries one after another and waits on a hang forever. It does not
       # run doctests, so the `--doc` pass follows and reuses the build.
+      # A target whose `required-features` the run does not enable compiles to an
+      # empty binary: it prints `running 0 tests` and `ok`, so an exit code
+      # cannot see it and the resume suite was red for days behind that. `list`
+      # builds the same binaries the run reuses, so this costs the check alone.
+      - name: Check no test target is empty
+        run: node scripts/lint-empty-test-binaries.js -p veloqrs --features synthetic
+
       - name: Run Rust tests
         working-directory: modules/veloqrs/rust
         run: |
           cargo nextest run -p veloqrs --features synthetic --profile ci
           cargo test -p veloqrs --features synthetic --doc
+
+      # Benches are a build target nothing else compiles: `cargo test` and the
+      # merge gates skip them, so a bench rots silently behind any signature
+      # change and the whole `cargo bench` suite stops at the first one that
+      # will not build. Compiled, not run: the measurements want a quiet
+      # machine and a CI runner is not one.
+      - name: Build Rust benches
+        working-directory: modules/veloqrs/rust
+        run: cargo bench -p veloqrs --features synthetic --no-run
 
       - name: Upload test report
         if: always()
