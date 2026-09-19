@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
+import { formatEpochDayUtc } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
 import type { MuscleVolume, ExerciseSummary } from '@/types';
 
@@ -115,10 +116,7 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
                         {activity.activityName}
                       </Text>
                       <Text style={[styles.activityDate, isDark && styles.activityDateDark]}>
-                        {new Date(activity.date * 1000).toLocaleDateString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
+                        {formatEpochDayUtc(activity.date)}
                       </Text>
                     </View>
                     <Text style={[styles.activityStats, isDark && styles.activityStatsDark]}>
@@ -167,8 +165,8 @@ const styles = StyleSheet.create({
   exerciseCardItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    gap: 8,
+    paddingVertical: spacing.xsPlus,
+    gap: spacing.sm,
   },
   exerciseCardItemBorder: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -202,13 +200,13 @@ const styles = StyleSheet.create({
   exerciseCardMeta: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   exerciseCardMetaDark: {
     color: darkColors.textSecondary,
   },
   activityList: {
-    marginLeft: 14,
+    marginLeft: spacing.md,
     paddingLeft: spacing.sm,
     borderLeftWidth: 1,
     borderLeftColor: colors.divider,
@@ -221,7 +219,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
     paddingHorizontal: spacing.xs,
   },
   activityRowLeft: {
@@ -238,7 +236,7 @@ const styles = StyleSheet.create({
   activityDate: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   activityDateDark: {
     color: darkColors.textSecondary,

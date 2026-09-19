@@ -6,9 +6,10 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
-import { useTheme, useMetricSystem } from '@/shared/app';
+import { useTheme, useMetricSystem, useAthlete } from '@/shared/app';
 import type { Activity } from '@/types';
-import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
+import { ActivityCardContextMenu, SkylineBar } from '@/features/activity';
+import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import {
   formatDuration,
   formatRelativeDate,
@@ -18,10 +19,20 @@ import {
   formatCalories,
   formatTemperature,
 } from '@/shared/format/format';
-import { colors, darkColors, typography, spacing, shadows, brand, layout } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  shadows,
+  brand,
+  layout,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { ActivityCardContextMenu } from '@/features/activity/components/ActivityCardContextMenu';
-import { SkylineBar } from '@/features/activity/components/SkylineBar';
+import { formatWeightRounded } from '@/features/strength/lib/formatting';
+import { pressable } from '@/shared/ui';
 
 /** Aggregated muscle/exercise data for a strength activity */
 export interface StrengthCardData {
@@ -47,6 +58,8 @@ interface StrengthActivityCardProps {
  */
 function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityCardProps) {
   const { t } = useTranslation();
+  const { data: athlete } = useAthlete();
+  const bodyGender = athlete?.sex === 'F' ? 'female' : 'male';
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const [menuVisible, setMenuVisible] = useState(false);
@@ -82,7 +95,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
 
   const compactTextColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const compactMutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const compactDividerColor = isDark ? darkColors.border : 'rgba(0,0,0,0.1)';
+  const compactDividerColor = isDark ? darkColors.border : colorWithOpacity(ink.black, 0.1);
 
   const secondaryStatsRow = (
     <ScrollView
@@ -92,7 +105,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
       onContentSizeChange={handleContentSizeChange}
       style={styles.secondaryScroll}
     >
-      <Pressable onPress={handlePress} style={styles.secondaryStats}>
+      <Pressable onPress={handlePress} style={pressable(styles.secondaryStats)}>
         {!!activity.icu_training_load && (
           <View
             style={styles.secondaryStat}
@@ -120,7 +133,11 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             style={styles.secondaryStat}
             accessibilityLabel={`${t('activity.power')}: ${formatPower(averagePower)} ${t('units.watts')}`}
           >
-            <MaterialCommunityIcons name="lightning-bolt" size={14} color={colors.warning} />
+            <MaterialCommunityIcons
+              name="lightning-bolt"
+              size={14}
+              color={isDark ? darkColors.warningAmber : colors.warningAmber}
+            />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatPower(averagePower)}
             </RNText>
@@ -131,7 +148,11 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             style={styles.secondaryStat}
             accessibilityLabel={`${t('activity.calories')}: ${formatCalories(activity.calories)} ${t('units.kcal')}`}
           >
-            <MaterialCommunityIcons name="food-apple" size={14} color={colors.success} />
+            <MaterialCommunityIcons
+              name="food-apple"
+              size={14}
+              color={isDark ? darkColors.successDeep : colors.successDeep}
+            />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatCalories(activity.calories)}
             </RNText>
@@ -164,7 +185,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
-            style={styles.pressableOverlay}
+            style={pressable(styles.pressableOverlay)}
             accessibilityRole="button"
             accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDuration(activity.moving_time)}`}
           />
@@ -202,14 +223,14 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             <View style={styles.strengthBodies}>
               <Body
                 data={strengthData.muscles}
-                gender="male"
+                gender={bodyGender}
                 side="front"
                 scale={0.38}
                 colors={[brand.tealDark, brand.tealLight]}
               />
               <Body
                 data={strengthData.muscles}
-                gender="male"
+                gender={bodyGender}
                 side="back"
                 scale={0.38}
                 colors={[brand.tealDark, brand.tealLight]}
@@ -221,7 +242,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
                   {formatDuration(activity.moving_time)}
                 </RNText>
                 <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
-                  Duration
+                  {t('strength.durationLabel')}
                 </RNText>
               </View>
               <View style={styles.strengthStatRow}>
@@ -229,18 +250,16 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
                   {strengthData.exerciseCount} / {strengthData.setCount}
                 </RNText>
                 <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
-                  {t('activityDetail.exercises')} / Sets
+                  {t('activityDetail.exercises')} / {t('strength.setsLabel')}
                 </RNText>
               </View>
               {strengthData.totalWeight > 0 && (
                 <View style={styles.strengthStatRow}>
                   <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
-                    {isMetric
-                      ? `${Math.round(strengthData.totalWeight)} kg`
-                      : `${Math.round(strengthData.totalWeight * 2.20462)} lbs`}
+                    {formatWeightRounded(strengthData.totalWeight, isMetric)}
                   </RNText>
                   <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
-                    Total
+                    {t('strength.totalLabel')}
                   </RNText>
                 </View>
               )}
@@ -271,8 +290,8 @@ export const StrengthActivityCard = React.memo(StrengthActivityCardInner);
 
 const styles = StyleSheet.create({
   cardWrapper: {
-    marginHorizontal: 12,
-    marginBottom: 12,
+    marginHorizontal: spacing.smPlus,
+    marginBottom: spacing.smPlus,
   },
   cardPressed: {
     transform: [{ scale: 0.98 }],
@@ -303,14 +322,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: spacing.smPlus,
   },
   strengthBodies: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   strengthStats: {
-    gap: 10,
+    gap: spacing.sm,
   },
   strengthStatRow: {},
   strengthStatValue: {
@@ -337,9 +356,9 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    paddingTop: 10,
-    paddingHorizontal: 12,
-    paddingBottom: 28,
+    paddingTop: spacing.smPlus,
+    paddingHorizontal: spacing.smPlus,
+    paddingBottom: spacing.lg,
     zIndex: 2,
   },
   overlayHeader: {
@@ -367,28 +386,28 @@ const styles = StyleSheet.create({
   overlayDateSubtitle: {
     fontSize: typography.caption.fontSize,
     fontWeight: '500',
-    marginTop: 1,
+    marginTop: spacing.xxs,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   dividerLine: {
     height: 1,
-    marginHorizontal: 12,
+    marginHorizontal: spacing.smPlus,
   },
   secondaryScroll: {
-    paddingTop: 2,
-    paddingBottom: 8,
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.sm,
   },
   secondaryStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 12,
+    paddingHorizontal: spacing.smPlus,
+    gap: spacing.smPlus,
   },
   secondaryStat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs,
   },
   secondaryStatValue: {
     fontSize: typography.caption.fontSize,
