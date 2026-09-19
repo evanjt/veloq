@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
-import { getEngine } from '@/shared/native/engine';
-import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
 
@@ -36,13 +35,11 @@ export function useMuscleDetail(
   slug: string | null
 ): MuscleGroupDetail | null {
   // A FIT parsed after the screen opened is the event, not the ids below.
-  const trigger = useEngineSubscription(['activities']);
+  const readActivities = useEngineRead(['activities']);
 
   return useMemo(() => {
     if (!slug || !activityId) return null;
-    const engine = getEngine();
-    if (!engine) return null;
-    const detail = engine.getMuscleDetail(activityId, slug);
+    const detail = readActivities((engine) => engine.getMuscleDetail(activityId, slug));
     if (!detail || detail.exercises.length === 0) return null;
     return {
       name: MUSCLE_DISPLAY_NAMES[slug as MuscleSlug] ?? slug,
@@ -60,5 +57,5 @@ export function useMuscleDetail(
       primaryExercises: detail.primaryExercises,
       secondaryExercises: detail.secondaryExercises,
     };
-  }, [activityId, slug, trigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activityId, slug, readActivities]);
 }

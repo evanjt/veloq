@@ -15,6 +15,20 @@ export interface StrengthSummary {
   muscleVolumes: MuscleVolume[];
   activityCount: number;
   totalSets: number;
+  /** The engine's verdict per opposing pair, one entry per pair, trained or not. */
+  balance: EngineBalancePair[];
+}
+
+/** One pair as the engine reports it: numbers and a verdict, no copy. */
+export interface EngineBalancePair {
+  id: string;
+  leftSlug: string;
+  rightSlug: string;
+  leftWeightedSets: number;
+  rightWeightedSets: number;
+  dominantSlug: string | null;
+  ratio: number | null;
+  status: StrengthBalanceStatus;
 }
 
 export type { StrengthPeriod } from './periods';
@@ -32,6 +46,20 @@ export type StrengthProgressTrend = 'up' | 'down' | 'flat';
 export interface StrengthProgression {
   muscleSlug: string;
   points: StrengthProgressPoint[];
+  recentAverage: number;
+  baselineAverage: number;
+  peakWeightedSets: number;
+  changePct: number | null;
+  trend: StrengthProgressTrend;
+}
+
+/**
+ * The engine's ranking of one muscle over the trailing weeks, weekly figures
+ * in place of the labelled points the screen builds for its chart.
+ */
+export interface StrengthProgressionRecord {
+  muscleSlug: string;
+  weeklyWeightedSets: number[];
   recentAverage: number;
   baselineAverage: number;
   peakWeightedSets: number;
@@ -75,6 +103,25 @@ export interface ExerciseSummary {
 /** Exercise summaries for a specific muscle group over a period. */
 export interface MuscleExerciseSummary {
   exercises: ExerciseSummary[];
+  periodDays: number;
+}
+
+/** One muscle's exercises over the period, as the screen read carries them. */
+export interface MuscleExercises {
+  muscleSlug: string;
+  exercises: ExerciseSummary[];
+}
+
+/**
+ * Everything the strength tab draws, from one engine read. The weeks are the
+ * reader's own: the engine ranks them, and the labels are translated here.
+ */
+export interface StrengthScreenData {
+  summary: StrengthSummary;
+  weeks: { label: string; startTs: number; endTs: number }[];
+  weekly: StrengthSummary[];
+  progressions: StrengthProgressionRecord[];
+  exercises: MuscleExercises[];
   periodDays: number;
 }
 

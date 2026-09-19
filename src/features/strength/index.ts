@@ -11,17 +11,21 @@ export { useExerciseSets, useMuscleGroups } from './hooks/useExerciseSets';
 export { useMuscleDetail } from './hooks/useMuscleDetail';
 export type { MuscleGroupDetail } from './hooks/useMuscleDetail';
 export {
-  useStrengthVolume,
-  useHasStrengthData,
-  useStrengthProgression,
-  useExercisesForMuscle,
+  useStrengthScreenData,
+  useStrengthTabState,
   useActivitiesForExercise,
-} from './hooks/useStrengthVolume';
+} from './hooks/useStrengthScreenData';
 export { generateStrengthInsights } from './hooks/strengthInsights';
 export { STRENGTH_PERIODS } from './periods';
 
 export { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from './lib/exerciseMuscleMap';
-export { buildStrengthProgression, buildStrengthBalancePairs, BALANCE_PAIRS } from './lib/analysis';
+export {
+  buildStrengthBalancePairs,
+  normalizeStrengthProgression,
+  selectExercises,
+  selectProgression,
+  BALANCE_PAIR_NAMES,
+} from './lib/analysis';
 export {
   formatWeight,
   formatWeightRounded,
@@ -38,6 +42,7 @@ export type {
   StrengthProgressPoint,
   StrengthProgressTrend,
   StrengthProgression,
+  StrengthScreenData,
   StrengthBalanceStatus,
   StrengthBalancePair,
   ExerciseSummary,

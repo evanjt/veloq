@@ -1,23 +1,23 @@
 import type { Insight } from '@/types';
 
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
-import { buildStrengthBalancePairs, buildStrengthProgression } from '../lib/analysis';
+import { buildStrengthBalancePairs } from '../lib/analysis';
 import { formatSetCount } from '../lib/formatting';
-import type {
-  StrengthBalancePair,
-  StrengthProgression,
-  StrengthProgressPoint,
-  StrengthSummary,
-} from '../types';
-import { colors } from '@/theme';
+import type { StrengthBalancePair, StrengthProgressionRecord, StrengthSummary } from '../types';
 import { INSIGHTS_CONFIG, confidenceFrom } from '@/features/insights/lib/config';
+import { signalDeltaFrom } from '@/features/insights';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
-function formatRatio(value: number | null, t: TFunc): string {
-  if (value == null) return t('insights.strengthBalance.noSignal');
-  if (!Number.isFinite(value)) return t('insights.strengthBalance.oneSided');
-  return `${value.toFixed(value >= 10 ? 0 : 1)}x`;
+/**
+ * A ratio against an untrained side is not a number, so the engine sends none
+ * and the verdict carries that case: `one-sided` is a reading, `insufficient`
+ * and the rest are a pair with nothing to divide.
+ */
+function formatRatio(pair: StrengthBalancePair, t: TFunc): string {
+  if (pair.status === 'one-sided') return t('insights.strengthBalance.oneSided');
+  if (pair.ratio == null) return t('insights.strengthBalance.noSignal');
+  return `${pair.ratio.toFixed(pair.ratio >= 10 ? 0 : 1)}x`;
 }
 
 function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: TFunc): Insight {
@@ -31,7 +31,7 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
       ? t('insights.strengthBalance.oneSidedBody', { dominant, pair: pair.label })
       : t('insights.strengthBalance.ratioBody', {
           pair: pair.label,
-          ratio: formatRatio(pair.ratio, t),
+          ratio: formatRatio(pair, t),
         });
 
   return {
@@ -45,7 +45,7 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
     subtitle: `${pair.leftLabel} ${formatSetCount(pair.leftWeightedSets)} · ${pair.rightLabel} ${formatSetCount(pair.rightWeightedSets)}`,
     body,
     icon: 'scale-balance',
-    iconColor: pair.status === 'watch' ? colors.warning : colors.error,
+    iconTone: pair.status === 'watch' ? 'caution' : 'negative',
     navigationTarget: '/insights?tab=strength',
     timestamp: now,
     isNew: false,
@@ -65,7 +65,7 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
           value: formatSetCount(pair.rightWeightedSets),
           unit: t('strength.sets'),
         },
-        { label: t('insights.strengthBalance.ratioLabel'), value: formatRatio(pair.ratio, t) },
+        { label: t('insights.strengthBalance.ratioLabel'), value: formatRatio(pair, t) },
         {
           label: t('insights.strengthBalance.statusLabel'),
           value:
@@ -90,27 +90,23 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
  * baseline, measured in weekly standard deviations. Ranking progressions on
  * this is what lets the shared pipeline choose between muscles.
  */
-function progressionSignalDelta(progression: StrengthProgression): number | undefined {
-  const sets = progression.points.map((point) => point.weightedSets);
-  if (sets.length < 2) return undefined;
-  const mean = sets.reduce((sum, value) => sum + value, 0) / sets.length;
-  const variance = sets.reduce((sum, value) => sum + (value - mean) ** 2, 0) / sets.length;
-  const stddev = Math.sqrt(variance);
-  if (stddev === 0) return undefined;
-  return Math.abs(progression.recentAverage - progression.baselineAverage) / stddev;
+function progressionSignalDelta(progression: StrengthProgressionRecord): number | undefined {
+  return signalDeltaFrom(
+    progression.recentAverage,
+    progression.baselineAverage,
+    progression.weeklyWeightedSets
+  );
 }
 
 function buildStrengthProgressionInsight(
-  muscleSlug: string,
+  progression: StrengthProgressionRecord,
   monthlyWeightedSets: number,
-  points: StrengthProgressPoint[],
   now: number,
   t: TFunc
 ): Insight | null {
   if (monthlyWeightedSets < INSIGHTS_CONFIG.repetition.strength_min_sets) return null;
 
-  const progression = buildStrengthProgression(muscleSlug, points);
-  const hasRecentVolume = progression.points.some((point) => point.weightedSets > 0);
+  const hasRecentVolume = progression.weeklyWeightedSets.some((weightedSets) => weightedSets > 0);
   const isMeaningfulChange =
     progression.changePct == null
       ? progression.recentAverage > 0 && progression.baselineAverage === 0
@@ -120,6 +116,7 @@ function buildStrengthProgressionInsight(
     return null;
   }
 
+  const muscleSlug = progression.muscleSlug;
   const muscleName = MUSCLE_DISPLAY_NAMES[muscleSlug as MuscleSlug] ?? muscleSlug;
   const title =
     progression.trend === 'up'
@@ -143,7 +140,7 @@ function buildStrengthProgressionInsight(
     // inside a six-week window.
     confidence: confidenceFrom(
       'strength_progression',
-      progression.points.filter((point) => point.weightedSets > 0).length
+      progression.weeklyWeightedSets.filter((weightedSets) => weightedSets > 0).length
     ),
     title,
     subtitle:
@@ -154,7 +151,14 @@ function buildStrengthProgressionInsight(
           }),
     body,
     icon: progression.trend === 'up' ? 'arm-flex-outline' : 'dumbbell',
-    iconColor: progression.trend === 'up' ? colors.success : colors.warning,
+    // Flat is not a warning. It used to share amber with a fall, so a steady
+    // month read as a problem.
+    iconTone:
+      progression.trend === 'up'
+        ? 'positive'
+        : progression.trend === 'down'
+          ? 'negative'
+          : 'neutral',
     navigationTarget: '/insights?tab=strength',
     timestamp: now,
     isNew: false,
@@ -186,7 +190,7 @@ function buildStrengthProgressionInsight(
           unit: t('strength.sets'),
         },
       ],
-      sparklineData: progression.points.map((point) => point.weightedSets),
+      sparklineData: progression.weeklyWeightedSets,
       sparklineLabel: t('insights.strengthProgression.sparklineLabel'),
       comparisonData: {
         current: {
@@ -246,7 +250,7 @@ function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number, t: 
       groups: summary.muscleVolumes.length,
     }),
     icon: 'dumbbell',
-    iconColor: colors.gray500,
+    iconTone: 'neutral',
     navigationTarget: '/insights?tab=strength',
     timestamp: now,
     isNew: false,
@@ -276,6 +280,7 @@ function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number, t: 
 export function generateStrengthInsights(
   monthlySummary: StrengthSummary | null,
   weeklySummaries: StrengthSummary[],
+  progressions: StrengthProgressionRecord[],
   now: number,
   t: TFunc
 ): Insight[] {
@@ -291,33 +296,20 @@ export function generateStrengthInsights(
     insights.push(buildStrengthSnapshotInsight(monthlySummary, now, t));
   }
 
-  const balancePair = buildStrengthBalancePairs(monthlySummary.muscleVolumes).find(
+  const balancePair = buildStrengthBalancePairs(monthlySummary.balance).find(
     (pair) => pair.status === 'watch' || pair.status === 'imbalanced' || pair.status === 'one-sided'
   );
   if (balancePair) {
     insights.push(buildStrengthBalanceInsight(balancePair, now, t));
   }
 
-  for (const muscle of monthlySummary.muscleVolumes) {
-    const points = weeklySummaries.map((summary, index) => {
-      const point = summary.muscleVolumes.find((entry) => entry.slug === muscle.slug);
-      return {
-        label:
-          index === weeklySummaries.length - 1
-            ? t('insights.strengthProgression.thisWeek')
-            : t('insights.strengthProgression.weeksAgo', {
-                n: weeklySummaries.length - 1 - index,
-              }),
-        startTs: 0,
-        endTs: 0,
-        weightedSets: point?.weightedSets ?? 0,
-        activityCount: summary.activityCount,
-      };
-    });
+  const monthlyWeightedSets = new Map(
+    monthlySummary.muscleVolumes.map((muscle) => [muscle.slug, muscle.weightedSets])
+  );
+  for (const progression of progressions) {
     const insight = buildStrengthProgressionInsight(
-      muscle.slug,
-      muscle.weightedSets,
-      points,
+      progression,
+      monthlyWeightedSets.get(progression.muscleSlug) ?? 0,
       now,
       t
     );

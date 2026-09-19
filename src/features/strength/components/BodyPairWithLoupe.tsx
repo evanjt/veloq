@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
@@ -18,6 +18,9 @@ import { findMuscleAtPoint } from '../lib/polygons';
 const LOUPE_SIZE = 90;
 const LOUPE_OFFSET_Y = -100;
 const LOUPE_SCALE = 2.5;
+
+/** The loupe's fade out, and so how long its bodies outlive the scrub. */
+const LOUPE_FADE_MS = 150;
 
 // Body component intrinsic dimensions (from react-native-body-highlighter source)
 const BODY_INTRINSIC_W = 200;
@@ -53,6 +56,35 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   const { isDark } = useTheme();
   const [layoutSize, setLayoutSize] = useState<{ width: number; height: number } | null>(null);
   const lastScrubSlug = useRef<string | null>(null);
+  // The loupe's two bodies are drawn two and a half times larger than the pair
+  // on screen, so they are mounted for the scrub and not for the life of the
+  // tab. Opacity alone left them laid out and composited behind a clip nobody
+  // was looking through.
+  const [scrubbing, setScrubbing] = useState(false);
+  const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showLoupe = useCallback(() => {
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    fadeTimer.current = null;
+    setScrubbing(true);
+  }, []);
+
+  // Kept until the fade has run, so the loupe still goes out rather than
+  // vanishing on the frame the finger lifts.
+  const hideLoupe = useCallback(() => {
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    fadeTimer.current = setTimeout(() => {
+      fadeTimer.current = null;
+      setScrubbing(false);
+    }, LOUPE_FADE_MS);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    },
+    []
+  );
 
   const handleLayout = useCallback(
     (e: { nativeEvent: { layout: { width: number; height: number } } }) => {
@@ -112,7 +144,8 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
 
   const handleScrubEnd = useCallback(() => {
     lastScrubSlug.current = null;
-  }, []);
+    hideLoupe();
+  }, [hideLoupe]);
 
   const handleTap = useCallback(
     (x: number, y: number) => {
@@ -166,6 +199,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     .onStart((e) => {
       'worklet';
       loupeOpacity.value = withTiming(1, { duration: 100 });
+      runOnJS(showLoupe)();
       updateLoupePosition(e.x, e.y);
       runOnJS(handleScrubUpdate)(e.x, e.y);
     })
@@ -188,12 +222,12 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     })
     .onEnd(() => {
       'worklet';
-      loupeOpacity.value = withTiming(0, { duration: 150 });
+      loupeOpacity.value = withTiming(0, { duration: LOUPE_FADE_MS });
       runOnJS(handleScrubEnd)();
     })
     .onFinalize(() => {
       'worklet';
-      loupeOpacity.value = withTiming(0, { duration: 150 });
+      loupeOpacity.value = withTiming(0, { duration: LOUPE_FADE_MS });
       runOnJS(handleScrubEnd)();
     });
 
@@ -258,31 +292,36 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
           </View>
 
           {/* Magnifying loupe - bodies rendered at larger scale, no CSS scale transform */}
-          <Animated.View style={[styles.loupeContainer, loupeContainerStyle]} pointerEvents="none">
-            <View style={[styles.loupeClip, isDark && styles.loupeClipDark]}>
-              <Animated.View style={[styles.loupeBody, loupeFrontStyle]}>
-                <Body
-                  data={data}
-                  gender={gender}
-                  side="front"
-                  scale={loupeScale}
-                  colors={colors}
-                  defaultFill={defaultFill}
-                />
-              </Animated.View>
-              <Animated.View style={[styles.loupeBody, loupeBackStyle]}>
-                <Body
-                  data={data}
-                  gender={gender}
-                  side="back"
-                  scale={loupeScale}
-                  colors={colors}
-                  defaultFill={defaultFill}
-                />
-              </Animated.View>
-              <View style={styles.loupeCrosshair} />
-            </View>
-          </Animated.View>
+          {scrubbing && (
+            <Animated.View
+              style={[styles.loupeContainer, loupeContainerStyle]}
+              pointerEvents="none"
+            >
+              <View style={[styles.loupeClip, isDark && styles.loupeClipDark]}>
+                <Animated.View style={[styles.loupeBody, loupeFrontStyle]}>
+                  <Body
+                    data={data}
+                    gender={gender}
+                    side="front"
+                    scale={loupeScale}
+                    colors={colors}
+                    defaultFill={defaultFill}
+                  />
+                </Animated.View>
+                <Animated.View style={[styles.loupeBody, loupeBackStyle]}>
+                  <Body
+                    data={data}
+                    gender={gender}
+                    side="back"
+                    scale={loupeScale}
+                    colors={colors}
+                    defaultFill={defaultFill}
+                  />
+                </Animated.View>
+                <View style={styles.loupeCrosshair} />
+              </View>
+            </Animated.View>
+          )}
           {/* Debug: uncomment to visualize hit regions
           {layoutSize && tappableSlugs && tappableSlugs.size > 0 && (
             <View style={StyleSheet.absoluteFill} pointerEvents="none">

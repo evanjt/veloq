@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, ActivityIndicator, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import type { ExerciseSet } from 'veloqrs';
 
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
@@ -47,7 +47,7 @@ export function ExerciseTable({
 }: ExerciseTableProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
-  const { data: exerciseSets, isLoading } = useExerciseSets(activityId, activityType);
+  const { data: exerciseSets, isLoading, outcome } = useExerciseSets(activityId, activityType);
 
   const groups = useMemo(() => {
     if (!exerciseSets || exerciseSets.length === 0) return [];
@@ -62,11 +62,24 @@ export function ExerciseTable({
     );
   }
 
+  // No sets and no verdict from the engine: the FIT file is still owed, which
+  // is not the same as a session logged without sets. Both drew nothing, so a
+  // failed download read as an honest empty session with no way to tell.
+  if (groups.length === 0 && outcome === 'pending') {
+    return (
+      <View style={[styles.card, isDark && styles.cardDark, styles.loadingContainer]}>
+        <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
+          {t('strength.setsNotDownloaded')}
+        </Text>
+      </View>
+    );
+  }
+
   if (groups.length === 0) return null;
 
   const totalSets = groups.reduce((sum, g) => sum + g.sets.length, 0);
-  const hasGender = athleteSex === 'M' || athleteSex === 'F';
-  const genderLabel = athleteSex === 'F' ? 'female' : 'male';
+  const hasSex = athleteSex === 'M' || athleteSex === 'F';
+  const bodyType = t(athleteSex === 'F' ? 'strength.female' : 'strength.male');
 
   // Compute totals
   const allActiveSets = exerciseSets?.filter((s) => s.setType === 0) ?? [];
@@ -99,18 +112,18 @@ export function ExerciseTable({
 
             <View style={styles.headerRow}>
               <Text style={[styles.colHeader, styles.colSet, isDark && styles.textSecondaryDark]}>
-                Set
+                {t('strength.setColumn')}
               </Text>
               <Text style={[styles.colHeader, styles.colReps, isDark && styles.textSecondaryDark]}>
-                Reps
+                {t('strength.repsColumn')}
               </Text>
               <Text
                 style={[styles.colHeader, styles.colWeight, isDark && styles.textSecondaryDark]}
               >
-                Weight
+                {t('strength.weightColumn')}
               </Text>
               <Text style={[styles.colHeader, styles.colTime, isDark && styles.textSecondaryDark]}>
-                Time
+                {t('strength.timeColumn')}
               </Text>
             </View>
 
@@ -163,36 +176,35 @@ export function ExerciseTable({
         <View style={styles.infoRow}>
           <View style={[styles.infoDot, { backgroundColor: colors.primary }]} />
           <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-            Muscle groups for each exercise type have been sourced from{' '}
-            <Text
-              style={styles.infoLink}
-              onPress={() => Linking.openURL('https://github.com/yuhonas/free-exercise-db')}
-            >
-              free-exercise-db
-            </Text>
-            , an open public domain exercise dataset.
+            <Trans
+              i18nKey="strength.muscleSource"
+              components={{
+                source: (
+                  <Text
+                    style={styles.infoLink}
+                    onPress={() => Linking.openURL('https://github.com/yuhonas/free-exercise-db')}
+                  >
+                    {''}
+                  </Text>
+                ),
+              }}
+            />
           </Text>
         </View>
         <View style={styles.infoRow}>
           <View style={[styles.infoDot, { backgroundColor: brand.tealDark }]} />
           <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-            {hasGender ? (
-              <>
-                Body type shown as{' '}
-                <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
-                  {genderLabel}
-                </Text>
-                , based on your intervals.icu profile.
-              </>
-            ) : (
-              <>
-                Body type chosen as{' '}
-                <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
-                  {genderLabel}
-                </Text>{' '}
-                at random, as your intervals.icu profile has no gender set.
-              </>
-            )}
+            <Trans
+              i18nKey={hasSex ? 'strength.bodyTypeFromProfile' : 'strength.bodyTypeDefault'}
+              values={{ bodyType }}
+              components={{
+                type: (
+                  <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
+                    {''}
+                  </Text>
+                ),
+              }}
+            />
           </Text>
         </View>
       </View>
@@ -232,6 +244,9 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
+  subtitleDark: {
+    color: darkColors.textSecondary,
+  },
   exerciseName: {
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
@@ -248,11 +263,11 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    paddingBottom: 4,
+    paddingBottom: spacing.xs,
   },
   setRow: {
     flexDirection: 'row',
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
   },
   setRowBorder: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -341,7 +356,7 @@ const styles = StyleSheet.create({
     width: spacing.sm,
     height: spacing.sm,
     borderRadius: spacing.xs,
-    marginTop: 4,
+    marginTop: spacing.xs,
     marginRight: spacing.xs,
   },
   infoText: {

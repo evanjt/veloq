@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { View, Modal, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -12,18 +12,34 @@ import {
   opacity,
   layout,
   brand,
-  statusBadge,
+  verdictColor,
+  verdictFill,
   typography,
+  colorWithOpacity,
+  ink,
 } from '@/theme';
+import type { VerdictRung } from '@/theme';
 import type { StrengthBalancePair } from '@/types';
 
 import { formatSetCount, formatBalanceRatio } from '../lib/formatting';
-import { BALANCE_PAIRS } from '../lib/analysis';
+import { BALANCE_PAIR_NAMES } from '../lib/analysis';
+import { pressable } from '@/shared/ui';
 
 interface StrengthBalanceViewProps {
   visibleBalancePairs: StrengthBalancePair[];
   featuredBalancePair: StrengthBalancePair | null;
   periodLabel: string;
+}
+
+/**
+ * A balance status is a verdict, so it draws from the one ladder rather than
+ * a palette of its own. `watch` is the caution rung, a warning about what
+ * comes next; `imbalanced` is a judgement already made, so it is negative.
+ */
+function balanceRung(status: string): VerdictRung {
+  if (status === 'balanced') return 'positive';
+  if (status === 'watch') return 'caution';
+  return 'negative';
 }
 
 export const StrengthBalanceView = React.memo(function StrengthBalanceView({
@@ -47,18 +63,19 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
             <Text style={[styles.balanceTitle, isDark && styles.balanceTitleDark]}>
               {t('insights.strengthBalance.volumeSplit')}
             </Text>
-            <TouchableOpacity
+            <Pressable
               onPress={openInfo}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               accessibilityLabel={t('strength.pairsInfoTitle')}
               accessibilityRole="button"
+              style={pressable()}
             >
               <MaterialCommunityIcons
                 name="information-outline"
                 size={16}
                 color={isDark ? darkColors.textMuted : colors.textSecondary}
               />
-            </TouchableOpacity>
+            </Pressable>
           </View>
           <Text style={[styles.balanceSubtitle, isDark && styles.balanceSubtitleDark]}>
             {t('strength.balanceObservedPairs', {
@@ -70,17 +87,15 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
           <View
             style={[
               styles.balanceHeroBadge,
-              featuredBalancePair.status === 'balanced'
-                ? styles.balanceHeroBadgeBalanced
-                : styles.balanceHeroBadgeAlert,
+              {
+                backgroundColor: verdictFill(balanceRung(featuredBalancePair.status), isDark, true),
+              },
             ]}
           >
             <Text
               style={[
                 styles.balanceHeroBadgeText,
-                featuredBalancePair.status === 'balanced'
-                  ? styles.balanceHeroBadgeTextBalanced
-                  : styles.balanceHeroBadgeTextAlert,
+                { color: verdictColor(balanceRung(featuredBalancePair.status), isDark) },
               ]}
             >
               {formatBalanceRatio(featuredBalancePair)}
@@ -120,21 +135,13 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
             <View
               style={[
                 styles.balanceStatusBadge,
-                pair.status === 'balanced'
-                  ? styles.balanceStatusBalanced
-                  : pair.status === 'watch'
-                    ? styles.balanceStatusWatch
-                    : styles.balanceStatusImbalanced,
+                { backgroundColor: verdictFill(balanceRung(pair.status), isDark) },
               ]}
             >
               <Text
                 style={[
                   styles.balanceStatusText,
-                  pair.status === 'balanced'
-                    ? styles.balanceStatusTextBalanced
-                    : pair.status === 'watch'
-                      ? styles.balanceStatusTextWatch
-                      : styles.balanceStatusTextImbalanced,
+                  { color: verdictColor(balanceRung(pair.status), isDark) },
                 ]}
               >
                 {pair.status === 'balanced'
@@ -189,9 +196,9 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
         onRequestClose={closeInfo}
         statusBarTranslucent
       >
-        <Pressable style={styles.modalBackdrop} onPress={closeInfo}>
+        <Pressable style={pressable(styles.modalBackdrop)} onPress={closeInfo}>
           <Pressable
-            style={[styles.modalCard, isDark && styles.modalCardDark]}
+            style={pressable([styles.modalCard, isDark && styles.modalCardDark])}
             onPress={(e) => e.stopPropagation()}
           >
             <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
@@ -200,9 +207,9 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
             <Text style={[styles.modalIntro, isDark && styles.modalIntroDark]}>
               {t('strength.pairsInfoIntro')}
             </Text>
-            {BALANCE_PAIRS.map((pair) => (
-              <Text key={pair.id} style={[styles.modalPair, isDark && styles.modalPairDark]}>
-                • {pair.label}
+            {BALANCE_PAIR_NAMES.map(({ id, label }) => (
+              <Text key={id} style={[styles.modalPair, isDark && styles.modalPairDark]}>
+                • {label}
               </Text>
             ))}
             <Text style={[styles.modalThresholds, isDark && styles.modalThresholdsDark]}>
@@ -211,9 +218,9 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
             <Text style={[styles.modalThresholds, isDark && styles.modalThresholdsDark]}>
               {t('strength.pairsInfoMinSignal')}
             </Text>
-            <TouchableOpacity onPress={closeInfo} style={styles.modalCloseButton}>
+            <Pressable onPress={closeInfo} style={pressable(styles.modalCloseButton)}>
               <Text style={styles.modalCloseText}>{t('common.done')}</Text>
-            </TouchableOpacity>
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -248,32 +255,20 @@ const styles = StyleSheet.create({
   balanceSubtitle: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   balanceSubtitleDark: {
     color: darkColors.textSecondary,
   },
   balanceHeroBadge: {
     borderRadius: layout.borderRadiusMd,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  balanceHeroBadgeBalanced: {
-    backgroundColor: statusBadge.good.bg,
-  },
-  balanceHeroBadgeAlert: {
-    backgroundColor: statusBadge.alert.bg,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
   },
   balanceHeroBadgeText: {
     fontSize: typography.caption.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
-  },
-  balanceHeroBadgeTextBalanced: {
-    color: statusBadge.good.text,
-  },
-  balanceHeroBadgeTextAlert: {
-    color: statusBadge.watch.text,
   },
   balanceHeroText: {
     fontSize: typography.bodyCompact.fontSize,
@@ -312,31 +307,13 @@ const styles = StyleSheet.create({
   },
   balanceStatusBadge: {
     borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  balanceStatusBalanced: {
-    backgroundColor: statusBadge.good.bg,
-  },
-  balanceStatusWatch: {
-    backgroundColor: statusBadge.watch.bg,
-  },
-  balanceStatusImbalanced: {
-    backgroundColor: statusBadge.bad.bg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   balanceStatusText: {
     fontSize: typography.label.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
-  },
-  balanceStatusTextBalanced: {
-    color: statusBadge.good.text,
-  },
-  balanceStatusTextWatch: {
-    color: statusBadge.watch.text,
-  },
-  balanceStatusTextImbalanced: {
-    color: statusBadge.bad.text,
   },
   balanceValueRow: {
     flexDirection: 'row',
@@ -381,7 +358,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginTop: 6,
+    marginTop: spacing.xsPlus,
   },
   balanceRatioTextDark: {
     color: darkColors.textPrimary,
@@ -401,11 +378,11 @@ const styles = StyleSheet.create({
   balanceTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: colorWithOpacity(ink.black, 0.55),
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
@@ -441,7 +418,7 @@ const styles = StyleSheet.create({
   modalPair: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textPrimary,
-    paddingVertical: 1,
+    paddingVertical: spacing.xxs,
   },
   modalPairDark: {
     color: darkColors.textPrimary,
@@ -458,7 +435,7 @@ const styles = StyleSheet.create({
   modalCloseButton: {
     marginTop: spacing.sm,
     alignSelf: 'flex-end',
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
     paddingHorizontal: spacing.md,
     borderRadius: layout.borderRadiusSm,
     backgroundColor: opacity.overlay.subtle,

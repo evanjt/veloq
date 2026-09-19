@@ -4,6 +4,8 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
+import type { VerdictRung } from '@/theme';
+import type { StrengthProgressTrend } from '@/features/strength/types';
 import {
   colors,
   darkColors,
@@ -11,7 +13,8 @@ import {
   opacity,
   layout,
   brand,
-  statusBadge,
+  verdictColor,
+  verdictFill,
   typography,
 } from '@/theme';
 import type { ExerciseSummary, MuscleVolume, StrengthProgression } from '@/types';
@@ -33,6 +36,17 @@ interface StrengthProgressionCardProps {
 
 const MINI_BAR_HEIGHT = 26;
 const MINI_BAR_WIDTH = 6;
+
+/**
+ * A progression trend is a verdict. A fall used to share amber with a caution,
+ * which made a decline read as a warning about what comes next rather than a
+ * judgement on what already happened.
+ */
+function trendRung(trend: StrengthProgressTrend): VerdictRung {
+  if (trend === 'up') return 'positive';
+  if (trend === 'down') return 'negative';
+  return 'neutral';
+}
 
 export const StrengthProgressionCard = React.memo(function StrengthProgressionCard({
   selectedVolume,
@@ -87,21 +101,13 @@ export const StrengthProgressionCard = React.memo(function StrengthProgressionCa
           <View
             style={[
               styles.trendBadge,
-              progression.trend === 'up'
-                ? styles.trendBadgeUp
-                : progression.trend === 'down'
-                  ? styles.trendBadgeDown
-                  : styles.trendBadgeFlat,
+              { backgroundColor: verdictFill(trendRung(progression.trend), isDark, true) },
             ]}
           >
             <Text
               style={[
                 styles.trendText,
-                progression.trend === 'up'
-                  ? styles.trendTextUp
-                  : progression.trend === 'down'
-                    ? styles.trendTextDown
-                    : styles.trendTextFlat,
+                { color: verdictColor(trendRung(progression.trend), isDark) },
               ]}
             >
               {`${progression.changePct > 0 ? '+' : ''}${Math.round(progression.changePct)}%`}
@@ -221,7 +227,7 @@ const styles = StyleSheet.create({
   progressSubtitle: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   progressSubtitleDark: {
     color: darkColors.textSecondary,
@@ -230,7 +236,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     height: MINI_BAR_HEIGHT,
-    gap: 3,
+    gap: spacing.xs,
   },
   miniBar: {
     width: MINI_BAR_WIDTH,
@@ -238,31 +244,13 @@ const styles = StyleSheet.create({
   },
   trendBadge: {
     borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  trendBadgeUp: {
-    backgroundColor: statusBadge.goodStrong.bg,
-  },
-  trendBadgeDown: {
-    backgroundColor: statusBadge.watchStrong.bg,
-  },
-  trendBadgeFlat: {
-    backgroundColor: statusBadge.neutralStrong.bg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   trendText: {
     fontSize: typography.label.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
-  },
-  trendTextUp: {
-    color: statusBadge.goodStrong.text,
-  },
-  trendTextDown: {
-    color: statusBadge.watchStrong.text,
-  },
-  trendTextFlat: {
-    color: statusBadge.neutralStrong.text,
   },
   statsRow: {
     flexDirection: 'row',
@@ -274,7 +262,7 @@ const styles = StyleSheet.create({
   stat: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 4,
+    gap: spacing.xs,
   },
   statValue: {
     fontSize: typography.body.fontSize,
@@ -325,7 +313,7 @@ const styles = StyleSheet.create({
   metaLabel: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   metaLabelDark: {
     color: darkColors.textSecondary,
