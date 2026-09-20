@@ -18,7 +18,7 @@ use crate::net::types::{StreamDto, parse_streams};
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
 
 /// Helper to calculate elapsed milliseconds from an Instant
@@ -27,38 +27,165 @@ fn elapsed_ms(start: Instant) -> u64 {
     start.elapsed().as_millis() as u64
 }
 
-/// Global progress state for FFI polling.
-/// Uses atomics to allow safe concurrent access from fetch tasks and FFI polls.
-pub struct DownloadProgress {
-    completed: AtomicU32,
-    total: AtomicU32,
-    active: AtomicBool,
-    cancelled: AtomicBool,
+/// Why a run wants the network, which decides what waits for what.
+///
+/// `Interactive` is a screen the athlete is looking at: the map tap that owns
+/// no track yet, an activity opened before its download landed. It is one or
+/// two activities and somebody is watching it arrive. `Bulk` is the sync's own
+/// pass over the window, hundreds of them, with nothing on screen waiting for
+/// any particular one.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, uniffi::Enum)]
+pub enum DownloadPriority {
+    Interactive,
+    Bulk,
 }
 
-impl DownloadProgress {
-    const fn new() -> Self {
-        Self {
-            completed: AtomicU32::new(0),
-            total: AtomicU32::new(0),
-            active: AtomicBool::new(false),
-            cancelled: AtomicBool::new(false),
+/// One fetch-and-store run's share of the download slot.
+struct QueuedRun {
+    run: u64,
+    total: u32,
+    completed: u32,
+    cancelled: bool,
+    priority: DownloadPriority,
+}
+
+/// The runs that have been started, oldest first. The head holds the slot.
+///
+/// Three callers start a fetch-and-store: the foreground GPS sync, the headless
+/// push task and the map's own download. There was one set of counters and one
+/// cancel flag, so a second start reset both under the run in flight. The first
+/// caller's poll then settled on the second run's guard drop, read no result of
+/// its own and reported a download that was still running as a failure, and a
+/// cancel aimed at either run stopped both.
+///
+/// A run joins the queue on the thread that starts it, before the id is handed
+/// back, so the slot reads busy from the moment the caller has something to
+/// poll. Its own thread waits for the head before fetching anything.
+struct DownloadQueue {
+    runs: std::collections::VecDeque<QueuedRun>,
+}
+
+static DOWNLOAD_QUEUE: std::sync::Mutex<DownloadQueue> = std::sync::Mutex::new(DownloadQueue {
+    runs: std::collections::VecDeque::new(),
+});
+static DOWNLOAD_SLOT_FREED: std::sync::Condvar = std::sync::Condvar::new();
+
+fn queue() -> std::sync::MutexGuard<'static, DownloadQueue> {
+    DOWNLOAD_QUEUE.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+impl DownloadQueue {
+    /// The run the process-wide poll speaks for, which is the oldest in the
+    /// queue: the bulk pass whenever one is running, since an interactive run
+    /// joins behind it rather than ahead of it. It reads as active from the
+    /// moment it is enqueued, before its own thread has started fetching, so a
+    /// caller that has just been handed a run id never polls an idle slot.
+    fn holder(&self) -> Option<&QueuedRun> {
+        self.runs.front()
+    }
+
+    fn holder_mut(&mut self) -> Option<&mut QueuedRun> {
+        self.runs.front_mut()
+    }
+
+    fn any_interactive(&self) -> bool {
+        self.runs
+            .iter()
+            .any(|r| r.priority == DownloadPriority::Interactive)
+    }
+
+    /// Whether this bulk run may start: no interactive run wants the network,
+    /// no other bulk run is fetching, and it is the oldest bulk run waiting.
+    fn bulk_may_start(&self, run: u64) -> bool {
+        if self.any_interactive() {
+            return false;
         }
+        let next = self
+            .runs
+            .iter()
+            .find(|r| r.priority == DownloadPriority::Bulk)
+            .map(|r| r.run);
+        next == Some(run)
     }
 }
 
-/// Global progress instance - single writer (fetch loop), multiple readers (FFI polls)
-static DOWNLOAD_PROGRESS: DownloadProgress = DownloadProgress::new();
-
-/// Reset progress counters at start of fetch operation.
+/// Join the download queue and answer the place taken.
 ///
-/// Clears the cancel with them: the flag belongs to one run, and a cancel that
-/// outlived its run would stop every download after it.
-pub fn reset_download_progress(total: u32) {
-    DOWNLOAD_PROGRESS.total.store(total, Ordering::Relaxed);
-    DOWNLOAD_PROGRESS.completed.store(0, Ordering::Relaxed);
-    DOWNLOAD_PROGRESS.cancelled.store(false, Ordering::Relaxed);
-    DOWNLOAD_PROGRESS.active.store(true, Ordering::Relaxed);
+/// Called on the thread that starts the run, not the one that fetches, so a
+/// caller that has been given a run id is already visible to the poll.
+pub fn enqueue_download(run: u64, total: u32, priority: DownloadPriority) {
+    queue().runs.push_back(QueuedRun {
+        run,
+        total,
+        completed: 0,
+        cancelled: false,
+        priority,
+    });
+}
+
+/// Wait until this run may fetch, and hold that place.
+///
+/// A bulk run waits for the bulk run ahead of it, as it always has, and now
+/// also for any interactive run. An interactive run waits for nothing: it is
+/// one activity somebody is watching for, so it goes out beside the bulk pass
+/// rather than behind its hundreds, and the bulk pass stops dispatching while
+/// it is out (`should_yield_to_interactive`).
+///
+/// The guard leaves the queue however the fetch thread ends. The crate unwinds
+/// rather than aborts and the panic hook logs and returns, so a panic in the
+/// fetch thread kills that thread alone: without the guard the slot stayed held
+/// for the life of the process, the only consumer polls it every 100 ms and
+/// breaks on nothing else, and the app spun at 10 Hz behind a sync banner that
+/// never cleared.
+pub fn hold_download_slot(run: u64) -> DownloadSlotGuard {
+    let mut guard = queue();
+    loop {
+        let priority = guard
+            .runs
+            .iter()
+            .find(|r| r.run == run)
+            .map(|r| r.priority)
+            // A run nobody enqueued is a test or a caller that skipped the
+            // queue. It fetches, and speaks for nothing.
+            .unwrap_or(DownloadPriority::Interactive);
+        if priority == DownloadPriority::Interactive || guard.bulk_may_start(run) {
+            return DownloadSlotGuard { run };
+        }
+        guard = DOWNLOAD_SLOT_FREED
+            .wait(guard)
+            .unwrap_or_else(|e| e.into_inner());
+    }
+}
+
+/// Whether this run should hold its next request back.
+///
+/// True for a bulk run while any interactive run is queued or fetching. The
+/// bulk pass has fifty requests in flight and the governor paces every one of
+/// them, so a tap that arrives mid-pass would otherwise sit behind whatever
+/// share of those hundreds is still to dispatch.
+pub fn should_yield_to_interactive(run: u64) -> bool {
+    let guard = queue();
+    let mine = guard.runs.iter().find(|r| r.run == run);
+    match mine {
+        Some(entry) if entry.priority == DownloadPriority::Bulk => guard.any_interactive(),
+        _ => false,
+    }
+}
+
+pub struct DownloadSlotGuard {
+    run: u64,
+}
+
+impl Drop for DownloadSlotGuard {
+    fn drop(&mut self) {
+        leave_download_queue(self.run);
+    }
+}
+
+/// Drop a run from the queue whether it ever held the slot or not.
+pub fn leave_download_queue(run: u64) {
+    queue().runs.retain(|r| r.run != run);
+    DOWNLOAD_SLOT_FREED.notify_all();
 }
 
 /// Ask the running download to stop. Returns whether there was one.
@@ -66,52 +193,79 @@ pub fn reset_download_progress(total: u32) {
 /// Cooperative: the fetch-and-store loop checks between activities, so the
 /// activity in flight finishes and lands. Stopping mid-activity would leave a
 /// track half written, and the loop is the only place the library is whole.
+/// Scoped to the run holding the slot, so a cancel cannot reach the one queued
+/// behind it or the one that starts next.
 pub fn cancel_download() -> bool {
-    if !DOWNLOAD_PROGRESS.active.load(Ordering::SeqCst) {
-        return false;
+    let mut guard = queue();
+    match guard.holder_mut() {
+        Some(holder) => {
+            holder.cancelled = true;
+            true
+        }
+        None => false,
     }
-    DOWNLOAD_PROGRESS.cancelled.store(true, Ordering::SeqCst);
-    true
 }
 
-/// Whether the running download has been asked to stop.
-pub fn download_cancelled() -> bool {
-    DOWNLOAD_PROGRESS.cancelled.load(Ordering::SeqCst)
+/// Whether this run has been asked to stop.
+pub fn download_cancelled(run: u64) -> bool {
+    queue().runs.iter().any(|r| r.run == run && r.cancelled)
 }
 
-/// Increment completed counter after each activity fetches
-pub fn increment_download_progress() {
-    DOWNLOAD_PROGRESS.completed.fetch_add(1, Ordering::Relaxed);
-}
-
-/// Mark download as complete
-pub fn finish_download_progress() {
-    DOWNLOAD_PROGRESS.active.store(false, Ordering::Relaxed);
-}
-
-/// Clears the download flag when the fetch thread unwinds.
+/// Count one activity against the run that fetched it.
 ///
-/// The crate unwinds rather than aborts, and the panic hook logs and returns,
-/// so a panic in the body of the spawned thread kills that thread alone and
-/// used to skip the `finish_download_progress()` at its tail. The flag then
-/// stayed true for the life of the process, and the only consumer polls it
-/// every 100 ms and breaks on nothing else, so the app span at 10 Hz behind a
-/// sync banner that never cleared. Same shape as `objects::sync::FinishGuard`.
-pub struct DownloadFinishGuard;
-
-impl Drop for DownloadFinishGuard {
-    fn drop(&mut self) {
-        finish_download_progress();
+/// Against the run and not against the holder, because an interactive run now
+/// fetches beside a bulk pass and either one's completions would otherwise be
+/// counted by whichever was admitted first.
+pub fn increment_run_download_progress(run: u64) {
+    if let Some(entry) = queue().runs.iter_mut().find(|r| r.run == run) {
+        entry.completed += 1;
     }
 }
 
-/// Get current progress state (called by FFI)
+/// Current progress for the FFI poll: the holder's counters, and whether any
+/// run is still queued.
+///
+/// A caller waiting its turn reads the holder's counters rather than its own.
+/// That keeps the poll's stall deadline honest, which is on movement and not on
+/// wall clock, and the bar it feeds is scaled against the caller's own id count
+/// anyway.
 pub fn get_download_progress() -> (u32, u32, bool) {
-    (
-        DOWNLOAD_PROGRESS.completed.load(Ordering::Relaxed),
-        DOWNLOAD_PROGRESS.total.load(Ordering::Relaxed),
-        DOWNLOAD_PROGRESS.active.load(Ordering::Relaxed),
-    )
+    let guard = queue();
+    match guard.holder() {
+        Some(holder) => (holder.completed, holder.total, true),
+        None => (0, 0, false),
+    }
+}
+
+/// Progress for one run alone. Inactive once that run has left the queue,
+/// whatever else is downloading.
+pub fn run_download_progress(run: u64) -> (u32, u32, bool) {
+    let guard = queue();
+    match guard.runs.iter().find(|r| r.run == run) {
+        Some(entry) => (entry.completed, entry.total, true),
+        None => (0, 0, false),
+    }
+}
+
+/// How long a bulk request waits for interactive runs before going anyway.
+///
+/// An interactive run that wedges must not stop the sync for the session, and
+/// a single track is seconds at worst, so the cap is generous and still finite.
+const INTERACTIVE_YIELD_CAP: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// How often the gate looks again. Short enough that the pause after the
+/// interactive run finishes is not itself the delay.
+const INTERACTIVE_YIELD_POLL: std::time::Duration = std::time::Duration::from_millis(25);
+
+/// Pause a bulk run's next request while an interactive one wants the network.
+async fn wait_out_interactive_runs(run: u64) {
+    if !should_yield_to_interactive(run) {
+        return;
+    }
+    let until = Instant::now() + INTERACTIVE_YIELD_CAP;
+    while should_yield_to_interactive(run) && Instant::now() < until {
+        tokio::time::sleep(INTERACTIVE_YIELD_POLL).await;
+    }
 }
 
 // Dispatch pace is the governor's job now (≤8 req/s across the whole process),
@@ -137,6 +291,10 @@ pub struct ActivityMapResult {
     /// space. Empty unless the fetch was widened, which only happens for an
     /// activity inside the retention window.
     pub streams: Vec<StreamDto>,
+    /// Cumulative seconds at each stored point, in that same index space.
+    /// Empty unless the fetch was widened: `TRACK_STREAM_TYPES` does not ask
+    /// for `time`, so a narrow fetch still owes the second pass.
+    pub times: Vec<u32>,
     pub success: bool,
     pub error: Option<String>,
 }
@@ -194,13 +352,17 @@ impl ActivityFetcher {
     /// The error keeps its kind. The caller decides from it whether the activity
     /// has settled (upstream holds no file) or should be retried, and flattening
     /// it to a string made a transport blip indistinguishable from a 404.
-    pub async fn download_fit_file(&self, activity_id: &str) -> Result<Vec<u8>, NetError> {
+    ///
+    /// The lane is the caller's: a strength card the athlete opened is waiting
+    /// on this, a batch behind a sync is not, and the batch ran on the
+    /// Interactive lane and competed with the foreground for it.
+    pub async fn download_fit_file(
+        &self,
+        activity_id: &str,
+        lane: Lane,
+    ) -> Result<Vec<u8>, NetError> {
         self.transport
-            .get_bytes(
-                &format!("/activity/{}/file", activity_id),
-                &[],
-                Lane::Interactive,
-            )
+            .get_bytes(&format!("/activity/{}/file", activity_id), &[], lane)
             .await
     }
 }
@@ -222,19 +384,56 @@ impl ActivityFetcher {
     /// the track needs.
     pub async fn fetch_activity_maps(
         &self,
+        run: u64,
         activity_ids: Vec<String>,
         wide_ids: std::collections::HashSet<String>,
         on_progress: Option<ProgressCallback>,
     ) -> Vec<ActivityMapResult> {
+        let collected = std::sync::Mutex::new(Vec::with_capacity(activity_ids.len()));
+        self.fetch_activity_maps_into(run, activity_ids, wide_ids, on_progress, |result| {
+            collected
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .push(result)
+        })
+        .await;
+        collected.into_inner().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// The same fetch, handing each result over the moment it lands.
+    ///
+    /// The collecting form above held every track and every series in a `Vec`
+    /// until the last download finished, and the caller stored nothing until
+    /// then: 490 activities at 5,000 points is roughly 80 MB of tracks plus
+    /// half a megabyte of series apiece, resident in the window for the length
+    /// of the download, and a kill lost all of it. `on_result` runs on the
+    /// runtime as each activity completes, so storage runs alongside the
+    /// download rather than behind it.
+    ///
+    /// It is called from inside the concurrent stream, so it must not block for
+    /// long: the production caller sends down a channel and stores on a thread
+    /// of its own.
+    pub async fn fetch_activity_maps_into(
+        &self,
+        run: u64,
+        activity_ids: Vec<String>,
+        wide_ids: std::collections::HashSet<String>,
+        on_progress: Option<ProgressCallback>,
+        on_result: impl Fn(ActivityMapResult) + Send + Sync,
+    ) {
         use futures::stream::{self, StreamExt};
 
         let total = activity_ids.len() as u32;
         let wide_ids = Arc::new(wide_ids);
         let wide_bytes = Arc::new(AtomicU32::new(0));
-        // NOTE: Caller is responsible for calling reset_download_progress() before this
-        // and finish_download_progress() after this completes.
+        // The caller holds the download slot around this, so the increments
+        // below land against its own run.
         let completed = Arc::new(AtomicU32::new(0));
         let total_bytes = Arc::new(AtomicU32::new(0));
+        // Counted as they land rather than tallied from a `Vec` that no longer
+        // exists, which is the whole point of handing them over.
+        let successes = AtomicU32::new(0);
+        let failures = AtomicU32::new(0);
 
         info!(
             "[RUST: PERF] HTTP Fetch: {} activities, max {} concurrent (governor-paced)",
@@ -252,7 +451,7 @@ impl ActivityFetcher {
         let counter = Arc::new(DispatchCounter::new());
 
         // Buffered parallel fetch; the governor paces dispatch across all tasks.
-        let results: Vec<ActivityMapResult> = stream::iter(activity_ids)
+        stream::iter(activity_ids)
             .map(|id| {
                 let transport = &self.transport;
                 let counter = Arc::clone(&counter);
@@ -265,6 +464,10 @@ impl ActivityFetcher {
                 let wide_bytes = Arc::clone(&wide_bytes);
 
                 async move {
+                    // Hold this request back while a screen is waiting for one
+                    // of its own. Checked per request rather than once, because
+                    // the tap lands in the middle of the pass.
+                    wait_out_interactive_runs(run).await;
                     // Transport paces every dispatch through the shared choke
                     // point, so this only numbers them for the log.
                     let dispatch_num = counter.next_dispatch_number();
@@ -280,7 +483,7 @@ impl ActivityFetcher {
                     // Track progress
                     let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
                     // Update global progress for FFI polling
-                    increment_download_progress();
+                    increment_run_download_progress(run);
                     let bytes = result.body_bytes;
                     total_bytes.fetch_add(bytes, Ordering::Relaxed);
                     let complete_time = start_time.elapsed();
@@ -314,12 +517,24 @@ impl ActivityFetcher {
                 }
             })
             .buffer_unordered(MAX_CONCURRENCY)
-            .collect()
+            .for_each(|result| {
+                let on_result = &on_result;
+                let successes = &successes;
+                let failures = &failures;
+                async move {
+                    if result.success {
+                        successes.fetch_add(1, Ordering::Relaxed);
+                    } else {
+                        failures.fetch_add(1, Ordering::Relaxed);
+                    }
+                    on_result(result);
+                }
+            })
             .await;
 
         let elapsed = start.elapsed();
-        let success_count = results.iter().filter(|r| r.success).count();
-        let error_count = results.iter().filter(|r| !r.success).count();
+        let success_count = successes.load(Ordering::Relaxed);
+        let error_count = failures.load(Ordering::Relaxed);
         let rate = total as f64 / elapsed.as_secs_f64();
         let total_kb = total_bytes.load(Ordering::Relaxed) / 1024;
 
@@ -349,10 +564,6 @@ impl ActivityFetcher {
             wide_bytes.load(Ordering::Relaxed) / 1024,
             total_kb
         );
-
-        // NOTE: Caller is responsible for calling finish_download_progress()
-
-        results
     }
 
     /// One activity's track. Transport owns pacing, retry, `Retry-After` and
@@ -379,6 +590,7 @@ impl ActivityFetcher {
             elevations: None,
             body_bytes: 0,
             streams: Vec::new(),
+            times: Vec::new(),
             success: false,
             error: Some(error),
         };
@@ -460,12 +672,23 @@ impl ActivityFetcher {
             elevations.is_some()
         );
 
+        // Taken from the same parse as the coordinates, so it needs no second
+        // request and is already in the track's index space. `max(0) as u32`
+        // matches what `fetch_time_stream` returns, which is what the second
+        // pass would have stored.
+        let times: Vec<u32> = if wide && parsed.time.len() == point_count {
+            parsed.time.iter().map(|v| (*v).max(0) as u32).collect()
+        } else {
+            Vec::new()
+        };
+
         ActivityMapResult {
             activity_id: activity_id.to_string(),
             latlngs: Some(parsed.latlng),
             elevations,
             body_bytes: body_size as u32,
             streams,
+            times,
             success: true,
             error: None,
         }
@@ -485,11 +708,11 @@ mod tests {
     #[test]
     fn a_panicking_fetch_thread_still_clears_the_download_flag() {
         let _serial = crate::test_globals::serial_global_state();
-        reset_download_progress(3);
+        enqueue_download(1, 3, DownloadPriority::Bulk);
         assert!(get_download_progress().2, "a started download reads active");
 
         let unwound = std::thread::spawn(|| {
-            let _guard = DownloadFinishGuard;
+            let _slot = hold_download_slot(1);
             panic!("the fetch thread unwound");
         })
         .join();
@@ -504,14 +727,167 @@ mod tests {
     #[test]
     fn the_guard_clears_the_flag_on_a_clean_return_too() {
         let _serial = crate::test_globals::serial_global_state();
-        reset_download_progress(1);
+        enqueue_download(1, 1, DownloadPriority::Bulk);
         {
-            let _guard = DownloadFinishGuard;
-            increment_download_progress();
+            let _slot = hold_download_slot(1);
+            increment_run_download_progress(1);
         }
-        let (completed, total, active) = get_download_progress();
+        let (_, _, active) = get_download_progress();
         assert!(!active, "a finished download reads inactive");
-        assert_eq!((completed, total), (1, 1), "the counters still stand");
+    }
+
+    /// Scenario: three callers start a fetch-and-store, and a map tap landing
+    /// during the background push task's download is ordinary.
+    ///
+    /// Expected behaviour: the counters belong to the run holding the slot. A
+    /// second start joins the queue behind it instead of resetting them, so the
+    /// first caller's poll still reads its own run.
+    #[test]
+    fn a_second_run_queues_rather_than_resetting_the_one_in_flight() {
+        let _serial = crate::test_globals::serial_global_state();
+        enqueue_download(1, 4, DownloadPriority::Bulk);
+        let first = hold_download_slot(1);
+        increment_run_download_progress(1);
+
+        enqueue_download(2, 9, DownloadPriority::Bulk);
+        assert_eq!(
+            get_download_progress(),
+            (1, 4, true),
+            "the run in flight keeps its counters"
+        );
+        assert_eq!(
+            run_download_progress(2),
+            (0, 9, true),
+            "and the one queued behind it is waiting, not running"
+        );
+
+        drop(first);
+        let _second = hold_download_slot(2);
+        assert_eq!(
+            get_download_progress(),
+            (0, 9, true),
+            "the queued run takes the slot with its own count"
+        );
+    }
+
+    /// Scenario: the first sync is downloading hundreds of tracks and the
+    /// athlete opens an activity whose own track has not landed.
+    ///
+    /// Expected behaviour: that one fetch goes out beside the pass rather than
+    /// behind it, and the pass holds its next request back while it is out.
+    #[test]
+    fn a_tap_during_the_bulk_pass_does_not_wait_for_it() {
+        let _serial = crate::test_globals::serial_global_state();
+        enqueue_download(1, 400, DownloadPriority::Bulk);
+        let _bulk = hold_download_slot(1);
+        assert!(
+            !should_yield_to_interactive(1),
+            "nothing is waiting on the pass yet"
+        );
+
+        enqueue_download(2, 1, DownloadPriority::Interactive);
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let slot = hold_download_slot(2);
+            tx.send(()).ok();
+            // Held until the test drops it, which is what the pass yields to.
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            drop(slot);
+        });
+        rx.recv_timeout(std::time::Duration::from_secs(2))
+            .expect("the interactive run must not wait for the pass");
+
+        assert!(
+            should_yield_to_interactive(1),
+            "the pass holds its next request while the tap is out"
+        );
+    }
+
+    /// The counters follow the run that fetched, not the one admitted first,
+    /// now that two runs can be fetching at once.
+    #[test]
+    fn each_run_counts_its_own_activities() {
+        let _serial = crate::test_globals::serial_global_state();
+        enqueue_download(1, 4, DownloadPriority::Bulk);
+        let _bulk = hold_download_slot(1);
+        enqueue_download(2, 1, DownloadPriority::Interactive);
+        let _tap = hold_download_slot(2);
+
+        increment_run_download_progress(2);
+
+        assert_eq!(
+            run_download_progress(1),
+            (0, 4, true),
+            "the pass counted none"
+        );
+        assert_eq!(
+            run_download_progress(2),
+            (1, 1, true),
+            "the tap counted its own"
+        );
+        assert_eq!(
+            get_download_progress(),
+            (0, 4, true),
+            "and the process-wide poll still speaks for the pass"
+        );
+    }
+
+    /// A bulk run started while a tap is out waits for it, which is the same
+    /// rule from the other side.
+    ///
+    /// The two deadlines are not the same kind of number and must not be
+    /// tuned together. The short one is the assertion: nothing may arrive
+    /// while the tap is out, and a loaded box only makes the waiting thread
+    /// slower, so contention can never turn a pass into a failure there. The
+    /// long one is only a way to fail rather than hang if the release never
+    /// unblocks, so it is set far above any scheduling delay: 2 s was close
+    /// enough to one that a merge gate on a busy machine failed here while the
+    /// same test passed alone, which reads as a break in whatever branch was
+    /// merging.
+    #[test]
+    fn a_bulk_run_waits_for_an_interactive_one() {
+        let _serial = crate::test_globals::serial_global_state();
+        enqueue_download(1, 1, DownloadPriority::Interactive);
+        let tap = hold_download_slot(1);
+        enqueue_download(2, 50, DownloadPriority::Bulk);
+
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let waiter = std::thread::spawn(move || {
+            // Said before the call that blocks, so the wait below is for a
+            // thread that is running rather than for one the scheduler has not
+            // reached yet. Without it the short deadline could pass on a busy
+            // box because nothing had started, which proves nothing.
+            started_tx.send(()).ok();
+            let slot = hold_download_slot(2);
+            tx.send(()).ok();
+            drop(slot);
+        });
+        started_rx.recv().expect("the waiting thread is running");
+        assert!(
+            rx.recv_timeout(std::time::Duration::from_millis(200))
+                .is_err(),
+            "the pass must not start while the tap is out"
+        );
+
+        drop(tap);
+        rx.recv_timeout(std::time::Duration::from_secs(60))
+            .expect("and it starts once the tap is done");
+        waiter.join().expect("the waiting thread");
+    }
+
+    /// A poll for a run that has left the queue reads inactive whatever else is
+    /// downloading, which is what stops one caller settling on another's end.
+    #[test]
+    fn a_finished_run_reads_inactive_while_the_next_one_downloads() {
+        let _serial = crate::test_globals::serial_global_state();
+        enqueue_download(1, 2, DownloadPriority::Bulk);
+        enqueue_download(2, 5, DownloadPriority::Bulk);
+        drop(hold_download_slot(1));
+        let _second = hold_download_slot(2);
+
+        assert!(!run_download_progress(1).2, "run 1 is over");
+        assert!(run_download_progress(2).2, "run 2 is not");
     }
 
     /// A fetcher pointed at a mock server rather than the live base URL.
@@ -537,6 +913,7 @@ mod tests {
     fn fetch_one(server: &MockServer, id: &str) -> ActivityMapResult {
         let f = fetcher_to(server.base_url());
         crate::runtime::block_on(f.fetch_activity_maps(
+            0,
             vec![id.to_string()],
             std::collections::HashSet::new(),
             None,
@@ -550,6 +927,7 @@ mod tests {
     fn fetch_one_wide(server: &MockServer, id: &str) -> ActivityMapResult {
         let f = fetcher_to(server.base_url());
         crate::runtime::block_on(f.fetch_activity_maps(
+            0,
             vec![id.to_string()],
             std::collections::HashSet::from([id.to_string()]),
             None,
@@ -560,6 +938,79 @@ mod tests {
 
     fn series_named<'a>(r: &'a ActivityMapResult, kind: &str) -> Option<&'a StreamDto> {
         r.streams.iter().find(|s| s.kind == kind)
+    }
+
+    /// Scenario: the batch collected every result into a `Vec` before a single
+    /// row was written. 490 activities at 5,000 points is roughly 80 MB of
+    /// tracks plus half a megabyte of series apiece, all resident in the window
+    /// before storage began, and a kill during the download lost the lot.
+    ///
+    /// Expected behaviour: each result is handed over the moment it lands, so
+    /// storage runs alongside the download rather than behind it.
+    #[test]
+    fn each_track_reaches_the_caller_as_it_lands_not_after_the_last_one() {
+        let server = MockServer::start();
+        for id in ["a1", "a2", "a3"] {
+            server.mock(|when, then| {
+                when.method(GET)
+                    .path(format!("/activity/{id}/streams.json"));
+                then.status(200).json_body(streams_body(
+                    json!([46.0, 46.1]),
+                    json!([7.0, 7.1]),
+                    vec![],
+                ));
+            });
+        }
+        let f = fetcher_to(server.base_url());
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        let handed: Vec<ActivityMapResult> = std::thread::scope(|scope| {
+            let collector = scope.spawn(move || rx.into_iter().collect());
+            crate::runtime::block_on(f.fetch_activity_maps_into(
+                0,
+                vec!["a1".to_string(), "a2".to_string(), "a3".to_string()],
+                std::collections::HashSet::new(),
+                None,
+                move |result| {
+                    tx.send(result).ok();
+                },
+            ));
+            collector.join().unwrap()
+        });
+
+        assert_eq!(handed.len(), 3, "every result is handed over");
+        assert!(
+            handed.iter().all(|r| r.success),
+            "and each one whole: {:?}",
+            handed.iter().map(|r| &r.error).collect::<Vec<_>>()
+        );
+    }
+
+    /// The collecting form is the streaming one with a collector on the end, so
+    /// the two cannot drift: one fetch, one set of results, one order of
+    /// arrival.
+    #[test]
+    fn the_collecting_fetch_returns_what_the_streaming_one_hands_over() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.0, 46.1]),
+                json!([7.0, 7.1]),
+                vec![],
+            ));
+        });
+        let f = fetcher_to(server.base_url());
+
+        let collected = crate::runtime::block_on(f.fetch_activity_maps(
+            0,
+            vec!["a1".to_string()],
+            std::collections::HashSet::new(),
+            None,
+        ));
+
+        assert_eq!(collected.len(), 1);
+        assert_eq!(collected[0].activity_id, "a1");
     }
 
     #[test]
@@ -742,6 +1193,7 @@ mod tests {
 
         let f = fetcher_to(server.base_url());
         let results = crate::runtime::block_on(f.fetch_activity_maps(
+            0,
             vec!["a1".into()],
             std::collections::HashSet::new(),
             None,
@@ -769,6 +1221,7 @@ mod tests {
 
         let f = fetcher_to(server.base_url());
         let results = crate::runtime::block_on(f.fetch_activity_maps(
+            0,
             vec!["good".into(), "gone".into()],
             std::collections::HashSet::new(),
             None,
@@ -794,6 +1247,7 @@ mod tests {
         let counter = Arc::clone(&seen);
         let f = fetcher_to(server.base_url());
         crate::runtime::block_on(f.fetch_activity_maps(
+            0,
             vec!["a".into(), "b".into(), "c".into()],
             std::collections::HashSet::new(),
             Some(Arc::new(move |_done, _total| {
@@ -954,7 +1408,7 @@ mod tests {
         });
 
         let f = fetcher_to(server.base_url());
-        let bytes = crate::runtime::block_on(f.download_fit_file("a1")).unwrap();
+        let bytes = crate::runtime::block_on(f.download_fit_file("a1", Lane::Interactive)).unwrap();
 
         assert_eq!(bytes, vec![0x0E, 0x10, 0x00, 0x00]);
     }
@@ -968,7 +1422,26 @@ mod tests {
         });
 
         let f = fetcher_to(server.base_url());
-        assert!(crate::runtime::block_on(f.download_fit_file("a1")).is_err());
+        assert!(crate::runtime::block_on(f.download_fit_file("a1", Lane::Interactive)).is_err());
+    }
+
+    /// Scenario: the strength FIT batch ran on the Interactive lane, so a
+    /// background sweep of a whole library competed with whatever the athlete
+    /// was tapping for the shared dispatch pace.
+    ///
+    /// Expected behaviour: the lane is the caller's, so the batch can yield and
+    /// the single fetch a card is waiting on does not.
+    #[test]
+    fn a_fit_download_runs_on_the_lane_its_caller_names() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/file");
+            then.status(200).body(vec![0x0Eu8]);
+        });
+        let f = fetcher_to(server.base_url());
+
+        assert!(crate::runtime::block_on(f.download_fit_file("a1", Lane::Backfill)).is_ok());
+        assert!(crate::runtime::block_on(f.download_fit_file("a1", Lane::Interactive)).is_ok());
     }
 
     /// Scenario: the fetch-and-store thread runs to its end whatever the
@@ -980,15 +1453,23 @@ mod tests {
     /// which is why it is cleared by the reset every run already calls.
     #[test]
     fn a_run_can_be_cancelled_and_the_next_one_starts_clean() {
-        reset_download_progress(4);
-        assert!(!download_cancelled(), "a fresh run is not cancelled");
+        let _serial = crate::test_globals::serial_global_state();
+        enqueue_download(1, 4, DownloadPriority::Bulk);
+        let first = hold_download_slot(1);
+        assert!(!download_cancelled(1), "a fresh run is not cancelled");
 
+        enqueue_download(2, 2, DownloadPriority::Bulk);
         assert!(cancel_download(), "a run was active to cancel");
-        assert!(download_cancelled(), "and it is flagged");
-
-        reset_download_progress(2);
+        assert!(download_cancelled(1), "and it is flagged");
         assert!(
-            !download_cancelled(),
+            !download_cancelled(2),
+            "the cancel stops the run it was aimed at, not the one queued behind it"
+        );
+
+        drop(first);
+        let _second = hold_download_slot(2);
+        assert!(
+            !download_cancelled(2),
             "the next run starts clean, or one cancel stops every download after it"
         );
     }
@@ -997,12 +1478,13 @@ mod tests {
     /// flag that the next run would read.
     #[test]
     fn cancelling_an_idle_download_flags_nothing() {
-        reset_download_progress(1);
-        finish_download_progress();
+        let _serial = crate::test_globals::serial_global_state();
+        enqueue_download(1, 1, DownloadPriority::Bulk);
+        drop(hold_download_slot(1));
 
         assert!(!cancel_download(), "there was no run to cancel");
         assert!(
-            !download_cancelled(),
+            !download_cancelled(1),
             "so nothing is flagged for the next one"
         );
     }

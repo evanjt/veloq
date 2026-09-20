@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// The sidecar beside each source's tree. Named so it cannot collide with a
 /// zoom directory, which is always numeric.
@@ -23,7 +24,9 @@ const FLUSH_EVERY: u32 = 32;
 /// What the index remembers about one tile. `stamp` is a logical clock rather
 /// than a wall time: it only ever has to order reads, and a device whose clock
 /// moves backwards would otherwise pin the wrong tiles at the front of the
-/// eviction queue.
+/// eviction queue. The clock is the store's, not the source's, so a stamp
+/// orders a tile against every other tile in the tree and not only against its
+/// own source's.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Entry {
     ext: String,
@@ -57,6 +60,23 @@ struct SourceIndex {
 pub struct TileStore {
     root: PathBuf,
     sources: Mutex<HashMap<String, SourceIndex>>,
+    /// The read clock for the whole tree. Seeded from the highest clock any
+    /// sidecar carries as each is loaded, and written back into every sidecar
+    /// it stamps, so it survives a restart without a file of its own.
+    clock: AtomicU64,
+}
+
+/// The source prefix satellite imagery is served under, one per region.
+const SATELLITE_PREFIX: &str = "satellite";
+
+/// Whether a source's tiles are kept on disk at all.
+///
+/// Satellite rasters are not. Offline the map falls back to the vector
+/// basemap, so imagery the athlete cannot reach with the radio off would only
+/// spend the pool the vector basemap needs, and it is the heaviest source
+/// there is: one city of imagery outweighs a country of vector tiles.
+pub fn is_kept_offline(source: &str) -> bool {
+    source != SATELLITE_PREFIX && !source.starts_with(&format!("{SATELLITE_PREFIX}-"))
 }
 
 impl TileStore {
@@ -64,7 +84,13 @@ impl TileStore {
         Self {
             root: root.into(),
             sources: Mutex::new(HashMap::new()),
+            clock: AtomicU64::new(0),
         }
+    }
+
+    /// The next read stamp, from the clock the whole tree shares.
+    fn next_stamp(&self) -> u64 {
+        self.clock.fetch_add(1, Ordering::Relaxed) + 1
     }
 
     /// Where the tree lives. The caller chose it, so it is worth reading back.
@@ -80,6 +106,9 @@ impl TileStore {
     /// once on as many threads, so holding it across the file read made every
     /// one of them queue behind the slowest.
     pub fn get(&self, source: &str, z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
+        if !is_kept_offline(source) {
+            return None;
+        }
         let key = tile_key(z, x, y);
         let ext = {
             let mut sources = self.lock();
@@ -90,11 +119,11 @@ impl TileStore {
         let path = self.tile_path(source, z, x, y, &ext);
         let read = std::fs::read(&path);
 
+        let stamp = self.next_stamp();
         let mut sources = self.lock();
         let index = self.index_for(&mut sources, source);
         match read {
             Ok(bytes) => {
-                let stamp = index.sidecar.clock + 1;
                 index.sidecar.clock = stamp;
                 if let Some(entry) = index.sidecar.entries.get_mut(&key) {
                     entry.stamp = stamp;
@@ -135,6 +164,9 @@ impl TileStore {
 
     /// Store a tile. `pinned` marks the pre-seeded offline base, which is
     /// evicted only once every opportunistic tile is gone.
+    ///
+    /// A satellite raster is drawn and dropped rather than kept, so this
+    /// reports success without writing anything. See [`is_kept_offline`].
     pub fn put(
         &self,
         source: &str,
@@ -145,6 +177,9 @@ impl TileStore {
         bytes: &[u8],
         pinned: bool,
     ) -> io::Result<()> {
+        if !is_kept_offline(source) {
+            return Ok(());
+        }
         let key = tile_key(z, x, y);
         let path = self.tile_path(source, z, x, y, ext);
         if let Some(parent) = path.parent() {
@@ -152,6 +187,7 @@ impl TileStore {
         }
         write_atomically(&path, bytes)?;
 
+        let stamp = self.next_stamp();
         let mut sources = self.lock();
         let index = self.index_for(&mut sources, source);
         // A tile re-stored under a different extension leaves its old file
@@ -161,7 +197,6 @@ impl TileStore {
                 let _ = std::fs::remove_file(self.tile_path(source, z, x, y, &previous.ext));
             }
         }
-        let stamp = index.sidecar.clock + 1;
         index.sidecar.clock = stamp;
         index.sidecar.entries.insert(
             key,
@@ -183,6 +218,63 @@ impl TileStore {
             index.since_flush = 0;
         }
         Ok(())
+    }
+
+    /// Mark a tile the store already holds as part of the pinned pre-seed, and
+    /// answer what it costs. `None` when the store does not hold it, which is
+    /// the pre-seed's signal to fetch it.
+    ///
+    /// The file is checked rather than taken on the sidecar's word, and an
+    /// entry that outlived its file is forgotten the way a miss in [`get`]
+    /// forgets one. A pre-seed that trusted the index would skip a tile that is
+    /// not on disk and leave a hole nothing fills.
+    ///
+    /// [`get`]: Self::get
+    pub fn pin(&self, source: &str, z: u8, x: u32, y: u32) -> Option<u64> {
+        if !is_kept_offline(source) {
+            return None;
+        }
+        let key = tile_key(z, x, y);
+        // The lock is dropped for the stat, the way `get` drops it for the
+        // read: one mutex covers every source, and a pan running beside the
+        // pass should not queue behind it.
+        let ext = {
+            let mut sources = self.lock();
+            let index = self.index_for(&mut sources, source);
+            index.sidecar.entries.get(&key)?.ext.clone()
+        };
+        let present = self.tile_path(source, z, x, y, &ext).exists();
+
+        let mut sources = self.lock();
+        let index = self.index_for(&mut sources, source);
+        if !present {
+            // Only if it is still the same file: a `put` that landed while the
+            // lock was down may have re-stored this key under another
+            // extension, and forgetting that entry would strand the tile.
+            if index
+                .sidecar
+                .entries
+                .get(&key)
+                .is_some_and(|e| e.ext == ext)
+            {
+                index.sidecar.entries.remove(&key);
+                index.dirty = true;
+            }
+            return None;
+        }
+        let entry = index.sidecar.entries.get_mut(&key)?;
+        let bytes = entry.bytes;
+        if entry.pinned {
+            return Some(bytes);
+        }
+        entry.pinned = true;
+        // Straight back to disk, for the reason `put` writes a pinned tile at
+        // once: nothing in a plain tree says a tile is pinned, so a sidecar
+        // lost before the next flush would demote the whole pre-seed.
+        let _ = write_sidecar(&self.root, source, &index.sidecar);
+        index.dirty = false;
+        index.since_flush = 0;
+        Some(bytes)
     }
 
     /// Bytes held for one source. Zero for a source that holds nothing.
@@ -244,40 +336,65 @@ impl TileStore {
     /// The budget is still a hard cap: once nothing opportunistic is left, the
     /// oldest pinned tiles go too, because the store must never be the reason
     /// a device runs out of storage.
-    pub fn evict_to(&self, source: &str, budget: u64) -> io::Result<u32> {
+    /// Bring the whole tree under one byte budget, least recently read first
+    /// across every source and the pinned pre-seed last.
+    ///
+    /// One pool rather than a share each: a share protects a quiet source's
+    /// stale tiles from a busy source's fresh ones, which is the opposite of
+    /// what an athlete with one number in settings asked for.
+    pub fn evict_to(&self, budget: u64) -> io::Result<u32> {
+        let sources_on_disk = self.sources_on_disk();
         let mut sources = self.lock();
-        let index = self.index_for(&mut sources, source);
-        let mut total: u64 = index.sidecar.entries.values().map(|e| e.bytes).sum();
+
+        // (source, key, pinned, stamp, bytes) for the whole tree, oldest read
+        // first and every pinned tile behind every opportunistic one.
+        let mut order: Vec<(String, String, bool, u64, u64)> = Vec::new();
+        let mut total: u64 = 0;
+        for source in &sources_on_disk {
+            let index = self.index_for(&mut sources, source);
+            for (key, entry) in &index.sidecar.entries {
+                total += entry.bytes;
+                order.push((
+                    source.clone(),
+                    key.clone(),
+                    entry.pinned,
+                    entry.stamp,
+                    entry.bytes,
+                ));
+            }
+        }
         if total <= budget {
             return Ok(0);
         }
-
-        let mut order: Vec<(String, bool, u64)> = index
-            .sidecar
-            .entries
-            .iter()
-            .map(|(key, entry)| (key.clone(), entry.pinned, entry.stamp))
-            .collect();
-        order.sort_by_key(|(_, pinned, stamp)| (*pinned, *stamp));
+        order.sort_by(|a, b| (a.2, a.3).cmp(&(b.2, b.3)));
 
         let mut removed = 0;
-        for (key, _, _) in order {
+        let mut touched: Vec<String> = Vec::new();
+        for (source, key, _, _, bytes) in order {
             if total <= budget {
                 break;
             }
+            let index = self.index_for(&mut sources, &source);
             let Some(entry) = index.sidecar.entries.remove(&key) else {
                 continue;
             };
-            if let Some((z, x, y)) = parse_tile_key(&key) {
-                let _ = std::fs::remove_file(self.tile_path(source, z, x, y, &entry.ext));
+            index.dirty = true;
+            if !touched.contains(&source) {
+                touched.push(source.clone());
             }
-            total = total.saturating_sub(entry.bytes);
+            if let Some((z, x, y)) = parse_tile_key(&key) {
+                let _ = std::fs::remove_file(self.tile_path(&source, z, x, y, &entry.ext));
+            }
+            total = total.saturating_sub(bytes);
             removed += 1;
         }
 
-        write_sidecar(&self.root, source, &index.sidecar)?;
-        index.dirty = false;
-        index.since_flush = 0;
+        for source in touched {
+            let index = self.index_for(&mut sources, &source);
+            write_sidecar(&self.root, &source, &index.sidecar)?;
+            index.dirty = false;
+            index.since_flush = 0;
+        }
         Ok(removed)
     }
 
@@ -306,6 +423,14 @@ impl TileStore {
     ) -> &'a mut SourceIndex {
         if !sources.contains_key(source) {
             let loaded = load_or_rebuild(&self.root, source);
+            // Seed the tree's clock past everything this sidecar already
+            // holds, so a stamp handed out now is newer than any stamp on
+            // disk. Sidecars written before the clock was the tree's carry
+            // per-source stamps, which order their own source correctly and
+            // each other only roughly: a tile read after the upgrade takes a
+            // tree-wide stamp and the ordering repairs itself as it is used.
+            self.clock
+                .fetch_max(loaded.sidecar.clock, Ordering::Relaxed);
             sources.insert(source.to_string(), loaded);
         }
         sources

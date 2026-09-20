@@ -18,6 +18,10 @@ pub mod endpoints;
 
 pub mod elevation_backfill;
 
+pub mod stream_backfill;
+
+pub mod offline_prefetch;
+
 /// The connectivity state TypeScript pushes, and the only thing in this crate
 /// that knows whether there is a network at all.
 pub mod connectivity;

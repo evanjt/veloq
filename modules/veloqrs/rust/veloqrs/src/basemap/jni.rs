@@ -32,7 +32,7 @@ pub extern "system" fn Java_com_veloq_TileBridge_nativeGetOrFetch<'local>(
     };
     let source: String = source.into();
 
-    match super::get_or_fetch(&source, z as u8, x as u32, y as u32) {
+    match super::tile_bytes(&source, z as u8, x as u32, y as u32) {
         Some(bytes) => match env.byte_array_from_slice(&bytes) {
             Ok(array) => array.into_raw(),
             Err(e) => {

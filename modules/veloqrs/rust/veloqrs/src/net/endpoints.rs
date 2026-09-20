@@ -94,12 +94,16 @@ pub async fn fetch_current_athlete(t: &Transport, lane: Lane) -> Result<AthleteR
 /// `GET /athlete/{id}/activities` returning each activity both typed and as
 /// its own body. Rust aggregates on the typed values; the feed and detail
 /// screens read fields the record does not model.
+/// `limit` caps the answer at that many, newest first. The endpoint requires
+/// the date range either way, so a count is a narrowing of a window and never
+/// a replacement for one.
 pub async fn fetch_activities_with_bodies(
     t: &Transport,
     athlete_id: &str,
     oldest: &str,
     newest: &str,
     include_stats: bool,
+    limit: Option<u32>,
     lane: Lane,
 ) -> Result<Vec<(ActivityRecord, String)>, NetError> {
     let fields = if include_stats {
@@ -107,10 +111,16 @@ pub async fn fetch_activities_with_bodies(
     } else {
         ACTIVITY_FIELDS.to_string()
     };
+    let mut params: Vec<(&str, &str)> =
+        vec![("oldest", oldest), ("newest", newest), ("fields", &fields)];
+    let limit = limit.map(|n| n.to_string());
+    if let Some(limit) = limit.as_deref() {
+        params.push(("limit", limit));
+    }
     let bytes = t
         .get_bytes(
             &format!("/athlete/{}/activities", athlete_id),
-            &[("oldest", oldest), ("newest", newest), ("fields", &fields)],
+            &params,
             lane,
         )
         .await?;
@@ -140,7 +150,10 @@ pub async fn fetch_activity_history_summary(
             &[
                 ("oldest", "2000-01-01"),
                 ("newest", today),
-                ("fields", "id,start_date_local"),
+                (
+                    "fields",
+                    "id,start_date_local,created,icu_sync_date,stream_types",
+                ),
             ],
             lane,
         )
@@ -148,7 +161,19 @@ pub async fn fetch_activity_history_summary(
     Ok(ActivityHistorySummary {
         oldest: oldest_activity_date(&acts),
         counts_by_year: activity_counts_by_year(&acts),
-        ids: acts.iter().map(|a| a.id.clone()).collect(),
+        entries: acts
+            .iter()
+            .map(|a| ActivityCensusEntry {
+                id: a.id.clone(),
+                start_date_local: a.start_date_local.clone(),
+                created: a.created.clone(),
+                icu_sync_date: a.icu_sync_date.clone(),
+                has_latlng: a
+                    .stream_types
+                    .as_ref()
+                    .is_some_and(|types| types.iter().any(|t| t == "latlng")),
+            })
+            .collect(),
     })
 }
 
@@ -477,12 +502,69 @@ mod tests {
             "2026-01-01",
             "2026-06-26",
             false,
+            None,
             Lane::Backfill,
         ))
         .unwrap();
         mock.assert();
         assert_eq!(acts.len(), 1);
         assert_eq!(acts[0].0.id, "a1");
+    }
+
+    /// The count the first-use step asks with. The endpoint requires the date
+    /// range either way and answers newest first, so a limit narrows a window
+    /// rather than replacing one.
+    #[test]
+    fn activities_carry_the_limit_when_one_is_asked_for() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities")
+                .query_param("limit", "5");
+            then.status(200).json_body(json!([]));
+        });
+        let t = fast_transport(server.base_url());
+        let _ = crate::runtime::block_on(fetch_activities_with_bodies(
+            &t,
+            "i1",
+            "2026-01-01",
+            "2026-06-26",
+            true,
+            Some(5),
+            Lane::Backfill,
+        ))
+        .unwrap();
+        mock.assert();
+    }
+
+    /// And carries none when none is asked for, or every window pull would
+    /// come back capped.
+    #[test]
+    fn activities_carry_no_limit_by_default() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities")
+                .matches(|req| {
+                    req.query_params
+                        .as_ref()
+                        .map(|q| !q.iter().any(|(k, _)| k == "limit"))
+                        .unwrap_or(true)
+                });
+            then.status(200).json_body(json!([]));
+        });
+        let t = fast_transport(server.base_url());
+        let _ = crate::runtime::block_on(fetch_activities_with_bodies(
+            &t,
+            "i1",
+            "2026-01-01",
+            "2026-06-26",
+            true,
+            None,
+            Lane::Backfill,
+        ))
+        .unwrap();
+        mock.assert();
     }
 
     #[test]
@@ -511,6 +593,7 @@ mod tests {
             "2026-01-01",
             "2026-06-26",
             true,
+            None,
             Lane::Backfill,
         ))
         .unwrap();
@@ -590,6 +673,91 @@ mod tests {
         // out of it rather than out of a second request.
         assert_eq!(summary.counts_by_year.get("2026"), Some(&1));
         assert_eq!(summary.counts_by_year.get("2023"), Some(&1));
+    }
+
+    #[test]
+    fn census_carries_created_and_sync_dates() {
+        // The diff that decides what a launch downloads is these two fields
+        // against the local rows, since the API has no updated-since filter.
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities").query_param(
+                "fields",
+                "id,start_date_local,created,icu_sync_date,stream_types",
+            );
+            then.status(200).json_body(json!([
+                {
+                    "id": "a",
+                    "start_date_local": "2026-06-20T00:00:00",
+                    "created": "2026-06-20T08:00:00.000+00:00",
+                    "icu_sync_date": "2026-06-21T09:30:00.000+00:00"
+                }
+            ]));
+        });
+        let t = fast_transport(server.base_url());
+        let summary = crate::runtime::block_on(fetch_activity_history_summary(
+            &t,
+            "i1",
+            "2026-06-26",
+            Lane::Backfill,
+        ))
+        .unwrap();
+        mock.assert();
+        assert_eq!(summary.ids(), vec!["a".to_string()]);
+        let entry = &summary.entries[0];
+        assert_eq!(
+            entry.created.as_deref(),
+            Some("2026-06-20T08:00:00.000+00:00")
+        );
+        assert_eq!(
+            entry.icu_sync_date.as_deref(),
+            Some("2026-06-21T09:30:00.000+00:00")
+        );
+    }
+
+    /// Scenario: the GPS fetch list and the download-progress count both need
+    /// to know which rides have a track upstream. Today that is answered by
+    /// parsing every stored body for `stream_types`, on the JS thread.
+    ///
+    /// Expected behaviour: the census asks for the field and reduces it to one
+    /// flag, so no caller parses a body to find out.
+    #[test]
+    fn census_says_which_activities_have_a_track_upstream() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities").query_param(
+                "fields",
+                "id,start_date_local,created,icu_sync_date,stream_types",
+            );
+            then.status(200).json_body(json!([
+                {"id": "with", "start_date_local": "2026-06-20T00:00:00",
+                 "stream_types": ["time", "watts", "latlng"]},
+                {"id": "without", "start_date_local": "2026-06-21T00:00:00",
+                 "stream_types": ["time", "watts"]},
+                // A field the API omits is not a track.
+                {"id": "silent", "start_date_local": "2026-06-22T00:00:00"}
+            ]));
+        });
+        let t = fast_transport(server.base_url());
+        let summary = crate::runtime::block_on(fetch_activity_history_summary(
+            &t,
+            "i1",
+            "2026-06-26",
+            Lane::Backfill,
+        ))
+        .unwrap();
+        mock.assert();
+
+        let flag = |id: &str| {
+            summary
+                .entries
+                .iter()
+                .find(|e| e.id == id)
+                .map(|e| e.has_latlng)
+        };
+        assert_eq!(flag("with"), Some(true));
+        assert_eq!(flag("without"), Some(false));
+        assert_eq!(flag("silent"), Some(false), "no field is not a track");
     }
 
     #[test]

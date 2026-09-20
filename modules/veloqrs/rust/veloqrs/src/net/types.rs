@@ -51,6 +51,13 @@ pub struct ActivityRecord {
     pub icu_training_load: Option<f64>,
     #[serde(default)]
     pub icu_ftp: Option<f64>,
+    /// The accepted eFTP after this activity, and what this activity moved it
+    /// by. intervals.icu marks the pair on its own plot, and only a non-zero
+    /// delta is a change.
+    #[serde(default)]
+    pub icu_rolling_ftp: Option<f64>,
+    #[serde(default)]
+    pub icu_rolling_ftp_delta: Option<f64>,
     /// Power zone times, one entry per zone.
     #[serde(default, deserialize_with = "lenient")]
     pub icu_zone_times: Option<Vec<ZoneTime>>,
@@ -67,6 +74,13 @@ pub struct ActivityRecord {
     pub description: Option<String>,
     #[serde(default)]
     pub device_name: Option<String>,
+    /// When intervals.icu first held this activity, and when it last changed
+    /// there. Asked for only by the census pull, so every other request leaves
+    /// them empty.
+    #[serde(default)]
+    pub created: Option<String>,
+    #[serde(default)]
+    pub icu_sync_date: Option<String>,
 }
 
 /// One power zone's time, as intervals.icu sends it: `{"id": "Z1", "secs": 123}`.
@@ -473,10 +487,38 @@ pub fn oldest_activity_date(activities: &[ActivityRecord]) -> Option<String> {
 pub struct ActivityHistorySummary {
     pub oldest: Option<String>,
     pub counts_by_year: BTreeMap<String, u32>,
-    /// Every id the response carried, in the order it arrived. The same pull
-    /// that answers the timeline slider is the census that says which stored
-    /// activities have left, so throwing them away costs a second request.
-    pub ids: Vec<String>,
+    /// Every activity the response carried, in the order it arrived. The same
+    /// pull that answers the timeline slider is the census that says which
+    /// stored activities have left, and which upstream activities the device
+    /// has never seen, so throwing it away costs a second request.
+    pub entries: Vec<ActivityCensusEntry>,
+}
+
+impl ActivityHistorySummary {
+    /// The census ids alone, for the reconcile that only asks what still exists.
+    pub fn ids(&self) -> Vec<String> {
+        self.entries.iter().map(|e| e.id.clone()).collect()
+    }
+}
+
+/// One activity as the census pull sees it: what it is, when it was made and
+/// when it last changed upstream. `created` and `icu_sync_date` are what make
+/// the diff possible, since intervals.icu has no updated-since filter, probed
+/// under three names on 2026-09-14 and all returning the full list.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ActivityCensusEntry {
+    pub id: String,
+    pub start_date_local: Option<String>,
+    pub created: Option<String>,
+    pub icu_sync_date: Option<String>,
+    /// Whether the server holds a GPS track for this activity.
+    ///
+    /// Reduced from `stream_types` at the pull rather than carried whole: one
+    /// bit is what every caller asks of it, and the alternative was parsing
+    /// every stored body for the same answer. A response that names no
+    /// `stream_types` at all is false, because a field the API omits is not a
+    /// track.
+    pub has_latlng: bool,
 }
 
 /// Count activities per calendar year, keyed by the `YYYY` prefix of
