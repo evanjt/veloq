@@ -15,6 +15,7 @@ import {
   type WebdavConfig,
 } from '../webdavConfig';
 import { transferFailure, transportFailure } from './errors';
+import { NET_DEADLINE_MS, fetchWithDeadline } from '@/shared/net/fetchWithDeadline';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('WebdavBackend');
@@ -28,10 +29,23 @@ function requireConfig(): WebdavConfig {
   return getWebdavConfig() as WebdavConfig;
 }
 
-/** A fetch that reports a dropped connection as transient rather than as a server verdict. */
-async function request(operation: string, url: string, init: RequestInit): Promise<Response> {
+/**
+ * A fetch that reports a dropped connection as transient rather than as a server
+ * verdict, and that gives up rather than waiting on the platform socket timeout.
+ *
+ * The transfer ceiling, not the interactive one: a PROPFIND over a directory or a
+ * metadata sidecar on a NAS that has just woken up is slower than a sign-in, and
+ * the file transfers themselves go through `uploadAsync` and `downloadAsync`,
+ * which take no signal and are not bounded here.
+ */
+async function request(
+  operation: string,
+  url: string,
+  init: RequestInit,
+  ms: number = NET_DEADLINE_MS.transfer
+): Promise<Response> {
   try {
-    return await fetch(url, init);
+    return await fetchWithDeadline(url, init, ms);
   } catch (error) {
     throw transportFailure(operation, error);
   }
@@ -116,11 +130,16 @@ export async function testWebdavConnection(): Promise<string | null> {
   try {
     const headers = authHeaders(config.username, config.password);
     const url = normalizeWebdavUrl(config.url);
-    const res = await fetch(url, {
-      method: 'PROPFIND',
-      headers: { ...headers, Depth: '0', 'Content-Type': 'application/xml' },
-      body: PROPFIND_BODY,
-    });
+    // A person is waiting on this one, so it takes the interactive ceiling.
+    const res = await fetchWithDeadline(
+      url,
+      {
+        method: 'PROPFIND',
+        headers: { ...headers, Depth: '0', 'Content-Type': 'application/xml' },
+        body: PROPFIND_BODY,
+      },
+      NET_DEADLINE_MS.interactive
+    );
     if (res.status === 207 || res.ok) return null;
     if (res.status === 401) return 'Authentication failed';
     if (res.status === 405)
@@ -134,6 +153,7 @@ export async function testWebdavConnection(): Promise<string | null> {
 export const webdavBackend: BackupBackend = {
   id: 'webdav',
   name: 'WebDAV',
+  isRemote: true,
 
   async isAvailable(): Promise<boolean> {
     return webdavConfigProblem() === null;
@@ -173,7 +193,7 @@ export const webdavBackend: BackupBackend = {
     for (const metaHref of metaFiles) {
       try {
         const metaUrl = resolveHref(config.url, metaHref);
-        const metaRes = await fetch(metaUrl, { headers });
+        const metaRes = await fetchWithDeadline(metaUrl, { headers }, NET_DEADLINE_MS.transfer);
         if (!metaRes.ok) continue;
         const meta = (await metaRes.json()) as BackupEntry;
         entries.push(meta);

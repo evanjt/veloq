@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
-import { useActivityBoundsCache } from '@/features/activity/hooks';
+import { useActivityBoundsCache } from '@/features/activity';
 import { useRouteProcessing } from '@/features/routes/hooks/useRouteProcessing';
 import { useRouteGroups } from '@/features/routes/hooks/useRouteGroups';
 import { useSectionSummaries } from '@/features/routes/hooks/useEngine';
@@ -15,17 +15,17 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import {
-  emitClearTileCache,
-  requestTileCacheStats,
-  onTileCacheStats,
-  type TileCacheStats,
-} from '@/features/maps/lib/terrainSnapshotEvents';
-import {
   clearTerrainPreviews,
+  emitClearTileCache,
   getTerrainPreviewCacheSize,
-} from '@/features/maps/lib/storage/terrainPreviewCache';
-import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
+  HEATMAP_TILES_DIR,
+  onTileCacheStats,
+  readHeatmapTilesCacheSize,
+  requestTileCacheStats,
+  type TileCacheStats,
+} from '@/features/maps';
 import { getEngine } from '@/shared/native/engine';
+import { engineErrorKey } from '@/shared/native/engineError';
 import { useQueryCacheCount } from '../hooks/useQueryCacheCount';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { CacheManagementPanel } from './CacheManagementPanel';
@@ -67,8 +67,16 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   const [freeStorage, setFreeStorage] = useState<number | null>(null);
 
   useEffect(() => {
+    let live = true;
     getTerrainPreviewCacheSize().then(setTerrainCacheSize);
-    setHeatmapCacheSize(getHeatmapTilesCacheSize());
+    // Walked on a Rust thread and polled: on the mount thread it was 170 ms
+    // for 40,061 tiles, against a 100 ms budget for the whole screen.
+    readHeatmapTilesCacheSize().then((bytes) => {
+      if (live) setHeatmapCacheSize(bytes);
+    });
+    return () => {
+      live = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -148,7 +156,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             resetSyncDateRange();
 
             // 3. Clear all caches (engine, tiles, filesystem)
-            await clearCache();
+            const cleared = await clearCache();
             await clearTerrainPreviews();
             emitClearTileCache();
             getEngine()?.cancelHeatmapWork();
@@ -170,9 +178,12 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             // Refresh cache sizes
             refreshCacheSizes();
 
-            Alert.alert(t('alerts.cacheCleared'));
-          } catch {
-            Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
+            Alert.alert(cleared ? t('alerts.cacheCleared') : t('settings.stillRunning'));
+          } catch (error) {
+            // Which failure it was, where the engine said. "Not open yet" and
+            // "the database refused" were one line, and neither told the
+            // athlete what to do next.
+            Alert.alert(t('alerts.error'), t(engineErrorKey(error, 'alerts.failedToClear')));
           }
         },
       },

@@ -4,19 +4,12 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-
-const FORM_ZONE_COLORS = {
-  highRisk: colors.formHighRisk,
-  optimal: colors.formOptimal,
-  greyZone: colors.formGreyZone,
-  fresh: colors.formFresh,
-  transition: colors.formTransition,
-};
+import { FORM_ZONE_COLORS, formZoneTextColor } from '@/features/fitness';
 
 const HERO_METRICS = [
   { labelKey: 'fitness.fitAbbrev', value: '78', color: colors.fitnessBlue },
   { labelKey: 'fitness.fatAbbrev', value: '62', color: colors.fatiguePurple },
-  { labelKey: 'fitness.formTSB', value: '+16', zoneColor: FORM_ZONE_COLORS.fresh },
+  { labelKey: 'fitness.formTSB', value: '+16', zone: 'fresh' as const },
 ];
 
 const ZONE_BAR = [
@@ -35,7 +28,7 @@ export function FitnessHeroSlide() {
     <View style={styles.container}>
       <View style={styles.heroRow}>
         {HERO_METRICS.map((metric) => {
-          const valueColor = metric.zoneColor ?? metric.color;
+          const valueColor = metric.zone ? formZoneTextColor(metric.zone, isDark) : metric.color;
           return (
             <View key={metric.labelKey} style={styles.heroCol}>
               <Text
@@ -90,7 +83,7 @@ const styles = StyleSheet.create({
   },
   heroCol: {
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   heroLabel: {
     fontSize: typography.bodyCompact.fontSize,
@@ -101,7 +94,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   zoneBarContainer: {
-    gap: 4,
+    gap: spacing.xs,
   },
   zoneBar: {
     flexDirection: 'row',

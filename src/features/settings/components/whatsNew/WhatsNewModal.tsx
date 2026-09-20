@@ -15,12 +15,13 @@ import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
 import { navigateTab } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, ink, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, ink, typography, colorWithOpacity } from '@/theme';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import { useMapPreferences } from '@/features/maps';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { getAllSlides, getSlidesSince } from './slides';
 import { WhatsNewSlide } from './WhatsNewSlide';
+import { pressable } from '@/shared/ui';
 
 const SWIPE_THRESHOLD_RATIO = 0.2;
 const VELOCITY_THRESHOLD = 400;
@@ -197,7 +198,7 @@ export function WhatsNewModal() {
       entering={FadeIn.duration(300)}
       exiting={FadeOut.duration(200)}
     >
-      <Pressable style={styles.backdrop} onPress={dismiss} />
+      <Pressable style={pressable(styles.backdrop)} onPress={dismiss} />
       <View style={[styles.card, { width: contentWidth, backgroundColor: bgColor }]}>
         <GestureDetector gesture={panGesture}>
           <View style={styles.slideArea}>
@@ -224,7 +225,7 @@ export function WhatsNewModal() {
             <Pressable
               onPress={handleModeToggle}
               hitSlop={8}
-              style={[styles.modeTogglePill, { borderColor: primaryColor }]}
+              style={pressable([styles.modeTogglePill, { borderColor: primaryColor }])}
             >
               <Text style={[styles.modeToggleText, { color: primaryColor }]}>
                 {tourState?.mode === 'tutorial'
@@ -331,7 +332,7 @@ function NavigationButtons({
       {/* Left: Skip (hidden on last slide) */}
       <View style={styles.navLeft}>
         <Animated.View style={isLast}>
-          <Pressable onPress={onSkip} hitSlop={12}>
+          <Pressable onPress={onSkip} hitSlop={12} style={pressable()}>
             <Text style={[styles.navText, { color: mutedColor }]}>{skipLabel}</Text>
           </Pressable>
         </Animated.View>
@@ -339,7 +340,7 @@ function NavigationButtons({
 
       {/* Center: Show Me */}
       <Animated.View style={showMeStyle}>
-        <Pressable onPress={onShowMe} hitSlop={12}>
+        <Pressable onPress={onShowMe} hitSlop={12} style={pressable()}>
           <Text style={[styles.navText, styles.navTextBold, { color: primaryColor }]}>
             {showMeLabel} →
           </Text>
@@ -352,13 +353,13 @@ function NavigationButtons({
           <Pressable
             onPress={onSkip}
             hitSlop={12}
-            style={[styles.doneButton, { backgroundColor: primaryColor }]}
+            style={pressable([styles.doneButton, { backgroundColor: primaryColor }])}
           >
             <Text style={[styles.doneText, { color: ink.white }]}>{doneLabel}</Text>
           </Pressable>
         </Animated.View>
         <Animated.View style={[styles.nextOverlay, isLast]}>
-          <Pressable onPress={onNext} hitSlop={12}>
+          <Pressable onPress={onNext} hitSlop={12} style={pressable()}>
             <Text style={[styles.navText, styles.navTextBold, { color: primaryColor }]}>
               {nextLabel}
             </Text>
@@ -378,7 +379,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: colorWithOpacity(ink.black, 0.6),
   },
   card: {
     borderRadius: layout.borderRadius,

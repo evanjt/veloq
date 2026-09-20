@@ -86,7 +86,7 @@ export const settingsStyles = StyleSheet.create({
   toggleDescription: {
     ...typography.bodyCompact,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
 
   // Standard dark mode text overrides
@@ -101,10 +101,10 @@ export const settingsStyles = StyleSheet.create({
   scopeBadge: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    gap: 3,
+    gap: spacing.xs,
     backgroundColor: opacity.overlay.medium,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,
   },
   scopeBadgeDark: {

@@ -11,6 +11,7 @@ import { colors, darkColors, spacing, shadows, layout, typography } from '@/them
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { TAB_BAR_HEIGHT, GRADIENT_HEIGHT } from '@/shared/ui/BottomTabBar';
 import { WHATS_NEW_SLIDES } from './slides';
+import { pressable } from '@/shared/ui';
 
 export function TourReturnPill() {
   const { t } = useTranslation();
@@ -57,7 +58,7 @@ export function TourReturnPill() {
           </Text>
         )}
         <View style={styles.buttonRow}>
-          <Pressable style={styles.backButton} onPress={resumeTour} hitSlop={8}>
+          <Pressable style={pressable(styles.backButton)} onPress={resumeTour} hitSlop={8}>
             <MaterialCommunityIcons name="arrow-left" size={18} color={primaryColor} />
             <Text style={[styles.backText, { color: primaryColor }]}>
               {t('whatsNew.backToTour')}
@@ -71,7 +72,7 @@ export function TourReturnPill() {
             ]}
           />
 
-          <Pressable style={styles.closeButton} onPress={handleClose} hitSlop={8}>
+          <Pressable style={pressable(styles.closeButton)} onPress={handleClose} hitSlop={8}>
             <Text style={[styles.closeText, { color: mutedColor }]}>{t('whatsNew.closeTour')}</Text>
             <MaterialCommunityIcons name="close" size={16} color={mutedColor} />
           </Pressable>

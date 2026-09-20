@@ -19,7 +19,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { getEngine } from '@/shared/native/engine';
-import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useCutoverSummary } from '@/features/routes/hooks/useCutoverSummary';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type {
@@ -92,9 +92,11 @@ export function describeSettingsReset(reset: CutoverSettingsReset, t: Translate)
     .join(', ');
 }
 
-export function readChangeCardSupport(): ChangeCardSupport | null {
+type EngineHandle = NonNullable<ReturnType<typeof getEngine>>;
+
+export function readChangeCardSupport(engine: EngineHandle): ChangeCardSupport | null {
   try {
-    return getEngine()?.getChangeCardSupport() ?? null;
+    return engine.getChangeCardSupport() ?? null;
   } catch {
     return null;
   }
@@ -107,9 +109,8 @@ export function SectionChangeCardSlide() {
   // it changes at the cutover, and the slide can mount before the root layout
   // has opened the engine at all. An empty deps list left `support` null for
   // the life of the carousel and the slide drawing nothing.
-  const trigger = useEngineSubscription(['sections']);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const support = useMemo(() => readChangeCardSupport(), [trigger]);
+  const readSupport = useEngineRead(['sections']);
+  const support = useMemo(() => readSupport(readChangeCardSupport) ?? null, [readSupport]);
   const { phase, isRunning, counts, settingsReset } = useCutoverSummary();
   const rows = support ? ROWS.filter((r) => support[r.flag]) : [];
   if (rows.length === 0) return null;

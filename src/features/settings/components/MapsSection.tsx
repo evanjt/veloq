@@ -4,10 +4,8 @@ import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
-import { type MapStyleType } from '@/features/maps/components';
+import { clearTerrainPreviews, type MapStyleType, useMapPreferences } from '@/features/maps';
 import { MapStylePreviewPicker } from './MapStylePreviewPicker';
-import { clearTerrainPreviews } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { HeatmapRow } from './HeatmapRow';
 import { settingsStyles } from './settingsStyles';
@@ -340,7 +338,7 @@ const styles = StyleSheet.create({
   },
   pill: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm,
   },
   pillText: {

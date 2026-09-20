@@ -9,21 +9,31 @@
 import { Alert } from 'react-native';
 import { i18n } from '@/i18n';
 import * as FileSystem from 'expo-file-system/legacy';
+import { clearDatabaseSidecars, copyDatabaseSet } from './databaseSidecars';
 import { getEngine, getRouteDbPath, getNativeModule } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate } from '@/shared/format/format';
-import { setSetting } from '@/shared/storage';
-import { runDatabaseBackup } from '@/features/settings/lib/runBackup';
+import { setSetting, rememberStoredActivityCount } from '@/shared/storage';
+import {
+  awaitDatabaseBackup,
+  startDatabaseBackup,
+  FOREGROUND_BACKUP_TIMEOUT_MS,
+  type PendingBackup,
+} from '@/features/settings/lib/runBackup';
 import { shareExistingFile } from '@/features/settings/lib/shareFile';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { initializeInsightsStore } from '@/features/insights/store';
-import { migrateTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
+import {
+  initializeHeatmapPreference,
+  migrateTileCacheSettings,
+  reloadCameraOverrides,
+  reloadMapCameraState,
+} from '@/features/maps';
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { initializeKnownSensors } from '@/features/sensors/store';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
 import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
-import { initializeHeatmapPreference } from '@/features/maps/stores/HeatmapPreferenceStore';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
 import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
@@ -33,12 +43,12 @@ import { initializeLanguage } from '@/shared/app/LanguageStore';
 import { initializeTheme } from '@/shared/app/ThemeProvider';
 import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { queryClient } from '@/shared/query/QueryProvider';
-import { reloadCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
-import { reloadMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
 import { clearDatabaseStamps } from '@/shared/storage/databaseStamps';
 import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 import { z } from 'zod';
+import { decodeCoords } from 'veloqrs';
+import type { BackupValidation } from 'veloqrs';
 import { debug } from '@/shared/debug/debug';
 import { rememberCachedAthleteId } from '@/shared/storage/cachedAthleteId';
 
@@ -86,26 +96,17 @@ export async function reinitializeAllStores(): Promise<void> {
   });
 }
 
-const BackupValidationSchema = z.object({
-  schema_version: z.coerce.string(),
-  athlete_id: z.string().nullable(),
-  activity_count: z.number(),
-  // Absent on a binary older than the field. The live database is then the
-  // only comparison left, which is what this replaced.
-  supported_schema_version: z.number().optional(),
-  // Older binaries answer without it, and an undated backup reads as unknown.
-  newest_activity: z.number().nullable().optional(),
-});
+/** What the native probe answers with, the record Rust returns. */
+type ValidateFn = (path: string) => BackupValidation;
 
 /**
  * The live database's schema version, for a binary too old to report its own.
  * Null when the file cannot be read, which is every fresh install.
  */
-function liveSchemaVersion(validateFn: (path: string) => string, dbPath: string): number | null {
+function liveSchemaVersion(validateFn: ValidateFn, dbPath: string): number | null {
   const livePlainPath = dbPath.startsWith('file://') ? dbPath.slice(7) : dbPath;
   try {
-    const liveMeta = BackupValidationSchema.parse(JSON.parse(validateFn(livePlainPath)));
-    return Number(liveMeta.schema_version);
+    return Number(validateFn(livePlainPath).schemaVersion);
   } catch {
     return null;
   }
@@ -162,8 +163,28 @@ function toEpochSeconds(value: number | bigint | null | undefined): number | nul
   return value == null ? null : Number(value);
 }
 
+/**
+ * What an export asked for now answers with: shared, or still being copied.
+ *
+ * A copy that outlives the foreground budget is not a failure, so the athlete
+ * is told it is still running and the file is offered when they come back.
+ */
+export type DatabaseExportOutcome = 'shared' | 'still-running' | 'nothing-pending';
+
+/**
+ * The file a lapsed export still owes the athlete.
+ *
+ * Module state rather than storage on purpose: the copy runs on a Rust thread
+ * in this process, so a file owed cannot outlive the process that is making it.
+ */
+let pendingExportPath: { plain: string; uri: string; copy: PendingBackup } | null = null;
+
 /** Export a full SQLite database snapshot via the OS share sheet. */
-export async function exportDatabaseBackup(): Promise<void> {
+export async function exportDatabaseBackup(
+  options: {
+    timeoutMs?: number;
+  } = {}
+): Promise<DatabaseExportOutcome> {
   const engine = getEngine();
   if (!engine) throw new Error('Engine not initialized');
 
@@ -173,9 +194,44 @@ export async function exportDatabaseBackup(): Promise<void> {
 
   // Strip file:// prefix for Rust (expects plain filesystem path)
   const plainPath = destPath.startsWith('file://') ? destPath.slice(7) : destPath;
-  await runDatabaseBackup(engine, plainPath);
+  const copy = startDatabaseBackup(engine, plainPath);
+  const outcome = await awaitDatabaseBackup(copy, {
+    timeoutMs: options.timeoutMs ?? FOREGROUND_BACKUP_TIMEOUT_MS,
+    onLapse: 'report',
+  });
 
+  if (outcome === 'running') {
+    // The copy and its destination both have to survive the screen, or the
+    // share cannot be offered on return without starting a second copy of the
+    // same database.
+    pendingExportPath = { plain: plainPath, uri: destPath, copy };
+    return 'still-running';
+  }
+
+  pendingExportPath = null;
   await shareExistingFile(destPath, 'application/octet-stream');
+  return 'shared';
+}
+
+/**
+ * Offer the file a lapsed export left behind, if its copy has finished.
+ *
+ * Read when the backup screen mounts. A copy still going stays owed; one that
+ * stopped without finishing is no longer owed and carries the engine's own
+ * message, the same as a copy that failed while being waited on.
+ */
+export async function resumePendingDatabaseExport(): Promise<DatabaseExportOutcome> {
+  const owed = pendingExportPath;
+  if (!owed) return 'nothing-pending';
+
+  if (!owed.copy.settled()) return 'still-running';
+
+  pendingExportPath = null;
+  const failure = owed.copy.failure();
+  if (failure) throw failure;
+
+  await shareExistingFile(owed.uri, 'application/octet-stream');
+  return 'shared';
 }
 
 export interface DatabaseRestoreResult {
@@ -198,42 +254,6 @@ export interface DatabaseRestoreResult {
  * destroyed database. An absent native probe is the only reason validation is
  * skipped - a probe that rejects or throws refuses the restore.
  */
-/**
- * A database is three files, not one. SQLite applies a `-wal` it finds beside a
- * database on the next open, so a copy that names only the main file can leave
- * one belonging to the file it just replaced.
- *
- * Closing the engine first is not enough on its own: a clean close deletes the
- * pair, but only for the last connection, and the backup source
- * (`persistence/export.rs`) and the detection worker each hold one on a
- * background thread. Quarantine already moves all three together
- * (`persistence/mod.rs`), and this is the same shape on the restore side.
- */
-const DB_SIDECARS = ['-wal', '-shm'] as const;
-
-/** Copy `from` and whichever sidecars exist beside it to `to`. */
-async function copyDatabaseSet(from: string, to: string): Promise<void> {
-  await FileSystem.copyAsync({ from: `file://${from}`, to: `file://${to}` });
-  for (const suffix of DB_SIDECARS) {
-    try {
-      const beside = `file://${from}${suffix}`;
-      if ((await FileSystem.getInfoAsync(beside)).exists) {
-        await FileSystem.copyAsync({ from: beside, to: `file://${to}${suffix}` });
-      }
-    } catch {
-      // A sibling that vanished under us is already gone from the set, which
-      // is all the copy needs. The main file is what the caller waits on.
-    }
-  }
-}
-
-/** Remove whichever sidecars sit beside `path`, so none outlives its database. */
-async function clearDatabaseSidecars(path: string): Promise<void> {
-  for (const suffix of DB_SIDECARS) {
-    await FileSystem.deleteAsync(`file://${path}${suffix}`, { idempotent: true }).catch(() => {});
-  }
-}
-
 export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRestoreResult> {
   const dbPath = getRouteDbPath();
   if (!dbPath) {
@@ -264,20 +284,18 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
 
     const currentAthleteId = useAuthStore.getState().athleteId;
     let backupAthleteId: string | null = null;
-    let backupMeta: z.infer<typeof BackupValidationSchema> | null = null;
+    let backupMeta: BackupValidation | null = null;
 
     const nativeModule = getNativeModule();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const validateFn = (nativeModule as any)?.validateBackupDatabase as
-      | ((path: string) => string)
-      | undefined;
+    const validateFn = (nativeModule as any)?.validateBackupDatabase as ValidateFn | undefined;
 
     // Only skip validation when the native probe is entirely absent (older
     // binary). If it exists and rejects or throws, refuse - never overwrite the
     // live DB on a bad backup.
     if (validateFn) {
       try {
-        backupMeta = BackupValidationSchema.parse(JSON.parse(validateFn(plainTempPath)));
+        backupMeta = validateFn(plainTempPath);
       } catch (e) {
         await cleanupTemp();
         log.warn('Backup validation failed - refusing to restore', e);
@@ -288,11 +306,11 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
         };
       }
 
-      backupAthleteId = backupMeta.athlete_id;
+      backupAthleteId = backupMeta.athleteId ?? null;
 
-      // An empty/garbage SQLite file reports activity_count 0 - refuse so a bad
+      // An empty/garbage SQLite file reports activityCount 0 - refuse so a bad
       // file can't silently wipe the live database.
-      if (backupMeta.activity_count <= 0) {
+      if (backupMeta.activityCount <= 0) {
         await cleanupTemp();
         log.warn('Backup contains no activities - refusing to restore');
         return {
@@ -307,9 +325,13 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       // newer code added and fails at query time rather than at open. The
       // comparison is against this build's own version, which a fresh install
       // can answer and an unreadable live database cannot.
-      const supported =
-        backupMeta.supported_schema_version ?? liveSchemaVersion(validateFn, dbPath);
-      if (supported !== null && Number(backupMeta.schema_version) > supported) {
+      // The field rides the record, so a shipped build always carries it. A
+      // development bundle can still meet a stale `.so` that answers without
+      // one, and the live database is then the only comparison left.
+      const supported = Number.isFinite(backupMeta.supportedSchemaVersion)
+        ? backupMeta.supportedSchemaVersion
+        : liveSchemaVersion(validateFn, dbPath);
+      if (supported !== null && Number(backupMeta.schemaVersion) > supported) {
         await cleanupTemp();
         log.warn('Backup schema is newer than this app supports - refusing to restore');
         return {
@@ -342,8 +364,8 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     // nothing on it has nothing to trade and is not asked.
     if ((engine?.getActivityCount() ?? 0) > 0) {
       const accepted = await confirmDatabaseReplacement({
-        backupActivityCount: backupMeta?.activity_count ?? null,
-        backupNewestActivity: backupMeta?.newest_activity ?? null,
+        backupActivityCount: backupMeta?.activityCount ?? null,
+        backupNewestActivity: toEpochSeconds(backupMeta?.newestActivity),
         liveActivityCount: engine?.getActivityCount() ?? 0,
         liveNewestActivity: toEpochSeconds(engine?.getStats()?.newestDate),
       });
@@ -445,6 +467,12 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
         });
         await clearDatabaseSidecars(backupPath);
       }
+
+      // The login screen cannot read this off a closed engine, and a restore
+      // taken from that screen is exactly where it has to be right. Best-effort:
+      // the database is already in place, so a mirror that will not write is a
+      // worse dialog later, never a failed restore now.
+      await rememberStoredActivityCount(activityCount).catch(() => {});
 
       return {
         success: true,
@@ -621,8 +649,8 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
         }
 
         // Check if source activity exists
-        const track = engine.getGpsTrack(cs.sourceActivityId);
-        if (!track || track.length === 0) {
+        const track = decodeCoords(engine.getGpsTrack(cs.sourceActivityId));
+        if (track.length === 0) {
           result.sectionsFailed.push({
             name: cs.name || 'Unnamed',
             reason: 'Source activity not synced',

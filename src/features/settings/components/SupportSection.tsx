@@ -11,6 +11,7 @@ import { getCrashLog, formatCrashLog } from '@/shared/debug/crashLog';
 import { shareFile } from '@/features/settings/lib/shareFile';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
+import { pressable } from '@/shared/ui';
 
 const FORUM_URL =
   'https://forum.intervals.icu/t/veloq-route-and-section-matching-mapping-app/120283';
@@ -60,7 +61,7 @@ export function SupportSection() {
         <View style={styles.actionRow}>
           <Pressable
             onPress={handleReview}
-            style={[styles.actionButton, isDark && styles.actionButtonDark]}
+            style={pressable([styles.actionButton, isDark && styles.actionButtonDark])}
           >
             <MaterialCommunityIcons name="star" size={20} color={textColor} />
             <Text style={[styles.actionButtonText, { color: textColor }]}>
@@ -69,14 +70,14 @@ export function SupportSection() {
           </Pressable>
           <Pressable
             onPress={() => WebBrowser.openBrowserAsync(`${GITHUB_ISSUES_URL}?labels=enhancement`)}
-            style={[styles.actionButton, isDark && styles.actionButtonDark]}
+            style={pressable([styles.actionButton, isDark && styles.actionButtonDark])}
           >
             <MaterialCommunityIcons name="lightbulb-outline" size={20} color={textColor} />
             <Text style={[styles.actionButtonText, { color: textColor }]}>{t('support.idea')}</Text>
           </Pressable>
           <Pressable
             onPress={() => WebBrowser.openBrowserAsync(FORUM_URL)}
-            style={[styles.actionButton, isDark && styles.actionButtonDark]}
+            style={pressable([styles.actionButton, isDark && styles.actionButtonDark])}
           >
             <MaterialCommunityIcons name="forum-outline" size={20} color={textColor} />
             <Text style={[styles.actionButtonText, { color: textColor }]}>
@@ -108,7 +109,7 @@ export function SupportSection() {
             <Pressable
               testID="support-sponsor-button"
               onPress={() => WebBrowser.openBrowserAsync(GITHUB_SPONSORS_URL)}
-              style={[styles.sponsorButton, isDark && styles.sponsorButtonDark]}
+              style={pressable([styles.sponsorButton, isDark && styles.sponsorButtonDark])}
             >
               <MaterialCommunityIcons name="github" size={18} color={textColor} />
               <Text style={[styles.sponsorText, { color: textColor }]}>
@@ -122,7 +123,7 @@ export function SupportSection() {
         {/* intervals.icu row */}
         <Pressable
           onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/settings/subscription')}
-          style={styles.row}
+          style={pressable(styles.row)}
         >
           <MaterialCommunityIcons name="heart" size={20} color={colors.chartPink} />
           <View style={styles.rowTextGroup}>
@@ -136,7 +137,11 @@ export function SupportSection() {
 
         <View style={[styles.divider, { backgroundColor: dividerColor }]} />
 
-        <Pressable testID="support-crash-log" onPress={handleShareCrashLog} style={styles.row}>
+        <Pressable
+          testID="support-crash-log"
+          onPress={handleShareCrashLog}
+          style={pressable(styles.row)}
+        >
           <MaterialCommunityIcons name="bug-outline" size={20} color={mutedColor} />
           <Text style={[styles.rowText, { color: textColor }]}>{t('support.shareCrashLog')}</Text>
           <MaterialCommunityIcons name="share-variant" size={18} color={mutedColor} />
@@ -166,7 +171,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'column',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
     paddingVertical: spacing.sm,
     backgroundColor: colors.background,
     borderRadius: layout.borderRadiusSm,

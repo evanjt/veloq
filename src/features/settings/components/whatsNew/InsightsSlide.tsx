@@ -3,23 +3,31 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
 
-const INSIGHT_ITEMS = [
-  { icon: 'trophy-outline', label: 'Section PRs', color: colors.warning },
+const insightItems = (isDark: boolean) => [
+  {
+    icon: 'trophy-outline',
+    label: 'Section PRs',
+    color: isDark ? darkColors.warningAmber : colors.warningAmber,
+  },
   { icon: 'heart-pulse', label: 'Efficiency trends', color: colors.chartHrv },
   { icon: 'lightning-bolt', label: 'Fitness milestones', color: colors.walk },
-  { icon: 'trending-up', label: 'HRV trends', color: colors.success },
+  {
+    icon: 'trending-up',
+    label: 'HRV trends',
+    color: isDark ? darkColors.successDeep : colors.successDeep,
+  },
 ];
 
 export function InsightsSlide() {
   const { isDark } = useTheme();
   const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
-  const bgColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
+  const bgColor = isDark ? colorWithOpacity(ink.white, 0.06) : colorWithOpacity(ink.black, 0.04);
 
   return (
     <View style={styles.container}>
-      {INSIGHT_ITEMS.map((item) => (
+      {insightItems(isDark).map((item) => (
         <View key={item.label} style={[styles.row, { backgroundColor: bgColor }]}>
           <MaterialCommunityIcons
             name={item.icon as keyof typeof MaterialCommunityIcons.glyphMap}
@@ -43,7 +51,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: layout.borderRadiusMd,
   },

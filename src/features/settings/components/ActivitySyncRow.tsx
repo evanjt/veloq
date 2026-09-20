@@ -11,19 +11,24 @@
 
 import React, { useCallback, useState } from 'react';
 import { SyncState } from 'veloqrs';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { getEngine } from '@/shared/native/engine';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
+import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
+import { formatLibraryCoverage } from '@/shared/format/libraryCoverage';
+import { formatSyncProgress } from '@/shared/format/syncProgress';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { pressable } from '@/shared/ui';
 
 export function ActivitySyncRow() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const status = useSyncStatus();
+  const coverage = useLibraryCoverage();
   const isSyncing = status?.state === SyncState.Syncing;
   const [stopping, setStopping] = useState(false);
   const [wasSyncing, setWasSyncing] = useState(isSyncing);
@@ -44,26 +49,39 @@ export function ActivitySyncRow() {
   if (!isSyncing) return null;
 
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const total = status?.total ?? 0;
+
+  // The run's own queue, then the library it is a slice of: a run that has
+  // fetched everything it queued is not a library that is fully downloaded.
+  const libraryLines = formatLibraryCoverage(coverage, t);
 
   return (
     <View style={styles.row} testID="activity-sync-row">
       <ActivityIndicator size="small" color={textSecondary} />
-      <Text style={[styles.label, { color: textSecondary }]} testID="sync-progress-label">
-        {total > 0
-          ? t('settings.syncActivitiesProgress', { completed: status?.completed ?? 0, total })
-          : t('settings.syncActivities')}
-      </Text>
-      <TouchableOpacity
+      <View style={styles.labels}>
+        <Text style={[styles.label, { color: textSecondary }]} testID="sync-progress-label">
+          {formatSyncProgress(status, t)}
+        </Text>
+        {libraryLines.length > 0 && (
+          <View testID="sync-library-coverage">
+            {libraryLines.map((line) => (
+              <Text key={line} style={[styles.library, { color: textSecondary }]}>
+                {line}
+              </Text>
+            ))}
+          </View>
+        )}
+      </View>
+      <Pressable
         onPress={stop}
         disabled={stopping}
         accessibilityRole="button"
         testID="sync-stop-button"
+        style={pressable()}
       >
         <Text style={[styles.stop, stopping && { color: textSecondary }]} testID="sync-stop-label">
           {stopping ? t('settings.syncStopping') : t('settings.syncStop')}
         </Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }
@@ -76,9 +94,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
+  labels: {
+    flex: 1,
+  },
   label: {
     ...typography.bodySmall,
-    flex: 1,
+  },
+  library: {
+    ...typography.caption,
   },
   stop: {
     ...typography.bodySmall,

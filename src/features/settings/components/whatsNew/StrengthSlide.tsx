@@ -5,7 +5,7 @@ import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import type { ParseKeys } from 'i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
 
 // Illustrative values. The four groups are the coarse ones the body diagram
 // rolls its fifteen muscle slugs up into, so `MUSCLE_DISPLAY_NAMES` has no key
@@ -24,14 +24,17 @@ const GAP = 6;
 const CANVAS_WIDTH = BAR_WIDTH * 2 + GAP;
 const CANVAS_HEIGHT = MUSCLE_GROUPS.length * ROW_HEIGHT;
 
+// Both bars carry a week each and no value is printed, so the pair is the only
+// carrier. `walk` already holds 3:1 on both themes; the aqua does not, so the
+// right-hand week takes the mark tone, legend dot and bar together.
 const LEFT_COLOR = colors.walk;
-const RIGHT_COLOR = colors.swim;
+const RIGHT_COLOR = colors.markCyan;
 
 export function StrengthSlide() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
-  const trackColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const trackColor = isDark ? colorWithOpacity(ink.white, 0.08) : colorWithOpacity(ink.black, 0.06);
 
   return (
     <View style={styles.container}>
@@ -119,7 +122,7 @@ const styles = StyleSheet.create({
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   legendDot: {
     width: 8,

@@ -10,24 +10,26 @@
  * derived-data clear.
  */
 
-/** What the engine falls back to when the athlete has never chosen. */
-export const DEFAULT_STREAM_RETENTION_DAYS = 90;
-
 /** Keep everything, which is the widest the window goes. */
 export const STREAM_RETENTION_ALL = 0;
 
 /**
- * Four windows and the open one, in the order the row walks them. The default
- * is in the list so the cycle passes back through it rather than needing the
- * reset to get there.
+ * What the engine falls back to when the athlete has never chosen: everything.
+ *
+ * This was 90. The window was sized against the raw JSON the server sends, and
+ * the engine packs it about ten times smaller, so 90 days was discarding the
+ * heart rate, power and cadence of every older activity to save about 16 MB on
+ * a 1,595-activity library. Those samples are what route matching compares
+ * attempts with.
  */
-export const STREAM_RETENTION_CHOICES_DAYS = [
-  30,
-  DEFAULT_STREAM_RETENTION_DAYS,
-  180,
-  365,
-  STREAM_RETENTION_ALL,
-];
+export const DEFAULT_STREAM_RETENTION_DAYS = STREAM_RETENTION_ALL;
+
+/**
+ * Four windows and the open one, in the order the row walks them. The default
+ * is the last of them, so the cycle passes back through it rather than needing
+ * the reset to get there.
+ */
+export const STREAM_RETENTION_CHOICES_DAYS = [30, 90, 180, 365, STREAM_RETENTION_ALL];
 
 /**
  * The window after this one. A value the engine reports that is not one of the

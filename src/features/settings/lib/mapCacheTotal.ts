@@ -8,7 +8,7 @@
  * number: the sum was one store wearing the name of three.
  */
 
-import type { TileCacheStats } from '@/features/maps/lib/terrainSnapshotEvents';
+import { type TileCacheStats } from '@/features/maps';
 
 /** The stores the row folds in, in the order the label names them. */
 export const MAP_CACHE_SOURCES = ['previews', 'heatmap', 'tiles'] as const;

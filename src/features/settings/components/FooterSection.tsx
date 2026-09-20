@@ -10,7 +10,9 @@ import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { getAllSlides } from '@/features/settings/components/whatsNew/slides';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { buildCommit, formatVersionLine } from '@/shared/format/buildStamp';
 import { settingsStyles } from './settingsStyles';
+import { pressable } from '@/shared/ui';
 
 export function FooterSection() {
   const { isDark } = useTheme();
@@ -71,12 +73,13 @@ export function FooterSection() {
         <MaterialCommunityIcons name="chevron-right" size={24} color={mutedColor} />
       </TouchableOpacity>
 
-      <Pressable onPress={handleVersionTap}>
+      <Pressable onPress={handleVersionTap} style={pressable()}>
         <Text
           testID="settings-version-text"
           style={[styles.versionText, isDark && settingsStyles.textMuted]}
         >
-          {t('settings.version')} {Constants.expoConfig?.version ?? '0.0.1'}
+          {t('settings.version')}{' '}
+          {formatVersionLine(Constants.expoConfig?.version ?? '0.0.1', buildCommit())}
         </Text>
       </Pressable>
 
@@ -138,7 +141,7 @@ const styles = StyleSheet.create({
   toggleDescription: {
     ...typography.bodyCompact,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   versionText: {
     ...typography.caption,

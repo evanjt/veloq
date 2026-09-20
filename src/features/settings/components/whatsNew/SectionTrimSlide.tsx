@@ -10,7 +10,7 @@ import {
   DashPathEffect,
 } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, colorWithOpacity, ink } from '@/theme';
 
 const CANVAS_WIDTH = 240;
 const CANVAS_HEIGHT = 80;
@@ -48,8 +48,10 @@ function buildPath(values: number[]): string {
 export function SectionTrimSlide() {
   const { isDark } = useTheme();
   const primaryColor = isDark ? darkColors.primary : colors.primary;
-  const dimColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.10)';
-  const originalMarkerColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.20)';
+  const dimColor = isDark ? colorWithOpacity(ink.white, 0.15) : colorWithOpacity(ink.black, 0.1);
+  const originalMarkerColor = isDark
+    ? colorWithOpacity(ink.white, 0.35)
+    : colorWithOpacity(ink.black, 0.2);
   const handleColor = primaryColor;
 
   const path = buildPath(ELEVATION);

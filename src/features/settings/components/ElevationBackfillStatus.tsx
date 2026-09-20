@@ -29,7 +29,17 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { getEngine } from '@/shared/native/engine';
 import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
-import { colors, darkColors, spacing, typography, layout, shadows } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  typography,
+  layout,
+  shadows,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
+import { pressable } from '@/shared/ui';
 
 export function ElevationBackfillStatus() {
   const { t } = useTranslation();
@@ -107,7 +117,7 @@ export function ElevationBackfillStatus() {
 
       {pausable && (
         <Pressable
-          style={styles.pauseRow}
+          style={pressable(styles.pauseRow)}
           onPress={() => getEngine()?.pauseElevationBackfill()}
           testID="elevation-backfill-pause"
         >
@@ -120,7 +130,7 @@ export function ElevationBackfillStatus() {
 
       {isPaused && (
         <Pressable
-          style={styles.pauseRow}
+          style={pressable(styles.pauseRow)}
           onPress={() => getEngine()?.resumeElevationBackfill()}
           testID="elevation-backfill-resume"
         >
@@ -141,7 +151,7 @@ export function ElevationBackfillStatus() {
       )}
 
       <Pressable
-        style={styles.whyRow}
+        style={pressable(styles.whyRow)}
         onPress={() => setShowWhy(true)}
         testID="elevation-backfill-why"
       >
@@ -173,7 +183,7 @@ export function ElevationBackfillStatus() {
             </RNText>
             <View style={styles.dialogActions}>
               <Pressable
-                style={styles.closeBtn}
+                style={pressable(styles.closeBtn)}
                 onPress={() => setShowWhy(false)}
                 testID="elevation-backfill-why-close"
               >
@@ -198,7 +208,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   runningText: {
-    gap: 2,
+    gap: spacing.xxs,
   },
   line: {
     ...typography.bodySmall,
@@ -232,7 +242,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,

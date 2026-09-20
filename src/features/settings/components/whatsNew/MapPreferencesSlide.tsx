@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, SegmentedButtons } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import { useMapPreferences } from '@/features/maps';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { MapStylePreviewPicker } from '@/features/settings/components/MapStylePreviewPicker';

@@ -1,14 +1,27 @@
-import React, { useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatFullDate, formatFileSize } from '@/shared/format/format';
-import { type TileCacheStats } from '@/features/maps/lib/terrainSnapshotEvents';
-import { TILE_CACHE_BUDGET_CHOICES_MB } from '@/features/maps/lib/tileCacheBudget';
-import { useTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
+import {
+  TILE_CACHE_BUDGET_CHOICES_MB,
+  type TileCacheStats,
+  useTileCacheSettings,
+} from '@/features/maps';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { mapCacheTotal } from '../lib/mapCacheTotal';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  opacity,
+  spacing,
+  layout,
+  typography,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 
+import { StreamBackfillRow } from './StreamBackfillRow';
 import { StreamHistoryRow } from './StreamHistoryRow';
 
 function formatDateOrDash(dateStr: string | null): string {
@@ -21,8 +34,6 @@ function formatDateOrDash(dateStr: string | null): string {
 type SegmentKey =
   | 'settings.storageDatabase'
   | 'settings.storageHeatmap'
-  | 'settings.storageSatellite'
-  | 'settings.storageTerrain'
   | 'settings.storageVector'
   | 'settings.storageGround'
   | 'settings.storagePreviews';
@@ -64,52 +75,40 @@ function StorageBreakdownBar({
       result.push({
         labelKey: 'settings.storageHeatmap',
         bytes: heatmapCacheSize,
-        color: colors.cautionOrange,
-      });
-    }
-    if (tileCacheStats?.satellite?.totalBytes) {
-      result.push({
-        labelKey: 'settings.storageSatellite',
-        bytes: tileCacheStats.satellite.totalBytes,
-        color: colors.chartPurple,
-      });
-    }
-    if (tileCacheStats?.terrain?.totalBytes) {
-      result.push({
-        labelKey: 'settings.storageTerrain',
-        bytes: tileCacheStats.terrain.totalBytes,
-        color: colors.chartGreen,
+        color: colors.markOrange,
       });
     }
     if (tileCacheStats?.vector?.totalBytes) {
       result.push({
         labelKey: 'settings.storageVector',
         bytes: tileCacheStats.vector.totalBytes,
-        color: colors.chartCyan,
+        color: colors.markCyan,
       });
     }
     if (tileCacheStats?.ground?.totalBytes) {
       result.push({
         labelKey: 'settings.storageGround',
         bytes: tileCacheStats.ground.totalBytes,
-        color: colors.chartAmber,
+        color: colors.markAmber,
       });
     }
     if (terrainCacheSize > 0) {
       result.push({
         labelKey: 'settings.storagePreviews',
         bytes: terrainCacheSize,
-        color: colors.chartYellow,
+        color: colors.markYellow,
       });
     }
     return result;
   }, [routesSize, tileCacheStats, terrainCacheSize, heatmapCacheSize]);
 
+  // The bar segment and its legend dot read the one colour, so the mark tones
+  // keep the two in step while making the segment visible on the light theme.
   const totalCacheBytes = segments.reduce((sum, s) => sum + s.bytes, 0);
 
   if (totalCacheBytes === 0) return null;
 
-  const freeColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
+  const freeColor = isDark ? colorWithOpacity(ink.white, 0.12) : colorWithOpacity(ink.black, 0.08);
   const totalDevice = freeStorage !== null ? totalCacheBytes + freeStorage : 0;
   const deviceUsagePct = totalDevice > 0 ? (totalCacheBytes / totalDevice) * 100 : 0;
 
@@ -154,7 +153,13 @@ function StorageBreakdownBar({
             />
             <View style={[styles.deviceUsageBarFree, { backgroundColor: freeColor }]} />
           </View>
-          <Text style={[styles.storageLegendText, { marginTop: 2 }, isDark && styles.textMuted]}>
+          <Text
+            style={[
+              styles.storageLegendText,
+              { marginTop: spacing.xxs },
+              isDark && styles.textMuted,
+            ]}
+          >
             {formatFileSize(totalCacheBytes)} of {formatFileSize(totalDevice)} used
           </Text>
         </>
@@ -207,15 +212,24 @@ export function StorageStatsPanel({
   const budgetMb = useTileCacheSettings((state) => state.budgetMb);
   const setBudgetMb = useTileCacheSettings((state) => state.setBudgetMb);
 
-  // A cycle rather than a picker: four values, and the row already reads as one
-  // line beside the size it governs.
-  const cycleBudget = useCallback(() => {
-    const next =
-      TILE_CACHE_BUDGET_CHOICES_MB[
-        (TILE_CACHE_BUDGET_CHOICES_MB.indexOf(budgetMb) + 1) % TILE_CACHE_BUDGET_CHOICES_MB.length
-      ];
-    setBudgetMb(next);
-  }, [budgetMb, setBudgetMb]);
+  // A picker, not a cycle. Four rungs on a tap is a guessing game: reaching the
+  // top from the bottom means tapping past two values you did not want, and
+  // nothing on screen says what the rungs are until you have been through them.
+  const [pickingBudget, setPickingBudget] = useState(false);
+  const chooseBudget = useCallback(
+    (mb: number) => {
+      setBudgetMb(mb);
+      setPickingBudget(false);
+    },
+    [setBudgetMb, setPickingBudget]
+  );
+
+  // What the tiles hold against what they are allowed, which is the question
+  // the control is answering. A store that has not reported is a floor, not a
+  // zero, the same way the total above says so.
+  const budgetBytes = budgetMb * 1024 * 1024;
+  const usedBytes = tileCacheStats?.totalBytes ?? 0;
+  const usedShare = budgetBytes > 0 ? Math.min(1, usedBytes / budgetBytes) : 0;
 
   return (
     <>
@@ -303,6 +317,8 @@ export function StorageStatsPanel({
 
       <StreamHistoryRow isDark={isDark} />
 
+      <StreamBackfillRow isDark={isDark} />
+
       {/* Everything the map draws from, which is previews, heatmap and tiles. */}
       <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
         <Text
@@ -330,22 +346,98 @@ export function StorageStatsPanel({
         </View>
       </View>
 
-      {/* The one control Q23 left: how much of the device the tiles may hold. */}
-      <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-        <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
-          {t('settings.tileCacheLimit')}
-        </Text>
-        <TouchableOpacity
-          testID="settings-tile-cache-limit"
-          onPress={cycleBudget}
-          style={styles.infoValueRow}
-          accessibilityRole="button"
-        >
-          <Text style={[styles.infoValue, styles.statLabelClickable]}>
-            {formatFileSize(budgetMb * 1024 * 1024)} ›
+      {/* The one storage control the athlete has: how much of the device the
+          tiles may hold, what raising it buys, and what it costs. */}
+      <View style={[styles.infoRow, styles.budgetRow, isDark && styles.infoRowDark]}>
+        <View style={styles.budgetHeader}>
+          <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+            {t('settings.tileCacheLimit')}
           </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            testID="settings-tile-cache-limit"
+            onPress={() => setPickingBudget(true)}
+            style={styles.infoValueRow}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.infoValue, styles.statLabelClickable]}>
+              {formatFileSize(budgetBytes)} ›
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <Text
+          testID="settings-tile-cache-subtitle"
+          style={[styles.budgetHint, isDark && styles.textMuted]}
+        >
+          {t('settings.tileCacheLimitHint')}
+        </Text>
+        <View style={[styles.budgetTrack, isDark && styles.budgetTrackDark]}>
+          <View style={[styles.budgetFill, { flex: usedShare }]} />
+          <View style={{ flex: 1 - usedShare }} />
+        </View>
+        <View style={styles.budgetFooter}>
+          <Text testID="settings-tile-cache-used" style={styles.budgetFooterText}>
+            {tileCacheStats
+              ? t('settings.tileCacheUsedOfBudget', {
+                  used: formatFileSize(usedBytes),
+                  budget: formatFileSize(budgetBytes),
+                })
+              : t('settings.tileCacheUsedOfBudgetAtLeast', {
+                  used: formatFileSize(usedBytes),
+                  budget: formatFileSize(budgetBytes),
+                })}
+          </Text>
+          {freeStorage !== null && (
+            <Text testID="settings-tile-cache-free" style={styles.budgetFooterText}>
+              {t('settings.tileCacheFree', { size: formatFileSize(freeStorage) })}
+            </Text>
+          )}
+        </View>
       </View>
+
+      <Modal
+        visible={pickingBudget}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickingBudget(false)}
+      >
+        <TouchableOpacity
+          testID="settings-tile-cache-picker"
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setPickingBudget(false)}
+        >
+          <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
+            <Text style={[styles.modalTitle, isDark && styles.textLight]}>
+              {t('settings.tileCacheLimit')}
+            </Text>
+            {TILE_CACHE_BUDGET_CHOICES_MB.map((mb) => {
+              const selected = mb === budgetMb;
+              return (
+                <TouchableOpacity
+                  key={mb}
+                  testID={`settings-tile-cache-choice-${mb}`}
+                  style={[styles.modalOption, selected && styles.modalOptionSelected]}
+                  onPress={() => chooseBudget(mb)}
+                  activeOpacity={0.6}
+                >
+                  <Text
+                    style={[
+                      styles.modalOptionText,
+                      isDark && styles.textLight,
+                      selected && { color: colors.primary },
+                    ]}
+                  >
+                    {formatFileSize(mb * 1024 * 1024)}
+                  </Text>
+                  {selected && (
+                    <MaterialCommunityIcons name="check" size={18} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Storage breakdown bar */}
       <StorageBreakdownBar
@@ -378,7 +470,7 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   statDivider: {
     width: 1,
@@ -387,7 +479,7 @@ const styles = StyleSheet.create({
   statLabelClickable: {
     fontSize: typography.caption.fontSize,
     color: colors.primary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   infoRow: {
     flexDirection: 'row',
@@ -400,6 +492,80 @@ const styles = StyleSheet.create({
   },
   infoRowDark: {
     borderTopColor: darkColors.border,
+  },
+  // The budget row is the only one that stacks: a label and its value, then
+  // what raising it buys, then what it holds against what it may.
+  budgetRow: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: spacing.xs,
+  },
+  budgetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  budgetHint: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+  },
+  budgetTrack: {
+    flexDirection: 'row',
+    height: 6,
+    borderRadius: layout.borderRadiusFull,
+    overflow: 'hidden',
+    backgroundColor: colors.borderLight,
+  },
+  budgetTrackDark: {
+    backgroundColor: darkColors.border,
+  },
+  budgetFill: {
+    backgroundColor: colors.primary,
+  },
+  budgetFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  budgetFooterText: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: opacity.overlay.scrim,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadiusLg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  modalContentDark: {
+    backgroundColor: darkColors.surfaceElevated,
+  },
+  modalTitle: {
+    fontSize: typography.cardTitle.fontSize,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: layout.borderRadiusMd,
+    minHeight: layout.minTapTarget,
+  },
+  modalOptionSelected: {
+    backgroundColor: colors.backgroundAlt,
+  },
+  modalOptionText: {
+    fontSize: typography.body.fontSize,
+    color: colors.textPrimary,
   },
   infoLabel: {
     fontSize: typography.bodySmall.fontSize,
@@ -417,7 +583,7 @@ const styles = StyleSheet.create({
   },
   clearInlineButton: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
   clearInlineText: {
     fontSize: typography.bodyCompact.fontSize,
@@ -468,7 +634,7 @@ const styles = StyleSheet.create({
   storageLegendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   storageLegendDot: {
     width: 8,

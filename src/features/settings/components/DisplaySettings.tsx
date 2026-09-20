@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Pressable, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SegmentedButtons } from 'react-native-paper';
@@ -19,6 +19,7 @@ import {
   type IntervalsUnitPreferences,
   getIntervalsPreferenceLabel,
 } from '@/shared/app/UnitPreferenceStore';
+import { pressable } from '@/shared/ui';
 
 // LanguageChoice from useLanguageStore (always a string now, no System option)
 type LanguageChoice = string;
@@ -212,19 +213,19 @@ function DisplaySettingsComponent({
                   isDark && styles.languageRowDark,
                 ]}
               >
-                <TouchableOpacity
+                <Pressable
                   onPress={() => {
                     // For languages with variants, use the defaultVariant (or first variant)
                     const valueToUse =
                       lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value;
                     onLanguageChange(valueToUse);
                   }}
-                  style={styles.languageLabelContainer}
+                  style={pressable(styles.languageLabelContainer)}
                 >
                   <Text style={[styles.languageLabel, isDark && settingsStyles.textLight]}>
                     {lang.label}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
                 {lang.variants && (
                   <View style={styles.variantChips}>
                     {lang.variants.map((variant) => {
@@ -234,9 +235,9 @@ function DisplaySettingsComponent({
                           isEnglishVariant(language) &&
                           getEnglishVariantValue(language) === variant.value);
                       return (
-                        <TouchableOpacity
+                        <Pressable
                           key={variant.value}
-                          style={[
+                          style={pressable([
                             styles.variantChip,
                             isDark && styles.variantChipDark,
                             // Non-selected dialect: gold dotted border
@@ -256,7 +257,7 @@ function DisplaySettingsComponent({
                               isVariantSelected &&
                               isDark &&
                               styles.variantChipDialectSelectedDark,
-                          ]}
+                          ])}
                           onPress={() => {
                             onLanguageChange(variant.value);
                           }}
@@ -270,7 +271,7 @@ function DisplaySettingsComponent({
                           >
                             {variant.label}
                           </Text>
-                        </TouchableOpacity>
+                        </Pressable>
                       );
                     })}
                   </View>
@@ -452,7 +453,7 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   variantChip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm + 4,
     backgroundColor: colors.background,
@@ -491,7 +492,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   variantChipTextSelected: {
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
   },
   infoText: {
     ...typography.bodyCompact,
@@ -500,7 +501,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   dialectLegendChip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm + 4,
     borderWidth: 1.5,
