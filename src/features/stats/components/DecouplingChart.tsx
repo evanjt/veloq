@@ -3,7 +3,16 @@ import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, typography, spacing, layout } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  layout,
+  verdictColor,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import { calculateDecoupling } from '../lib/decoupling';
 
 interface DecouplingChartProps {
@@ -61,7 +70,7 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
         <Text
           style={[
             styles.decouplingValue,
-            { color: analysis.isGood ? colors.success : colors.warning },
+            { color: verdictColor(analysis.isGood ? 'positive' : 'caution', isDark) },
           ]}
         >
           {analysis.decoupling.toFixed(1)}%
@@ -149,7 +158,7 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
             <Text
               style={[
                 styles.dataValue,
-                { color: analysis.isGood ? colors.primary : colors.warning },
+                { color: analysis.isGood ? colors.primary : verdictColor('caution', isDark) },
               ]}
             >
               {analysis.secondHalfEf.toFixed(2)}
@@ -196,7 +205,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   statusBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
   },
@@ -216,7 +225,7 @@ const styles = StyleSheet.create({
   halfSection: {
     flex: 1,
     padding: spacing.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    backgroundColor: colorWithOpacity(ink.black, 0.02),
     borderRadius: layout.borderRadiusSm,
   },
   firstHalf: {
@@ -254,10 +263,10 @@ const styles = StyleSheet.create({
   dividerLine: {
     width: 1,
     height: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: colorWithOpacity(ink.black, 0.1),
   },
   dividerLineDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: colorWithOpacity(ink.white, 0.1),
   },
   arrow: {
     fontSize: typography.body.fontSize,

@@ -4,9 +4,11 @@ import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CurveChart, useChartColors } from '@/shared/charts';
-import { colors, typography, spacing, chartStyles, layout } from '@/theme';
+import { colors, typography, spacing, chartStyles, layout, colorWithOpacity } from '@/theme';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman } from '@/shared/format/format';
+import { RangeCoverage } from 'veloqrs';
+import { pressable } from '@/shared/ui';
 
 interface PowerCurveChartProps {
   sport?: string;
@@ -19,7 +21,7 @@ interface PowerCurveChartProps {
   ftp?: number | null;
 }
 
-const FTP_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
+const FTP_LINE_COLOR = colorWithOpacity(colors.chartGuideLine, 0.6);
 const X_LABELS = ['5s', '1m', '5m', '20m', '1h'];
 
 interface ChartPoint {
@@ -69,7 +71,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   const chartColors = useChartColors();
   const lineColor = color ?? chartColors.powerCurve;
 
-  const { data: curve, isLoading, error } = usePowerCurve({ sport, days });
+  const { data: curve, isLoading, error, coverage } = usePowerCurve({ sport, days });
 
   // Per kilogram is the one comparison that survives a change of body weight.
   // Offered only when the body carried the series, and never persisted: it is
@@ -193,7 +195,9 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.powerCurve')}</Text>
         <View style={styles.emptyState}>
           <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-            {t('stats.noPowerData')}
+            {coverage === RangeCoverage.NotFetched
+              ? t('stats.rangeNotDownloaded')
+              : t('stats.noPowerData')}
           </Text>
         </View>
       </View>
@@ -213,7 +217,10 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
             <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
               {t('stats.time')}
             </Text>
-            <Text testID="power-curve-duration" style={[styles.valueNumber, { color: lineColor }]}>
+            <Text
+              testID="power-curve-duration"
+              style={[styles.valueNumber, isDark && styles.textLight]}
+            >
               {formatDurationHuman(displayData.secs)}
             </Text>
           </View>
@@ -221,7 +228,10 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
             <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
               {t('activity.power')}
             </Text>
-            <Text testID="power-curve-watts" style={[styles.valueNumber, { color: lineColor }]}>
+            <Text
+              testID="power-curve-watts"
+              style={[styles.valueNumber, isDark && styles.textLight]}
+            >
               {formatValue(displayData.watts, perKg, unit)}
             </Text>
           </View>
@@ -235,13 +245,13 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
             accessibilityRole="button"
             accessibilityState={{ selected: !perKg }}
             onPress={() => setPerKgWanted(false)}
-            style={[styles.unitPill, !perKg && styles.unitPillActive]}
+            style={pressable([styles.unitPill, !perKg && styles.unitPillActive])}
           >
             <Text
               style={[
                 styles.unitText,
                 isDark && chartStyles.textDark,
-                !perKg && { color: lineColor },
+                !perKg && styles.unitTextActive,
               ]}
             >
               {t('units.watts')}
@@ -252,13 +262,13 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
             accessibilityRole="button"
             accessibilityState={{ selected: perKg }}
             onPress={() => setPerKgWanted(true)}
-            style={[styles.unitPill, perKg && styles.unitPillActive]}
+            style={pressable([styles.unitPill, perKg && styles.unitPillActive])}
           >
             <Text
               style={[
                 styles.unitText,
                 isDark && chartStyles.textDark,
-                perKg && { color: lineColor },
+                perKg && styles.unitTextActive,
               ]}
             >
               {unit}
@@ -342,7 +352,7 @@ const styles = StyleSheet.create({
   valueLabel: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
-    marginBottom: 1,
+    marginBottom: spacing.xxs,
   },
   valueNumber: {
     fontSize: typography.bodySmall.fontSize,
@@ -371,7 +381,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: spacing.xs,
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   legendDash: {
     width: spacing.md,
@@ -401,11 +411,17 @@ const styles = StyleSheet.create({
   },
   unitPill: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusSm,
   },
   unitPillActive: {
     backgroundColor: colors.primary + '20',
+  },
+  // The selected unit was the curve's own blue, 2.66:1 on white, on a pill that
+  // already carries a tinted ground and an `accessibilityState`. Weight says the
+  // same thing and leaves the text on the theme's own colour (B927).
+  unitTextActive: {
+    fontWeight: '700',
   },
   unitText: {
     fontSize: typography.pillLabel.fontSize,

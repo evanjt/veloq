@@ -12,10 +12,12 @@ import {
   layout,
   chartStyles,
   switchTrackOff,
+  colorWithOpacity,
 } from '@/theme';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
+import { RangeCoverage } from 'veloqrs';
 import { usePaceCurve } from '../hooks/usePaceCurve';
-import { useActivities } from '@/features/activity/hooks';
+import { useActivities } from '@/features/activity';
 import {
   formatFullDate,
   formatDistance,
@@ -31,7 +33,7 @@ interface PaceCurveChartProps {
   height?: number;
 }
 
-const CS_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
+const CS_LINE_COLOR = colorWithOpacity(colors.chartGuideLine, 0.6);
 
 // Standard distance markers for the log x axis
 const X_LABELS: PlacedLabel[] = [
@@ -65,6 +67,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     data: curve,
     isLoading,
     error,
+    coverage,
   } = usePaceCurve({
     sport,
     days,
@@ -234,7 +237,9 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.paceCurve')}</Text>
         <View style={styles.emptyState}>
           <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-            {t('stats.noPaceData')}
+            {coverage === RangeCoverage.NotFetched
+              ? t('stats.rangeNotDownloaded')
+              : t('stats.noPaceData')}
           </Text>
         </View>
       </View>
@@ -272,7 +277,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
           <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
             {t('activity.distance')}
           </Text>
-          <Text style={[styles.valueNumber, { color: chartColors.paceCurve }]}>
+          <Text style={[styles.valueNumber, isDark && styles.textLight]}>
             {formatDistance(displayData.distance, isMetric)}
           </Text>
         </View>
@@ -286,7 +291,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
           <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
             {t('metrics.pace')}
           </Text>
-          <Text style={[styles.valueNumber, { color: chartColors.paceCurve }]}>
+          <Text style={[styles.valueNumber, isDark && styles.textLight]}>
             {formatPaceFromSecsPerKm(displayData.paceSecsPerKm)}/km
           </Text>
         </View>
@@ -300,7 +305,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
           activeOpacity={0.7}
         >
           <View style={[styles.activityPill, isDark && styles.activityPillDark]}>
-            <Text style={styles.activityLabel} numberOfLines={1}>
+            <Text style={[styles.activityLabel, isDark && styles.textLight]} numberOfLines={1}>
               {selectedActivity.name} →
             </Text>
           </View>
@@ -319,6 +324,21 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         onSelect={handleSelect}
         onInteractionChange={handleInteractionChange}
       />
+
+      {/* The rule the chart draws, named. The power and swim curves carry the
+          same row; without it the dashed line crosses the curve saying nothing,
+          and the figure sits in the model line among D' and R². */}
+      {criticalSpeedPace && (
+        <View style={styles.legend}>
+          <View style={[styles.legendDash, { backgroundColor: CS_LINE_COLOR }]} />
+          <Text
+            testID="pace-curve-cs-legend"
+            style={[styles.legendText, isDark && chartStyles.textDark]}
+          >
+            CS {formatPaceFromSecsPerKm(criticalSpeedPace)}/km
+          </Text>
+        </View>
+      )}
 
       {/* Model info */}
       <View style={styles.footer}>
@@ -360,7 +380,7 @@ const styles = StyleSheet.create({
   gapToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   gapLabel: {
     fontSize: typography.caption.fontSize,
@@ -381,7 +401,7 @@ const styles = StyleSheet.create({
   valueLabel: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
-    marginBottom: 1,
+    marginBottom: spacing.xxs,
   },
   valueNumber: {
     fontSize: typography.bodySmall.fontSize,
@@ -392,21 +412,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activityPill: {
-    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    backgroundColor: colorWithOpacity(colors.chartPaceCurve, 0.15),
     paddingHorizontal: layout.borderRadius,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
     borderWidth: 1,
-    borderColor: 'rgba(76, 175, 80, 0.3)',
+    borderColor: colorWithOpacity(colors.chartPaceCurve, 0.3),
   },
   activityPillDark: {
-    backgroundColor: 'rgba(76, 175, 80, 0.2)',
-    borderColor: 'rgba(76, 175, 80, 0.4)',
+    backgroundColor: colorWithOpacity(colors.chartPaceCurve, 0.2),
+    borderColor: colorWithOpacity(colors.chartPaceCurve, 0.4),
   },
   activityLabel: {
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
-    color: colors.run,
+    color: colors.textPrimary,
   },
   loadingContainer: {
     flex: 1,
@@ -426,6 +446,22 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
+  legend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+    gap: spacing.xsPlus,
+  },
+  legendDash: {
+    width: spacing.md,
+    height: 2,
+    borderRadius: layout.borderRadiusFull,
+  },
+  legendText: {
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
+  },
   footer: {
     marginTop: spacing.xs,
   },
@@ -435,7 +471,7 @@ const styles = StyleSheet.create({
   dateRange: {
     fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   modelStats: {
     fontSize: typography.micro.fontSize,

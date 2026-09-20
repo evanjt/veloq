@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, LayoutChangeEvent } from 'react-native';
+import { View, LayoutChangeEvent, Pressable, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
@@ -7,62 +7,79 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { CHART_CONFIG } from '@/constants';
-import { chartStyles, colors, typography, spacing, layout } from '@/theme';
-import type { Activity } from '@/types';
+import {
+  chartStyles,
+  colors,
+  typography,
+  spacing,
+  layout,
+  verdictColor,
+  colorWithOpacity,
+  ink,
+  brand,
+  darkColors,
+} from '@/theme';
+import {
+  localDayEnd,
+  localDayStart,
+  useMonthlyStats,
+  type MonthTotals,
+} from '@/features/stats/hooks/useEngineStats';
+import { pressable } from '@/shared/ui';
 
 interface SeasonComparisonProps {
   /** Height of the chart */
   height?: number;
-  /** Activities from current year */
-  currentYearActivities?: Activity[];
-  /** Activities from previous year */
-  previousYearActivities?: Activity[];
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// Aggregate activities by month from the activity array.
-// Engine SQL is not used here because activity_metrics only covers the GPS sync window (~90 days),
-// while SeasonComparison needs a full year of data from the API.
-function aggregateByMonth(
-  activities: Activity[] | undefined,
+/**
+ * One year's twelve bars, from the engine's monthly aggregate.
+ *
+ * A month with no activity is absent from the aggregate rather than zero, so
+ * the twelve slots are filled here: the chart draws every month of the year and
+ * a missing one is a gap, not a shorter axis.
+ */
+function monthBars(
+  months: MonthTotals[],
+  year: number,
   metric: 'hours' | 'distance' | 'tss'
 ): number[] {
-  const monthlyTotals = new Array(12).fill(0);
-  if (!activities) return monthlyTotals;
-
-  for (const activity of activities) {
-    const date = new Date(activity.start_date_local);
-    const month = date.getMonth();
-
-    switch (metric) {
-      case 'hours':
-        monthlyTotals[month] += (activity.moving_time || 0) / 3600;
-        break;
-      case 'distance':
-        monthlyTotals[month] += (activity.distance || 0) / 1000;
-        break;
-      case 'tss':
-        monthlyTotals[month] += activity.icu_training_load || 0;
-        break;
-    }
+  const bars = new Array(12).fill(0);
+  for (const row of months) {
+    if (row.year !== year) continue;
+    const value =
+      metric === 'hours'
+        ? row.duration / 3600
+        : metric === 'distance'
+          ? row.distance / 1000
+          : row.tss;
+    bars[row.month - 1] = Math.round(value * 10) / 10;
   }
-
-  return monthlyTotals.map((v) => Math.round(v * 10) / 10);
+  return bars;
 }
 
 const BAR_WIDTH = 8;
 const BAR_GAP = 2;
 const BAR_RADIUS = 4; // spacing.xs
 
-export function SeasonComparison({
-  height = 200,
-  currentYearActivities,
-  previousYearActivities,
-}: SeasonComparisonProps) {
+export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
+
+  // The two calendar years the chart draws, and no more: the totals come from
+  // the engine's own GROUP BY rather than from a parsed year of bodies.
+  const { currentYear, startTs, endTs } = useMemo(() => {
+    const now = new Date();
+    return {
+      currentYear: now.getFullYear(),
+      startTs: localDayStart(new Date(now.getFullYear() - 1, 0, 1)),
+      endTs: localDayEnd(now),
+    };
+  }, []);
+  const months = useMonthlyStats(startTs, endTs);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [measuredWidth, setMeasuredWidth] = useState(0);
   const chartWidthRef = useRef(0);
@@ -118,21 +135,19 @@ export function SeasonComparison({
     [selectMonthFromX, clearSelection]
   );
 
-  // Show empty state if no activities
-  const hasData =
-    (currentYearActivities && currentYearActivities.length > 0) ||
-    (previousYearActivities && previousYearActivities.length > 0);
+  // Show empty state when neither year has an activity in it.
+  const hasData = months.length > 0;
 
   const data = useMemo(() => {
-    const currentTotals = aggregateByMonth(currentYearActivities, metric);
-    const previousTotals = aggregateByMonth(previousYearActivities, metric);
+    const currentTotals = monthBars(months, currentYear, metric);
+    const previousTotals = monthBars(months, currentYear - 1, metric);
 
     return MONTHS.map((month, idx) => ({
       month,
       current: currentTotals[idx],
       previous: previousTotals[idx],
     }));
-  }, [currentYearActivities, previousYearActivities, metric]);
+  }, [months, currentYear, metric]);
 
   const maxValue = useMemo(() => {
     return Math.max(...data.flatMap((d) => [d.current, d.previous]));
@@ -142,7 +157,9 @@ export function SeasonComparison({
 
   // Color constants
   const colorCurrent = colors.primary;
-  const colorPrevious = isDark ? 'rgba(100, 149, 237, 0.8)' : 'rgba(70, 130, 220, 0.7)';
+  const colorPrevious = isDark
+    ? colorWithOpacity(darkColors.chartPreviousSeason, 0.8)
+    : colorWithOpacity(colors.chartPreviousSeason, 0.7);
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -206,11 +223,11 @@ export function SeasonComparison({
       if (isCurrentMonth || isSelected) {
         const hlColor = isSelected
           ? isDark
-            ? 'rgba(255, 255, 255, 0.15)'
-            : 'rgba(0, 0, 0, 0.08)'
+            ? colorWithOpacity(ink.white, 0.15)
+            : colorWithOpacity(ink.black, 0.08)
           : isDark
-            ? 'rgba(255, 255, 255, 0.08)'
-            : 'rgba(20, 184, 166, 0.08)'; // brand.tealLight @ 8%
+            ? colorWithOpacity(ink.white, 0.08)
+            : colorWithOpacity(brand.tealLight, 0.08);
         highlightPaint.setColor(Skia.Color(hlColor));
         canvas.drawRRect(
           Skia.RRectXY(
@@ -318,10 +335,10 @@ export function SeasonComparison({
         </Text>
         <View style={styles.metricSelector}>
           {(['hours', 'distance', 'tss'] as const).map((m) => (
-            <TouchableOpacity
+            <Pressable
               key={m}
               onPress={() => setMetric(m)}
-              style={[styles.metricButton, metric === m && styles.metricButtonActive]}
+              style={pressable([styles.metricButton, metric === m && styles.metricButtonActive])}
             >
               <Text
                 style={[
@@ -332,7 +349,7 @@ export function SeasonComparison({
               >
                 {metricLabels[m].label}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
       </View>
@@ -379,7 +396,7 @@ export function SeasonComparison({
                 style={[
                   styles.tooltipDiff,
                   {
-                    color: selectedMonthDiff >= 0 ? colors.success : colors.warning,
+                    color: verdictColor(selectedMonthDiff >= 0 ? 'positive' : 'negative', isDark),
                   },
                 ]}
               >
@@ -412,7 +429,7 @@ export function SeasonComparison({
               <Text
                 style={[
                   styles.summaryValue,
-                  { color: totals.diff >= 0 ? colors.success : colors.warning },
+                  { color: verdictColor(totals.diff >= 0 ? 'positive' : 'negative', isDark) },
                 ]}
               >
                 {totals.diff >= 0 ? '+' : ''}
@@ -486,7 +503,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   metricButtonTextActive: {
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
   },
   legend: {
     flexDirection: 'row',
@@ -498,7 +515,7 @@ const styles = StyleSheet.create({
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   legendLabel: {
     fontSize: typography.caption.fontSize,
@@ -512,16 +529,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderRadius: layout.borderRadiusSm,
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    backgroundColor: colorWithOpacity(ink.black, 0.02),
     minHeight: 44,
   },
   summaryActive: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: colorWithOpacity(ink.black, 0.05),
   },
   summaryItem: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   legendDot: {
     width: spacing.sm,
@@ -531,7 +548,7 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   summaryValue: {
     fontSize: typography.bodySmall.fontSize,
@@ -552,7 +569,7 @@ const styles = StyleSheet.create({
   tooltipItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   tooltipValue: {
     fontSize: typography.bodySmall.fontSize,

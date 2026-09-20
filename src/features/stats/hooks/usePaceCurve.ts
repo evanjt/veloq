@@ -2,8 +2,11 @@ import { useEffect, useRef } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
-import { parsePaceCurveBody } from '@/features/stats/lib/curveBodies';
+import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
+import { paceCurveOf } from '@/features/stats/lib/curveRecords';
+import { paceSnapshotDate } from '@/features/stats/lib/paceSnapshot';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { RangeCoverage } from 'veloqrs';
 import type { PaceCurve } from '@/types';
 
 interface UsePaceCurveOptions {
@@ -15,6 +18,13 @@ interface UsePaceCurveOptions {
   enabled?: boolean;
 }
 
+/** A parsed curve with the time the body behind it was fetched. */
+interface DatedPaceCurve {
+  curve: PaceCurve;
+  /** Epoch milliseconds, or null when the curve has never been fetched. */
+  fetchedAt: number | null;
+}
+
 export function usePaceCurve(options: UsePaceCurveOptions = {}) {
   const { sport = 'Run', days = 42, gap = false, enabled = true } = options;
 
@@ -23,27 +33,46 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
   // The query is the only reader of the stored body. `null` is "never
   // fetched", which is the cue to ask Rust for it; the empty curve is what the
   // chart draws in the meantime.
-  const query = useQuery<PaceCurve | null>({
+  const query = useQuery<DatedPaceCurve | null>({
     queryKey,
     queryFn: () => {
-      const stored = getEngine()?.getPaceCurveBody(sport, days, gap);
-      return stored ? parsePaceCurveBody(stored, sport) : null;
+      // The engine answers `null` for a window never fetched and for a body
+      // that will not parse, which the chart treats alike: it has no curve.
+      const stored = getEngine()?.getPaceCurve(sport, days, gap);
+      if (!stored) return null;
+      return { curve: paceCurveOf(stored), fetchedAt: stored.fetchedAt };
     },
     enabled,
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,
     placeholderData: keepPreviousData,
   });
-  useEngineBody(
+  const body = useEngineBody(
     query.data !== null,
     () => getEngine()?.syncPaceCurve(sport, days, gap),
     queryKey,
     enabled && query.data !== undefined
   );
-  const result = { ...query, data: query.data ?? emptyPaceCurve(sport) };
+  // An empty activity census proves there is nothing to chart. Downloaded
+  // activities alone cannot prove the separate curve request has returned.
+  const coverage = useRangeCoverage(days, enabled);
+
+  const result = {
+    ...query,
+    data: query.data?.curve ?? emptyPaceCurve(sport),
+    fetchedAt: query.data?.fetchedAt ?? null,
+    coverage: query.data
+      ? RangeCoverage.Loaded
+      : coverage === RangeCoverage.Empty
+        ? RangeCoverage.Empty
+        : RangeCoverage.NotFetched,
+    bodyStatus: body.status,
+    retryBody: body.retry,
+  };
 
   // Snapshot critical speed for trend tracking (idempotent: INSERT OR REPLACE by date+sport)
   const lastSnapshotted = useRef<string | null>(null);
+  const endDate = result.data?.endDate;
   useEffect(() => {
     const cs = result.data?.criticalSpeed;
     if (cs == null || cs <= 0) return;
@@ -52,14 +81,24 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
     lastSnapshotted.current = key;
     const engine = getEngine();
     if (!engine) return;
-    const todayTs = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
-    engine.savePaceSnapshot(sport, cs, result.data?.dPrime, result.data?.r2, todayTs);
-  }, [result.data?.criticalSpeed, sport, result.data?.dPrime, result.data?.r2]);
+    // Under the range the screen is showing. The trend reads the sync's window
+    // and leaves these alone: a year curve's critical speed is the athlete's
+    // best year, which is a different fact from the last six weeks and not an
+    // improvement on it.
+    engine.savePaceSnapshot(
+      sport,
+      cs,
+      days,
+      result.data?.dPrime,
+      result.data?.r2,
+      paceSnapshotDate(endDate)
+    );
+  }, [result.data?.criticalSpeed, sport, days, result.data?.dPrime, result.data?.r2, endDate]);
 
   return result;
 }
 
-/** Rendered as "no data yet" rather than an error while the fetch is in flight. */
+/** Empty axes while the separate coverage and body status explain the wait. */
 function emptyPaceCurve(sport: string): PaceCurve {
   return { type: 'pace', sport, distances: [], times: [], pace: [] };
 }
@@ -151,19 +190,4 @@ export function getTimeAtDistance(
   const index = getIndexAtDistance(curve, targetDistance);
   if (index === null) return null;
   return curve.times[index] ?? null;
-}
-
-export function paceToMinPer100m(metersPerSecond: number): {
-  minutes: number;
-  seconds: number;
-} {
-  if (metersPerSecond <= 0) return { minutes: 0, seconds: 0 };
-  const secondsPer100m = 100 / metersPerSecond;
-  let minutes = Math.floor(secondsPer100m / 60);
-  let seconds = Math.round(secondsPer100m % 60);
-  if (seconds === 60) {
-    minutes += 1;
-    seconds = 0;
-  }
-  return { minutes, seconds };
 }

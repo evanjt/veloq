@@ -6,10 +6,11 @@ import { Text } from 'react-native-paper';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
-import { colors, typography, spacing, layout, chartStyles } from '@/theme';
+import { colors, typography, spacing, layout, chartStyles, darkColors } from '@/theme';
 import type { eFTPPoint } from '@/types';
 import { formatMonth } from '@/shared/format/format';
 import { ChartCanvas, CurveArea, CurveLine, useChartColors } from '@/shared/charts';
+import { ftpChangeOverDays } from '../lib/ftpTrend';
 
 interface FTPTrendChartProps {
   /** eFTP history data points */
@@ -23,6 +24,9 @@ interface FtpPoint {
   y: number;
   date: string;
 }
+
+/** What "from 3 months ago" under the card means, in days. */
+const TREND_WINDOW_DAYS = 90;
 
 const CHART_PADDING = { top: 8 } as const;
 const SERIES = { y: (d: FtpPoint) => d.y };
@@ -55,10 +59,11 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
     }
 
     const values = chartData.map((d) => d.y);
-    const latest = values[values.length - 1];
-    const threeMonthsAgo = values.length > 3 ? values[values.length - 4] : values[0];
-    const change = latest - threeMonthsAgo;
-    const percent = threeMonthsAgo > 0 ? (change / threeMonthsAgo) * 100 : 0;
+    const { baseline, latest, change } = ftpChangeOverDays(
+      chartData.map((d) => ({ date: d.date, eftp: d.y })),
+      TREND_WINDOW_DAYS
+    );
+    const percent = baseline > 0 ? (change / baseline) * 100 : 0;
 
     return {
       minFTP: Math.min(...values) - 10,
@@ -97,9 +102,21 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
             {t('stats.estimatedFtp')}
           </Text>
           <View style={styles.ftpRow}>
-            <Text style={[styles.ftpValue, { color: chartColors.ftp }]}>{latestFTP}W</Text>
+            <Text
+              style={[
+                styles.ftpValue,
+                { color: isDark ? darkColors.chartFtpText : colors.chartFtpText },
+              ]}
+            >
+              {latestFTP}W
+            </Text>
             <View style={[styles.changeBadge, isImproving ? styles.positive : styles.negative]}>
-              <Text style={styles.changeText}>
+              <Text
+                style={[
+                  styles.changeText,
+                  { color: isDark ? darkColors.successDeep : colors.successDeep },
+                ]}
+              >
                 {isImproving ? '▲' : '▼'} {Math.abs(ftpChange)}W
               </Text>
             </View>
@@ -211,7 +228,7 @@ const styles = StyleSheet.create({
   },
   changeBadge: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadius,
   },
   positive: {
@@ -223,12 +240,11 @@ const styles = StyleSheet.create({
   changeText: {
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
-    color: colors.success,
   },
   changeSubtext: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   xAxisOverlay: {
     position: 'absolute',
