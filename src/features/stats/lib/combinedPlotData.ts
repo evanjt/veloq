@@ -7,8 +7,8 @@
  * isolation.
  */
 
-import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
-import { measuresPower } from '@/features/activity/lib/activityUtils';
+import { type ChartConfig, type ChartTypeId } from '@/features/activity';
+import { measuresPower } from '@/shared/activity/activityUtils';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
 import { finiteExtent } from '@/shared/charts/extent';

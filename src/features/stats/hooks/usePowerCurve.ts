@@ -1,8 +1,10 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
-import { parsePowerCurveBody } from '@/features/stats/lib/curveBodies';
+import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
+import { powerCurveOf } from '@/features/stats/lib/curveRecords';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { RangeCoverage } from 'veloqrs';
 import type { PowerCurve } from '@/types';
 
 interface UsePowerCurveOptions {
@@ -12,6 +14,13 @@ interface UsePowerCurveOptions {
   enabled?: boolean;
 }
 
+/** A parsed curve with the time the body behind it was fetched. */
+interface DatedPowerCurve {
+  curve: PowerCurve;
+  /** Epoch milliseconds, or null when the curve has never been fetched. */
+  fetchedAt: number | null;
+}
+
 export function usePowerCurve(options: UsePowerCurveOptions = {}) {
   const { sport = 'Ride', days = 365, enabled = true } = options;
   const queryKey = queryKeys.charts.powerCurve.bySport(sport, days);
@@ -19,28 +28,46 @@ export function usePowerCurve(options: UsePowerCurveOptions = {}) {
   // The query is the only reader of the stored body. `null` is "never
   // fetched", which is the cue to ask Rust for it; the empty curve is what the
   // chart draws in the meantime.
-  const query = useQuery<PowerCurve | null>({
+  const query = useQuery<DatedPowerCurve | null>({
     queryKey,
     queryFn: () => {
-      const stored = getEngine()?.getPowerCurveBody(sport, days);
-      return stored ? parsePowerCurveBody(stored, sport) : null;
+      // The engine answers `null` for a window never fetched and for a body
+      // that will not parse, which the chart treats alike: it has no curve.
+      const stored = getEngine()?.getPowerCurve(sport, days);
+      if (!stored) return null;
+      return { curve: powerCurveOf(stored), fetchedAt: stored.fetchedAt };
     },
     enabled,
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,
     placeholderData: keepPreviousData, // Keep previous data visible while fetching new range
   });
-  useEngineBody(
+  const body = useEngineBody(
     query.data !== null,
     () => getEngine()?.syncPowerCurve(sport, days),
     queryKey,
     enabled && query.data !== undefined
   );
 
-  return { ...query, data: query.data ?? emptyPowerCurve(sport) };
+  // An empty activity census proves there is nothing to chart. Downloaded
+  // activities alone cannot prove the separate curve request has returned.
+  const coverage = useRangeCoverage(days, enabled);
+
+  return {
+    ...query,
+    data: query.data?.curve ?? emptyPowerCurve(sport),
+    fetchedAt: query.data?.fetchedAt ?? null,
+    coverage: query.data
+      ? RangeCoverage.Loaded
+      : coverage === RangeCoverage.Empty
+        ? RangeCoverage.Empty
+        : RangeCoverage.NotFetched,
+    bodyStatus: body.status,
+    retryBody: body.retry,
+  };
 }
 
-/** Rendered as "no data yet" rather than an error while the fetch is in flight. */
+/** Empty axes while the separate coverage and body status explain the wait. */
 function emptyPowerCurve(sport: string): PowerCurve {
   return { type: 'power', sport, secs: [], watts: [] };
 }
@@ -62,22 +89,11 @@ export const POWER_CURVE_DURATIONS = [
 
 // Get power at a specific duration from the curve
 export function getPowerAtDuration(curve: PowerCurve | undefined, secs: number): number | null {
-  if (!curve?.secs || !curve?.watts) return null;
+  if (!curve?.watts) return null;
 
-  const index = curve.secs.findIndex((s) => s === secs);
-  if (index !== -1) return curve.watts[index];
-
-  // Find closest duration
-  let closestIndex = 0;
-  let closestDiff = Math.abs(curve.secs[0] - secs);
-  for (let i = 1; i < curve.secs.length; i++) {
-    const diff = Math.abs(curve.secs[i] - secs);
-    if (diff < closestDiff) {
-      closestDiff = diff;
-      closestIndex = i;
-    }
-  }
-  return curve.watts[closestIndex];
+  const index = getIndexAtDuration(curve, secs);
+  if (index === null) return null;
+  return curve.watts[index] ?? null;
 }
 
 // Get the array index for a given duration (exact or closest match)

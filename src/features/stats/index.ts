@@ -8,7 +8,9 @@ export {
   ActivityHeatmap,
   SeasonComparison,
   DecouplingChart,
+  CurveFreshnessLine,
 } from './components';
+export type { ActivityHeatmapHandle } from './components';
 
 export {
   usePaceCurve,
@@ -17,7 +19,6 @@ export {
   getPaceAtDistance,
   getIndexAtDistance,
   getTimeAtDistance,
-  paceToMinPer100m,
   usePowerCurve,
   POWER_CURVE_DURATIONS,
   getPowerAtDuration,
@@ -42,4 +43,6 @@ export {
   resolveBandColour,
   computeTimeAxisLabels,
   axisLabelsNeedDay,
+  curveFreshness,
+  type CurveFreshness,
 } from './lib';
