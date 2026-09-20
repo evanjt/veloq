@@ -158,6 +158,8 @@ export interface TranslationResource {
 
   feed: {
     activitiesCount: string;
+    firstSyncTitle: string;
+    firstSyncBody: string;
     noActivities: string;
     noMatchingActivities: string;
     failedToLoad: string;
@@ -207,6 +209,7 @@ export interface TranslationResource {
     connecting: string;
     apiKeyRequired: string;
     invalidApiKey: string;
+    queuedOffline: string;
     connectionFailed: string;
     securityNote: string;
     tryDemo: string;
@@ -256,7 +259,18 @@ export interface TranslationResource {
     defaultMapHint: string;
     dataCache: string;
     syncActivities: string;
-    syncActivitiesProgress: string;
+    syncStep: {
+      athlete: string;
+      sportSettings: string;
+      wellness: string;
+      census: string;
+      activities: string;
+      firstActivities: string;
+      curves: string;
+      intervalBodies: string;
+      remainingActivities: string;
+    };
+    syncStepProgress: string;
     syncStop: string;
     syncStopping: string;
     pauseRouteProcessing: string;
@@ -287,6 +301,17 @@ export interface TranslationResource {
     elevationBackfillResume: string;
     elevationBackfillPaused: string;
     previewSections: string;
+    previewRouteGrouping: string;
+    groupingMatchShare: string;
+    groupingEndsApart: string;
+    groupingRunning: string;
+    groupingFailed: string;
+    groupingNothingToGroup: string;
+    groupingSummary: string;
+    groupingMerged: string;
+    groupingDropped: string;
+    groupingLegendMostRidden: string;
+    groupingLegendOther: string;
     cutoverRebuilding: string;
     cutoverFailed: string;
     cutoverStop: string;
@@ -300,10 +325,17 @@ export interface TranslationResource {
     previewAreaSections: string;
     sectionMaxLength: string;
     sectionSameTraffic: string;
+    sectionParamPastClamp: string;
+    sectionParamRange: string;
+    sectionPresetDefault: string;
+    sectionPresetRelaxed: string;
+    sectionPresetStrict: string;
+    sectionPresets: string;
     previewRun: string;
     previewRunning: string;
     previewFailed: string;
     runSlow: string;
+    stillRunning: string;
     previewPoolUnusable: string;
     previewSuspended: string;
     previewCurrentFailed: string;
@@ -333,10 +365,14 @@ export interface TranslationResource {
     streamHistoryDays: string;
     streamHistoryAll: string;
     streamHistoryReset: string;
+    streamBackfill: string;
+    streamBackfillOwed_one: string;
+    streamBackfillOwed_other: string;
+    streamBackfillProgress: string;
+    streamBackfillDownload: string;
+    streamBackfillStop: string;
     storageDatabase: string;
     storageHeatmap: string;
-    storageSatellite: string;
-    storageTerrain: string;
     storageVector: string;
     storageGround: string;
     storagePreviews: string;
@@ -344,6 +380,10 @@ export interface TranslationResource {
     mapCache: string;
     sizeAtLeast: string;
     tileCacheLimit: string;
+    tileCacheLimitHint: string;
+    tileCacheUsedOfBudget: string;
+    tileCacheUsedOfBudgetAtLeast: string;
+    tileCacheFree: string;
     dateRange: string;
     noData: string;
     lastSynced: string;
@@ -371,6 +411,8 @@ export interface TranslationResource {
     largeHistoryConfirm: string;
     largeHistoryMessage: string;
     largeHistoryTitle: string;
+    rangeLockedMessage: string;
+    rangeLockedTitle: string;
     localDataRange: string;
     summaryCard: string;
     showSummaryCard: string;
@@ -401,6 +443,7 @@ export interface TranslationResource {
     clearReload: string;
     disconnectTitle: string;
     disconnectMessage: string;
+    disconnectOffline: string;
     disconnect: string;
     failedToClear: string;
     failedToDisconnect: string;
@@ -537,6 +580,10 @@ export interface TranslationResource {
     stats: {
       trainingLoad: string;
       intensityFactor: string;
+      intensityEasy: string;
+      intensityModerate: string;
+      intensityHard: string;
+      intensityVeryHard: string;
       trimp: string;
       strain: string;
       yourFitness: string;
@@ -561,7 +608,6 @@ export interface TranslationResource {
       temperature: string;
       wind: string;
       yourForm: string;
-      dailyValue: string;
       formTSB: string;
       fitnessCTL: string;
       fatigueATL: string;
@@ -580,6 +626,10 @@ export interface TranslationResource {
     };
   };
 
+  sync: {
+    ridesDownloaded: string;
+    tracksDownloaded: string;
+  };
   time: {
     today: string;
     yesterday: string;
@@ -614,6 +664,7 @@ export interface TranslationResource {
     aboutRanking: string;
     noInsights: string;
     noInsightsHint: string;
+    formFromLastSync: string;
     sectionPr: string;
     sectionPrSubtitle: string;
     sectionImproving: string;
@@ -658,9 +709,24 @@ export interface TranslationResource {
   };
 
   strength: {
+    setColumn: string;
+    setsNotDownloaded: string;
+    repsColumn: string;
+    weightColumn: string;
+    timeColumn: string;
+    totalLabel: string;
+    setsLabel: string;
+    durationLabel: string;
+    muscleSource: string;
+    bodyTypeFromProfile: string;
+    bodyTypeDefault: string;
+    male: string;
+    female: string;
     snapshot: string;
     noWorkouts: string;
     noWorkoutsHint: string;
+    notDownloaded: string;
+    notDownloadedHint: string;
     sets: string;
     muscleGroupVolume: string;
     relativeWeightedSets: string;
@@ -830,6 +896,9 @@ export interface TranslationResource {
       enable: string;
       requiresOAuth: string;
       privacyHint: string;
+      /** The per-category switches under the main one. */
+      sectionPr: string;
+      fitnessMilestone: string;
     };
     prompt: {
       title: string;
@@ -864,6 +933,9 @@ export interface TranslationResource {
   statsScreen: {
     lactateThreshold: string;
     noEffortData: string;
+    curveFetched: string;
+    curveNotDownloaded: string;
+    notEnoughRuns: string;
     pace: string;
     heartRate: string;
     paceCurve: string;
@@ -896,6 +968,13 @@ export interface TranslationResource {
   };
 
   routes: {
+    patternSentence: string;
+    patternRun: string;
+    patternRide: string;
+    targetPower: string;
+    targetHr: string;
+    targetPace: string;
+    sectionDefaultName: string;
     searchSections: string;
     searchRoutes: string;
     sortActivities: string;
@@ -915,7 +994,6 @@ export interface TranslationResource {
     noMatchingRoutes: string;
     routesWithTwoPlus: string;
     match: string;
-    more: string;
     noFrequentSections: string;
     sectionsDescription: string;
     noSectionsMatchFilter: string;
@@ -990,6 +1068,8 @@ export interface TranslationResource {
     deleteConfirm: string;
   };
   sections: {
+    /** The section's record was set on its most recent outing. */
+    latestIsRecord: string;
     acceptSection: string;
     acceptAllSections: string;
     acceptAllConfirm: string;
@@ -1012,6 +1092,8 @@ export interface TranslationResource {
     legendPr: string;
     legendReverse: string;
     legendThisActivity: string;
+    legendThisSection: string;
+    legendNearby: string;
     best: string;
     reverse: string;
     scrubHint: string;
@@ -1021,6 +1103,7 @@ export interface TranslationResource {
     aerobicEfficiencyCaption: string;
     traversals: string;
     liftGround: string;
+    notLift: string;
     routesCountLabel: string;
     noActivitiesFound: string;
     sectionNamePlaceholder: string;
@@ -1039,6 +1122,8 @@ export interface TranslationResource {
     detectionPaused: string;
     detectionPausedElevation: string;
     detectionHeldElevationPaused: string;
+    detectionHeldElevationWaiting_one: string;
+    detectionHeldElevationWaiting_other: string;
     rescanRefusedBusy: string;
     rescanRefusedHeld: string;
     rescanRefusedNotReady: string;
@@ -1052,6 +1137,8 @@ export interface TranslationResource {
     disabled: string;
     removeSection: string;
     removeSectionConfirm: string;
+    unflagLift: string;
+    unflagLiftConfirm: string;
     removed: string;
     restoreSection: string;
     forward: string;
@@ -1088,12 +1175,34 @@ export interface TranslationResource {
 
   engine: {
     initFailed: string;
+    /** Which failure the engine reported, where a surface names one. */
+    failure: {
+      notOpen: string;
+      busy: string;
+      database: string;
+    };
     /** Why it did not open. The general line above stays the fallback. */
     initReason: {
       busy: string;
       forwardSchema: string;
       storageUnavailable: string;
       failed: string;
+    };
+    /** The one-time notice that a damaged library was rebuilt. */
+    quarantine: {
+      title: string;
+      resyncing: string;
+      dismiss: string;
+      /** Between the things that were kept, inside one sentence. */
+      separator: string;
+      kept: {
+        lead: string;
+        sections: string;
+        history: string;
+        geometry: string;
+        pins: string;
+        intents: string;
+      };
     };
   };
 
@@ -1108,10 +1217,6 @@ export interface TranslationResource {
   };
 
   emptyState: {
-    networkError: {
-      title: string;
-      description: string;
-    };
     error: {
       title: string;
       description: string;
@@ -1132,7 +1237,13 @@ export interface TranslationResource {
         storage: string;
         notConfigured: string;
         internal: string;
+        engineClosed: string;
       };
+    };
+    tracksMissing: {
+      title_one: string;
+      title_other: string;
+      detail: string;
     };
   };
 
@@ -1149,6 +1260,7 @@ export interface TranslationResource {
     noValidGpsChecked: string;
     offlineUsingCached: string;
     syncedActivities: string;
+    syncedStillAnalysing: string;
     syncedDemoActivities: string;
     fetchingTimeStreams: string;
     finalizingHeatmap: string;
@@ -1167,8 +1279,19 @@ export interface TranslationResource {
     temp: string;
   };
 
+  activitySummary: {
+    distance: string;
+    downloading: string;
+    elevation: string;
+    movingTime: string;
+    openActivity: string;
+    title: string;
+    unavailable: string;
+  };
+
   activityDetail: {
     failedToLoad: string;
+    intervalsNotDownloaded: string;
     tabs: {
       charts: string;
       exercises: string;
@@ -1217,6 +1340,7 @@ export interface TranslationResource {
     time: string;
     powerCurve: string;
     noPowerData: string;
+    rangeNotDownloaded: string;
     estimatedFtp: string;
     from3MonthsAgo: string;
     noFtpData: string;
@@ -1289,16 +1413,6 @@ export interface TranslationResource {
     activitiesCount: string;
     restDay: string;
     selectActivity: string;
-    weekShape: {
-      title: string;
-      /** Under the engine's four-day floor, which is half the weeks on a real account. */
-      quiet: string;
-      reading: {
-        lopsided: string;
-        mixed: string;
-        even: string;
-      };
-    };
   };
 
   formZones: {
@@ -1332,11 +1446,15 @@ export interface TranslationResource {
     status: {
       connecting: string;
       connected: string;
+      noData: string;
       reconnecting: string;
       disconnected: string;
     };
   };
   recording: {
+    recordAnyway: string;
+    writePermissionLocalOnly: string;
+    savedLocallyNoScope: string;
     activityName: string;
     activityType: string;
     allActivities: string;
@@ -1392,6 +1510,7 @@ export interface TranslationResource {
     rpe: string;
     saveError: string;
     startActivity: string;
+    startingIn: string;
     status: {
       paused: string;
       recording: string;
@@ -1621,7 +1740,6 @@ export interface TranslationResource {
     title: string;
     intro: string;
     openLink: string;
-    sync: string;
     detection: string;
     elevationBackfill: string;
     cutover: string;

@@ -47,7 +47,6 @@
       "burnRate": "消費率",
       "caloriesBurned": "消費カロリー",
       "conditions": "状況",
-      "dailyValue": "日次値",
       "decoupling": "デカップリング",
       "deviceSensor": "デバイスセンサー",
       "efficiencyFactor": "効率係数",
@@ -60,7 +59,11 @@
       "formTSB": "フォーム（TSB）",
       "hrRecovery": "心拍回復",
       "hrvToday": "今日のHRV",
+      "intensityEasy": "イージー",
       "intensityFactor": "強度係数",
+      "intensityHard": "ハード",
+      "intensityModerate": "モデレート",
+      "intensityVeryHard": "ベリーハード",
       "max": "最大 {{value}}",
       "maxLabel": "最大",
       "peak": "ピーク",
@@ -97,6 +100,7 @@
   "activityDetail": {
     "failedToLoad": "アクティビティの読み込みに失敗しました",
     "feedPreviewUpdated": "フィードプレビューを更新しました",
+    "intervalsNotDownloaded": "インターバルはまだダウンロードされていません",
     "noMatchedSections": "一致する区間がありません",
     "noMatchedSectionsDescription": "このアクティビティに一致する区間がここに表示されます",
     "noRouteMatch": "ルートの一致がありません",
@@ -113,6 +117,15 @@
     "exercises": "エクササイズ",
     "exercisesSummary": "{{exercises}}種目 · {{sets}}セット",
     "tapMuscle": "タップして詳細を表示"
+  },
+  "activitySummary": {
+    "distance": "距離",
+    "downloading": "このアクティビティをダウンロード中...",
+    "elevation": "標高",
+    "movingTime": "移動時間",
+    "openActivity": "詳細を表示",
+    "title": "サマリー",
+    "unavailable": "このアクティビティをダウンロードできませんでした。"
   },
   "activityTypes": {
     "AlpineSki": "アルペンスキー",
@@ -175,6 +188,7 @@
     "clearReload": "クリアして再読み込み",
     "disconnect": "切断",
     "disconnectMessage": "アプリからAPI認証情報が削除されます。アプリを使用するには再度入力が必要です。",
+    "disconnectOffline": "オフラインです。ログイン方法はどちらも通信が必要なため、回線が戻るまで再度サインインできません。",
     "disconnectTitle": "アカウントを切断",
     "error": "エラー",
     "failedToClear": "キャッシュのクリアに失敗しました。再試行してください。",
@@ -279,6 +293,7 @@
     "noValidGpsData": "有効なGPSデータがありません",
     "offlineUsingCached": "オフライン - キャッシュされたルートを使用",
     "syncedActivities": "{{count}}件のアクティビティを同期しました",
+    "syncedStillAnalysing": "{{count}}件のアクティビティを同期しました。ルートを分析中です",
     "syncedDemoActivities": "{{count}}件のデモアクティビティを同期しました",
     "downloadingGpsProgress": "GPSデータをダウンロード中... {{percent}}%",
     "noValidGpsChecked": "有効なGPSデータが見つかりません（{{count}}件のアクティビティを確認）",
@@ -335,10 +350,6 @@
       "description": "このコンテンツを読み込めませんでした",
       "title": "問題が発生しました"
     },
-    "networkError": {
-      "description": "インターネット接続を確認して再試行してください",
-      "title": "接続エラー"
-    },
     "offline": {
       "description": "一部の機能が制限される場合があります",
       "title": "オフラインです"
@@ -354,17 +365,42 @@
         "network": "intervals.icu に接続できませんでした",
         "storage": "この端末のファイルを読み取れませんでした",
         "notConfigured": "この端末に intervals.icu のログイン情報がありません",
-        "internal": "原因を特定できないまま同期が止まりました"
+        "internal": "原因を特定できないまま同期が止まりました",
+        "engineClosed": "途中でライブラリが閉じられたため、同期が停止しました"
       }
+    },
+    "tracksMissing": {
+      "title_one": "{{count}}件のルートを取得できませんでした",
+      "title_other": "{{count}}件のルートを取得できませんでした",
+      "detail": "地図に表示されず、区間との照合もされていません。次の更新で再試行します。"
     }
   },
   "engine": {
     "initFailed": "ルートエンジンの初期化に失敗しました。ルートとセクションが利用できない場合があります。",
+    "failure": {
+      "notOpen": "ルートエンジンはまだ開いていません。少し待ってからお試しください。",
+      "busy": "データベースが使用中です。少し待ってからお試しください。",
+      "database": "データベースで処理できませんでした。再試行し、続く場合はキャッシュを消去してください。"
+    },
     "initReason": {
       "busy": "他の処理がデータベースを使用中です。少ししてからやり直してください。",
       "forwardSchema": "このデータは新しいバージョンの Veloq で保存されています。アプリを更新してください。",
       "storageUnavailable": "データベースを書き込めませんでした。空き容量を確保してからやり直してください。",
       "failed": "ルートエンジンが原因不明で停止しました。"
+    },
+    "quarantine": {
+      "title": "アクティビティライブラリを再構築しました",
+      "resyncing": "アクティビティを再度ダウンロードしています。",
+      "dismiss": "OK",
+      "separator": "、",
+      "kept": {
+        "lead": "一部のデータを読み取れなかったため、ライブラリを再構築しました。保持: {{kept}}。",
+        "sections": "あなたのセクション {{count}} 件",
+        "history": "セクション履歴 {{count}} 件",
+        "geometry": "セクション形状 {{count}} 件",
+        "pins": "固定した形状 {{count}} 件",
+        "intents": "削除した区間 {{count}} 件"
+      }
     }
   },
   "errorState": {
@@ -389,6 +425,8 @@
   "feed": {
     "activitiesCount": "{{count}}件のアクティビティ",
     "failedToLoad": "アクティビティの読み込みに失敗しました",
+    "firstSyncBody": "初回のみです。最初のアクティビティが届くとフィードが開きます。",
+    "firstSyncTitle": "アクティビティを同期しています",
     "groups": {
       "cycling": "サイクリング",
       "running": "ランニング",
@@ -420,16 +458,7 @@
     "formTSB": "フォーム (TSB)",
     "noData": "フィットネスデータがありません",
     "restDay": "休息日",
-    "selectActivity": "アクティビティを選択",
-    "weekShape": {
-      "title": "今週のかたち",
-      "quiet": "静かな週でした。かたちを読み取れるほどのトレーニング日がありません。",
-      "reading": {
-        "lopsided": "負荷はトレーニング{{days}}日のうち数日に偏っていました。",
-        "mixed": "ばらつきあり。トレーニング{{days}}日のうち、特に重い日がありました。",
-        "even": "トレーニング{{days}}日にわたって、ほぼ均等に分かれていました。"
-      }
-    }
+    "selectActivity": "アクティビティを選択"
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -451,13 +480,6 @@
     "title": "フィットネスとフォーム",
     "toBuildFitness": "は生産的なトレーニング負荷を示します。",
     "toPreventOvertraining": "は高い蓄積疲労を示します。",
-    "guidance": {
-      "highRisk": "TSBが-30以下。蓄積された疲労が最近のフィットネス向上を大幅に上回っています。",
-      "optimal": "TSBが-30から-10の間。トレーニング負荷がフィットネス適応を生み出しています。",
-      "greyZone": "TSBが-10から5の間。フィットネスと疲労の適度なバランス。",
-      "fresh": "TSBが5から25の間。フィットネスに対して疲労が低い状態。この状態が長く続くとフィットネスが低下する傾向があります。",
-      "transition": "TSBが25以上。最近のトレーニング刺激が最小限。フィットネスが低下中。"
-    },
     "tsb": "TSB",
     "understandingMetrics": "指標を理解する",
     "rampRate": "ランプ",
@@ -478,11 +500,12 @@
     "strength": "筋力",
     "noInsights": "トレーニングに応じてインサイトが表示されます",
     "noInsightsHint": "パーソナライズされたインサイトを見るには、より多くのアクティビティを完了してください",
+    "formFromLastSync": "フォームは非表示です。ウェルネスの最終同期は{{date}}",
     "sectionPr": "{{name}}でPR",
     "sectionPrSubtitle": "{{time}} · {{daysAgo}}日前",
     "sectionImproving": "{{name}}が速くなっています",
     "sectionImprovingBody": "最近の中央値: {{median}}。ベスト: {{best}}（{{count}}回の走行）。",
-    "ftpIncrease": "サイクリングパワー: {{current}}W (+{{change}}W)",
+    "ftpIncrease": "サイクリングeFTP: {{current}}W (+{{change}}W)",
     "paceImproved": "ペース改善 {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% 週間ボリューム",
     "weeklyVolumeDown": "{{percent}}% 今週減少",
@@ -498,13 +521,13 @@
       "prDetection": "最新の区間タイムを過去のすべてのタイムと比較してPRを検出します。",
       "sectionTrend": "頻繁に訪れる区間での中央値パフォーマンスの推移を追跡します。",
       "periodComparison": "連続する週間のトレーニング指標を比較して進捗を追跡します。",
-      "hrvName": "HRV移動平均トレンド",
-      "hrvDescription": "7日間移動平均に基づくHRVトレンド。HRVの精度は測定デバイスと一貫性に依存します。数日間のトレンドは単一の測定値より信頼性が高いです。",
+      "hrvName": "直近 7 日間の HRV",
+      "hrvDescription": "本日までの 7 暦日のうち HRV の測定がある日を対象とし、5 日以上必要です。古い半分の平均と新しい半分の平均を比べ、変化が 2% 未満なら横ばいとします。横ばいの期間でも、直近 2 件が連続した日で、後の値が低く、期間平均を下回る場合は下降と読みます。",
       "prDetectionName": "パーソナルレコード検出",
       "periodComparisonName": "期間比較",
       "periodComparisonRestDay": "今週のアクティビティがまだない場合、先週と4週間平均を比較します。",
-      "ftpEstimation": "アクティビティのパワーデータに基づき、推定FTPの変化を追跡します。FTPの検出にはintervals.icuのアルゴリズムが使用され、アクティビティデータからの自動検出を含む場合があります。",
-      "ftpEstimationName": "FTP（機能的閾値パワー）推定",
+      "ftpEstimation": "最新の日次eFTPを30日前の値と比較します。eFTPはパワーカーブからintervals.icuが推定した値で、アカウントのFTP設定ではありません。",
+      "ftpEstimationName": "eFTPの変化",
       "thresholdSpeedName": "閾値速度トレンド分析",
       "thresholdSpeedDescription": "最新の閾値速度推定値を以前の値と比較し、変化をペースとして表示します。",
       "fitnessPrName": "フィットネス-PRクロスリファレンス",
@@ -512,41 +535,46 @@
       "stalePrCrossRefName": "{{metric}}とPRの照合"
     },
     "data": {
-      "bestTime": "ベストタイム",
-      "daysAgo": "日前",
-      "days": "日",
-      "currentFtp": "現在のFTP",
-      "previousFtp": "以前のFTP",
-      "change": "変化",
-      "currentPace": "現在のペース",
-      "previousPace": "以前のペース",
-      "improvement": "改善",
-      "thisWeek": "今週",
-      "lastWeek": "先週",
-      "activitiesThisWeek": "今週のアクティビティ",
       "activitiesLastWeek": "先週のアクティビティ",
-      "sevenDayAvg": "7日平均",
-      "hrvSevenDay": "HRV（7日間）",
-      "latestHrv": "最新のHRV",
+      "activitiesThisWeek": "今週のアクティビティ",
+      "anomaly": "異常度",
+      "bestTime": "ベストタイム",
+      "change": "変化",
+      "currentFtp": "現在のサイクリングeFTP",
+      "currentPace": "現在のペース",
       "dataPoints": "データポイント",
-      "fourWeekAvgTss": "4週間平均",
-      "hrChange": "心拍数変化",
+      "days": "日",
+      "daysAgo": "日前",
       "efforts": "回数",
-      "trendSlope": "トレンド傾き",
+      "engagement": "利用頻度",
+      "fourWeekAvgTss": "4週間平均",
+      "ftpHistory": "eFTPの推移",
+      "hrChange": "心拍数変化",
+      "hrvSevenDay": "HRV（7日間）",
+      "improvement": "改善",
+      "improvementSignal": "改善シグナル",
+      "lastWeek": "先週",
+      "latestHrv": "最新のHRV",
+      "paceHistory": "クリティカルスピードの推移",
+      "previousFtp": "30日前のサイクリングeFTP",
+      "previousPace": "以前のペース",
+      "recency": "直近度",
+      "recentEfforts": "最近の記録",
       "recentMedian": "最近の中央値",
       "relevance": "関連度",
-      "recency": "直近度",
-      "improvementSignal": "改善シグナル",
-      "anomaly": "異常度",
-      "engagement": "利用頻度"
+      "sevenDayAvg": "7日平均",
+      "thisWeek": "今週",
+      "trendSlope": "トレンド傾き",
+      "weeklyLoad": "週間負荷"
     },
     "hrvTrend": {
       "trendingUp": "回復が改善中",
       "trendingDown": "回復が低下中",
       "stable": "回復は安定",
-      "trendingUpBody": "7日間のHRV平均 ({{avg}} ms) が{{days}}日のデータに基づき上昇しています。",
-      "trendingDownBody": "7日間のHRV平均 ({{avg}} ms) が{{days}}日のデータに基づき低下しています。",
-      "stableBody": "7日間のHRV平均 ({{avg}} ms) は{{days}}日のデータに基づき正常範囲内です。"
+      "trendingUpBody": "直近 7 日間の HRV のうち、新しい半分の平均が古い半分を 2% 以上上回っています。期間平均 {{avg}} ms、{{days}} 件の測定、最新 {{latest}} ms。",
+      "trendingDownBody": "直近 7 日間の HRV のうち、新しい半分の平均が古い半分を 2% 以上下回っています。期間平均 {{avg}} ms、{{days}} 件の測定、最新 {{latest}} ms。",
+      "stableBody": "直近 7 日間の HRV の前半と後半の差は 2% 以内です。期間平均 {{avg}} ms、{{days}} 件の測定、最新 {{latest}} ms。",
+      "lastTwoDaysBody": "期間自体は横ばいですが、直近 2 件の測定が連続した日に下がり、最新の {{latest}} ms は {{days}} 件の期間平均 {{avg}} ms を下回っています。"
     },
     "weeklyLoad": {
       "title": "トレーニング負荷が平均{{direction}}{{percent}}%",
@@ -612,8 +640,6 @@
       "recent2Weeks": "直近2週",
       "earlier2Weeks": "前の2週",
       "changeLabel": "変化",
-      "thisWeek": "今週",
-      "weeksAgo": "-{{n}}週",
       "formula": "直近2週間平均と前の2週間平均の比較",
       "algorithm": "過去4週間の筋肉ごとの加重セットを追跡します。主働は1.0、補助は0.5として数えます。",
       "methodologyName": "筋力ボリューム推移",
@@ -666,6 +692,7 @@
     "disclaimer": "Veloqはintervals.icuとは一切関連していません",
     "getApiKey": "APIキーを取得",
     "invalidApiKey": "無効なAPIキーです。キーを確認して再試行してください。",
+    "queuedOffline": "オフラインです。キーを保存しました。オンラインに戻るとサインインします。",
     "localModeNote": "ローカルモード: すべてのデータはデバイスに保存されます",
     "apiKeyNoNotifications": "APIキーログインではプッシュ通知を利用できません。",
     "loginWithIntervals": "intervals.icuでサインイン",
@@ -805,7 +832,9 @@
       "title": "通知",
       "enable": "通知を有効にする",
       "requiresOAuth": "通知を有効にするには、APIキーではなくOAuthログインで再接続してください。",
-      "privacyHint": "プッシュトークンとアスリートIDをサーバーに保存（30日で期限切れ）。veloq.fit/privacyを参照"
+      "privacyHint": "プッシュトークンとアスリートIDをサーバーに保存（30日で期限切れ）。veloq.fit/privacyを参照",
+      "sectionPr": "自己ベスト",
+      "fitnessMilestone": "フィットネスの節目"
     },
     "prompt": {
       "title": "最新情報を受け取る",
@@ -826,12 +855,7 @@
       "sectionPrMany": "{{name}}ほか{{count}}件でPR",
       "fasterOnRoute": "「{{name}}」でいつもより速い",
       "fasterOnRouteDelta": "「{{name}}」でいつもより速い(PRまで{{delta}})",
-      "onRoute": "「{{name}}」を走行",
-      "sectionTraversedOne": "1件のセクションを通過",
-      "sectionTraversedMany": "{{count}}件のセクションを通過",
-      "distanceAndTime": "{{km}} km・{{min}}分",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}}分"
+      "onRoute": "「{{name}}」を走行"
     }
   },
   "recording": {
@@ -930,6 +954,7 @@
     "slideToUnlock": "スライドしてロック解除",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "アクティビティを開始",
+    "startingIn": "{{seconds}}秒後に開始",
     "status": {
       "paused": "一時停止中",
       "recording": "記録中"
@@ -950,6 +975,7 @@
     "writePermissionNotGranted": "書き込み権限が付与されていません",
     "writePermissionRequired": "書き込み権限が必要です",
     "savedLocally": "アクティビティをこの端末に保存しました。マイ記録からいつでもアップロードできます。",
+    "savedLocallyNoScope": "アクティビティを端末に保存しました。アップロードを許可するとアップロードされます。",
     "settingsUpload": "アップロード",
     "autoUpload": "自動アップロード",
     "autoUploadDescription": "保存時に記録を intervals.icu へ自動でアップロードします。オフの場合、マイ記録からアップロードするまでこの端末に保存されます。",
@@ -1000,7 +1026,9 @@
     "writeScopeNotGranted": "書き込み権限が付与されませんでした",
     "signInRequired": "記録するにはサインイン",
     "signInDescription": "記録にはintervals.icuのアカウントが必要です。アクティビティの保存先になります。",
-    "signInAction": "サインイン"
+    "signInAction": "サインイン",
+    "recordAnyway": "このまま記録する",
+    "writePermissionLocalOnly": "記録はこのままできます。アップロードを許可するまで、このアクティビティは端末内に保存されます。"
   },
   "routeDetail": {
     "routeNotFound": "ルートが見つかりません"
@@ -1010,6 +1038,13 @@
     "tomorrow": "明日"
   },
   "routes": {
+    "sectionDefaultName": "{{sport}}区間（{{date}}）",
+    "targetPace": "ペース",
+    "targetHr": "心拍",
+    "targetPower": "パワー",
+    "patternRide": "ライド",
+    "patternRun": "ラン",
+    "patternSentence": "{{day}}はたいてい{{duration}}ほど{{sport}}しています",
     "activities": "アクティビティ",
     "adjustSportTypeFilter": "スポーツタイプフィルターを調整してみてください",
     "analysingRoutes": "ルート分析中",
@@ -1017,7 +1052,6 @@
     "createSection": "区間を作成",
     "custom": "カスタム",
     "dataRangeHint": "{{duration}}のアクティビティデータに基づく",
-    "defaultActivityName": "アクティビティ {{number}}",
     "defaultRouteName": "{{type}}ルート",
     "duplicateNameMessage": "別の名前を選択してください。各ルートには一意の名前が必要です。",
     "duplicateNameTitle": "名前が既に存在します",
@@ -1027,7 +1061,6 @@
     "loadingRoutes": "ルートを読み込み中...",
     "lookingForRoutes": "一致するルートを検索中...",
     "match": "一致",
-    "more": "+{{count}}件",
     "noFrequentSections": "よく通る区間がまだありません",
     "noMatchingRoutes": "一致するルートが見つかりません",
     "noRoutesYet": "まだルートがありません",
@@ -1077,6 +1110,8 @@
     "detectionPaused": "セクションの移行中は検出を一時停止しています",
     "detectionPausedElevation": "標高のダウンロード中は検出を一時停止しています",
     "detectionHeldElevationPaused": "設定で標高のダウンロードを再開するまで、検出は保留されます",
+    "detectionHeldElevationWaiting_one": "{{count}} 件のアクティビティトラックの標高を待っています。オンラインになると Veloq が再試行します。",
+    "detectionHeldElevationWaiting_other": "{{count}} 件のアクティビティトラックの標高を待っています。オンラインになると Veloq が再試行します。",
     "disabled": "無効",
     "removeSection": "セクションを削除",
     "removeSectionConfirm": "このセクションはアクティビティ詳細やインサイトに表示されなくなります。セクションリストから復元できます。",
@@ -1090,6 +1125,8 @@
     "legendPr": "PR",
     "legendReverse": "逆方向",
     "legendThisActivity": "このアクティビティ",
+    "legendThisSection": "このセクション",
+    "legendNearby": "近くの他のセクション",
     "resetReference": "基準をリセット",
     "resetReferenceConfirm": "自動基準選択にリセットしますか？\n\nこの区間はすべてのアクティビティと再照合されます。これにより、この区間のアクティビティが追加または削除される場合があります。",
     "reverse": "逆方向",
@@ -1112,6 +1149,7 @@
     "resetBoundsConfirm": "自動検出された元の範囲に戻しますか？\n\nセクションはすべてのアクティビティと再照合されます。",
     "traversals": "通過回数",
     "liftGround": "リフト",
+    "notLift": "リフトではない",
     "trimFailed": "セクション範囲のトリミングに失敗しました",
     "trimTooShort": "セクションには少なくとも5つのポイントが必要です",
     "expandUnavailable": "拡張に使用できるアクティビティトラックがありません",
@@ -1168,7 +1206,10 @@
     "rescanRefusedNotReady": "エンジンを準備中です。しばらくしてからもう一度お試しください。",
     "rescanRefusedOff": "ルートマッチングがオフです。設定でオンにするとスキャンできます。",
     "rescanRefusedNothingOwed": "すべてスキャン済みです。",
-    "rescanRefusedFailed": "スキャンを開始できませんでした。"
+    "rescanRefusedFailed": "スキャンを開始できませんでした。",
+    "unflagLift": "リフト判定を解除しますか？",
+    "unflagLiftConfirm": "検出機能がここをリフト区間と判定しました。解除すると元に戻せません。",
+    "latestIsRecord": "ここでの自己ベストは直近の記録です"
   },
   "settings": {
     "account": "アカウント",
@@ -1205,6 +1246,8 @@
     "maxMetricsHint": "最大4つの指標",
     "appTour": "アプリツアー",
     "appTourDescription": "機能を探索して使い方を学ぶ",
+    "rangeLockedMessage": "ローカルデータ範囲は最初の同期が完了すると開きます。同期が始まらない場合は、オンラインかどうかとログイン状態を確認してください。",
+    "rangeLockedTitle": "準備中です",
     "terrain3D": "3D地形",
     "terrain3DOff": "オフ",
     "terrain3DSmart": "スマート",
@@ -1226,7 +1269,18 @@
     "support": "サポート",
     "supportingMetrics": "サポート指標",
     "syncActivities": "アクティビティを同期しています",
-    "syncActivitiesProgress": "{{total}} 件中 {{completed}} 件",
+    "syncStep": {
+      "activities": "最新のアクティビティを取得しています",
+      "athlete": "プロフィールを取得しています",
+      "census": "intervals.icu のアクティビティ一覧を取得しています",
+      "curves": "パワーとペースのカーブを取得しています",
+      "firstActivities": "最新の5件のアクティビティを取得しています",
+      "intervalBodies": "インターバルの詳細を取得しています",
+      "remainingActivities": "残りのアクティビティを取得しています",
+      "sportSettings": "スポーツ設定を取得しています",
+      "wellness": "ウェルネスデータを取得しています"
+    },
+    "syncStepProgress": "{{label}}（{{completed}}/{{total}}）",
     "syncStop": "停止",
     "syncStopping": "停止しています...",
     "system": "システム",
@@ -1234,7 +1288,17 @@
     "streamHistoryDays": "{{count}}日",
     "streamHistoryAll": "すべて",
     "streamHistoryReset": "リセット",
+    "streamBackfill": "未取得のデータ系列",
+    "streamBackfillOwed_one": "{{count}} 件のアクティビティ",
+    "streamBackfillOwed_other": "{{count}} 件のアクティビティ",
+    "streamBackfillProgress": "{{total}} 件中 {{completed}} 件",
+    "streamBackfillDownload": "ダウンロード",
+    "streamBackfillStop": "停止",
     "tileCacheLimit": "マップタイルの上限",
+    "tileCacheLimitHint": "上げるとオフラインと周辺の表示が快適になります",
+    "tileCacheUsedOfBudget": "{{budget}} 中 {{used}} を使用",
+    "tileCacheUsedOfBudgetAtLeast": "{{budget}} 中 {{used}} 以上を使用",
+    "tileCacheFree": "デバイスの空き容量 {{size}}",
     "title": "設定",
     "units": "単位",
     "unitsAuto": "自動",
@@ -1247,8 +1311,6 @@
     "version": "バージョン",
     "storageDatabase": "データベース",
     "storageHeatmap": "ヒートマップ",
-    "storageSatellite": "衛星画像",
-    "storageTerrain": "地形",
     "storageVector": "ベクター",
     "storageGround": "下地",
     "storagePreviews": "3Dプレビュー",
@@ -1303,10 +1365,17 @@
     "previewAreaSections": "{{count}} セクション",
     "sectionMaxLength": "最長セクション: {{distance}}",
     "sectionSameTraffic": "ルート分割の感度: {{value}}",
+    "sectionParamPastClamp": "これを超える値は検出器が区別しません。",
+    "sectionParamRange": "検証済みの範囲は {{min}} から {{max}}",
+    "sectionPresetDefault": "標準",
+    "sectionPresetRelaxed": "ゆるめ",
+    "sectionPresetStrict": "厳しめ",
+    "sectionPresets": "プリセット",
     "previewRun": "プレビュー",
     "previewRunning": "このエリアの {{count}} 件のアクティビティを分析中",
     "previewFailed": "プレビューを完了できませんでした。",
     "runSlow": "通常より時間がかかっています。処理は続いています。",
+    "stillRunning": "実行中です。この画面を離れても大丈夫です。",
     "previewPoolUnusable": "一部のアクティビティの軌跡を読み取れないため、プレビューを中止しました。",
     "previewCurrentFailed": "このエリアの現在のセクションを読み込めませんでした。",
     "previewSuspended": "標高の更新中です。しばらくしてからもう一度お試しください。",
@@ -1342,7 +1411,18 @@
     "exportPrivacyCount": "{{radius}} m で {{total}} 件中 {{touched}} 件のライドを短縮します。削除はされません。",
     "exportPrivacyNothingTrimmed": "短縮しません。エクスポートには全トラックが含まれます。",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "地図をタップして自宅を移動します。"
+    "exportPrivacyMoveHint": "地図をタップして自宅を移動します。",
+    "previewRouteGrouping": "ルートのグループ化をプレビュー",
+    "groupingMatchShare": "{{percent}}% 重なれば同じルート",
+    "groupingEndsApart": "発着点の差が {{distance}} 以内なら同じ",
+    "groupingRunning": "アクティビティをグループ化中…",
+    "groupingNothingToGroup": "グループ化できる軌跡付きのアクティビティがありません",
+    "groupingSummary": "この設定でルート {{count}} 件",
+    "groupingMerged": "ルート {{count}} 件が統合されます",
+    "groupingDropped": "{{count}} 件が単独のまま残ります",
+    "groupingLegendMostRidden": "最多走行",
+    "groupingLegendOther": "その他のルート",
+    "groupingFailed": "グループ化が完了しませんでした。つまみを動かすともう一度実行します。"
   },
   "stats": {
     "activities": "アクティビティ",
@@ -1388,6 +1468,7 @@
     "powerCurve": "パワーカーブ",
     "powerZones": "パワーゾーン",
     "previous": "前回",
+    "rangeNotDownloaded": "まだダウンロードされていません",
     "seasonComparison": "シーズン比較",
     "secondHalf": "後半",
     "sixMonths": "6ヶ月",
@@ -1416,12 +1497,19 @@
     "heartRate": "心拍数",
     "lactateThreshold": "乳酸閾値",
     "noEffortData": "ベストエフォートデータがありません",
+    "curveFetched": "最後の同期時点、{{date}}",
+    "curveNotDownloaded": "まだダウンロードされていません",
+    "notEnoughRuns": "ランのデータがまだ足りません",
     "pace": "ペース",
     "paceCurve": "ペースカーブ",
     "powerCurve": "パワーカーブ",
     "seasonBests": "シーズンベスト",
     "swimPaceCurve": "スイムペースカーブ",
     "trainingZones": "トレーニングゾーン"
+  },
+  "sync": {
+    "ridesDownloaded": "{{total}}件中{{completed}}件のアクティビティをダウンロード",
+    "tracksDownloaded": "{{total}}件中{{completed}}件のGPSログをダウンロード"
   },
   "time": {
     "current": "現在",
@@ -1528,9 +1616,24 @@
     }
   },
   "strength": {
+    "female": "女性",
+    "male": "男性",
+    "bodyTypeDefault": "intervals.icu のプロフィールに性別がないため、体型は既定値の <type>{{bodyType}}</type> で表示しています。",
+    "bodyTypeFromProfile": "体型は intervals.icu のプロフィールにもとづき <type>{{bodyType}}</type> で表示しています。",
+    "muscleSource": "各種目の筋群は、パブリックドメインのエクササイズデータセット <source>free-exercise-db</source> を出典としています。",
+    "durationLabel": "時間",
+    "setsLabel": "セット",
+    "setsNotDownloaded": "セットはまだダウンロードされていません",
+    "totalLabel": "合計",
+    "timeColumn": "時間",
+    "weightColumn": "重量",
+    "repsColumn": "回数",
+    "setColumn": "セット",
     "snapshot": "筋力スナップショット",
     "noWorkouts": "直近{{period}}に筋力トレーニングがありません",
     "noWorkoutsHint": "筋力トレーニングを完了すると、筋肉群の内訳がここに表示されます",
+    "notDownloaded": "筋力トレーニングはまだダウンロードされていません",
+    "notDownloadedHint": "セットのデータはワークアウトファイルと一緒に届きます。接続してダウンロードしてください。",
     "sets": "セット",
     "muscleGroupVolume": "筋肉群ボリューム",
     "relativeWeightedSets": "選択期間の相対的な重み付きセット",
@@ -1602,6 +1705,7 @@
     "status": {
       "connecting": "接続中…",
       "connected": "接続済み",
+      "noData": "接続済み、データなし",
       "reconnecting": "再接続中…",
       "disconnected": "未接続"
     }
@@ -1654,7 +1758,6 @@
     "title": "バックグラウンド処理",
     "intro": "アプリが自動で実行する長い処理です。この画面を離れても続きます。",
     "openLink": "バックグラウンド処理",
-    "sync": "アクティビティの同期",
     "detection": "セクション検出",
     "elevationBackfill": "標高データの取得",
     "cutover": "セクションの再構築",

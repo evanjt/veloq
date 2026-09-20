@@ -215,31 +215,64 @@ export const colors = {
   textPrimary: '#18181B',
   textSecondary: '#52525B',
   textDisabled: '#A1A1AA',
-  textMuted: '#71717A',
+  // One grey in both themes cleared 4.5:1 in neither, 4.34:1 light and 3.24:1
+  // dark. These are the zinc rungs either side, already in the file as
+  // verdict.neutral, at 6.95:1 and 6.10:1 on the worst ground each theme draws
+  // (B605). Muted copy is a caption or a unit, not an inactive control, so the
+  // exemption textDisabled carries does not reach it.
+  textMuted: '#52525B',
   textOnDark: '#FFFFFF',
   textOnPrimary: '#18181B', // Dark text on gold
-  iconFaint: '#CCCCCC', // Faint chevrons / placeholder icons (dark counterpart: textMuted)
-  iconNeutral: '#9CA3AF', // Idle/indeterminate status icons (GPS acquiring)
-  chevronMuted: '#999999', // Notice-row chevrons (dark counterpart: #666666)
+  // A chevron is often the only thing saying a row opens, and an idle status
+  // icon is the only thing saying the GPS is still looking, so both owe 3:1.
+  // Same hue, lifted until they hold it on white, background and backgroundAlt.
+  iconFaint: '#8A8A8A', // Faint chevrons / placeholder icons (dark counterpart: darkColors.iconFaint)
+  iconNeutral: '#828A9A', // Idle/indeterminate status icons (GPS acquiring)
   neutralLine: '#888888', // Unselected map lines, non-navigable chevrons on dark surfaces
   warningAmber: '#92400E', // Amber warning text/icon on light amber surfaces
-  amberIcon: '#D97706', // Amber icons/text on amber-tinted chips (dark counterpart: #FBBF24)
+  // The same tone as `warningAmber` on purpose: the chip label and the banner
+  // word are both amber text on a light ground, and the lighter #D97706 this
+  // was read 2.86:1 on the chip's own 12% tint. The two names stay because the
+  // dark halves differ, #FBBF24 here against the banner's own.
+  amberIcon: '#92400E', // Amber icons/text on amber-tinted chips (dark counterpart: #FBBF24)
 
-  // Semantic
+  // Semantic. `success` and `warning` are fills: 2.28:1 and 2.15:1 on white,
+  // so neither can be the mark on a light surface, only the ground under one.
+  // `successDeep` is the green that can, at 5.02:1, and it is the value the
+  // verdict ladder's positive rung already uses. `warningAmber` above is the
+  // amber that can, at 7.09:1. Both have a counterpart in `darkColors`, and
+  // both need it: no single green clears 4.5:1 on white and on #18181B at
+  // once, so a mark reads the pair through `isDark` rather than one constant.
   success: '#22C55E',
   successLight: '#4ADE80',
   successDark: '#16A34A',
+  successDeep: '#15803D',
   error: '#EF4444',
   errorLight: '#F87171',
   errorDark: '#DC2626',
+  // The red a word is set in. `error` is 3.38:1 on white, which is the 3:1 an
+  // icon or a border owes and not the 4.5:1 text owes, so a destructive action
+  // label and a failure line take this one instead: 5.82:1 on the worst light
+  // surface. Same shape as `successDeep` and `warningAmber` beside it, and the
+  // dark counterpart is the dark palette's own error red, 5.65:1 (B491).
+  errorDeep: '#B91C1C',
   warning: '#F59E0B',
   warningLight: '#FBBF24',
   // Capacity ladder, between warning and error: a section's point budget and
   // the storage bar's cache segments.
   cautionYellow: '#FFC107',
   cautionOrange: '#FF9800',
+  // The two caution hues as text. Both are fills, 1.47:1 and 1.94:1 on white,
+  // and the section-size warning is set in them on a pill that is 95 per cent
+  // white. 4.92:1 and 4.90:1 on the worst light surface (B959).
+  cautionYellowText: '#866400',
+  cautionOrangeText: '#995B00',
   info: brand.blue,
   infoLight: brand.blueLight,
+  // The info blue as text. The merge banner's line reads it over a 15% tint of
+  // itself, where the fill is 2.66:1 and `infoLight` 2.00:1. 4.95:1 on the worst
+  // light surface (B959).
+  infoText: '#2B6CA8',
 
   // Inputs
   inputTrack: '#DDDDDD', // Slider/progress track (dark counterpart: #333333)
@@ -265,6 +298,13 @@ export const colors = {
   ride: '#3B82F6', // Blue-500 - Royal blue for cycling
   run: '#10B981', // Emerald-500 - Fresh green
   swim: '#06B6D4', // Cyan-500 - Aqua/teal
+  // The three sport hues as text. The fitness screens set a threshold headline
+  // in the sport's colour, where the hue is the information, and all three fills
+  // sit between 2.18:1 and 3.31:1 on white. Worst light surface: ride 4.92:1,
+  // run 4.93:1, swim 4.97:1 (B927).
+  rideText: '#0B5FEA',
+  runText: '#0A7854',
+  swimText: '#047386',
   walk: '#8B5CF6', // Violet-500
   hike: '#A78BFA', // Violet-400
   workout: '#6366F1', // Indigo-500
@@ -272,7 +312,6 @@ export const colors = {
   // Fitness metric colors (matching intervals.icu)
   fitness: brand.blue, // CTL - Brand blue
   fatigue: '#A855F7', // ATL - Purple
-  form: brand.blue, // TSB - Use blue (neutral), color should be zone-based at runtime
   fitnessBlue: '#42A5F5', // CTL display color (intervals.icu blue)
   fatiguePurple: '#AB47BC', // ATL display color (intervals.icu purple)
 
@@ -284,9 +323,33 @@ export const colors = {
   chartCyan: '#06B6D4',
   chartPink: '#EC4899',
   chartIndigo: '#6366F1',
-  chartTeal: '#14B8A6',
   chartAmber: '#F59E0B',
   chartGold: brand.gold,
+  // Mark grade. The chart tones above are fills and lines, where the mark on
+  // top carries the contrast. Where the mark itself is the carrier, a PR
+  // trophy or the ring round the best dot, `chartGold` measures 1.89:1 on
+  // white and `chartGreen` 2.28:1, under the 3:1 a graphical object owes. Same
+  // hues, lifted (B929).
+  chartGoldMark: '#8A7224',
+  chartGreenMark: '#15803D',
+  // The gold a PR time is set in. Mark grade is not text grade: `chartGoldMark`
+  // reaches 4.18:1 on white, which is the 3:1 a trophy owes and not the 4.5:1
+  // text owes, and text has no 1.4.11 exemption. Same hue again, one step
+  // further down, 4.91:1 on the worst of the three light surfaces (B927).
+  chartGoldText: '#7E671B',
+  // The rest of the series hues that reach a text style, same rule and same
+  // method (B950). Worst of the three light surfaces: chartPinkText 5.43:1,
+  // chartPurpleText 6.28:1, fitnessBlueText 5.30:1, fatiguePurpleText 6.33:1.
+  // The fills they darken are 3.17, 3.56, 2.66 and 4.33, and text has no
+  // 1.4.11 exemption.
+  chartPinkText: '#BE185D',
+  chartPurpleText: '#7E22CE',
+  // The chart accent as text: the eFTP marker label reads in it, and the teal
+  // the dots are drawn in is 3.37:1 on white, which is a mark's bar and not
+  // text's. 4.92:1 on the worst light surface.
+  chartAccentText: '#0F766E',
+  fitnessBlueText: '#0F62C4',
+  fatiguePurpleText: '#8E24AA',
   chartRed: '#EF4444',
   chartCasing: '#00000026', // Under-stroke behind chart lines for edge contrast
 
@@ -297,9 +360,19 @@ export const colors = {
   chartSleepScore: '#6366F1', // Indigo-500
   chartWeight: '#64748B', // Slate-500
   chartFtp: '#FFB300', // Amber - FTP trend (stable across themes)
+  // The same amber as text: the estimated-FTP headline reads in it, and
+  // `chartFtp` is 1.61:1 on white. 4.91:1 on the worst light surface (B927).
+  chartFtpText: '#8B6200',
   chartPowerCurve: brand.blue, // Power curve line
   chartPaceCurve: '#4CAF50', // Green - pace curve line
   chartSwimCurve: '#2196F3', // Blue - swim pace curve line
+  // The grey rule a curve chart draws its threshold on: FTP, critical speed and
+  // critical swim speed each mark one, and none of them is a theme colour.
+  chartGuideLine: '#969696',
+  // The previous season's bars, drawn behind this season's. Cornflower rather
+  // than the chart blue, so the two seasons are told apart by hue and not only
+  // by opacity.
+  chartPreviousSeason: '#4682DC',
 
   // Neutral chart overlays
   chartGridFaint: 'rgba(0, 0, 0, 0.06)', // Axis gridlines on an insight card
@@ -334,15 +407,24 @@ export const colors = {
   formOptimal: '#66BB6A', // Green - peak training zone
   formHighRisk: '#EF5350', // Red - overtrained
 
+  // Form zone text. The fills above are bands and sparkline runs, grounds that
+  // 1.4.11 exempts at 3:1; a form number or a zone name drawn in one is text and
+  // holds 4.5:1 on every light surface, which none of the fills reach (B928).
+  // `formOptimalText` also carries the efficiency headline and effort count,
+  // which sit on an 18% tint of the fill, so it is the darkest of the five
+  // (B927). The five keep the fills' order, optimal darker than fresh.
+  formTransitionText: '#1565C0',
+  formFreshText: '#2E7D32',
+  formGreyZoneText: '#616161',
+  formOptimalText: '#1B5E20',
+  formHighRiskText: '#C62828',
+
   // Event priority colors
   eventPriorityA: '#EC4899', // Pink - priority race
   eventPriorityB: '#F59E0B', // Amber - secondary
   eventPriorityC: '#71717A', // Gray - training
 
   // Workout step colors
-  workoutWarmup: '#22C55E',
-  workoutWork: brand.blue, // Blue for work intervals
-  workoutRecovery: '#06B6D4',
   workoutCooldown: '#8B5CF6',
 
   // Insight category colors
@@ -354,10 +436,31 @@ export const colors = {
   warningBannerText: '#FDE68A',
 
   // Tappable reference link inside an insight's methodology note
-  linkTeal: '#009688',
+  // Teal-700. The lighter #009688 read 3.30:1, and a link that carries its
+  // affordance in colour owes the text bar twice over.
+  linkTeal: '#00796B',
 
   // Compass
   compassNorth: '#E53935',
+
+  // Mark-grade tones. The palette has three families: text at 4.5:1, a mark
+  // at 3:1, a ground at no bar. These are the mark tones for hues whose fill
+  // token sits under 3:1 on the light theme, so a border, a legend swatch or
+  // a bar that is the only carrier of its meaning has one to take. Each holds
+  // 3:1 against all three surfaces of both themes, which is why they are one
+  // set rather than a light and a dark pair.
+  markCyan: '#0891B2',
+  markGreen: '#059669',
+  markAmber: '#BE5A0A',
+  markYellow: '#B57200',
+  markOrange: '#CC6A00',
+
+  // Four of the five form zones as marks: a legend dot, not the band it keys.
+  // `formHighRisk` is already 3.13:1 on the worst surface and keeps its fill.
+  markFormTransition: '#1B7FD8',
+  markFormFresh: '#3D9140',
+  markFormGreyZone: '#7A7A7A',
+  markFormOptimal: '#2E8C33',
 } as const;
 
 // =============================================================================
@@ -368,7 +471,10 @@ export const colors = {
 // Picked for contrast against both themes and against each other; wbal shares
 // cadence's orange because the two never plot together.
 export const chartStreamColors = {
-  power: colors.chartYellow,
+  // Power and gap take the mark tones: the line is the only thing telling one
+  // series from another on the canvas and the chip that keys it is the same
+  // hue, so both move together.
+  power: colors.markYellow,
   heartrate: '#E63946',
   cadence: '#F97316',
   speed: '#2A9D8F',
@@ -376,7 +482,7 @@ export const chartStreamColors = {
   elevation: '#A3E635',
   grade: '#6B8E23',
   wbal: '#F97316',
-  gap: colors.chartCyan,
+  gap: colors.markCyan,
   distance: '#457B9D',
   temp: '#E76F51',
   time: '#6C757D',
@@ -399,11 +505,11 @@ export const mapStylePreview = {
   satellite: { land: '#2F5E3A', water: '#1B4A63', road: '#C9BFA5' },
 } as const;
 
-// Insight icon tints (insight generators). Theme-independent; positive and
-// info mirror formOptimal and fitnessBlue.
+// The two insight tones the verdict ladder has no rung for, because they are
+// categories rather than judgements. Theme-independent; `info` mirrors
+// fitnessBlue. Every polarity resolves through the ladder instead, so a tone
+// added here that `insightToneColor` does not return is unreachable.
 export const insightIcon = {
-  positive: '#66BB6A',
-  caution: '#FFA726',
   info: '#42A5F5',
   opportunity: '#FF9800',
 } as const;
@@ -416,14 +522,19 @@ export const statusBadge = {
   alert: { bg: '#F9731618', text: '#B45309' },
   watch: { bg: '#F59E0B18', text: '#B45309' },
   bad: { bg: '#EF444418', text: '#B91C1C' },
-  goodStrong: { bg: '#22C55E26', text: '#15803D' },
-  watchStrong: { bg: '#F59E0B26', text: '#B45309' },
+  // The denser fill takes a deeper text tone than its plain rung: the same
+  // green on the 0x26 fill reads 4.41:1 where it reads 4.64:1 on the 0x18 one,
+  // and the same amber lands exactly on the bar with no headroom.
+  goodStrong: { bg: '#22C55E26', text: '#166534' },
+  watchStrong: { bg: '#F59E0B26', text: '#92400E' },
   neutralStrong: { bg: '#64748B26', text: '#475569' },
 } as const;
 
 // Verdict ladder: the one palette a good, caution or bad judgement is drawn
-// from. Each rung is text or an icon, so every token clears 4.5:1 against its
-// surface, white in light and surface #18181B in dark. The three polarity
+// from. Each rung is text or an icon, so every token clears 4.5:1 against every
+// surface of its own theme, not only against white and #18181B: a verdict is
+// drawn on cards, and a card is `backgroundAlt` in light and `surfaceCard` in
+// dark, both further from the text tone than those two. The three polarity
 // rungs run monotone in luminance and hold at least 1.4:1 between adjacent
 // steps, measured 1.41:1 light and 1.53:1 dark. That is consistency, not
 // greyscale readability: no five colours inside the readable band reach the
@@ -431,11 +542,11 @@ export const statusBadge = {
 // can never read as a polarity, and record is gold and off the chain. The
 // record light tone darkens brand.goldDark, which is only 2.87:1 on white.
 export const verdict = {
-  negative: { light: '#7F1D1D', dark: '#EF4444' },
+  negative: { light: '#7F1D1D', dark: '#F25C5C' },
   caution: { light: '#92400E', dark: '#F59E0B' },
   positive: { light: '#15803D', dark: '#86EFAC' },
   neutral: { light: '#52525B', dark: '#A1A1AA' },
-  record: { light: '#8A7224', dark: brand.goldLight },
+  record: { light: '#806A22', dark: brand.goldLight },
 } as const;
 
 export type VerdictRung = keyof typeof verdict;
@@ -443,6 +554,40 @@ export type VerdictRung = keyof typeof verdict;
 export function verdictColor(rung: VerdictRung, isDark: boolean): string {
   return isDark ? verdict[rung].dark : verdict[rung].light;
 }
+
+// A chip wants a translucent fill behind the rung's text, which the ladder has
+// no tone for. Rather than a second set of hues, which is the split this
+// replaces, the fill is the rung itself at the two alpha steps the strength
+// chips already used: 0x18 for a chip and 0x26 for the denser progression
+// card. The text on it stays `verdictColor`, so a chip is one hue at two
+// weights and the ladder still decides which hue.
+export function verdictFill(rung: VerdictRung, isDark: boolean, strong = false): string {
+  return `${verdictColor(rung, isDark)}${strong ? '26' : '18'}`;
+}
+
+// What an insight's icon is drawn from. A polarity is a ladder rung; `info`
+// and `opportunity` are categories rather than judgements, so the ladder has
+// no rung for them and they keep their own tones.
+export type InsightTone = VerdictRung | 'info' | 'opportunity';
+
+export function insightToneColor(tone: InsightTone, isDark: boolean): string {
+  if (tone === 'info') return insightIcon.info;
+  if (tone === 'opportunity') return insightIcon.opportunity;
+  return verdictColor(tone, isDark);
+}
+
+// Recording, which is its own meaning rather than an accent. The brand teal
+// is what every other action on the feed is painted in, so a record button
+// wearing it reads as one more of them. Red is the convention a record control
+// has carried since tape, and it is the one colour in this palette that is not
+// already spent on something else. Both tones carry the white glyph at AA text
+// and separate from the surface they float over at the graphical-object bar:
+// light 6.22:1 and 5.90:1, dark 4.83:1 and 4.02:1. Dark is the lighter tone,
+// the same way round as every other pair here.
+export const recording = {
+  light: '#C1121F',
+  dark: '#DC2626',
+} as const;
 
 // Sync-warning banner palette (root layout): amber surfaces with deep amber
 // text, one set per mode.
@@ -476,11 +621,15 @@ export const errorScreen = {
 } as const;
 
 // Muscle body diagram: the base fill under the volume ramp, one per mode, and
-// the outline on the selected group.
+// the outline on the selected group, also one per mode. The outline runs along
+// the polygon boundaries, which are the page showing through rather than the
+// fill, so a near-black stroke that reads at 17:1 on the light page is drawn in
+// the colour of the dark one.
 export const bodyDiagram = {
   fillLight: '#3F3F3F',
   fillDark: '#555555',
   selectedStroke: '#1A1A1A',
+  selectedStrokeDark: '#FAFAFA',
 } as const;
 
 // The one-frame Skia warmup surface. Primaries on purpose: it compiles the
@@ -538,6 +687,12 @@ export const darkColors = {
   accent: brand.gold, // Full gold for dark mode
   accentLight: brand.goldLight,
 
+  // Mark grade, the dark half of the pair in `colors`. A near-black surface
+  // wants the light tone where white wants the deep one, so a mark that reads
+  // one token in both themes is the same defect the other way round (B929).
+  chartGoldMark: brand.goldLight,
+  chartGreenMark: '#86EFAC',
+
   // Secondary - Blue (charts, data)
   secondary: brand.blue, // Full blue for dark mode
   secondaryLight: brand.blueLight,
@@ -553,7 +708,7 @@ export const darkColors = {
   // Text
   textPrimary: '#FAFAFA',
   textSecondary: '#A1A1AA',
-  textMuted: '#71717A',
+  textMuted: '#A1A1AA',
   textDisabled: '#52525B',
 
   // Borders
@@ -567,13 +722,22 @@ export const darkColors = {
   iconSecondary: '#A1A1AA',
   iconMuted: '#71717A',
   iconDisabled: '#52525B',
-  iconFaint: '#71717A', // Faint chevrons / placeholder icons (light counterpart: #CCCCCC)
-  chevronMuted: '#666666', // Notice-row chevrons (light counterpart: #999999)
-  amberIcon: '#FBBF24', // Amber icons/text on amber-tinted chips (light counterpart: #D97706)
+  iconFaint: '#71717A', // Faint chevrons / placeholder icons (light counterpart: #8A8A8A)
+  iconNeutral: '#9CA3AF', // Idle/indeterminate status icons; 6.16:1 on the dark surfaces
+  amberIcon: '#FBBF24', // Amber icons/text on amber-tinted chips (light counterpart: #92400E)
   inputTrack: '#333333', // Slider/progress track (light counterpart: #DDDDDD)
 
   // Amber warning text/icon (counterpart to light warningAmber)
   warningAmber: '#FBBF24',
+
+  // Counterpart to light errorDeep. The dark palette's error red already clears
+  // the text bar on a near-black surface at 5.65:1, so the pair is one token
+  // read through isDark and not two hues.
+  errorDeep: '#F87171',
+
+  // Counterpart to light successDeep: on a near-black surface the mark has to
+  // be the light tone, not the dark one. 10.17:1 on #18181B.
+  successDeep: '#4ADE80',
 
   // Interactive states
   buttonSecondary: '#27272A',
@@ -591,8 +755,6 @@ export const darkColors = {
   chartFitness: brand.blueLight, // Brighter blue for CTL
   chartFatigue: '#C084FC', // Brighter purple for ATL
   chartForm: brand.blueLight, // Brighter blue for TSB (neutral, zone-based at runtime)
-  chartPower: '#FBBF24', // Amber for power
-  chartPace: '#4ADE80', // Green for pace
   chartHR: '#F87171', // Red for heart rate
   chartCadence: '#C084FC', // Purple for cadence
   chartElevation: '#94A3B8', // Slate for elevation
@@ -604,6 +766,8 @@ export const darkColors = {
   chartSleep: '#C084FC', // Purple-400
   chartSleepScore: '#818CF8', // Indigo-400
   chartWeight: '#94A3B8', // Slate-400
+  chartGuideLine: '#969696',
+  chartPreviousSeason: '#6495ED', // Lighter cornflower, to carry on a dark ground
 
   // Neutral chart overlays for dark mode
   chartGridFaint: 'rgba(255, 255, 255, 0.06)',
@@ -612,6 +776,47 @@ export const darkColors = {
   chartDotMuted: 'rgba(255, 255, 255, 0.5)',
   chartZeroLineSolid: '#71717A',
   chartFormLine: '#FFFFFF',
+
+  // Text variants of the series hues, the dark counterparts of the light ones
+  // (B927). On a near-black ground the fill itself already clears 4.5:1 for four
+  // of the six, so the token is the fill and the pair still exists: a caller
+  // reads one name in both themes. Worst of the three dark surfaces:
+  // chartGoldText 7.44:1, chartFtpText 8.71:1, formOptimalText 6.62:1,
+  // runText 6.17:1, swimText 6.44:1. Only `ride` needs its own tone, at 4.25:1.
+  chartGoldText: brand.gold,
+  chartFtpText: '#FFB300',
+  // The B950 half of the pair. On the dark surfaces `fitnessBlue` already
+  // carries at 5.91:1 and is its own text tone; pink, purple and the fatigue
+  // purple do not (4.43, 3.95 and 3.25) and take a lighter step, 5.91:1,
+  // 5.92:1 and 6.55:1 on the worst of the three.
+  chartPinkText: '#F472B6',
+  chartPurpleText: '#C084FC',
+  // The dark teal is a light tone on a near-black ground and carries as it is,
+  // 8.40:1 on the worst dark surface.
+  chartAccentText: brand.tealDark,
+  fitnessBlueText: '#42A5F5',
+  fatiguePurpleText: '#CE93D8',
+  rideText: '#4F8FF7',
+  runText: '#10B981',
+  swimText: '#06B6D4',
+  // The B959 half. On a near-black ground the caution fills carry as they are,
+  // 9.60:1 and 7.26:1, and the info blue's own light step does at 7.02:1. The
+  // tappable link teal had no dark counterpart at all, so a dark theme read the
+  // light one: this is the dark tone the theme already uses for the primary,
+  // 8.40:1 on the worst dark surface.
+  cautionYellowText: '#FFC107',
+  cautionOrangeText: '#FF9800',
+  infoText: brand.blueLight,
+  linkTeal: brand.tealDark,
+
+  // The rest of the form zone text family (B928). Same story: four of the five
+  // are the fill, and the red is the one that does not carry, 4.49:1 on
+  // surfaceCard, so it takes the lighter tone the dark palette uses for error.
+  formTransitionText: '#64B5F6',
+  formFreshText: '#81C784',
+  formGreyZoneText: '#9E9E9E',
+  formOptimalText: '#66BB6A',
+  formHighRiskText: '#F87171',
 } as const;
 
 // =============================================================================
@@ -637,7 +842,6 @@ export const gradients = {
   // Fitness metric gradients
   fitness: [brand.blueLight, brand.blue] as const,
   fatigue: ['#C084FC', '#A855F7'] as const, // Purple gradient
-  form: [brand.blueLight, brand.blue] as const, // Blue gradient (neutral, zone-based at runtime)
 
   // UI gradients
   success: ['#4ADE80', '#22C55E'] as const,
@@ -720,6 +924,13 @@ export const activityTypeColors: Record<string, string> = {
   Rowing: '#14B8A6', // Teal-500
   Kayaking: '#14B8A6',
   Canoeing: '#14B8A6',
+
+  Tennis: '#C2410C', // Orange-700 - the racket family, 5.18:1 on white
+  Badminton: '#C2410C',
+  Pickleball: '#C2410C',
+  Racquetball: '#C2410C',
+  Squash: '#C2410C',
+  TableTennis: '#C2410C',
 
   Snowboard: '#38BDF8', // Sky-400
   AlpineSki: '#0EA5E9', // Sky-500

@@ -1,7 +1,8 @@
 /**
- * The sync stop control ships three strings. Every locale needs a real
- * translation, otherwise the row reads as English. The line that names the
- * running step is held by its own test beside this one.
+ * The stream backfill row ships six strings: the label, a pluralised count of
+ * what is owed, the progress line, and the two controls. A locale missing one
+ * renders the row half in English, and a placeholder dropped in translation
+ * renders a raw `{{count}}` next to a Download button.
  */
 
 import * as fs from 'fs';
@@ -9,7 +10,20 @@ import * as path from 'path';
 
 const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
-const KEYS = ['syncActivities', 'syncStop', 'syncStopping'] as const;
+const KEYS = [
+  'streamBackfill',
+  'streamBackfillOwed_one',
+  'streamBackfillOwed_other',
+  'streamBackfillProgress',
+  'streamBackfillDownload',
+  'streamBackfillStop',
+] as const;
+
+const PLACEHOLDERS: Record<string, string[]> = {
+  streamBackfillOwed_one: ['{{count}}'],
+  streamBackfillOwed_other: ['{{count}}'],
+  streamBackfillProgress: ['{{completed}}', '{{total}}'],
+};
 
 const ENGLISH_LOCALES = ['en-AU', 'en-GB', 'en-US'];
 
@@ -23,7 +37,7 @@ function settingsOf(locale: string): Record<string, string> {
   return JSON.parse(raw).settings as Record<string, string>;
 }
 
-describe('sync cancel strings', () => {
+describe('stream backfill strings', () => {
   it('covers all 17 locales', () => {
     expect(locales).toHaveLength(17);
   });
@@ -36,10 +50,17 @@ describe('sync cancel strings', () => {
       expect(settings[key].trim().length).toBeGreaterThan(0);
     });
 
+    it.each(Object.keys(PLACEHOLDERS))('keeps the placeholders of %s', (key) => {
+      for (const placeholder of PLACEHOLDERS[key]) {
+        expect(settings[key]).toContain(placeholder);
+      }
+    });
+
     if (!ENGLISH_LOCALES.includes(locale)) {
       it('translates the prose rather than copying English', () => {
         const english = settingsOf('en-GB');
-        const copied = KEYS.filter((k) => settings[k] === english[k]);
+        const prose = KEYS.filter((k) => !PLACEHOLDERS[k]);
+        const copied = prose.filter((k) => settings[k] === english[k]);
         expect(copied).toEqual([]);
       });
     }

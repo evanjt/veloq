@@ -10,7 +10,7 @@
  * import) so the codegen can run outside the RN runtime.
  */
 import { activityTypeColors, brand, colors, darkColors } from '@/theme/colors';
-import { layout } from '@/theme/spacing';
+import { layout, spacing } from '@/theme/spacing';
 
 /** Flat, resolved colour set the native widget renders from. */
 export interface WidgetPalette {
@@ -34,12 +34,18 @@ export interface WidgetPalette {
   chartCasing: string;
   /** Axis value labels on the trend chart. */
   textMuted: string;
-  /** Form zone colours keyed by the snapshot's `metrics.form.zone` enum. */
+  /** Form zone fills keyed by the snapshot's `metrics.form.zone` enum. */
   formHighRisk: string;
   formOptimal: string;
   formGreyZone: string;
   formFresh: string;
   formTransition: string;
+  /** Form zone text: the hero value and the impact numbers, which carry no label. */
+  formHighRiskText: string;
+  formOptimalText: string;
+  formGreyZoneText: string;
+  formFreshText: string;
+  formTransitionText: string;
   /** Trend up (green). */
   trendUp: string;
   /** Trend down (neutral grey; down is not "bad"). */
@@ -68,6 +74,11 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     formGreyZone: colors.formGreyZone,
     formFresh: colors.formFresh,
     formTransition: colors.formTransition,
+    formHighRiskText: colors.formHighRiskText,
+    formOptimalText: colors.formOptimalText,
+    formGreyZoneText: colors.formGreyZoneText,
+    formFreshText: colors.formFreshText,
+    formTransitionText: colors.formTransitionText,
     trendUp: colors.success,
     trendDown: colors.textSecondary,
     trendFlat: colors.textDisabled,
@@ -91,6 +102,11 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     formGreyZone: colors.formGreyZone,
     formFresh: colors.formFresh,
     formTransition: colors.formTransition,
+    formHighRiskText: darkColors.formHighRiskText,
+    formOptimalText: darkColors.formOptimalText,
+    formGreyZoneText: darkColors.formGreyZoneText,
+    formFreshText: darkColors.formFreshText,
+    formTransitionText: darkColors.formTransitionText,
     trendUp: darkColors.success,
     trendDown: darkColors.textSecondary,
     trendFlat: darkColors.textDisabled,
@@ -117,8 +133,8 @@ export function widgetActivityTint(sportType: string): string {
 export const widgetLayout = {
   radius: layout.borderRadius, // 16
   radiusInner: layout.borderRadiusSm, // 8
-  padding: 16,
-  gap: 8,
+  padding: spacing.md,
+  gap: spacing.sm,
 } as const;
 
 /**

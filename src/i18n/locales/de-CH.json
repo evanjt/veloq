@@ -47,7 +47,6 @@
       "burnRate": "Verbrennig",
       "caloriesBurned": "Verbrennt",
       "conditions": "Bedingige",
-      "dailyValue": "Tagswert",
       "decoupling": "Entkopplig",
       "deviceSensor": "Sensor",
       "efficiencyFactor": "Effizienz",
@@ -60,7 +59,11 @@
       "formTSB": "Tagesform (TSB)",
       "hrRecovery": "Puls-Erholig",
       "hrvToday": "HRV hüt",
+      "intensityEasy": "Locker",
       "intensityFactor": "Intensität",
+      "intensityHard": "Hart",
+      "intensityModerate": "Moderat",
+      "intensityVeryHard": "Sehr hart",
       "max": "Maximum {{value}}",
       "maxLabel": "Max",
       "peak": "Spitze",
@@ -97,6 +100,7 @@
   "activityDetail": {
     "failedToLoad": "Gopferteckel, Aktivität hät nöd wele lade!",
     "feedPreviewUpdated": "Feed-Vorschau aktualisiert",
+    "intervalsNotDownloaded": "Intervall no nöd abeglade",
     "noMatchedSections": "Kei passendi Abschnitt",
     "noMatchedSectionsDescription": "Passendi Abschnitt chömed da",
     "noRouteMatch": "No kei Routeüberischtimmig",
@@ -113,6 +117,15 @@
     "exercises": "Übige",
     "exercisesSummary": "{{exercises}} Übige · {{sets}} Sätz",
     "tapMuscle": "Tipp für Details"
+  },
+  "activitySummary": {
+    "distance": "Distanz",
+    "downloading": "Die Aktivität am lade...",
+    "elevation": "Höhi",
+    "movingTime": "Beweigs-Ziit",
+    "openActivity": "Details luege",
+    "title": "Zämmefassig",
+    "unavailable": "Die Aktivität het me nid chöne lade."
   },
   "activityTypes": {
     "AlpineSki": "Ski Alpin",
@@ -175,6 +188,7 @@
     "clearReload": "Jetzt lösche!",
     "disconnect": "Trenne",
     "disconnectMessage": "Entfernt API-Date. Muesch nomol iigee.",
+    "disconnectOffline": "Du bist offline. Beide Anmeldewege brauchen eine Verbindung, du kannst dich also erst wieder anmelden, wenn das Netz zurück ist.",
     "disconnectTitle": "Konto trenne?",
     "error": "Gopferteckel!",
     "failedToClear": "Gopferteckel, hät nöd klappet!",
@@ -279,6 +293,7 @@
     "noValidGpsData": "Kei gültige GPS-Date",
     "offlineUsingCached": "Offline - bruuched zwüschegspychereti Route",
     "syncedActivities": "{{count}} Aktivitäte synchronisiert",
+    "syncedStillAnalysing": "{{count}} Aktivitäte synchronisiert. Route werded no analysiert",
     "syncedDemoActivities": "{{count}} Demo-Aktivitäte synchronisiert",
     "downloadingGpsProgress": "GPS-Date abelade... {{percent}}%",
     "noValidGpsChecked": "Kei gültige GPS-Date gfunde ({{count}} Aktivitäte gprüeft)",
@@ -335,10 +350,6 @@
       "description": "Öppis isch schiefggange",
       "title": "Siech!"
     },
-    "networkError": {
-      "description": "Lueg dini Internetverbindig aa",
-      "title": "Kei Verbindig!"
-    },
     "offline": {
       "description": "Es paar Sache gönd vilicht nöd",
       "title": "Du bisch offline"
@@ -354,17 +365,42 @@
         "network": "intervals.icu war nicht erreichbar",
         "storage": "Eine Datei auf diesem Geraet konnte nicht gelesen werden",
         "notConfigured": "Auf diesem Geraet ist keine intervals.icu-Anmeldung gespeichert",
-        "internal": "Die Synchronisierung endete aus einem Grund, den die App nicht benennen kann"
+        "internal": "Die Synchronisierung endete aus einem Grund, den die App nicht benennen kann",
+        "engineClosed": "Die Synchronisierung wurde gestoppt, weil die Bibliothek zwischendurch geschlossen wurde"
       }
+    },
+    "tracksMissing": {
+      "title_one": "{{count}} Route wurde nicht geladen",
+      "title_other": "{{count}} Routen wurden nicht geladen",
+      "detail": "Sie fehlen auf der Karte und sind keinem Abschnitt zugeordnet. Die nächste Aktualisierung versucht es erneut."
     }
   },
   "engine": {
     "initFailed": "D Route-Engine hät nöd chönne starte. Route und Sektione sind villiicht nöd verfüegbar.",
+    "failure": {
+      "notOpen": "Die Routen-Engine ist noch nicht geöffnet. Versuche es gleich noch einmal.",
+      "busy": "Die Datenbank ist belegt. Versuche es gleich noch einmal.",
+      "database": "Die Datenbank konnte das nicht ausführen. Versuche es erneut und leere den Cache, wenn es weiterhin auftritt."
+    },
     "initReason": {
       "busy": "Öppis anders het d Datebank bruucht. Probier s glii nöd.",
       "forwardSchema": "Die Date sind vo n äre nöie Version vo Veloq gspeicheret. Aktualisier d App zum si öffne.",
       "storageUnavailable": "D Datebank het nöd chönne gschribe werde. Mach Platz frei und probier s nöd.",
       "failed": "D Route-Engine het gstoppt us eme Grund, wo d App nöd cha benenne."
+    },
+    "quarantine": {
+      "title": "Deine Aktivitätenbibliothek wurde neu aufgebaut",
+      "resyncing": "Deine Aktivitäten werden erneut geladen.",
+      "dismiss": "Verstanden",
+      "separator": ", ",
+      "kept": {
+        "lead": "Einige Daten waren nicht lesbar, daher wurde die Bibliothek neu aufgebaut. Behalten: {{kept}}.",
+        "sections": "{{count}} eigene Abschnitte",
+        "history": "{{count}} Abschnittsereignisse",
+        "geometry": "{{count}} Abschnittsformen",
+        "pins": "{{count}} angeheftete Formen",
+        "intents": "{{count}} entfernte Korridore"
+      }
     }
   },
   "errorState": {
@@ -389,6 +425,8 @@
   "feed": {
     "activitiesCount": "{{count}} Aktivitäte",
     "failedToLoad": "Gopferteckel, hät nöd klappet!",
+    "firstSyncBody": "Nur beim ersten Laden. Der Feed öffnet sich, sobald die ersten Aktivitäten da sind.",
+    "firstSyncTitle": "Deine Aktivitäten werden synchronisiert",
     "groups": {
       "cycling": "Velofahre",
       "running": "Laufe",
@@ -420,16 +458,7 @@
     "formTSB": "Tagesform (TSB)",
     "noData": "Kei Fitnessdate",
     "restDay": "Ruehtag",
-    "selectActivity": "Aktivität uswähle",
-    "weekShape": {
-      "title": "Form dieser Woche",
-      "quiet": "Eine ruhigere Woche. Zu wenige Trainingstage, um eine Form abzulesen.",
-      "reading": {
-        "lopsided": "Deine Belastung lag an ein paar Tagen von {{days}} Trainingstagen.",
-        "mixed": "Gemischt: manche Tage deutlich härter als andere, über {{days}} Trainingstage.",
-        "even": "Recht gleichmässig über {{days}} Trainingstage verteilt."
-      }
-    }
+    "selectActivity": "Aktivität uswähle"
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -451,13 +480,6 @@
     "title": "Fitnäss & Form",
     "toBuildFitness": "zeigt produktivi Trainingsbelastig a. D'",
     "toPreventOvertraining": "zeigt hohi aagsammlet Müedigkeit a.",
-    "guidance": {
-      "highRisk": "TSB under -30. D'Müedigkeit isch massiv höcher als d'letzte Fitnessgewinne.",
-      "optimal": "TSB zwüsche -30 und -10. D'Trainingsbelastig bringt Fitnessapassige.",
-      "greyZone": "TSB zwüsche -10 und 5. Moderats Gliichgwicht zwüsche Fitness und Müedigkeit.",
-      "fresh": "TSB zwüsche 5 und 25. Wenig Müedigkeit im Verhältnis zur Fitness. Wenn'd z'lang da bliibsch, gaht d'Fitness abe.",
-      "transition": "TSB über 25. Wenig Trainingsreiz i letschter Zyt. D'Fitness gaht abe."
-    },
     "tsb": "TSB",
     "understandingMetrics": "D Zahle verstaa",
     "rampRate": "Anstieg",
@@ -478,11 +500,12 @@
     "strength": "Chraft",
     "noInsights": "Tipps chömed wenn du trainiersch",
     "noInsightsHint": "Mach meh Aktivitäte für persönlichi Tipps",
+    "formFromLastSync": "Tagesform usgblendet, Wohlsii zletscht synchronisiert {{date}}",
     "sectionPr": "PR uf {{name}}!",
     "sectionPrSubtitle": "{{time}} · vor {{daysAgo}}T",
     "sectionImproving": "{{name}} wird schnäller!",
     "sectionImprovingBody": "Letschte Median: {{median}}. Bestziit: {{best}} us {{count}} Versüech.",
-    "ftpIncrease": "Veloleistig: {{current}}W (+{{change}}W)",
+    "ftpIncrease": "Velo-eFTP: {{current}}W (+{{change}}W)",
     "paceImproved": "Tempo besser {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% die Wuche",
     "weeklyVolumeDown": "{{percent}}% weniger die Wuche",
@@ -498,13 +521,13 @@
       "prDetection": "Vergliicht dini letschti Abschnittsziit mit allne früheri Versüech zum persönlichi Rekord z erchenne.",
       "sectionTrend": "Verfolgt d Median-Leistig uf oft bsuechte Abschnitt über d Ziit.",
       "periodComparison": "Vergliicht Trainingsmetrike zwüsche ufeinanderfolgende Wuche zum de Fortschritt z verfolge.",
-      "hrvName": "HRV glittende Schnitt-Trend",
-      "hrvDescription": "HRV-Trend basiert uf dim 7-Täg-Schnitt. HRV-Genauigkeit hängt vom Messgrät und dr Konsistenz ab. Trends über Täg sind zueverlässiger als einzelni Messige.",
+      "hrvName": "HRV über die letzten 7 Tage",
+      "hrvDescription": "Die 7 Kalendertage bis heute, wobei nur Tage mit einer HRV-Messung zählen und mindestens fünf davon nötig sind. Der Mittelwert der älteren Hälfte wird mit dem der neueren verglichen, und eine Änderung unter 2 % gilt als stabil. Ein stabiles Fenster gilt dennoch als fallend, wenn die letzten beiden Messungen an aufeinanderfolgenden Tagen liegen, die zweite niedriger ist und unter dem Fenstermittel liegt.",
       "prDetectionName": "Persönliche Rekord-Erchennig",
       "periodComparisonName": "Periodenvergliich",
       "periodComparisonRestDay": "Vergliicht d letscht Wuche mit dim 4-Wuche-Schnitt wenn die Wuche no kei Aktivitäte hät.",
-      "ftpEstimation": "Verfolgt Änderige a dinere gschätzte FTP über d Ziit basierend uf Wattsdate vo dine Aktivitäte. FTP-Erchennig bruucht d intervals.icu-Algorithme.",
-      "ftpEstimationName": "FTP-Schätzig",
+      "ftpEstimation": "Verglicht dini neuschti tägligi eFTP mit em Wärt vo vor 30 Täg. eFTP isch d Schätzig vo intervals.icu us dinere Leischtigschurve, nid d FTP-Iistellig uf dim Konto.",
+      "ftpEstimationName": "Änderige vom eFTP",
       "thresholdSpeedName": "Schwelletempo-Trendanalyse",
       "thresholdSpeedDescription": "Vergliicht dini letschti Schwelletempo-Schätzig mit früheri Wert und zeigts als lesbars Tempo aa.",
       "fitnessPrName": "Fitness-PR Chrüüzreferänz",
@@ -512,41 +535,46 @@
       "stalePrCrossRefName": "{{metric}}-PR-Abgleich"
     },
     "data": {
-      "bestTime": "Beschti Ziit",
-      "daysAgo": "Täg her",
-      "days": "Täg",
-      "currentFtp": "Aktuelli FTP",
-      "previousFtp": "Vorheri FTP",
-      "change": "Änderig",
-      "currentPace": "Aktuells Tempo",
-      "previousPace": "Vorhers Tempo",
-      "improvement": "Verbesserig",
-      "thisWeek": "Die Wuche",
-      "lastWeek": "Letschti Wuche",
-      "activitiesThisWeek": "Aktivitäte die Wuche",
       "activitiesLastWeek": "Aktivitäte letschti Wuche",
-      "sevenDayAvg": "7-Täg-Schnitt",
-      "hrvSevenDay": "HRV (7 Täg)",
-      "latestHrv": "Nöischti HRV",
+      "activitiesThisWeek": "Aktivitäte die Wuche",
+      "anomaly": "Abwychig",
+      "bestTime": "Beschti Ziit",
+      "change": "Änderig",
+      "currentFtp": "Aktuelli Velo-eFTP",
+      "currentPace": "Aktuells Tempo",
       "dataPoints": "Datepünkt",
-      "fourWeekAvgTss": "4-Wuche-Schnitt",
-      "hrChange": "HF-Änderig",
+      "days": "Täg",
+      "daysAgo": "Täg her",
       "efforts": "Versüech",
-      "trendSlope": "Trendsteiging",
+      "engagement": "Nutzig",
+      "fourWeekAvgTss": "4-Wuche-Schnitt",
+      "ftpHistory": "eFTP-Verlauf",
+      "hrChange": "HF-Änderig",
+      "hrvSevenDay": "HRV (7 Täg)",
+      "improvement": "Verbesserig",
+      "improvementSignal": "Verbesserigssignal",
+      "lastWeek": "Letschti Wuche",
+      "latestHrv": "Nöischti HRV",
+      "paceHistory": "Verlauf der kritischen Geschwindigkeit",
+      "previousFtp": "Velo-eFTP vor 30 Täg",
+      "previousPace": "Vorhers Tempo",
+      "recency": "Aktualität",
+      "recentEfforts": "Letzte Versuche",
       "recentMedian": "Letschte Median",
       "relevance": "Relevanz",
-      "recency": "Aktualität",
-      "improvementSignal": "Verbesserigssignal",
-      "anomaly": "Abwychig",
-      "engagement": "Nutzig"
+      "sevenDayAvg": "7-Täg-Schnitt",
+      "thisWeek": "Die Wuche",
+      "trendSlope": "Trendsteiging",
+      "weeklyLoad": "Wochenbelastung"
     },
     "hrvTrend": {
       "trendingUp": "Erholig am besser wärde",
       "trendingDown": "Erholig am sinke",
       "stable": "Erholig stabil",
-      "trendingUpBody": "Din 7-Täg-HRV-Schnitt ({{avg}} ms) stiigt, basierend uf {{days}} Täg Date.",
-      "trendingDownBody": "Din 7-Täg-HRV-Schnitt ({{avg}} ms) sinkt, basierend uf {{days}} Täg Date.",
-      "stableBody": "Din 7-Täg-HRV-Schnitt ({{avg}} ms) isch im normale Bereich, basierend uf {{days}} Täg Date."
+      "trendingUpBody": "Die neuere Hälfte Ihrer letzten 7 HRV-Tage liegt im Mittel über der älteren Hälfte, um mehr als 2 %. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
+      "trendingDownBody": "Die neuere Hälfte Ihrer letzten 7 HRV-Tage liegt im Mittel unter der älteren Hälfte, um mehr als 2 %. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
+      "stableBody": "Die beiden Hälften Ihrer letzten 7 HRV-Tage liegen weniger als 2 % auseinander. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
+      "lastTwoDaysBody": "Das Fenster selbst blieb stabil, aber Ihre letzten beiden Messungen fielen an aufeinanderfolgenden Tagen, und die letzte, {{latest}} ms, liegt unter dem Fenstermittel von {{avg}} ms über {{days}} Messungen."
     },
     "weeklyLoad": {
       "title": "Trainingsbelastig {{percent}}% {{direction}} Schnitt",
@@ -612,8 +640,6 @@
       "recent2Weeks": "Letzte 2 Wo.",
       "earlier2Weeks": "Frühere 2 Wo.",
       "changeLabel": "Veränderung",
-      "thisWeek": "Diese Wo.",
-      "weeksAgo": "-{{n}}W",
       "formula": "Schnitt der letzten 2 Wochen vs. Schnitt der 2 Wochen davor",
       "algorithm": "Verfolgt gewichtete Sätze pro Muskel über die letzten 4 Wochen. Primäre Arbeit zählt 1.0, sekundäre Arbeit 0.5.",
       "methodologyName": "Kraftvolumen-Progression",
@@ -666,6 +692,7 @@
     "disclaimer": "Veloq hät nüüt mit intervals.icu z tue",
     "getApiKey": "Schlüssel hole",
     "invalidApiKey": "Gopferteckel, Schlüssel stimmt nöd!",
+    "queuedOffline": "Keine Verbindung. Dein Schlüssel ist gespeichert und meldet dich an, sobald du wieder online bist.",
     "localModeNote": "Lokal: Alli Date blibed bi dir",
     "apiKeyNoNotifications": "Push-Benachrichtigunge gönd nöd mit API-Schlüssel-Login.",
     "loginWithIntervals": "Mit intervals.icu ilogge",
@@ -805,7 +832,9 @@
       "title": "Benachrichtigunge",
       "enable": "Benachrichtigunge aktiviere",
       "requiresOAuth": "Zum Benachrichtigunge aktiviere, trenn di und verbind di nomol mit em OAuth-Login statt emene persönliche API-Schlüssel.",
-      "privacyHint": "Spicheret en Push-Token und Athleten-ID uf üsem Server (30-Täg-Ablauf). Lueg veloq.fit/privacy"
+      "privacyHint": "Spicheret en Push-Token und Athleten-ID uf üsem Server (30-Täg-Ablauf). Lueg veloq.fit/privacy",
+      "sectionPr": "Bestleistungen",
+      "fitnessMilestone": "Fitness-Meilensteine"
     },
     "prompt": {
       "title": "Bliib uf em Laufende",
@@ -826,12 +855,7 @@
       "sectionPrMany": "PR auf {{name}} und {{count}} weiteren",
       "fasterOnRoute": "Schneller als üblich auf {{name}}",
       "fasterOnRouteDelta": "Schneller als üblich auf {{name}} ({{delta}} hinter PR)",
-      "onRoute": "Auf {{name}}",
-      "sectionTraversedOne": "1 Abschnitt absolviert",
-      "sectionTraversedMany": "{{count}} Abschnitte absolviert",
-      "distanceAndTime": "{{km}} km in {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "Auf {{name}}"
     }
   },
   "recording": {
@@ -930,6 +954,7 @@
     "slideToUnlock": "Zum Entsperre schiebe",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Aktivität starte",
+    "startingIn": "Start in {{seconds}} s",
     "status": {
       "paused": "PAUSIERT",
       "recording": "Am Ufnäh"
@@ -950,6 +975,7 @@
     "writePermissionNotGranted": "Schriibberächtigung nöd erteilt",
     "writePermissionRequired": "Schriibberächtigung nötig",
     "savedLocally": "Aktivität auf diesem Gerät gespeichert. Du kannst sie jederzeit über Meine Aufzeichnungen hochladen.",
+    "savedLocallyNoScope": "Fahrt uf däm Grät gspeicheret. Si wird ufeglade, sobald du de Upload erlaubsch.",
     "settingsUpload": "Hochladen",
     "autoUpload": "Automatisch hochladen",
     "autoUploadDescription": "Aufzeichnungen beim Speichern automatisch zu intervals.icu hochladen. Wenn deaktiviert, bleiben sie auf diesem Gerät, bis du sie über Meine Aufzeichnungen hochlädst.",
@@ -1000,7 +1026,9 @@
     "writeScopeNotGranted": "Schreibberechtigung wurde nicht erteilt",
     "signInRequired": "Zum Aufzeichnen anmelden",
     "signInDescription": "Für die Aufzeichnung wird dein intervals.icu-Konto benötigt, damit die Fahrt einen Platz hat.",
-    "signInAction": "Anmelden"
+    "signInAction": "Anmelden",
+    "recordAnyway": "Trotzdem ufzeichne",
+    "writePermissionLocalOnly": "Ufzeichne gaht au ohni. D Fahrt bliibt uf däm Grät, bis du de Upload erlaubsch."
   },
   "routeDetail": {
     "routeNotFound": "Route nöd gfunde"
@@ -1010,6 +1038,13 @@
     "tomorrow": "MORN"
   },
   "routes": {
+    "sectionDefaultName": "{{sport}}-Abschnitt ({{date}})",
+    "targetPace": "Pace",
+    "targetHr": "HF",
+    "targetPower": "Leistung",
+    "patternRide": "fährst",
+    "patternRun": "läufst",
+    "patternSentence": "{{day}} {{sport}} du meist etwa {{duration}}",
     "activities": "Aktivitäte",
     "adjustSportTypeFilter": "Probier Filter z ändere",
     "analysingRoutes": "Am Analysiere...",
@@ -1017,7 +1052,6 @@
     "createSection": "Abschnitt mache",
     "custom": "Eigene",
     "dataRangeHint": "Basierend uf {{duration}} Aktivitätsdatä",
-    "defaultActivityName": "Aktivität {{number}}",
     "defaultRouteName": "{{type}} Strecki",
     "duplicateNameMessage": "Bitte wähl en andere Name. Jedi Route muess en eigene Name ha.",
     "duplicateNameTitle": "Name gits scho",
@@ -1027,7 +1061,6 @@
     "loadingRoutes": "Route lade...",
     "lookingForRoutes": "Am Sueche...",
     "match": "Match",
-    "more": "+{{count}} meh",
     "noFrequentSections": "No kei hüüfigi Abschnitt",
     "noMatchingRoutes": "Kei passendi Route gfunde",
     "noRoutesYet": "No kei Route",
@@ -1077,6 +1110,8 @@
     "detectionPaused": "Erkennig pausiert, während dini Abschnitt migriert werded",
     "detectionPausedElevation": "Erkennig pausiert, während Höhedate glade werded",
     "detectionHeldElevationPaused": "Die Erkennung pausiert, bis du den Höhendaten-Download in den Einstellungen fortsetzt",
+    "detectionHeldElevationWaiting_one": "D Erkennig wartet uf Höhedate für {{count}} Aktivitätsspur. Veloq probiert s nomal, sobald du online bisch.",
+    "detectionHeldElevationWaiting_other": "D Erkennig wartet uf Höhedate für {{count}} Aktivitätsspure. Veloq probiert s nomal, sobald du online bisch.",
     "disabled": "Deaktiviert",
     "removeSection": "Abschnitt entferne",
     "removeSectionConfirm": "De Abschnitt wird nöd meh i de Aktivitätsdetails oder Insights azeigt. Du chasch ihn us de Lischte widerherstelle.",
@@ -1090,6 +1125,8 @@
     "legendPr": "PR",
     "legendReverse": "Rückwärts",
     "legendThisActivity": "Die Aktivität",
+    "legendThisSection": "Dä Abschnitt",
+    "legendNearby": "Anderi Abschnitt i de Nöchi",
     "resetReference": "Referänz zruggsetze",
     "resetReferenceConfirm": "Zrugg uf automatischi Referänzuswahl?\n\nDe Abschnitt wird neu mit allne dine Aktivitäte abgliche. Das chan Aktivitäte dezuetuä oder ussenäh.",
     "reverse": "Andersrum",
@@ -1112,6 +1149,7 @@
     "resetBoundsConfirm": "Uf d originale automatisch erkannte Grenze zruggsetze?\n\nDe Abschnitt wird nöi mit allne dine Aktivitäte abgliche.",
     "traversals": "Durchfahrte",
     "liftGround": "Lift",
+    "notLift": "Kein Lift",
     "trimFailed": "Abschnittsgrenze hend nöd chönne zuegschiite wärde",
     "trimTooShort": "De Abschnitt muess mindestens 5 Pünkt ha",
     "expandUnavailable": "Kei Aktivitätstrack zum Erweitere verfüegbar",
@@ -1168,7 +1206,10 @@
     "rescanRefusedNotReady": "Die Engine startet noch. Versuche es gleich noch einmal.",
     "rescanRefusedOff": "Routenabgleich ist aus. Schalte ihn in den Einstellungen ein, um zu scannen.",
     "rescanRefusedNothingOwed": "Es ist bereits alles gescannt.",
-    "rescanRefusedFailed": "Der Scan konnte nicht gestartet werden."
+    "rescanRefusedFailed": "Der Scan konnte nicht gestartet werden.",
+    "unflagLift": "Liftmarkierung entfernen?",
+    "unflagLiftConfirm": "Der Detektor hat dies als Liftstrecke markiert. Die Markierung lässt sich nicht wiederherstellen.",
+    "latestIsRecord": "Deine Bestzeit hier war deine letzte"
   },
   "settings": {
     "account": "Konto",
@@ -1205,6 +1246,8 @@
     "maxMetricsHint": "Maximal 4 Metrike",
     "appTour": "App-Tour",
     "appTourDescription": "Funktione entdecke und lerne wie si funktioniere",
+    "rangeLockedMessage": "Der lokale Datenbereich lässt sich öffnen, sobald die erste Synchronisierung abgeschlossen ist. Startet sie nie, prüfe deine Verbindung und ob du angemeldet bist.",
+    "rangeLockedTitle": "Wird noch eingerichtet",
     "terrain3D": "3D-Gländ",
     "terrain3DOff": "Aus",
     "terrain3DSmart": "Schlau",
@@ -1226,7 +1269,18 @@
     "support": "Hilf & Support",
     "supportingMetrics": "Unterstützendi Metrike",
     "syncActivities": "Aktivitäte werded synchronisiert",
-    "syncActivitiesProgress": "{{completed}} vo {{total}} Aktivitäte",
+    "syncStep": {
+      "activities": "Dini nöischte Aktivitäte werded ghollet",
+      "athlete": "Dis Profil wird ghollet",
+      "census": "D Lischte vo dine Aktivitäte uf intervals.icu wird ghollet",
+      "curves": "Dini Leistigs- und Tempochurve werded ghollet",
+      "firstActivities": "Dini föif nöischte Aktivitäte werded ghollet",
+      "intervalBodies": "Intervalldetails werded ghollet",
+      "remainingActivities": "De Rescht vo dine Aktivitäte wird ghollet",
+      "sportSettings": "Dini Sportiistellige werded ghollet",
+      "wellness": "Dini Gsundheitsdate werded ghollet"
+    },
+    "syncStepProgress": "{{label}} ({{completed}} vo {{total}})",
     "syncStop": "Stopp",
     "syncStopping": "Stoppt...",
     "system": "Systeem",
@@ -1234,7 +1288,17 @@
     "streamHistoryDays": "{{count}} Tage",
     "streamHistoryAll": "Alle",
     "streamHistoryReset": "Zurücksetzen",
+    "streamBackfill": "Fehlende Serien",
+    "streamBackfillOwed_one": "{{count}} Aktivität",
+    "streamBackfillOwed_other": "{{count}} Aktivitäten",
+    "streamBackfillProgress": "{{completed}} von {{total}}",
+    "streamBackfillDownload": "Laden",
+    "streamBackfillStop": "Stopp",
     "tileCacheLimit": "Chartechachle-Limit",
+    "tileCacheLimitHint": "Erhöhen Sie ihn für besseres Offline- und lokales Browsen",
+    "tileCacheUsedOfBudget": "{{used}} von {{budget}} belegt",
+    "tileCacheUsedOfBudgetAtLeast": "Mindestens {{used}} von {{budget}} belegt",
+    "tileCacheFree": "{{size}} frei auf dem Gerät",
     "title": "Istellige",
     "units": "Einheite",
     "unitsAuto": "Automatisch",
@@ -1247,8 +1311,6 @@
     "version": "Versioon",
     "storageDatabase": "Datebank",
     "storageHeatmap": "Heatmap",
-    "storageSatellite": "Satellit",
-    "storageTerrain": "Gländ",
     "storageVector": "Vektor",
     "storageGround": "Undergrund",
     "storagePreviews": "3D-Vorschaue",
@@ -1303,10 +1365,17 @@
     "previewAreaSections": "{{count}} Abschnitt",
     "sectionMaxLength": "Längschte Abschnitt: {{distance}}",
     "sectionSameTraffic": "Empfindlichkeit vo de Routeteilig: {{value}}",
+    "sectionParamPastClamp": "Darüber hinaus unterscheidet die Erkennung die Werte nicht mehr.",
+    "sectionParamRange": "Getesteter Bereich {{min}} bis {{max}}",
+    "sectionPresetDefault": "Standard",
+    "sectionPresetRelaxed": "Locker",
+    "sectionPresetStrict": "Streng",
+    "sectionPresets": "Voreinstellungen",
     "previewRun": "Vorschau",
     "previewRunning": "Analysiere {{count}} Aktivitäte i dem Gebiet",
     "previewFailed": "D Vorschau het nöd chöne fertig werde.",
     "runSlow": "Das dauert länger als üblich. Der Lauf läuft noch.",
+    "stillRunning": "Läuft noch. Sie können diesen Bildschirm verlassen.",
     "previewPoolUnusable": "Einige deiner Aktivitatsspuren sind nicht lesbar, daher wurde die Vorschau abgebrochen.",
     "previewCurrentFailed": "Di jetzige Abschnitt für die Gäged händ nöd chöne gläse werde.",
     "previewSuspended": "D Höheaktualisierig lauft grad. Probier s gliich nomal.",
@@ -1342,7 +1411,18 @@
     "exportPrivacyCount": "Kürzt {{touched}} von {{total}} Fahrten bei {{radius}} m. Es wird nichts gelöscht.",
     "exportPrivacyNothingTrimmed": "Es wird nichts gekürzt. Exporte enthalten den vollständigen Track.",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "Tippe auf die Karte, um das Zuhause zu verschieben."
+    "exportPrivacyMoveHint": "Tippe auf die Karte, um das Zuhause zu verschieben.",
+    "previewRouteGrouping": "Routengruppierung testen",
+    "groupingMatchShare": "Gleiche Route bei {{percent}}% Überlappung",
+    "groupingEndsApart": "Gleiche Enden innerhalb von {{distance}}",
+    "groupingRunning": "Deine Touren werden gruppiert…",
+    "groupingNothingToGroup": "Noch keine Touren mit Track zum Gruppieren",
+    "groupingSummary": "{{count}} Routen mit dieser Einstellung",
+    "groupingMerged": "{{count}} deiner Routen würden zusammengeführt",
+    "groupingDropped": "{{count}} blieben allein",
+    "groupingLegendMostRidden": "Am häufigsten gefahren",
+    "groupingLegendOther": "Andere Routen",
+    "groupingFailed": "Die Gruppierung wurde nicht fertig. Bewege einen Regler, um es erneut zu versuchen."
   },
   "stats": {
     "activities": "Aktivitäte",
@@ -1388,6 +1468,7 @@
     "powerCurve": "Wattkurve",
     "powerZones": "Wattzone",
     "previous": "Vorherig",
+    "rangeNotDownloaded": "No nöd abeglade",
     "seasonComparison": "Saison-Vergliich",
     "secondHalf": "Zweiti Hälfti",
     "sixMonths": "6M",
@@ -1416,12 +1497,19 @@
     "heartRate": "Puls",
     "lactateThreshold": "Schwelle",
     "noEffortData": "Kei Bestleistigsdate verfüegbar",
+    "curveFetched": "Vom letschte Sync, {{date}}",
+    "curveNotDownloaded": "Na nid abeglade",
+    "notEnoughRuns": "Na nid gnueg Läuf",
     "pace": "Tempo",
     "paceCurve": "Tempokurve",
     "powerCurve": "Wattkurve",
     "seasonBests": "Saisonbestleistungen",
     "swimPaceCurve": "Schwümmtempokurve",
     "trainingZones": "Trainingszone"
+  },
+  "sync": {
+    "ridesDownloaded": "{{completed}} vo {{total}} Fahrte abeglade",
+    "tracksDownloaded": "{{completed}} vo {{total}} Streckene abeglade"
   },
   "time": {
     "current": "Jetzt",
@@ -1528,9 +1616,24 @@
     }
   },
   "strength": {
+    "female": "weiblich",
+    "male": "männlich",
+    "bodyTypeDefault": "Körpertyp als <type>{{bodyType}}</type> dargestellt, der Standard, da dein intervals.icu-Profil kein Geschlecht hat.",
+    "bodyTypeFromProfile": "Körpertyp als <type>{{bodyType}}</type> dargestellt, aus deinem intervals.icu-Profil.",
+    "muscleSource": "Die Muskelgruppen je Übungstyp stammen aus <source>free-exercise-db</source>, einem offenen, gemeinfreien Übungsdatensatz.",
+    "durationLabel": "Dauer",
+    "setsLabel": "Sätze",
+    "setsNotDownloaded": "Sätz no nöd abeglade",
+    "totalLabel": "Gesamt",
+    "timeColumn": "Zeit",
+    "weightColumn": "Gewicht",
+    "repsColumn": "Wdh.",
+    "setColumn": "Satz",
     "snapshot": "Chraft-Überblick",
     "noWorkouts": "Kei Chrafttraining i de letschte {{period}}",
     "noWorkoutsHint": "Mach es Chrafttraining zum dini Muskelgruppe-Uffteilig da z gseh",
+    "notDownloaded": "Krafttrainings noch nicht heruntergeladen",
+    "notDownloadedHint": "Deine Satzdaten kommen mit den Trainingsdateien. Verbinde dich, um sie zu laden.",
     "sets": "Sätz",
     "muscleGroupVolume": "Muskelgruppe-Volume",
     "relativeWeightedSets": "Relativi gwichteti Sätz über d usgwählti Periode",
@@ -1602,6 +1705,7 @@
     "status": {
       "connecting": "Verbinden…",
       "connected": "Verbunden",
+      "noData": "Verbunden, keine Daten",
       "reconnecting": "Verbindung wird wiederhergestellt…",
       "disconnected": "Nicht verbunden"
     }
@@ -1654,7 +1758,6 @@
     "title": "Hintergrundufgabe",
     "intro": "Langi Ufgabe, wo d App vo sich us macht. Si laufed wiiter, au wenn du de Bildschirm verlaasch.",
     "openLink": "Hintergrundufgabe",
-    "sync": "Aktivitäte synchronisiere",
     "detection": "Abschnitt erkenne",
     "elevationBackfill": "Höhedate lade",
     "cutover": "Abschnitt neu ufbaue",

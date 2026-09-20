@@ -47,7 +47,6 @@
       "burnRate": "Verbrandingssnelheid",
       "caloriesBurned": "Verbrande calorieën",
       "conditions": "Omstandigheden",
-      "dailyValue": "Dagwaarde",
       "decoupling": "Ontkoppeling",
       "deviceSensor": "Apparaatsensor",
       "efficiencyFactor": "Efficiëntiefactor",
@@ -60,7 +59,11 @@
       "formTSB": "Vorm (TSB)",
       "hrRecovery": "HF-herstel",
       "hrvToday": "HRV vandaag",
+      "intensityEasy": "Rustig",
       "intensityFactor": "Intensiteitsfactor",
+      "intensityHard": "Zwaar",
+      "intensityModerate": "Gemiddeld",
+      "intensityVeryHard": "Zeer zwaar",
       "max": "Max {{value}}",
       "maxLabel": "Max",
       "peak": "Piek",
@@ -97,6 +100,7 @@
   "activityDetail": {
     "failedToLoad": "Activiteit laden mislukt",
     "feedPreviewUpdated": "Feedvoorbeeld bijgewerkt",
+    "intervalsNotDownloaded": "Intervallen nog niet gedownload",
     "noMatchedSections": "Geen overeenkomende secties",
     "noMatchedSectionsDescription": "Secties die overeenkomen met deze activiteit verschijnen hier",
     "noRouteMatch": "Nog geen route-overeenkomst",
@@ -113,6 +117,15 @@
     "exercises": "Oefeningen",
     "exercisesSummary": "{{exercises}} oefeningen · {{sets}} sets",
     "tapMuscle": "Tik voor details"
+  },
+  "activitySummary": {
+    "distance": "Afstand",
+    "downloading": "Deze activiteit wordt gedownload...",
+    "elevation": "Hoogte",
+    "movingTime": "Beweegtijd",
+    "openActivity": "Details bekijken",
+    "title": "Samenvatting",
+    "unavailable": "Deze activiteit kon niet worden gedownload."
   },
   "activityTypes": {
     "AlpineSki": "Alpineskiën",
@@ -175,6 +188,7 @@
     "clearReload": "Wissen & herladen",
     "disconnect": "Loskoppelen",
     "disconnectMessage": "Dit verwijdert je API-gegevens uit de app. Je moet ze opnieuw invoeren om de app te gebruiken.",
+    "disconnectOffline": "Je bent offline. Beide manieren om terug te komen hebben een verbinding nodig, dus je kunt pas weer inloggen als het netwerk terug is.",
     "disconnectTitle": "Account loskoppelen",
     "error": "Fout",
     "failedToClear": "Cache wissen mislukt. Probeer opnieuw.",
@@ -279,6 +293,7 @@
     "noValidGpsData": "Geen geldige GPS-gegevens",
     "offlineUsingCached": "Offline - gecachte routes gebruiken",
     "syncedActivities": "{{count}} activiteiten gesynchroniseerd",
+    "syncedStillAnalysing": "{{count}} activiteiten gesynchroniseerd. Routes worden nog geanalyseerd",
     "syncedDemoActivities": "{{count}} demo-activiteiten gesynchroniseerd",
     "downloadingGpsProgress": "GPS-gegevens downloaden... {{percent}}%",
     "noValidGpsChecked": "Geen geldige GPS-gegevens gevonden ({{count}} activiteiten gecontroleerd)",
@@ -335,10 +350,6 @@
       "description": "We konden deze inhoud niet laden",
       "title": "Er ging iets mis"
     },
-    "networkError": {
-      "description": "Controleer je internetverbinding en probeer opnieuw",
-      "title": "Verbindingsfout"
-    },
     "offline": {
       "description": "Sommige functies kunnen beperkt zijn",
       "title": "Je bent offline"
@@ -354,17 +365,42 @@
         "network": "intervals.icu was niet bereikbaar",
         "storage": "Een bestand op dit toestel kon niet worden gelezen",
         "notConfigured": "Er is geen intervals.icu-login op dit toestel opgeslagen",
-        "internal": "De synchronisatie stopte om een reden die de app niet kan benoemen"
+        "internal": "De synchronisatie stopte om een reden die de app niet kan benoemen",
+        "engineClosed": "De synchronisatie is gestopt omdat de bibliotheek halverwege werd gesloten"
       }
+    },
+    "tracksMissing": {
+      "title_one": "{{count}} route is niet gedownload",
+      "title_other": "{{count}} routes zijn niet gedownload",
+      "detail": "Ze ontbreken op de kaart en zijn met geen enkel segment vergeleken. De volgende vernieuwing probeert het opnieuw."
     }
   },
   "engine": {
     "initFailed": "De route-engine kon niet worden gestart. Routes en secties zijn mogelijk niet beschikbaar.",
+    "failure": {
+      "notOpen": "De route-engine is nog niet geopend. Probeer het zo opnieuw.",
+      "busy": "De database is bezig. Probeer het zo opnieuw.",
+      "database": "De database kon dat niet doen. Probeer het opnieuw en wis de cache als het blijft gebeuren."
+    },
     "initReason": {
       "busy": "Iets anders gebruikte de database. Probeer het zo nog eens.",
       "forwardSchema": "Deze gegevens zijn opgeslagen door een nieuwere versie van Veloq. Werk de app bij om ze te openen.",
       "storageUnavailable": "De database kon niet worden weggeschreven. Maak ruimte vrij en probeer het opnieuw.",
       "failed": "De route-engine is gestopt om een reden die de app niet kan benoemen."
+    },
+    "quarantine": {
+      "title": "Je activiteitenbibliotheek is opnieuw opgebouwd",
+      "resyncing": "Je activiteiten worden opnieuw gedownload.",
+      "dismiss": "Begrepen",
+      "separator": ", ",
+      "kept": {
+        "lead": "Sommige gegevens waren onleesbaar, dus de bibliotheek is opnieuw opgebouwd. Bewaard: {{kept}}.",
+        "sections": "{{count}} eigen secties",
+        "history": "{{count}} sectiegebeurtenissen",
+        "geometry": "{{count}} sectievormen",
+        "pins": "{{count}} vastgezette vormen",
+        "intents": "{{count}} verwijderde corridors"
+      }
     }
   },
   "errorState": {
@@ -389,6 +425,8 @@
   "feed": {
     "activitiesCount": "{{count}} Activiteiten",
     "failedToLoad": "Activiteiten laden mislukt",
+    "firstSyncBody": "Alleen bij de eerste keer laden. De feed opent zodra de eerste activiteiten binnen zijn.",
+    "firstSyncTitle": "Je activiteiten worden gesynchroniseerd",
     "groups": {
       "cycling": "Fietsen",
       "running": "Hardlopen",
@@ -420,16 +458,7 @@
     "formTSB": "Vorm (TSB)",
     "noData": "Geen fitheidsgegevens beschikbaar",
     "restDay": "Rustdag",
-    "selectActivity": "Activiteit selecteren",
-    "weekShape": {
-      "title": "De vorm van deze week",
-      "quiet": "Een rustigere week. Te weinig trainingsdagen om een vorm af te lezen.",
-      "reading": {
-        "lopsided": "Je belasting lag in een paar dagen van {{days}} trainingsdagen.",
-        "mixed": "Gemengd: sommige dagen veel zwaarder dan andere, over {{days}} trainingsdagen.",
-        "even": "Redelijk gelijkmatig verdeeld over {{days}} trainingsdagen."
-      }
-    }
+    "selectActivity": "Activiteit selecteren"
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -451,13 +480,6 @@
     "title": "Fitheid & Vorm",
     "toBuildFitness": "duidt op productieve trainingsbelasting. De",
     "toPreventOvertraining": "duidt op hoge opgehoopte vermoeidheid.",
-    "guidance": {
-      "highRisk": "TSB onder -30. Opgehoopte vermoeidheid overschrijdt de recente fitnesswinst aanzienlijk.",
-      "optimal": "TSB tussen -30 en -10. Trainingsbelasting produceert fitnessaanpassingen.",
-      "greyZone": "TSB tussen -10 en 5. Matige balans tussen fitness en vermoeidheid.",
-      "fresh": "TSB tussen 5 en 25. Lage vermoeidheid ten opzichte van fitness. Langere tijd hier correspondeert doorgaans met afnemende fitness.",
-      "transition": "TSB boven 25. Minimale recente trainingsprikkel. Fitness dalend."
-    },
     "tsb": "TSB",
     "understandingMetrics": "De statistieken begrijpen",
     "rampRate": "Stijging",
@@ -478,11 +500,12 @@
     "strength": "Kracht",
     "noInsights": "Inzichten verschijnen naarmate je traint",
     "noInsightsHint": "Voltooi meer activiteiten voor gepersonaliseerde inzichten",
+    "formFromLastSync": "Vorm verborgen, welzijn laatst gesynchroniseerd op {{date}}",
     "sectionPr": "PR op {{name}}",
     "sectionPrSubtitle": "{{time}} · {{daysAgo}}d geleden",
     "sectionImproving": "{{name}} wordt sneller",
     "sectionImprovingBody": "Recente mediaan: {{median}}. Beste: {{best}} over {{count}} pogingen.",
-    "ftpIncrease": "Fietsvermogen: {{current}}W (+{{change}}W)",
+    "ftpIncrease": "Fiets-eFTP: {{current}}W (+{{change}}W)",
     "paceImproved": "Tempo verbeterd {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% weekvolume",
     "weeklyVolumeDown": "{{percent}}% minder deze week",
@@ -498,13 +521,13 @@
       "prDetection": "Vergelijkt je laatste sectietijd met alle eerdere pogingen om persoonlijke records te detecteren.",
       "sectionTrend": "Volgt de mediane prestatie op veelbezochte secties door de tijd.",
       "periodComparison": "Vergelijkt trainingsmetrieken tussen opeenvolgende weken om progressie te volgen.",
-      "hrvName": "HRV voortschrijdend gemiddelde trend",
-      "hrvDescription": "HRV-trend gebaseerd op je 7-daags voortschrijdend gemiddelde. HRV-nauwkeurigheid hangt af van meetapparaat en consistentie. Trends over meerdere dagen zijn betrouwbaarder dan losse metingen.",
+      "hrvName": "HRV over de laatste 7 dagen",
+      "hrvDescription": "De 7 kalenderdagen tot en met vandaag, met alleen de dagen met een HRV-meting, en minstens vijf daarvan. Het gemiddelde van de oudere helft wordt vergeleken met dat van de nieuwere helft, en een verschil onder 2 % leest als stabiel. Een stabiel venster leest toch als dalend wanneer de laatste twee metingen op opeenvolgende dagen vallen, de tweede lager is en onder het venstergemiddelde ligt.",
       "prDetectionName": "Persoonlijk record-detectie",
       "periodComparisonName": "Periodevergelijking",
       "periodComparisonRestDay": "Vergelijkt de vorige week met je 4-weken-gemiddelde wanneer de huidige week nog geen activiteiten heeft.",
-      "ftpEstimation": "Volgt veranderingen in je geschatte FTP in de tijd op basis van vermogensgegevens uit je activiteiten. FTP-detectie gebruikt de algoritmes van intervals.icu, waaronder mogelijk automatische detectie uit activiteitsgegevens.",
-      "ftpEstimationName": "Functioneel drempelvermogen-schatting",
+      "ftpEstimation": "Vergelijkt je nieuwste dagelijkse eFTP met de waarde van 30 dagen geleden. De eFTP is de schatting van intervals.icu uit je vermogenscurve, niet de FTP-instelling in je account.",
+      "ftpEstimationName": "Wijzigingen van de eFTP",
       "thresholdSpeedName": "Drempelsnelheid-trendanalyse",
       "thresholdSpeedDescription": "Vergelijkt je laatste drempelsnelheid-schatting met eerdere waarden en zet het verschil om naar leesbaar tempo.",
       "fitnessPrName": "Fitness-PR kruisverwijzing",
@@ -512,41 +535,46 @@
       "stalePrCrossRefName": "{{metric}}-PR-kruisverwijzing"
     },
     "data": {
-      "bestTime": "Beste tijd",
-      "daysAgo": "Dagen geleden",
-      "days": "dagen",
-      "currentFtp": "Huidige FTP",
-      "previousFtp": "Vorige FTP",
-      "change": "Verschil",
-      "currentPace": "Huidig tempo",
-      "previousPace": "Vorig tempo",
-      "improvement": "Verbetering",
-      "thisWeek": "Deze week",
-      "lastWeek": "Vorige week",
-      "activitiesThisWeek": "Activiteiten deze week",
       "activitiesLastWeek": "Activiteiten vorige week",
-      "sevenDayAvg": "7-daags gemiddelde",
-      "hrvSevenDay": "HRV (7 dagen)",
-      "latestHrv": "Laatste HRV",
+      "activitiesThisWeek": "Activiteiten deze week",
+      "anomaly": "Afwijking",
+      "bestTime": "Beste tijd",
+      "change": "Verschil",
+      "currentFtp": "Huidige fiets-eFTP",
+      "currentPace": "Huidig tempo",
       "dataPoints": "Datapunten",
-      "fourWeekAvgTss": "4-weken-gemiddelde",
-      "hrChange": "HF-verandering",
+      "days": "dagen",
+      "daysAgo": "Dagen geleden",
       "efforts": "Pogingen",
-      "trendSlope": "Trendhelling",
+      "engagement": "Betrokkenheid",
+      "fourWeekAvgTss": "4-weken-gemiddelde",
+      "ftpHistory": "eFTP-geschiedenis",
+      "hrChange": "HF-verandering",
+      "hrvSevenDay": "HRV (7 dagen)",
+      "improvement": "Verbetering",
+      "improvementSignal": "Verbeteringssignaal",
+      "lastWeek": "Vorige week",
+      "latestHrv": "Laatste HRV",
+      "paceHistory": "Geschiedenis kritische snelheid",
+      "previousFtp": "Fiets-eFTP van 30 dagen geleden",
+      "previousPace": "Vorig tempo",
+      "recency": "Actualiteit",
+      "recentEfforts": "Recente pogingen",
       "recentMedian": "Recente mediaan",
       "relevance": "Relevantie",
-      "recency": "Actualiteit",
-      "improvementSignal": "Verbeteringssignaal",
-      "anomaly": "Afwijking",
-      "engagement": "Betrokkenheid"
+      "sevenDayAvg": "7-daags gemiddelde",
+      "thisWeek": "Deze week",
+      "trendSlope": "Trendhelling",
+      "weeklyLoad": "Wekelijkse belasting"
     },
     "hrvTrend": {
       "trendingUp": "Herstel verbetert",
       "trendingDown": "Herstel daalt",
       "stable": "Herstel stabiel",
-      "trendingUpBody": "Je 7-daags HRV-gemiddelde ({{avg}} ms) stijgt op basis van {{days}} dagen data.",
-      "trendingDownBody": "Je 7-daags HRV-gemiddelde ({{avg}} ms) daalt op basis van {{days}} dagen data.",
-      "stableBody": "Je 7-daags HRV-gemiddelde ({{avg}} ms) zit binnen het normale bereik op basis van {{days}} dagen data."
+      "trendingUpBody": "De nieuwere helft van je laatste 7 HRV-dagen ligt gemiddeld hoger dan de oudere helft, met meer dan 2 %. Gemiddelde van het venster {{avg}} ms over {{days}} metingen, laatste {{latest}} ms.",
+      "trendingDownBody": "De nieuwere helft van je laatste 7 HRV-dagen ligt gemiddeld lager dan de oudere helft, met meer dan 2 %. Gemiddelde van het venster {{avg}} ms over {{days}} metingen, laatste {{latest}} ms.",
+      "stableBody": "De twee helften van je laatste 7 HRV-dagen liggen binnen 2 % van elkaar. Gemiddelde van het venster {{avg}} ms over {{days}} metingen, laatste {{latest}} ms.",
+      "lastTwoDaysBody": "Het venster zelf bleef stabiel, maar je laatste twee metingen daalden op opeenvolgende dagen en de laatste, {{latest}} ms, ligt onder het venstergemiddelde van {{avg}} ms over {{days}} metingen."
     },
     "weeklyLoad": {
       "title": "Trainingsbelasting {{percent}}% {{direction}} gemiddelde",
@@ -612,8 +640,6 @@
       "recent2Weeks": "Recente 2 wk",
       "earlier2Weeks": "Eerdere 2 wk",
       "changeLabel": "Verandering",
-      "thisWeek": "Deze wk",
-      "weeksAgo": "-{{n}}w",
       "formula": "Recent 2-weeks gemiddelde vs eerder 2-weeks gemiddelde",
       "algorithm": "Volgt gewogen sets per spier over de laatste 4 weken. Primair werk telt als 1.0 en secundair werk als 0.5.",
       "methodologyName": "Krachtvolume-progressie",
@@ -666,6 +692,7 @@
     "disclaimer": "Veloq is niet gelieerd aan intervals.icu",
     "getApiKey": "Haal je API-sleutel op",
     "invalidApiKey": "Ongeldige API-sleutel. Controleer je sleutel en probeer opnieuw.",
+    "queuedOffline": "Geen verbinding. Je sleutel is opgeslagen en meldt je aan zodra je weer online bent.",
     "localModeNote": "Lokale modus: Alle gegevens blijven op je apparaat",
     "apiKeyNoNotifications": "Pushmeldingen zijn niet beschikbaar bij inloggen met API-sleutel.",
     "loginWithIntervals": "Inloggen met intervals.icu",
@@ -805,7 +832,9 @@
       "title": "Meldingen",
       "enable": "Meldingen inschakelen",
       "requiresOAuth": "Koppel los en verbind opnieuw via de OAuth-inlogmethode in plaats van een persoonlijke API-sleutel om meldingen in te schakelen.",
-      "privacyHint": "Slaat een pushtoken en atleet-ID op onze server op (30 dagen geldig). Zie veloq.fit/privacy"
+      "privacyHint": "Slaat een pushtoken en atleet-ID op onze server op (30 dagen geldig). Zie veloq.fit/privacy",
+      "sectionPr": "Persoonlijke records",
+      "fitnessMilestone": "Fitnessmijlpalen"
     },
     "prompt": {
       "title": "Blijf op de hoogte",
@@ -826,12 +855,7 @@
       "sectionPrMany": "PR op {{name}} en {{count}} meer",
       "fasterOnRoute": "Sneller dan gewoonlijk op {{name}}",
       "fasterOnRouteDelta": "Sneller dan gewoonlijk op {{name}} ({{delta}} van PR)",
-      "onRoute": "Op {{name}}",
-      "sectionTraversedOne": "1 sectie afgelegd",
-      "sectionTraversedMany": "{{count}} secties afgelegd",
-      "distanceAndTime": "{{km}} km in {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "Op {{name}}"
     }
   },
   "recording": {
@@ -930,6 +954,7 @@
     "slideToUnlock": "Schuif om te ontgrendelen",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Activiteit starten",
+    "startingIn": "Start over {{seconds}} s",
     "status": {
       "paused": "GEPAUZEERD",
       "recording": "Opnemen"
@@ -950,6 +975,7 @@
     "writePermissionNotGranted": "Schrijfrechten niet verleend",
     "writePermissionRequired": "Schrijfrechten vereist",
     "savedLocally": "Activiteit opgeslagen op dit apparaat. Je kunt deze altijd uploaden via Mijn opnamen.",
+    "savedLocallyNoScope": "Rit opgeslagen op dit apparaat. Hij wordt geüpload zodra je uploaden toestaat.",
     "settingsUpload": "Uploaden",
     "autoUpload": "Automatisch uploaden",
     "autoUploadDescription": "Opnamen automatisch naar intervals.icu uploaden bij het opslaan. Uitgeschakeld blijven ze op dit apparaat totdat je ze uploadt via Mijn opnamen.",
@@ -1000,7 +1026,9 @@
     "writeScopeNotGranted": "Schrijfrechten zijn niet verleend",
     "signInRequired": "Log in om op te nemen",
     "signInDescription": "Opnemen vereist je intervals.icu-account, zodat de rit ergens naartoe kan.",
-    "signInAction": "Inloggen"
+    "signInAction": "Inloggen",
+    "recordAnyway": "Toch opnemen",
+    "writePermissionLocalOnly": "Opnemen werkt ook zonder. De rit blijft op dit apparaat totdat je uploaden toestaat."
   },
   "routeDetail": {
     "routeNotFound": "Route niet gevonden"
@@ -1010,6 +1038,13 @@
     "tomorrow": "MORGEN"
   },
   "routes": {
+    "sectionDefaultName": "{{sport}}-traject ({{date}})",
+    "targetPace": "Tempo",
+    "targetHr": "HS",
+    "targetPower": "Vermogen",
+    "patternRide": "fiets",
+    "patternRun": "hardloop",
+    "patternSentence": "Op {{day}} {{sport}} je meestal ongeveer {{duration}}",
     "activities": "activiteiten",
     "adjustSportTypeFilter": "Probeer het sporttype-filter aan te passen",
     "analysingRoutes": "Routes analyseren",
@@ -1017,7 +1052,6 @@
     "createSection": "Sectie aanmaken",
     "custom": "Aangepast",
     "dataRangeHint": "Gebaseerd op {{duration}} activiteitsgegevens",
-    "defaultActivityName": "Activiteit {{number}}",
     "defaultRouteName": "{{type}} route",
     "duplicateNameMessage": "Kies een andere naam. Elke route moet een unieke naam hebben.",
     "duplicateNameTitle": "Naam bestaat al",
@@ -1027,7 +1061,6 @@
     "loadingRoutes": "Routes laden...",
     "lookingForRoutes": "Zoeken naar overeenkomende routes...",
     "match": "overeenkomst",
-    "more": "+{{count}} meer",
     "noFrequentSections": "Nog geen frequente secties",
     "noMatchingRoutes": "Geen overeenkomende routes gevonden",
     "noRoutesYet": "Nog geen routes",
@@ -1077,6 +1110,8 @@
     "detectionPaused": "Detectie gepauzeerd terwijl je secties worden gemigreerd",
     "detectionPausedElevation": "Detectie gepauzeerd terwijl hoogte wordt gedownload",
     "detectionHeldElevationPaused": "Detectie wacht totdat je de hoogtedownload hervat in Instellingen",
+    "detectionHeldElevationWaiting_one": "Detectie wacht op hoogte voor {{count}} activiteitsspoor. Veloq probeert het opnieuw zodra je online bent.",
+    "detectionHeldElevationWaiting_other": "Detectie wacht op hoogte voor {{count}} activiteitssporen. Veloq probeert het opnieuw zodra je online bent.",
     "disabled": "Uitgeschakeld",
     "removeSection": "Sectie verwijderen",
     "removeSectionConfirm": "Deze sectie verschijnt niet meer in activiteitsdetails of inzichten. Je kunt hem herstellen vanuit de sectielijst.",
@@ -1090,6 +1125,8 @@
     "legendPr": "PR",
     "legendReverse": "Omgekeerd",
     "legendThisActivity": "Deze activiteit",
+    "legendThisSection": "Dit segment",
+    "legendNearby": "Andere segmenten in de buurt",
     "resetReference": "Referentie resetten",
     "resetReferenceConfirm": "Terugzetten naar automatische referentieselectie?\n\nDe sectie wordt opnieuw gematcht met al je activiteiten. Dit kan activiteiten toevoegen aan of verwijderen uit deze sectie.",
     "reverse": "Omgekeerd",
@@ -1112,6 +1149,7 @@
     "resetBoundsConfirm": "Herstellen naar de oorspronkelijk automatisch gedetecteerde grenzen?\n\nHet traject wordt opnieuw vergeleken met al je activiteiten.",
     "traversals": "doorgangen",
     "liftGround": "Lift",
+    "notLift": "Geen lift",
     "trimFailed": "Kan trajectgrenzen niet bijsnijden",
     "trimTooShort": "Het traject moet minstens 5 punten hebben",
     "expandUnavailable": "Geen activiteitsspoor beschikbaar voor uitbreiding",
@@ -1168,7 +1206,10 @@
     "rescanRefusedNotReady": "De engine wordt nog geopend. Probeer het zo opnieuw.",
     "rescanRefusedOff": "Routematching staat uit. Zet het aan in Instellingen om te scannen.",
     "rescanRefusedNothingOwed": "Alles is al gescand.",
-    "rescanRefusedFailed": "De scan kon niet starten."
+    "rescanRefusedFailed": "De scan kon niet starten.",
+    "unflagLift": "Liftmarkering verwijderen?",
+    "unflagLiftConfirm": "De detector markeerde dit als liftterrein. De markering kan niet worden teruggezet.",
+    "latestIsRecord": "Je beste tijd hier was je laatste"
   },
   "settings": {
     "account": "Account",
@@ -1205,6 +1246,8 @@
     "maxMetricsHint": "Maximaal 4 metrieken",
     "appTour": "App-tour",
     "appTourDescription": "Ontdek functies en leer hoe je ze gebruikt",
+    "rangeLockedMessage": "Het lokale gegevensbereik gaat open zodra de eerste synchronisatie klaar is. Start die nooit, controleer dan je verbinding en of je bent ingelogd.",
+    "rangeLockedTitle": "Nog aan het instellen",
     "terrain3D": "3D Terrein",
     "terrain3DOff": "Uit",
     "terrain3DSmart": "Slim",
@@ -1226,7 +1269,18 @@
     "support": "Ondersteuning",
     "supportingMetrics": "Ondersteunende Metrieken",
     "syncActivities": "Activiteiten worden gesynchroniseerd",
-    "syncActivitiesProgress": "{{completed}} van {{total}} activiteiten",
+    "syncStep": {
+      "activities": "Je nieuwste activiteiten worden opgehaald",
+      "athlete": "Je profiel wordt opgehaald",
+      "census": "De lijst met je activiteiten op intervals.icu wordt opgehaald",
+      "curves": "Je vermogens- en tempocurves worden opgehaald",
+      "firstActivities": "Je vijf nieuwste activiteiten worden opgehaald",
+      "intervalBodies": "Intervaldetails worden opgehaald",
+      "remainingActivities": "De rest van je activiteiten wordt opgehaald",
+      "sportSettings": "Je sportinstellingen worden opgehaald",
+      "wellness": "Je welzijnsgegevens worden opgehaald"
+    },
+    "syncStepProgress": "{{label}} ({{completed}} van {{total}})",
     "syncStop": "Stoppen",
     "syncStopping": "Bezig met stoppen...",
     "system": "Systeem",
@@ -1234,7 +1288,17 @@
     "streamHistoryDays": "{{count}} dagen",
     "streamHistoryAll": "Alles",
     "streamHistoryReset": "Herstellen",
+    "streamBackfill": "Ontbrekende reeksen",
+    "streamBackfillOwed_one": "{{count}} activiteit",
+    "streamBackfillOwed_other": "{{count}} activiteiten",
+    "streamBackfillProgress": "{{completed}} van {{total}}",
+    "streamBackfillDownload": "Downloaden",
+    "streamBackfillStop": "Stoppen",
     "tileCacheLimit": "Limiet kaarttegels",
+    "tileCacheLimitHint": "Verhoog deze voor beter offline en lokaal bladeren",
+    "tileCacheUsedOfBudget": "{{used}} van {{budget}} gebruikt",
+    "tileCacheUsedOfBudgetAtLeast": "Minstens {{used}} van {{budget}} gebruikt",
+    "tileCacheFree": "{{size}} vrij op apparaat",
     "title": "Instellingen",
     "units": "Eenheden",
     "unitsAuto": "Auto",
@@ -1247,8 +1311,6 @@
     "version": "Versie",
     "storageDatabase": "Database",
     "storageHeatmap": "Heatmap",
-    "storageSatellite": "Satelliet",
-    "storageTerrain": "Terrein",
     "storageVector": "Vector",
     "storageGround": "Ondergrond",
     "storagePreviews": "3D-voorbeelden",
@@ -1303,10 +1365,17 @@
     "previewAreaSections": "{{count}} secties",
     "sectionMaxLength": "Langste sectie: {{distance}}",
     "sectionSameTraffic": "Gevoeligheid routesplitsing: {{value}}",
+    "sectionParamPastClamp": "Hierboven maakt de detectie geen onderscheid meer tussen waarden.",
+    "sectionParamRange": "Geteste bereik {{min}} tot {{max}}",
+    "sectionPresetDefault": "Standaard",
+    "sectionPresetRelaxed": "Soepel",
+    "sectionPresetStrict": "Streng",
+    "sectionPresets": "Voorinstellingen",
     "previewRun": "Voorbeeld",
     "previewRunning": "{{count}} activiteiten in dit gebied analyseren",
     "previewFailed": "Het voorbeeld kon niet worden voltooid.",
     "runSlow": "Dit duurt langer dan gebruikelijk. De run loopt nog.",
+    "stillRunning": "Loopt nog. Je kunt dit scherm verlaten.",
     "previewPoolUnusable": "Sommige van je activiteitensporen zijn onleesbaar, dus de voorbeeldweergave is gestopt.",
     "previewCurrentFailed": "Kon de huidige secties voor dit gebied niet lezen.",
     "previewSuspended": "Hoogte-update bezig. Probeer het zo opnieuw.",
@@ -1342,7 +1411,18 @@
     "exportPrivacyCount": "Kort {{touched}} van {{total}} ritten in bij {{radius}} m. Er wordt niets verwijderd.",
     "exportPrivacyNothingTrimmed": "Er wordt niets ingekort. Exports bevatten het volledige spoor.",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "Tik op de kaart om thuis te verplaatsen."
+    "exportPrivacyMoveHint": "Tik op de kaart om thuis te verplaatsen.",
+    "previewRouteGrouping": "Routegroepering voorbeeld",
+    "groupingMatchShare": "Zelfde route bij {{percent}}% overlap",
+    "groupingEndsApart": "Zelfde uiteinden binnen {{distance}}",
+    "groupingRunning": "Je activiteiten worden gegroepeerd…",
+    "groupingNothingToGroup": "Nog geen activiteiten met track om te groeperen",
+    "groupingSummary": "{{count}} routes met deze instelling",
+    "groupingMerged": "{{count}} van je routes zouden samengevoegd worden",
+    "groupingDropped": "{{count}} zouden alleen blijven",
+    "groupingLegendMostRidden": "Meest gereden",
+    "groupingLegendOther": "Andere routes",
+    "groupingFailed": "De groepering is niet afgerond. Verschuif een regelaar om het opnieuw te proberen."
   },
   "stats": {
     "activities": "Activiteiten",
@@ -1388,6 +1468,7 @@
     "powerCurve": "Vermogenscurve",
     "powerZones": "Vermogenszones",
     "previous": "Vorige",
+    "rangeNotDownloaded": "Nog niet gedownload",
     "seasonComparison": "Seizoensvergelijking",
     "secondHalf": "Tweede helft",
     "sixMonths": "6M",
@@ -1416,12 +1497,19 @@
     "heartRate": "Hartslag",
     "lactateThreshold": "Lactaatdrempel",
     "noEffortData": "Geen beste prestatie gegevens beschikbaar",
+    "curveFetched": "Van de laatste synchronisatie, {{date}}",
+    "curveNotDownloaded": "Nog niet gedownload",
+    "notEnoughRuns": "Nog niet genoeg hardloopsessies",
     "pace": "Tempo",
     "paceCurve": "Tempocurve",
     "powerCurve": "Vermogenscurve",
     "seasonBests": "Seizoensbesten",
     "swimPaceCurve": "Zwemtempocurve",
     "trainingZones": "Trainingszones"
+  },
+  "sync": {
+    "ridesDownloaded": "{{completed}} van {{total}} ritten gedownload",
+    "tracksDownloaded": "{{completed}} van {{total}} tracks gedownload"
   },
   "time": {
     "current": "Huidig",
@@ -1528,9 +1616,24 @@
     }
   },
   "strength": {
+    "female": "vrouw",
+    "male": "man",
+    "bodyTypeDefault": "Lichaamstype getoond als <type>{{bodyType}}</type>, de standaard, omdat je intervals.icu-profiel geen geslacht heeft.",
+    "bodyTypeFromProfile": "Lichaamstype getoond als <type>{{bodyType}}</type>, uit je intervals.icu-profiel.",
+    "muscleSource": "De spiergroepen per oefeningstype komen uit <source>free-exercise-db</source>, een open publiek-domein oefeningendataset.",
+    "durationLabel": "Duur",
+    "setsLabel": "Sets",
+    "setsNotDownloaded": "Sets nog niet gedownload",
+    "totalLabel": "Totaal",
+    "timeColumn": "Tijd",
+    "weightColumn": "Gewicht",
+    "repsColumn": "Herh.",
+    "setColumn": "Set",
     "snapshot": "Krachtoverzicht",
     "noWorkouts": "Geen krachttrainingen in de laatste {{period}}",
     "noWorkoutsHint": "Voltooi een krachttraining om hier je spiergroepverdeling te zien",
+    "notDownloaded": "Krachttrainingen nog niet gedownload",
+    "notDownloadedHint": "Je setgegevens komen met de trainingsbestanden mee. Maak verbinding om ze te downloaden.",
     "sets": "sets",
     "muscleGroupVolume": "Spiergroepvolume",
     "relativeWeightedSets": "Relatieve gewogen sets over de geselecteerde periode",
@@ -1602,6 +1705,7 @@
     "status": {
       "connecting": "Verbinden…",
       "connected": "Verbonden",
+      "noData": "Verbonden, geen gegevens",
       "reconnecting": "Opnieuw verbinden…",
       "disconnected": "Niet verbonden"
     }
@@ -1654,7 +1758,6 @@
     "title": "Achtergrondtaken",
     "intro": "Lange taken die de app zelf uitvoert. Ze gaan door als je dit scherm verlaat.",
     "openLink": "Achtergrondtaken",
-    "sync": "Activiteiten synchroniseren",
     "detection": "Sectiedetectie",
     "elevationBackfill": "Hoogtegegevens downloaden",
     "cutover": "Secties opnieuw opbouwen",

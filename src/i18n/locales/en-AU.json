@@ -47,7 +47,6 @@
       "burnRate": "Burn rate",
       "caloriesBurned": "Calories burned",
       "conditions": "Conditions",
-      "dailyValue": "Daily value",
       "decoupling": "Decoupling",
       "deviceSensor": "Device sensor",
       "efficiencyFactor": "Efficiency Factor",
@@ -60,7 +59,11 @@
       "formTSB": "Form (TSB)",
       "hrRecovery": "HR Recovery",
       "hrvToday": "HRV today",
+      "intensityEasy": "Easy",
       "intensityFactor": "Intensity Factor",
+      "intensityHard": "Hard",
+      "intensityModerate": "Moderate",
+      "intensityVeryHard": "Very hard",
       "max": "Max {{value}}",
       "maxLabel": "Max",
       "peak": "Peak",
@@ -97,6 +100,7 @@
   "activityDetail": {
     "failedToLoad": "Failed to load activity",
     "feedPreviewUpdated": "Feed preview updated",
+    "intervalsNotDownloaded": "Intervals not downloaded yet",
     "noMatchedSections": "No matched sections yet",
     "noMatchedSectionsDescription": "Sections matching this activity will rock up here",
     "noRouteMatch": "No route match yet",
@@ -113,6 +117,15 @@
     "exercises": "Exercises",
     "exercisesSummary": "{{exercises}} exercises · {{sets}} sets",
     "tapMuscle": "Tap for details"
+  },
+  "activitySummary": {
+    "distance": "Distance",
+    "downloading": "Downloading this activity...",
+    "elevation": "Elevation",
+    "movingTime": "Moving Time",
+    "openActivity": "View Details",
+    "title": "Summary",
+    "unavailable": "This activity could not be downloaded."
   },
   "activityTypes": {
     "AlpineSki": "Alpine Ski",
@@ -175,6 +188,7 @@
     "clearReload": "Clear & Reload",
     "disconnect": "Disconnect",
     "disconnectMessage": "This will remove your API credentials from the app. You will need to enter them again to use the app.",
+    "disconnectOffline": "You are offline. Both ways back in need a connection, so you will not be able to sign in again until the network returns.",
     "disconnectTitle": "Disconnect Account",
     "error": "Error",
     "failedToClear": "Failed to clear cache. Please try again.",
@@ -279,6 +293,7 @@
     "noValidGpsData": "No valid GPS data in fixtures",
     "offlineUsingCached": "Offline - using cached routes",
     "syncedActivities": "Synced {{count}} activities",
+    "syncedStillAnalysing": "Synced {{count}} activities. Still analysing routes",
     "syncedDemoActivities": "Synced {{count}} demo activities",
     "downloadingGpsProgress": "Downloading GPS data... {{percent}}%",
     "noValidGpsChecked": "No valid GPS data found (checked {{count}} activities)",
@@ -335,10 +350,6 @@
       "description": "We couldn't load this content",
       "title": "Something went wrong"
     },
-    "networkError": {
-      "description": "Check your internet connection and try again",
-      "title": "Connection error"
-    },
     "offline": {
       "description": "Some stuff might not work out bush",
       "title": "You've gone walkabout"
@@ -354,17 +365,42 @@
         "network": "Could not reach intervals.icu",
         "storage": "A file on this device could not be read",
         "notConfigured": "No intervals.icu login is stored on this device",
-        "internal": "Sync stopped for a reason the app cannot name"
+        "internal": "Sync stopped for a reason the app cannot name",
+        "engineClosed": "Sync stopped because the library was closed partway through"
       }
+    },
+    "tracksMissing": {
+      "title_one": "{{count}} route didn't download",
+      "title_other": "{{count}} routes didn't download",
+      "detail": "They are missing from the map and matched against no section. The next refresh tries again."
     }
   },
   "engine": {
     "initFailed": "Route engine failed to initialise. Routes and sections may be unavailable.",
+    "failure": {
+      "notOpen": "The route engine is not open yet. Try again in a moment.",
+      "busy": "The database is busy. Try again in a moment.",
+      "database": "The database could not do that. Try again, and clear the cache if it keeps happening."
+    },
     "initReason": {
       "busy": "Something else was using the database. Trying again should sort it.",
       "forwardSchema": "This data was saved by a newer version of Veloq. Update the app to open it.",
       "storageUnavailable": "The database could not be written. Free up space, then try again.",
       "failed": "The route engine stopped for a reason the app cannot name."
+    },
+    "quarantine": {
+      "title": "Your activity library was rebuilt",
+      "resyncing": "Your activities are downloading again.",
+      "dismiss": "Got it",
+      "separator": ", ",
+      "kept": {
+        "lead": "Some data could not be read, so the library was rebuilt. Kept: {{kept}}.",
+        "sections": "{{count}} of your own sections",
+        "history": "{{count}} section events",
+        "geometry": "{{count}} section shapes",
+        "pins": "{{count}} pinned shapes",
+        "intents": "{{count}} removed corridors"
+      }
     }
   },
   "errorState": {
@@ -389,6 +425,8 @@
   "feed": {
     "activitiesCount": "{{count}} Activities",
     "failedToLoad": "Failed to load activities",
+    "firstSyncBody": "First load only. The feed opens when the first activities land.",
+    "firstSyncTitle": "Syncing your activities",
     "groups": {
       "cycling": "Cycling",
       "running": "Running",
@@ -420,16 +458,7 @@
     "formTSB": "Form (TSB)",
     "noData": "No fitness data yet, mate",
     "restDay": "Rest day, legend",
-    "selectActivity": "Select Activity",
-    "weekShape": {
-      "title": "This week's shape",
-      "quiet": "A quieter week. Not enough days with training on them to read a shape.",
-      "reading": {
-        "lopsided": "Your load sat in a couple of days across {{days}} days of training.",
-        "mixed": "A mix: some days much harder than others, over {{days}} days of training.",
-        "even": "Spread fairly evenly across {{days}} days of training."
-      }
-    }
+    "selectActivity": "Select Activity"
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -451,13 +480,6 @@
     "title": "Fitness & Form",
     "toBuildFitness": "indicates productive training load. The",
     "toPreventOvertraining": "indicates high accumulated fatigue.",
-    "guidance": {
-      "highRisk": "TSB below -30. Accumulated fatigue significantly exceeds recent fitness gains.",
-      "optimal": "TSB between -30 and -10. Training load is producing fitness adaptations.",
-      "greyZone": "TSB between -10 and 5. Moderate balance between fitness and fatigue.",
-      "fresh": "TSB between 5 and 25. Low fatigue relative to fitness. Extended time here typically corresponds with declining fitness.",
-      "transition": "TSB above 25. Minimal recent training stimulus. Fitness declining."
-    },
     "tsb": "TSB",
     "understandingMetrics": "Understanding the Metrics",
     "rampRate": "Ramp",
@@ -478,11 +500,12 @@
     "strength": "Strength",
     "noInsights": "Insights will appear as you train",
     "noInsightsHint": "Complete more activities to see personalised insights",
+    "formFromLastSync": "Form hidden, wellness last synced {{date}}",
     "sectionPr": "PR on {{name}}",
     "sectionPrSubtitle": "{{time}} - {{daysAgo}}d ago",
     "sectionImproving": "{{name}} getting faster",
     "sectionImprovingBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts.",
-    "ftpIncrease": "Cycling FTP: {{current}}W (+{{change}}W)",
+    "ftpIncrease": "Cycling eFTP: {{current}}W (+{{change}}W)",
     "paceImproved": "Pace improved {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% weekly volume",
     "weeklyVolumeDown": "{{percent}}% less this week",
@@ -494,9 +517,10 @@
       "trendingUp": "Recovery improving",
       "trendingDown": "Recovery dipping",
       "stable": "Recovery steady",
-      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
-      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
-      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
+      "trendingUpBody": "The newer half of your last 7 days of HRV averaged more than the older half, by over 2%. Window mean {{avg}} ms over {{days}} readings, latest {{latest}} ms.",
+      "trendingDownBody": "The newer half of your last 7 days of HRV averaged less than the older half, by over 2%. Window mean {{avg}} ms over {{days}} readings, latest {{latest}} ms.",
+      "stableBody": "The two halves of your last 7 days of HRV are within 2% of each other. Window mean {{avg}} ms over {{days}} readings, latest {{latest}} ms.",
+      "lastTwoDaysBody": "The window itself held steady, but your last two readings fell on consecutive days and the latest, {{latest}} ms, is below the window mean of {{avg}} ms over {{days}} readings."
     },
     "weeklyLoad": {
       "title": "Training load {{percent}}% {{direction}} average",
@@ -524,13 +548,13 @@
       "prDetection": "Compares your latest section time against all previous efforts to detect personal records.",
       "sectionTrend": "Tracks median performance on frequently visited sections over time.",
       "periodComparison": "Compares training metrics between consecutive weeks to track progression.",
-      "hrvName": "HRV rolling average trend",
-      "hrvDescription": "HRV trend based on your 7-day rolling average. HRV accuracy depends on measurement device and consistency. Trends over days are more reliable than single readings.",
+      "hrvName": "HRV over the last 7 days",
+      "hrvDescription": "The 7 calendar days ending today, keeping the days with an HRV reading, and at least five of them. The mean of the older half is compared with the mean of the newer half, and a move under 2% reads as steady. A steady window still reads as falling when the last two readings are on consecutive days, the second is lower, and it sits below the window mean.",
       "prDetectionName": "Personal record detection",
       "periodComparisonName": "Period comparison",
       "periodComparisonRestDay": "Compares last week against your 4-week average when the current week has no activities yet.",
-      "ftpEstimation": "Tracks changes in your FTP setting over time. FTP updates are detected from your intervals.icu account, where they may be set manually or auto-detected from activity power data.",
-      "ftpEstimationName": "FTP setting changes",
+      "ftpEstimation": "Compares your latest daily eFTP with the value from 30 days earlier. eFTP is intervals.icu's estimate from your power curve, not the FTP setting on your account.",
+      "ftpEstimationName": "eFTP changes",
       "thresholdSpeedName": "Threshold speed trend analysis",
       "thresholdSpeedDescription": "Compares your latest threshold-speed estimate against previous values, then formats the change as athlete-readable pace for display.",
       "fitnessPrName": "Fitness-PR cross-reference",
@@ -538,33 +562,37 @@
       "stalePrCrossRefName": "{{metric}} PR cross-reference"
     },
     "data": {
-      "bestTime": "Best time",
-      "daysAgo": "Days ago",
-      "days": "days",
-      "currentFtp": "Current cycling FTP",
-      "previousFtp": "Previous cycling FTP",
-      "change": "Change",
-      "currentPace": "Current pace",
-      "previousPace": "Previous pace",
-      "improvement": "Improvement",
-      "thisWeek": "This week",
-      "lastWeek": "Last week",
-      "activitiesThisWeek": "Activities this week",
       "activitiesLastWeek": "Activities last week",
-      "sevenDayAvg": "7-day average",
-      "hrvSevenDay": "HRV (7 days)",
-      "latestHrv": "Latest HRV",
+      "activitiesThisWeek": "Activities this week",
+      "anomaly": "Anomaly",
+      "bestTime": "Best time",
+      "change": "Change",
+      "currentFtp": "Current cycling eFTP",
+      "currentPace": "Current pace",
       "dataPoints": "Data points",
-      "fourWeekAvgTss": "4-week average",
-      "hrChange": "HR change",
+      "days": "days",
+      "daysAgo": "Days ago",
       "efforts": "Efforts",
-      "trendSlope": "Trend slope",
+      "engagement": "Engagement",
+      "fourWeekAvgTss": "4-week average",
+      "ftpHistory": "eFTP history",
+      "hrChange": "HR change",
+      "hrvSevenDay": "HRV (7 days)",
+      "improvement": "Improvement",
+      "improvementSignal": "Improvement signal",
+      "lastWeek": "Last week",
+      "latestHrv": "Latest HRV",
+      "paceHistory": "Critical speed history",
+      "previousFtp": "Cycling eFTP 30 days ago",
+      "previousPace": "Previous pace",
+      "recency": "Recency",
+      "recentEfforts": "Recent efforts",
       "recentMedian": "Recent median",
       "relevance": "Relevance",
-      "recency": "Recency",
-      "improvementSignal": "Improvement signal",
-      "anomaly": "Anomaly",
-      "engagement": "Engagement"
+      "sevenDayAvg": "7-day average",
+      "thisWeek": "This week",
+      "trendSlope": "Trend slope",
+      "weeklyLoad": "Weekly load"
     },
     "aboutTitle": "About Insights",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only, not medical or coaching advice.",
@@ -612,8 +640,6 @@
       "recent2Weeks": "Recent 2 wks",
       "earlier2Weeks": "Earlier 2 wks",
       "changeLabel": "Change",
-      "thisWeek": "This wk",
-      "weeksAgo": "-{{n}}w",
       "formula": "Recent 2-week average vs earlier 2-week average",
       "algorithm": "Tracks weighted sets per muscle across the last 4 weeks. Primary work counts as 1.0 and secondary work counts as 0.5.",
       "methodologyName": "Strength volume progression",
@@ -666,6 +692,7 @@
     "disclaimer": "Veloq is not affiliated with intervals.icu",
     "getApiKey": "Get your API key",
     "invalidApiKey": "Invalid API Key. Please check your key and try again.",
+    "queuedOffline": "No connection. Your key is saved and will sign you in when you are back online.",
     "localModeNote": "Local mode: All data stays on your device",
     "apiKeyNoNotifications": "Push notifications are not available with API key login.",
     "loginWithIntervals": "Sign in with intervals.icu",
@@ -805,7 +832,9 @@
       "title": "Notifications",
       "enable": "Enable notifications",
       "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
-      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy"
+      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
+      "sectionPr": "Personal bests",
+      "fitnessMilestone": "Fitness milestones"
     },
     "prompt": {
       "title": "Stay in the loop",
@@ -826,12 +855,7 @@
       "sectionPrMany": "PR on {{name}} and {{count}} more",
       "fasterOnRoute": "Faster than usual on {{name}}",
       "fasterOnRouteDelta": "Faster than usual on {{name}} ({{delta}} off PR)",
-      "onRoute": "On {{name}}",
-      "sectionTraversedOne": "1 section traversed",
-      "sectionTraversedMany": "{{count}} sections traversed",
-      "distanceAndTime": "{{km}} km in {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "On {{name}}"
     }
   },
   "recording": {
@@ -930,6 +954,7 @@
     "slideToUnlock": "Slide to unlock",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Start Activity",
+    "startingIn": "Starting in {{seconds}}s",
     "status": {
       "paused": "PAUSED",
       "recording": "Recording"
@@ -950,6 +975,7 @@
     "writePermissionNotGranted": "Write permission not granted",
     "writePermissionRequired": "Write permission required",
     "savedLocally": "Activity saved on this device. Upload it any time from My Recordings.",
+    "savedLocallyNoScope": "Ride saved on this device. It uploads once you grant upload access.",
     "settingsUpload": "Upload",
     "autoUpload": "Auto-upload",
     "autoUploadDescription": "Upload recordings to intervals.icu automatically when you save them. Off keeps them on this device until you upload from My Recordings.",
@@ -1000,7 +1026,9 @@
     "writeScopeNotGranted": "Write permission was not granted",
     "signInRequired": "Sign in to record",
     "signInDescription": "Recording needs your intervals.icu account, so the ride has somewhere to go.",
-    "signInAction": "Sign in"
+    "signInAction": "Sign in",
+    "recordAnyway": "Record anyway",
+    "writePermissionLocalOnly": "Recording works without it. The ride stays on this device until you grant upload access."
   },
   "routeDetail": {
     "routeNotFound": "Route not found"
@@ -1010,6 +1038,13 @@
     "tomorrow": "TOMORROW"
   },
   "routes": {
+    "sectionDefaultName": "{{sport}} section ({{date}})",
+    "targetPace": "Pace",
+    "targetHr": "HR",
+    "targetPower": "Power",
+    "patternRide": "ride",
+    "patternRun": "run",
+    "patternSentence": "On {{day}} you usually {{sport}} for about {{duration}}",
     "activities": "activities",
     "adjustSportTypeFilter": "Try adjusting the sport type filter",
     "analysingRoutes": "Analysing routes",
@@ -1017,7 +1052,6 @@
     "createSection": "Create Section",
     "custom": "Custom",
     "dataRangeHint": "Based on {{duration}} of activity data",
-    "defaultActivityName": "Activity {{number}}",
     "defaultRouteName": "{{type}} Route",
     "duplicateNameMessage": "Please choose a different name. Each route must have a unique name.",
     "duplicateNameTitle": "Name Already Exists",
@@ -1027,7 +1061,6 @@
     "loadingRoutes": "Loading routes...",
     "lookingForRoutes": "Looking for matching routes...",
     "match": "match",
-    "more": "+{{count}} more",
     "noFrequentSections": "No frequent sections yet, mate",
     "noMatchingRoutes": "Couldn't find any matching routes",
     "noRoutesYet": "No routes yet, mate",
@@ -1077,6 +1110,8 @@
     "detectionPaused": "Detection paused while your sections migrate",
     "detectionPausedElevation": "Detection paused while elevation downloads",
     "detectionHeldElevationPaused": "Detection is held until you resume the elevation download in Settings",
+    "detectionHeldElevationWaiting_one": "Detection waits on elevation for {{count}} activity track. Veloq retries it when you are online.",
+    "detectionHeldElevationWaiting_other": "Detection waits on elevation for {{count}} activity tracks. Veloq retries them when you are online.",
     "disabled": "Disabled",
     "removeSection": "Remove Section",
     "removeSectionConfirm": "This section won't appear in activity details or insights. You can restore it from the sections list.",
@@ -1090,6 +1125,8 @@
     "legendPr": "PR",
     "legendReverse": "Reverse",
     "legendThisActivity": "This activity",
+    "legendThisSection": "This section",
+    "legendNearby": "Other sections nearby",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Reset to automatic reference selection?\n\nThe section will be re-matched against all your activities. This may add or remove activities from this section.",
     "reverse": "Reverse",
@@ -1112,6 +1149,7 @@
     "resetBoundsConfirm": "Reset to the original auto-detected bounds?\n\nThe section will be re-matched against all your activities.",
     "traversals": "traversals",
     "liftGround": "Lift",
+    "notLift": "Not a lift",
     "trimFailed": "Failed to trim section bounds",
     "trimTooShort": "Section must have at least 5 points",
     "expandUnavailable": "No activity track available for expansion",
@@ -1168,7 +1206,10 @@
     "rescanRefusedNotReady": "The engine is still opening. Try again in a moment.",
     "rescanRefusedOff": "Route matching is off. Turn it on in Settings to scan.",
     "rescanRefusedNothingOwed": "Everything has been scanned already.",
-    "rescanRefusedFailed": "The scan could not start."
+    "rescanRefusedFailed": "The scan could not start.",
+    "unflagLift": "Remove the lift flag?",
+    "unflagLiftConfirm": "The detector marked this as lift ground. Removing the flag cannot be undone.",
+    "latestIsRecord": "Your best time here was your last one"
   },
   "settings": {
     "account": "Account",
@@ -1205,6 +1246,8 @@
     "maxMetricsHint": "Maximum 4 metrics",
     "appTour": "App Tour",
     "appTourDescription": "Explore features and learn how to use them",
+    "rangeLockedMessage": "The local data range opens once the first sync has finished. If it never starts, check you are online and signed in.",
+    "rangeLockedTitle": "Still setting up",
     "terrain3D": "3D Terrain",
     "terrain3DOff": "Off",
     "terrain3DSmart": "Smart",
@@ -1227,7 +1270,18 @@
     "support": "Support",
     "supportingMetrics": "Supporting Metrics",
     "syncActivities": "Syncing activities",
-    "syncActivitiesProgress": "{{completed}} of {{total}} activities",
+    "syncStep": {
+      "activities": "Fetching your newest activities",
+      "athlete": "Fetching your profile",
+      "census": "Listing your activities on intervals.icu",
+      "curves": "Fetching your power and pace curves",
+      "firstActivities": "Fetching your five newest activities",
+      "intervalBodies": "Fetching your interval detail",
+      "remainingActivities": "Fetching the rest of your activities",
+      "sportSettings": "Fetching your sport settings",
+      "wellness": "Fetching your wellness data"
+    },
+    "syncStepProgress": "{{label}} ({{completed}} of {{total}})",
     "syncStop": "Stop",
     "syncStopping": "Stopping...",
     "system": "System",
@@ -1235,7 +1289,17 @@
     "streamHistoryDays": "{{count}} days",
     "streamHistoryAll": "All",
     "streamHistoryReset": "Reset",
+    "streamBackfill": "Missing series",
+    "streamBackfillOwed_one": "{{count}} activity",
+    "streamBackfillOwed_other": "{{count}} activities",
+    "streamBackfillProgress": "{{completed}} of {{total}}",
+    "streamBackfillDownload": "Download",
+    "streamBackfillStop": "Stop",
     "tileCacheLimit": "Map tile limit",
+    "tileCacheLimitHint": "Raise it to improve offline and local browsing",
+    "tileCacheUsedOfBudget": "{{used}} of {{budget}} used",
+    "tileCacheUsedOfBudgetAtLeast": "At least {{used}} of {{budget}} used",
+    "tileCacheFree": "{{size}} free on device",
     "title": "Settings",
     "units": "Units",
     "unitsAuto": "Auto",
@@ -1248,8 +1312,6 @@
     "version": "Version",
     "storageDatabase": "Database",
     "storageHeatmap": "Heatmap",
-    "storageSatellite": "Satellite",
-    "storageTerrain": "Terrain",
     "storageVector": "Vector",
     "storageGround": "Ground",
     "storagePreviews": "3D previews",
@@ -1303,10 +1365,17 @@
     "previewAreaSections": "{{count}} sections",
     "sectionMaxLength": "Longest section: {{distance}}",
     "sectionSameTraffic": "Route split sensitivity: {{value}}",
+    "sectionParamPastClamp": "The detector does not distinguish values past here.",
+    "sectionParamRange": "Tested range {{min}} to {{max}}",
+    "sectionPresetDefault": "Default",
+    "sectionPresetRelaxed": "Relaxed",
+    "sectionPresetStrict": "Strict",
+    "sectionPresets": "Presets",
     "previewRun": "Preview",
     "previewRunning": "Analysing {{count}} activities in this area",
     "previewFailed": "The preview could not finish.",
     "runSlow": "This is taking longer than usual. It is still running.",
+    "stillRunning": "Still running. You can leave this screen.",
     "previewPoolUnusable": "Some of your activity tracks cannot be read, so the preview stopped.",
     "previewCurrentFailed": "Could not read the current sections for this area.",
     "previewSuspended": "Elevation update in progress. Try again shortly.",
@@ -1342,7 +1411,18 @@
     "exportPrivacyCount": "Shortens {{touched}} of {{total}} rides at {{radius}} m. Nothing is deleted.",
     "exportPrivacyNothingTrimmed": "Nothing is trimmed. Exports carry the full track.",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "Tap the map to move home."
+    "exportPrivacyMoveHint": "Tap the map to move home.",
+    "previewRouteGrouping": "Preview route grouping",
+    "groupingMatchShare": "Same route if {{percent}}% overlaps",
+    "groupingEndsApart": "Same ends within {{distance}}",
+    "groupingRunning": "Grouping your rides…",
+    "groupingNothingToGroup": "No rides with a track to group yet",
+    "groupingSummary": "{{count}} routes at this setting",
+    "groupingMerged": "{{count}} of your routes would merge",
+    "groupingDropped": "{{count}} would be left on their own",
+    "groupingLegendMostRidden": "Most ridden",
+    "groupingLegendOther": "Other routes",
+    "groupingFailed": "The grouping did not finish. Move a knob to try again."
   },
   "stats": {
     "activities": "Activities",
@@ -1388,6 +1468,7 @@
     "powerCurve": "Power Curve",
     "powerZones": "Power Zones",
     "previous": "Previous",
+    "rangeNotDownloaded": "Not downloaded yet",
     "seasonComparison": "Season Comparison",
     "secondHalf": "Second Half",
     "sixMonths": "6M",
@@ -1416,12 +1497,19 @@
     "heartRate": "Heart Rate",
     "lactateThreshold": "Lactate Threshold",
     "noEffortData": "No best effort data available",
+    "curveFetched": "From the last sync, {{date}}",
+    "curveNotDownloaded": "Not downloaded yet",
+    "notEnoughRuns": "Not enough runs yet",
     "pace": "Pace",
     "paceCurve": "Pace Curve",
     "powerCurve": "Power Curve",
     "seasonBests": "Season Bests",
     "swimPaceCurve": "Swim Pace Curve",
     "trainingZones": "Training Zones"
+  },
+  "sync": {
+    "ridesDownloaded": "{{completed}} of {{total}} rides downloaded",
+    "tracksDownloaded": "{{completed}} of {{total}} tracks downloaded"
   },
   "time": {
     "current": "Current",
@@ -1528,9 +1616,24 @@
     }
   },
   "strength": {
+    "female": "female",
+    "male": "male",
+    "bodyTypeDefault": "Body type shown as <type>{{bodyType}}</type>, the default, as your intervals.icu profile has no sex set.",
+    "bodyTypeFromProfile": "Body type shown as <type>{{bodyType}}</type>, from your intervals.icu profile.",
+    "muscleSource": "Muscle groups for each exercise type come from <source>free-exercise-db</source>, an open public domain exercise dataset.",
+    "durationLabel": "Duration",
+    "setsLabel": "Sets",
+    "setsNotDownloaded": "Sets not downloaded yet",
+    "totalLabel": "Total",
+    "timeColumn": "Time",
+    "weightColumn": "Weight",
+    "repsColumn": "Reps",
+    "setColumn": "Set",
     "snapshot": "Strength snapshot",
     "noWorkouts": "No strength workouts in the last {{period}}",
     "noWorkoutsHint": "Complete a strength workout to see your muscle group breakdown here",
+    "notDownloaded": "Strength workouts not downloaded yet",
+    "notDownloadedHint": "Your set data arrives with the workout files. Connect to download them.",
     "sets": "sets",
     "muscleGroupVolume": "Muscle Group Volume",
     "relativeWeightedSets": "Relative weighted sets across the selected period",
@@ -1602,6 +1705,7 @@
     "status": {
       "connecting": "Connecting…",
       "connected": "Connected",
+      "noData": "Connected, no data",
       "reconnecting": "Reconnecting…",
       "disconnected": "Not connected"
     }
@@ -1654,7 +1758,6 @@
     "title": "Background Jobs",
     "intro": "Long jobs the app runs on its own. They keep going when you leave this screen.",
     "openLink": "Background jobs",
-    "sync": "Activity sync",
     "detection": "Section detection",
     "elevationBackfill": "Elevation download",
     "cutover": "Section rebuild",

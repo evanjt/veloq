@@ -47,7 +47,6 @@
       "burnRate": "Tasso di consumo",
       "caloriesBurned": "Calorie bruciate",
       "conditions": "Condizioni",
-      "dailyValue": "Valore giornaliero",
       "decoupling": "Disaccoppiamento",
       "deviceSensor": "Sensore dispositivo",
       "efficiencyFactor": "Fattore di efficienza",
@@ -60,7 +59,11 @@
       "formTSB": "Forma (TSB)",
       "hrRecovery": "Recupero FC",
       "hrvToday": "HRV oggi",
+      "intensityEasy": "Facile",
       "intensityFactor": "Fattore di intensità",
+      "intensityHard": "Duro",
+      "intensityModerate": "Moderato",
+      "intensityVeryHard": "Molto duro",
       "max": "Max. {{value}}",
       "maxLabel": "Max",
       "peak": "Picco",
@@ -97,6 +100,7 @@
   "activityDetail": {
     "failedToLoad": "Impossibile caricare l'attività",
     "feedPreviewUpdated": "Anteprima del feed aggiornata",
+    "intervalsNotDownloaded": "Intervalli non ancora scaricati",
     "noMatchedSections": "Nessun tratto corrispondente",
     "noMatchedSectionsDescription": "I tratti che corrispondono a questa attività appariranno qui",
     "noRouteMatch": "Ancora nessuna corrispondenza di percorso",
@@ -113,6 +117,15 @@
     "exercises": "Esercizi",
     "exercisesSummary": "{{exercises}} esercizi · {{sets}} serie",
     "tapMuscle": "Tocca per i dettagli"
+  },
+  "activitySummary": {
+    "distance": "Distanza",
+    "downloading": "Download di questa attività...",
+    "elevation": "Dislivello",
+    "movingTime": "Tempo in movimento",
+    "openActivity": "Vedi dettagli",
+    "title": "Riepilogo",
+    "unavailable": "Non è stato possibile scaricare questa attività."
   },
   "activityTypes": {
     "AlpineSki": "Sci alpino",
@@ -175,6 +188,7 @@
     "clearReload": "Cancella e ricarica",
     "disconnect": "Disconnetti",
     "disconnectMessage": "Questo rimuoverà le tue credenziali API dall'app. Dovrai inserirle di nuovo per usare l'app.",
+    "disconnectOffline": "Sei offline. Entrambi i modi per rientrare richiedono una connessione, quindi non potrai accedere finché la rete non torna.",
     "disconnectTitle": "Disconnetti account",
     "error": "Errore",
     "failedToClear": "Impossibile cancellare la cache. Riprova.",
@@ -279,6 +293,7 @@
     "noValidGpsData": "Nessun dato GPS valido",
     "offlineUsingCached": "Offline - utilizzo percorsi in cache",
     "syncedActivities": "{{count}} attività sincronizzate",
+    "syncedStillAnalysing": "{{count}} attività sincronizzate. Analisi percorsi in corso",
     "syncedDemoActivities": "{{count}} attività demo sincronizzate",
     "downloadingGpsProgress": "Download dati GPS... {{percent}}%",
     "noValidGpsChecked": "Nessun dato GPS valido trovato ({{count}} attività controllate)",
@@ -335,10 +350,6 @@
       "description": "Non siamo riusciti a caricare questo contenuto",
       "title": "Qualcosa è andato storto"
     },
-    "networkError": {
-      "description": "Controlla la connessione internet e riprova",
-      "title": "Errore di connessione"
-    },
     "offline": {
       "description": "Alcune funzionalità potrebbero essere limitate",
       "title": "Sei offline"
@@ -354,17 +365,42 @@
         "network": "Impossibile raggiungere intervals.icu",
         "storage": "Non e stato possibile leggere un file su questo dispositivo",
         "notConfigured": "Nessun accesso a intervals.icu salvato su questo dispositivo",
-        "internal": "La sincronizzazione si e fermata per un motivo che l'app non sa nominare"
+        "internal": "La sincronizzazione si e fermata per un motivo che l'app non sa nominare",
+        "engineClosed": "La sincronizzazione si e fermata perche la libreria e stata chiusa a meta"
       }
+    },
+    "tracksMissing": {
+      "title_one": "{{count}} percorso non è stato scaricato",
+      "title_other": "{{count}} percorsi non sono stati scaricati",
+      "detail": "Mancano sulla mappa e non sono confrontati con alcun tratto. Il prossimo aggiornamento riproverà."
     }
   },
   "engine": {
     "initFailed": "Il motore dei percorsi non è riuscito ad avviarsi. I percorsi e le sezioni potrebbero non essere disponibili.",
+    "failure": {
+      "notOpen": "Il motore dei percorsi non è ancora aperto. Riprova tra un momento.",
+      "busy": "Il database è occupato. Riprova tra un momento.",
+      "database": "Il database non è riuscito a farlo. Riprova e svuota la cache se continua."
+    },
     "initReason": {
       "busy": "Qualcos'altro stava usando il database. Riprova tra un momento.",
       "forwardSchema": "Questi dati sono stati salvati da una versione più recente di Veloq. Aggiorna l'app per aprirli.",
       "storageUnavailable": "Non è stato possibile scrivere il database. Libera spazio e riprova.",
       "failed": "Il motore dei percorsi si è fermato per un motivo che l'app non sa indicare."
+    },
+    "quarantine": {
+      "title": "La tua libreria di attività è stata ricostruita",
+      "resyncing": "Le tue attività si stanno scaricando di nuovo.",
+      "dismiss": "Ho capito",
+      "separator": ", ",
+      "kept": {
+        "lead": "Alcuni dati non erano leggibili, quindi la libreria è stata ricostruita. Conservato: {{kept}}.",
+        "sections": "{{count}} sezioni tue",
+        "history": "{{count}} eventi di sezione",
+        "geometry": "{{count}} tracciati di sezione",
+        "pins": "{{count}} tracciati fissati",
+        "intents": "{{count}} corridoi rimossi"
+      }
     }
   },
   "errorState": {
@@ -389,6 +425,8 @@
   "feed": {
     "activitiesCount": "{{count}} Attività",
     "failedToLoad": "Impossibile caricare le attività",
+    "firstSyncBody": "Solo al primo caricamento. Il feed si apre appena arrivano le prime attività.",
+    "firstSyncTitle": "Sincronizzazione delle tue attività",
     "groups": {
       "cycling": "Ciclismo",
       "running": "Corsa",
@@ -420,16 +458,7 @@
     "formTSB": "Forma (TSB)",
     "noData": "Nessun dato forma disponibile",
     "restDay": "Giorno di riposo",
-    "selectActivity": "Seleziona attività",
-    "weekShape": {
-      "title": "La forma di questa settimana",
-      "quiet": "Una settimana più tranquilla. Non ci sono abbastanza giorni di allenamento per leggere una forma.",
-      "reading": {
-        "lopsided": "Il tuo carico si è concentrato in un paio di giorni su {{days}} giorni di allenamento.",
-        "mixed": "Mista: alcuni giorni molto più duri di altri, su {{days}} giorni di allenamento.",
-        "even": "Distribuita in modo abbastanza uniforme su {{days}} giorni di allenamento."
-      }
-    }
+    "selectActivity": "Seleziona attività"
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -451,13 +480,6 @@
     "title": "Forma e condizione",
     "toBuildFitness": "indica un carico di allenamento produttivo. La",
     "toPreventOvertraining": "indica alto affaticamento accumulato.",
-    "guidance": {
-      "highRisk": "TSB sotto -30. L'affaticamento accumulato supera significativamente i recenti guadagni di forma.",
-      "optimal": "TSB tra -30 e -10. Il carico di allenamento sta producendo adattamenti di forma.",
-      "greyZone": "TSB tra -10 e 5. Equilibrio moderato tra forma e affaticamento.",
-      "fresh": "TSB tra 5 e 25. Basso affaticamento rispetto alla forma. Il tempo prolungato qui corrisponde tipicamente a una forma in calo.",
-      "transition": "TSB sopra 25. Stimolo di allenamento recente minimo. Forma in calo."
-    },
     "tsb": "TSB",
     "understandingMetrics": "Capire le metriche",
     "rampRate": "Rampa",
@@ -478,11 +500,12 @@
     "strength": "Forza",
     "noInsights": "Gli approfondimenti appariranno durante gli allenamenti",
     "noInsightsHint": "Completa più attività per vedere approfondimenti personalizzati",
+    "formFromLastSync": "Forma nascosta, benessere sincronizzato il {{date}}",
     "sectionPr": "PR su {{name}}",
     "sectionPrSubtitle": "{{time}} · {{daysAgo}}g fa",
     "sectionImproving": "{{name}} sta migliorando",
     "sectionImprovingBody": "Mediana recente: {{median}}. Migliore: {{best}} su {{count}} tentativi.",
-    "ftpIncrease": "Potenza ciclismo: {{current}}W (+{{change}}W)",
+    "ftpIncrease": "eFTP ciclismo: {{current}}W (+{{change}}W)",
     "paceImproved": "Passo migliorato {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% volume settimanale",
     "weeklyVolumeDown": "{{percent}}% in meno questa settimana",
@@ -498,13 +521,13 @@
       "prDetection": "Confronta il tuo ultimo tempo su una sezione con tutti i tentativi precedenti per rilevare record personali.",
       "sectionTrend": "Monitora la prestazione mediana sulle sezioni visitate frequentemente nel tempo.",
       "periodComparison": "Confronta le metriche di allenamento tra settimane consecutive per monitorare la progressione.",
-      "hrvName": "Tendenza media mobile HRV",
-      "hrvDescription": "Tendenza HRV basata sulla tua media mobile a 7 giorni. La precisione dell'HRV dipende dal dispositivo di misurazione e dalla costanza. Le tendenze su più giorni sono più affidabili delle singole letture.",
+      "hrvName": "HRV negli ultimi 7 giorni",
+      "hrvDescription": "I 7 giorni di calendario che terminano oggi, tenendo i giorni con una lettura HRV, e almeno cinque di essi. La media della metà più vecchia viene confrontata con quella della metà più recente, e una variazione sotto il 2 % si legge come stabile. Una finestra stabile si legge comunque come in calo quando le ultime due letture cadono in giorni consecutivi, la seconda è più bassa e sta sotto la media della finestra.",
       "prDetectionName": "Rilevamento record personale",
       "periodComparisonName": "Confronto tra periodi",
       "periodComparisonRestDay": "Confronta la settimana scorsa con la tua media di 4 settimane quando la settimana corrente non ha ancora attività.",
-      "ftpEstimation": "Monitora i cambiamenti del tuo FTP stimato nel tempo sulla base dei dati di potenza delle tue attività. Il rilevamento FTP usa gli algoritmi di intervals.icu, che possono includere il rilevamento automatico dai dati delle attività.",
-      "ftpEstimationName": "Stima della Soglia di Potenza Funzionale",
+      "ftpEstimation": "Confronta la tua eFTP giornaliera più recente con il valore di 30 giorni fa. L’eFTP è la stima di intervals.icu dalla tua curva di potenza, non l’impostazione FTP del tuo account.",
+      "ftpEstimationName": "Variazioni dell’eFTP",
       "thresholdSpeedName": "Analisi tendenza velocità soglia",
       "thresholdSpeedDescription": "Confronta la tua ultima stima di velocità soglia con i valori precedenti, poi formatta la variazione come passo leggibile per l'atleta.",
       "fitnessPrName": "Incrocio forma-PR",
@@ -512,41 +535,46 @@
       "stalePrCrossRefName": "Incrocio PR con {{metric}}"
     },
     "data": {
-      "bestTime": "Miglior tempo",
-      "daysAgo": "Giorni fa",
-      "days": "giorni",
-      "currentFtp": "FTP attuale",
-      "previousFtp": "FTP precedente",
-      "change": "Variazione",
-      "currentPace": "Passo attuale",
-      "previousPace": "Passo precedente",
-      "improvement": "Miglioramento",
-      "thisWeek": "Questa settimana",
-      "lastWeek": "Settimana scorsa",
-      "activitiesThisWeek": "Attività questa settimana",
       "activitiesLastWeek": "Attività settimana scorsa",
-      "sevenDayAvg": "Media di 7 giorni",
-      "hrvSevenDay": "HRV (7 giorni)",
-      "latestHrv": "HRV più recente",
+      "activitiesThisWeek": "Attività questa settimana",
+      "anomaly": "Anomalia",
+      "bestTime": "Miglior tempo",
+      "change": "Variazione",
+      "currentFtp": "eFTP ciclismo attuale",
+      "currentPace": "Passo attuale",
       "dataPoints": "Punti dati",
-      "fourWeekAvgTss": "Media di 4 settimane",
-      "hrChange": "Variazione FC",
+      "days": "giorni",
+      "daysAgo": "Giorni fa",
       "efforts": "Sforzi",
-      "trendSlope": "Pendenza tendenza",
+      "engagement": "Costanza",
+      "fourWeekAvgTss": "Media di 4 settimane",
+      "ftpHistory": "Storico eFTP",
+      "hrChange": "Variazione FC",
+      "hrvSevenDay": "HRV (7 giorni)",
+      "improvement": "Miglioramento",
+      "improvementSignal": "Segnale di miglioramento",
+      "lastWeek": "Settimana scorsa",
+      "latestHrv": "HRV più recente",
+      "paceHistory": "Storico della velocità critica",
+      "previousFtp": "eFTP ciclismo di 30 giorni fa",
+      "previousPace": "Passo precedente",
+      "recency": "Recenza",
+      "recentEfforts": "Tentativi recenti",
       "recentMedian": "Mediana recente",
       "relevance": "Rilevanza",
-      "recency": "Recenza",
-      "improvementSignal": "Segnale di miglioramento",
-      "anomaly": "Anomalia",
-      "engagement": "Costanza"
+      "sevenDayAvg": "Media di 7 giorni",
+      "thisWeek": "Questa settimana",
+      "trendSlope": "Pendenza tendenza",
+      "weeklyLoad": "Carico settimanale"
     },
     "hrvTrend": {
       "trendingUp": "Recupero in miglioramento",
       "trendingDown": "Recupero in calo",
       "stable": "Recupero stabile",
-      "trendingUpBody": "La tua media HRV a 7 giorni ({{avg}} ms) è in aumento sulla base di {{days}} giorni di dati.",
-      "trendingDownBody": "La tua media HRV a 7 giorni ({{avg}} ms) è in calo sulla base di {{days}} giorni di dati.",
-      "stableBody": "La tua media HRV a 7 giorni ({{avg}} ms) è nella norma sulla base di {{days}} giorni di dati."
+      "trendingUpBody": "La metà più recente dei tuoi ultimi 7 giorni di HRV ha una media superiore a quella più vecchia, di oltre il 2 %. Media della finestra {{avg}} ms su {{days}} letture, ultima {{latest}} ms.",
+      "trendingDownBody": "La metà più recente dei tuoi ultimi 7 giorni di HRV ha una media inferiore a quella più vecchia, di oltre il 2 %. Media della finestra {{avg}} ms su {{days}} letture, ultima {{latest}} ms.",
+      "stableBody": "Le due metà dei tuoi ultimi 7 giorni di HRV sono entro il 2 % l'una dall'altra. Media della finestra {{avg}} ms su {{days}} letture, ultima {{latest}} ms.",
+      "lastTwoDaysBody": "La finestra stessa è rimasta stabile, ma le tue ultime due letture sono scese in giorni consecutivi e l'ultima, {{latest}} ms, è sotto la media della finestra di {{avg}} ms su {{days}} letture."
     },
     "weeklyLoad": {
       "title": "Carico di allenamento {{percent}}% {{direction}} la media",
@@ -612,8 +640,6 @@
       "recent2Weeks": "Ultime 2 sett.",
       "earlier2Weeks": "2 sett. prec.",
       "changeLabel": "Variazione",
-      "thisWeek": "Questa sett.",
-      "weeksAgo": "-{{n}}sett",
       "formula": "Media delle ultime 2 settimane vs media delle 2 settimane precedenti",
       "algorithm": "Monitora le serie ponderate per muscolo nelle ultime 4 settimane. Il lavoro primario vale 1.0 e quello secondario 0.5.",
       "methodologyName": "Progressione del volume di forza",
@@ -666,6 +692,7 @@
     "disclaimer": "Veloq non è affiliato con intervals.icu",
     "getApiKey": "Ottieni la tua chiave API",
     "invalidApiKey": "Chiave API non valida. Controlla la tua chiave e riprova.",
+    "queuedOffline": "Nessuna connessione. La tua chiave è salvata e ti farà accedere quando tornerai online.",
     "localModeNote": "Modalità locale: tutti i dati restano sul tuo dispositivo",
     "apiKeyNoNotifications": "Le notifiche push non sono disponibili con l'accesso tramite chiave API.",
     "loginWithIntervals": "Accedi con intervals.icu",
@@ -805,7 +832,9 @@
       "title": "Notifiche",
       "enable": "Attiva notifiche",
       "requiresOAuth": "Per attivare le notifiche, disconnettiti e riconnettiti usando il flusso di accesso OAuth invece della chiave API personale.",
-      "privacyHint": "Conserva un token push e l'ID atleta sul nostro server (scadenza 30 giorni). Vedi veloq.fit/privacy"
+      "privacyHint": "Conserva un token push e l'ID atleta sul nostro server (scadenza 30 giorni). Vedi veloq.fit/privacy",
+      "sectionPr": "Record personali",
+      "fitnessMilestone": "Traguardi di forma"
     },
     "prompt": {
       "title": "Resta aggiornato",
@@ -826,12 +855,7 @@
       "sectionPrMany": "PR su {{name}} e altre {{count}}",
       "fasterOnRoute": "Più veloce del solito su {{name}}",
       "fasterOnRouteDelta": "Più veloce del solito su {{name}} (a {{delta}} dal PR)",
-      "onRoute": "Su {{name}}",
-      "sectionTraversedOne": "1 sezione percorsa",
-      "sectionTraversedMany": "{{count}} sezioni percorse",
-      "distanceAndTime": "{{km}} km in {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "Su {{name}}"
     }
   },
   "recording": {
@@ -930,6 +954,7 @@
     "slideToUnlock": "Scorri per sbloccare",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Avvia attività",
+    "startingIn": "Inizia tra {{seconds}} s",
     "status": {
       "paused": "IN PAUSA",
       "recording": "Registrazione"
@@ -950,6 +975,7 @@
     "writePermissionNotGranted": "Autorizzazione di scrittura non concessa",
     "writePermissionRequired": "Autorizzazione di scrittura richiesta",
     "savedLocally": "Attività salvata su questo dispositivo. Puoi caricarla in qualsiasi momento da Le mie registrazioni.",
+    "savedLocallyNoScope": "Uscita salvata su questo dispositivo. Verrà caricata quando autorizzi il caricamento.",
     "settingsUpload": "Caricamento",
     "autoUpload": "Caricamento automatico",
     "autoUploadDescription": "Carica automaticamente le registrazioni su intervals.icu al salvataggio. Se disattivato, restano su questo dispositivo finché non le carichi da Le mie registrazioni.",
@@ -1000,7 +1026,9 @@
     "writeScopeNotGranted": "L'autorizzazione in scrittura non è stata concessa",
     "signInRequired": "Accedi per registrare",
     "signInDescription": "La registrazione richiede il tuo account intervals.icu, così l'attività ha dove andare.",
-    "signInAction": "Accedi"
+    "signInAction": "Accedi",
+    "recordAnyway": "Registra comunque",
+    "writePermissionLocalOnly": "La registrazione funziona anche senza. L'uscita resta su questo dispositivo finché non autorizzi il caricamento."
   },
   "routeDetail": {
     "routeNotFound": "Percorso non trovato"
@@ -1010,6 +1038,13 @@
     "tomorrow": "DOMANI"
   },
   "routes": {
+    "sectionDefaultName": "Tratto {{sport}} ({{date}})",
+    "targetPace": "Passo",
+    "targetHr": "FC",
+    "targetPower": "Potenza",
+    "patternRide": "pedali",
+    "patternRun": "corri",
+    "patternSentence": "Il {{day}} di solito {{sport}} per circa {{duration}}",
     "activities": "attività",
     "adjustSportTypeFilter": "Prova a modificare il filtro tipo di sport",
     "analysingRoutes": "Analisi percorsi",
@@ -1017,7 +1052,6 @@
     "createSection": "Crea sezione",
     "custom": "Personalizzato",
     "dataRangeHint": "Basato su {{duration}} di dati delle attività",
-    "defaultActivityName": "Attività {{number}}",
     "defaultRouteName": "Percorso {{type}}",
     "duplicateNameMessage": "Per favore scegli un nome diverso. Ogni percorso deve avere un nome unico.",
     "duplicateNameTitle": "Nome già esistente",
@@ -1027,7 +1061,6 @@
     "loadingRoutes": "Caricamento percorsi...",
     "lookingForRoutes": "Ricerca percorsi corrispondenti...",
     "match": "corrispondenza",
-    "more": "+{{count}} altre",
     "noFrequentSections": "Nessun tratto frequente ancora",
     "noMatchingRoutes": "Nessun percorso corrispondente trovato",
     "noRoutesYet": "Nessun percorso ancora",
@@ -1077,6 +1110,8 @@
     "detectionPaused": "Rilevamento in pausa mentre le tue sezioni vengono migrate",
     "detectionPausedElevation": "Rilevamento in pausa durante il download dell'altitudine",
     "detectionHeldElevationPaused": "Il rilevamento è in attesa finché non riprendi il download dell'altitudine nelle Impostazioni",
+    "detectionHeldElevationWaiting_one": "Il rilevamento attende l'altitudine di {{count}} traccia. Veloq riproverà quando sarai online.",
+    "detectionHeldElevationWaiting_other": "Il rilevamento attende l'altitudine di {{count}} tracce. Veloq riproverà quando sarai online.",
     "disabled": "Disattivata",
     "removeSection": "Rimuovi sezione",
     "removeSectionConfirm": "Questa sezione non apparirà nei dettagli dell'attività o negli insights. Puoi ripristinarla dall'elenco delle sezioni.",
@@ -1090,6 +1125,8 @@
     "legendPr": "PR",
     "legendReverse": "Inverso",
     "legendThisActivity": "Questa attività",
+    "legendThisSection": "Questa sezione",
+    "legendNearby": "Altre sezioni nelle vicinanze",
     "resetReference": "Reimposta riferimento",
     "resetReferenceConfirm": "Ripristinare la selezione automatica del riferimento?\n\nLa sezione verrà riconfrontata con tutte le tue attività. Questo potrebbe aggiungere o rimuovere attività da questa sezione.",
     "reverse": "Inverso",
@@ -1112,6 +1149,7 @@
     "resetBoundsConfirm": "Ripristinare i limiti originali rilevati automaticamente?\n\nLa sezione verrà riconfrontata con tutte le tue attività.",
     "traversals": "attraversamenti",
     "liftGround": "Impianto",
+    "notLift": "Non è un impianto",
     "trimFailed": "Impossibile ritagliare i limiti della sezione",
     "trimTooShort": "La sezione deve avere almeno 5 punti",
     "expandUnavailable": "Nessuna traccia di attività disponibile per l'espansione",
@@ -1168,7 +1206,10 @@
     "rescanRefusedNotReady": "Il motore si sta ancora aprendo. Riprova tra un momento.",
     "rescanRefusedOff": "La corrispondenza dei percorsi è disattivata. Attivala nelle impostazioni per analizzare.",
     "rescanRefusedNothingOwed": "È già stato analizzato tutto.",
-    "rescanRefusedFailed": "Non è stato possibile avviare la scansione."
+    "rescanRefusedFailed": "Non è stato possibile avviare la scansione.",
+    "unflagLift": "Rimuovere il contrassegno impianto?",
+    "unflagLiftConfirm": "Il rilevatore ha segnato questo tratto come impianto di risalita. Il contrassegno non si può ripristinare.",
+    "latestIsRecord": "Il tuo miglior tempo qui è stato l'ultimo"
   },
   "settings": {
     "account": "Account",
@@ -1205,6 +1246,8 @@
     "maxMetricsHint": "Massimo 4 metriche",
     "appTour": "Tour dell'app",
     "appTourDescription": "Esplora le funzionalità e scopri come usarle",
+    "rangeLockedMessage": "L'intervallo di dati locali si apre al termine della prima sincronizzazione. Se non parte mai, controlla di essere online e di aver effettuato l'accesso.",
+    "rangeLockedTitle": "Configurazione in corso",
     "terrain3D": "Terreno 3D",
     "terrain3DOff": "Disattivato",
     "terrain3DSmart": "Intelligente",
@@ -1226,7 +1269,18 @@
     "support": "Supporto",
     "supportingMetrics": "Metriche di Supporto",
     "syncActivities": "Sincronizzazione delle attività",
-    "syncActivitiesProgress": "{{completed}} di {{total}} attività",
+    "syncStep": {
+      "activities": "Recupero delle tue attività più recenti",
+      "athlete": "Recupero del tuo profilo",
+      "census": "Recupero dell'elenco delle tue attività su intervals.icu",
+      "curves": "Recupero delle tue curve di potenza e passo",
+      "firstActivities": "Recupero delle tue cinque attività più recenti",
+      "intervalBodies": "Recupero dei dettagli degli intervalli",
+      "remainingActivities": "Recupero del resto delle tue attività",
+      "sportSettings": "Recupero delle tue impostazioni sportive",
+      "wellness": "Recupero dei tuoi dati di benessere"
+    },
+    "syncStepProgress": "{{label}} ({{completed}} di {{total}})",
     "syncStop": "Interrompi",
     "syncStopping": "Interruzione...",
     "system": "Sistema",
@@ -1234,7 +1288,17 @@
     "streamHistoryDays": "{{count}} giorni",
     "streamHistoryAll": "Tutto",
     "streamHistoryReset": "Reimposta",
+    "streamBackfill": "Serie mancanti",
+    "streamBackfillOwed_one": "{{count}} attività",
+    "streamBackfillOwed_other": "{{count}} attività",
+    "streamBackfillProgress": "{{completed}} di {{total}}",
+    "streamBackfillDownload": "Scarica",
+    "streamBackfillStop": "Interrompi",
     "tileCacheLimit": "Limite riquadri mappa",
+    "tileCacheLimitHint": "Aumentalo per migliorare la navigazione offline e locale",
+    "tileCacheUsedOfBudget": "{{used}} di {{budget}} usati",
+    "tileCacheUsedOfBudgetAtLeast": "Almeno {{used}} di {{budget}} usati",
+    "tileCacheFree": "{{size}} liberi sul dispositivo",
     "title": "Impostazioni",
     "units": "Unità",
     "unitsAuto": "Automatico",
@@ -1247,8 +1311,6 @@
     "version": "Versione",
     "storageDatabase": "Database",
     "storageHeatmap": "Mappa di calore",
-    "storageSatellite": "Satellite",
-    "storageTerrain": "Rilievo",
     "storageVector": "Vettoriale",
     "storageGround": "Sfondo",
     "storagePreviews": "Anteprime 3D",
@@ -1303,10 +1365,17 @@
     "previewAreaSections": "{{count}} sezioni",
     "sectionMaxLength": "Sezione più lunga: {{distance}}",
     "sectionSameTraffic": "Sensibilità di divisione dei percorsi: {{value}}",
+    "sectionParamPastClamp": "Oltre questo punto il rilevatore non distingue più i valori.",
+    "sectionParamRange": "Intervallo testato da {{min}} a {{max}}",
+    "sectionPresetDefault": "Predefinito",
+    "sectionPresetRelaxed": "Permissivo",
+    "sectionPresetStrict": "Rigido",
+    "sectionPresets": "Preimpostazioni",
     "previewRun": "Anteprima",
     "previewRunning": "Analisi di {{count}} attività in questa zona",
     "previewFailed": "L'anteprima non è stata completata.",
     "runSlow": "Sta impiegando più tempo del solito. È ancora in corso.",
+    "stillRunning": "Ancora in corso. Puoi lasciare questa schermata.",
     "previewPoolUnusable": "Alcune delle tue tracce di attivita non sono leggibili, quindi l'anteprima si e fermata.",
     "previewCurrentFailed": "Impossibile leggere i tratti attuali di quest'area.",
     "previewSuspended": "Aggiornamento dell'altitudine in corso. Riprova tra poco.",
@@ -1342,7 +1411,18 @@
     "exportPrivacyCount": "Accorcia {{touched}} uscite su {{total}} a {{radius}} m. Non viene eliminato nulla.",
     "exportPrivacyNothingTrimmed": "Non viene accorciato nulla. Gli export contengono la traccia intera.",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "Tocca la mappa per spostare casa."
+    "exportPrivacyMoveHint": "Tocca la mappa per spostare casa.",
+    "previewRouteGrouping": "Anteprima raggruppamento percorsi",
+    "groupingMatchShare": "Stesso percorso se combacia il {{percent}}%",
+    "groupingEndsApart": "Stesse estremità entro {{distance}}",
+    "groupingRunning": "Raggruppamento delle attività…",
+    "groupingNothingToGroup": "Nessuna attività con traccia da raggruppare",
+    "groupingSummary": "{{count}} percorsi con questa impostazione",
+    "groupingMerged": "{{count}} dei tuoi percorsi verrebbero uniti",
+    "groupingDropped": "{{count}} resterebbero da soli",
+    "groupingLegendMostRidden": "Più percorso",
+    "groupingLegendOther": "Altri percorsi",
+    "groupingFailed": "Il raggruppamento non è terminato. Sposta un controllo per riprovare."
   },
   "stats": {
     "activities": "Attività",
@@ -1388,6 +1468,7 @@
     "powerCurve": "Curva di potenza",
     "powerZones": "Zone di potenza",
     "previous": "Precedente",
+    "rangeNotDownloaded": "Non ancora scaricato",
     "seasonComparison": "Confronto stagionale",
     "secondHalf": "Seconda metà",
     "sixMonths": "6M",
@@ -1416,12 +1497,19 @@
     "heartRate": "Frequenza cardiaca",
     "lactateThreshold": "Soglia del lattato",
     "noEffortData": "Nessun dato sulle prestazioni disponibile",
+    "curveFetched": "Dall'ultima sincronizzazione, {{date}}",
+    "curveNotDownloaded": "Non ancora scaricato",
+    "notEnoughRuns": "Non ci sono ancora abbastanza corse",
     "pace": "Passo",
     "paceCurve": "Curva del passo",
     "powerCurve": "Curva di potenza",
     "seasonBests": "Migliori prestazioni",
     "swimPaceCurve": "Curva passo nuoto",
     "trainingZones": "Zone di allenamento"
+  },
+  "sync": {
+    "ridesDownloaded": "{{completed}} di {{total}} uscite scaricate",
+    "tracksDownloaded": "{{completed}} di {{total}} tracce scaricate"
   },
   "time": {
     "current": "Attuale",
@@ -1528,9 +1616,24 @@
     }
   },
   "strength": {
+    "female": "femminile",
+    "male": "maschile",
+    "bodyTypeDefault": "Tipo di corpo mostrato come <type>{{bodyType}}</type>, il valore predefinito, perché il tuo profilo intervals.icu non ha un sesso impostato.",
+    "bodyTypeFromProfile": "Tipo di corpo mostrato come <type>{{bodyType}}</type>, dal tuo profilo intervals.icu.",
+    "muscleSource": "I gruppi muscolari di ogni tipo di esercizio vengono da <source>free-exercise-db</source>, un dataset di esercizi di pubblico dominio.",
+    "durationLabel": "Durata",
+    "setsLabel": "Serie",
+    "setsNotDownloaded": "Serie non ancora scaricate",
+    "totalLabel": "Totale",
+    "timeColumn": "Tempo",
+    "weightColumn": "Peso",
+    "repsColumn": "Rip.",
+    "setColumn": "Serie",
     "snapshot": "Panoramica forza",
     "noWorkouts": "Nessun allenamento di forza nelle ultime {{period}}",
     "noWorkoutsHint": "Completa un allenamento di forza per vedere la suddivisione dei gruppi muscolari",
+    "notDownloaded": "Allenamenti di forza non ancora scaricati",
+    "notDownloadedHint": "I dati delle serie arrivano con i file degli allenamenti. Connettiti per scaricarli.",
     "sets": "serie",
     "muscleGroupVolume": "Volume per gruppo muscolare",
     "relativeWeightedSets": "Serie ponderate relative nel periodo selezionato",
@@ -1602,6 +1705,7 @@
     "status": {
       "connecting": "Connessione…",
       "connected": "Connesso",
+      "noData": "Connesso, nessun dato",
       "reconnecting": "Riconnessione…",
       "disconnected": "Non connesso"
     }
@@ -1654,7 +1758,6 @@
     "title": "Attività in background",
     "intro": "Operazioni lunghe che l'app esegue da sola. Proseguono quando esci da questa schermata.",
     "openLink": "Attività in background",
-    "sync": "Sincronizzazione attività",
     "detection": "Rilevamento sezioni",
     "elevationBackfill": "Download del dislivello",
     "cutover": "Ricostruzione sezioni",
