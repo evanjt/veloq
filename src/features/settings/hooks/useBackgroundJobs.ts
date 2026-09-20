@@ -1,25 +1,32 @@
 /**
  * The app's standing answer to what it is doing right now.
  *
- * Four long-running jobs report through different mechanisms, and each one had
+ * Three long-running jobs report through different mechanisms, and each one had
  * only its own scattered surface. This composes them into one list so a screen
  * can render every job always, resting state included, rather than a row that
  * appears only while its job happens to hold the process.
+ *
+ * Sync is not one of them. A resting row is only honest if it says what is
+ * waiting, and each of the three below counts something it owes: activities
+ * never looked at, tracks yet to fetch, one rebuild outstanding. Sync is
+ * scheduled rather than owed, so it had no count to rest on and its row said
+ * "Not running" whatever the state of the library.
  *
  * A job that has never run in this process reads as idle. That is honest: the
  * phases the engine keeps are process-global and start at idle on every launch,
  * so a resting row reports the work waiting rather than a run that is over.
  */
 
-import { useEffect, useState } from 'react';
-import { SyncState } from 'veloqrs';
+import { useEffect, useMemo, useState } from 'react';
 
 import { getEngine } from '@/shared/native/engine';
-import { useSyncStatus } from '@/shared/native/useSyncStatus';
+import { followRoutesStatus, readRoutesStatus } from '@/shared/native/routesStatusPoll';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import type { RoutesStatus } from 'veloqrs';
 import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
 import { useCutoverSummary } from '@/features/routes/hooks/useCutoverSummary';
 
-export type BackgroundJobId = 'sync' | 'detection' | 'elevationBackfill' | 'cutover';
+export type BackgroundJobId = 'detection' | 'elevationBackfill' | 'cutover';
 
 /**
  * `partial` and `paused` are the elevation backfill's own terminal states: a
@@ -87,23 +94,15 @@ const DETECTION_IDLE: DetectionStatus = {
  * whether a run holds the slot now, and the outcome says how the last finished
  * one ended.
  */
-function readDetection(previous: DetectionStatus): DetectionStatus {
-  const engine = getEngine();
-  if (!engine) return DETECTION_IDLE;
-  let progress: { phase: string; completed: number; total: number; percent: number } | null = null;
-  try {
-    progress = engine.getSectionDetectionProgress?.() ?? null;
-  } catch {
-    return DETECTION_IDLE;
-  }
+function readDetection(
+  previous: DetectionStatus,
+  status: RoutesStatus | null,
+  awaiting: number | null
+): DetectionStatus {
+  if (!status) return DETECTION_IDLE;
+  const progress = status.detection;
   if (!progress) {
-    const awaiting = readDetectionAwaiting();
-    let outcome = 'idle';
-    try {
-      outcome = engine.lastSectionDetectionOutcome?.() ?? 'idle';
-    } catch {
-      outcome = 'idle';
-    }
+    const outcome = status.detectionOutcome;
     if (outcome === 'error') return { ...DETECTION_IDLE, state: 'failed', awaiting };
     // A finished run keeps whatever the last read saw, so the row does not
     // snap back to zero the instant it settles.
@@ -135,47 +134,54 @@ function sameDetection(a: DetectionStatus, b: DetectionStatus): boolean {
   );
 }
 
+/**
+ * The activities detection has never seen.
+ *
+ * A `COUNT` under the engine's write lock, so it is read on the channels that
+ * move it rather than on the tick: activities landing and a detect applying
+ * are the only two things that change it, and both are announced. Null means
+ * the engine could not answer, which must not read as nothing left to do.
+ */
+function useDetectionAwaiting(): number | null {
+  const readEngine = useEngineRead(['activities', 'detectionApplied']);
+  return useMemo(
+    () =>
+      readEngine((engine) => {
+        try {
+          return engine.sectionDetectionAwaiting?.() ?? null;
+        } catch {
+          return null;
+        }
+      }) ?? null,
+    [readEngine]
+  );
+}
+
 function useDetectionStatus(): DetectionStatus {
-  const [state, setState] = useState<DetectionStatus>(() => readDetection(DETECTION_IDLE));
+  const awaiting = useDetectionAwaiting();
+  const [state, setState] = useState<DetectionStatus>(() =>
+    readDetection(DETECTION_IDLE, readRoutesStatus(), awaiting)
+  );
 
   useEffect(() => {
-    // Reading through the updater keeps the poll off any captured snapshot, so
-    // the interval never needs re-creating to see the run it is following.
-    const tick = () =>
+    // Reading through the updater keeps the follower off any captured
+    // snapshot, so it never needs re-creating to see the run it is following.
+    // The count is the one thing it does capture, and a new one is a new
+    // follower, which costs the shared tick nothing: it is armed by whoever is
+    // following and the other followers hold it up meanwhile.
+    return followRoutesStatus((status) =>
       setState((previous) => {
-        const next = readDetection(previous);
+        const next = readDetection(previous, status, awaiting);
         return sameDetection(previous, next) ? previous : next;
-      });
-    const timer = setInterval(tick, DETECTION_POLL_MS);
-    return () => clearInterval(timer);
-  }, []);
+      })
+    );
+  }, [awaiting]);
 
   return state;
 }
 
-/**
- * The activities detection has never seen. Read on the same timer the progress
- * is, since nothing announces a run starting and nothing announces the pool
- * moving under one either.
- */
-function readDetectionAwaiting(): number | null {
-  const engine = getEngine();
-  if (!engine) return null;
-  try {
-    return engine.sectionDetectionAwaiting?.() ?? null;
-  } catch {
-    return null;
-  }
-}
-
 function readRemaining(): number | null {
-  const engine = getEngine();
-  if (!engine) return null;
-  try {
-    return engine.getElevationBackfillRemaining?.() ?? null;
-  } catch {
-    return null;
-  }
+  return readRoutesStatus()?.elevationRemaining ?? null;
 }
 
 /**
@@ -230,15 +236,6 @@ function useCutoverPending(): number | null {
   return pending;
 }
 
-function syncState(
-  state: SyncState | undefined,
-  lastError: string | undefined
-): BackgroundJobState {
-  if (state === SyncState.Syncing) return 'running';
-  if (state === SyncState.AuthExpired) return 'failed';
-  return lastError ? 'failed' : 'idle';
-}
-
 function backfillState(phase: string): BackgroundJobState {
   switch (phase) {
     case 'fetching':
@@ -263,9 +260,61 @@ function cutoverState(phase: string, running: boolean): BackgroundJobState {
   return 'idle';
 }
 
+/**
+ * Whether a detection run holds the slot now, and nothing else.
+ *
+ * The jobs screen's `useDetectionStatus` reads three things a tick, and one of
+ * them, `sectionDetectionAwaiting`, is a COUNT taken under the engine's write
+ * lock: a tick landing while a sync write holds it stalls the caller's JS
+ * thread for as long as the write runs. A screen that only says how many jobs
+ * are running has no use for the count, nor for how the last run ended.
+ */
+function useDetectionRunning(): boolean {
+  const [running, setRunning] = useState(readDetectionRunning);
+
+  useEffect(() => {
+    // Detection announces only that a run was applied, never that one started,
+    // so a poll is the only way to find an adopted run. One read, and a
+    // non-taking one.
+    const timer = setInterval(() => setRunning(readDetectionRunning()), DETECTION_POLL_MS);
+    return () => clearInterval(timer);
+  }, []);
+
+  return running;
+}
+
+function readDetectionRunning(): boolean {
+  const engine = getEngine();
+  if (!engine) return false;
+  try {
+    return (engine.getSectionDetectionProgress?.() ?? null) !== null;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * How many jobs are running, for a subtitle that says only that.
+ *
+ * The backfill and the cutover hooks poll only while their own run is in
+ * flight and rest on a subscription otherwise, so they cost nothing here at
+ * rest. Detection is the one that has to be asked, and this asks it for the
+ * one fact the count needs.
+ */
+export function useRunningJobCount(): number {
+  const detectionRunning = useDetectionRunning();
+  const backfill = useElevationBackfill();
+  const cutover = useCutoverSummary();
+
+  return (
+    (detectionRunning ? 1 : 0) +
+    (backfillState(backfill.phase) === 'running' ? 1 : 0) +
+    (cutoverState(cutover.phase, cutover.isRunning) === 'running' ? 1 : 0)
+  );
+}
+
 /** Every job, in the order the screen lists them. Never empty. */
 export function useBackgroundJobs(): BackgroundJob[] {
-  const sync = useSyncStatus();
   const detection = useDetectionStatus();
   const backfill = useElevationBackfill();
   const cutover = useCutoverSummary();
@@ -273,15 +322,6 @@ export function useBackgroundJobs(): BackgroundJob[] {
   const cutoverPending = useCutoverPending();
 
   return [
-    {
-      id: 'sync',
-      state: syncState(sync?.state, sync?.lastError),
-      completed: sync?.completed ?? 0,
-      total: sync?.total ?? 0,
-      percent: null,
-      remaining: null,
-      phase: null,
-    },
     {
       id: 'detection',
       state: detection.state,

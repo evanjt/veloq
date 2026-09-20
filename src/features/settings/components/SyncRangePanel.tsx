@@ -1,13 +1,14 @@
 import React, { useCallback, useMemo } from 'react';
 import { Alert, View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { TimelineSlider } from '@/features/maps/components';
-import { useActivityBoundsCache } from '@/features/activity/hooks';
+import { TimelineSlider } from '@/features/maps';
+import { useActivityBoundsCache } from '@/features/activity';
 import { useTheme } from '@/shared/app';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { useActivityYearCounts } from '@/shared/app/useActivityYearCounts';
 import { formatLocalDate } from '@/shared/format/format';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { activitiesInRange, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
 import { settingsStyles } from './settingsStyles';
 import { brand, colors, colorWithOpacity, darkColors, spacing, typography, layout } from '@/theme';
@@ -22,7 +23,7 @@ export function SyncRangePanel() {
   const { data: yearCounts } = useActivityYearCounts();
 
   const syncOldest = useSyncDateRange((s) => s.oldest);
-  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
+  const isFetchingExtended = useSyncDateRange((s) => isExtendedFetchRunning(s.extendedFetch));
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
   const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
@@ -54,7 +55,13 @@ export function SyncRangePanel() {
   const handleRangeChange = useCallback(
     (start: Date, _end: Date) => {
       if (start >= cachedStartDate) return;
-      const expand = () => syncDateRange(formatLocalDate(start), formatLocalDate(new Date()));
+      // A refused drag has to say why. The latch comes off when the first sync
+      // settles, and until then the slider springs back with nothing on screen.
+      const expand = () => {
+        if (syncDateRange(formatLocalDate(start), formatLocalDate(new Date())) === 'locked') {
+          Alert.alert(t('settings.rangeLockedTitle'), t('settings.rangeLockedMessage'));
+        }
+      };
 
       // An upper bound, and zero when the sync has not stored the counts yet.
       // Neither may hold the user behind a figure the app cannot produce.
@@ -133,7 +140,7 @@ const styles = StyleSheet.create({
   toggleHint: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   sliderWrap: {
     paddingHorizontal: spacing.md,
@@ -152,7 +159,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   progressBarFill: {
     height: '100%',

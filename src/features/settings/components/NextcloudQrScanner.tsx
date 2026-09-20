@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Pressable, StyleSheet, Text } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, cameraOverlay, layout, typography } from '@/theme';
+import { colors, spacing, cameraOverlay, layout, typography, colorWithOpacity, ink } from '@/theme';
+import { pressable } from '@/shared/ui';
 
 interface NextcloudQrScannerProps {
   onScanned: (data: string) => void;
@@ -28,14 +29,14 @@ export function NextcloudQrScanner({ onScanned, onClose }: NextcloudQrScannerPro
         <Text style={styles.permissionText}>
           {t('backup.cameraPermissionNeeded', 'Camera access is required to scan QR codes')}
         </Text>
-        <TouchableOpacity style={styles.grantButton} onPress={requestPermission}>
+        <Pressable style={pressable(styles.grantButton)} onPress={requestPermission}>
           <Text style={styles.grantButtonText}>
             {t('backup.grantCameraAccess', 'Grant Camera Access')}
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+        </Pressable>
+        <Pressable style={pressable(styles.cancelButton)} onPress={onClose}>
           <Text style={styles.cancelText}>{t('common.cancel')}</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     );
   }
@@ -57,9 +58,9 @@ export function NextcloudQrScanner({ onScanned, onClose }: NextcloudQrScannerPro
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+        <Pressable onPress={onClose} style={pressable(styles.closeButton)}>
           <MaterialCommunityIcons name="close" size={24} color={cameraOverlay.text} />
-        </TouchableOpacity>
+        </Pressable>
         <Text style={styles.headerTitle}>{t('backup.scanQrTitle', 'Scan Nextcloud QR Code')}</Text>
         <View style={{ width: 40 }} />
       </View>
@@ -105,7 +106,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
   },
   closeButton: {
     width: 40,
@@ -123,7 +124,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: colorWithOpacity(ink.black, 0.6),
     padding: spacing.lg,
   },
   instructionText: {

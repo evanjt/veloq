@@ -1,32 +1,63 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as FileSystem from 'expo-file-system/legacy';
 import {
   restoreBackup,
   exportDatabaseBackup,
+  resumePendingDatabaseExport,
   restoreDatabaseBackup,
   type DatabaseRestoreResult,
 } from '@/features/settings/lib/backup';
 
-/** Export full SQLite database snapshot via share sheet. */
+/**
+ * Export full SQLite database snapshot via share sheet.
+ *
+ * The wait is capped at a minute. A copy still going past it is not a failure:
+ * the row says so, and the file is offered when the screen next mounts, which
+ * is what `resumePendingDatabaseExport` reads.
+ */
 export function useExportDatabaseBackup() {
   const [exporting, setExporting] = useState(false);
+  const [stillRunning, setStillRunning] = useState(false);
   const { t } = useTranslation();
 
   const doExport = useCallback(async () => {
     if (exporting) return;
     setExporting(true);
     try {
-      await exportDatabaseBackup();
+      setStillRunning((await exportDatabaseBackup()) === 'still-running');
     } catch {
+      setStillRunning(false);
       Alert.alert(t('common.error'), t('backup.exportError'));
     } finally {
       setExporting(false);
     }
   }, [exporting, t]);
 
-  return { exportDatabaseBackup: doExport, exporting };
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const outcome = await resumePendingDatabaseExport();
+        if (!live) return;
+        // Only the two outcomes about an owed file say anything.
+        // `nothing-pending` means the resume found nothing owed, not that
+        // nothing is running: reporting it as not running lands after an
+        // export started since this mount and clears the row it just set.
+        if (outcome === 'still-running') setStillRunning(true);
+        else if (outcome === 'shared') setStillRunning(false);
+      } catch {
+        if (live) setStillRunning(false);
+        Alert.alert(t('common.error'), t('backup.exportError'));
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [t]);
+
+  return { exportDatabaseBackup: doExport, exporting, stillRunning };
 }
 
 /**

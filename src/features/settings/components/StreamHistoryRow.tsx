@@ -17,7 +17,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Pressable, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
@@ -30,6 +30,8 @@ import {
   STREAM_RETENTION_ALL,
   nextStreamRetentionDays,
 } from '../lib/streamRetention';
+
+import { pressable } from '@/shared/ui';
 
 export {
   STREAM_RETENTION_CHOICES_DAYS,
@@ -97,23 +99,24 @@ export function StreamHistoryRow({ isDark }: StreamHistoryRowProps) {
           {formatFileSize(bytes)}
         </Text>
         {days !== DEFAULT_STREAM_RETENTION_DAYS && (
-          <TouchableOpacity
+          <Pressable
             testID="settings-stream-reset"
             onPress={() => write(DEFAULT_STREAM_RETENTION_DAYS)}
-            style={styles.resetButton}
+            style={pressable(styles.resetButton)}
             accessibilityRole="button"
           >
             <Text style={styles.resetText}>{t('settings.streamHistoryReset')}</Text>
-          </TouchableOpacity>
+          </Pressable>
         )}
-        <TouchableOpacity
+        <Pressable
           onPress={() => write(nextStreamRetentionDays(days))}
           accessibilityRole="button"
+          style={pressable()}
         >
           <Text testID="settings-stream-window" style={[styles.infoValue, styles.valueClickable]}>
             {`${windowLabel} ›`}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );
@@ -151,7 +154,7 @@ const styles = StyleSheet.create({
   },
   resetButton: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
   resetText: {
     fontSize: typography.bodyCompact.fontSize,

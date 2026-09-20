@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, mapStylePreview, spacing, typography } from '@/theme';
-import { type MapStyleType } from '@/features/maps/components/mapStyles';
+import { type MapStyleType } from '@/features/maps';
 
 const CIRCLE_SIZE = 70;
 
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   labelSelected: {
     color: colors.primary,

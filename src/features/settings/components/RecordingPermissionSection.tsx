@@ -38,7 +38,7 @@ export function RecordingPermissionSection() {
           <MaterialCommunityIcons
             name="shield-alert-outline"
             size={22}
-            color={isDark ? darkColors.warning : colors.warning}
+            color={isDark ? darkColors.warningAmber : colors.warningAmber}
           />
           <View style={styles.textContainer}>
             <Text style={[styles.statusText, isDark && settingsStyles.textLight]}>
@@ -59,7 +59,7 @@ export function RecordingPermissionSection() {
           />
         </View>
         {error ? (
-          <Text style={styles.errorText} numberOfLines={2}>
+          <Text style={[styles.errorText, isDark && styles.errorTextDark]} numberOfLines={2}>
             {error}
           </Text>
         ) : null}
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
   },
   statusText: {
     ...typography.body,
@@ -92,8 +92,11 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...typography.caption,
-    color: colors.error,
+    color: colors.errorDeep,
     marginTop: spacing.xs,
     marginLeft: 22 + spacing.sm,
+  },
+  errorTextDark: {
+    color: darkColors.errorDeep,
   },
 });

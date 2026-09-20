@@ -13,6 +13,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { runDatabaseBackup, type BackupEngine } from './runBackup';
+import { clearDatabaseSidecars } from './databaseSidecars';
 
 /** The rollback copy's suffix, distinct from the restore path's `.bak`. */
 const SNAPSHOT_SUFFIX = '.clear-bak';
@@ -39,6 +40,11 @@ export async function withDatabaseSnapshot<T>(
     // `initWithPath` no-ops on an engine that is already open.
     try {
       engine.destroyEngine();
+      // The snapshot is a standalone file from the online backup, so anything
+      // still sitting beside the database belongs to the one being replaced.
+      // `destroyEngine` only drops the pair when it closes the last connection,
+      // and the detection worker and the export source each hold one.
+      await clearDatabaseSidecars(dbPath);
       await FileSystem.copyAsync({
         from: `file://${snapshotPath}`,
         to: `file://${dbPath}`,

@@ -15,6 +15,7 @@ import { router, type Href } from 'expo-router';
 
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { pressable } from '@/shared/ui';
 
 export function BackgroundJobsLink() {
   const { t } = useTranslation();
@@ -25,7 +26,7 @@ export function BackgroundJobsLink() {
 
   return (
     <Pressable
-      style={styles.row}
+      style={pressable(styles.row)}
       onPress={() => router.push('/background-jobs' as Href)}
       accessibilityRole="button"
       testID="background-jobs-link"

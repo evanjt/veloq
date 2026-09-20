@@ -15,7 +15,6 @@ import {
   getLastBackupTimestamp,
   getLastBackupFailure,
   failureMessageKey,
-  isBackupTransferError,
   performBackup,
   getConfiguredBackend,
   setBackendPreference,
@@ -39,6 +38,7 @@ import {
 import { BulkExportProgress } from './BulkExportProgress';
 import { ExportPrivacyRow } from './ExportPrivacyRow';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
+import { describeBackupFailure } from '@/features/settings/lib/backupFailure';
 
 const BACKEND_LABELS = {
   local: { labelKey: 'backup.backendLocal', icon: 'cellphone' },
@@ -66,8 +66,8 @@ export function BackupSection() {
 
   const describeBackupError = useCallback(
     (error: unknown): string => {
-      if (isBackupTransferError(error)) return t(failureMessageKey(error.kind));
-      return error instanceof Error ? error.message : t('backup.backupFailedMessage');
+      const described = describeBackupFailure(error);
+      return described.kind === 'key' ? t(described.key) : described.message;
     },
     [t]
   );
@@ -108,11 +108,15 @@ export function BackupSection() {
   const [showBackendPicker, setShowBackendPicker] = useState(false);
   const [offerableBackends, setOfferableBackends] = useState<BackupBackend[]>([]);
 
-  // WebDAV config state
-  const [webdavUrl, setWebdavUrl] = useState('');
-  const [webdavUser, setWebdavUser] = useState('');
-  const [webdavPass, setWebdavPass] = useState('');
-  const [webdavPlainLan, setWebdavPlainLan] = useState(false);
+  // WebDAV config state, read at first render so the fields paint filled in
+  // rather than empty and then replaced a frame later. `getWebdavConfig` is the
+  // in-memory cache `initWebdavConfig` filled at startup, so this is a property
+  // read and not a SecureStore round trip.
+  const [storedWebdav] = useState(getWebdavConfig);
+  const [webdavUrl, setWebdavUrl] = useState(storedWebdav?.url ?? '');
+  const [webdavUser, setWebdavUser] = useState(storedWebdav?.username ?? '');
+  const [webdavPass, setWebdavPass] = useState(storedWebdav?.password ?? '');
+  const [webdavPlainLan, setWebdavPlainLan] = useState(storedWebdav?.plainLan ?? false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionResult, setConnectionResult] = useState<'success' | 'error' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -120,13 +124,6 @@ export function BackupSection() {
 
   useEffect(() => {
     getOfferableBackends().then(setOfferableBackends);
-    const config = getWebdavConfig();
-    if (config) {
-      setWebdavUrl(config.url);
-      setWebdavUser(config.username);
-      setWebdavPass(config.password);
-      setWebdavPlainLan(config.plainLan);
-    }
   }, []);
 
   const handleSelectBackend = useCallback((backend: BackupBackend) => {
@@ -247,7 +244,11 @@ export function BackupSection() {
   }, [handleSaveWebdav, webdavUrl, webdavUser, webdavPass, t]);
 
   // Database backup
-  const { exportDatabaseBackup, exporting: dbExporting } = useExportDatabaseBackup();
+  const {
+    exportDatabaseBackup,
+    exporting: dbExporting,
+    stillRunning: dbStillRunning,
+  } = useExportDatabaseBackup();
   const { importDatabaseBackup, importing: dbImporting } = useImportDatabaseBackup();
 
   // Bulk export
@@ -255,6 +256,7 @@ export function BackupSection() {
     exportAll,
     exportAllGeoJson,
     isExporting: bulkExporting,
+    stillRunning: bulkStillRunning,
     format: bulkFormat,
     phase: bulkPhase,
     sizeBytes: bulkSizeBytes,
@@ -404,10 +406,17 @@ export function BackupSection() {
                 </Text>
               </TouchableOpacity>
               {connectionResult === 'success' && (
-                <Text style={styles.connectionSuccess}>{t('backup.connectionSuccess')}</Text>
+                <Text
+                  style={[
+                    styles.connectionSuccess,
+                    { color: isDark ? darkColors.successDeep : colors.successDeep },
+                  ]}
+                >
+                  {t('backup.connectionSuccess')}
+                </Text>
               )}
               {connectionResult === 'error' && (
-                <Text style={styles.connectionError}>
+                <Text style={[styles.connectionError, isDark && styles.connectionErrorDark]}>
                   {connectionError || t('backup.connectionFailed')}
                 </Text>
               )}
@@ -487,7 +496,11 @@ export function BackupSection() {
 
         {/* Encryption warning */}
         <View style={[styles.warningRow, isDark && styles.warningRowDark]}>
-          <MaterialCommunityIcons name="shield-alert-outline" size={16} color={colors.warning} />
+          <MaterialCommunityIcons
+            name="shield-alert-outline"
+            size={16}
+            color={isDark ? darkColors.warningAmber : colors.warningAmber}
+          />
           <Text style={[styles.warningText, isDark && styles.textMuted]}>
             {t(
               'backup.notEncryptedWarning',
@@ -506,12 +519,21 @@ export function BackupSection() {
               {lastBackupText}
             </Text>
             {backupResult === 'success' && (
-              <Text testID="backup-success-message" style={styles.connectionSuccess}>
+              <Text
+                testID="backup-success-message"
+                style={[
+                  styles.connectionSuccess,
+                  { color: isDark ? darkColors.successDeep : colors.successDeep },
+                ]}
+              >
                 {t('backup.backupSuccessMessage')}
               </Text>
             )}
             {backupResult === 'error' && (
-              <Text testID="backup-error-message" style={styles.connectionError}>
+              <Text
+                testID="backup-error-message"
+                style={[styles.connectionError, isDark && styles.connectionErrorDark]}
+              >
                 {backupError}
               </Text>
             )}
@@ -556,6 +578,14 @@ export function BackupSection() {
             color={isDark ? darkColors.textMuted : colors.textSecondary}
           />
         </TouchableOpacity>
+        {dbStillRunning && (
+          <Text
+            testID="backup-export-still-running"
+            style={[styles.stillRunning, isDark && styles.textMuted]}
+          >
+            {t('settings.stillRunning')}
+          </Text>
+        )}
         <View style={[styles.divider, isDark && styles.dividerDark]} />
 
         {/* Import backup (auto-detects .veloqdb and legacy .veloq) */}
@@ -612,6 +642,14 @@ export function BackupSection() {
             </>
           )}
         </View>
+        {bulkStillRunning && (
+          <Text
+            testID="bulk-export-still-running"
+            style={[styles.stillRunning, isDark && styles.textMuted]}
+          >
+            {t('settings.stillRunning')}
+          </Text>
+        )}
       </View>
     </>
   );
@@ -651,7 +689,13 @@ const styles = StyleSheet.create({
   subtitleText: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
+  },
+  stillRunning: {
+    fontSize: typography.bodyCompact.fontSize,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
   },
   statusRow: {
     flexDirection: 'row',
@@ -700,12 +744,12 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
-    color: ink.white,
+    color: colors.textOnPrimary,
   },
   backendValue: {
     fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   configBlock: {
     paddingHorizontal: spacing.md,
@@ -732,7 +776,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   testButton: {
     paddingHorizontal: spacing.md,
@@ -779,17 +823,19 @@ const styles = StyleSheet.create({
   testButtonText: {
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
-    color: ink.white,
+    color: colors.textOnPrimary,
   },
   connectionSuccess: {
     fontSize: typography.bodyCompact.fontSize,
-    color: colors.success ?? colors.run,
     marginTop: spacing.xs,
   },
   connectionError: {
     fontSize: typography.bodyCompact.fontSize,
-    color: colors.error ?? colors.chartRed,
+    color: colors.errorDeep,
     marginTop: spacing.xs,
+  },
+  connectionErrorDark: {
+    color: darkColors.errorDeep,
   },
   warningRow: {
     flexDirection: 'row',
@@ -797,10 +843,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    backgroundColor: colorWithOpacity(colors.warning, 0.08),
   },
   warningRowDark: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    backgroundColor: colorWithOpacity(colors.warning, 0.12),
   },
   warningText: {
     flex: 1,
@@ -809,7 +855,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colorWithOpacity(ink.black, 0.4),
     justifyContent: 'center',
     alignItems: 'center',
   },

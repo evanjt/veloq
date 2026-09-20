@@ -15,7 +15,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { View, ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
@@ -24,6 +24,7 @@ import { getEngine } from '@/shared/native/engine';
 import { useCutoverSummary } from '@/features/routes/hooks/useCutoverSummary';
 import type { CutoverPhase } from 'veloqrs';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { pressable } from '@/shared/ui';
 
 export const CUTOVER_STATUS_TEST_ID = 'cutover-status';
 export const CUTOVER_CANCEL_TEST_ID = 'cutover-cancel';
@@ -78,16 +79,17 @@ export function CutoverStatus() {
             {t('settings.cutoverStopping')}
           </Text>
         ) : (
-          <TouchableOpacity
+          <Pressable
             onPress={stop}
             testID={CUTOVER_CANCEL_TEST_ID}
             accessibilityRole="button"
             hitSlop={8}
+            style={pressable()}
           >
             <Text style={[styles.line, styles.centred, styles.stop, { color: textSecondary }]}>
               {t('settings.cutoverStop')}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
     );

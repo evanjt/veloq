@@ -28,7 +28,11 @@ export function CacheManagementPanel({
       {routeMatchingEnabled && isRouteProcessing && (
         <>
           <TouchableOpacity style={styles.actionRow} onPress={onCancelRouteProcessing}>
-            <MaterialCommunityIcons name="pause-circle-outline" size={22} color={colors.warning} />
+            <MaterialCommunityIcons
+              name="pause-circle-outline"
+              size={22}
+              color={isDark ? darkColors.warningAmber : colors.warningAmber}
+            />
             <Text style={[styles.actionText, isDark && styles.textLight]}>
               {t('settings.pauseRouteProcessing')}
             </Text>
@@ -58,6 +62,7 @@ export function CacheManagementPanel({
           style={[
             styles.actionText,
             isDemoMode ? styles.actionTextDisabled : styles.actionTextDanger,
+            !isDemoMode && isDark && styles.actionTextDangerDark,
           ]}
         >
           {t('settings.clearAllReload')}
@@ -92,7 +97,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   actionTextDanger: {
-    color: colors.error,
+    color: colors.errorDeep,
+  },
+  actionTextDangerDark: {
+    color: darkColors.errorDeep,
   },
   divider: {
     height: 1,

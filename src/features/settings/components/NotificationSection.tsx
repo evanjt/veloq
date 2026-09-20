@@ -1,17 +1,38 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, Linking, Pressable, Modal, Text as RNText } from 'react-native';
+import { View, StyleSheet, Linking, Pressable } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
+import { NotificationPrivacyDialog } from './NotificationPrivacyDialog';
 import {
   requestNotificationPermission,
   hasNotificationPermission,
 } from '@/features/settings/lib/notificationService';
-import { colors, darkColors, spacing, typography, layout, shadows, ink } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  typography,
+  layout,
+  shadows,
+  ink,
+  colorWithOpacity,
+} from '@/theme';
 import { settingsStyles } from './settingsStyles';
+import { pressable } from '@/shared/ui';
+
+/**
+ * The kinds of push the athlete can turn off one at a time. Both flags shipped
+ * in the store with no way to set them, so the ladder's rungs were gated by
+ * preferences nobody could reach.
+ */
+const CATEGORIES = [
+  { id: 'sectionPr', label: 'notifications.settings.sectionPr' },
+  { id: 'fitnessMilestone', label: 'notifications.settings.fitnessMilestone' },
+] as const;
 
 export function NotificationSection() {
   const { isDark } = useTheme();
@@ -19,7 +40,8 @@ export function NotificationSection() {
   const authMethod = useAuthStore((s) => s.authMethod);
   const isOAuth = authMethod === 'oauth';
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
-  const { enabled, privacyAccepted, setEnabled, acceptPrivacy } = useNotificationPreferences();
+  const { enabled, privacyAccepted, categories, setEnabled, acceptPrivacy, setCategoryEnabled } =
+    useNotificationPreferences();
   const [toggling, setToggling] = useState(false);
   const [showPrivacyDialog, setShowPrivacyDialog] = useState(false);
 
@@ -68,10 +90,6 @@ export function NotificationSection() {
     [canEnable, privacyAccepted, setEnabled]
   );
 
-  const bg = isDark ? darkColors.surface : colors.surface;
-  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-
   return (
     <>
       <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
@@ -96,6 +114,23 @@ export function NotificationSection() {
           />
         </View>
 
+        {CATEGORIES.map((category) => (
+          <View key={category.id} style={[styles.row, styles.categoryRow]}>
+            <Text style={[styles.rowLabel, isDark && settingsStyles.textLight]} numberOfLines={1}>
+              {t(category.label)}
+            </Text>
+            <Switch
+              value={categories[category.id]}
+              onValueChange={(next) => setCategoryEnabled(category.id, next)}
+              // A switch that can be moved while notifications are off promises
+              // a push that will not arrive.
+              disabled={!enabled || !canEnable || toggling}
+              color={colors.primary}
+              testID={`settings-notifications-${category.id}`}
+            />
+          </View>
+        ))}
+
         {!canEnable ? (
           <Text
             testID="settings-notifications-oauth-hint"
@@ -106,7 +141,7 @@ export function NotificationSection() {
         ) : (
           <Pressable
             onPress={() => Linking.openURL('https://veloq.fit/privacy')}
-            style={styles.privacyRow}
+            style={pressable(styles.privacyRow)}
           >
             <MaterialCommunityIcons
               name="information-outline"
@@ -120,40 +155,11 @@ export function NotificationSection() {
         )}
       </View>
 
-      <Modal
+      <NotificationPrivacyDialog
         visible={showPrivacyDialog}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowPrivacyDialog(false)}
-      >
-        <View style={styles.overlay}>
-          <View style={[styles.dialog, { backgroundColor: bg }]}>
-            <View style={styles.dialogHeader}>
-              <MaterialCommunityIcons
-                name="shield-check-outline"
-                size={24}
-                color={colors.primary}
-              />
-              <RNText style={[styles.dialogTitle, { color: textColor }]}>
-                {t('notifications.privacy.title')}
-              </RNText>
-            </View>
-            <RNText style={[styles.dialogBody, { color: textSecondary }]}>
-              {t('notifications.privacy.brief')}
-            </RNText>
-            <View style={styles.dialogActions}>
-              <Pressable style={styles.cancelBtn} onPress={() => setShowPrivacyDialog(false)}>
-                <RNText style={[styles.cancelText, { color: textSecondary }]}>
-                  {t('common.cancel')}
-                </RNText>
-              </Pressable>
-              <Pressable style={styles.acceptBtn} onPress={handlePrivacyAccept}>
-                <RNText style={styles.acceptText}>{t('notifications.privacy.accept')}</RNText>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onCancel={() => setShowPrivacyDialog(false)}
+        onAccept={handlePrivacyAccept}
+      />
     </>
   );
 }
@@ -165,6 +171,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
+  },
+  categoryRow: {
+    // Indented under the switch that governs them.
+    paddingLeft: spacing.xl,
+    paddingVertical: spacing.xs,
   },
   rowLabel: {
     ...typography.body,
@@ -185,7 +196,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,

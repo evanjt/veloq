@@ -7,15 +7,13 @@ import { tapTargetFromPushData } from '@/features/insights/lib/pushPayload';
 
 const log = debug.create('Notification');
 const CHANNEL_ID = 'veloq-insights';
-const SYNC_CHANNEL_ID = 'veloq-sync';
-const SYNC_NOTIFICATION_ID = 'sync-progress';
 
 /**
  * expo-notifications reads the Android channel from the trigger and nowhere
- * else. A `channelId` in `content` is dropped, and a null trigger falls back
- * to expo's own channel, whose importance is hardcoded HIGH: that is how every
- * sync progress re-post became a heads-up banner. iOS has no channels, so the
- * trigger stays null and the notification is still immediate.
+ * else. A `channelId` in `content` is dropped, and a null trigger falls back to
+ * expo's own channel, whose importance is hardcoded HIGH, so a notification
+ * that means to be quiet has to name its channel here. iOS has no channels, so
+ * the trigger stays null and the notification is still immediate.
  */
 const immediatelyOn = (channelId: string) => (Platform.OS === 'android' ? { channelId } : null);
 
@@ -23,18 +21,7 @@ const immediatelyOn = (channelId: string) => (Platform.OS === 'android' ? { chan
 export function initializeNotifications(): void {
   // Configure how notifications appear when app is in foreground
   Notifications.setNotificationHandler({
-    handleNotification: async (notification) => {
-      // Sync progress: notification center only, no popup banner.
-      // Android LOW-importance channel prevents heads-up display; iOS
-      // shouldShowBanner=false suppresses the drop-down.
-      if (notification.request.identifier === SYNC_NOTIFICATION_ID) {
-        return {
-          shouldShowBanner: false,
-          shouldShowList: true,
-          shouldPlaySound: false,
-          shouldSetBadge: false,
-        };
-      }
+    handleNotification: async () => {
       return {
         shouldShowBanner: true,
         shouldShowList: true,
@@ -53,13 +40,6 @@ export function initializeNotifications(): void {
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250],
       lightColor: brand.tealLight,
-    });
-    Notifications.setNotificationChannelAsync(SYNC_CHANNEL_ID, {
-      name: 'Sync Progress',
-      description: 'Background data sync progress',
-      importance: Notifications.AndroidImportance.LOW,
-      vibrationPattern: [],
-      sound: null,
     });
   }
 }
@@ -113,13 +93,19 @@ export async function presentInsightNotification(
  * Repeated calls with the same activityId update the existing tray entry in
  * place rather than stacking duplicates - used by the background task to fire
  * a placeholder immediately and then enrich it once GPS + insights are ready.
+ *
+ * `attachmentUri` is a local file shown beside the text. Only iOS presents one
+ * for a locally scheduled notification: Android resolves the image to the
+ * static large icon in the manifest, so the key is left off there entirely.
  */
 export async function presentActivityNotification(
   activityId: string,
   title: string,
   body: string,
-  data?: InsightNotificationData
+  data?: InsightNotificationData,
+  attachmentUri?: string | null
 ): Promise<void> {
+  const attachable = Platform.OS === 'ios' && !!attachmentUri;
   await Notifications.scheduleNotificationAsync({
     identifier: `activity-${activityId}`,
     content: {
@@ -127,35 +113,20 @@ export async function presentActivityNotification(
       body,
       data: data ?? {},
       priority: 'high',
+      ...(attachable
+        ? {
+            attachments: [
+              {
+                identifier: `activity-${activityId}-route`,
+                url: attachmentUri as string,
+                type: 'public.png',
+              },
+            ],
+          }
+        : {}),
     },
     trigger: immediatelyOn(CHANNEL_ID),
   });
-}
-
-/** Post or update the sync progress notification. Reuses the same identifier for silent in-place updates. */
-export async function updateSyncNotification(body: string): Promise<void> {
-  try {
-    await Notifications.scheduleNotificationAsync({
-      identifier: SYNC_NOTIFICATION_ID,
-      content: {
-        title: 'Veloq',
-        body,
-        sticky: true, // Android: can't swipe away during sync
-      },
-      trigger: immediatelyOn(SYNC_CHANNEL_ID),
-    });
-  } catch (e) {
-    if (__DEV__) console.warn('[SyncNotification] Failed to update:', e);
-  }
-}
-
-/** Dismiss the sync progress notification silently. */
-export async function dismissSyncNotification(): Promise<void> {
-  try {
-    await Notifications.dismissNotificationAsync(SYNC_NOTIFICATION_ID);
-  } catch (e) {
-    if (__DEV__) console.warn('[SyncNotification] Failed to dismiss:', e);
-  }
 }
 
 /**
@@ -170,10 +141,8 @@ export function setupNotificationReceivedHandler(): Notifications.Subscription {
   return Notifications.addNotificationReceivedListener((notification) => {
     if (__DEV__) {
       const id = notification.request.identifier;
-      if (id !== 'sync-progress') {
-        const data = notification.request.content.data;
-        log.log(`[Notification] Received (foreground) id=${id}`, data);
-      }
+      const data = notification.request.content.data;
+      log.log(`[Notification] Received (foreground) id=${id}`, data);
     }
   });
 }
@@ -195,15 +164,19 @@ const handledResponseIds = new Set<string>();
  *
  * Exported so the four shapes can be tested against it.
  */
-export function routeFromNotificationData(data: unknown): void {
+export function routeFromNotificationData(data: unknown, coldStart = false): void {
   const target = tapTargetFromPushData(data);
   if (!target) return;
   log.log('Notification tap routing to:', target.path);
   if (target.mode === 'navigate') {
     router.navigate(target.path as never);
-  } else {
-    router.push(target.path as never);
+    return;
   }
+  // A cold start has nothing under the pushed screen, so back leaves the app
+  // rather than landing on the feed. Seating the tab group first is the same
+  // reset `AuthGate` does for its own stack. A warm tap already has a stack.
+  if (coldStart) router.replace('/(tabs)' as never);
+  router.push(target.path as never);
 }
 
 /** Clears the tap dedupe set. Tests only, so one case cannot leak into the next. */
@@ -242,7 +215,7 @@ export async function handleInitialNotificationResponse(): Promise<void> {
     handledResponseIds.add(id);
     const data = response.notification.request.content.data;
     log.log('Cold-start tap data:', JSON.stringify(data));
-    routeFromNotificationData(data);
+    routeFromNotificationData(data, true);
   } catch (e) {
     log.warn('Could not read initial response:', e);
   }

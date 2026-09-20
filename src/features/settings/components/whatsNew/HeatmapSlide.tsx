@@ -12,7 +12,16 @@ import {
 } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, contributionRamp, layout, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  contributionRamp,
+  layout,
+  typography,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 
 const COLS = 7;
 const ROWS = 5;
@@ -107,7 +116,9 @@ export function HeatmapSlide() {
   const palette = isDark ? INTENSITY_COLORS : INTENSITY_COLORS_LIGHT;
   const primaryColor = isDark ? darkColors.primary : colors.primary;
   const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
-  const dashLineColor = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)';
+  const dashLineColor = isDark
+    ? colorWithOpacity(ink.white, 0.25)
+    : colorWithOpacity(ink.black, 0.15);
 
   const selectedCellX = SELECTED_COL * (CELL_SIZE + GAP);
   const selectedCellY = SELECTED_ROW * (CELL_SIZE + GAP);
@@ -269,18 +280,18 @@ export function HeatmapSlide() {
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     gap: spacing.sm,
   },
   labels: {
-    gap: 4,
+    gap: spacing.xs,
     alignSelf: 'stretch',
     paddingHorizontal: spacing.md,
   },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   dot: {
     width: 6,

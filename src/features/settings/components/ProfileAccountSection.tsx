@@ -1,6 +1,6 @@
 import React, { useState, memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
-import { useTheme } from '@/shared/app';
+import { useTheme, useIsOnline } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useQueryClient } from '@tanstack/react-query';
@@ -12,6 +12,7 @@ import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { demotePendingToLocalOnly } from '@/features/recording/lib/storage/recordingLibrary';
 import { useTranslation } from 'react-i18next';
 import { settingsStyles } from './settingsStyles';
+import { signOutMessage } from '../lib/signOutCopy';
 
 interface Athlete {
   name?: string;
@@ -25,7 +26,9 @@ interface ProfileAccountSectionProps {
 
 function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps) {
   const { isDark } = useTheme();
+  const errorDeep = isDark ? darkColors.errorDeep : colors.errorDeep;
   const { t } = useTranslation();
+  const isOnline = useIsOnline();
   const [profileImageError, setProfileImageError] = useState(false);
   const authMethod = useAuthStore((state) => state.authMethod);
   const grantedScopes = useUploadPermissionStore((s) => s.grantedScopes);
@@ -56,18 +59,23 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
     }
   };
 
-  // Plain "Sign out" - keep cached activities/GPS/sections so re-login on the
-  // same account is instant. Only the auth credentials and the per-user
-  // profile blobs (athlete photo, sport settings) are dropped.
+  // Plain "Sign out" - keep cached activities/GPS/sections, and the athlete
+  // profile and sport settings with them, so re-login on the same account is
+  // instant and works with no network. Only the credentials go. "Sign out and
+  // clear data" is the path that takes the rest.
   const handleLogout = () => {
-    Alert.alert(t('alerts.disconnectTitle'), t('alerts.disconnectMessage'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('alerts.disconnect'),
-        style: 'destructive',
-        onPress: () => finishLogout(false),
-      },
-    ]);
+    Alert.alert(
+      t('alerts.disconnectTitle'),
+      signOutMessage(t('alerts.disconnectMessage'), t('alerts.disconnectOffline'), isOnline),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('alerts.disconnect'),
+          style: 'destructive',
+          onPress: () => finishLogout(false),
+        },
+      ]
+    );
   };
 
   // Destructive option - wipe everything. For switching to a different
@@ -75,10 +83,14 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   const handleLogoutAndClearData = () => {
     Alert.alert(
       t('alerts.disconnectAndClearTitle', { defaultValue: 'Sign out and delete data?' }),
-      t('alerts.disconnectAndClearMessage', {
-        defaultValue:
-          'This signs you out AND deletes all cached activities, GPS tracks, sections, and route data on this device. The data will be re-synced from intervals.icu the next time you sign in. This cannot be undone.',
-      }),
+      signOutMessage(
+        t('alerts.disconnectAndClearMessage', {
+          defaultValue:
+            'This signs you out AND deletes all cached activities, GPS tracks, sections, and route data on this device. The data will be re-synced from intervals.icu the next time you sign in. This cannot be undone.',
+        }),
+        t('alerts.disconnectOffline'),
+        isOnline
+      ),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -228,7 +240,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         onPress={handleLogout}
       >
         <MaterialCommunityIcons name="logout" size={22} color={colors.error} />
-        <Text style={[settingsStyles.actionRowText, { color: colors.error }]}>
+        <Text style={[settingsStyles.actionRowText, { color: errorDeep }]}>
           {t('settings.disconnectAccount')}
         </Text>
         <MaterialCommunityIcons
@@ -248,7 +260,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
             onPress={handleLogoutAndClearData}
           >
             <MaterialCommunityIcons name="delete-forever" size={22} color={colors.error} />
-            <Text style={[settingsStyles.actionRowText, { color: colors.error }]}>
+            <Text style={[settingsStyles.actionRowText, { color: errorDeep }]}>
               {t('settings.disconnectAndClearData', {
                 defaultValue: 'Sign out and delete all data',
               })}
@@ -298,7 +310,7 @@ const styles = StyleSheet.create({
   profileEmail: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   scopeContainer: {
     marginTop: spacing.xs,
@@ -306,7 +318,7 @@ const styles = StyleSheet.create({
   scopeTitle: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   scopeRow: {
     flexDirection: 'row',

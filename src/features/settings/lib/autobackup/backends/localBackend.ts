@@ -51,6 +51,7 @@ async function sweepOrphans(dir: string): Promise<void> {
 export const localBackend: BackupBackend = {
   id: 'local',
   name: 'Local Storage',
+  isRemote: false,
 
   async isAvailable(): Promise<boolean> {
     return true; // Always available
