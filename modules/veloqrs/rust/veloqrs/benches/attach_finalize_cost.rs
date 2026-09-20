@@ -64,7 +64,7 @@ fn build_engine(scale: usize) -> (PersistentEngine, TempDir) {
     }
 
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).expect("initial apply");
     // The build leaves the groups dirty. Consume that here so each arm below
     // starts from a settled catalogue and measures only what it means to.

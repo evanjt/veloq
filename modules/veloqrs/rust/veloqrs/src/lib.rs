@@ -17,6 +17,7 @@ pub use ffi_types::*;
 
 // Persistence layer with SQLite storage
 pub mod persistence;
+pub use persistence::sections::{EvidenceRow, encode_evidence_row};
 pub use persistence::{
     CacheUpdate, ExportPrivacyPreview, FitOutcome, GroupSummary, PERSISTENT_ENGINE,
     PersistentEngine, PersistentEngineStats, SectionDetectionHandle, mint_local_activity_id,
@@ -25,6 +26,9 @@ pub use persistence::{
 
 // Shared process-wide async runtime for all outbound network work
 pub mod runtime;
+
+// Names for the pool and the workers, so a sampler can tell them apart
+pub mod threads;
 
 // Networking governor: the single choke point for outbound requests
 pub mod governor;
@@ -45,7 +49,10 @@ pub use sections::SectionSummary;
 
 // Domain objects (UniFFI Object API)
 pub mod objects;
-pub use objects::{FfiQuarantineReport, VeloqEngine, VeloqError, take_quarantine_report};
+pub use objects::{
+    FfiQuarantineReport, LibraryCoverage, RangeCoverage, VeloqEngine, VeloqError,
+    take_quarantine_report,
+};
 
 // App-layer types that were moved out of tracematch (persistence/UI data containers)
 pub mod types;
@@ -56,6 +63,17 @@ pub mod patterns;
 
 // The one three-way better/worse/same verdict every trend reads
 pub mod trend;
+
+/// The absolute thresholds and polarities every surface draws a trend arrow
+/// from, and the source `src/shared/format/trendTable.generated.ts` is written
+/// from.
+pub mod trend_table;
+
+/// Pearson's r with the sample size and the interval that travel with it.
+pub mod correlation;
+
+/// How far a series' newest reading sits from its own baseline, in deviations.
+pub mod signal;
 
 /// The one sport taxonomy, three questions of an open sport string.
 pub mod sport;
@@ -68,6 +86,14 @@ pub mod tiles;
 
 // The Rust-owned basemap tile store: one z/x/y tree per source on disk
 pub mod basemap;
+
+// What an Android push handler with no JavaScript calls, over hand-written JNI
+pub mod push;
+
+// The enriched activity notification: one ladder and one set of templates for
+// a native handler, for JavaScript and for the screen that shows the same line
+pub mod notifications;
+pub use notifications::FfiActivityNotification;
 
 /// Captured log lines, for the tests that assert a path says something rather
 /// than dropping silently. The logger is process-wide and the lib tests share
@@ -235,6 +261,11 @@ pub(crate) mod test_globals {
         // is a process-wide atomic. Leaving it standing let whichever test
         // cargo happened to run first decide whether the next one saw idle.
         crate::objects::detection::reset_last_outcome();
+        // And the attempt key is the third: emptying the slot without settling
+        // it leaves the next start reading `InFlight` for a run that is gone.
+        // In production only the poll empties the slot and it settles the key
+        // in the same breath; this helper is the one place that does not.
+        crate::objects::detection::settle_detect(crate::persistence::attempts::Release::Done);
     }
 
     /// Wait until no detached driver is polling the shared detection slot.
@@ -330,9 +361,17 @@ uniffi::setup_scaffolding!();
 #[cfg(any(target_os = "android", target_os = "ios"))]
 static LOGGING_INIT: std::sync::Once = std::sync::Once::new();
 
-/// Every level below this is compiled out of a release build by the `log`
-/// crate's own filter, so a hot path costs nothing to leave instrumented.
-/// A debug build keeps the running commentary.
+/// A debug build keeps the running commentary; a device gets `Warn` and above.
+///
+/// The device half is not a choice about noise, it is what every build is: the
+/// `.so` is compiled `--release` for every APK variant, so `debug_assertions`
+/// is off on a handset whatever the app was built as. Nothing is compiled out,
+/// either. The `log` crate drops a level at compile time only under its
+/// `release_max_level_*` features and this crate sets none, so every `info!`
+/// is in the binary and filtered at runtime. What that means in practice: a
+/// line that says why a job refused to start has to be `warn!`, or nobody with
+/// the phone in hand can read it. `scripts/lint-decline-visible.mjs` holds the
+/// sites that answer that question to it.
 #[cfg(any(target_os = "android", target_os = "ios"))]
 fn log_level() -> log::LevelFilter {
     if cfg!(debug_assertions) {
