@@ -1,0 +1,13 @@
+# Generator settings for the TypeScript bindings.
+#
+# `ubrn.config.yaml` describes where the generated files go; this describes what
+# they contain, and uniffi reads it per crate.
+[bindings.typescript]
+# `strictTypeChecking` would drop the generated file's blanket `@ts-nocheck`,
+# and it is clean under the app's own tsconfig. It is off because it is not
+# clean under `--exactOptionalPropertyTypes`: the generated record factories
+# build 68 objects whose optional fields carry an explicit `undefined`, which
+# the engine boundary guard refuses, and nobody can fix a file that is
+# rewritten whole on every regeneration. Turning it on is a decision, not a
+# commit.
+strictTypeChecking = false

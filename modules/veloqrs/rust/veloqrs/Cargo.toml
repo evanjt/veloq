@@ -34,7 +34,10 @@ rmp-serde = "1.1"
 postcard = { version = "1", features = ["alloc"] }
 
 # HTTP client
-reqwest = { version = "0.12", features = ["json", "rustls-tls", "multipart", "stream", "gzip"], default-features = false }
+# `http2` is a default and `default-features = false` drops it. Without it the
+# tile fetcher never offers h2 over ALPN, so a pan's two dozen misses each open
+# their own connection and pay their own TLS handshake (`I73`).
+reqwest = { version = "0.12", features = ["json", "rustls-tls", "multipart", "stream", "gzip", "http2"], default-features = false }
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "fs"] }
 tokio-util = { version = "0.7", features = ["io"] }
 futures = "0.3"
@@ -70,8 +73,9 @@ uniffi = { version = "0.31", features = ["build"] }
 [dev-dependencies]
 tempfile = "3.27"
 # The commit hook counts transactions, which is how a page write proves it
-# is one commit and not one per row.
-rusqlite = { version = "0.31", features = ["hooks"] }
+# is one commit and not one per row, and the trace hook counts statements,
+# which is how a loop proves it reads a blob once rather than once per row.
+rusqlite = { version = "0.31", features = ["hooks", "trace"] }
 env_logger = "0.11"
 criterion = { version = "0.5", features = ["html_reports"] }
 sha2 = "0.11"
@@ -311,10 +315,6 @@ name = "lap_sensor_enrichment_cost"
 required-features = ["synthetic"]
 
 [[bench]]
-name = "lock_contention"
-required-features = ["synthetic"]
-
-[[bench]]
 name = "database_wipe_cost"
 required-features = ["synthetic"]
 
@@ -323,7 +323,31 @@ name = "attach_finalize_cost"
 required-features = ["synthetic"]
 
 [[bench]]
+name = "section_editor_cost"
+
+[[bench]]
+name = "activity_upsert_cost"
+
+[[bench]]
+name = "insights_data_cost"
+
+[[bench]]
+name = "strength_screen_cost"
+
+[[bench]]
 name = "live_section_replay"
+
+[[bench]]
+name = "activity_detail_cost"
+harness = false
+
+[[bench]]
+name = "pooled_read_cost"
+harness = false
+
+[[bench]]
+name = "routes_screen_read_cost"
+harness = false
 
 [[bin]]
 name = "uniffi-bindgen"
@@ -335,6 +359,18 @@ path = "uniffi-bindgen.rs"
 name = "detection_audit"
 path = "examples/detection_audit.rs"
 
+[[example]]
+name = "stream_store_cost"
+path = "examples/stream_store_cost.rs"
+
+[[example]]
+name = "grouping_preview_cost"
+path = "examples/grouping_preview_cost.rs"
+
+[[example]]
+name = "map_signature_passes"
+path = "examples/map_signature_passes.rs"
+
 [[test]]
 name = "corpus_migration"
 required-features = ["real-corpus"]
@@ -345,6 +381,22 @@ required-features = ["real-corpus"]
 
 [[test]]
 name = "evidence_cache_durability"
+required-features = ["synthetic"]
+
+[[test]]
+name = "evidence_cache_decode_cost"
+required-features = ["synthetic"]
+
+[[test]]
+name = "evidence_cache_write_cost"
+required-features = ["synthetic"]
+
+[[test]]
+name = "evidence_cache_encode_off_lock"
+required-features = ["synthetic"]
+
+[[test]]
+name = "representative_against_medoid"
 required-features = ["synthetic"]
 
 [[test]]
@@ -368,9 +420,30 @@ name = "detection_resume"
 required-features = ["synthetic"]
 
 [[test]]
+name = "group_dominant_sport"
+required-features = ["synthetic"]
+
+[[test]]
 name = "group_sport_icons_before_metrics"
 required-features = ["synthetic"]
 
 [[test]]
 name = "every_table_declares_an_owner"
 path = "tests/every_table_declares_an_owner.rs"
+
+[[test]]
+name = "indicator_recompute_cost"
+required-features = ["synthetic"]
+
+[[test]]
+name = "tile_sweep_enumeration"
+
+[[test]]
+name = "detection_cluster_spread"
+
+[[test]]
+name = "detection_narrowed_pool"
+required-features = ["synthetic"]
+
+[[test]]
+name = "routes_screen_query"

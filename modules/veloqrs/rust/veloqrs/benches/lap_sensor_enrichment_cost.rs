@@ -19,11 +19,11 @@
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Barrier, RwLock};
+use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OpenFlags, params};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use tracematch::synthetic::SyntheticScenario;
@@ -69,7 +69,7 @@ fn build_engine(pool: usize) -> Built {
             .expect("ingest batch");
     }
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).expect("apply");
     engine.set_stream_retention_days(0).expect("retention");
 
@@ -446,6 +446,18 @@ fn sensor_pass(conn: &Connection, in_transaction: bool) -> PassCost {
     }
 }
 
+/// A pooled reader: read-only, no engine lock, its own connection to the file.
+/// The flags and the timeout are `read_pool::open_reader`'s.
+fn pooled_reader(path: &str) -> Connection {
+    let conn = Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .expect("open a read-only connection");
+    conn.busy_timeout(Duration::from_secs(5)).expect("busy");
+    conn
+}
+
 fn open_second(path: &str) -> Connection {
     let conn = Connection::open(path).expect("second connection");
     conn.busy_timeout(Duration::from_secs(5)).unwrap();
@@ -539,10 +551,12 @@ fn pass_cost_at_two_pool_sizes() {
     }
 }
 
-/// The sensor pass under the engine write lock, with readers polling
-/// `get_sections` on the read lock every sixteen milliseconds as a screen
-/// would, so the number is what a reader waits and not only what the writer
-/// spends.
+/// The sensor pass under the engine lock, with readers counting sections over a
+/// read-only connection of their own every sixteen milliseconds as a screen
+/// does, so the number is what a reader waits and not only what the writer
+/// spends. The engine read lock these polled is gone: a screen read takes no
+/// engine lock at all now, and `SELECT count(*) FROM sections` is what stands
+/// in for the memory tier's `get_sections`.
 #[test]
 #[ignore]
 fn reader_latency_under_the_sensor_pass() {
@@ -553,24 +567,24 @@ fn reader_latency_under_the_sensor_pass() {
         let conn = open_second(&path);
         add_proposed_columns(&conn);
         reset_laps(&conn);
-        let engine = Arc::new(RwLock::new(built.engine));
+        let engine = Arc::new(Mutex::new(built.engine));
         const READERS: usize = 2;
         let barrier = Arc::new(Barrier::new(READERS + 2));
         let stop = Arc::new(AtomicBool::new(false));
         let mut handles = Vec::new();
         for _ in 0..READERS {
-            let engine = Arc::clone(&engine);
             let b = Arc::clone(&barrier);
             let stop = Arc::clone(&stop);
+            let reader_path = path.clone();
             handles.push(thread::spawn(move || -> Vec<u128> {
+                let conn = pooled_reader(&reader_path);
                 b.wait();
                 let mut out = Vec::with_capacity(10_000);
                 while !stop.load(Ordering::Relaxed) {
                     let t0 = Instant::now();
-                    let n = {
-                        let g = engine.read().unwrap();
-                        g.get_sections().len()
-                    };
+                    let n: usize = conn
+                        .query_row("SELECT count(*) FROM sections", [], |r| r.get(0))
+                        .expect("count sections");
                     out.push(t0.elapsed().as_micros());
                     std::hint::black_box(n);
                     thread::sleep(Duration::from_millis(16));
@@ -584,13 +598,13 @@ fn reader_latency_under_the_sensor_pass() {
             writer_barrier.wait();
             thread::sleep(Duration::from_millis(50));
             let cold = {
-                let _g = writer_engine.write().unwrap();
+                let _g = writer_engine.lock().unwrap();
                 sensor_pass(&conn, true)
             };
             thread::sleep(Duration::from_millis(200));
             reset_laps(&conn);
             let warm = {
-                let _g = writer_engine.write().unwrap();
+                let _g = writer_engine.lock().unwrap();
                 sensor_pass(&conn, true)
             };
             (cold, warm)

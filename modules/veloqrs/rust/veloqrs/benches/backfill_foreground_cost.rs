@@ -1,11 +1,13 @@
 //! What the elevation backfill and the conditioning detect cost a foreground
 //! reader, measured rather than argued.
 //!
-//! Every screen read goes through the engine's write lock, so a reader does not
-//! contend in SQLite, it queues behind the batch that holds the lock. These
-//! tests time the holds the backfill takes per batch of 20, the latency a
-//! reader sees while a pass drains, the spawn-time hold of a detect, and the
-//! stall the main connection takes while the detect worker reads over its own.
+//! A reader reaches the engine two ways now. A caller that needs the engine's
+//! own state takes the `Mutex` and queues behind whatever batch holds it; a
+//! screen read that only needs SQLite comes through a read-only connection of
+//! its own and takes no engine lock at all. These tests time the holds the
+//! backfill takes per batch of 20, the latency each kind of reader sees while a
+//! pass drains, the spawn-time hold of a detect, and the stall the main
+//! connection takes while the detect worker reads over its own.
 //!
 //! Baseline only, nothing asserts. Run in release:
 //!   cargo test --release --features synthetic --bench backfill_foreground_cost -- --ignored --nocapture
@@ -13,10 +15,11 @@
 #![cfg(feature = "synthetic")]
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Barrier, RwLock};
+use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use rusqlite::{Connection, OpenFlags};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use tracematch::synthetic::SyntheticScenario;
@@ -126,7 +129,7 @@ fn hold_per_batch_at_two_pool_sizes() {
         let t0 = Instant::now();
         let handle = engine.detect_sections_background();
         let spawn_ms = t0.elapsed().as_secs_f64() * 1000.0;
-        let (sections, _) = handle.recv().unwrap_or_default();
+        let (sections, _) = handle.recv().expect("the detect ran");
         let detect_ms = t0.elapsed().as_secs_f64() * 1000.0;
         let t1 = Instant::now();
         engine.apply_sections(sections).expect("apply");
@@ -146,9 +149,22 @@ fn hold_per_batch_at_two_pool_sizes() {
     }
 }
 
-fn reader_latency(pool: usize, readers_take_write: bool) {
-    let (engine, _dir, rows) = build_engine(pool);
-    let engine = Arc::new(RwLock::new(engine));
+/// A pooled reader: read-only, no engine lock, its own connection to the file.
+/// The flags and the timeout are `read_pool::open_reader`'s.
+fn pooled_reader(path: &std::path::Path) -> Connection {
+    let conn = Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .expect("open a read-only connection");
+    conn.busy_timeout(Duration::from_secs(5)).expect("busy");
+    conn
+}
+
+fn reader_latency(pool: usize, readers_take_the_engine: bool) {
+    let (engine, dir, rows) = build_engine(pool);
+    let db_path = dir.path().join("cost.db");
+    let engine = Arc::new(Mutex::new(engine));
     const READERS: usize = 2;
     let barrier = Arc::new(Barrier::new(READERS + 2));
     let stop = Arc::new(AtomicBool::new(false));
@@ -158,17 +174,30 @@ fn reader_latency(pool: usize, readers_take_write: bool) {
         let engine = Arc::clone(&engine);
         let b = Arc::clone(&barrier);
         let stop = Arc::clone(&stop);
+        let path = db_path.clone();
         handles.push(thread::spawn(move || -> Vec<u128> {
+            // The two counts a pooled reader stands in for are the two lengths
+            // the engine reader takes off the memory tier, so both sides of the
+            // comparison answer the same question.
+            let pooled = (!readers_take_the_engine).then(|| pooled_reader(&path));
             b.wait();
             let mut out = Vec::with_capacity(200_000);
             while !stop.load(Ordering::Relaxed) {
                 let t0 = Instant::now();
-                let n = if readers_take_write {
-                    let g = engine.write().unwrap();
-                    g.get_sections().len() + g.get_activity_ids().len()
-                } else {
-                    let g = engine.read().unwrap();
-                    g.get_sections().len() + g.get_activity_ids().len()
+                let n = match pooled.as_ref() {
+                    None => {
+                        let g = engine.lock().unwrap();
+                        g.get_sections().len() + g.get_activity_ids().len()
+                    }
+                    Some(conn) => {
+                        let sections: usize = conn
+                            .query_row("SELECT count(*) FROM sections", [], |r| r.get(0))
+                            .expect("count sections");
+                        let activities: usize = conn
+                            .query_row("SELECT count(*) FROM activities", [], |r| r.get(0))
+                            .expect("count activities");
+                        sections + activities
+                    }
                 };
                 out.push(t0.elapsed().as_micros());
                 std::hint::black_box(n);
@@ -187,11 +216,11 @@ fn reader_latency(pool: usize, readers_take_write: bool) {
         let mut batches = 0;
         for batch in rows.chunks(BATCH) {
             {
-                let g = writer_engine.write().unwrap();
+                let g = writer_engine.lock().unwrap();
                 splice_hold(&g, batch);
             }
             {
-                let mut g = writer_engine.write().unwrap();
+                let mut g = writer_engine.lock().unwrap();
                 store_hold(&mut g, batch);
             }
             batches += 1;
@@ -210,7 +239,11 @@ fn reader_latency(pool: usize, readers_take_write: bool) {
     println!(
         "[cost] pool={} readers_on={} pass={:.1}s batches={} reader_samples={} p50={}us p95={}us p99={}us max={}us",
         pool,
-        if readers_take_write { "write" } else { "read" },
+        if readers_take_the_engine {
+            "engine"
+        } else {
+            "pooled"
+        },
         pass.as_secs_f64(),
         batches,
         n,

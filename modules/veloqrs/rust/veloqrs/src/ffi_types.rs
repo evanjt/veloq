@@ -17,13 +17,6 @@ pub struct FfiBatchTrace {
     pub encoded_coords: Vec<u8>,
 }
 
-/// Entry for importing superseded section mappings from AsyncStorage migration.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiSupersededEntry {
-    pub custom_section_id: String,
-    pub auto_section_ids: Vec<String>,
-}
-
 /// Extension track for expanding section bounds.
 /// Contains the representative activity's full GPS track with section start/end indices.
 #[derive(Debug, Clone, uniffi::Record)]
@@ -132,7 +125,7 @@ pub struct FfiActivityMetrics {
     pub activity_id: String,
     pub name: String,
     /// Unix timestamp (seconds since epoch)
-    pub date: i64,
+    pub date: f64,
     /// Distance in meters
     pub distance: f64,
     /// Moving time in seconds
@@ -162,7 +155,7 @@ impl From<crate::ActivityMetrics> for FfiActivityMetrics {
         Self {
             activity_id: m.activity_id,
             name: m.name,
-            date: m.date,
+            date: m.date as f64,
             distance: m.distance,
             moving_time: m.moving_time,
             elapsed_time: m.elapsed_time,
@@ -183,7 +176,7 @@ impl From<FfiActivityMetrics> for crate::ActivityMetrics {
         Self {
             activity_id: m.activity_id,
             name: m.name,
-            date: m.date,
+            date: m.date as i64,
             distance: m.distance,
             moving_time: m.moving_time,
             elapsed_time: m.elapsed_time,
@@ -203,33 +196,55 @@ impl From<FfiActivityMetrics> for crate::ActivityMetrics {
 // Aggregate Query Result Types
 // ============================================================================
 
-/// A week's load, day by day, with how evenly it was spread.
-///
-/// The window sum says a week carried four hundred points and not whether that
-/// was one day or seven. Two weeks of the same total spread very differently:
-/// over one real account's 190 loaded weeks, those carrying 200 to 400 points
-/// ran from 0.45 to 1.92 on `evenness`.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
-pub struct FfiWeekLoadShape {
-    /// One entry per day of the window, gaps included as zero.
-    pub daily: Vec<f64>,
-    /// Days carrying any load at all.
-    pub training_days: u32,
-    /// Mean daily load over its standard deviation. Higher is more even.
-    pub evenness: f64,
-}
-
 /// Aggregated stats for a date range.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiPeriodStats {
     /// Number of activities
     pub count: u32,
     /// Total moving time in seconds
-    pub total_duration: i64,
+    pub total_duration: f64,
     /// Total distance in meters
     pub total_distance: f64,
     /// Total training load (TSS)
     pub total_tss: f64,
+}
+
+/// Which total a period comparison was taken on. A week with no training load
+/// recorded still has moving time, so the comparison falls back rather than
+/// reading zero against zero.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiLoadMetric {
+    /// Training load, when both periods carry some.
+    Tss,
+    /// Moving time in seconds.
+    Duration,
+}
+
+/// One period measured against another, on whichever total both carry.
+///
+/// The card's threshold test is the reader's: this says how far apart the two
+/// periods are and on what, not whether that is worth saying.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiPeriodComparison {
+    /// The total both values are under.
+    pub metric: FfiLoadMetric,
+    /// The later period's total, in TSS or in seconds.
+    pub current: f64,
+    /// The earlier period's total, on the same metric.
+    pub previous: f64,
+    /// `current / previous - 1`, so 0.28 is 28% more than the period before.
+    pub ratio: f64,
+}
+
+/// One calendar month's totals, for the season chart's month bars.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMonthlyStats {
+    /// Calendar year, in the athlete's own timezone.
+    pub year: i32,
+    /// Calendar month, 1 to 12.
+    pub month: u32,
+    /// The same four totals `get_period_stats` gives a window.
+    pub stats: FfiPeriodStats,
 }
 
 /// Cycling FTP trend, read from the athlete's configured FTP setting as it
@@ -242,15 +257,40 @@ pub struct FfiFtpTrend {
     /// Newest FTP setting on record
     pub latest_ftp: Option<u16>,
     /// Activity start of the newest setting (Unix timestamp seconds)
-    pub latest_date: Option<i64>,
+    pub latest_date: Option<f64>,
     /// Newest setting that differs from `latest_ftp`
     pub previous_ftp: Option<u16>,
     /// Activity start of that earlier setting (Unix timestamp seconds)
-    pub previous_date: Option<i64>,
+    pub previous_date: Option<f64>,
+    /// The step from `previous_ftp` to `latest_ftp` in watts, with its sign.
+    /// Derived here so a screen, a widget and a notification cannot each
+    /// subtract and round their own way. `None` when there is nothing to
+    /// compare against.
+    pub delta_watts: Option<i32>,
     /// Days carrying an estimate from the one compared against to the newest,
     /// inclusive. The insight ranker weighs a claim by what it stands on, and
     /// a step measured off three days is not the one measured off thirty.
     pub sample_count: u32,
+    /// The daily estimates the step was read from, oldest first. The same
+    /// series `sample_count` counts, carried rather than counted, so the
+    /// milestone card draws the run-up to the step it names.
+    pub history: Vec<FfiSeriesPoint>,
+}
+
+/// One activity that moved the athlete's accepted eFTP.
+///
+/// The estimate an activity produced is not a change: only a non-zero delta on
+/// the rolling value is, which is what intervals.icu marks on its own plot.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiEftpChange {
+    pub activity_id: String,
+    /// Activity start (Unix timestamp seconds).
+    pub date: f64,
+    /// The accepted eFTP after the activity, in watts.
+    pub eftp: f64,
+    /// What the activity moved it by, with its sign.
+    pub delta: f64,
+    pub activity_name: String,
 }
 
 /// Pace trend data (critical speed for running/swimming).
@@ -259,20 +299,53 @@ pub struct FfiPaceTrend {
     /// Most recent critical speed in m/s
     pub latest_pace: Option<f64>,
     /// Date of most recent snapshot (Unix timestamp seconds)
-    pub latest_date: Option<i64>,
+    pub latest_date: Option<f64>,
     /// Previous different critical speed in m/s
     pub previous_pace: Option<f64>,
     /// Date of previous snapshot (Unix timestamp seconds)
-    pub previous_date: Option<i64>,
+    pub previous_date: Option<f64>,
+    /// The move from `previous_pace` to `latest_pace` as a percent of the
+    /// earlier speed, positive for faster. `None` with nothing to compare
+    /// against.
+    pub gain_percent: Option<f64>,
+    /// The same move in seconds per unit distance, the unit the sport is
+    /// paced in: 100 m for swimming, a kilometre otherwise. Positive is
+    /// seconds saved.
+    pub delta_seconds: Option<f64>,
     /// Snapshots the trend was read from, for the same reason as
     /// `FfiFtpTrend::sample_count`.
     pub sample_count: u32,
+    /// Those snapshots, oldest first, for the same reason as
+    /// `FfiFtpTrend::history`.
+    pub history: Vec<FfiSeriesPoint>,
+}
+
+/// The summary card's five numbers and the arrow beside each.
+///
+/// The glyph is the engine's judgement, not a direction: up for an
+/// improvement even where the number fell, so a screen, a widget and a
+/// notification cannot disagree about what a move meant. `None` is an arrow
+/// withheld because no row stands close enough to the day it would compare
+/// with, which is not the same as a flat move.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiWellnessSummary {
+    pub fitness: Option<f64>,
+    pub fitness_trend: Option<String>,
+    pub form: Option<f64>,
+    pub form_trend: Option<String>,
+    pub hrv: Option<f64>,
+    pub hrv_trend: Option<String>,
+    pub rhr: Option<f64>,
+    pub rhr_trend: Option<String>,
+    pub weight: Option<f64>,
+    pub weight_trend: Option<String>,
 }
 
 /// Summary card batch data: combines period stats, FTP trend, and pace trends.
 /// Reduces Home screen FFI calls from 5 to 1.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiSummaryCardData {
+    pub wellness: FfiWellnessSummary,
     pub current_week: FfiPeriodStats,
     pub prev_week: FfiPeriodStats,
     pub ftp_trend: FfiFtpTrend,
@@ -301,46 +374,6 @@ pub struct FfiGroupSummariesResult {
 // ============================================================================
 // Route Types
 // ============================================================================
-
-/// Route signature for FFI
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiRouteSignature {
-    pub activity_id: String,
-    pub encoded_points: Vec<u8>,
-    pub total_distance: f64,
-    pub start_point: FfiGpsPoint,
-    pub end_point: FfiGpsPoint,
-    pub bounds: FfiBounds,
-    pub center: FfiGpsPoint,
-}
-
-impl From<tracematch::RouteSignature> for FfiRouteSignature {
-    fn from(s: tracematch::RouteSignature) -> Self {
-        Self {
-            activity_id: s.activity_id,
-            encoded_points: crate::coords::encode(&s.points),
-            total_distance: s.total_distance,
-            start_point: FfiGpsPoint::from(s.start_point),
-            end_point: FfiGpsPoint::from(s.end_point),
-            bounds: FfiBounds::from(s.bounds),
-            center: FfiGpsPoint::from(s.center),
-        }
-    }
-}
-
-impl From<FfiRouteSignature> for tracematch::RouteSignature {
-    fn from(s: FfiRouteSignature) -> Self {
-        Self {
-            activity_id: s.activity_id,
-            points: crate::coords::decode(&s.encoded_points),
-            total_distance: s.total_distance,
-            start_point: tracematch::GpsPoint::from(s.start_point),
-            end_point: tracematch::GpsPoint::from(s.end_point),
-            bounds: tracematch::Bounds::from(s.bounds),
-            center: tracematch::GpsPoint::from(s.center),
-        }
-    }
-}
 
 /// Route group for FFI
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
@@ -570,7 +603,6 @@ pub struct FfiSection {
     pub superseded_by: Option<String>,
     pub elevation_loss_m: Option<f64>,
     pub max_grade_percent: Option<f64>,
-    pub straightness: Option<f64>,
     pub klass: Option<String>,
     pub is_lift: bool,
     pub rank_score: Option<f64>,
@@ -601,7 +633,6 @@ impl From<crate::sections::Section> for FfiSection {
             avg_grade_percent: s.avg_grade_percent,
             elevation_loss_m: s.elevation_loss_m,
             max_grade_percent: s.max_grade_percent,
-            straightness: s.straightness,
             klass: s.klass,
             is_lift: s.is_lift,
             rank_score: s.rank_score,
@@ -661,7 +692,6 @@ impl From<&tracematch::FrequentSection> for FfiSection {
             superseded_by: None,
             elevation_loss_m: s.enrichment.elevation_loss_m,
             max_grade_percent: s.enrichment.max_grade_percent,
-            straightness: s.enrichment.straightness,
             klass: s.enrichment.klass.map(|k| k.as_str().to_string()),
             is_lift: s.enrichment.is_lift,
             rank_score: s.rank.as_ref().map(|r| r.score),
@@ -708,21 +738,21 @@ pub struct FfiSectionLap {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionHistoryEvent {
-    pub id: i64,
+    pub id: f64,
     pub at: String,
     /// formed, restored, split, recut, dissolved, merged, superseded,
     /// reverted, pr_rebased, baseline or algorithm_changed.
     pub kind: String,
     /// JSON: the era snapshot, lineage links and what was around the change.
     pub details: Option<String>,
-    pub geometry_version: Option<i64>,
+    pub geometry_version: Option<f64>,
 }
 
 /// One stored geometry version of a section.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionGeometryVersion {
-    pub version: i64,
+    pub version: f64,
     pub created_at: String,
     pub milestone: bool,
     pub pinned: bool,
@@ -804,7 +834,7 @@ pub struct FfiSectionPerformanceRecord {
     pub activity_id: String,
     pub activity_name: String,
     /// Unix timestamp
-    pub activity_date: i64,
+    pub activity_date: f64,
     /// All laps for this activity on this section
     pub laps: Vec<FfiSectionLap>,
     /// Number of times this section was traversed
@@ -828,7 +858,7 @@ impl From<crate::SectionPerformanceRecord> for FfiSectionPerformanceRecord {
         Self {
             activity_id: r.activity_id,
             activity_name: r.activity_name,
-            activity_date: r.activity_date,
+            activity_date: r.activity_date as f64,
             laps: r.laps.into_iter().map(FfiSectionLap::from).collect(),
             lap_count: r.lap_count,
             best_time: r.best_time,
@@ -849,7 +879,7 @@ pub struct FfiDirectionStats {
     /// Average time across all traversals in this direction (seconds)
     pub avg_time: Option<f64>,
     /// Unix timestamp of most recent traversal in this direction
-    pub last_activity: Option<i64>,
+    pub last_activity: Option<f64>,
     /// Number of traversals in this direction
     pub count: u32,
     /// Average speed across all traversals in this direction (m/s).
@@ -862,7 +892,7 @@ impl From<crate::DirectionStats> for FfiDirectionStats {
     fn from(s: crate::DirectionStats) -> Self {
         Self {
             avg_time: s.avg_time,
-            last_activity: s.last_activity,
+            last_activity: s.last_activity.map(|v| v as f64),
             count: s.count,
             avg_speed: s.avg_speed,
         }
@@ -921,7 +951,6 @@ pub struct FfiSectionPerformanceBatchEntry {
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionRecalcResult {
     pub section_id: String,
-    pub polyline_point_count: u32,
     pub distance_meters: f64,
 }
 
@@ -933,7 +962,7 @@ pub struct FfiRoutePerformance {
     pub activity_id: String,
     pub name: String,
     /// Unix timestamp
-    pub date: i64,
+    pub date: f64,
     /// Speed in m/s (distance / moving_time)
     pub speed: f64,
     /// Elapsed time in seconds
@@ -961,7 +990,7 @@ impl From<crate::RoutePerformance> for FfiRoutePerformance {
         Self {
             activity_id: p.activity_id,
             name: p.name,
-            date: p.date,
+            date: p.date as f64,
             speed: p.speed,
             duration: p.duration,
             moving_time: p.moving_time,
@@ -1042,7 +1071,7 @@ pub struct FfiHeatmapDay {
     /// Intensity bracket: 0 (none), 1 (light), 2 (medium-light), 3 (medium), 4 (high)
     pub intensity: u8,
     /// Longest activity duration in seconds for this day
-    pub max_duration: i64,
+    pub max_duration: f64,
     /// Number of activities on this day
     pub activity_count: u32,
 }
@@ -1071,6 +1100,32 @@ pub struct FfiGroupWithPolyline {
 
 /// Section summary with embedded polyline for the Routes screen.
 /// Avoids N separate getSectionPolyline() calls.
+/// A section as the regional map draws it: a line, a colour key and a label.
+///
+/// The map used to take the whole `FfiSection` for this, which clones
+/// `activity_ids`, one `activity_portions` record per traversal and the point
+/// density per section, then converted every portion in JavaScript and threw all
+/// of it away. These are the six fields the map actually reads.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiMapSection {
+    pub id: String,
+    /// The live name when the section has one, so the caller needs no overlay read.
+    pub name: Option<String>,
+    pub sport_type: String,
+    /// Traversals, one per pass.
+    pub visit_count: u32,
+    pub distance_meters: f64,
+    /// climb, descent, rolling, flat or loop; None when nothing says. With the
+    /// grade below, this is what the auto-generated label is built from, so the
+    /// map's names do not change when it stops taking the whole record.
+    pub klass: Option<String>,
+    /// Steepest grade (%) held over 300 m of the slice.
+    pub max_grade_percent: Option<f64>,
+    /// Delta+varint encoded coordinates, as every other track leaves the engine.
+    pub encoded_polyline: Vec<u8>,
+}
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiSectionWithPolyline {
     pub id: String,
@@ -1097,6 +1152,95 @@ pub struct FfiSectionWithPolyline {
     pub is_lift: bool,
     pub rank_score: Option<f64>,
     pub sport_rank_score: Option<f64>,
+    /// The section's record was set on its most recent outing. The feed card
+    /// and the activity plot both mark a record; this is the same fact keyed by
+    /// section, so the sections list can mark it too.
+    pub latest_is_record: bool,
+}
+
+/// The order the routes list is in. `Nearby` is the engine's own distance
+/// ranking, which is why the order is an argument rather than something the
+/// list redoes after it has been paged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiGroupSort {
+    Nearby,
+    Activities,
+    Distance,
+    Name,
+}
+
+/// The order the sections list is in. `Signature` is the engine's
+/// interestingness percentile, pooled or within one sport.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiSectionSort {
+    Nearby,
+    Signature,
+    Visits,
+    Distance,
+    Name,
+}
+
+/// The four kinds the sections list can hide. Each is true when that kind is
+/// hidden, which is how the screen holds them.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionFilters {
+    pub hide_custom: bool,
+    pub hide_auto: bool,
+    pub hide_disabled: bool,
+    pub hide_unaccepted: bool,
+}
+
+/// Everything the Routes screen asks for in one call. The order, the search and
+/// the filters are arguments because they have to be applied before the page is
+/// taken: a sort over the page returns the longest route of the first fifty,
+/// not of the library.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiRoutesScreenQuery {
+    pub group_limit: u32,
+    pub group_offset: u32,
+    pub section_limit: u32,
+    pub section_offset: u32,
+    pub min_group_activity_count: u32,
+    pub group_sort: FfiGroupSort,
+    /// Case-insensitive substring of the group name. Empty matches everything.
+    pub group_search: String,
+    pub section_sort: FfiSectionSort,
+    /// Case-insensitive substring of the section name. Empty matches everything.
+    pub section_search: String,
+    pub section_filters: FfiSectionFilters,
+    /// Set when the list is already narrowed to one sport, so `Signature` reads
+    /// the within-sport percentile rather than the pooled one. It does not
+    /// filter.
+    pub section_sport_type: Option<String>,
+    pub user_lat: f64,
+    pub user_lng: f64,
+}
+
+impl Default for FfiRoutesScreenQuery {
+    /// The screen's own defaults: a page of fifty in the order the lists open
+    /// in, nothing searched and nothing hidden.
+    fn default() -> Self {
+        Self {
+            group_limit: 50,
+            group_offset: 0,
+            section_limit: 50,
+            section_offset: 0,
+            min_group_activity_count: 0,
+            group_sort: FfiGroupSort::Activities,
+            group_search: String::new(),
+            section_sort: FfiSectionSort::Visits,
+            section_search: String::new(),
+            section_filters: FfiSectionFilters {
+                hide_custom: false,
+                hide_auto: false,
+                hide_disabled: false,
+                hide_unaccepted: false,
+            },
+            section_sport_type: None,
+            user_lat: f64::NAN,
+            user_lng: f64::NAN,
+        }
+    }
 }
 
 /// All data needed by the Routes screen in a single FFI call.
@@ -1106,8 +1250,8 @@ pub struct FfiRoutesScreenData {
     pub activity_count: u32,
     pub group_count: u32,
     pub section_count: u32,
-    pub oldest_date: Option<i64>,
-    pub newest_date: Option<i64>,
+    pub oldest_date: Option<f64>,
+    pub newest_date: Option<f64>,
     pub groups: Vec<FfiGroupWithPolyline>,
     pub sections: Vec<FfiSectionWithPolyline>,
     /// Whether more groups are available beyond the current page
@@ -1116,6 +1260,24 @@ pub struct FfiRoutesScreenData {
     pub has_more_sections: bool,
     /// Whether route groups need recomputation (stale after activity removal)
     pub groups_dirty: bool,
+    /// How many groups the search and the minimum activity count leave. This is
+    /// what the page is taken out of, and what `has_more_groups` is measured
+    /// against. `group_count` stays the whole catalogue.
+    pub filtered_group_count: u32,
+    /// How many sections the search and the hidden filters leave.
+    pub filtered_section_count: u32,
+    /// Auto sections the athlete has not accepted, over the whole catalogue and
+    /// not the page, because this is the "N to review" figure.
+    pub unaccepted_auto_count: u32,
+    /// Auto sections the athlete has accepted, over the whole catalogue.
+    pub accepted_auto_count: u32,
+    /// Custom sections over the whole catalogue. The chip beside it filters the
+    /// catalogue, so a page-sized tally would be a lower bound nothing labels.
+    pub custom_count: u32,
+    /// Auto sections the athlete retired, disabled or superseded, over the
+    /// whole catalogue. Taken before `hide_disabled` runs, which is the filter
+    /// this figure is the count for and which hides them by default.
+    pub retired_count: u32,
 }
 
 // ============================================================================
@@ -1135,12 +1297,23 @@ pub struct FfiRankedSection {
     pub engagement_score: f64,
     pub traversal_count: u32,
     pub best_time_secs: f64,
+    /// When the best time was set, epoch seconds, or none with no traversal.
+    ///
+    /// The stale-PR card compares the athlete's fitness now against their
+    /// fitness when the record was set, so the record's own date has to travel
+    /// with it. Without it the card compared against a value from thirty days
+    /// ago, on a day the athlete may never have ridden the section.
+    pub best_date: Option<f64>,
     pub median_recent_secs: f64,
     pub days_since_last: u32,
     /// -1 = declining, 0 = stable, 1 = improving
     pub trend: i8,
     /// Whether the most recent effort is the all-time best time
     pub latest_is_pr: bool,
+    /// The last efforts on the section, oldest first, capped by the ranker's
+    /// own limit. The scoring already holds every traversal to compute the
+    /// medians above, so carrying the tail of them costs the ranker nothing.
+    pub recent_efforts: Vec<FfiSeriesPoint>,
 }
 
 /// Per-exercise contribution to a muscle group, aggregated across all active
@@ -1178,7 +1351,7 @@ pub struct FfiSectionChartPoint {
     pub activity_id: String,
     pub activity_name: String,
     /// Unix seconds
-    pub activity_date: i64,
+    pub activity_date: f64,
     /// m/s
     pub speed: f64,
     /// Section time for this lap (seconds)
@@ -1206,7 +1379,7 @@ pub struct FfiSectionChartData {
     pub best_time_secs: Option<f64>,
     pub best_pace: Option<f64>,
     pub average_time_secs: Option<f64>,
-    pub last_activity_date: Option<i64>,
+    pub last_activity_date: Option<f64>,
     pub total_activities: u32,
 }
 
@@ -1246,10 +1419,6 @@ pub struct FfiCalendarDirectionBest {
     pub best_activity_id: String,
     /// Name of best activity
     pub best_activity_name: String,
-    /// Unix timestamp of best activity
-    pub best_activity_date: i64,
-    /// True if time was estimated
-    pub is_estimated: bool,
 }
 
 impl From<crate::CalendarDirectionBest> for FfiCalendarDirectionBest {
@@ -1260,8 +1429,6 @@ impl From<crate::CalendarDirectionBest> for FfiCalendarDirectionBest {
             best_pace: d.best_pace,
             best_activity_id: d.best_activity_id,
             best_activity_name: d.best_activity_name,
-            best_activity_date: d.best_activity_date,
-            is_estimated: d.is_estimated,
         }
     }
 }
@@ -1362,10 +1529,10 @@ impl From<crate::CalendarSummary> for FfiCalendarSummary {
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiWeeklySummary {
     /// Monday of the week, epoch seconds at local midnight.
-    pub week_start: i64,
+    pub week_start: f64,
     pub count: u32,
     /// Moving time in seconds.
-    pub moving_time: i64,
+    pub moving_time: f64,
     /// Distance in metres.
     pub distance: f64,
     /// Training load (TSS).
@@ -1377,7 +1544,7 @@ pub struct FfiWeeklySummary {
 pub struct FfiCalendarEventBody {
     pub event_id: String,
     /// Event day as epoch seconds.
-    pub date: i64,
+    pub date: f64,
     pub raw: String,
 }
 
@@ -1387,9 +1554,20 @@ pub struct FfiCalendarEventBody {
 pub struct FfiActivityBody {
     pub activity_id: String,
     /// Start time as epoch seconds.
-    pub date: i64,
+    pub date: f64,
     /// The untyped intervals.icu activity payload.
     pub raw: String,
+}
+
+/// One activity's display name, for a caller that holds ids and has to draw
+/// something an athlete recognises. Only the ids the engine knows are
+/// answered, so the caller falls back to the id itself.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivityName {
+    pub activity_id: String,
+    pub name: String,
+    /// Start time as epoch seconds, so a caller can order what it draws.
+    pub date: f64,
 }
 
 /// One wellness row passed in from TS (intervals.icu sync). Fields outside
@@ -1405,7 +1583,7 @@ pub struct FfiWellnessRow {
     pub hrv: Option<f64>,
     pub resting_hr: Option<f64>,
     pub weight: Option<f64>,
-    pub sleep_secs: Option<i64>,
+    pub sleep_secs: Option<f64>,
     pub sleep_score: Option<f64>,
     pub soreness: Option<i32>,
     pub fatigue: Option<i32>,
@@ -1415,6 +1593,43 @@ pub struct FfiWellnessRow {
     /// The untyped intervals.icu body for this day, when the caller has it.
     /// Omitting it leaves any previously stored body intact.
     pub raw: Option<String>,
+}
+
+/// One sport's contribution to a day's load, as intervals.icu's `sportInfo`
+/// carries it. The fitness chart's daily load bar is the sum of these.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSportLoad {
+    /// The sport the entry stands for, as the API spells it ("Ride", "Run").
+    pub sport_group: Option<String>,
+    pub load: Option<f64>,
+}
+
+/// One stored wellness day, typed. This is what the wellness and fitness
+/// screens read: every field they render, and nothing else.
+///
+/// The untyped body stays in the `raw` column for the Rust-side eFTP
+/// derivation, which reads fields no screen does. It no longer crosses the
+/// FFI, so no screen parses JSON to draw a chart.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiWellnessDay {
+    /// ISO-8601 YYYY-MM-DD
+    pub date: String,
+    pub ctl: Option<f64>,
+    pub atl: Option<f64>,
+    pub ramp_rate: Option<f64>,
+    pub hrv: Option<f64>,
+    pub resting_hr: Option<f64>,
+    pub weight: Option<f64>,
+    pub sleep_secs: Option<f64>,
+    pub sleep_score: Option<f64>,
+    pub soreness: Option<i32>,
+    pub fatigue: Option<i32>,
+    pub stress: Option<i32>,
+    pub mood: Option<i32>,
+    pub motivation: Option<i32>,
+    /// Empty for a day synced before the body column existed, and for a day
+    /// the API sent no per-sport breakdown for.
+    pub sport_load: Vec<FfiSportLoad>,
 }
 
 /// Sparkline payload for the SummaryCard: rounded integer arrays, oldest
@@ -1434,10 +1649,18 @@ pub struct FfiWellnessSparklines {
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiHrvTrend {
     pub label: String,
+    /// Which rule produced `label`: `halves` for the window's two halves
+    /// moving past the deadband, `lastTwoDays` for the override that two
+    /// consecutive readings below the window mean fires. Both can say
+    /// `trendingDown` and they are not the same claim.
+    pub reason: String,
     pub avg: f64,
     pub latest: f64,
     pub data_points: u32,
     pub sparkline: Vec<f64>,
+    /// The latest day against the window's average, in the window's own
+    /// standard deviations. Absent where the window has no spread.
+    pub signal_delta: Option<f64>,
 }
 
 /// Ranked sections for one sport, paired with the sport label. One element
@@ -1464,15 +1687,15 @@ pub struct FfiActivityPattern {
     /// Average moving time in seconds
     pub avg_duration_secs: u32,
     /// Average training load (TSS)
-    pub avg_tss: f32,
+    pub avg_tss: f64,
     /// Average distance in meters
-    pub avg_distance_meters: f32,
+    pub avg_distance_meters: f64,
     /// How often this pattern occurs per month
-    pub frequency_per_month: f32,
-    /// Weighted confidence score (0.0-1.0)
-    pub confidence: f32,
-    /// Silhouette score for cluster quality (0.0-1.0)
-    pub silhouette_score: f32,
+    pub frequency_per_month: f64,
+    /// Weighted confidence score (0.0-1.0). `f64`, like every other float that
+    /// crosses: an `f32` widens to a double on the way and 0.1 arrives as
+    /// 0.10000000149, so a threshold compared with `===` never matched.
+    pub confidence: f64,
     /// Days since the most recent activity in this cluster
     pub days_since_last: u32,
 }
@@ -1481,6 +1704,20 @@ pub struct FfiActivityPattern {
 // Insights Batch Types
 // ============================================================================
 
+/// One point of a history series: a value and when it was recorded.
+///
+/// Every insight card draws a graphic of its own history, and the read carried
+/// a series for two of eight generators. The rest carried summary numbers, so
+/// a card either drew nothing or the sheet behind it read the engine again per
+/// open. One shape serves all of them: a lap time against its activity date, an
+/// eFTP against its day, a critical speed against its snapshot.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSeriesPoint {
+    pub value: f64,
+    /// Epoch seconds.
+    pub date: f64,
+}
+
 /// A recent section PR detected in the last 7 days.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiRecentPR {
@@ -1488,10 +1725,25 @@ pub struct FfiRecentPR {
     pub section_name: String,
     pub best_time: f64,
     pub days_ago: u32,
-    /// Lifetime traversals of the section. A record set over three outings and
-    /// one set over fifty are different claims, and the ranker has no other way
-    /// to tell them apart.
+    /// The sport the record was set in. Shared ground holds a record in each
+    /// sport that travels it and neither is measured against the other's laps,
+    /// so a row that names no sport leaves the card labelling a run with a
+    /// bicycle.
+    pub sport_type: String,
+    /// Traversals in that sport, one per pass. A record set over three outings
+    /// and one set over fifty are different claims, and the ranker has no other
+    /// way to tell them apart. It counted the section's own traversals until
+    /// 2026-09-20, so three runs on a much-ridden climb claimed the rides.
     pub traversal_count: u32,
+    /// The last efforts on the section, oldest first, capped by
+    /// `FfiInsightsParams::history_limit`. What the card draws, so the list
+    /// does not read the engine again per card to draw a line it already had.
+    pub recent_efforts: Vec<FfiSeriesPoint>,
+    /// The section's own line, delta+varint encoded as every other track
+    /// leaves the engine, thinned to what a thumbnail can draw. A record on
+    /// "section 6" says nothing about which stretch of road that is, and the
+    /// summary this row is built from already holds the geometry.
+    pub encoded_polyline: Vec<u8>,
 }
 
 /// Batch insights data: combines period stats, trends, patterns, and recent PRs.
@@ -1504,6 +1756,12 @@ pub struct FfiInsightsData {
     pub previous_week: FfiPeriodStats,
     /// 4-week chronic period stats (raw total, not averaged)
     pub chronic_period: FfiPeriodStats,
+    /// `chronic_period` over the four weeks it is divided into, which is what
+    /// a week is compared against.
+    pub chronic_week_average: FfiPeriodStats,
+    /// Those four weeks one at a time, oldest first. The comparison card's
+    /// claim is about the last four weeks, and two totals cannot draw it.
+    pub chronic_weeks: Vec<FfiPeriodStats>,
     /// Today's stats (for rest day detection)
     pub today_period: FfiPeriodStats,
     /// FTP trend
@@ -1528,27 +1786,46 @@ pub struct FfiInsightsData {
     pub has_strength_data: bool,
     /// Strength volume over the requested month and weeks, when data exists
     pub strength_series: Option<FfiStrengthInsightSeries>,
+    /// Form as the newest day in the requested wellness window has it, or
+    /// `None` when the window holds no day at all
+    pub form: Option<FfiInsightForm>,
+    /// This week against last, absent when neither total gives the earlier
+    /// week something to divide by.
+    pub week_over_week: Option<FfiPeriodComparison>,
+    /// Last week against the chronic weekly average, on the same terms.
+    pub week_against_chronic: Option<FfiPeriodComparison>,
+    /// HRV over the trailing window, or `None` under five valid days
+    pub hrv_trend: Option<FfiHrvTrend>,
+    /// Re-cuts, splits, restores and reverts inside the requested window
+    pub recent_section_changes: Vec<FfiSectionChange>,
+    /// Sections a fitness gain makes worth revisiting, already excluding the
+    /// ones `recent_prs` covers
+    pub stale_pr_opportunities: Vec<FfiStalePrOpportunity>,
 }
 
 /// Scalar inputs for the insights bundle.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiInsightsParams {
     /// Start of the current week
-    pub current_start: i64,
+    pub current_start: f64,
     /// Now
-    pub current_end: i64,
+    pub current_end: f64,
     /// Start of the previous week
-    pub prev_start: i64,
+    pub prev_start: f64,
     /// End of the previous week
-    pub prev_end: i64,
+    pub prev_end: f64,
     /// Start of the four-week chronic window
-    pub chronic_start: i64,
+    pub chronic_start: f64,
     /// Start of today
-    pub today_start: i64,
+    pub today_start: f64,
     /// Whether section-derived insights are wanted at all
     pub include_sections: bool,
     /// Ranked sections requested per sport
     pub ranked_limit: u32,
+    /// History points a card carries at most, per section and per trend. The
+    /// graphic is a strip a few dozen pixels wide, so the read is capped
+    /// rather than carrying a library of laps across the bridge.
+    pub history_limit: u32,
     /// Sections last visited beyond this many days get no efficiency trend
     pub active_window_days: u32,
     /// Efficiency candidates taken from each sport's ranked list
@@ -1561,6 +1838,38 @@ pub struct FfiInsightsParams {
     pub strength_month: FfiTimestampRange,
     /// Trailing weeks the strength summary covers
     pub strength_weeks: Vec<FfiTimestampRange>,
+    /// Oldest day of the wellness window form is read from, `YYYY-MM-DD`
+    pub wellness_oldest: String,
+    /// Newest day of it, which is normally today in the athlete's own zone
+    pub wellness_newest: String,
+    /// Trailing days the HRV trend is read over
+    pub hrv_window_days: u32,
+    /// Trailing days the section-change list covers
+    pub section_change_window_days: u32,
+    /// A section unvisited for this many days is stale
+    pub stale_threshold_days: u32,
+    /// Fitness has to have risen by this much for a stale section to qualify
+    pub stale_min_gain_percent: f64,
+    /// Stale-PR opportunities to return at most
+    pub stale_max_opportunities: u32,
+}
+
+/// Fitness, fatigue and the difference, as the newest day in the window has it.
+///
+/// The three were derived per recompute by sorting the window's rows and
+/// subtracting, over rows that had crossed the boundary only to be reduced to
+/// these. The day is carried so a stale reading can be named rather than passed
+/// off as today's.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiInsightForm {
+    /// The day the reading is from, `YYYY-MM-DD`
+    pub date: String,
+    /// Chronic training load, zero when the day carries none
+    pub ctl: f64,
+    /// Acute training load, zero when the day carries none
+    pub atl: f64,
+    /// `ctl - atl`
+    pub tsb: f64,
 }
 
 // ============================================================================
@@ -1586,6 +1895,11 @@ pub struct FfiStartupData {
     pub summary_card: FfiSummaryCardData,
     /// GPS tracks for initial visible activities (replaces N × getGpsTrack)
     pub preview_tracks: Vec<FfiPreviewTrack>,
+    /// The card's sparklines, over the window the feed draws. `None` when the
+    /// athlete has no wellness at all. Bundled here rather than fetched
+    /// beside this read, which cost the feed a second call per wellness
+    /// invalidation and every `activities` event causes one.
+    pub sparklines: Option<FfiWellnessSparklines>,
 }
 
 // ============================================================================
@@ -1609,13 +1923,19 @@ pub struct FfiActivityDetailData {
     pub activity_count: u32,
     /// Total sections held by the engine
     pub section_count: u32,
-    /// Route groups meeting the caller's minimum, most attempts first
+    /// The route group this activity belongs to, if it meets the caller's
+    /// minimum. At most one: the screen asks which group holds this activity,
+    /// so the catalogue was what it searched rather than what it needed.
     pub route_groups: Vec<FfiRouteGroup>,
-    /// Route group total before the minimum-activity filter
-    pub total_route_group_count: u32,
-    /// Visible sections this activity traverses, most-visited first
-    pub matched_sections: Vec<FfiSection>,
-    /// Every visible custom section, matched or not
+    /// Visible sections this activity traverses, most-visited first.
+    ///
+    /// The light record: the screen draws the line, the name and the counts
+    /// and never reads the member list, which on a 30-section activity was
+    /// several hundred id strings lifted across JSI on the mount.
+    pub matched_sections: Vec<FfiSectionWithPolyline>,
+    /// Visible custom sections naming this activity that `matched_sections`
+    /// does not already carry. Not the whole custom catalogue: the screen
+    /// filtered it to exactly this on the far side of the call.
     pub custom_sections: Vec<FfiSection>,
     /// One entry per (section, direction) this activity encountered
     pub encounters: Vec<FfiSectionEncounter>,
@@ -1657,7 +1977,7 @@ pub struct FfiSectionDetailData {
     /// Every stored geometry version, with the pinned one flagged
     pub geometry_versions: Vec<FfiSectionGeometryVersion>,
     /// The pinned version, or `None` when the section follows the newest cut
-    pub pinned_version: Option<i64>,
+    pub pinned_version: Option<f64>,
     /// Laps the user excluded, keyed the way the junction rows are
     pub excluded_laps: Vec<FfiExcludedLap>,
     /// Efficiency trend, or `None` with too few efforts to call one
@@ -1725,6 +2045,11 @@ pub struct FfiWidgetSnapshotData {
     pub latest_is_pr: bool,
     /// The latest activity's GPS track, empty for indoor activities
     pub latest_gps: Vec<FfiGpsPoint>,
+    /// The ramp rate intervals.icu computed, off the newest wellness day that
+    /// carries one. `None` before wellness has synced. The widget derived its
+    /// own from the fitness sparkline, which is a different number from the
+    /// same data.
+    pub ramp_rate: Option<f64>,
 }
 
 // ============================================================================
@@ -1756,18 +2081,19 @@ pub struct FfiMapScreenData {
 #[serde(rename_all = "camelCase")]
 pub struct FfiEfficiencyPoint {
     /// Unix timestamp of the activity
-    pub date: i64,
+    pub date: f64,
     /// Pace in seconds per km
     pub pace_secs_per_km: f64,
     /// Average heart rate during this traversal
     pub avg_hr: f64,
-    /// HR/pace ratio: avg_hr / pace_secs_per_km - lower = more efficient
+    /// Heart rate per unit of speed: avg_hr * pace_secs_per_km. Lower is
+    /// fewer beats for the same speed, which is more efficient.
     pub hr_pace_ratio: f64,
 }
 
 /// Aerobic efficiency trend for a section.
-/// Tracks how HR/pace ratio changes over time across matched section efforts.
-/// A declining ratio indicates improving aerobic efficiency
+/// Tracks how heart rate per unit of speed changes over time across matched
+/// section efforts. A declining ratio indicates improving aerobic efficiency
 /// (Coyle et al., J Appl Physiol, 1991; Jones & Carter, Sports Med, 2000).
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -1778,14 +2104,21 @@ pub struct FfiEfficiencyTrend {
     pub section_name: String,
     /// Individual data points sorted by date (oldest first)
     pub points: Vec<FfiEfficiencyPoint>,
-    /// Linear regression slope of hr_pace_ratio over time (negative = improving)
+    /// Linear regression slope of the ratio over time (negative = improving)
     pub trend_slope: f64,
     /// True if slope is significantly negative (improving aerobic efficiency)
     pub is_improving: bool,
-    /// Estimated HR change in bpm at the same pace over the observed time range
+    /// The ratio's own change over the observed range, restated in bpm at the
+    /// mean pace. Not a measured heart rate delta: an effort set that only
+    /// changed pace moves it too, which is why the card draws it only where
+    /// the trend is improving.
     pub hr_change_bpm: f64,
-    /// Number of efforts with both pace and HR data
+    /// Efforts the regression used: both signals present and a plausible pace
     pub effort_count: u32,
+    /// The newest effort's ratio against the mean of the series, in the
+    /// series' own standard deviations. Absent where the series has no spread
+    /// to measure against.
+    pub signal_delta: Option<f64>,
 }
 
 // ============================================================================
@@ -1881,7 +2214,7 @@ mod tests {
     fn direction_stats_carries_every_field() {
         let ffi = FfiDirectionStats::from(direction_stats());
         assert_eq!(ffi.avg_time, Some(300.0));
-        assert_eq!(ffi.last_activity, Some(1700000000));
+        assert_eq!(ffi.last_activity, Some(1_700_000_000.0));
         assert_eq!(ffi.count, 5);
         // avg_speed and avg_time are both Option<f64>: a transposition here
         // would show route stats as a speed in a seconds field.
@@ -1916,7 +2249,7 @@ mod tests {
         let ffi = FfiSectionPerformanceRecord::from(section_record("same", 120.5));
         assert_eq!(ffi.activity_id, "act_same");
         assert_eq!(ffi.activity_name, "same effort");
-        assert_eq!(ffi.activity_date, 1700000000);
+        assert_eq!(ffi.activity_date, 1_700_000_000.0);
         assert_eq!(ffi.lap_count, 1);
         // best_* against avg_*: a transposition would report the average as
         // the PR on the section detail.
@@ -1946,7 +2279,7 @@ mod tests {
         let ffi = FfiRoutePerformance::from(route_performance("act_123", 8.5));
         assert_eq!(ffi.activity_id, "act_123");
         assert_eq!(ffi.name, "Morning Ride");
-        assert_eq!(ffi.date, 1700000000);
+        assert_eq!(ffi.date, 1_700_000_000.0);
         assert_eq!(ffi.speed, 8.5);
         assert_eq!(ffi.distance, 30000.0);
         assert_eq!(ffi.elevation_gain, 500.0);
@@ -1964,7 +2297,7 @@ mod tests {
         assert_eq!(ffi.elapsed_time, 3600);
         assert_eq!(ffi.activity_id, "act_123");
         assert_eq!(ffi.name, "Morning Ride");
-        assert_eq!(ffi.date, 1700000000);
+        assert_eq!(ffi.date, 1_700_000_000.0);
         assert_eq!(ffi.distance, 30000.0);
         assert_eq!(ffi.elevation_gain, 500.0);
         assert_eq!(ffi.avg_hr, Some(145));
@@ -2326,6 +2659,30 @@ pub struct FfiMuscleVolume {
     pub exercise_names: Vec<String>,
 }
 
+/// One opposing pair of muscle groups, and what their volumes say about it.
+///
+/// The verdict is a function of the volumes beside it, so it is computed where
+/// they are rather than per screen mount. The pair's name and the muscles'
+/// display names are copy and stay in TypeScript, which is where the seventeen
+/// locales are.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiStrengthBalancePair {
+    /// Stable id the front end keys its copy on, e.g. `biceps_triceps`
+    pub id: String,
+    pub left_slug: String,
+    pub right_slug: String,
+    /// Weighted sets on each side, rounded to one decimal, as the verdict saw them
+    pub left_weighted_sets: f64,
+    pub right_weighted_sets: f64,
+    /// The heavier side, or `None` when the two are equal
+    pub dominant_slug: Option<String>,
+    /// Heavier over lighter. `None` when either side is untrained, where a
+    /// ratio is not a number: `status` carries that case.
+    pub ratio: Option<f64>,
+    /// `balanced` | `watch` | `imbalanced` | `one-sided` | `insufficient`
+    pub status: String,
+}
+
 /// Summary of strength training volume over a time period.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiStrengthSummary {
@@ -2335,13 +2692,40 @@ pub struct FfiStrengthSummary {
     pub activity_count: u32,
     /// Total active sets across all activities
     pub total_sets: u32,
+    /// One entry per opposing pair, trained or not
+    pub balance: Vec<FfiStrengthBalancePair>,
 }
 
 /// Inclusive Unix-second range used for batched summary requests.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiTimestampRange {
-    pub start_ts: i64,
-    pub end_ts: i64,
+    pub start_ts: f64,
+    pub end_ts: f64,
+}
+
+/// Everything the strength tab paints with. All four are aggregates of the
+/// same sets over the same windows, so they are one read rather than four: a
+/// scrub across the diagram then costs no engine call at all.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiStrengthScreenData {
+    /// The chosen period aggregated by muscle, with the balance verdicts.
+    pub summary: FfiStrengthSummary,
+    /// One aggregate per trailing week, in the order requested.
+    pub weekly: Vec<FfiStrengthSummary>,
+    /// One entry per muscle present in any of those weeks, most trained first.
+    pub progressions: Vec<FfiStrengthProgression>,
+    /// The exercises behind every muscle the period reached.
+    pub exercises: Vec<FfiMuscleExercises>,
+    /// Days in the chosen period, which the frequency figures are against.
+    pub period_days: u32,
+}
+
+/// One muscle's exercises over the period, for the list under the diagram.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMuscleExercises {
+    pub muscle_slug: String,
+    /// Sorted by activity count descending, then by sets.
+    pub exercises: Vec<FfiExerciseSummary>,
 }
 
 /// Bundled strength aggregation for the insights hook: one monthly summary
@@ -2351,6 +2735,28 @@ pub struct FfiTimestampRange {
 pub struct FfiStrengthInsightSeries {
     pub monthly: FfiStrengthSummary,
     pub weekly: Vec<FfiStrengthSummary>,
+    /// One entry per muscle in `monthly`, in its order.
+    pub progressions: Vec<FfiStrengthProgression>,
+}
+
+/// One muscle's trailing-weeks progression: the last two weekly averages
+/// against the first two. Ranked here rather than in the reader, so the
+/// weekly summaries are never walked again to re-find figures this call
+/// already had.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiStrengthProgression {
+    pub muscle_slug: String,
+    /// Weighted sets for each week of `weekly`, oldest first, rounded to one
+    /// decimal before the averages below are taken. The order matters: the
+    /// reader rounded first and an average of unrounded weeks disagrees.
+    pub weekly_weighted_sets: Vec<f64>,
+    pub recent_average: f64,
+    pub baseline_average: f64,
+    pub peak_weighted_sets: f64,
+    /// `None` when the baseline is zero, which has no percentage to report.
+    pub change_pct: Option<f64>,
+    /// "up", "down" or "flat".
+    pub trend: String,
 }
 
 // ============================================================================
@@ -2376,15 +2782,6 @@ pub struct FfiExerciseSummary {
     pub is_primary: bool,
 }
 
-/// Exercise summaries grouped by frequency for a muscle group.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiMuscleExerciseSummary {
-    /// Exercises targeting the muscle, sorted by activity_count DESC
-    pub exercises: Vec<FfiExerciseSummary>,
-    /// Number of days in the selected period
-    pub period_days: u32,
-}
-
 /// An activity containing a specific exercise, with per-activity stats.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiExerciseActivity {
@@ -2393,7 +2790,7 @@ pub struct FfiExerciseActivity {
     /// Activity display name
     pub activity_name: String,
     /// Activity date as Unix timestamp (seconds)
-    pub date: i64,
+    pub date: f64,
     /// Number of sets of this exercise in the activity
     pub sets: u32,
     /// Total volume load in kg (weight × reps) for this exercise in this activity
@@ -2512,8 +2909,10 @@ pub struct FfiSectionMatch {
     pub section_id: String,
     pub section_name: Option<String>,
     pub sport_type: String,
-    pub start_index: u64,
-    pub end_index: u64,
+    /// Stream index, as `u32` like every other record's, so a caller comparing
+    /// this against a portion's index needs no BigInt cast to do it.
+    pub start_index: u32,
+    pub end_index: u32,
     pub match_quality: f64,
     pub same_direction: bool,
     pub distance_meters: f64,
@@ -2525,7 +2924,6 @@ pub struct FfiIndexActivitySummary {
     pub matched_sections: u32,
     pub inserted_portions: u32,
     pub regrouped: bool,
-    pub indicators_recomputed: bool,
 }
 
 impl From<crate::sections::IndexActivitySummary> for FfiIndexActivitySummary {
@@ -2534,7 +2932,6 @@ impl From<crate::sections::IndexActivitySummary> for FfiIndexActivitySummary {
             matched_sections: s.matched_sections,
             inserted_portions: s.inserted_portions,
             regrouped: s.regrouped,
-            indicators_recomputed: s.indicators_recomputed,
         }
     }
 }
@@ -2613,4 +3010,106 @@ pub struct FfiStalePrOpportunity {
     pub gain_percent: f64,
     /// "W" for power, "/km" for running, "/100m" for swimming
     pub unit: String,
+    /// The sport the section was ranked under. A section travelled in two
+    /// sports is ranked in each, and the card names which one it is offering.
+    pub sport_type: String,
+    /// The last efforts on the section, oldest first. The card's claim is that
+    /// a fitness gain makes the section worth revisiting, and the efforts are
+    /// what that claim is drawn against.
+    pub recent_efforts: Vec<FfiSeriesPoint>,
+}
+
+// ============================================================================
+// Preview and cutover payloads
+// ============================================================================
+
+/// How a proposed catalogue compares with the live one.
+///
+/// One record for both payloads that carry it, because it is one struct:
+/// `diff_catalogues_public` produces it for the preview run and for the
+/// cutover diff alike. The cutover persists it as JSON in a settings row, so
+/// it keeps its serde derives; the preview hands it straight across.
+#[derive(Debug, Clone, uniffi::Record, Serialize, Deserialize)]
+pub struct FfiCatalogueCounts {
+    pub current: u32,
+    pub proposed: u32,
+    pub unchanged: u32,
+    pub changed: u32,
+    pub new: u32,
+    pub gone: u32,
+}
+
+/// One section in a preview payload, in the same shape the live catalogue and
+/// a run's result both use.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiPreviewSection {
+    pub id: String,
+    /// The live section this one was paired with, when it was paired.
+    pub live_id: Option<String>,
+    /// "unchanged" | "changed" | "new" | "gone"
+    pub status: String,
+    pub name: Option<String>,
+    pub sport: String,
+    /// Delta+varint encoded coordinates (decode with `coords::decode`). Bytes
+    /// rather than the base64 the JSON payload carried, since a record has no
+    /// reason to spell them.
+    pub polyline: Vec<u8>,
+    pub visits: u32,
+    pub distance_m: f64,
+    pub elevation_gain_m: Option<f64>,
+    pub avg_grade_percent: Option<f64>,
+    pub pinned: bool,
+}
+
+/// What the run had to detect over.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiPreviewPool {
+    pub activities: u32,
+    pub empty: u32,
+    pub unreadable: u32,
+}
+
+/// The five exposed detector values the run used.
+#[derive(Debug, Clone, uniffi::Record, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiPreviewConfig {
+    pub proximity_threshold: f64,
+    pub min_section_length: f64,
+    pub max_section_length: f64,
+    pub min_activities: u32,
+    pub divergence_threshold: f64,
+}
+
+/// One preview run's result.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiPreviewResult {
+    pub pool: FfiPreviewPool,
+    /// `f64` rather than `u64`, since a record field TypeScript lifts as a
+    /// bigint throws the first time a caller stringifies the record
+    /// (`scripts/lint-ffi-bigint.mjs`).
+    pub elapsed_ms: f64,
+    pub config: FfiPreviewConfig,
+    pub counts: FfiCatalogueCounts,
+    pub sections: Vec<FfiPreviewSection>,
+}
+
+/// The config the cutover replaced beside the one it wrote.
+#[derive(Debug, Clone, uniffi::Record, Serialize, Deserialize)]
+pub struct FfiCutoverSettingsReset {
+    pub previous: FfiPreviewConfig,
+    pub current: FfiPreviewConfig,
+}
+
+/// The stored cutover diff the change card reads.
+///
+/// Counts and the reset only: a section is a reference activity and the
+/// indices of a pass over it, so a row per section put both catalogues'
+/// geometry in a settings row for the life of the install. An older payload
+/// still carries those rows and is read past rather than rejected.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiCutoverDiff {
+    pub token: String,
+    pub counts: FfiCatalogueCounts,
+    /// Dropped alone when it is half readable, never taking the diff with it.
+    pub settings_reset: Option<FfiCutoverSettingsReset>,
 }
