@@ -11,7 +11,17 @@
  * enough that it can never be read as a polarity.
  */
 
-import { verdict, verdictColor, brand } from '@/theme';
+import {
+  verdict,
+  verdictColor,
+  verdictFill,
+  insightToneColor,
+  insightIcon,
+  brand,
+  statusBadge,
+} from '@/theme';
+import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
+import type { SectionTrendData } from '@/features/insights/types';
 import { getTrendStyle } from '@/features/routes/components/TodayBanner';
 import { getTrendColor } from '@/features/insights/components/content/SectionTrendContent';
 
@@ -21,6 +31,16 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
 const LIGHT_SURFACE = '#FFFFFF';
 const DARK_SURFACE = '#18181B';
+
+/**
+ * Every surface a rung is drawn on, not the two the ladder's comment used to
+ * name. A verdict is drawn on cards, and a card is `backgroundAlt` in light and
+ * `surfaceCard` in dark, both further from the text tone than the two grounds
+ * this test used to check, so a rung could clear the bar here and miss it on
+ * every card in the app.
+ */
+const LIGHT_GROUNDS = [LIGHT_SURFACE, '#F8F9FA', '#F1F3F5'] as const;
+const DARK_GROUNDS = [DARK_SURFACE, '#1F1F23', '#232328'] as const;
 
 /** The floor the polarity rungs hold between adjacent steps, in both themes. */
 const MIN_ADJACENT_CONTRAST = 1.4;
@@ -52,6 +72,26 @@ function contrastRatio(a: string, b: string): number {
 }
 
 /** Distance from grey: the spread between the widest and narrowest channel. */
+/**
+ * A translucent fill over its ground, as the renderer composites it. A badge
+ * states its fill as eight-digit hex, and measuring the label against the bare
+ * hue rather than against what the eye sees is how a label under the bar reads
+ * as compliant.
+ */
+function over(fill: string, ground: string): string {
+  if (fill.length !== 9) return fill;
+  const alpha = parseInt(fill.slice(7, 9), 16) / 255;
+  const mix = (i: number) =>
+    Math.round(
+      parseInt(fill.slice(i, i + 2), 16) * alpha +
+        parseInt(ground.slice(i, i + 2), 16) * (1 - alpha)
+    )
+      .toString(16)
+      .toUpperCase()
+      .padStart(2, '0');
+  return `#${mix(1)}${mix(3)}${mix(5)}`;
+}
+
 function chroma(hex: string): number {
   const ch = channels(hex);
   return Math.max(...ch) - Math.min(...ch);
@@ -85,11 +125,29 @@ describe('verdict ladder', () => {
   });
 
   it.each([
-    ['light', LIGHT_SURFACE],
-    ['dark', DARK_SURFACE],
-  ] as const)('reads as text on the %s surface', (theme, surface) => {
-    for (const rung of Object.values(verdict)) {
-      expect(contrastRatio(rung[theme], surface)).toBeGreaterThanOrEqual(MIN_SURFACE_CONTRAST);
+    ['light', LIGHT_GROUNDS],
+    ['dark', DARK_GROUNDS],
+  ] as const)('reads as text on every %s surface it is drawn on', (theme, grounds) => {
+    for (const [name, rung] of Object.entries(verdict)) {
+      for (const ground of grounds) {
+        expect(`${name} on ${ground}: ${contrastRatio(rung[theme], ground).toFixed(2)}`).toBe(
+          `${name} on ${ground}: ${Math.max(contrastRatio(rung[theme], ground), MIN_SURFACE_CONTRAST).toFixed(2)}`
+        );
+      }
+    }
+  });
+
+  /**
+   * Every rung, not the two that were found under the bar: the `*Strong`
+   * variants share a text tone with their plain rung but not a fill, so a fix
+   * to one says nothing about the other five.
+   */
+  it('reads every status badge label on the fill it is drawn on', () => {
+    for (const [name, pair] of Object.entries(statusBadge)) {
+      const settled = over(pair.bg, LIGHT_SURFACE);
+      expect(`${name}: ${contrastRatio(pair.text, settled).toFixed(2)}`).toBe(
+        `${name}: ${Math.max(contrastRatio(pair.text, settled), MIN_SURFACE_CONTRAST).toFixed(2)}`
+      );
     }
   });
 
@@ -147,5 +205,72 @@ describe('the two sites that drew a verdict from another palette', () => {
   it('gives a missing section trend the neutral rung', () => {
     expect(getTrendColor(undefined, false)).toBe(verdict.neutral.light);
     expect(getTrendColor(undefined, true)).toBe(verdict.neutral.dark);
+  });
+});
+
+describe('the surfaces that used to answer from their own palette', () => {
+  const sectionTrend = (trend: number): SectionTrendData => ({
+    sectionId: `s${trend}`,
+    sectionName: 'Col du Test',
+    trend,
+    medianRecentSecs: 600,
+    bestTimeSecs: 540,
+    traversalCount: 20,
+  });
+
+  it('draws a declining section trend as the negative rung, never as a caution', () => {
+    const tones = generateSectionTrendInsights(
+      [sectionTrend(1), sectionTrend(-1)],
+      new Set(),
+      Date.now(),
+      ((key: string) => key) as never
+    ).map((i) => i.iconTone);
+
+    expect(tones).toContain('positive');
+    expect(tones).toContain('negative');
+    expect(tones).not.toContain('caution');
+  });
+
+  it('gives a chip fill the same hue as its text, at a readable weight', () => {
+    for (const rung of POLARITY) {
+      for (const isDark of [false, true]) {
+        const text = verdictColor(rung, isDark);
+        expect(verdictFill(rung, isDark)).toBe(`${text}18`);
+        expect(verdictFill(rung, isDark, true)).toBe(`${text}26`);
+      }
+    }
+  });
+
+  it('resolves an insight tone through the ladder, and leaves the categories alone', () => {
+    for (const rung of POLARITY) {
+      expect(insightToneColor(rung, false)).toBe(verdictColor(rung, false));
+      expect(insightToneColor(rung, true)).toBe(verdictColor(rung, true));
+    }
+    expect(insightToneColor('info', false)).toBe(insightIcon.info);
+    expect(insightToneColor('opportunity', true)).toBe(insightIcon.opportunity);
+  });
+
+  /**
+   * The ladder answers every polarity, so the only tones this group is allowed
+   * to hold are the two categories the ladder has no rung for. A member nobody
+   * can reach is a hue that can be changed with no effect on any screen, which
+   * is the shape that put the workout-step colours and the dead chart keys in
+   * the palette for months.
+   */
+  it('holds no tone that nothing can reach', () => {
+    const reachable = new Set(
+      (['info', 'opportunity'] as const).map((tone) => insightToneColor(tone, false))
+    );
+    const unreachable = Object.entries(insightIcon).filter(([, hue]) => !reachable.has(hue));
+
+    expect(unreachable.map(([name]) => name)).toStrictEqual([]);
+  });
+
+  // The pill is a solid with white text, which is the opposite of what the
+  // ladder's tones are sized for, so it takes the darker tone in both themes.
+  it('carries white text on the declining pill at AA', () => {
+    expect(contrastRatio(verdict.negative.light, '#FFFFFF')).toBeGreaterThanOrEqual(
+      MIN_SURFACE_CONTRAST
+    );
   });
 });

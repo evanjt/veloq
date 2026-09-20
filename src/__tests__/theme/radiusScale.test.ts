@@ -38,8 +38,41 @@ describe('the radius scale', () => {
   });
 
   it('keeps the spacing ladder ascending', () => {
-    const steps = [spacing.xxs, spacing.xs, spacing.xsPlus, spacing.sm, spacing.md, spacing.lg];
+    const steps = [
+      spacing.xxs,
+      spacing.xs,
+      spacing.xsPlus,
+      spacing.sm,
+      spacing.smPlus,
+      spacing.md,
+      spacing.lg,
+    ];
     expect(steps).toEqual([...steps].sort((a, b) => a - b));
+  });
+
+  /**
+   * 8 to 16 was a doubling with nothing in it, and the app drew a 10 at 30
+   * sites and a 12 at 29, so a third of the off-ladder paddings had no rung to
+   * fold to. The radius scale has carried a 12 since it was settled.
+   */
+  it('carries the half-step between 8 and 16 the app actually draws', () => {
+    expect(spacing.smPlus).toBe(12);
+    expect(spacing.smPlus).toBe(layout.borderRadiusMd);
+  });
+
+  it('names each spacing rung once, so two tokens cannot drift onto one value', () => {
+    const rungs = [
+      spacing.xxs,
+      spacing.xs,
+      spacing.xsPlus,
+      spacing.sm,
+      spacing.smPlus,
+      spacing.md,
+      spacing.lg,
+      spacing.xl,
+      spacing.xxl,
+    ];
+    expect(new Set(rungs).size).toBe(rungs.length);
   });
 });
 

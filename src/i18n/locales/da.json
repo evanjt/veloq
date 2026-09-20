@@ -47,7 +47,6 @@
       "burnRate": "Forbrændingshastighed",
       "caloriesBurned": "Forbrændte kalorier",
       "conditions": "Forhold",
-      "dailyValue": "Daglig værdi",
       "decoupling": "Afkobling",
       "deviceSensor": "Enhedssensor",
       "efficiencyFactor": "Effektivitetsfaktor",
@@ -60,7 +59,11 @@
       "formTSB": "Form-balance (TSB)",
       "hrRecovery": "Pulsgenopretning",
       "hrvToday": "HRV i dag",
+      "intensityEasy": "Let",
       "intensityFactor": "Intensitetsfaktor",
+      "intensityHard": "Hård",
+      "intensityModerate": "Moderat",
+      "intensityVeryHard": "Meget hård",
       "max": "Maks {{value}}",
       "maxLabel": "Maks",
       "peak": "Maksimum",
@@ -97,6 +100,7 @@
   "activityDetail": {
     "failedToLoad": "Kunne ikke indlæse aktivitet",
     "feedPreviewUpdated": "Forhåndsvisning af feed opdateret",
+    "intervalsNotDownloaded": "Intervaller ikke hentet endnu",
     "noMatchedSections": "Ingen matchede sektioner",
     "noMatchedSectionsDescription": "Sektioner, der matcher denne aktivitet, vises her",
     "noRouteMatch": "Ingen rutematch endnu",
@@ -113,6 +117,15 @@
     "exercises": "Øvelser",
     "exercisesSummary": "{{exercises}} øvelser · {{sets}} sæt",
     "tapMuscle": "Tryk for detaljer"
+  },
+  "activitySummary": {
+    "distance": "Afstand",
+    "downloading": "Henter denne aktivitet...",
+    "elevation": "Stigning",
+    "movingTime": "Bevægelsestid",
+    "openActivity": "Vis detaljer",
+    "title": "Oversigt",
+    "unavailable": "Denne aktivitet kunne ikke hentes."
   },
   "activityTypes": {
     "AlpineSki": "Alpint ski",
@@ -175,6 +188,7 @@
     "clearReload": "Ryd og genindlæs",
     "disconnect": "Afbryd",
     "disconnectMessage": "Dette vil fjerne dine API-legitimationsoplysninger fra appen. Du skal indtaste dem igen for at bruge appen.",
+    "disconnectOffline": "Du er offline. Begge login-metoder kræver en forbindelse, så du kan ikke logge ind igen, før radioen er tilbage.",
     "disconnectTitle": "Afbryd konto",
     "error": "Fejl",
     "failedToClear": "Kunne ikke rydde cache. Prøv venligst igen.",
@@ -279,6 +293,7 @@
     "noValidGpsData": "Ingen gyldige GPS-data",
     "offlineUsingCached": "Offline - bruger cachede ruter",
     "syncedActivities": "Synkroniserede {{count}} aktiviteter",
+    "syncedStillAnalysing": "Synkroniserede {{count}} aktiviteter. Analyserer stadig ruter",
     "syncedDemoActivities": "Synkroniserede {{count}} demoaktiviteter",
     "downloadingGpsProgress": "Downloader GPS-data... {{percent}}%",
     "noValidGpsChecked": "Ingen gyldige GPS-data fundet (tjekkede {{count}} aktiviteter)",
@@ -335,10 +350,6 @@
       "description": "Vi kunne ikke indlæse dette indhold",
       "title": "Noget gik galt"
     },
-    "networkError": {
-      "description": "Tjek din internetforbindelse og prøv igen",
-      "title": "Forbindelsesfejl"
-    },
     "offline": {
       "description": "Nogle funktioner kan være begrænsede",
       "title": "Du er offline"
@@ -354,17 +365,42 @@
         "network": "Kunne ikke naa intervals.icu",
         "storage": "En fil paa denne enhed kunne ikke laeses",
         "notConfigured": "Der er ikke gemt noget intervals.icu-login paa denne enhed",
-        "internal": "Synkroniseringen stoppede af en grund, appen ikke kan navngive"
+        "internal": "Synkroniseringen stoppede af en grund, appen ikke kan navngive",
+        "engineClosed": "Synkroniseringen stoppede, fordi biblioteket blev lukket undervejs"
       }
+    },
+    "tracksMissing": {
+      "title_one": "{{count}} rute blev ikke hentet",
+      "title_other": "{{count}} ruter blev ikke hentet",
+      "detail": "De mangler på kortet og er ikke matchet mod nogen strækning. Næste opdatering prøver igen."
     }
   },
   "engine": {
     "initFailed": "Rutemotor kunne ikke starte. Ruter og sektioner er muligvis ikke tilgængelige.",
+    "failure": {
+      "notOpen": "Rutemotoren er ikke åbnet endnu. Prøv igen om et øjeblik.",
+      "busy": "Databasen er optaget. Prøv igen om et øjeblik.",
+      "database": "Databasen kunne ikke gøre det. Prøv igen, og ryd cachen hvis det bliver ved."
+    },
     "initReason": {
       "busy": "Noget andet brugte databasen. Prøv igen om lidt.",
       "forwardSchema": "Disse data er gemt af en nyere version af Veloq. Opdatér appen for at åbne dem.",
       "storageUnavailable": "Databasen kunne ikke skrives. Frigør plads, og prøv igen.",
       "failed": "Rutemotoren stoppede af en årsag, appen ikke kan navngive."
+    },
+    "quarantine": {
+      "title": "Dit aktivitetsbibliotek er genopbygget",
+      "resyncing": "Dine aktiviteter hentes igen.",
+      "dismiss": "Forstået",
+      "separator": ", ",
+      "kept": {
+        "lead": "Nogle data kunne ikke læses, så biblioteket blev genopbygget. Beholdt: {{kept}}.",
+        "sections": "{{count}} af dine egne sektioner",
+        "history": "{{count}} sektionshændelser",
+        "geometry": "{{count}} sektionsformer",
+        "pins": "{{count}} fastgjorte former",
+        "intents": "{{count}} fjernede korridorer"
+      }
     }
   },
   "errorState": {
@@ -389,6 +425,8 @@
   "feed": {
     "activitiesCount": "{{count}} aktiviteter",
     "failedToLoad": "Kunne ikke indlæse aktiviteter",
+    "firstSyncBody": "Kun ved første indlæsning. Feedet åbner, når de første aktiviteter er hentet.",
+    "firstSyncTitle": "Synkroniserer dine aktiviteter",
     "groups": {
       "cycling": "Cykling",
       "running": "Løb",
@@ -420,16 +458,7 @@
     "formTSB": "Form-balance (TSB)",
     "noData": "Ingen fitnessdata tilgængelig",
     "restDay": "Hviledag",
-    "selectActivity": "Vælg aktivitet",
-    "weekShape": {
-      "title": "Ugens form",
-      "quiet": "En roligere uge. Ikke nok dage med træning til at aflæse en form.",
-      "reading": {
-        "lopsided": "Din belastning lå i et par dage ud af {{days}} træningsdage.",
-        "mixed": "Blandet: nogle dage var meget hårdere end andre, over {{days}} træningsdage.",
-        "even": "Fordelt nogenlunde jævnt over {{days}} træningsdage."
-      }
-    }
+    "selectActivity": "Vælg aktivitet"
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -451,13 +480,6 @@
     "title": "Fitness og form",
     "toBuildFitness": "indikerer produktiv træningsbelastning. Den",
     "toPreventOvertraining": "indikerer høj akkumuleret træthed.",
-    "guidance": {
-      "highRisk": "TSB under -30. Akkumuleret træthed overstiger markant de seneste konditionsgevinster.",
-      "optimal": "TSB mellem -30 og -10. Træningsbelastning producerer konditionstilpasninger.",
-      "greyZone": "TSB mellem -10 og 5. Moderat balance mellem kondition og træthed.",
-      "fresh": "TSB mellem 5 og 25. Lav træthed i forhold til kondition. Længere tid her svarer typisk til faldende kondition.",
-      "transition": "TSB over 25. Minimal nylig træningsstimulus. Kondition faldende."
-    },
     "tsb": "TSB",
     "understandingMetrics": "Forstå målingerne",
     "rampRate": "Stigningsrate",
@@ -478,11 +500,12 @@
     "strength": "Styrke",
     "noInsights": "Indsigt vises, efterhånden som du træner",
     "noInsightsHint": "Gennemfør flere aktiviteter for at se personlige indsigter",
+    "formFromLastSync": "Form-balance skjult, velvære sidst synkroniseret {{date}}",
     "sectionPr": "PR på {{name}}",
     "sectionPrSubtitle": "{{time}} · {{daysAgo}}d siden",
     "sectionImproving": "{{name}} bliver hurtigere",
     "sectionImprovingBody": "Seneste median: {{median}}. Bedste: {{best}} over {{count}} forsøg.",
-    "ftpIncrease": "Cykelkraft: {{current}}W (+{{change}}W)",
+    "ftpIncrease": "Cykel-eFTP: {{current}}W (+{{change}}W)",
     "paceImproved": "Tempo forbedret {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% ugentlig volumen",
     "weeklyVolumeDown": "{{percent}}% mindre denne uge",
@@ -498,13 +521,13 @@
       "prDetection": "Sammenligner din seneste sektionstid med alle tidligere forsøg for at registrere personlige rekorder.",
       "sectionTrend": "Sporer medianpræstation på ofte besøgte sektioner over tid.",
       "periodComparison": "Sammenligner træningsmålinger mellem på hinanden følgende uger for at spore progression.",
-      "hrvName": "HRV rullende gennemsnitstendens",
-      "hrvDescription": "HRV-tendens baseret på dit 7-dages rullende gennemsnit. HRV-nøjagtighed afhænger af måleenhed og konsistens. Tendenser over flere dage er mere pålidelige end enkeltmålinger.",
+      "hrvName": "HRV over de seneste 7 dage",
+      "hrvDescription": "De 7 kalenderdage til og med i dag, hvor kun dage med en HRV-måling tæller, og mindst fem af dem. Gennemsnittet af den ældre halvdel sammenlignes med den nyere halvdels, og en ændring under 2 % læses som stabil. Et stabilt vindue læses alligevel som faldende, når de seneste to målinger ligger på hinanden følgende dage, den anden er lavere, og den ligger under vinduets gennemsnit.",
       "prDetectionName": "Registrering af personlige rekorder",
       "periodComparisonName": "Periodesammenligning",
       "periodComparisonRestDay": "Sammenligner sidste uge med dit 4-ugers gennemsnit, når den aktuelle uge endnu ikke har nogen aktiviteter.",
-      "ftpEstimation": "Sporer ændringer i din estimerede FTP over tid baseret på kraftdata fra dine aktiviteter. FTP-registrering bruger intervals.icu's algoritmer, som kan inkludere automatisk registrering fra aktivitetsdata.",
-      "ftpEstimationName": "Funktionel tærskeleffekt-estimering",
+      "ftpEstimation": "Sammenligner din nyeste daglige eFTP med værdien for 30 dage siden. eFTP er intervals.icu’s estimat ud fra din kraftkurve, ikke FTP-indstillingen på din konto.",
+      "ftpEstimationName": "Ændringer i eFTP",
       "thresholdSpeedName": "Analyse af tærskelhastighedstendens",
       "thresholdSpeedDescription": "Sammenligner dit seneste tærskelhastighedsestimat med tidligere værdier og formaterer ændringen som atletlæsbart tempo.",
       "fitnessPrName": "Fitness-PR krydsreference",
@@ -512,41 +535,46 @@
       "stalePrCrossRefName": "{{metric}}-PR-krydsreference"
     },
     "data": {
-      "bestTime": "Bedste tid",
-      "daysAgo": "Dage siden",
-      "days": "dage",
-      "currentFtp": "Nuværende FTP",
-      "previousFtp": "Forrige FTP",
-      "change": "Ændring",
-      "currentPace": "Nuværende tempo",
-      "previousPace": "Forrige tempo",
-      "improvement": "Forbedring",
-      "thisWeek": "Denne uge",
-      "lastWeek": "Sidste uge",
-      "activitiesThisWeek": "Aktiviteter denne uge",
       "activitiesLastWeek": "Aktiviteter sidste uge",
-      "sevenDayAvg": "7-dages gennemsnit",
-      "hrvSevenDay": "HRV (7 dage)",
-      "latestHrv": "Seneste HRV",
+      "activitiesThisWeek": "Aktiviteter denne uge",
+      "anomaly": "Afvigelse",
+      "bestTime": "Bedste tid",
+      "change": "Ændring",
+      "currentFtp": "Nuværende cykel-eFTP",
+      "currentPace": "Nuværende tempo",
       "dataPoints": "Datapunkter",
-      "fourWeekAvgTss": "4-ugers gennemsnit",
-      "hrChange": "HR-ændring",
+      "days": "dage",
+      "daysAgo": "Dage siden",
       "efforts": "Bestræbelser",
-      "trendSlope": "Tendenshældning",
+      "engagement": "Engagement",
+      "fourWeekAvgTss": "4-ugers gennemsnit",
+      "ftpHistory": "eFTP-historik",
+      "hrChange": "HR-ændring",
+      "hrvSevenDay": "HRV (7 dage)",
+      "improvement": "Forbedring",
+      "improvementSignal": "Forbedringssignal",
+      "lastWeek": "Sidste uge",
+      "latestHrv": "Seneste HRV",
+      "paceHistory": "Historik for kritisk fart",
+      "previousFtp": "Cykel-eFTP for 30 dage siden",
+      "previousPace": "Forrige tempo",
+      "recency": "Aktualitet",
+      "recentEfforts": "Seneste forsøg",
       "recentMedian": "Seneste median",
       "relevance": "Relevans",
-      "recency": "Aktualitet",
-      "improvementSignal": "Forbedringssignal",
-      "anomaly": "Afvigelse",
-      "engagement": "Engagement"
+      "sevenDayAvg": "7-dages gennemsnit",
+      "thisWeek": "Denne uge",
+      "trendSlope": "Tendenshældning",
+      "weeklyLoad": "Ugentlig belastning"
     },
     "hrvTrend": {
       "trendingUp": "Restitution forbedres",
       "trendingDown": "Restitution faldende",
       "stable": "Restitution stabil",
-      "trendingUpBody": "Dit 7-dages HRV-gennemsnit ({{avg}} ms) er stigende baseret på {{days}} dages data.",
-      "trendingDownBody": "Dit 7-dages HRV-gennemsnit ({{avg}} ms) er faldende baseret på {{days}} dages data.",
-      "stableBody": "Dit 7-dages HRV-gennemsnit ({{avg}} ms) er inden for normalområdet baseret på {{days}} dages data."
+      "trendingUpBody": "Den nyere halvdel af dine seneste 7 HRV-dage ligger i gennemsnit over den ældre halvdel, med mere end 2 %. Vinduets gennemsnit {{avg}} ms over {{days}} målinger, seneste {{latest}} ms.",
+      "trendingDownBody": "Den nyere halvdel af dine seneste 7 HRV-dage ligger i gennemsnit under den ældre halvdel, med mere end 2 %. Vinduets gennemsnit {{avg}} ms over {{days}} målinger, seneste {{latest}} ms.",
+      "stableBody": "De to halvdele af dine seneste 7 HRV-dage ligger inden for 2 % af hinanden. Vinduets gennemsnit {{avg}} ms over {{days}} målinger, seneste {{latest}} ms.",
+      "lastTwoDaysBody": "Selve vinduet holdt sig stabilt, men dine seneste to målinger faldt på hinanden følgende dage, og den seneste, {{latest}} ms, ligger under vinduets gennemsnit på {{avg}} ms over {{days}} målinger."
     },
     "weeklyLoad": {
       "title": "Træningsbelastning {{percent}}% {{direction}} gennemsnit",
@@ -612,8 +640,6 @@
       "recent2Weeks": "Seneste 2 uger",
       "earlier2Weeks": "Tidligere 2 uger",
       "changeLabel": "Ændring",
-      "thisWeek": "Denne uge",
-      "weeksAgo": "-{{n}}u",
       "formula": "Gennemsnit for de seneste 2 uger vs de 2 foregående uger",
       "algorithm": "Følger vægtede sæt pr. muskel gennem de seneste 4 uger. Primært arbejde tæller som 1.0 og sekundært arbejde som 0.5.",
       "methodologyName": "Progression i styrkevolumen",
@@ -666,6 +692,7 @@
     "disclaimer": "Veloq er ikke tilknyttet intervals.icu",
     "getApiKey": "Hent din API-nøgle",
     "invalidApiKey": "Ugyldig API-nøgle. Tjek venligst din nøgle og prøv igen.",
+    "queuedOffline": "Ingen forbindelse. Din nøgle er gemt og logger dig ind, når du er online igen.",
     "localModeNote": "Lokal tilstand: Alle data forbliver på din enhed",
     "apiKeyNoNotifications": "Push-notifikationer er ikke tilgængelige med API-nøgle-login.",
     "loginWithIntervals": "Log ind med intervals.icu",
@@ -805,7 +832,9 @@
       "title": "Notifikationer",
       "enable": "Aktivér notifikationer",
       "requiresOAuth": "For at aktivere notifikationer skal du afbryde forbindelsen og oprette forbindelse igen med OAuth-login i stedet for en personlig API-nøgle.",
-      "privacyHint": "Gemmer et push-token og atlet-ID på vores server (30 dages udløb). Se veloq.fit/privacy"
+      "privacyHint": "Gemmer et push-token og atlet-ID på vores server (30 dages udløb). Se veloq.fit/privacy",
+      "sectionPr": "Personlige rekorder",
+      "fitnessMilestone": "Formmilepæle"
     },
     "prompt": {
       "title": "Hold dig opdateret",
@@ -826,12 +855,7 @@
       "sectionPrMany": "PR på {{name}} og {{count}} flere",
       "fasterOnRoute": "Hurtigere end normalt på {{name}}",
       "fasterOnRouteDelta": "Hurtigere end normalt på {{name}} ({{delta}} fra PR)",
-      "onRoute": "På {{name}}",
-      "sectionTraversedOne": "1 afsnit gennemført",
-      "sectionTraversedMany": "{{count}} afsnit gennemført",
-      "distanceAndTime": "{{km}} km på {{min}} min",
-      "distanceOnly": "{{km}} km",
-      "timeOnly": "{{min}} min"
+      "onRoute": "På {{name}}"
     }
   },
   "recording": {
@@ -930,6 +954,7 @@
     "slideToUnlock": "Skub for at låse op",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "Start aktivitet",
+    "startingIn": "Starter om {{seconds}} s",
     "status": {
       "paused": "PAUSERET",
       "recording": "Optager"
@@ -950,6 +975,7 @@
     "writePermissionNotGranted": "Skrivetilladelse ikke givet",
     "writePermissionRequired": "Skrivetilladelse påkrævet",
     "savedLocally": "Aktivitet gemt på denne enhed. Du kan uploade den når som helst fra Mine optagelser.",
+    "savedLocallyNoScope": "Turen er gemt på denne enhed. Den uploades, når du giver adgang.",
     "settingsUpload": "Upload",
     "autoUpload": "Automatisk upload",
     "autoUploadDescription": "Upload optagelser til intervals.icu automatisk, når du gemmer dem. Slået fra bliver de på denne enhed, indtil du uploader fra Mine optagelser.",
@@ -1000,7 +1026,9 @@
     "writeScopeNotGranted": "Skrivetilladelse blev ikke givet",
     "signInRequired": "Log ind for at optage",
     "signInDescription": "Optagelse kræver din intervals.icu-konto, så turen har et sted at ligge.",
-    "signInAction": "Log ind"
+    "signInAction": "Log ind",
+    "recordAnyway": "Optag alligevel",
+    "writePermissionLocalOnly": "Optagelse virker uden. Turen bliver på denne enhed, indtil du giver adgang til upload."
   },
   "routeDetail": {
     "routeNotFound": "Rute ikke fundet"
@@ -1010,6 +1038,13 @@
     "tomorrow": "I MORGEN"
   },
   "routes": {
+    "sectionDefaultName": "{{sport}}-strækning ({{date}})",
+    "targetPace": "Tempo",
+    "targetHr": "Puls",
+    "targetPower": "Effekt",
+    "patternRide": "cykler",
+    "patternRun": "løber",
+    "patternSentence": "Om {{day}} {{sport}} du normalt omkring {{duration}}",
     "activities": "aktiviteter",
     "adjustSportTypeFilter": "Prøv at justere sportstypefilteret",
     "analysingRoutes": "Analyserer ruter",
@@ -1017,7 +1052,6 @@
     "createSection": "Opret sektion",
     "custom": "Brugerdefineret",
     "dataRangeHint": "Baseret på {{duration}} aktivitetsdata",
-    "defaultActivityName": "Aktivitet {{number}}",
     "defaultRouteName": "{{type}} rute",
     "duplicateNameMessage": "Vælg venligst et andet navn. Hver rute skal have et unikt navn.",
     "duplicateNameTitle": "Navn findes allerede",
@@ -1027,7 +1061,6 @@
     "loadingRoutes": "Indlæser ruter...",
     "lookingForRoutes": "Leder efter matchende ruter...",
     "match": "lighed",
-    "more": "+{{count}} mere",
     "noFrequentSections": "Ingen hyppige sektioner endnu",
     "noMatchingRoutes": "Ingen matchende ruter fundet",
     "noRoutesYet": "Ingen ruter endnu",
@@ -1077,6 +1110,8 @@
     "detectionPaused": "Registrering sat på pause, mens dine sektioner migreres",
     "detectionPausedElevation": "Registrering sat på pause, mens højde hentes",
     "detectionHeldElevationPaused": "Registrering er sat på pause, indtil du genoptager højdedownloadet i Indstillinger",
+    "detectionHeldElevationWaiting_one": "Registrering venter på højde til {{count}} aktivitetsspor. Veloq prøver igen, når du er online.",
+    "detectionHeldElevationWaiting_other": "Registrering venter på højde til {{count}} aktivitetsspor. Veloq prøver igen, når du er online.",
     "disabled": "Deaktiveret",
     "removeSection": "Fjern sektion",
     "removeSectionConfirm": "Denne sektion vises ikke i aktivitetsdetaljer eller indsigter. Du kan gendanne den fra sektionslisten.",
@@ -1090,6 +1125,8 @@
     "legendPr": "PR",
     "legendReverse": "Modsat",
     "legendThisActivity": "Denne aktivitet",
+    "legendThisSection": "Denne strækning",
+    "legendNearby": "Andre strækninger i nærheden",
     "resetReference": "Nulstil reference",
     "resetReferenceConfirm": "Nulstil til automatisk referencevalg?\n\nSektionen vil blive matchet igen mod alle dine aktiviteter. Dette kan tilføje eller fjerne aktiviteter fra denne sektion.",
     "reverse": "Omvendt",
@@ -1112,6 +1149,7 @@
     "resetBoundsConfirm": "Nulstil til de originale automatisk registrerede grænser?\n\nSektionen vil blive genmatchet mod alle dine aktiviteter.",
     "traversals": "gennemkørsler",
     "liftGround": "Lift",
+    "notLift": "Ikke en lift",
     "trimFailed": "Kunne ikke trimme sektionsgrænserne",
     "trimTooShort": "Sektionen skal have mindst 5 punkter",
     "expandUnavailable": "Ingen aktivitetsspor tilgængeligt til udvidelse",
@@ -1168,7 +1206,10 @@
     "rescanRefusedNotReady": "Motoren er ved at åbne. Prøv igen om et øjeblik.",
     "rescanRefusedOff": "Rutematchning er slået fra. Slå den til i Indstillinger for at scanne.",
     "rescanRefusedNothingOwed": "Alt er allerede scannet.",
-    "rescanRefusedFailed": "Scanningen kunne ikke starte."
+    "rescanRefusedFailed": "Scanningen kunne ikke starte.",
+    "unflagLift": "Fjern liftmarkeringen?",
+    "unflagLiftConfirm": "Detektoren markerede dette som liftterræn. Markeringen kan ikke sættes tilbage.",
+    "latestIsRecord": "Din bedste tid her var din seneste"
   },
   "settings": {
     "account": "Konto",
@@ -1205,6 +1246,8 @@
     "maxMetricsHint": "Maksimalt 4 metrikker",
     "appTour": "App-tour",
     "appTourDescription": "Udforsk funktioner og lær at bruge dem",
+    "rangeLockedMessage": "Det lokale dataområde åbner, når den første synkronisering er færdig. Hvis den aldrig starter, så tjek at du er online og logget ind.",
+    "rangeLockedTitle": "Klargør stadig",
     "terrain3D": "3D Terræn",
     "terrain3DOff": "Fra",
     "terrain3DSmart": "Intelligent",
@@ -1227,7 +1270,18 @@
     "support": "Hjælp",
     "supportingMetrics": "Understøttende Metrikker",
     "syncActivities": "Synkroniserer aktiviteter",
-    "syncActivitiesProgress": "{{completed}} af {{total}} aktiviteter",
+    "syncStep": {
+      "activities": "Henter dine nyeste aktiviteter",
+      "athlete": "Henter din profil",
+      "census": "Henter listen over dine aktiviteter på intervals.icu",
+      "curves": "Henter dine effekt- og tempokurver",
+      "firstActivities": "Henter dine fem nyeste aktiviteter",
+      "intervalBodies": "Henter intervaldetaljer",
+      "remainingActivities": "Henter resten af dine aktiviteter",
+      "sportSettings": "Henter dine sportsindstillinger",
+      "wellness": "Henter dine helbredsdata"
+    },
+    "syncStepProgress": "{{label}} ({{completed}} af {{total}})",
     "syncStop": "Afbryd",
     "syncStopping": "Afbryder...",
     "system": "Systemindstilling",
@@ -1235,7 +1289,17 @@
     "streamHistoryDays": "{{count}} dage",
     "streamHistoryAll": "Alle",
     "streamHistoryReset": "Nulstil",
+    "streamBackfill": "Manglende serier",
+    "streamBackfillOwed_one": "{{count}} aktivitet",
+    "streamBackfillOwed_other": "{{count}} aktiviteter",
+    "streamBackfillProgress": "{{completed}} af {{total}}",
+    "streamBackfillDownload": "Hent",
+    "streamBackfillStop": "Afbryd",
     "tileCacheLimit": "Grænse for korttegn",
+    "tileCacheLimitHint": "Hæv den for bedre offline- og lokal browsing",
+    "tileCacheUsedOfBudget": "{{used}} af {{budget}} brugt",
+    "tileCacheUsedOfBudgetAtLeast": "Mindst {{used}} af {{budget}} brugt",
+    "tileCacheFree": "{{size}} ledig på enheden",
     "title": "Indstillinger",
     "units": "Enheder",
     "unitsAuto": "Automatisk",
@@ -1248,8 +1312,6 @@
     "version": "Versionsnummer",
     "storageDatabase": "Database",
     "storageHeatmap": "Varmekort",
-    "storageSatellite": "Satellit",
-    "storageTerrain": "Terræn",
     "storageVector": "Vektor",
     "storageGround": "Grund",
     "storagePreviews": "3D-forhåndsvisninger",
@@ -1303,10 +1365,17 @@
     "previewAreaSections": "{{count}} sektioner",
     "sectionMaxLength": "Længste sektion: {{distance}}",
     "sectionSameTraffic": "Følsomhed for ruteopdeling: {{value}}",
+    "sectionParamPastClamp": "Detektoren skelner ikke mellem værdier ud over dette.",
+    "sectionParamRange": "Testet område {{min}} til {{max}}",
+    "sectionPresetDefault": "Standard",
+    "sectionPresetRelaxed": "Løs",
+    "sectionPresetStrict": "Streng",
+    "sectionPresets": "Forudindstillinger",
     "previewRun": "Forhåndsvisning",
     "previewRunning": "Analyserer {{count}} aktiviteter i dette område",
     "previewFailed": "Forhåndsvisningen kunne ikke fuldføres.",
     "runSlow": "Det tager længere tid end normalt. Den kører stadig.",
+    "stillRunning": "Kører stadig. Du kan forlade denne skærm.",
     "previewPoolUnusable": "Nogle af dine aktivitetsspor kan ikke laeses, saa forhaandsvisningen blev afbrudt.",
     "previewCurrentFailed": "Kunne ikke læse de nuværende afsnit for dette område.",
     "previewSuspended": "Højdeopdatering i gang. Prøv igen om lidt.",
@@ -1342,7 +1411,18 @@
     "exportPrivacyCount": "Forkorter {{touched}} af {{total}} ture ved {{radius}} m. Intet slettes.",
     "exportPrivacyNothingTrimmed": "Intet beskæres. Eksporter indeholder hele sporet.",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "Tryk på kortet for at flytte hjemmet."
+    "exportPrivacyMoveHint": "Tryk på kortet for at flytte hjemmet.",
+    "previewRouteGrouping": "Forhåndsvis rutegruppering",
+    "groupingMatchShare": "Samme rute hvis {{percent}}% overlapper",
+    "groupingEndsApart": "Samme endepunkter inden for {{distance}}",
+    "groupingRunning": "Grupperer dine ture…",
+    "groupingNothingToGroup": "Ingen ture med spor at gruppere endnu",
+    "groupingSummary": "{{count}} ruter med denne indstilling",
+    "groupingMerged": "{{count}} af dine ruter ville blive slået sammen",
+    "groupingDropped": "{{count}} ville stå alene",
+    "groupingLegendMostRidden": "Mest kørte",
+    "groupingLegendOther": "Andre ruter",
+    "groupingFailed": "Grupperingen blev ikke færdig. Flyt en indstilling for at prøve igen."
   },
   "stats": {
     "activities": "Aktiviteter",
@@ -1388,6 +1468,7 @@
     "powerCurve": "Kraftkurve",
     "powerZones": "Kraftzoner",
     "previous": "Forrige",
+    "rangeNotDownloaded": "Ikke hentet endnu",
     "seasonComparison": "Sæsonsammenligning",
     "secondHalf": "Anden halvdel",
     "sixMonths": "6M",
@@ -1416,12 +1497,19 @@
     "heartRate": "Puls",
     "lactateThreshold": "Laktatterskel",
     "noEffortData": "Ingen data om bedste præstationer",
+    "curveFetched": "Fra seneste synkronisering, {{date}}",
+    "curveNotDownloaded": "Ikke downloadet endnu",
+    "notEnoughRuns": "Ikke nok løbeture endnu",
     "pace": "Tempo",
     "paceCurve": "Tempokurve",
     "powerCurve": "Kraftkurve",
     "seasonBests": "Sæsonbedste",
     "swimPaceCurve": "Svømmetempokurve",
     "trainingZones": "Træningszoner"
+  },
+  "sync": {
+    "ridesDownloaded": "{{completed}} af {{total}} ture hentet",
+    "tracksDownloaded": "{{completed}} af {{total}} spor hentet"
   },
   "time": {
     "current": "Nuværende",
@@ -1528,9 +1616,24 @@
     }
   },
   "strength": {
+    "female": "kvinde",
+    "male": "mand",
+    "bodyTypeDefault": "Kropstype vist som <type>{{bodyType}}</type>, standardvalget, da din intervals.icu-profil ikke har et køn angivet.",
+    "bodyTypeFromProfile": "Kropstype vist som <type>{{bodyType}}</type>, fra din intervals.icu-profil.",
+    "muscleSource": "Muskelgrupper for hver øvelsestype kommer fra <source>free-exercise-db</source>, et åbent public domain-øvelsesdatasæt.",
+    "durationLabel": "Varighed",
+    "setsLabel": "Sæt",
+    "setsNotDownloaded": "Sæt ikke hentet endnu",
+    "totalLabel": "I alt",
+    "timeColumn": "Tid",
+    "weightColumn": "Vægt",
+    "repsColumn": "Gent.",
+    "setColumn": "Sæt",
     "snapshot": "Styrkeoverblik",
     "noWorkouts": "Ingen styrketræninger i de seneste {{period}}",
     "noWorkoutsHint": "Gennemfør en styrketræning for at se din muskelgruppeopdeling her",
+    "notDownloaded": "Styrketræning er ikke hentet endnu",
+    "notDownloadedHint": "Dine sætdata følger med træningsfilerne. Opret forbindelse for at hente dem.",
     "sets": "sæt",
     "muscleGroupVolume": "Muskelgruppevolumen",
     "relativeWeightedSets": "Relative vægtede sæt i den valgte periode",
@@ -1602,6 +1705,7 @@
     "status": {
       "connecting": "Forbinder…",
       "connected": "Forbundet",
+      "noData": "Forbundet, ingen data",
       "reconnecting": "Genopretter forbindelse…",
       "disconnected": "Ikke forbundet"
     }
@@ -1654,7 +1758,6 @@
     "title": "Baggrundsopgaver",
     "intro": "Lange opgaver, som appen kører af sig selv. De fortsætter, når du forlader denne skærm.",
     "openLink": "Baggrundsopgaver",
-    "sync": "Synkronisering af aktiviteter",
     "detection": "Registrering af sektioner",
     "elevationBackfill": "Hentning af højdedata",
     "cutover": "Genopbygning af sektioner",

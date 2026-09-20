@@ -26,7 +26,6 @@ const DYNAMIC_PREFIXES = [
   'activityTypes.',
   'feed.groups.',
   'filters.',
-  'fitnessScreen.guidance.',
   'formZones.',
   'insights.hrvTrend.',
   'insights.sectionChanged.',

@@ -1,5 +1,6 @@
 import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 import { colors, darkColors, brand } from './colors';
+export type { VerdictRung, InsightTone } from './colors';
 
 export {
   colors,
@@ -24,6 +25,9 @@ export {
   statusBadge,
   verdict,
   verdictColor,
+  verdictFill,
+  insightToneColor,
+  recording,
   amberBanner,
   redBanner,
   contributionRamp,
@@ -39,8 +43,17 @@ export {
   sectionPaletteIndex,
   sectionPaletteExpression,
 } from './colors';
-export { spacing, layout } from './spacing';
+export { spacing, MIN_TAP_TARGET } from './spacing';
+export { layout } from './layout';
 export { typography } from './typography';
+export {
+  FAMILY_BARS,
+  FAMILY_EXEMPTIONS,
+  TOKEN_FAMILIES,
+  TOKEN_GROUNDS,
+  UNDER_BAR,
+  type TokenFamily,
+} from './tokenFamilies';
 export { shadows, createShadow, cardShadow, smallElementShadow } from './shadows';
 export { chartStyles } from './chartStyles';
 

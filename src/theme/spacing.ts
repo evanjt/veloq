@@ -1,5 +1,3 @@
-import { Platform } from 'react-native';
-
 /**
  * The spacing and radius scales.
  *
@@ -18,6 +16,11 @@ export const spacing = {
   xs: 4,
   xsPlus: 6,
   sm: 8,
+  // The half-step between 8 and 16. The ladder doubled there and the app drew
+  // into the gap anyway, a 10 at 30 sites and a 12 at 29, so an off-ladder
+  // padding had nowhere to fold to. 12 matches layout.borderRadiusMd, so the
+  // two scales agree on the rung.
+  smPlus: 12,
   md: 16,
   lg: 24,
   xl: 32,
@@ -50,5 +53,4 @@ export const layout = {
   borderRadiusXl: 20, // 20 - Sheets, large pills
   borderRadiusLg: spacing.lg, // 24 - Large pills, rounded containers
   borderRadiusFull: 9999, // Circles
-  minTapTarget: MIN_TAP_TARGET[Platform.OS === 'android' ? 'android' : 'ios'],
 } as const;

@@ -1,7 +1,7 @@
 /**
- * The sync stop control ships four strings. Every locale needs a real
- * translation with the interpolation placeholders intact, otherwise the row
- * reads as English or renders a raw `{{total}}` beside the progress count.
+ * The sync stop control ships three strings. Every locale needs a real
+ * translation, otherwise the row reads as English. The line that names the
+ * running step is held by its own test beside this one.
  */
 
 import * as fs from 'fs';
@@ -9,11 +9,7 @@ import * as path from 'path';
 
 const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
-const KEYS = ['syncActivities', 'syncActivitiesProgress', 'syncStop', 'syncStopping'] as const;
-
-const PLACEHOLDERS: Record<string, string[]> = {
-  syncActivitiesProgress: ['{{completed}}', '{{total}}'],
-};
+const KEYS = ['syncActivities', 'syncStop', 'syncStopping'] as const;
 
 const ENGLISH_LOCALES = ['en-AU', 'en-GB', 'en-US'];
 
@@ -40,17 +36,10 @@ describe('sync cancel strings', () => {
       expect(settings[key].trim().length).toBeGreaterThan(0);
     });
 
-    it.each(Object.keys(PLACEHOLDERS))('keeps the placeholders of %s', (key) => {
-      for (const placeholder of PLACEHOLDERS[key]) {
-        expect(settings[key]).toContain(placeholder);
-      }
-    });
-
     if (!ENGLISH_LOCALES.includes(locale)) {
       it('translates the prose rather than copying English', () => {
         const english = settingsOf('en-GB');
-        const prose = KEYS.filter((k) => !PLACEHOLDERS[k]);
-        const copied = prose.filter((k) => settings[k] === english[k]);
+        const copied = KEYS.filter((k) => settings[k] === english[k]);
         expect(copied).toEqual([]);
       });
     }

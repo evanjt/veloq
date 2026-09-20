@@ -47,7 +47,6 @@
       "burnRate": "消耗速率",
       "caloriesBurned": "消耗卡路里",
       "conditions": "环境条件",
-      "dailyValue": "每日值",
       "decoupling": "脱耦",
       "deviceSensor": "设备传感器",
       "efficiencyFactor": "效率因子",
@@ -60,7 +59,11 @@
       "formTSB": "状态 (TSB)",
       "hrRecovery": "心率恢复",
       "hrvToday": "今日心率变异性",
+      "intensityEasy": "轻松",
       "intensityFactor": "强度因子",
+      "intensityHard": "高强度",
+      "intensityModerate": "中等",
+      "intensityVeryHard": "极高强度",
       "max": "最大 {{value}}",
       "maxLabel": "最大值",
       "peak": "峰值",
@@ -97,6 +100,7 @@
   "activityDetail": {
     "failedToLoad": "加载活动失败",
     "feedPreviewUpdated": "动态预览已更新",
+    "intervalsNotDownloaded": "间歇尚未下载",
     "noMatchedSections": "没有匹配的路段",
     "noMatchedSectionsDescription": "与此活动匹配的路段将显示在这里",
     "noRouteMatch": "暂无路线匹配",
@@ -113,6 +117,15 @@
     "exercises": "练习",
     "exercisesSummary": "{{exercises}}个练习 · {{sets}}组",
     "tapMuscle": "点击查看详情"
+  },
+  "activitySummary": {
+    "distance": "距离",
+    "downloading": "正在下载此活动...",
+    "elevation": "海拔",
+    "movingTime": "运动时间",
+    "openActivity": "查看详情",
+    "title": "总结",
+    "unavailable": "无法下载此活动。"
   },
   "activityTypes": {
     "AlpineSki": "高山滑雪",
@@ -175,6 +188,7 @@
     "clearReload": "清除并重新加载",
     "disconnect": "断开连接",
     "disconnectMessage": "这将从应用中删除您的 API 凭据。您需要重新输入它们才能使用该应用。",
+    "disconnectOffline": "你目前处于离线状态。两种登录方式都需要网络，网络恢复前无法重新登录。",
     "disconnectTitle": "断开账户连接",
     "error": "错误",
     "failedToClear": "清除缓存失败。请重试。",
@@ -279,6 +293,7 @@
     "noValidGpsData": "没有有效的GPS数据",
     "offlineUsingCached": "离线 - 使用缓存路线",
     "syncedActivities": "已同步 {{count}} 个活动",
+    "syncedStillAnalysing": "已同步 {{count}} 个活动。仍在分析路线",
     "syncedDemoActivities": "已同步 {{count}} 个演示活动",
     "downloadingGpsProgress": "正在下载GPS数据... {{percent}}%",
     "noValidGpsChecked": "未找到有效的GPS数据（已检查 {{count}} 个活动）",
@@ -335,10 +350,6 @@
       "description": "我们无法加载此内容",
       "title": "出错了"
     },
-    "networkError": {
-      "description": "请检查您的网络连接并重试",
-      "title": "连接错误"
-    },
     "offline": {
       "description": "部分功能可能受限",
       "title": "您已离线"
@@ -354,17 +365,42 @@
         "network": "无法连接 intervals.icu",
         "storage": "无法读取此设备上的文件",
         "notConfigured": "此设备未保存 intervals.icu 登录信息",
-        "internal": "同步中断，应用无法说明原因"
+        "internal": "同步中断，应用无法说明原因",
+        "engineClosed": "同步已停止，因为资料库在中途被关闭"
       }
+    },
+    "tracksMissing": {
+      "title_one": "{{count}} 条路线未下载",
+      "title_other": "{{count}} 条路线未下载",
+      "detail": "它们不会显示在地图上，也未与任何路段匹配。下次刷新会重试。"
     }
   },
   "engine": {
     "initFailed": "路线引擎初始化失败。路线和区间可能不可用。",
+    "failure": {
+      "notOpen": "路线引擎尚未打开，请稍后再试。",
+      "busy": "数据库正忙，请稍后再试。",
+      "database": "数据库无法完成该操作。请重试，若持续出现请清除缓存。"
+    },
     "initReason": {
       "busy": "数据库正被其他操作占用。稍后重试即可。",
       "forwardSchema": "这些数据由更新版本的 Veloq 保存。请升级应用后再打开。",
       "storageUnavailable": "无法写入数据库。请释放存储空间后重试。",
       "failed": "路线引擎因未知原因停止。"
+    },
+    "quarantine": {
+      "title": "你的活动库已重建",
+      "resyncing": "正在重新下载你的活动。",
+      "dismiss": "知道了",
+      "separator": "、",
+      "kept": {
+        "lead": "部分数据无法读取，因此活动库已重建。已保留：{{kept}}。",
+        "sections": "{{count}} 个你自己的路段",
+        "history": "{{count}} 条路段记录",
+        "geometry": "{{count}} 个路段形状",
+        "pins": "{{count}} 个已固定形状",
+        "intents": "{{count}} 条已移除路线"
+      }
     }
   },
   "errorState": {
@@ -389,6 +425,8 @@
   "feed": {
     "activitiesCount": "{{count}} 个活动",
     "failedToLoad": "加载活动失败",
+    "firstSyncBody": "仅首次加载。第一批活动到达后即可打开动态。",
+    "firstSyncTitle": "正在同步你的活动",
     "groups": {
       "cycling": "骑行",
       "running": "跑步",
@@ -420,16 +458,7 @@
     "formTSB": "状态 (TSB)",
     "noData": "无可用体能数据",
     "restDay": "休息日",
-    "selectActivity": "选择活动",
-    "weekShape": {
-      "title": "本周的形态",
-      "quiet": "较为轻松的一周。训练天数不足，无法读出形态。",
-      "reading": {
-        "lopsided": "在 {{days}} 个训练日中，负荷集中在少数几天。",
-        "mixed": "有轻有重：在 {{days}} 个训练日中，某些天明显更重。",
-        "even": "在 {{days}} 个训练日中分布得相当均匀。"
-      }
-    }
+    "selectActivity": "选择活动"
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -451,13 +480,6 @@
     "title": "体能与状态",
     "toBuildFitness": "表示有效的训练负荷。",
     "toPreventOvertraining": "表示高累积疲劳。",
-    "guidance": {
-      "highRisk": "TSB低于-30。累积疲劳显著超过近期体能增长。",
-      "optimal": "TSB在-30到-10之间。训练负荷正在产生体能适应。",
-      "greyZone": "TSB在-10到5之间。体能与疲劳之间适度平衡。",
-      "fresh": "TSB在5到25之间。相对于体能而言疲劳较低。长时间处于此状态通常对应体能下降。",
-      "transition": "TSB高于25。近期训练刺激最小。体能下降中。"
-    },
     "tsb": "TSB",
     "understandingMetrics": "了解指标",
     "rampRate": "升幅",
@@ -478,11 +500,12 @@
     "strength": "力量",
     "noInsights": "训练后将显示洞察",
     "noInsightsHint": "完成更多活动以查看个性化洞察",
+    "formFromLastSync": "已隐藏状态，健康数据最后同步于 {{date}}",
     "sectionPr": "{{name}}上的PR",
     "sectionPrSubtitle": "{{time}} · {{daysAgo}}天前",
     "sectionImproving": "{{name}}正在变快",
     "sectionImprovingBody": "近期中位数: {{median}}。最佳: {{best}}，共{{count}}次。",
-    "ftpIncrease": "骑行功率：{{current}}W (+{{change}}W)",
+    "ftpIncrease": "骑行 eFTP：{{current}}W (+{{change}}W)",
     "paceImproved": "配速提升 {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% 周训练量",
     "weeklyVolumeDown": "{{percent}}% 本周减少",
@@ -498,13 +521,13 @@
       "prDetection": "将你最近一次路段时间与所有之前的表现进行比较，以检测个人纪录。",
       "sectionTrend": "跟踪经常访问的路段上的中位表现随时间的变化。",
       "periodComparison": "比较连续各周的训练指标以跟踪进展。",
-      "hrvName": "HRV 滚动平均趋势",
-      "hrvDescription": "基于7天滚动平均的 HRV 趋势。HRV 准确性取决于测量设备和一致性。多日趋势比单次读数更可靠。",
+      "hrvName": "最近 7 天的心率变异性",
+      "hrvDescription": "截至今天的 7 个日历日，仅计入有心率变异性读数的日子，且至少需要五天。较旧一半的平均值与较新一半的平均值相比较，变化小于 2% 视为平稳。若最近两次读数落在连续两天、第二次更低且低于窗口平均值，平稳的窗口仍视为下降。",
       "prDetectionName": "个人纪录检测",
       "periodComparisonName": "周期对比",
       "periodComparisonRestDay": "当本周尚无活动时，将上周与4周平均值进行比较。",
-      "ftpEstimation": "根据活动中的功率数据追踪估算 FTP 随时间的变化。FTP 检测使用 intervals.icu 的算法，可能包括从活动数据中自动检测。",
-      "ftpEstimationName": "功能阈值功率估算",
+      "ftpEstimation": "将最新的每日 eFTP 与 30 天前的值比较。eFTP 是 intervals.icu 根据你的功率曲线估算的值，不是账户里的 FTP 设置。",
+      "ftpEstimationName": "eFTP 变化",
       "thresholdSpeedName": "阈值速度趋势分析",
       "thresholdSpeedDescription": "将最新的阈值速度估算与之前的值进行比较，然后将变化格式化为运动员可读的配速显示。",
       "fitnessPrName": "体能-PR 交叉参考",
@@ -512,41 +535,46 @@
       "stalePrCrossRefName": "{{metric}}与PR交叉对照"
     },
     "data": {
-      "bestTime": "最佳时间",
-      "daysAgo": "天前",
-      "days": "天",
-      "currentFtp": "当前 FTP",
-      "previousFtp": "之前 FTP",
-      "change": "变化",
-      "currentPace": "当前配速",
-      "previousPace": "之前配速",
-      "improvement": "提升",
-      "thisWeek": "本周",
-      "lastWeek": "上周",
-      "activitiesThisWeek": "本周活动",
       "activitiesLastWeek": "上周活动",
-      "sevenDayAvg": "7 日平均",
-      "hrvSevenDay": "HRV (7 天)",
-      "latestHrv": "最新 HRV",
+      "activitiesThisWeek": "本周活动",
+      "anomaly": "异常度",
+      "bestTime": "最佳时间",
+      "change": "变化",
+      "currentFtp": "当前骑行 eFTP",
+      "currentPace": "当前配速",
       "dataPoints": "数据点",
-      "fourWeekAvgTss": "4周平均",
-      "hrChange": "心率变化",
+      "days": "天",
+      "daysAgo": "天前",
       "efforts": "次数",
-      "trendSlope": "趋势斜率",
+      "engagement": "参与度",
+      "fourWeekAvgTss": "4周平均",
+      "ftpHistory": "eFTP 走势",
+      "hrChange": "心率变化",
+      "hrvSevenDay": "HRV (7 天)",
+      "improvement": "提升",
+      "improvementSignal": "进步信号",
+      "lastWeek": "上周",
+      "latestHrv": "最新 HRV",
+      "paceHistory": "临界速度走势",
+      "previousFtp": "30 天前的骑行 eFTP",
+      "previousPace": "之前配速",
+      "recency": "近期度",
+      "recentEfforts": "近期成绩",
       "recentMedian": "近期中位数",
       "relevance": "相关度",
-      "recency": "近期度",
-      "improvementSignal": "进步信号",
-      "anomaly": "异常度",
-      "engagement": "参与度"
+      "sevenDayAvg": "7 日平均",
+      "thisWeek": "本周",
+      "trendSlope": "趋势斜率",
+      "weeklyLoad": "每周负荷"
     },
     "hrvTrend": {
       "trendingUp": "恢复改善中",
       "trendingDown": "恢复下降中",
       "stable": "恢复稳定",
-      "trendingUpBody": "您的7天 HRV 平均值 ({{avg}} ms) 正在上升，基于 {{days}} 天的数据。",
-      "trendingDownBody": "您的7天 HRV 平均值 ({{avg}} ms) 正在下降，基于 {{days}} 天的数据。",
-      "stableBody": "您的7天 HRV 平均值 ({{avg}} ms) 在正常范围内，基于 {{days}} 天的数据。"
+      "trendingUpBody": "最近 7 天心率变异性中，较新的一半平均值高于较旧的一半，差异超过 2%。窗口平均 {{avg}} 毫秒，共 {{days}} 次读数，最新 {{latest}} 毫秒。",
+      "trendingDownBody": "最近 7 天心率变异性中，较新的一半平均值低于较旧的一半，差异超过 2%。窗口平均 {{avg}} 毫秒，共 {{days}} 次读数，最新 {{latest}} 毫秒。",
+      "stableBody": "最近 7 天心率变异性的两个半段相差在 2% 以内。窗口平均 {{avg}} 毫秒，共 {{days}} 次读数，最新 {{latest}} 毫秒。",
+      "lastTwoDaysBody": "窗口本身保持平稳，但最近两次读数连续两天下降，且最新的 {{latest}} 毫秒低于窗口平均值 {{avg}} 毫秒（共 {{days}} 次读数）。"
     },
     "weeklyLoad": {
       "title": "训练负荷{{direction}}平均值 {{percent}}%",
@@ -612,8 +640,6 @@
       "recent2Weeks": "近2周",
       "earlier2Weeks": "前2周",
       "changeLabel": "变化",
-      "thisWeek": "本周",
-      "weeksAgo": "-{{n}}周",
       "formula": "近2周平均与前2周平均的比较",
       "algorithm": "跟踪过去4周每块肌肉的加权组数。主要训练计为1.0，辅助训练计为0.5。",
       "methodologyName": "力量训练量进展",
@@ -666,6 +692,7 @@
     "disclaimer": "Veloq 与 intervals.icu 无关",
     "getApiKey": "获取您的 API 密钥",
     "invalidApiKey": "无效的 API 密钥。请检查您的密钥并重试。",
+    "queuedOffline": "当前无网络。已保存密钥，恢复联网后将自动登录。",
     "localModeNote": "本地模式：所有数据保留在您的设备上",
     "apiKeyNoNotifications": "使用 API 密钥登录不支持推送通知。",
     "loginWithIntervals": "使用 intervals.icu 登录",
@@ -805,7 +832,9 @@
       "title": "通知",
       "enable": "启用通知",
       "requiresOAuth": "要启用通知，请断开连接并使用 OAuth 登录流程重新连接，而非个人 API 密钥。",
-      "privacyHint": "在我们的服务器上存储推送令牌和运动员 ID（30天过期）。详见 veloq.fit/privacy"
+      "privacyHint": "在我们的服务器上存储推送令牌和运动员 ID（30天过期）。详见 veloq.fit/privacy",
+      "sectionPr": "个人最佳",
+      "fitnessMilestone": "体能里程碑"
     },
     "prompt": {
       "title": "保持同步",
@@ -826,12 +855,7 @@
       "sectionPrMany": "{{name}} 及另外 {{count}} 个路段新PR",
       "fasterOnRoute": "「{{name}}」比平时更快",
       "fasterOnRouteDelta": "「{{name}}」比平时更快(距PR {{delta}})",
-      "onRoute": "途经路线「{{name}}」",
-      "sectionTraversedOne": "经过 1 个路段",
-      "sectionTraversedMany": "经过 {{count}} 个路段",
-      "distanceAndTime": "{{km}} 公里，用时 {{min}} 分钟",
-      "distanceOnly": "{{km}} 公里",
-      "timeOnly": "{{min}} 分钟"
+      "onRoute": "途经路线「{{name}}」"
     }
   },
   "recording": {
@@ -930,6 +954,7 @@
     "slideToUnlock": "滑动解锁",
     "splitBanner": "{{unit}} {{index}} · {{pace}}",
     "startActivity": "开始活动",
+    "startingIn": "{{seconds}} 秒后开始",
     "status": {
       "paused": "已暂停",
       "recording": "录制中"
@@ -950,6 +975,7 @@
     "writePermissionNotGranted": "写入权限未授予",
     "writePermissionRequired": "需要写入权限",
     "savedLocally": "活动已保存到此设备。你可以随时在我的录制中上传。",
+    "savedLocallyNoScope": "活动已保存在本机。授权上传后会自动上传。",
     "settingsUpload": "上传",
     "autoUpload": "自动上传",
     "autoUploadDescription": "保存时自动将录制上传到 intervals.icu。关闭后将保留在此设备上，直到你在我的录制中上传。",
@@ -1000,7 +1026,9 @@
     "writeScopeNotGranted": "未授予写入权限",
     "signInRequired": "登录后即可记录",
     "signInDescription": "记录需要你的 intervals.icu 帐户，活动才有地方保存。",
-    "signInAction": "登录"
+    "signInAction": "登录",
+    "recordAnyway": "仍然记录",
+    "writePermissionLocalOnly": "没有权限也能记录。在你授权上传前，这次活动会保存在本机。"
   },
   "routeDetail": {
     "routeNotFound": "未找到路线"
@@ -1010,6 +1038,13 @@
     "tomorrow": "明天"
   },
   "routes": {
+    "sectionDefaultName": "{{sport}}路段（{{date}}）",
+    "targetPace": "配速",
+    "targetHr": "心率",
+    "targetPower": "功率",
+    "patternRide": "骑行",
+    "patternRun": "跑步",
+    "patternSentence": "{{day}}你通常{{sport}}约 {{duration}}",
     "activities": "个活动",
     "adjustSportTypeFilter": "尝试调整运动类型筛选",
     "analysingRoutes": "正在分析路线",
@@ -1017,7 +1052,6 @@
     "createSection": "创建路段",
     "custom": "自定义",
     "dataRangeHint": "基于{{duration}}的活动数据",
-    "defaultActivityName": "活动 {{number}}",
     "defaultRouteName": "{{type}}路线",
     "duplicateNameMessage": "请选择一个不同的名称。每条路线必须有唯一的名称。",
     "duplicateNameTitle": "名称已存在",
@@ -1027,7 +1061,6 @@
     "loadingRoutes": "加载路线中...",
     "lookingForRoutes": "正在寻找匹配路线...",
     "match": "匹配",
-    "more": "还有 {{count}} 个",
     "noFrequentSections": "暂无常用路段",
     "noMatchingRoutes": "未找到匹配路线",
     "noRoutesYet": "暂无路线",
@@ -1077,6 +1110,8 @@
     "detectionPaused": "路段迁移期间已暂停检测",
     "detectionPausedElevation": "海拔数据下载期间已暂停检测",
     "detectionHeldElevationPaused": "检测将暂停，直到你在设置中继续下载海拔数据",
+    "detectionHeldElevationWaiting_one": "检测正在等待 {{count}} 条活动轨迹的海拔数据。联网后 Veloq 会重试。",
+    "detectionHeldElevationWaiting_other": "检测正在等待 {{count}} 条活动轨迹的海拔数据。联网后 Veloq 会重试。",
     "disabled": "已禁用",
     "removeSection": "移除路段",
     "removeSectionConfirm": "此路段将不再显示在活动详情或洞察中。您可以从路段列表中恢复它。",
@@ -1090,6 +1125,8 @@
     "legendPr": "PR",
     "legendReverse": "反向",
     "legendThisActivity": "此活动",
+    "legendThisSection": "本路段",
+    "legendNearby": "附近的其他路段",
     "resetReference": "重置参考",
     "resetReferenceConfirm": "重置为自动参考选择？\n\n该路段将与您的所有活动重新匹配。这可能会从该路段中添加或删除活动。",
     "reverse": "反向",
@@ -1112,6 +1149,7 @@
     "resetBoundsConfirm": "恢复到自动检测的原始边界？\n\n该路段将与您的所有活动重新匹配。",
     "traversals": "次通过",
     "liftGround": "缆车",
+    "notLift": "不是缆车",
     "trimFailed": "裁剪路段边界失败",
     "trimTooShort": "路段必须至少有5个点",
     "expandUnavailable": "没有可用于扩展的活动轨迹",
@@ -1168,7 +1206,10 @@
     "rescanRefusedNotReady": "引擎仍在启动，请稍后再试。",
     "rescanRefusedOff": "路线匹配已关闭。请在设置中开启后再扫描。",
     "rescanRefusedNothingOwed": "所有内容都已扫描。",
-    "rescanRefusedFailed": "无法开始扫描。"
+    "rescanRefusedFailed": "无法开始扫描。",
+    "unflagLift": "要移除缆车标记吗？",
+    "unflagLiftConfirm": "检测功能将此处标记为缆车路段。移除后无法恢复。",
+    "latestIsRecord": "你在这里的最好成绩就是最近一次"
   },
   "settings": {
     "account": "账户",
@@ -1205,6 +1246,8 @@
     "maxMetricsHint": "最多 4 个指标",
     "appTour": "应用导览",
     "appTourDescription": "探索功能并学习如何使用",
+    "rangeLockedMessage": "首次同步完成后即可调整本地数据范围。如果同步始终没有开始，请检查网络连接和登录状态。",
+    "rangeLockedTitle": "仍在准备中",
     "terrain3D": "3D 地形",
     "terrain3DOff": "关闭",
     "terrain3DSmart": "智能",
@@ -1226,7 +1269,18 @@
     "support": "支持",
     "supportingMetrics": "辅助指标",
     "syncActivities": "正在同步活动",
-    "syncActivitiesProgress": "{{total}} 项活动中的 {{completed}} 项",
+    "syncStep": {
+      "activities": "正在获取你最新的活动",
+      "athlete": "正在获取你的资料",
+      "census": "正在获取 intervals.icu 上的活动列表",
+      "curves": "正在获取你的功率和配速曲线",
+      "firstActivities": "正在获取你最新的 5 项活动",
+      "intervalBodies": "正在获取间歇详情",
+      "remainingActivities": "正在获取其余的活动",
+      "sportSettings": "正在获取你的运动设置",
+      "wellness": "正在获取你的健康数据"
+    },
+    "syncStepProgress": "{{label}}（{{completed}}/{{total}}）",
     "syncStop": "停止",
     "syncStopping": "正在停止...",
     "system": "跟随系统",
@@ -1234,7 +1288,17 @@
     "streamHistoryDays": "{{count}} 天",
     "streamHistoryAll": "全部",
     "streamHistoryReset": "重置",
+    "streamBackfill": "缺失的数据序列",
+    "streamBackfillOwed_one": "{{count}} 项活动",
+    "streamBackfillOwed_other": "{{count}} 项活动",
+    "streamBackfillProgress": "{{total}} 项中的 {{completed}} 项",
+    "streamBackfillDownload": "下载",
+    "streamBackfillStop": "停止",
     "tileCacheLimit": "地图瓦片上限",
+    "tileCacheLimitHint": "调高可改善离线和本地浏览",
+    "tileCacheUsedOfBudget": "已用 {{used}}／共 {{budget}}",
+    "tileCacheUsedOfBudgetAtLeast": "至少已用 {{used}}／共 {{budget}}",
+    "tileCacheFree": "设备剩余 {{size}}",
     "title": "设置",
     "units": "单位",
     "unitsAuto": "自动",
@@ -1247,8 +1311,6 @@
     "version": "版本",
     "storageDatabase": "数据库",
     "storageHeatmap": "热力图",
-    "storageSatellite": "卫星影像",
-    "storageTerrain": "地形",
     "storageVector": "矢量",
     "storageGround": "底图",
     "storagePreviews": "3D 预览",
@@ -1303,10 +1365,17 @@
     "previewAreaSections": "{{count}} 个路段",
     "sectionMaxLength": "最长路段: {{distance}}",
     "sectionSameTraffic": "路线拆分灵敏度: {{value}}",
+    "sectionParamPastClamp": "超过此处的数值，检测器不再加以区分。",
+    "sectionParamRange": "测试范围 {{min}} 至 {{max}}",
+    "sectionPresetDefault": "默认",
+    "sectionPresetRelaxed": "宽松",
+    "sectionPresetStrict": "严格",
+    "sectionPresets": "预设",
     "previewRun": "预览",
     "previewRunning": "正在分析该区域的 {{count}} 项活动",
     "previewFailed": "预览未能完成。",
     "runSlow": "耗时比平常更久，仍在运行中。",
+    "stillRunning": "仍在运行中，可以离开此页面。",
     "previewPoolUnusable": "部分活动轨迹无法读取，因此预览已停止。",
     "previewCurrentFailed": "无法读取该区域的当前路段。",
     "previewSuspended": "海拔更新进行中，请稍后重试。",
@@ -1342,7 +1411,18 @@
     "exportPrivacyCount": "在 {{radius}} 米范围内缩短 {{total}} 次骑行中的 {{touched}} 次。不会删除任何内容。",
     "exportPrivacyNothingTrimmed": "不做任何裁剪，导出包含完整轨迹。",
     "exportPrivacyRadius": "{{metres}} m",
-    "exportPrivacyMoveHint": "点按地图移动住所位置。"
+    "exportPrivacyMoveHint": "点按地图移动住所位置。",
+    "previewRouteGrouping": "预览路线分组",
+    "groupingMatchShare": "重合 {{percent}}% 即视为同一路线",
+    "groupingEndsApart": "起终点相距 {{distance}} 以内视为相同",
+    "groupingRunning": "正在分组你的活动…",
+    "groupingNothingToGroup": "暂无带轨迹的活动可供分组",
+    "groupingSummary": "此设置下有 {{count}} 条路线",
+    "groupingMerged": "你的 {{count}} 条路线会被合并",
+    "groupingDropped": "{{count}} 条会单独留下",
+    "groupingLegendMostRidden": "骑行最多",
+    "groupingLegendOther": "其他路线",
+    "groupingFailed": "分组未能完成。移动滑块可再试一次。"
   },
   "stats": {
     "activities": "活动",
@@ -1388,6 +1468,7 @@
     "powerCurve": "功率曲线",
     "powerZones": "功率区间",
     "previous": "上一个",
+    "rangeNotDownloaded": "尚未下载",
     "seasonComparison": "赛季对比",
     "secondHalf": "后半程",
     "sixMonths": "6个月",
@@ -1416,12 +1497,19 @@
     "heartRate": "心率",
     "lactateThreshold": "乳酸阈值",
     "noEffortData": "暂无最佳成绩数据",
+    "curveFetched": "来自上次同步，{{date}}",
+    "curveNotDownloaded": "尚未下载",
+    "notEnoughRuns": "跑步数据还不够",
     "pace": "配速",
     "paceCurve": "配速曲线",
     "powerCurve": "功率曲线",
     "seasonBests": "赛季最佳",
     "swimPaceCurve": "游泳配速曲线",
     "trainingZones": "训练区间"
+  },
+  "sync": {
+    "ridesDownloaded": "已下载 {{total}} 个活动中的 {{completed}} 个",
+    "tracksDownloaded": "已下载 {{total}} 条轨迹中的 {{completed}} 条"
   },
   "time": {
     "current": "当前",
@@ -1528,9 +1616,24 @@
     }
   },
   "strength": {
+    "female": "女性",
+    "male": "男性",
+    "bodyTypeDefault": "你的 intervals.icu 个人资料未设置性别，体型按默认值显示为<type>{{bodyType}}</type>。",
+    "bodyTypeFromProfile": "体型按 intervals.icu 个人资料显示为<type>{{bodyType}}</type>。",
+    "muscleSource": "各动作类型的肌群数据来自 <source>free-exercise-db</source>，一个公共领域的开放动作数据集。",
+    "durationLabel": "时长",
+    "setsLabel": "组数",
+    "setsNotDownloaded": "组数尚未下载",
+    "totalLabel": "总计",
+    "timeColumn": "时间",
+    "weightColumn": "重量",
+    "repsColumn": "次数",
+    "setColumn": "组",
     "snapshot": "力量概览",
     "noWorkouts": "最近{{period}}没有力量训练",
     "noWorkoutsHint": "完成一次力量训练即可在此查看肌肉群分布",
+    "notDownloaded": "力量训练尚未下载",
+    "notDownloadedHint": "组数数据随训练文件一起下载。请联网后获取。",
     "sets": "组",
     "muscleGroupVolume": "肌肉群训练量",
     "relativeWeightedSets": "所选周期内的相对加权组数",
@@ -1602,6 +1705,7 @@
     "status": {
       "connecting": "连接中…",
       "connected": "已连接",
+      "noData": "已连接，无数据",
       "reconnecting": "正在重新连接…",
       "disconnected": "未连接"
     }
@@ -1654,7 +1758,6 @@
     "title": "后台任务",
     "intro": "应用自行运行的长时间任务。离开此页面后仍会继续。",
     "openLink": "后台任务",
-    "sync": "活动同步",
     "detection": "路段检测",
     "elevationBackfill": "海拔数据下载",
     "cutover": "路段重建",
