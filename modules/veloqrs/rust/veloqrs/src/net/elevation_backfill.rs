@@ -60,14 +60,16 @@ use crate::net::transport::{NetError, Transport};
 use crate::net::types::ParsedStreams;
 use crate::objects::FfiStartOutcome;
 use crate::objects::detection::{SlotWait, wait_on_slot};
+use crate::objects::observer::Announcement;
 use crate::persistence::cutover::CutoverOutcome;
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::{
-    ELEVATION_STATE_UNAVAILABLE, PersistentEngine, suspend_detection, with_persistent_engine,
+    ELEVATION_STATE_UNAVAILABLE, PersistentEngine, engine_install, suspend_detection,
+    with_persistent_engine, with_persistent_engine_for,
 };
 use rusqlite::{Result as SqlResult, params};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::time::Duration;
 use tracematch::GpsPoint;
 
@@ -93,6 +95,19 @@ const FETCH_CONCURRENCY: usize = 6;
 /// this count means a whole batch came back with nothing to work with, which
 /// no partial outage can produce.
 pub const MAX_CONSECUTIVE_FAILURES: usize = BATCH;
+
+/// Asks that settle nothing before a track is retired out of the queue.
+///
+/// An ask settles nothing when upstream answers about that one activity and
+/// the answer carries no altitude to store: a 4xx, a body that will not parse,
+/// or a whole-track ask that comes back empty. A connection that is gone is
+/// not one of these, it is counted separately and re-asked.
+///
+/// Three, because a pass runs about once per launch and the same answer three
+/// launches running is upstream's position rather than a bad afternoon. Left
+/// uncounted the row is re-offered by every pass for the life of the install,
+/// which holds section detection and vetoes the detector cutover with it.
+pub const ELEVATION_ATTEMPT_LIMIT: u32 = 3;
 
 /// How often the final-detect driver polls the worker it started.
 const DRIVER_POLL: Duration = Duration::from_millis(250);
@@ -246,7 +261,7 @@ fn spawn_resume_ladder(
 /// no query behind it.
 fn engine_gone() -> bool {
     crate::persistence::PERSISTENT_ENGINE
-        .read()
+        .lock()
         .unwrap_or_else(|e| e.into_inner())
         .is_none()
 }
@@ -374,7 +389,7 @@ pub(crate) fn set_phase(phase: &'static str) {
     *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner()) = phase;
     // The guard above is a temporary of the statement it is in, so the
     // announcement is made with the phase lock already released.
-    crate::objects::observer::notify(|o| o.backfill_phase(phase.to_string()));
+    crate::objects::observer::notify(Announcement::BackfillPhase(phase.to_string()));
 }
 
 /// What a poller sees while the backfill runs and after it settles.
@@ -460,6 +475,9 @@ pub struct BackfillOutcome {
     /// Tracks whose fetch failed. Their state is unchanged, so the next run
     /// retries them.
     pub failed: u32,
+    /// Tracks retired this pass: asked [`ELEVATION_ATTEMPT_LIMIT`] times,
+    /// never answered, and now out of the queue for good.
+    pub retired: u32,
     /// Detection runs this pass started. One when it elevated anything, zero
     /// otherwise.
     pub detects_started: u32,
@@ -480,6 +498,23 @@ pub enum BackfillRun {
 // The queue
 // ============================================================================
 
+/// The backfill queue, newest first. The order is what makes a scrolling
+/// athlete's newest activities convert first, and it is worth a sort.
+const ELEVATION_QUEUE_SQL: &str = "SELECT g.activity_id, a.sport_type
+               FROM gps_tracks g
+               JOIN activities a ON a.id = g.activity_id
+              WHERE g.elevation_state = ?1
+              ORDER BY a.start_date IS NULL, a.start_date DESC, g.activity_id";
+
+/// How long that queue is, without building it. Both launch triggers ask, and
+/// neither cares about the order, so counting must not pay for it. The join
+/// stays: a stored track whose activity row has gone is not in the queue, so a
+/// bare count over `gps_tracks` would answer a different question.
+const ELEVATION_REMAINING_SQL: &str = "SELECT COUNT(*)
+               FROM gps_tracks g
+               JOIN activities a ON a.id = g.activity_id
+              WHERE g.elevation_state = ?1";
+
 impl PersistentEngine {
     /// The backfill queue: every stored track upstream has not been asked
     /// about, with the sport its re-ingest has to preserve.
@@ -497,20 +532,56 @@ impl PersistentEngine {
     /// Newest first: a user scrolling their feed after an update sees the
     /// activities they care about most convert first.
     pub fn tracks_missing_elevation(&self) -> SqlResult<Vec<(String, String)>> {
-        let mut stmt = self.db.prepare(
-            "SELECT g.activity_id, a.sport_type
-               FROM gps_tracks g
-               JOIN activities a ON a.id = g.activity_id
-              WHERE g.elevation_state = ?1
-              ORDER BY a.start_date IS NULL, a.start_date DESC, g.activity_id",
-        )?;
+        let mut stmt = self.db.prepare(ELEVATION_QUEUE_SQL)?;
         let rows = stmt.query_map(
             params![i64::from(crate::persistence::ELEVATION_STATE_UNKNOWN)],
             |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
         )?;
         rows.collect()
     }
+}
 
+/// Where the next pass begins in the derived queue.
+///
+/// The queue is re-derived in the same order every pass, so a block of tracks
+/// the connection keeps refusing stops every pass in the same place and
+/// nothing behind it is ever asked. A pass that gave up therefore starts the
+/// next one past the block it gave up on. Process-local on purpose: the ladder
+/// asks again at most every half hour and a launch that re-reads from the
+/// newest track costs one pass, where a stored offset costs a column and a
+/// migration.
+static NEXT_START: AtomicUsize = AtomicUsize::new(0);
+
+/// Where the pass after this one starts, given where this one started and
+/// whether it gave up.
+///
+/// Only a give-up moves it. Every other ending leaves the rows untouched for a
+/// reason that is not about these tracks, an outage or a pause, and the next
+/// pass should ask in the order the athlete sees convert first.
+fn next_pass_start(start: usize, gave_up: bool, queue_len: usize) -> usize {
+    if !gave_up || queue_len == 0 {
+        return 0;
+    }
+    // Past the whole block that ended the walk, not one track past its first:
+    // a give-up means this many in a row answered with nothing to work with.
+    (start + MAX_CONSECUTIVE_FAILURES) % queue_len
+}
+
+/// The queue as this pass walks it: the derived order, rotated to `start`.
+///
+/// Every track is still walked exactly once, so a rotation costs nothing but
+/// the order, and the order only moves after a give-up.
+fn rotated(queue: &[(String, String)], start: usize) -> Vec<(String, String)> {
+    if queue.is_empty() {
+        return Vec::new();
+    }
+    let start = start % queue.len();
+    let mut walked = queue[start..].to_vec();
+    walked.extend_from_slice(&queue[..start]);
+    walked
+}
+
+impl PersistentEngine {
     /// How many tracks the backfill still has to ask about. Zero means a pass
     /// has nothing left to do, which is not the same as the library reading
     /// uniformly elevated.
@@ -519,7 +590,13 @@ impl PersistentEngine {
     /// triggers treat a zero as the definitive "nothing left", one of them by
     /// stamping the app version, and a locked database at launch is ordinary.
     pub fn elevation_backfill_remaining(&self) -> SqlResult<u64> {
-        self.tracks_missing_elevation().map(|q| q.len() as u64)
+        self.db
+            .query_row(
+                ELEVATION_REMAINING_SQL,
+                params![i64::from(crate::persistence::ELEVATION_STATE_UNKNOWN)],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|n| n.max(0) as u64)
     }
 
     /// One track's elevation provenance, or `None` when no track is stored.
@@ -663,24 +740,40 @@ pub fn run_elevation_backfill(transport: &Transport, athlete_id: &str) -> Backfi
         log::info!("[Elevation] backfill refused: a run is already in flight");
         return BackfillRun::Refused;
     };
-    run_in_slot(slot, transport, athlete_id)
+    run_in_slot(slot, engine_install(), transport, athlete_id)
 }
 
 /// The pass proper, on a slot the caller already holds. The guard lives to
 /// the end of the run so the slot is released after the terminal phase, and
 /// after the suspension, which was taken later and so drops first.
-fn run_in_slot(_slot: RunGuard, transport: &Transport, athlete_id: &str) -> BackfillRun {
-    let queue = match with_persistent_engine(|engine| engine.tracks_missing_elevation()) {
-        Some(Ok(queue)) => queue,
-        Some(Err(e)) => {
-            set_phase(BACKFILL_PHASE_FAILED);
-            return BackfillRun::Failed(format!("queue unreadable: {}", e));
-        }
-        None => {
-            set_phase(BACKFILL_PHASE_FAILED);
-            return BackfillRun::Failed("no engine".to_string());
-        }
+fn run_in_slot(
+    _slot: RunGuard,
+    install: u64,
+    transport: &Transport,
+    athlete_id: &str,
+) -> BackfillRun {
+    let queue =
+        match with_persistent_engine_for(install, |engine| engine.tracks_missing_elevation()) {
+            Some(Ok(queue)) => queue,
+            Some(Err(e)) => {
+                set_phase(BACKFILL_PHASE_FAILED);
+                return BackfillRun::Failed(format!("queue unreadable: {}", e));
+            }
+            None => {
+                set_phase(BACKFILL_PHASE_FAILED);
+                return BackfillRun::Failed("no engine".to_string());
+            }
+        };
+
+    // A pass that gave up leaves its start past the block it gave up on, so
+    // the next one asks about the library behind it rather than stopping in
+    // the same place for ever.
+    let start = if queue.is_empty() {
+        0
+    } else {
+        NEXT_START.load(Ordering::Relaxed) % queue.len()
     };
+    let queue = rotated(&queue, start);
 
     BACKFILL.total.store(queue.len() as u32, Ordering::Relaxed);
     BACKFILL.completed.store(0, Ordering::Relaxed);
@@ -690,8 +783,8 @@ fn run_in_slot(_slot: RunGuard, transport: &Transport, athlete_id: &str) -> Back
 
     let _suspend = suspend_detection();
 
-    let walk = drain_queue(transport, &queue, true);
-    let (mut outcome, stopped, owed) = re_ask(transport, walk);
+    let walk = drain_queue(install, transport, &queue, true);
+    let (mut outcome, stopped, owed) = re_ask(install, transport, walk);
     // Whatever is still owed was asked and refused, so it is this pass's
     // failure count. Stored rather than added: the gauge counted every refusal
     // as it happened, and a track that landed on a later round is not one.
@@ -737,11 +830,21 @@ fn run_in_slot(_slot: RunGuard, transport: &Transport, athlete_id: &str) -> Back
         None => {}
     }
 
+    NEXT_START.store(
+        next_pass_start(
+            start,
+            matches!(stopped, Some(Stopped::NothingToWorkWith)),
+            queue.len(),
+        ),
+        Ordering::Relaxed,
+    );
+
     // An unreadable count is not a drained one: a pass that cannot see its own
     // queue ends partial, so the next launch asks again rather than the run
     // claiming a library it never checked.
     let remaining =
-        with_persistent_engine(|engine| engine.elevation_backfill_remaining().ok()).unwrap_or(None);
+        with_persistent_engine_for(install, |engine| engine.elevation_backfill_remaining().ok())
+            .unwrap_or(None);
     let drained = remaining == Some(0);
 
     // The terminal phase lands before the guard releases, so there is no
@@ -763,14 +866,15 @@ fn run_in_slot(_slot: RunGuard, transport: &Transport, athlete_id: &str) -> Back
     // `terminal_cut` re-checks whether a cutover is owed and falls through to a
     // plain re-cut when it is not, so the drained queue is the whole condition.
     // The guard is still held here, so nothing else can claim the slot first.
-    if drained && outcome.queued > 0 && terminal_cut() {
+    if drained && outcome.queued > 0 && terminal_cut(install) {
         outcome.detects_started = 1;
         BACKFILL.detects.fetch_add(1, Ordering::Relaxed);
     }
     log::info!(
-        "[Elevation] backfill finished: {} elevated, {} unavailable, {} failed, {} still to ask",
+        "[Elevation] backfill finished: {} elevated, {} unavailable, {} retired, {} failed, {} still to ask",
         outcome.elevated,
         outcome.unavailable,
+        outcome.retired,
         outcome.failed,
         remaining.map_or_else(|| "an unreadable number of".to_string(), |n| n.to_string())
     );
@@ -815,6 +919,7 @@ fn is_connectivity(e: &NetError) -> bool {
 /// that the connection is gone rather than blinking. Returns the accumulated
 /// outcome, why the pass ended if it did, and what is still owed.
 fn re_ask(
+    install: u64,
     transport: &Transport,
     first: Walk,
 ) -> (BackfillOutcome, Option<Stopped>, Vec<(String, String)>) {
@@ -824,7 +929,7 @@ fn re_ask(
             std::thread::sleep(delay);
             true
         },
-        |queue| drain_queue(transport, queue, false),
+        |queue| drain_queue(install, transport, queue, false),
     )
 }
 
@@ -872,6 +977,7 @@ fn re_ask_with(
         outcome.elevated += round.outcome.elevated;
         outcome.unavailable += round.outcome.unavailable;
         outcome.failed += round.outcome.failed;
+        outcome.retired += round.outcome.retired;
         // A round that stopped part way never asked the rest, and they were
         // refused once already, so they stay owed rather than disappearing.
         refused = round.refused;
@@ -902,8 +1008,13 @@ struct Walk {
 /// `count_progress` is false for a retry round: those tracks are already in
 /// the completed count from the first walk, and counting them again pushes the
 /// progress line past its own total.
-fn drain_queue(transport: &Transport, queue: &[(String, String)], count_progress: bool) -> Walk {
-    drain_queue_with(queue, count_progress, |ids, ask| {
+fn drain_queue(
+    install: u64,
+    transport: &Transport,
+    queue: &[(String, String)],
+    count_progress: bool,
+) -> Walk {
+    drain_queue_with(install, queue, count_progress, |ids, ask| {
         crate::runtime::block_on(fetch_batch(transport, ids, ask))
     })
 }
@@ -913,6 +1024,7 @@ fn drain_queue(transport: &Transport, queue: &[(String, String)], count_progress
 /// Split from [`drain_queue`] so the stop conditions can be exercised without
 /// a transport: everything that ends a walk early is decided here.
 fn drain_queue_with(
+    install: u64,
     queue: &[(String, String)],
     count_progress: bool,
     mut fetch: impl FnMut(&[String], Ask) -> Vec<(String, Fetched)>,
@@ -984,7 +1096,7 @@ fn drain_queue_with(
         // did move and the catalogue has to be re-derived from what it holds
         // now. That, and an unreadable answer, are the only reasons a whole
         // track is ever downloaded again.
-        let (spliced, mut moved) = splice_batch(&plan.splice);
+        let (spliced, mut moved) = splice_batch(install, &plan.splice);
         outcome.elevated += spliced;
         moved.append(&mut plan.whole);
         if !moved.is_empty() {
@@ -998,7 +1110,8 @@ fn drain_queue_with(
         }
         refused.append(&mut plan.refused);
 
-        outcome.elevated += store_batch(&plan.store, &plan.states) as u32;
+        outcome.elevated += store_batch(install, &plan.store, &plan.states) as u32;
+        outcome.retired += retire_batch(install, &plan.attempted);
         if count_progress {
             BACKFILL
                 .completed
@@ -1037,6 +1150,9 @@ struct Plan {
     states: Vec<(String, u8)>,
     /// Asked, and the connection refused. Worth asking again.
     refused: Vec<(String, String)>,
+    /// Asked, and the answer settled nothing. Counted against the track, so a
+    /// track upstream never answers for eventually leaves the queue.
+    attempted: Vec<String>,
 }
 
 impl Plan {
@@ -1078,19 +1194,21 @@ impl Plan {
                 log::info!("[Elevation] {} answered empty, left for the next run", id);
                 outcome.failed += 1;
                 BACKFILL.failed.fetch_add(1, Ordering::Relaxed);
+                self.attempted.push(id);
                 // Upstream replied, so the connection is fine.
                 true
             }
             Fetched::Failed(e) => {
                 BACKFILL.failed.fetch_add(1, Ordering::Relaxed);
                 if is_connectivity(&e) {
-                    log::info!("[Elevation] {} refused, worth asking again: {}", id, e);
+                    log::warn!("[Elevation] {} refused, worth asking again: {}", id, e);
                     let sport = sport(&id);
                     self.refused.push((id, sport));
                     false
                 } else {
                     log::info!("[Elevation] {} left for the next run: {}", id, e);
                     outcome.failed += 1;
+                    self.attempted.push(id);
                     true
                 }
             }
@@ -1104,11 +1222,11 @@ impl Plan {
 /// matches upstream, which are the only ones that need the whole track. The
 /// splice sets provenance in the same statement, so nothing here goes through
 /// `record_elevation_state`.
-fn splice_batch(splice: &[(String, Vec<f64>)]) -> (u32, Vec<String>) {
+fn splice_batch(install: u64, splice: &[(String, Vec<f64>)]) -> (u32, Vec<String>) {
     if splice.is_empty() {
         return (0, Vec::new());
     }
-    with_persistent_engine(|engine| {
+    with_persistent_engine_for(install, |engine| {
         let mut spliced = 0;
         let mut moved = Vec::new();
         for (id, altitudes) in splice {
@@ -1125,17 +1243,23 @@ fn splice_batch(splice: &[(String, Vec<f64>)]) -> (u32, Vec<String>) {
 
 /// Re-ingest the elevated tracks and stamp provenance for the whole batch.
 /// Returns how many tracks landed with elevation.
-fn store_batch(to_store: &[(String, Vec<GpsPoint>, String)], states: &[(String, u8)]) -> usize {
-    with_persistent_engine(|engine| {
+fn store_batch(
+    install: u64,
+    to_store: &[(String, Vec<GpsPoint>, String)],
+    states: &[(String, u8)],
+) -> usize {
+    let (stored, mutated) = with_persistent_engine_for(install, |engine| {
         // The re-ingest upserts the activity row in place, so its date, name
         // and distance survive, and the section_activities links keyed on the
         // id are never cascade-deleted.
         let mut stored = 0;
+        let mut mutated = Vec::new();
         let mut all_states = states.to_vec();
         if !to_store.is_empty() {
             match engine.add_activities_batch(to_store.to_vec()) {
-                Ok(()) => {
+                Ok(ids) => {
                     stored = to_store.len();
+                    mutated = ids;
                     // Provenance follows the points the engine kept, so a track
                     // left flat by an unusable series reads as unavailable.
                     all_states.extend(to_store.iter().map(|(id, points, _)| {
@@ -1149,9 +1273,51 @@ fn store_batch(to_store: &[(String, Vec<GpsPoint>, String)], states: &[(String, 
         if let Err(e) = engine.record_elevation_state(&all_states) {
             log::warn!("[Elevation] provenance not recorded: {}", e);
         }
-        stored
+        (stored, mutated)
     })
-    .unwrap_or(0)
+    .unwrap_or((0, Vec::new()));
+
+    // Outside the closure, so the reader this wakes is not woken into the
+    // engine lock this thread still holds. A splice replaces a stored track,
+    // so every preview line drawn from one is stale until its reader is told.
+    if !mutated.is_empty() {
+        crate::objects::observer::notify(Announcement::GpsTracksMutated(mutated));
+    }
+    stored
+}
+
+/// Count this batch's unsettled asks against their tracks, and report how many
+/// that retired.
+///
+/// A retirement is not a failure and is not counted as one: the pass asked,
+/// upstream would not answer, and the row is now out of the queue rather than
+/// owed for ever. It still counts against `elevation_backfill_outstanding`,
+/// which answers the different question of whether the library reads
+/// uniformly.
+fn retire_batch(install: u64, attempted: &[String]) -> u32 {
+    if attempted.is_empty() {
+        return 0;
+    }
+    let retired = with_persistent_engine_for(install, |engine| {
+        engine.record_elevation_attempts(attempted, ELEVATION_ATTEMPT_LIMIT)
+    });
+    match retired {
+        Some(Ok(n)) => {
+            if n > 0 {
+                log::info!(
+                    "[Elevation] {} tracks retired after {} asks upstream would not answer",
+                    n,
+                    ELEVATION_ATTEMPT_LIMIT
+                );
+            }
+            n as u32
+        }
+        Some(Err(e)) => {
+            log::warn!("[Elevation] asks not counted: {}", e);
+            0
+        }
+        None => 0,
+    }
 }
 
 /// The one cut a drained pass owes, handed to whoever owns it.
@@ -1170,10 +1336,11 @@ fn store_batch(to_store: &[(String, Vec<GpsPoint>, String)], states: &[(String, 
 /// under covers the migration too. Spawning would release it between the two
 /// and let an ordinary conditioning detect land a catalogue for the archive to
 /// snapshot instead of the flat-era one.
-fn terminal_cut() -> bool {
-    let owed = with_persistent_engine(|engine| engine.cutover_is_owed()).unwrap_or(false);
+fn terminal_cut(install: u64) -> bool {
+    let owed =
+        with_persistent_engine_for(install, |engine| engine.cutover_is_owed()).unwrap_or(false);
     if !owed {
-        return start_final_detect();
+        return start_final_detect(install);
     }
     match crate::persistence::cutover::run_cutover() {
         Ok(CutoverOutcome::Completed(_)) => true,
@@ -1200,7 +1367,7 @@ fn terminal_cut() -> bool {
 /// Clearing the processed set is what makes it cold: it drops the evidence
 /// cache, and with it the per-track lift candidates memoised on activity id
 /// alone while the library was flat.
-fn start_final_detect() -> bool {
+fn start_final_detect(install: u64) -> bool {
     // A run that predates the backfill may still hold the detection slot.
     // Drive it to its end through the shared poll, which applies its result
     // and clears the handle; the cold re-cut below then supersedes whatever
@@ -1231,7 +1398,7 @@ fn start_final_detect() -> bool {
         return false;
     }
 
-    let handle = with_persistent_engine(|engine| {
+    let handle = with_persistent_engine_for(install, |engine| {
         engine.clear_processed_activity_ids();
         engine.detect_sections_background_unchecked_applying(
             crate::persistence::sections::detection::ApplyOn::Worker,
@@ -1286,7 +1453,7 @@ fn start_pass() -> FfiStartOutcome {
         Some(Ok(n)) if n > 0 => {}
         Some(Ok(_)) => return FfiStartOutcome::NotOwed,
         _ => {
-            log::info!("[Elevation] backfill deferred: queue unreadable");
+            log::warn!("[Elevation] backfill deferred: queue unreadable");
             return FfiStartOutcome::NotReady;
         }
     }
@@ -1295,26 +1462,31 @@ fn start_pass() -> FfiStartOutcome {
     // than spawning alongside, and anything waiting on the slot sees it
     // taken. A decline further down drops the guard and frees it again.
     let Some(slot) = RunGuard::claim() else {
+        log::warn!("[Elevation] backfill deferred: a pass already holds the slot");
         return FfiStartOutcome::Busy;
     };
     if elevation_backfill_paused() {
-        log::info!("[Elevation] backfill deferred: paused");
+        log::warn!("[Elevation] backfill deferred: paused");
         return FfiStartOutcome::Held;
     }
     // The state TypeScript pushes is advisory, so this only declines on a
     // fresh offline. Unset or stale falls through and the pass runs, which is
     // exactly what happened before there was a state to read.
     if crate::net::connectivity::is_offline() {
-        log::info!("[Elevation] backfill deferred: offline");
+        log::warn!("[Elevation] backfill deferred: offline");
         return FfiStartOutcome::Offline;
     }
     let Some(Ok((transport, athlete_id))) = crate::objects::current_session() else {
-        log::info!("[Elevation] backfill deferred: no credential yet");
+        log::warn!("[Elevation] backfill deferred: no credential yet");
         return FfiStartOutcome::NotConfigured;
     };
 
+    // Which library this pass belongs to, read here rather than on the
+    // worker: a restore installing another database mid-splice would otherwise
+    // take elevation computed from the old library's tracks.
+    let install = engine_install();
     std::thread::spawn(move || {
-        run_in_slot(slot, &transport, &athlete_id);
+        run_in_slot(slot, install, &transport, &athlete_id);
     });
     FfiStartOutcome::Started
 }
@@ -1340,6 +1512,54 @@ mod tests {
     /// The re-cut drains the slot before it cuts, so the losers here go on to
     /// take their turn rather than refuse. That is the design. What must never
     /// happen is a spawn whose handle is thrown away.
+    /// A restore lands while a pass is splicing. The batch finishes and writes
+    /// elevation computed from the old library's tracks into the restored
+    /// database, which is the item's failing case with this worker in it.
+    #[test]
+    fn a_splice_from_the_library_before_a_restore_writes_nothing() {
+        let _serial = serial_global_state();
+        let _first = init_global_engine("elevation_splice_first.db");
+        let started_against = engine_install();
+
+        let _second = init_global_engine("elevation_splice_second.db");
+        assert_ne!(engine_install(), started_against);
+
+        let (spliced, moved) =
+            splice_batch(started_against, &[("a1".to_string(), vec![100.0, 101.0])]);
+
+        assert_eq!(spliced, 0, "the splice is lost, not applied");
+        assert!(moved.is_empty(), "nothing is reported as moved either");
+    }
+
+    /// The stamp must not refuse the pass it belongs to.
+    #[test]
+    fn a_splice_into_the_library_it_started_against_still_runs() {
+        let _serial = serial_global_state();
+        let _dir = seeded_global_engine();
+
+        let (spliced, moved) =
+            splice_batch(engine_install(), &[("a0".to_string(), vec![100.0, 101.0])]);
+
+        assert_eq!(
+            spliced + moved.len() as u32,
+            1,
+            "the batch reached the engine and answered for its one track"
+        );
+    }
+
+    /// A retirement is a write too, and it counts asks against tracks that
+    /// belong to the library the pass started against.
+    #[test]
+    fn a_retirement_from_the_library_before_a_restore_writes_nothing() {
+        let _serial = serial_global_state();
+        let _first = init_global_engine("elevation_retire_first.db");
+        let started_against = engine_install();
+
+        let _second = init_global_engine("elevation_retire_second.db");
+
+        assert_eq!(retire_batch(started_against, &["a1".to_string()]), 0);
+    }
+
     #[test]
     fn a_final_detect_never_spawns_a_worker_it_drops() {
         let _serial = serial_global_state();
@@ -1347,7 +1567,7 @@ mod tests {
         clear_detection_handle();
         let before = detection_workers_started();
 
-        let won = race(start_final_detect);
+        let won = race(|| start_final_detect(engine_install()));
 
         assert!(won > 0, "at least one final re-cut has to start");
         assert_eq!(
@@ -1374,7 +1594,10 @@ mod tests {
             .unwrap_or_else(|e| e.into_inner()) = Some(earlier);
 
         let before = detection_workers_started();
-        assert!(start_final_detect(), "the re-cut starts after the drain");
+        assert!(
+            start_final_detect(engine_install()),
+            "the re-cut starts after the drain"
+        );
         assert_eq!(
             detection_workers_started() - before,
             1,
@@ -1470,7 +1693,7 @@ mod tests {
     fn an_engineless_remaining_call_raises_rather_than_reading_zero() {
         let _serial = serial_global_state();
         *crate::persistence::PERSISTENT_ENGINE
-            .write()
+            .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
 
         assert!(matches!(
@@ -1508,16 +1731,162 @@ mod tests {
             .execute("DROP TABLE activities", [])
             .expect("the join's table goes away");
         *crate::persistence::PERSISTENT_ENGINE
-            .write()
+            .lock()
             .unwrap_or_else(|e| e.into_inner()) = Some(engine);
 
         let answer = crate::ffi::get_elevation_backfill_remaining();
 
         *crate::persistence::PERSISTENT_ENGINE
-            .write()
+            .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
 
         assert!(matches!(answer, Err(crate::VeloqError::Database { .. })));
+    }
+
+    /// The count is asked twice per launch, by both triggers, so it must not
+    /// pay for the queue's order. A plan that sorts is a plan that materialised
+    /// every row to do it.
+    #[test]
+    fn counting_the_queue_neither_sorts_nor_scans_activities_twice() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("plan.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+
+        let plan = query_plan(&engine, ELEVATION_REMAINING_SQL);
+
+        assert!(
+            !plan.contains("TEMP B-TREE"),
+            "counting must not sort, the plan was: {plan}"
+        );
+    }
+
+    /// The queue's own read still sorts, and should: the order is what makes a
+    /// scrolling athlete's newest activities convert first.
+    #[test]
+    fn reading_the_queue_still_takes_its_order() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("plan.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+
+        let plan = query_plan(&engine, ELEVATION_QUEUE_SQL);
+
+        assert!(plan.contains("TEMP B-TREE"), "the plan was: {plan}");
+    }
+
+    /// The count and the queue answer the same question, so they have to agree.
+    /// The join cannot make them disagree: `gps_tracks.activity_id` is a
+    /// foreign key onto `activities`, enforced, so a stored track with no
+    /// activity row does not exist to be dropped. That is why the count keeps
+    /// the join rather than reading `gps_tracks` alone: it costs a primary-key
+    /// lookup per row and holds the contract that a missing `activities` table
+    /// is an error rather than a zero.
+    #[test]
+    fn the_count_agrees_with_the_queue() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("agree.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+        seed_track(
+            &engine,
+            "one",
+            true,
+            crate::persistence::ELEVATION_STATE_UNKNOWN,
+        );
+        seed_track(
+            &engine,
+            "two",
+            true,
+            crate::persistence::ELEVATION_STATE_UNKNOWN,
+        );
+
+        let queue = engine.tracks_missing_elevation().expect("queue reads");
+
+        assert_eq!(queue.len(), 2);
+        assert_eq!(engine.elevation_backfill_remaining().ok(), Some(2));
+    }
+
+    #[test]
+    fn a_track_cannot_outlive_its_activity_row() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("orphan.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+
+        let orphan = engine.db.execute(
+            "INSERT INTO gps_tracks (activity_id, track_data, point_count, elevation_state)
+             VALUES ('orphan', X'00', 0, 0)",
+            [],
+        );
+
+        assert!(orphan.is_err(), "the foreign key is enforced");
+    }
+
+    /// Only `UNKNOWN` is in the queue. A state upstream has already answered
+    /// for must not be counted, or no pass over such a library could end.
+    #[test]
+    fn the_count_holds_only_the_tracks_still_to_ask_about() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("states.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+        seed_track(
+            &engine,
+            "unknown",
+            true,
+            crate::persistence::ELEVATION_STATE_UNKNOWN,
+        );
+        seed_track(
+            &engine,
+            "unavailable",
+            true,
+            crate::persistence::ELEVATION_STATE_UNAVAILABLE,
+        );
+
+        assert_eq!(engine.elevation_backfill_remaining().ok(), Some(1));
+        assert_eq!(
+            engine
+                .tracks_missing_elevation()
+                .expect("queue reads")
+                .len(),
+            1
+        );
+    }
+
+    /// `EXPLAIN QUERY PLAN` for a statement, joined into one line.
+    fn query_plan(engine: &PersistentEngine, sql: &str) -> String {
+        let mut stmt = engine
+            .db
+            .prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
+            .expect("the statement prepares");
+        let rows = stmt
+            .query_map(
+                params![i64::from(crate::persistence::ELEVATION_STATE_UNKNOWN)],
+                |row| row.get::<_, String>(3),
+            )
+            .expect("the plan reads")
+            .collect::<SqlResult<Vec<String>>>()
+            .expect("every plan row reads");
+        rows.join(" | ")
+    }
+
+    /// One stored track, with or without the activity row the queue joins to.
+    fn seed_track(engine: &PersistentEngine, id: &str, with_activity: bool, state: u8) {
+        if with_activity {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activities
+                        (id, sport_type, min_lat, max_lat, min_lng, max_lng, start_date)
+                     VALUES (?1, 'Ride', 0, 0, 0, 0, 1)",
+                    params![id],
+                )
+                .expect("activity row inserts");
+        }
+        engine
+            .db
+            .execute(
+                "INSERT INTO gps_tracks (activity_id, track_data, point_count, elevation_state)
+                 VALUES (?1, X'00', 0, ?2)",
+                params![id, i64::from(state)],
+            )
+            .expect("track row inserts");
     }
 
     /// A drained queue still has to read as drained, or the backfill would
@@ -1564,7 +1933,7 @@ mod tests {
             connectivity::reset();
 
             let mut asked = 0usize;
-            let walk = drain_queue_with(&queue(3 * BATCH), true, |ids, _ask| {
+            let walk = drain_queue_with(engine_install(), &queue(3 * BATCH), true, |ids, _ask| {
                 asked += ids.len();
                 answer(ids)
             });
@@ -1581,7 +1950,7 @@ mod tests {
             connectivity::set_online(false);
 
             let mut asked = 0usize;
-            let walk = drain_queue_with(&queue(2 * BATCH), true, |ids, _ask| {
+            let walk = drain_queue_with(engine_install(), &queue(2 * BATCH), true, |ids, _ask| {
                 asked += ids.len();
                 answer(ids)
             });
@@ -1604,7 +1973,7 @@ mod tests {
             connectivity::set_online(true);
 
             let mut asked = 0usize;
-            let walk = drain_queue_with(&queue(4 * BATCH), true, |ids, _ask| {
+            let walk = drain_queue_with(engine_install(), &queue(4 * BATCH), true, |ids, _ask| {
                 asked += ids.len();
                 connectivity::set_online(false);
                 answer(ids)
@@ -1627,7 +1996,7 @@ mod tests {
             connectivity::set_online(false);
 
             let mut asked = 0usize;
-            let walk = drain_queue_with(&queue(3 * BATCH), true, |ids, _ask| {
+            let walk = drain_queue_with(engine_install(), &queue(3 * BATCH), true, |ids, _ask| {
                 asked += ids.len();
                 answer(ids)
             });
@@ -1635,7 +2004,7 @@ mod tests {
 
             connectivity::set_online(true);
             let mut asked_again = 0usize;
-            let second = drain_queue_with(&walk.unasked, true, |ids, _ask| {
+            let second = drain_queue_with(engine_install(), &walk.unasked, true, |ids, _ask| {
                 asked_again += ids.len();
                 connectivity::set_online(true);
                 answer(ids)
@@ -1651,6 +2020,107 @@ mod tests {
             connectivity::reset();
         }
 
+        /// Scenario: a block of tracks upstream answers 5xx for, every time,
+        /// sits at the head of a queue that is re-derived in the same order
+        /// on every pass.
+        ///
+        /// Expected behaviour: the pass after the one that gave up begins
+        /// past that block, so the rest of the library is asked about. The
+        /// derived order is total and stable, so without this every pass
+        /// stops on the same twenty tracks and nothing behind them is ever
+        /// fetched, which holds `elevation_backfill_remaining` above zero for
+        /// the life of the install and vetoes the detector cutover with it.
+        #[test]
+        fn a_refusing_head_does_not_hide_the_rest_of_the_queue() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+
+            let full = queue(3 * BATCH);
+            let blocked: std::collections::HashSet<String> =
+                full[..BATCH].iter().map(|(id, _)| id.clone()).collect();
+            let reply = |ids: &[String]| -> Vec<(String, Fetched)> {
+                ids.iter()
+                    .map(|id| {
+                        let answer = if blocked.contains(id) {
+                            Fetched::Failed(NetError::Http {
+                                status: 503,
+                                body: String::new(),
+                            })
+                        } else {
+                            Fetched::NoAltitude
+                        };
+                        (id.clone(), answer)
+                    })
+                    .collect()
+            };
+
+            let first =
+                drain_queue_with(engine_install(), &rotated(&full, 0), true, |ids, _ask| {
+                    reply(ids)
+                });
+            assert!(
+                matches!(first.stopped, Some(Stopped::NothingToWorkWith)),
+                "a whole batch with nothing to work with must end the walk"
+            );
+
+            let next = next_pass_start(0, true, full.len());
+            let mut asked: Vec<String> = Vec::new();
+            drain_queue_with(
+                engine_install(),
+                &rotated(&full, next),
+                true,
+                |ids, _ask| {
+                    asked.extend_from_slice(ids);
+                    reply(ids)
+                },
+            );
+
+            assert!(
+                asked.iter().any(|id| !blocked.contains(id)),
+                "the pass after a give-up must reach the tracks behind the block"
+            );
+        }
+
+        /// Only a give-up moves the start. An outage and a pause say nothing
+        /// about these tracks, so the next pass asks newest first again.
+        #[test]
+        fn only_a_give_up_moves_where_the_next_pass_starts() {
+            assert_eq!(next_pass_start(0, false, 3 * BATCH), 0);
+            assert_eq!(next_pass_start(2 * BATCH, false, 3 * BATCH), 0);
+            assert_eq!(next_pass_start(0, true, 3 * BATCH), BATCH);
+            assert_eq!(next_pass_start(BATCH, true, 3 * BATCH), 2 * BATCH);
+        }
+
+        /// A start that walks off the end wraps rather than asking nothing,
+        /// and an empty queue has nowhere to start.
+        #[test]
+        fn the_start_wraps_and_an_empty_queue_stays_at_zero() {
+            assert_eq!(next_pass_start(2 * BATCH, true, 3 * BATCH), 0);
+            assert_eq!(next_pass_start(0, true, 0), 0);
+            assert_eq!(
+                next_pass_start(0, true, BATCH / 2),
+                MAX_CONSECUTIVE_FAILURES % (BATCH / 2)
+            );
+        }
+
+        /// A rotation changes the order and nothing else: every track is
+        /// still walked exactly once.
+        #[test]
+        fn a_rotation_keeps_every_track_exactly_once() {
+            let full = queue(3 * BATCH);
+            for start in [0, 1, BATCH, 3 * BATCH - 1, 3 * BATCH, 7 * BATCH] {
+                let walked = rotated(&full, start);
+                assert_eq!(walked.len(), full.len(), "start {}", start);
+                let mut sorted = walked.clone();
+                sorted.sort();
+                let mut expected = full.clone();
+                expected.sort();
+                assert_eq!(sorted, expected, "start {}", start);
+                assert_eq!(walked[0], full[start % full.len()], "start {}", start);
+            }
+            assert!(rotated(&[], 3).is_empty());
+        }
+
         /// An offline nobody refreshed is a missed push, not a fact. Rust
         /// refusing work on a live connection is worse than never knowing, so
         /// the state expires and the walk goes back to trying.
@@ -1661,7 +2131,7 @@ mod tests {
             connectivity::set_online_at(false, Instant::now() - connectivity::STALE_AFTER);
 
             let mut asked = 0usize;
-            let walk = drain_queue_with(&queue(2 * BATCH), true, |ids, _ask| {
+            let walk = drain_queue_with(engine_install(), &queue(2 * BATCH), true, |ids, _ask| {
                 asked += ids.len();
                 answer(ids)
             });
@@ -1685,7 +2155,7 @@ mod tests {
             connectivity::set_online_at(false, Instant::now() - resting);
 
             let mut asked = 0usize;
-            let walk = drain_queue_with(&queue(2 * BATCH), true, |ids, _ask| {
+            let walk = drain_queue_with(engine_install(), &queue(2 * BATCH), true, |ids, _ask| {
                 asked += ids.len();
                 answer(ids)
             });
@@ -1845,7 +2315,7 @@ mod tests {
             connectivity::set_online_at(true, Instant::now() - connectivity::STALE_AFTER);
 
             let mut asked = 0usize;
-            let walk = drain_queue_with(&queue(BATCH), true, |ids, _ask| {
+            let walk = drain_queue_with(engine_install(), &queue(BATCH), true, |ids, _ask| {
                 asked += ids.len();
                 answer(ids)
             });
@@ -2148,6 +2618,99 @@ mod tests {
     /// Scenario: the athlete pauses the download from Settings. The pass in
     /// flight ends at its next batch boundary, and nothing starts another in
     /// this process: not the launch trigger, not the ladder.
+    /// Scenario: an ask that settles nothing leaves the row where it is, so the
+    /// derived queue offers it again on the next pass. Which answers count
+    /// against the track is what decides whether the queue can ever end.
+    mod attempts {
+        use super::*;
+
+        fn sort_one(result: Fetched, ask: Ask) -> (Plan, BackfillOutcome) {
+            let sports = std::collections::HashMap::from([("a1", "Ride")]);
+            let mut plan = Plan::default();
+            let mut outcome = BackfillOutcome::default();
+            plan.sort("a1".to_string(), result, ask, &sports, &mut outcome);
+            (plan, outcome)
+        }
+
+        #[test]
+        fn an_answer_about_the_activity_counts_against_it() {
+            let _serial = serial_global_state();
+
+            let (plan, _) = sort_one(
+                Fetched::Failed(NetError::Http {
+                    status: 404,
+                    body: "no such activity".to_string(),
+                }),
+                Ask::Elevation,
+            );
+
+            assert_eq!(
+                plan.attempted,
+                vec!["a1".to_string()],
+                "upstream answered about this activity, so the ask is worth counting"
+            );
+            assert!(plan.refused.is_empty(), "a 404 is not worth asking again");
+        }
+
+        #[test]
+        fn a_whole_track_ask_that_comes_back_empty_counts_against_it() {
+            let _serial = serial_global_state();
+
+            let (plan, _) = sort_one(Fetched::Empty, Ask::Track);
+
+            assert_eq!(
+                plan.attempted,
+                vec!["a1".to_string()],
+                "the coordinates were asked for and none came back, which is the last ask there is"
+            );
+        }
+
+        #[test]
+        fn a_connection_that_is_gone_says_nothing_about_the_activity() {
+            let _serial = serial_global_state();
+
+            let (plan, _) = sort_one(
+                Fetched::Failed(NetError::Transport("connection reset".to_string())),
+                Ask::Elevation,
+            );
+
+            assert!(
+                plan.attempted.is_empty(),
+                "a track must never be retired for the network being down"
+            );
+            assert_eq!(plan.refused.len(), 1, "it is worth asking again instead");
+        }
+
+        #[test]
+        fn an_answer_that_settles_the_track_counts_nothing() {
+            let _serial = serial_global_state();
+
+            for (result, ask, what) in [
+                (
+                    Fetched::NoAltitude,
+                    Ask::Elevation,
+                    "upstream has no altitude",
+                ),
+                (
+                    Fetched::Altitudes(vec![1.0]),
+                    Ask::Elevation,
+                    "a series to splice",
+                ),
+                (
+                    Fetched::Empty,
+                    Ask::Elevation,
+                    "an empty elevation ask goes to the whole track",
+                ),
+            ] {
+                let (plan, _) = sort_one(result, ask);
+                assert!(
+                    plan.attempted.is_empty(),
+                    "{what} settles the row, so there is nothing to count"
+                );
+            }
+        }
+    }
+
     mod paused {
         use super::*;
         use crate::net::connectivity;
@@ -2171,7 +2734,7 @@ mod tests {
             reset_pause();
 
             let mut asked = 0usize;
-            let walk = drain_queue_with(&queue(3 * BATCH), true, |ids, _ask| {
+            let walk = drain_queue_with(engine_install(), &queue(3 * BATCH), true, |ids, _ask| {
                 asked += ids.len();
                 pause_elevation_backfill();
                 answer(ids)
