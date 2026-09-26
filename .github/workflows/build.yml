@@ -47,9 +47,9 @@ jobs:
     outputs:
       native: ${{ steps.filter.outputs.native }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -90,7 +90,7 @@ jobs:
       is_signed: ${{ steps.signing.outputs.is_signed }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -106,7 +106,7 @@ jobs:
       # can't satisfy a release build that also needs the AAB.
       - name: Cache built APK/AAB
         id: apk-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             android/app/build/outputs/apk/release/app-release.apk
@@ -115,14 +115,14 @@ jobs:
 
       - name: Setup Node.js
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "${{ env.NODE_VERSION }}"
           cache: "npm"
 
       - name: Setup Java
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: "temurin"
           java-version: "17"
@@ -143,7 +143,7 @@ jobs:
 
       - name: Cache Metro bundler
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /tmp/metro-*
@@ -160,7 +160,7 @@ jobs:
       - name: Cache Rust Android libraries
         id: rust-android-cache
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: modules/veloqrs/android/src/main/jniLibs
           key: rust-android-${{ env.RELEASE_BUILD == 'true' && '4arch' || '2arch' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
@@ -328,7 +328,7 @@ jobs:
             "artifacts/${{ steps.version.outputs.filename }}.apk"
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-apk-${{ steps.version.outputs.filename }}
           path: artifacts/*.apk
@@ -336,7 +336,7 @@ jobs:
 
       - name: Upload APK for E2E
         if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-apk-e2e
           path: android/app/build/outputs/apk/release/app-release.apk
@@ -394,7 +394,7 @@ jobs:
 
       - name: Upload AAB artifact
         if: env.RELEASE_BUILD == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-aab-${{ steps.version.outputs.filename }}
           path: artifacts/*.aab
@@ -417,7 +417,7 @@ jobs:
       is_release: ${{ steps.version.outputs.is_release }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -437,7 +437,7 @@ jobs:
 
       - name: Restore ccache store
         id: ccache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: ~/Library/Caches/ccache
           key: ccache-ios-v2-${{ runner.arch }}-${{ hashFiles('package-lock.json', 'app.json', 'app.config.js', 'src/plugins/**', 'widget/ios/**', 'modules/**/ios/**', 'modules/**/cpp/**', '.github/workflows/build.yml') }}
@@ -456,13 +456,13 @@ jobs:
       - name: Cache simulator app
         if: github.ref != 'refs/heads/main' && github.ref_type != 'tag' && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
         id: app-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ios/build/Build/Products/Release-iphonesimulator/Veloq.app
           key: ios-sim-v1-${{ steps.version.outputs.source_hash }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "${{ env.NODE_VERSION }}"
           cache: "npm"
@@ -472,7 +472,7 @@ jobs:
       - name: Restore Rust iOS libraries
         id: rust-ios-cache
         if: steps.app-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework
           key: rust-ios-${{ env.RELEASE_BUILD == 'true' && 'full' || 'sim' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
@@ -539,7 +539,7 @@ jobs:
       # post step, which runs only when the whole job succeeds.
       - name: Save Rust iOS libraries
         if: steps.build-rust.outcome == 'success'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework
           key: ${{ steps.rust-ios-cache.outputs.cache-primary-key }}
@@ -548,7 +548,7 @@ jobs:
       - name: Restore iOS prebuild
         if: steps.app-cache.outputs.cache-hit != 'true'
         id: ios-prebuild-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             ios
@@ -578,7 +578,7 @@ jobs:
       - name: Restore CocoaPods
         id: pods-cache
         if: steps.app-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             ios/Pods
@@ -608,7 +608,7 @@ jobs:
       # Saved before fastlane rewrites the project's signing settings.
       - name: Save iOS prebuild
         if: steps.app-cache.outputs.cache-hit != 'true' && steps.ios-prebuild-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             ios
@@ -620,7 +620,7 @@ jobs:
 
       - name: Save CocoaPods
         if: steps.app-cache.outputs.cache-hit != 'true' && steps.pods-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             ios/Pods
@@ -690,7 +690,7 @@ jobs:
           echo "Created ${{ steps.version.outputs.filename }}-ios-simulator.zip"
 
       - name: Upload simulator artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-simulator-${{ steps.version.outputs.filename }}
           path: artifacts/*-ios-simulator.zip
@@ -698,7 +698,7 @@ jobs:
 
       - name: Upload build log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-build-log
           path: ios-build.log
@@ -798,7 +798,7 @@ jobs:
       # After both xcodebuild runs, and whether or not the signed build passed.
       - name: Save ccache store
         if: ${{ !cancelled() && steps.ccache.outcome == 'success' && steps.ccache.outputs.cache-hit != 'true' && steps.app-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/Library/Caches/ccache
           key: ${{ steps.ccache.outputs.cache-primary-key }}
@@ -817,7 +817,7 @@ jobs:
 
       - name: Upload build logs on failure
         if: failure() && steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-build-logs-${{ steps.version.outputs.filename }}
           path: |
@@ -890,7 +890,7 @@ jobs:
 
       - name: Upload IPA artifact
         if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-ipa-${{ steps.version.outputs.filename }}
           path: artifacts/*.ipa
@@ -911,7 +911,7 @@ jobs:
     runs-on: e2e-android
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download APK
         uses: actions/download-artifact@v8
@@ -969,7 +969,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-smoke-screenshots
           path: |
@@ -978,7 +978,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-smoke-report
           path: smoke-report.xml
