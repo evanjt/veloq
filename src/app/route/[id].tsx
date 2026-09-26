@@ -41,7 +41,7 @@ import { buildRouteGroupBase, buildFinalRouteGroup } from '@/features/routes/lib
 import { computeRouteStats } from '@/features/routes/lib/computeRouteStats';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { getActivityColor, getActivityIcon } from '@/shared/activity/activityUtils';
 import { formatDistance, formatRelativeDate } from '@/shared/format/format';
 import { decodeCoords } from 'veloqrs';
 import type { FfiActivityMetrics } from 'veloqrs';

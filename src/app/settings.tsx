@@ -8,11 +8,11 @@ import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useDashboardPreferences } from '@/features/home/store';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import { useMapPreferences } from '@/features/maps';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useRecordingPreferences } from '@/features/recording';
 import { useSensorStore } from '@/features/sensors';
-import { useBackgroundJobs } from '@/features/settings';
+import { useRunningJobCount, useLastBackupTimestamp } from '@/features/settings';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useLanguageStore, getAvailableLanguages } from '@/shared/app/LanguageStore';
@@ -21,7 +21,6 @@ import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatFileSize } from '@/shared/format/format';
 import { getAppStorageSize } from '@/shared/storage/gpsStorage';
-import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { SettingsNavRow } from '@/features/settings/components/SettingsNavRow';
 import { RecordingPermissionSection } from '@/features/settings/components/RecordingPermissionSection';
@@ -196,8 +195,10 @@ export default function SettingsScreen() {
 
   // Subtitle: Background jobs. This spoke has no preference to preview, so the
   // state of the thing itself is what the row is for: how many are running.
-  const backgroundJobs = useBackgroundJobs();
-  const runningJobCount = backgroundJobs.filter((job) => job.state === 'running').length;
+  // The hub wants the count and nothing else, so it does not take the jobs
+  // screen's hook: that one reads the awaiting count every tick, a COUNT under
+  // the engine's write lock, for a subtitle that never shows it.
+  const runningJobCount = useRunningJobCount();
   const backgroundJobsSubtitle =
     runningJobCount > 0
       ? t('settings.jobsRunning', { count: runningJobCount })
@@ -207,7 +208,7 @@ export default function SettingsScreen() {
   const notificationsEnabled = useNotificationPreferences((s) => s.enabled);
 
   // Subtitle: Backup
-  const lastBackupTimestamp = getLastBackupTimestamp();
+  const lastBackupTimestamp = useLastBackupTimestamp();
   const lastBackupText = lastBackupTimestamp
     ? new Date(lastBackupTimestamp).toLocaleDateString()
     : t('backup.lastBackupNever');
@@ -433,7 +434,7 @@ const styles = StyleSheet.create({
   accountBadge: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   footerArea: {
     marginTop: spacing.lg,

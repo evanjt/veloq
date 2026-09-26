@@ -57,6 +57,10 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockEngine,
   getRouteDbPath: () => '/data/routes.db',
   isEngineReady: () => mockEngineOpen,
+  resolveRouteDbPath: () => {
+    calls.push({ name: 'resolveRouteDbPath' });
+    return Promise.resolve('/data/routes.db');
+  },
 }));
 
 jest.mock('expo-file-system/legacy', () => ({
@@ -64,6 +68,10 @@ jest.mock('expo-file-system/legacy', () => ({
 }));
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+
+jest.mock('@/shared/native/backupExclusion', () => ({
+  excludeFromBackup: jest.fn(() => true),
+}));
 
 const secureGet = SecureStore.getItemAsync as jest.Mock;
 
@@ -91,6 +99,7 @@ const MIGRATED_KEYS = [
   'veloq-notification-preferences',
   'veloq-notification-prompt-dismissed',
   'veloq-support-store',
+  'veloq-track-fetch-dismissed',
 ];
 
 function migratedLibrary(): void {
@@ -122,6 +131,20 @@ describe('initializeApp', () => {
     expect(mockEngine.initWithPath).toHaveBeenCalledTimes(1);
     expect(getItem).not.toHaveBeenCalled();
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
+  });
+
+  it('settles where the database lives before opening it', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    migratedLibrary();
+
+    await expect(initializeApp()).resolves.toBeNull();
+
+    // The move is only a consistent snapshot of the database and its journal
+    // while no connection is open, so it cannot follow initWithPath.
+    const resolve = calls.findIndex((c) => c.name === 'resolveRouteDbPath');
+    const open = calls.findIndex((c) => c.name === 'initWithPath');
+    expect(resolve).toBeGreaterThanOrEqual(0);
+    expect(open).toBeGreaterThan(resolve);
   });
 
   it('falls back to storage only for a key the engine does not hold', async () => {
@@ -195,6 +218,46 @@ describe('initializeApp', () => {
     expect(basemap.setPath).toHaveBeenCalledWith(expect.stringMatching(/basemap-tiles$/));
     const [path] = basemap.setPath.mock.calls[0] as [string];
     expect(path.startsWith('file://')).toBe(false);
+  });
+
+  it('keeps the tile tree out of the device backup, on the directory the store was handed', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
+
+    await initializeApp();
+
+    const basemap = jest.requireMock('veloqrs').basemapStore();
+    const [path] = basemap.setPath.mock.calls[0] as [string];
+    expect(excludeFromBackup).toHaveBeenCalledWith(path);
+    expect(basemap.setPath.mock.invocationCallOrder[0]).toBeLessThan(
+      excludeFromBackup.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('keeps the terrain previews out of the backup too, on every launch', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
+
+    await initializeApp();
+
+    const marked = excludeFromBackup.mock.calls.map(([path]: [string]) => path);
+    expect(marked).toContain('/data/documents/terrain_previews/');
+  });
+
+  it('does not mark a directory the store refused', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    const basemap = jest.requireMock('veloqrs').basemapStore();
+    basemap.setPath.mockImplementationOnce(() => {
+      throw new Error('store closed');
+    });
+    const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
+
+    await initializeApp();
+
+    // The terrain previews are excluded on every launch and have nothing to do
+    // with the tile store, so the assertion is about the tile tree's path.
+    const marked = excludeFromBackup.mock.calls.map(([path]: [string]) => path);
+    expect(marked).not.toContain('/data/documents/basemap-tiles');
   });
 
   it('still resolves, with the first message, when an initialiser rejects', async () => {

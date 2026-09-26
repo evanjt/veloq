@@ -2,74 +2,92 @@ import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useIsFocused } from 'expo-router';
 import {
   View,
-  FlatList,
-  StyleSheet,
-  RefreshControl,
-  TouchableOpacity,
-  TextInput,
   ActivityIndicator,
+  FlatList,
   Image,
   Keyboard,
   Platform,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  TextInput,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   ScreenSafeAreaView,
-  NetworkErrorState,
   ErrorStatePreset,
   ScreenErrorBoundary,
   ComponentErrorBoundary,
   ActivityCardSkeleton,
   TAB_BAR_SAFE_PADDING,
+  canDrawProfilePhoto,
+  pressable,
 } from '@/shared/ui';
 import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
-import { isNetworkError } from '@/shared/errors/errorHandler';
 import { navigateTo } from '@/shared/app/navigation';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { useInfiniteActivities, useActivitySectionHighlights } from '@/features/activity/hooks';
+import { feedEmptyState } from '@/features/home';
+import { useSyncStatus } from '@/shared/native/useSyncStatus';
+import {
+  useInfiniteActivities,
+  useActivitySectionHighlights,
+  ActivityCard,
+  setVisibleRange,
+} from '@/features/activity';
 import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
 import { useSummaryCardData } from '@/features/home/hooks';
-import { useTheme } from '@/shared/app';
+import { useTheme, useStableBy } from '@/shared/app';
 import type { Activity } from '@/types';
 import { useDashboardPreferences } from '@/features/home/store';
-import { ActivityCard } from '@/features/activity/components';
-import { SummaryCard, NotificationOptInCard, SupportCard } from '@/features/home/components';
+import {
+  SummaryCard,
+  NotificationOptInCard,
+  SupportCard,
+  FeedFirstSyncStandby,
+  FeedSyncLine,
+} from '@/features/home/components';
 import { RecordFAB, PendingUploadsCard } from '@/features/recording';
 import { useStartupData } from '@/features/home/hooks/useStartupData';
 import {
+  consumePendingSnapshots,
+  initCameraOverrides,
+  initTerrainPreviewCache,
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
-} from '@/features/maps/components/TerrainSnapshotWebView';
-import {
-  initTerrainPreviewCache,
-  consumePendingSnapshots,
-  signalSnapshotNeeded,
-  setPrioritySnapshotIds,
-} from '@/features/maps/lib/storage/terrainPreviewCache';
-import { initCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
+} from '@/features/maps';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import {
-  FEED_GROUPS,
+  ESTIMATED_SEARCH_SECTION_HEIGHT,
+  FeedFilterChips,
   matchesFeedGroup,
+  searchOffsetCorrection,
   type FeedGroup,
-} from '@/features/activity/lib/feedActivityGroups';
+} from '@/features/activity';
+import { setFeedHeadIds } from '@/shared/activity/feedHead';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('Feed');
 
-// Height of the search section (search bar + chips + padding) for scroll-to-reveal
-const SEARCH_SECTION_HEIGHT = 78;
-const INITIAL_CONTENT_OFFSET = { x: 0, y: SEARCH_SECTION_HEIGHT } as const;
+// The first frame has nothing measured, so the list opens at the estimate and
+// the header's own onLayout corrects it.
+const INITIAL_CONTENT_OFFSET = { x: 0, y: ESTIMATED_SEARCH_SECTION_HEIGHT } as const;
+/** A card counts as on screen once a tenth of it is. */
+const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 10 } as const;
 
 export default function FeedScreen() {
   // Performance timing - tracks total render time and sub-component costs
   const renderStart = PERF_DEBUG ? performance.now() : 0;
   const perfEndRef = useRef<(() => void) | null>(null);
+  // The screen's render timer starts in render because the render is what it
+  // measures. Scoped by line rather than by file: this file also holds the
+  // render-time identity caches, which are a real hazard and stay reported.
+  // eslint-disable-next-line react-hooks/refs
   perfEndRef.current = logScreenRender('FeedScreen');
   useEffect(() => {
     perfEndRef.current?.();
@@ -80,7 +98,9 @@ export default function FeedScreen() {
   const { isDark, colors: themeColors } = useTheme();
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
+  const [selectedTypeGroup, setSelectedTypeGroup] = useState<FeedGroup | null>(null);
+  // A stored URL stays truthy after the image fails, so presence is not enough.
+  const [profileImageFailed, setProfileImageFailed] = useState(false);
 
   // Basemap snapshot WebView pool - every card gets a snapshot (3D or flat),
   // so the pool always mounts; deferred so initial renders settle first
@@ -97,6 +117,8 @@ export default function FeedScreen() {
 
   // FlatList ref for scroll-to-reveal search
   const listRef = useRef<FlatList>(null);
+  const searchSectionHeight = useRef(ESTIMATED_SEARCH_SECTION_HEIGHT);
+  const searchOffsetCorrected = useRef(false);
 
   // Initialize terrain preview cache and camera overrides on mount
   useEffect(() => {
@@ -105,11 +127,7 @@ export default function FeedScreen() {
     // Check for activities ingested by background notification task -
     // mount WebView workers immediately instead of waiting 500ms
     consumePendingSnapshots().then((pending) => {
-      if (pending.length > 0) {
-        setPrioritySnapshotIds(pending);
-        setSnapshotWebViewReady(true);
-        signalSnapshotNeeded();
-      }
+      if (pending.length > 0) setSnapshotWebViewReady(true);
     });
   }, []);
 
@@ -137,16 +155,7 @@ export default function FeedScreen() {
     if (!data?.pages) return [];
     return data.pages.flat();
   }, [data]);
-  const prevActivitiesRef = useRef(allActivitiesRaw);
-  const allActivities = useMemo(() => {
-    const prevIds = prevActivitiesRef.current.map((a) => a.id).join(',');
-    const newIds = allActivitiesRaw.map((a) => a.id).join(',');
-    if (prevIds === newIds && prevActivitiesRef.current.length > 0) {
-      return prevActivitiesRef.current;
-    }
-    prevActivitiesRef.current = allActivitiesRaw;
-    return allActivitiesRaw;
-  }, [allActivitiesRaw]);
+  const allActivities = useStableBy(allActivitiesRaw, allActivitiesRaw.map((a) => a.id).join(','));
 
   // One deferred FFI call for what the feed paints: summary card and GPS tracks
   const t2 = PERF_DEBUG ? performance.now() : 0;
@@ -158,7 +167,12 @@ export default function FeedScreen() {
         .map((a) => a.id),
     [allActivities]
   );
-  const { data: startupData } = useStartupData(previewIds);
+  const { data: startupData, refresh: refreshStartupData } = useStartupData(previewIds);
+  // The same ids the GPS download puts at the front of its first pass, so the
+  // previews on screen paint before the ones hundreds of cards down.
+  useEffect(() => {
+    setFeedHeadIds(previewIds);
+  }, [previewIds]);
   if (PERF_DEBUG && performance.now() - t2 > 5)
     log.log(`  ⏱ useStartupData: ${(performance.now() - t2).toFixed(1)}ms`);
 
@@ -181,7 +195,10 @@ export default function FeedScreen() {
     showSparkline,
     supportingMetrics,
     refetch: refetchSummary,
-  } = useSummaryCardData(startupData?.summaryCardData, { awaitPrecomputed: true });
+  } = useSummaryCardData(startupData?.summaryCardData, {
+    awaitPrecomputed: true,
+    precomputedSparklines: startupData?.sparklines,
+  });
   if (PERF_DEBUG && performance.now() - t0 > 5)
     log.log(`  ⏱ useSummaryCardData: ${(performance.now() - t0).toFixed(1)}ms`);
 
@@ -208,12 +225,26 @@ export default function FeedScreen() {
 
     // Filter by activity type group
     if (selectedTypeGroup) {
-      const group = selectedTypeGroup as FeedGroup;
-      filtered = filtered.filter((activity: Activity) => matchesFeedGroup(group, activity.type));
+      filtered = filtered.filter((activity: Activity) =>
+        matchesFeedGroup(selectedTypeGroup, activity.type)
+      );
     }
 
     return filtered;
   }, [allActivities, searchQuery, selectedTypeGroup]);
+
+  // What the feed draws when it has no cards. A first launch is its own case:
+  // the query resolves empty long before the first sync has stored anything,
+  // so every other loading state is already false by then.
+  const syncStatus = useSyncStatus();
+  const emptyState = feedEmptyState({
+    storedCount: filteredActivities.length,
+    syncState: syncStatus?.state,
+    isError,
+    isLoading,
+    hasFilter: Boolean(searchQuery.trim() || selectedTypeGroup),
+  });
+  const standingBy = emptyState === 'standby';
 
   // Batch-fetch section highlights (PRs) for the whole loaded feed. Keying this
   // on the filtered list would re-read the bundle on every search keystroke,
@@ -240,15 +271,22 @@ export default function FeedScreen() {
       queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
       refetchSummary(),
     ]);
+    // The card is painted from the startup bundle, which no query invalidation
+    // reaches, so without this a refresh leaves it on whatever the last engine
+    // announcement gave it while the Fitness screen shows the current number.
+    refreshStartupData();
     // Retry any failed 3D terrain snapshots
     snapshotRef.current?.retryFailed();
     // Re-hide search section after refresh (if no active filter)
     if (!searchQuery && !selectedTypeGroup) {
       setTimeout(() => {
-        listRef.current?.scrollToOffset({ offset: SEARCH_SECTION_HEIGHT, animated: true });
+        listRef.current?.scrollToOffset({
+          offset: searchSectionHeight.current,
+          animated: true,
+        });
       }, 100);
     }
-  }, [queryClient, refetchSummary, searchQuery, selectedTypeGroup]);
+  }, [queryClient, refetchSummary, refreshStartupData, searchQuery, selectedTypeGroup]);
 
   // Load more when scrolling to the end
   const handleEndReached = useCallback(() => {
@@ -278,25 +316,45 @@ export default function FeedScreen() {
     [isRefetching, handleRefresh, isDark, t]
   );
 
-  // Stabilize preview tracks reference to prevent FlatList re-renders when startupData refreshes
-  const previewTracksRef = useRef(startupData?.previewTracks);
-  if (startupData?.previewTracks) {
-    previewTracksRef.current = startupData.previewTracks;
-  }
+  // One reference per set of previewed activities, so a startup read that comes
+  // back with the same tracks does not re-key the rows. This held the map in a
+  // ref and wrote it during render, which hands back the object from a render
+  // React threw away.
+  const previewTracks = useStableBy(
+    startupData?.previewTracks,
+    startupData?.previewTracks ? [...startupData.previewTracks.keys()].join(',') : 'none'
+  );
   const renderActivity = useCallback(
     ({ item, index }: { item: Activity; index: number }) => (
       <ActivityCard
         activity={item}
         index={index}
         snapshotRef={snapshotRef}
-        startupTrack={previewTracksRef.current?.get(item.id)}
+        startupTrack={previewTracks?.get(item.id)}
         snapshotReady={snapshotWebViewReady}
         colorScheme={isDark}
         sectionHighlights={sectionHighlightsMap.get(item.id)}
         routeHighlight={routeHighlightsMap.get(item.id)}
       />
     ),
-    [snapshotWebViewReady, isDark, sectionHighlightsMap, routeHighlightsMap]
+    [snapshotWebViewReady, isDark, sectionHighlightsMap, routeHighlightsMap, previewTracks]
+  );
+
+  // The list mounts two to three screens either side of the viewport so
+  // scrolling does not blank. Generation is a different question, so the cards
+  // near the viewport are published and a card asks for its render only when it
+  // is one of them. The identity has to stay put or the list rejects it, which
+  // is what the empty dependency list is for.
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
+      const indices = viewableItems
+        .map((item) => item.index)
+        .filter((index): index is number => index !== null);
+      setVisibleRange(
+        indices.length > 0 ? { first: Math.min(...indices), last: Math.max(...indices) } : null
+      );
+    },
+    []
   );
 
   const navigateToSettings = useCallback(() => {
@@ -317,19 +375,36 @@ export default function FeedScreen() {
     }
   }, [summaryCard.heroMetric]);
 
-  const selectTypeGroup = useCallback((group: string | null) => {
+  const selectTypeGroup = useCallback((group: FeedGroup | null) => {
     setSelectedTypeGroup((prev) => (prev === group ? null : group));
   }, []);
 
   // Initial content offset to hide search section (iOS-style hidden search)
   const initialContentOffset = INITIAL_CONTENT_OFFSET;
 
+  const handleSearchSectionLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const measured = event.nativeEvent.layout.height;
+      const offset = searchOffsetCorrection({
+        measured,
+        applied: ESTIMATED_SEARCH_SECTION_HEIGHT,
+        filtering: Boolean(searchQuery || selectedTypeGroup),
+        corrected: searchOffsetCorrected.current,
+      });
+      if (measured > 0) searchSectionHeight.current = Math.round(measured);
+      if (offset === null) return;
+      searchOffsetCorrected.current = true;
+      listRef.current?.scrollToOffset({ offset, animated: false });
+    },
+    [searchQuery, selectedTypeGroup]
+  );
+
   // List header: search bar + filter chips + section title
   const renderListHeader = useCallback(
     () => (
       <>
         {/* Search bar + filter chips - initially hidden by scrollToOffset */}
-        <View style={styles.searchSection}>
+        <View style={styles.searchSection} onLayout={handleSearchSectionLayout}>
           <View style={styles.searchContainer}>
             <View style={[styles.searchBar, isDark && styles.searchBarDark]}>
               <MaterialCommunityIcons name="magnify" size={20} color={themeColors.textSecondary} />
@@ -348,32 +423,34 @@ export default function FeedScreen() {
                 enablesReturnKeyAutomatically={Platform.OS === 'ios'}
               />
               {searchQuery.length > 0 && (
-                <TouchableOpacity
+                <Pressable
                   onPress={() => setSearchQuery('')}
                   accessibilityLabel={t('common.clearSearch')}
                   accessibilityRole="button"
+                  style={pressable()}
                 >
                   <MaterialCommunityIcons
                     name="close-circle"
                     size={18}
                     color={themeColors.textMuted}
                   />
-                </TouchableOpacity>
+                </Pressable>
               )}
             </View>
             {!summaryCard.enabled && (
-              <TouchableOpacity
+              <Pressable
                 testID="home-profile-button"
                 onPress={navigateToSettings}
                 accessibilityRole="button"
                 accessibilityLabel={t('navigation.settings')}
-                style={[styles.headerProfile, isDark && styles.headerProfileDark]}
+                style={pressable([styles.headerProfile, isDark && styles.headerProfileDark])}
               >
-                {profileUrl ? (
+                {canDrawProfilePhoto(profileUrl, profileImageFailed) ? (
                   <Image
                     source={{ uri: profileUrl }}
                     style={StyleSheet.absoluteFill}
                     resizeMode="cover"
+                    onError={() => setProfileImageFailed(true)}
                   />
                 ) : (
                   <MaterialCommunityIcons
@@ -382,37 +459,16 @@ export default function FeedScreen() {
                     color={isDark ? darkColors.textSecondary : colors.textSecondary}
                   />
                 )}
-              </TouchableOpacity>
+              </Pressable>
             )}
           </View>
 
           {/* Filter chips - always visible below search */}
-          <View style={styles.filterChips}>
-            {FEED_GROUPS.map((group) => (
-              <TouchableOpacity
-                key={group}
-                testID={`home-filter-${group.toLowerCase()}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: selectedTypeGroup === group }}
-                style={[
-                  styles.filterChip,
-                  isDark && styles.filterChipDark,
-                  selectedTypeGroup === group && styles.filterChipActive,
-                ]}
-                onPress={() => selectTypeGroup(group)}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    isDark && styles.filterChipTextDark,
-                    selectedTypeGroup === group && styles.filterChipTextActive,
-                  ]}
-                >
-                  {t(`feed.groups.${group.toLowerCase()}`, group)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <FeedFilterChips
+            selected={selectedTypeGroup}
+            onSelect={selectTypeGroup}
+            isDark={isDark}
+          />
         </View>
 
         {/* Show count only when filtering */}
@@ -434,9 +490,11 @@ export default function FeedScreen() {
       themeColors.textSecondary,
       themeColors.textMuted,
       selectTypeGroup,
+      handleSearchSectionLayout,
       summaryCard.enabled,
       navigateToSettings,
       profileUrl,
+      profileImageFailed,
     ]
   );
 
@@ -464,11 +522,9 @@ export default function FeedScreen() {
     []
   );
 
-  const renderError = useCallback(() => {
-    if (isNetworkError(error)) {
-      return <NetworkErrorState onRetry={() => refetch()} />;
-    }
+  const renderStandby = useCallback(() => <FeedFirstSyncStandby />, []);
 
+  const renderError = useCallback(() => {
     return (
       <ErrorStatePreset
         message={error instanceof Error ? error.message : t('feed.failedToLoad')}
@@ -476,6 +532,19 @@ export default function FeedScreen() {
       />
     );
   }, [error, refetch, t]);
+
+  const renderListEmpty = useCallback(() => {
+    switch (emptyState) {
+      case 'error':
+        return renderError();
+      case 'standby':
+        return renderStandby();
+      case 'skeletons':
+        return renderSkeletons();
+      default:
+        return renderEmpty();
+    }
+  }, [emptyState, renderError, renderStandby, renderSkeletons, renderEmpty]);
 
   const renderFooter = useCallback(() => {
     if (!isFetchingNextPage) return null;
@@ -497,6 +566,10 @@ export default function FeedScreen() {
     dataRef: null as unknown,
     filteredRef: null as unknown,
   });
+  // The render-state diff is instrumentation over the render, so every read and
+  // write of it is a render-time ref access by construction. `PERF_DEBUG` is
+  // `__DEV__`. Scoped by region for the same reason as the timer above.
+  /* eslint-disable react-hooks/refs */
   if (PERF_DEBUG) {
     const prev = prevRenderState.current;
     const changes: string[] = [];
@@ -520,18 +593,22 @@ export default function FeedScreen() {
       );
     if (changes.length > 0) log.log(`  🔄 State changes: ${changes.join(', ')}`);
   }
+  /* eslint-enable react-hooks/refs */
 
   // Single layout path - no separate loading tree to avoid component tree swap and layout bounce
   return (
     <ScreenErrorBoundary screenName="Feed">
       <ScreenSafeAreaView style={shared.container} testID="home-screen">
+        {/* A first launch fills in silence otherwise, which reads as a crash.
+            While standing by, the standby carries its own indicator and counts. */}
+        {!standingBy && <FeedSyncLine />}
         {/* Notification opt-in card (OAuth users who haven't enabled yet) */}
         <NotificationOptInCard />
         <SupportCard />
         <PendingUploadsCard />
 
         {/* Summary card with hero metric and supporting stats */}
-        {summaryCard.enabled && (
+        {summaryCard.enabled && !standingBy && (
           <SummaryCard
             profileUrl={profileUrl}
             onProfilePress={navigateToSettings}
@@ -555,13 +632,15 @@ export default function FeedScreen() {
 
         <FlatList
           ref={listRef}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={VIEWABILITY_CONFIG}
           testID="home-activity-list"
           data={filteredActivities}
           renderItem={renderActivity}
           keyExtractor={(item) => item.id}
           extraData={isDark}
           ListHeaderComponent={renderListHeader}
-          ListEmptyComponent={isError ? renderError : isLoading ? renderSkeletons : renderEmpty}
+          ListEmptyComponent={renderListEmpty}
           ListFooterComponent={renderFooter}
           contentContainerStyle={styles.listContent}
           contentOffset={initialContentOffset}
@@ -647,39 +726,6 @@ const styles = StyleSheet.create({
   headerProfileDark: {
     backgroundColor: opacity.overlayDark.medium,
   },
-  filterChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: layout.screenPadding,
-    paddingBottom: spacing.xs,
-    gap: 8,
-  },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: spacing.md,
-    backgroundColor: opacity.overlay.light,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  filterChipDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  filterChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  filterChipTextDark: {
-    color: darkColors.textSecondary,
-  },
-  filterChipTextActive: {
-    color: colors.textOnDark,
-  },
   sectionHeader: {
     paddingHorizontal: layout.screenPadding,
     paddingBottom: spacing.sm,
@@ -711,14 +757,14 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...typography.body,
-    color: colors.error,
+    color: colors.errorDeep,
   },
   footerLoader: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: spacing.md,
-    gap: 8,
+    gap: spacing.sm,
   },
   footerText: {
     fontSize: typography.bodySmall.fontSize,

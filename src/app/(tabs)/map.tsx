@@ -1,33 +1,33 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { RegionalMapView, SyncProgressBanner } from '@/features/maps/components';
+import {
+  ACTIVITY_CATEGORIES,
+  DEFAULT_MAP_PERIOD,
+  filterMapActivities,
+  getPeriodStart,
+  groupTypesByCategory,
+  type MapPeriod,
+  PERIOD_OPTIONS,
+  RegionalMapView,
+  SyncProgressBanner,
+  useEngineMapActivities,
+} from '@/features/maps';
 import {
   ComponentErrorBoundary,
   ScreenErrorBoundary,
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
   Shimmer,
+  pressable,
 } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { useActivityBoundsCache, useActivities } from '@/features/activity/hooks';
-import { useEngineMapActivities } from '@/features/maps/hooks';
-import { filterMapActivities } from '@/features/maps';
-import {
-  PERIOD_OPTIONS,
-  getPeriodStart,
-  type MapPeriod,
-  DEFAULT_MAP_PERIOD,
-} from '@/features/maps/lib/mapPeriod';
+import { useActivityBoundsCache, useActivities } from '@/features/activity';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { colors, darkColors, ink, spacing, typography, layout } from '@/theme';
-import {
-  groupTypesByCategory,
-  ACTIVITY_CATEGORIES,
-} from '@/features/maps/components/ActivityTypeFilter';
+import { colors, darkColors, ink, spacing, typography, layout, colorWithOpacity } from '@/theme';
 
 // Stable date references - creating new Date() in the component body triggers
 // useEngineMapActivities useMemo on every render, causing cascading re-renders
@@ -239,17 +239,17 @@ export default function MapScreen() {
             contentContainerStyle={styles.chipRow}
           >
             {PERIOD_OPTIONS.map(({ id: key, labelKey }) => (
-              <TouchableOpacity
+              <Pressable
                 key={key}
                 onPress={() => setPeriod(key)}
-                style={[
+                style={pressable([
                   styles.chip,
                   period === key
                     ? styles.chipFilterActive
                     : isDark
                       ? styles.chipDark
                       : styles.chipInactive,
-                ]}
+                ])}
               >
                 <Text
                   style={[
@@ -263,7 +263,7 @@ export default function MapScreen() {
                 >
                   {t(labelKey as never)}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </ScrollView>
 
@@ -274,17 +274,17 @@ export default function MapScreen() {
             contentContainerStyle={styles.chipRow}
           >
             {getDistanceOptions(isMetric).map(({ key, label }) => (
-              <TouchableOpacity
+              <Pressable
                 key={key}
                 onPress={() => setDistanceFilter(key)}
-                style={[
+                style={pressable([
                   styles.chip,
                   distanceFilter === key
                     ? styles.chipFilterActive
                     : isDark
                       ? styles.chipDark
                       : styles.chipInactive,
-                ]}
+                ])}
               >
                 <Text
                   style={[
@@ -298,7 +298,7 @@ export default function MapScreen() {
                 >
                   {label}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </ScrollView>
 
@@ -312,16 +312,16 @@ export default function MapScreen() {
               const config = ACTIVITY_CATEGORIES[category];
               if (!config) return null;
               return (
-                <TouchableOpacity
+                <Pressable
                   key={category}
-                  style={[
+                  style={pressable([
                     styles.chip,
                     active
                       ? { backgroundColor: config.color }
                       : isDark
                         ? styles.chipDark
                         : styles.chipInactive,
-                  ]}
+                  ])}
                   onPress={() => toggleCategory(category)}
                 >
                   <Text
@@ -349,7 +349,7 @@ export default function MapScreen() {
                       {count}
                     </Text>
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </ScrollView>
@@ -360,9 +360,9 @@ export default function MapScreen() {
               {displayActivities.length} {t('mapScreen.activities', 'activities')}
               {dateRangeLabel ? ` · ${dateRangeLabel}` : ''}
             </Text>
-            <TouchableOpacity onPress={() => router.push('/sync-settings' as never)}>
+            <Pressable onPress={() => router.push('/sync-settings' as never)} style={pressable()}>
               <Text style={styles.infoLink}>{t('mapScreen.expandRange', 'Expand range')}</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: colorWithOpacity(ink.white, 0.92),
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
@@ -422,19 +422,19 @@ const styles = StyleSheet.create({
   },
   chipRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
     paddingVertical: spacing.xs,
   },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
   },
   chipInactive: {
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    backgroundColor: colorWithOpacity(ink.black, 0.08),
   },
   chipDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: colorWithOpacity(ink.white, 0.15),
   },
   chipText: {
     fontSize: typography.bodySmall.fontSize,
@@ -447,20 +447,20 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   chipTextDark: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: colorWithOpacity(ink.white, 0.8),
   },
   chipCount: {
     fontSize: typography.caption.fontSize,
     fontWeight: '400',
   },
   chipCountActive: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: colorWithOpacity(ink.white, 0.7),
   },
   chipCountInactive: {
-    color: 'rgba(0, 0, 0, 0.35)',
+    color: colorWithOpacity(ink.black, 0.35),
   },
   chipCountDark: {
-    color: 'rgba(255, 255, 255, 0.45)',
+    color: colorWithOpacity(ink.white, 0.45),
   },
   infoRow: {
     flexDirection: 'row',
@@ -485,9 +485,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -19,
     right: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    backgroundColor: colorWithOpacity(ink.white, 0.8),
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderTopLeftRadius: spacing.sm,
     zIndex: 1,
   },

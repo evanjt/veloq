@@ -5,23 +5,21 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { ScreenSafeAreaView } from '@/shared/ui';
+import { ScreenSafeAreaView, pressable } from '@/shared/ui';
 import { replaceTo } from '@/shared/app/navigation';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { createSharedStyles } from '@/styles';
 import { clearAccountData } from '@/shared/storage';
-import { getEngine } from '@/shared/native/engine';
 import { useImportDatabaseBackup } from '@/features/settings/hooks/exportIndex';
 import {
   useAuthStore,
   INTERVALS_URLS,
-  accountChangeAction,
+  demoEntryAction,
   confirmAccountChange,
   getCachedAthleteId,
   UNNAMED_LIBRARY,
-  DEMO_ATHLETE_ID,
   useApiKeyLogin,
   useOAuthLogin,
   useBackupRestore,
@@ -69,25 +67,35 @@ export default function LoginScreen() {
     [dismissSessionNotice]
   );
 
-  const { handleApiKeyLogin, isApiKeyLoading } = useApiKeyLogin({ setError: reportError });
+  const { handleApiKeyLogin, isApiKeyLoading, queuedMessage } = useApiKeyLogin({
+    setError: reportError,
+  });
   const { handleOAuthLogin, isLoading } = useOAuthLogin({ setError: reportError });
 
   const handleTryDemo = async () => {
     // Warn before destroying a real account's cached data. Engine holds at
     // most one account at a time, so leftover real-user data has to be
     // wiped before demo can populate. Same dialog as account-switch on login.
-    const cachedId = await getCachedAthleteId();
     // A backup restored from this screen leaves a library no credential names,
-    // so the count is what stands between it and the demo fixtures.
-    const stored = getEngine()?.getActivityCount() ?? 0;
-    if (accountChangeAction(cachedId, DEMO_ATHLETE_ID, stored) === 'confirm-then-wipe') {
+    // so the count is what stands between it and the demo fixtures. The engine
+    // is closed here by design and a closed handle reports no activities, so
+    // the count comes from the library rather than from the handle.
+    if ((await demoEntryAction()) === 'confirm-then-wipe') {
       const proceed = await confirmAccountChange({
-        cachedAthleteId: cachedId ?? UNNAMED_LIBRARY,
+        cachedAthleteId: (await getCachedAthleteId()) ?? UNNAMED_LIBRARY,
         incomingKind: 'demo',
       });
       if (!proceed) return;
     }
-    await clearAccountData(queryClient);
+    // A wipe that could not run now says so rather than resolving, and demo
+    // mode must not open over a library that is still there: that is how the
+    // Demo Mode banner came to be drawn over an athlete's own rides.
+    try {
+      await clearAccountData(queryClient);
+    } catch {
+      reportError(t('alerts.failedToClear'));
+      return;
+    }
     resetSyncDateRange();
     enterDemoMode();
     replaceTo('/');
@@ -131,8 +139,23 @@ export default function LoginScreen() {
           {error && !sessionNotice && (
             <View style={styles.errorContainer}>
               <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
-              <Text style={styles.errorText} testID="login-error-text">
+              <Text
+                style={[styles.errorText, isDark && styles.errorTextDark]}
+                testID="login-error-text"
+              >
                 {error}
+              </Text>
+            </View>
+          )}
+
+          {queuedMessage && !error && (
+            <View style={styles.queuedContainer}>
+              <MaterialCommunityIcons name="cloud-off-outline" size={20} color={colors.secondary} />
+              <Text
+                style={[styles.queuedText, isDark && styles.queuedTextDark]}
+                testID="login-queued-text"
+              >
+                {queuedMessage}
               </Text>
             </View>
           )}
@@ -221,18 +244,18 @@ export default function LoginScreen() {
             {t('login.disclaimer')}
           </Text>
 
-          <Pressable onPress={handleOpenVeloqPrivacy} style={styles.veloqPrivacyLink}>
+          <Pressable onPress={handleOpenVeloqPrivacy} style={pressable(styles.veloqPrivacyLink)}>
             <MaterialCommunityIcons name="shield-lock" size={14} color={colors.primary} />
             <Text style={styles.linkText}>{t('about.veloqPrivacy')}</Text>
           </Pressable>
 
           <Text style={[styles.intervalsLabel, isDark && styles.textMuted]}>intervals.icu:</Text>
           <View style={styles.linksRow}>
-            <Pressable onPress={handleOpenIntervalsPrivacy}>
+            <Pressable onPress={handleOpenIntervalsPrivacy} style={pressable()}>
               <Text style={styles.linkTextSmall}>{t('login.privacyPolicy')}</Text>
             </Pressable>
             <Text style={[styles.linkSeparator, isDark && styles.textMuted]}>|</Text>
-            <Pressable onPress={handleOpenIntervalsTerms}>
+            <Pressable onPress={handleOpenIntervalsTerms} style={pressable()}>
               <Text style={styles.linkTextSmall}>{t('login.termsOfService')}</Text>
             </Pressable>
           </View>
@@ -291,16 +314,36 @@ const styles = StyleSheet.create({
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+    backgroundColor: colorWithOpacity(colors.error, 0.1),
     padding: spacing.sm,
     borderRadius: layout.borderRadiusSm,
     marginBottom: spacing.md,
     gap: spacing.sm,
   },
   errorText: {
-    color: colors.error,
+    color: colors.errorDeep,
     flex: 1,
     fontSize: typography.bodySmall.fontSize,
+  },
+  errorTextDark: {
+    color: darkColors.errorDeep,
+  },
+  queuedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colorWithOpacity(colors.secondary, 0.1),
+    padding: spacing.sm,
+    borderRadius: layout.borderRadiusSm,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  queuedText: {
+    color: colors.textSecondary,
+    flex: 1,
+    fontSize: typography.bodySmall.fontSize,
+  },
+  queuedTextDark: {
+    color: darkColors.textSecondary,
   },
   dividerContainer: {
     flexDirection: 'row',

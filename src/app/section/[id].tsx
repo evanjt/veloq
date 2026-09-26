@@ -44,6 +44,7 @@ import {
   DetailFallback,
   SectionTrimOverlay,
   SportTypeSelector,
+  useLedgerActivityNames,
 } from '@/features/routes';
 import { getEngine } from '@/shared/native/engine';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
@@ -60,7 +61,7 @@ import {
   MergeCandidatesModal,
 } from '@/features/routes/components/section';
 import { styles } from '@/features/routes/components/section/SectionDetail.styles';
-import { type MaterialIconName } from '@/features/activity/lib/activityUtils';
+import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { colors } from '@/theme';
 import type { RoutePoint } from '@/types';
 
@@ -161,6 +162,7 @@ export default function SectionDetailScreen() {
     [detail]
   );
   const ledger = useSectionLedger(id, sectionRefreshKey, bundledLedger);
+  const ledgerActivityNames = useLedgerActivityNames(ledger.history);
   const [shownVersion, setShownVersion] = useState<number | null>(null);
   const shadowTrack = useMemo<[number, number][] | undefined>(() => {
     if (shownVersion == null) return undefined;
@@ -231,6 +233,7 @@ export default function SectionDetailScreen() {
     handleToggleShowExcluded,
     handleRematchActivities,
     handleAcceptSection,
+    handleUnflagLift,
   } = useSectionActions({
     id,
     isCustomId: !!isCustomId,
@@ -401,6 +404,7 @@ export default function SectionDetailScreen() {
             onNearbyPress={
               isTrimming ? undefined : (sectionId) => router.push(`/section/${sectionId}`)
             }
+            onUnflagLift={isTrimming ? undefined : handleUnflagLift}
             onBack={() => router.back()}
             onStartEditing={handleStartEditing}
             onSaveName={handleSaveName}
@@ -521,6 +525,7 @@ export default function SectionDetailScreen() {
               onShowVersion={setShownVersion}
               onRevert={handleRevert}
               onUnpin={handleUnpin}
+              activityNames={ledgerActivityNames}
             />
           )}
 

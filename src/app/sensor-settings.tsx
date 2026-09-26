@@ -48,6 +48,7 @@ export default function SensorSettingsScreen() {
   }, []);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
+  const errorDeep = isDark ? darkColors.errorDeep : colors.errorDeep;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
@@ -150,7 +151,7 @@ export default function SensorSettingsScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={t('sensors.forget', 'Forget')}
                   >
-                    <Text style={[styles.forgetText, { color: colors.error }]}>
+                    <Text style={[styles.forgetText, { color: errorDeep }]}>
                       {t('sensors.forget', 'Forget')}
                     </Text>
                   </TouchableOpacity>
@@ -277,12 +278,12 @@ const styles = StyleSheet.create({
   kindRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   kindItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs,
   },
   kindLabel: {
     fontSize: typography.caption.fontSize,
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   forgetButton: {
     paddingHorizontal: spacing.sm,

@@ -5,13 +5,22 @@ import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { useActivities } from '@/features/activity/hooks';
+import { useActivityLabels } from '@/features/activity';
 import { useSeasonBests } from '@/features/stats';
 import { useTheme } from '@/shared/app';
-import { formatDurationOrNull, formatLocalDate } from '@/shared/format/format';
+import { formatDurationOrNull } from '@/shared/format/format';
 import { formatEffortValue } from '@/features/fitness/lib';
 import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
-import { colors, darkColors, layout, spacing, typography, opacity } from '@/theme';
+import {
+  colors,
+  darkColors,
+  layout,
+  spacing,
+  typography,
+  opacity,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 
 type TimeRangeKey = 'season' | 'allTime';
 
@@ -28,13 +37,19 @@ function sportIcon(sport: PrimarySport): keyof typeof MaterialCommunityIcons.gly
 interface SportSectionProps {
   sport: PrimarySport;
   days: number;
-  activityMap: Map<string, { name: string; date: string }>;
   isDark: boolean;
 }
 
-function SportSection({ sport, days, activityMap, isDark }: SportSectionProps) {
+function SportSection({ sport, days, isDark }: SportSectionProps) {
   const { t } = useTranslation();
   const { efforts, isLoading } = useSeasonBests({ sport, days });
+  // The rows name at most fourteen activities, so they are read by id. The
+  // curves are what decide which, and they are only known here.
+  const effortIds = useMemo(
+    () => efforts.map((e) => e.activityId).filter((id): id is string => !!id),
+    [efforts]
+  );
+  const activityMap = useActivityLabels(effortIds);
   const sportColor = SPORT_COLORS[sport];
   const hasAnyValue = efforts.some((e) => e.value !== null);
 
@@ -156,21 +171,6 @@ export default function BestEffortsScreen() {
 
   const days = range === 'season' ? SEASON_DAYS : ALL_TIME_DAYS;
 
-  // Fetch activities for the window so we can display names and dates for each PR row.
-  // For all-time we fetch the same broad window; activities older than the window
-  // will degrade gracefully (showing "not cached" instead of a missing row).
-  const { data: activities } = useActivities({ days });
-
-  const activityMap = useMemo(() => {
-    const map = new Map<string, { name: string; date: string }>();
-    if (!activities) return map;
-    for (const a of activities) {
-      const dateStr = a.start_date_local ? formatLocalDate(new Date(a.start_date_local)) : '';
-      map.set(a.id, { name: a.name, date: dateStr });
-    }
-    return map;
-  }, [activities]);
-
   return (
     <ScreenErrorBoundary screenName="BestEfforts">
       <ScreenSafeAreaView
@@ -219,13 +219,7 @@ export default function BestEffortsScreen() {
           </Text>
 
           {SPORTS.map((sport) => (
-            <SportSection
-              key={sport}
-              sport={sport}
-              days={days}
-              activityMap={activityMap}
-              isDark={isDark}
-            />
+            <SportSection key={sport} sport={sport} days={days} isDark={isDark} />
           ))}
 
           <Text style={[styles.footerNote, isDark && styles.footerNoteDark]}>
@@ -251,7 +245,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     backgroundColor: opacity.overlay.light,
     borderRadius: layout.borderRadiusSm,
-    padding: 4,
+    padding: spacing.xs,
   },
   rangeToggleContainerDark: {
     backgroundColor: opacity.overlayDark.medium,
@@ -274,7 +268,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   rangeButtonTextActive: {
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
   },
   scrollContent: {
     paddingHorizontal: layout.screenPadding,
@@ -334,10 +328,10 @@ const styles = StyleSheet.create({
   },
   rowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+    borderBottomColor: colorWithOpacity(ink.black, 0.08),
   },
   rowBorderDark: {
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: colorWithOpacity(ink.white, 0.08),
   },
   label: {
     ...typography.bodySmall,
@@ -359,7 +353,7 @@ const styles = StyleSheet.create({
   timeText: {
     ...typography.micro,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   timeTextDark: {
     color: darkColors.textSecondary,
@@ -379,7 +373,7 @@ const styles = StyleSheet.create({
   activityDate: {
     ...typography.micro,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   activityDateDark: {
     color: darkColors.textSecondary,

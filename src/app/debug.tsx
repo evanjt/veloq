@@ -20,7 +20,7 @@ import { useSupportStore, daysSince } from '@/shared/app/SupportStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { readTaskRuns, clearTaskRuns } from '@/features/insights/lib/taskRunLog';
 import type { TaskRunEntry } from '@/features/insights/lib/taskRunLog';
-import type { PersistentEngineStats } from 'veloqrs';
+import type { FfiPushRun, PersistentEngineStats } from 'veloqrs';
 
 function getEngine() {
   try {
@@ -41,7 +41,7 @@ function getMemoryStats(): { heapMB: string; allocMB: string; gcCount: number } 
   };
 }
 
-function formatDate(ts: number | bigint | null | undefined): string {
+function formatDate(ts: number | null | undefined): string {
   if (ts == null) return '-';
   return new Date(Number(ts) * 1000).toLocaleDateString();
 }
@@ -150,7 +150,11 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
 
       <Text
         style={[
-          { fontSize: typography.caption.fontSize, marginTop: spacing.sm, marginBottom: 4 },
+          {
+            fontSize: typography.caption.fontSize,
+            marginTop: spacing.sm,
+            marginBottom: spacing.xs,
+          },
           { color: mutedColor },
         ]}
       >
@@ -215,6 +219,14 @@ function BackgroundNotificationsDebug({
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
 
+  // The native worker's own runs. It has no JavaScript in its process, so it
+  // writes them to the engine and nothing of it reaches the ring above.
+  const pushRuns: FfiPushRun[] = useMemo(
+    () => getEngine()?.pushRuns() ?? [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshKey]
+  );
+
   useEffect(() => {
     let cancelled = false;
     readTaskRuns().then((entries) => {
@@ -237,6 +249,32 @@ function BackgroundNotificationsDebug({
       defaultOpen={false}
       testID="debug-section-background-notifications"
     >
+      <View style={styles.tableHeader}>
+        <Text style={[styles.tableHeaderText, { color: mutedColor }]}>Native push worker</Text>
+      </View>
+      {pushRuns.length > 0 ? (
+        pushRuns.map((run) => (
+          <View key={`${run.ts}-${run.activityId}-${run.outcome}`} style={styles.taskRunRow}>
+            <View style={styles.taskRunHeader}>
+              <Text style={[styles.statValue, { color: textColor }]}>{run.outcome}</Text>
+              <Text style={[styles.statLabel, { color: mutedColor }]}>
+                {new Date(run.ts * 1000).toLocaleTimeString()}
+              </Text>
+            </View>
+            <Text style={[styles.taskRunDetail, { color: mutedColor }]} numberOfLines={2}>
+              {[run.activityId, run.detail].filter(Boolean).join(' · ')}
+            </Text>
+          </View>
+        ))
+      ) : (
+        <Text style={[styles.emptyText, { color: mutedColor }]}>
+          No native push runs recorded yet.
+        </Text>
+      )}
+
+      <View style={[styles.tableHeader, styles.taskRunGroup]}>
+        <Text style={[styles.tableHeaderText, { color: mutedColor }]}>JavaScript task</Text>
+      </View>
       {runs.length > 0 ? (
         <>
           {runs.map((run, idx) => (
@@ -286,6 +324,22 @@ export default function DebugScreen() {
     [refreshKey]
   );
 
+  // The Rust to JavaScript event seam, re-read with the engine stats.
+  const events = useMemo(
+    () => getEngine()?.engineEventDiagnostics() ?? null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshKey]
+  );
+  const eventChannels = events
+    ? [
+        ...new Set([
+          ...Object.keys(events.received),
+          ...Object.keys(events.delivered),
+          ...Object.keys(events.listeners),
+        ]),
+      ].sort()
+    : [];
+
   // FFI metrics
   const ffiSummary = getFFIMetricsSummary();
   const ffiMethods = Object.entries(ffiSummary).sort(([, a], [, b]) => b.totalMs - a.totalMs);
@@ -312,6 +366,7 @@ export default function DebugScreen() {
         buildType: __DEV__ ? 'development' : 'production',
       },
       engineStats: stats ?? null,
+      engineEvents: events,
       ffiMetrics: ffiSummary,
       memory: mem,
     };
@@ -361,6 +416,42 @@ export default function DebugScreen() {
                 value={`${formatDate(stats.oldestDate ?? null)} - ${formatDate(stats.newestDate ?? null)}`}
                 isDark={isDark}
               />
+            </>
+          ) : (
+            <Text style={[styles.emptyText, { color: mutedColor }]}>Engine not initialized</Text>
+          )}
+        </CollapsibleSection>
+
+        {/* Engine events: what Rust announced, what JavaScript heard */}
+        <CollapsibleSection
+          title="Engine Events"
+          icon="bell-ring-outline"
+          isDark={isDark}
+          testID="debug-section-engine-events"
+        >
+          {events ? (
+            <>
+              <StatRow label="Events live" value={events.live ? 'Yes' : 'No'} isDark={isDark} />
+              <StatRow
+                label="Binding init"
+                value={events.bindingInitError ?? 'OK'}
+                isDark={isDark}
+              />
+              <StatRow label="Observer" value={events.observerError ?? 'OK'} isDark={isDark} />
+              {eventChannels.length === 0 ? (
+                <Text style={[styles.emptyText, { color: mutedColor }]}>
+                  No announcement has reached JavaScript this process.
+                </Text>
+              ) : (
+                eventChannels.map((channel) => (
+                  <StatRow
+                    key={channel}
+                    label={channel}
+                    value={`${events.received[channel] ?? 0} in, ${events.delivered[channel] ?? 0} out, ${events.listeners[channel] ?? 0} listening`}
+                    isDark={isDark}
+                  />
+                ))
+              )}
             </>
           ) : (
             <Text style={[styles.emptyText, { color: mutedColor }]}>Engine not initialized</Text>
@@ -514,7 +605,7 @@ const styles = StyleSheet.create({
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   statLabel: {
     fontSize: typography.bodyCompact.fontSize,
@@ -539,10 +630,10 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: 'row',
-    paddingBottom: 4,
+    paddingBottom: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   tableHeaderText: {
     fontSize: typography.label.fontSize,
@@ -552,10 +643,10 @@ const styles = StyleSheet.create({
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 3,
+    paddingVertical: spacing.xs,
     borderLeftWidth: 3,
-    paddingLeft: 6,
-    marginLeft: -2,
+    paddingLeft: spacing.xsPlus,
+    marginLeft: -spacing.xxs,
   },
   tableCell: {
     fontSize: typography.caption.fontSize,
@@ -568,8 +659,11 @@ const styles = StyleSheet.create({
     width: 48,
     textAlign: 'right',
   },
+  taskRunGroup: {
+    marginTop: spacing.md,
+  },
   taskRunRow: {
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
   },
@@ -584,9 +678,9 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
     marginTop: spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
   },
   actionButtonText: {
     fontSize: typography.bodyCompact.fontSize,

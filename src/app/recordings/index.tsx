@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -10,40 +10,61 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
 import { formatDistance, formatDuration } from '@/shared/format/format';
-import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
+import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import { useRecordingLibrary } from '@/features/recording/hooks/useRecordingLibrary';
+import { recordingActions } from '@/features/recording';
 import { PermissionUpgradeBanner } from '@/features/recording/components/PermissionUpgradeBanner';
 import type { RecordingLibraryEntry, RecordingUploadStatus } from '@/types';
 
-const STATUS_META: Record<
+/**
+ * The status marks. A function of the theme rather than a constant: the
+ * success and blocked tones have to be the deep pair on white and the light
+ * pair on near-black, and no single value clears 4.5:1 on both grounds.
+ */
+const statusMeta = (
+  isDark: boolean
+): Record<
   RecordingUploadStatus,
   { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; color: string }
-> = {
+> => ({
   localOnly: { icon: 'cellphone', color: colors.textSecondary },
   pending: { icon: 'cloud-upload-outline', color: colors.secondary },
   uploading: { icon: 'cloud-upload', color: colors.secondary },
-  uploaded: { icon: 'cloud-check-outline', color: colors.success },
+  uploaded: {
+    icon: 'cloud-check-outline',
+    color: isDark ? darkColors.successDeep : colors.successDeep,
+  },
   failed: { icon: 'cloud-alert', color: colors.error },
-  permissionBlocked: { icon: 'shield-lock-outline', color: colors.warning },
-};
+  permissionBlocked: {
+    icon: 'shield-lock-outline',
+    color: isDark ? darkColors.warningAmber : colors.warningAmber,
+  },
+});
+
+/** The row's retry is small, and a press that misses opens the recording. */
+const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
 export default function RecordingsLibraryScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const insets = useSafeAreaInsets();
-  const { entries, isLoading } = useRecordingLibrary();
+  const { entries, isLoading, uploadNow, uploadingId } = useRecordingLibrary();
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
+  const meta = useMemo(() => statusMeta(isDark), [isDark]);
 
   const renderEntry = useCallback(
     ({ item }: { item: RecordingLibraryEntry }) => {
-      const status = STATUS_META[item.uploadStatus] ?? STATUS_META.localOnly;
+      const status = meta[item.uploadStatus] ?? meta.localOnly;
       const date = new Date(item.startTime);
+      // The same rule the detail screen offers its upload on, so a row and the
+      // recording it opens never disagree about whether a send is still owed.
+      const { canUpload, isUploading } = recordingActions(item, uploadingId);
       return (
         <TouchableOpacity
           testID={`recording-entry-${item.id}`}
@@ -76,10 +97,32 @@ export default function RecordingsLibraryScreen() {
               {t(`recording.library.status.${item.uploadStatus}`)}
             </Text>
           </View>
+          {isUploading ? (
+            <View testID={`recording-uploading-${item.id}`} style={styles.rowAction}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : null}
+          {canUpload && !isUploading ? (
+            <TouchableOpacity
+              testID={`recording-retry-${item.id}`}
+              style={styles.rowAction}
+              onPress={() => uploadNow(item.id)}
+              accessibilityRole="button"
+              accessibilityLabel={t('recording.library.uploadNow', 'Upload now')}
+              hitSlop={HIT_SLOP}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="cloud-upload-outline"
+                size={20}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          ) : null}
         </TouchableOpacity>
       );
     },
-    [surface, border, textPrimary, textSecondary, isMetric, t]
+    [meta, surface, border, textPrimary, textSecondary, isMetric, t, uploadNow, uploadingId]
   );
 
   return (
@@ -153,14 +196,18 @@ const styles = StyleSheet.create({
   },
   cardMeta: {
     ...typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xxs,
+  },
+  rowAction: {
+    marginLeft: spacing.xs,
+    padding: spacing.xs,
   },
   statusChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm,
   },
   statusText: {

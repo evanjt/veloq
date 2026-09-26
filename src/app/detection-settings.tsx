@@ -9,7 +9,7 @@ import { useTheme } from '@/shared/app';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { rescanRefusalKey } from '@/features/routes';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, pressable } from '@/shared/ui';
 import {
   BackgroundJobsLink,
   CutoverStatus,
@@ -24,6 +24,7 @@ export default function DetectionSettingsScreen() {
 
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const setRouteMatchingEnabled = useRouteSettings((s) => s.setEnabled);
+  const clearNotice = useRouteSettings((s) => s.clearNotice);
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
@@ -37,7 +38,7 @@ export default function DetectionSettingsScreen() {
     cancelScan,
     result: rescanResult,
     failed: rescanFailed,
-    lapsed: rescanLapsed,
+    stillRunning: rescanStillRunning,
     refusal: rescanRefusal,
     clearResult,
   } = useSectionRescan();
@@ -84,6 +85,14 @@ export default function DetectionSettingsScreen() {
               color={colors.primary}
             />
           </View>
+          {clearNotice !== null && (
+            <Text
+              testID="detection-clear-notice"
+              style={[styles.toggleNote, { color: textSecondary }]}
+            >
+              {t(clearNotice)}
+            </Text>
+          )}
         </View>
 
         <View
@@ -91,7 +100,10 @@ export default function DetectionSettingsScreen() {
           pointerEvents={routeMatchingEnabled ? 'auto' : 'none'}
         >
           <Pressable
-            style={[styles.previewRow, { backgroundColor: surface, borderColor: border }]}
+            style={pressable([
+              styles.previewRow,
+              { backgroundColor: surface, borderColor: border },
+            ])}
             onPress={() => router.push('/detection-preview' as Href)}
             testID="detection-preview-row"
           >
@@ -103,7 +115,22 @@ export default function DetectionSettingsScreen() {
           </Pressable>
 
           <Pressable
-            style={[
+            style={pressable([
+              styles.previewRow,
+              { backgroundColor: surface, borderColor: border },
+            ])}
+            onPress={() => router.push('/route-grouping-preview' as Href)}
+            testID="route-grouping-preview-row"
+          >
+            <MaterialCommunityIcons name="source-branch" size={20} color={textSecondary} />
+            <Text style={[styles.previewRowText, { color: textPrimary }]}>
+              {t('settings.previewRouteGrouping')}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={22} color={textSecondary} />
+          </Pressable>
+
+          <Pressable
+            style={pressable([
               styles.rescanBtn,
               isScanning
                 ? {
@@ -112,7 +139,7 @@ export default function DetectionSettingsScreen() {
                     borderWidth: StyleSheet.hairlineWidth,
                   }
                 : { backgroundColor: brand.tealLight },
-            ]}
+            ])}
             onPress={isScanning ? cancelScan : handleRescan}
             testID="detection-rescan-button"
           >
@@ -148,12 +175,12 @@ export default function DetectionSettingsScreen() {
             </Text>
           )}
 
-          {isScanning && rescanLapsed && (
+          {rescanStillRunning && (
             <Text
-              testID="detection-rescan-slow"
+              testID="detection-rescan-still-running"
               style={[styles.rescanResult, { color: textSecondary }]}
             >
-              {t('settings.runSlow')}
+              {t('settings.stillRunning')}
             </Text>
           )}
 
@@ -211,6 +238,11 @@ const styles = StyleSheet.create({
   rescanText: {
     ...typography.body,
     fontWeight: '600',
+  },
+  toggleNote: {
+    ...typography.bodySmall,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
   },
   rescanResult: {
     ...typography.bodySmall,
