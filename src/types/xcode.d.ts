@@ -18,7 +18,7 @@ declare module 'xcode' {
   type PbxSection<T> = Record<string, T | string>;
 
   /**
-   * Only the surface the iOS widget plugin uses. The package ships no types and
+   * Only the surface the iOS widget and push-extension plugins use. The package ships no types and
    * its object model is untyped by nature: every section is a raw dictionary
    * keyed by uuid, with a parallel `<uuid>_comment` entry beside each.
    */
@@ -30,6 +30,8 @@ declare module 'xcode' {
           PBXGroup: PbxSection<PbxGroup>;
           PBXBuildFile: PbxSection<{ fileRef: string }>;
           PBXFileReference: PbxSection<{ path: string }>;
+          /** Absent until a target adds one, which `addTarget` does for an extension. */
+          PBXCopyFilesBuildPhase?: Record<string, unknown>;
         };
       };
     };
@@ -41,6 +43,10 @@ declare module 'xcode' {
     pbxFileReferenceSection(): Record<string, { path: string }>;
     pbxBuildFileSection(): Record<string, unknown>;
     pbxSourcesBuildPhaseObj(targetUuid: string): PbxBuildPhase;
+    pbxXCBuildConfigurationSection(): Record<
+      string,
+      { buildSettings?: Record<string, string> } | string
+    >;
     addSourceFile(path: string, opt: { target: string }, group?: string): false | { uuid: string };
     addToPbxBuildFileSection(file: unknown): void;
     addToPbxSourcesBuildPhase(file: unknown): void;

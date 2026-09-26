@@ -39,6 +39,17 @@ npx uniffi-bindgen-react-native generate jsi bindings \
   --cpp-dir ../cpp/generated \
   --library "$LIB_PATH"
 
+# The generator's own comments carry em dashes, its include path is absolute
+# and its CMake target collides with the Rust cdylib, all of which the fixer
+# rewrites. `scripts/bundle-android.mjs` already runs it after an
+# `expo export:embed`, but that is a device build: a session that only changes
+# the FFI surface regenerates here and never reaches it, and left the tree with
+# em dashes `scripts/lint-em-dashes.mjs` refuses across the whole index. The
+# only remedy then is a hand edit the next regeneration undoes.
+cd ..
+scripts/fix-generated.sh
+cd rust
+
 echo "✓ Generated TypeScript bindings in src/generated/"
 echo "✓ Generated C++ bindings in cpp/generated/"
 

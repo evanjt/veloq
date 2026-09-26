@@ -10,7 +10,7 @@
 // component. A read inside a function body is left alone: an event handler
 // measuring on demand is correct, and the hook cannot be called there anyway.
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
@@ -24,9 +24,10 @@ const SRC = join(ROOT, 'src');
 function walk(dir) {
   const out = [];
   if (!existsSync(dir)) return out;
-  for (const name of readdirSync(dir)) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const { name } = entry;
     const full = join(dir, name);
-    if (statSync(full).isDirectory()) {
+    if (entry.isDirectory()) {
       if (name === '__tests__' || name === '__mocks__') continue;
       out.push(...walk(full));
       continue;

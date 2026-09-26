@@ -3,12 +3,17 @@
 #
 # Git runs `pre-merge-commit` for a merge that does not conflict, which is
 # exactly the case that has twice produced a tree neither branch wrote. Running
-# everything is not the answer: every worktree merges into one checkout under a
-# build lock and this runs inside the merge, so a full suite serialises every
-# other session behind it.
+# everything is not the answer: every worktree merges into one checkout and this
+# runs inside the merge, holding the merge lock, so a full suite serialises
+# every other session's merge behind it.
 set -e
 
-changed=$(git diff --cached --name-only HEAD)
+# `--diff-filter=d` drops what the merge removed: a deleted suite names a
+# `--test` target cargo no longer has, and cargo refuses the whole command
+# rather than skipping it, so one deletion blocks every merge that carries it.
+# A deletion is still gated, by `cargo check --tests` in `merge-gates.sh`,
+# which is what catches a caller left behind.
+changed=$(git diff --cached --name-only --diff-filter=d HEAD)
 [ -n "$changed" ] || exit 0
 
 plan=$(mktemp)

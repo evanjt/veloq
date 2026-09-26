@@ -30,6 +30,14 @@ set -u
 # rather than ignored, because a skip nobody notices is how the ratchet drifts.
 SKIPPABLE="tsc test rustfmt audit"
 
+# A worktree's `node_modules` is one symlink per entry of the main checkout's,
+# built once when the tree was made. A package the main checkout gained since
+# then is absent here, and the gate that meets it names the importer rather than
+# the missing link: `@ubjs/core` read as the branch having broken the generated
+# bindings. Levelling costs a directory listing and does nothing in the main
+# checkout, so it runs before the gates rather than being remembered.
+node "$(dirname "$0")/link-worktree-modules.mjs" || true
+
 logs=$(mktemp -d)
 trap 'rm -rf "$logs"' EXIT
 

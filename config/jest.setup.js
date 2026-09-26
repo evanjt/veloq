@@ -32,6 +32,21 @@ jest.mock("expo-secure-store", () => ({
   ALWAYS_THIS_DEVICE_ONLY: 5,
 }));
 
+// The engine binding registers a TurboModule the moment it is imported, which
+// throws outside a native runtime. A feature barrel re-exports every module the
+// outside tree takes from it, so any test that touches one consumer of a
+// feature loads all of them, and one of them always reaches the binding. Each
+// suite stubbing it for itself is a mock for an import it never asked for, so
+// the stub is the default here and a suite that wants different behaviour still
+// calls `jest.mock('veloqrs', ...)` of its own, which wins.
+jest.mock("veloqrs", () =>
+  require("../src/__tests__/__shared__/veloqrsStub").withOverrides(),
+);
+
+// `react-native-iap` reaches a nitro TurboModule the same way, through
+// `shared/app`, which the same barrels pull in.
+jest.mock("react-native-iap", () => ({ useIAP: () => ({}), ErrorCode: {} }));
+
 // Mock expo-localization for device locale simulation
 // Note: i18next is NOT mocked - we test real integration
 jest.mock("expo-localization", () => ({

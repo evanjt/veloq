@@ -15,14 +15,23 @@
 // Each read is classified:
 //   direct   the call sits in the hook or component body itself, or in an
 //            IIFE, or is a bare argument to a hook. Runs on every render.
-//   helper   the call is inside a module-local function that a hook or
-//            component calls directly at render. One hop only.
+//   helper   the call is inside a module-level function that a hook or
+//            component calls directly at render, in this file or in one it
+//            imports the helper from. One hop only, but an import that is a
+//            bare re-export is followed through to the module that defines it,
+//            because a barrel is not a hop anybody wrote.
 //   memo     the call sits inside useMemo. Runs when the deps change, so it is
-//            only as fresh as its key. Deps that name a subscription trigger,
-//            or a precomputed value the caller passes instead of the read, are
-//            the sanctioned shape and pass. Deps that name neither never re-run
-//            after a sync, so the screen shows what was true at mount: those
-//            fail.
+//            only as fresh as its key. Deps that name the reader
+//            `useEngineRead` hands back, a subscription trigger, or a
+//            precomputed value the caller passes instead of the read, are the
+//            sanctioned shape and pass. Deps that name none of those never
+//            re-run after a sync, so the screen shows what was true at mount:
+//            those fail.
+//
+//            The reader is the shape to write now. A bare trigger is a key the
+//            memo body never reads, so `exhaustive-deps` calls it an
+//            unnecessary dependency and the clean-looking fix, deleting it,
+//            silently freezes the read at mount.
 //   init     the call sits in a useState or useReducer lazy initialiser. Runs
 //            once per mount, before the first paint. Reported, not failed.
 //
@@ -70,15 +79,21 @@ const ALLOWLIST = new Map([
 // hoisted out of its wrapper into a local is the same thing under the other
 // name the codebase uses for it, and keys on the array rather than on the
 // literal the screen rebuilds each render, so `bundled` counts too.
-const KEYED_DEP =
-  /trigger|refresh|refetch|reload|nonce|revision|version|tick|precomputed|bundled/i;
+const KEYED_DEP = /trigger|refresh|refetch|reload|nonce|revision|version|tick|precomputed|bundled/i;
+
+// The reader `useEngineRead` hands back. Its identity changes when a subscribed
+// event fires and at no other time, so a memo depending on it re-runs then and
+// the body genuinely reads it: the same key, said in a way `exhaustive-deps`
+// can also agree with. Named `readSomething` by convention, which is what this
+// matches.
+const KEYED_READER = /(^|[^A-Za-z])read[A-Z]/;
 
 // Does a memo's dep list carry something that re-runs it after a sync?
 function memoIsKeyed(deps) {
   if (!deps || deps === '(none)') return false;
   const inner = deps.replace(/^\[|\]$/g, '').trim();
   if (inner === '') return false;
-  return KEYED_DEP.test(inner);
+  return KEYED_DEP.test(inner) || KEYED_READER.test(inner);
 }
 
 // Files whose useMemo read is keyed on its inputs alone by design, with the
@@ -87,9 +102,12 @@ const MEMO_ALLOWLIST = new Map([
   // Feeds a useState initialiser and is named for it: one read per mount, with
   // its own refresh path for everything after.
   ['src/features/activity/hooks/useActivityBoundsCache.ts', 'initial value, refreshed elsewhere'],
-  // `wellnessData` is the dep that stands in for the trigger: it lands with
-  // each sync, and the sparklines are cut from the same rows.
-  ['src/features/home/hooks/useSummaryCardData.ts', 'wellnessData moves with every sync'],
+  // Both reads are keyed on the flag the backup itself flips, and a backup on
+  // this screen is the only thing that moves either value.
+  [
+    'src/features/settings/components/BackupSection.tsx',
+    'keyed on the backup running, which is what changes it',
+  ],
 ]);
 
 // Hooks whose callback React runs during render. useMemo runs it whenever the
@@ -101,10 +119,10 @@ const LAZY_INIT = new Set(['useState', 'useReducer']);
 
 function walk(dir) {
   const out = [];
-  for (const name of readdirSync(dir)) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const { name } = entry;
     const full = join(dir, name);
-    const st = statSync(full);
-    if (st.isDirectory()) {
+    if (entry.isDirectory()) {
       if (name === '__tests__' || name === '__mocks__') continue;
       out.push(...walk(full));
     } else if (
@@ -293,9 +311,8 @@ function isModuleLevelFunction(fn) {
   );
 }
 
-function scanFile(file) {
+function parseFile(file) {
   const src = readFileSync(file, 'utf8');
-  if (!/getEngine|getNativeModule|\bengine\b/.test(src)) return [];
   const sf = ts.createSourceFile(
     file,
     src,
@@ -308,8 +325,32 @@ function scanFile(file) {
   const helperReads = new Map(); // name -> [{member,line}]
   // Calls from render context to a local identifier: owner -> [{callee,line}]
   const renderCalls = [];
+  // What a name in this file was imported as: name -> module specifier.
+  const imports = new Map();
+  // A bare re-export, `export { x } from './y'`: name -> module specifier.
+  const reexports = new Map();
 
   const line = (n) => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
+
+  for (const st of sf.statements) {
+    if (ts.isImportDeclaration(st) && ts.isStringLiteral(st.moduleSpecifier)) {
+      const clause = st.importClause;
+      const named = clause?.namedBindings;
+      if (named && ts.isNamedImports(named)) {
+        for (const el of named.elements) imports.set(el.name.text, st.moduleSpecifier.text);
+      }
+    } else if (
+      ts.isExportDeclaration(st) &&
+      st.moduleSpecifier &&
+      ts.isStringLiteral(st.moduleSpecifier) &&
+      st.exportClause &&
+      ts.isNamedExports(st.exportClause)
+    ) {
+      for (const el of st.exportClause.elements) {
+        reexports.set(el.name.text, st.moduleSpecifier.text);
+      }
+    }
+  }
 
   function visit(node) {
     if (ts.isCallExpression(node)) {
@@ -346,26 +387,76 @@ function scanFile(file) {
   }
   visit(sf);
 
-  for (const c of renderCalls) {
-    const reads = helperReads.get(c.callee);
-    if (!reads) continue;
-    for (const r of reads) {
-      findings.push({
-        file: rel(file),
-        line: c.line,
-        owner: c.owner,
-        member: r.member,
-        kind: c.kind === 'direct' ? 'helper' : c.kind,
-        via: `${c.callee}:${r.line}`,
-        deps: c.deps,
-      });
+  return { file, findings, helperReads, renderCalls, imports, reexports };
+}
+
+// `@/x` is `src/x`; anything else relative is relative to the importing file.
+// A directory resolves through its `index`. Returns null for a package.
+function resolveImport(fromFile, spec) {
+  let base;
+  if (spec.startsWith('@/')) base = join(SRC, spec.slice(2));
+  else if (spec.startsWith('.')) base = resolve(dirname(fromFile), spec);
+  else return null;
+  for (const candidate of [
+    `${base}.ts`,
+    `${base}.tsx`,
+    join(base, 'index.ts'),
+    join(base, 'index.tsx'),
+  ]) {
+    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+  }
+  return null;
+}
+
+// The reads of `name` as the module that defines it sees them, following bare
+// re-exports so a barrel does not hide the definition. Bounded, so a cycle of
+// re-exports cannot spin.
+function helperReadsOf(modules, file, name, seen = new Set()) {
+  const mod = modules.get(file);
+  if (!mod || seen.has(file)) return null;
+  seen.add(file);
+  const own = mod.helperReads.get(name);
+  if (own) return { reads: own, file };
+  const onward = mod.reexports.get(name);
+  if (!onward) return null;
+  const next = resolveImport(file, onward);
+  return next ? helperReadsOf(modules, next, name, seen) : null;
+}
+
+// Join every render-time call to a plain identifier with the helper it names,
+// in this file or in the one it was imported from.
+function joinHelpers(modules) {
+  const out = [];
+  for (const mod of modules.values()) {
+    for (const c of mod.renderCalls) {
+      const local = mod.helperReads.get(c.callee);
+      let found = local ? { reads: local, file: mod.file } : null;
+      if (!found) {
+        const spec = mod.imports.get(c.callee);
+        const target = spec ? resolveImport(mod.file, spec) : null;
+        if (target) found = helperReadsOf(modules, target, c.callee);
+      }
+      if (!found) continue;
+      for (const r of found.reads) {
+        out.push({
+          file: rel(mod.file),
+          line: c.line,
+          owner: c.owner,
+          member: r.member,
+          kind: c.kind === 'direct' ? 'helper' : c.kind,
+          via: `${c.callee}:${r.line}`,
+          deps: c.deps,
+        });
+      }
     }
   }
-  return findings;
+  return out;
 }
 
 function main() {
-  const all = walk(SRC).flatMap(scanFile);
+  const modules = new Map();
+  for (const file of walk(SRC)) modules.set(file, parseFile(file));
+  const all = [...modules.values()].flatMap((m) => m.findings).concat(joinHelpers(modules));
   const failing = all.filter((f) => f.kind === 'direct' || f.kind === 'helper');
   const memo = all.filter((f) => f.kind === 'memo' && memoIsKeyed(f.deps));
   const unkeyedMemo = all.filter((f) => f.kind === 'memo' && !memoIsKeyed(f.deps));
@@ -441,7 +532,7 @@ function main() {
     console.error('Engine reads inside a useMemo that nothing re-runs (stale after a sync):');
     for (const f of memoViolations) console.error(fmt(f));
     console.error('');
-    console.error('Fix: take a trigger from useEngineSubscription for the event that announces');
+    console.error('Fix: take a reader from useEngineRead for the event that announces');
     console.error('     this data and put it in the deps, or take the value precomputed from a');
     console.error('     caller that already read it. If the read must stay unkeyed, add the file');
     console.error('     to MEMO_ALLOWLIST in this script with the audit item and reason.');

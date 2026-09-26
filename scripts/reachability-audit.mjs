@@ -55,18 +55,46 @@ const ALLOWLIST = new Map([
 ]);
 
 const CODE_EXT = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
-const SKIP_DIRS = new Set(['node_modules', '.git', 'ios', 'android', 'coverage', '.expo']);
+// `target` is cargo's, and it is walked because the audit reads modules/. Its
+// rmeta and rustc temporaries live for milliseconds, so a walk that stats a
+// name it listed a moment ago dies with ENOENT whenever another worktree is
+// building, and the commit is refused over a file the author never touched.
+const SKIP_DIRS = new Set([
+  'node_modules',
+  '.git',
+  'ios',
+  'android',
+  'coverage',
+  '.expo',
+  'target',
+]);
 
+// The entry type comes from the listing rather than from a second syscall, so
+// a file that disappears underneath the walk cannot take it down. A symlink
+// still needs the stat, and is dropped when it no longer resolves.
 function walk(dir, out = []) {
   if (!existsSync(dir)) return out;
-  for (const name of readdirSync(dir)) {
-    if (SKIP_DIRS.has(name)) continue;
-    const full = join(dir, name);
-    const st = statSync(full);
-    if (st.isDirectory()) walk(full, out);
-    else out.push(full);
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (SKIP_DIRS.has(entry.name)) continue;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) walk(full, out);
+    else if (entry.isFile()) out.push(full);
+    else if (entry.isSymbolicLink()) {
+      const st = statSafe(full);
+      if (st === null) continue;
+      if (st.isDirectory()) walk(full, out);
+      else out.push(full);
+    }
   }
   return out;
+}
+
+function statSafe(path) {
+  try {
+    return statSync(path);
+  } catch {
+    return null;
+  }
 }
 
 // Both shapes the repo uses: the central src/__tests__ tree and a __tests__

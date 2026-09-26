@@ -10,7 +10,7 @@
  * Run: `npm run gen:widget-theme`. The emitted files carry a GENERATED header and must
  * never be hand-edited; change `colors.ts`/`widgetTheme.ts` and regenerate instead.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -43,6 +43,11 @@ const PALETTE_KEYS: (keyof WidgetPalette)[] = [
   'formGreyZone',
   'formFresh',
   'formTransition',
+  'formHighRiskText',
+  'formOptimalText',
+  'formGreyZoneText',
+  'formFreshText',
+  'formTransitionText',
   'trendUp',
   'trendDown',
   'trendFlat',
@@ -131,11 +136,29 @@ ${androidColors(widgetPalette.dark)}
 `;
 }
 
+/**
+ * `--check` compares instead of writing, so the gate can say the committed
+ * files are behind the palette. The drift that prompted it went unnoticed
+ * because the generator could not run at all (B952).
+ */
+const CHECK = process.argv.includes('--check');
+const stale: string[] = [];
+
 function emit(rel: string, contents: string): void {
   const abs = join(ROOT, rel);
+  if (CHECK) {
+    let committed: string | null = null;
+    try {
+      committed = readFileSync(abs, 'utf8');
+    } catch {
+      committed = null;
+    }
+    if (committed !== contents) stale.push(rel);
+    return;
+  }
   mkdirSync(join(abs, '..'), { recursive: true });
   writeFileSync(abs, contents);
-   
+
   console.log(`  wrote ${rel}`);
 }
 
@@ -144,5 +167,18 @@ function emit(rel: string, contents: string): void {
 emit('widget/ios/VeloqWidget/WidgetTheme.swift', iosFile());
 emit('widget/android/res/values/widget_theme.xml', androidLight());
 emit('widget/android/res/values-night/widget_theme.xml', androidNight());
- 
-console.log('widget theme generated.');
+
+if (CHECK) {
+  if (stale.length > 0) {
+    console.error(
+      `The committed widget theme is behind the palette: ${stale.length} file(s).\n` +
+        'The widget draws its placeholder chrome from these, so it is showing the old token.\n' +
+        'Run `npm run gen:widget-theme` and commit what it writes.\n'
+    );
+    for (const rel of stale) console.error(`  ${rel}`);
+    process.exit(1);
+  }
+  console.log('Widget theme guard: the committed files match the palette.');
+} else {
+  console.log('widget theme generated.');
+}

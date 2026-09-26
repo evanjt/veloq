@@ -1,0 +1,22 @@
+{
+  "unresolved": [
+    "insight-quick-take",
+    "map-activity-marker-demo-test-0",
+    "map-activity-marker-demo-test-1",
+    "map-activity-marker-demo-test-2",
+    "map-activity-marker-demo-test-3",
+    "map-activity-marker-demo-test-4",
+    "map-route-marker-0",
+    "map-section-marker-0",
+    "pattern-detail-sheet",
+    "route-popup",
+    "route-popup-close",
+    "section-back-button",
+    "section-rename-button",
+    "section-rename-input",
+    "section-rename-save",
+    "settings-tile-cache",
+    "today-teaser",
+    "wellness-dashboard"
+  ]
+}

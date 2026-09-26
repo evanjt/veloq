@@ -1,0 +1,56 @@
+#!/bin/sh
+set -e
+
+# git runs `pre-merge-commit` only for a merge that creates a commit. A branch
+# that merged the integration branch into itself first, which is how a branch
+# stays current, merges back as a fast-forward and git runs nothing at all: not
+# `pre-commit`, not `pre-merge-commit`, not `pre-push`, since nothing here is
+# pushed. Every whole-tree guard `B190`, `S27` and `B332` put in that hook is
+# skipped for the whole class, and it is the class worked in a worktree, whose
+# own commits ran no hooks either. `B396` is what it let through.
+#
+# This runs after the ref has moved, so it cannot refuse, and saying so is the
+# whole job. `reference-transaction` is the only hook that could refuse and
+# husky does not generate one, so a hand-written one is deleted by the next
+# `npm run prepare` and absent from a fresh worktree, which is the same hole
+# (S30, Q204).
+#
+# The question is whether *this* move was a fast-forward, not what shape the
+# commit it landed on happens to be. `HEAD^2` was the proxy for that, and
+# `scripts/land-branch.sh` broke it: that builds the merge in a staging
+# worktree with the hooks switched off and moves the checkout onto it with
+# `--ff-only`, so nothing gates the ref move and the commit it lands on is a
+# merge commit. The guard read the two parents as "already gated", and every
+# landing ran no gate at all (`B1076`).
+#
+# Git writes the reflog before running this and it says which of the two
+# happened. Skip only on the case that was gated, a merge that made a commit,
+# so an unreadable reflog runs the battery rather than quietly skipping it.
+case "$(git reflog -1 --format=%gs HEAD 2>/dev/null)" in
+  *"Merge made by"*) exit 0 ;;
+esac
+
+echo "post-merge: that merge was a fast-forward, so no gate ran before it."
+code=0
+./scripts/merge-gates.sh || code=$?
+if [ "$code" -eq 0 ]; then
+  echo "post-merge: the gates pass on the merged tree."
+  exit 0
+fi
+
+# 66 is `merge-gates.sh` saying it could not take the commit lock, which means
+# the gates did not run at all. That is another session merging beside you, not
+# a verdict on this tree, and the two shared an exit code until `B1146`: the
+# alarm below sent an agent to `git reset --hard` over a tree that went on to
+# pass tsc, lint, audit, Jest and rustfmt, which would have discarded its own
+# landed work and the two merges that landed with it.
+if [ "$code" -eq 66 ]; then
+  echo "post-merge: the gates did not run, another merge holds the commit lock." >&2
+  echo "post-merge: nothing is wrong with the tree. Run ./scripts/merge-gates.sh" >&2
+  echo "post-merge: again once that merge is done. Do not reset anything." >&2
+  exit 1
+fi
+
+echo "post-merge: THE GATES FAIL ON THE MERGED TREE, and the ref has already moved." >&2
+echo "post-merge: fix it now, or git reset --hard ORIG_HEAD puts the branch back." >&2
+exit 1

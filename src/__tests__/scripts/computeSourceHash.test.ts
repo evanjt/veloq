@@ -1,7 +1,7 @@
-import { execFileSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { runGit } from '../__shared__/gitFixture';
 
 const { computeSourceHash } = require('../../../scripts/compute-source-hash');
 
@@ -22,12 +22,12 @@ const inputs = [
 
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-source-hash-'));
-  execFileSync('git', ['init', '--quiet'], { cwd: root });
+  runGit(['init', '--quiet'], root);
   for (const file of inputs) {
     fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
     fs.writeFileSync(path.join(root, file), 'original');
   }
-  execFileSync('git', ['add', '.'], { cwd: root });
+  runGit(['add', '.'], root);
 });
 afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
@@ -66,29 +66,24 @@ it('ignores generated files and unit tests, but detects tracked additions and re
   fs.writeFileSync(path.join(root, 'src/__tests__/unit.test.ts'), 'changed');
   expect(computeSourceHash(root)).toBe(initial);
   fs.writeFileSync(path.join(root, 'src/new.ts'), 'new');
-  execFileSync('git', ['add', 'src/new.ts'], { cwd: root });
+  runGit(['add', 'src/new.ts'], root);
   expect(computeSourceHash(root)).not.toBe(initial);
-  execFileSync('git', ['rm', '--cached', 'src/new.ts'], { cwd: root });
+  runGit(['rm', '--cached', 'src/new.ts'], root);
   expect(computeSourceHash(root)).toBe(initial);
-  execFileSync('git', ['rm', '--cached', 'src/app.ts'], { cwd: root });
+  runGit(['rm', '--cached', 'src/app.ts'], root);
   expect(computeSourceHash(root)).not.toBe(initial);
 });
 
 it('invalidates when the pinned submodule commit changes', () => {
   const initial = computeSourceHash(root);
   for (const digit of ['1', '2']) {
-    execFileSync(
-      'git',
+    runGit(
       ['update-index', '--add', '--cacheinfo', `160000,${digit.repeat(40)},modules/submodule`],
-      { cwd: root }
+      root
     );
     expect(computeSourceHash(root)).not.toBe(initial);
   }
   const pinned = computeSourceHash(root);
-  execFileSync(
-    'git',
-    ['update-index', '--cacheinfo', `160000,${'3'.repeat(40)},modules/submodule`],
-    { cwd: root }
-  );
+  runGit(['update-index', '--cacheinfo', `160000,${'3'.repeat(40)},modules/submodule`], root);
   expect(computeSourceHash(root)).not.toBe(pinned);
 });
