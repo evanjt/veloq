@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { brand, colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
 import type { DetectedBackup } from '@/features/auth/hooks';
+import { pressable } from '@/shared/ui';
 
 interface BackupRestoreBannerProps {
   backup: DetectedBackup;
@@ -35,18 +36,19 @@ export const BackupRestoreBanner = React.memo(function BackupRestoreBanner({
         <Text style={[styles.title, isDark && styles.titleDark]}>
           {t('backup.backupFound', { defaultValue: 'Backup Found' })}
         </Text>
-        <TouchableOpacity
+        <Pressable
           onPress={onDismiss}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityRole="button"
           accessibilityLabel={t('common.close', 'Close')}
+          style={pressable()}
         >
           <MaterialCommunityIcons
             name="close"
             size={18}
             color={isDark ? darkColors.textMuted : colors.textSecondary}
           />
-        </TouchableOpacity>
+        </Pressable>
       </View>
       <Text style={[styles.detail, isDark && styles.detailDark]}>
         {backup.entry.activityCount} {t('common.activities', { defaultValue: 'activities' })}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import {
 } from '@/shared/app/LanguageStore';
 import { colors, darkColors, spacing, brand, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
+import { pressable } from '@/shared/ui';
 
 export const LanguagePicker = React.memo(function LanguagePicker() {
   const { t } = useTranslation();
@@ -54,14 +55,14 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
     <>
       {/* Language Selector - top right */}
       <View style={styles.languagePickerContainer}>
-        <TouchableOpacity
+        <Pressable
           testID="login-language-button"
-          style={[
+          style={pressable([
             styles.languageButton,
             isDark && styles.languageButtonDark,
             isDialectSelected && styles.languageButtonDialect,
             isDialectSelected && isDark && styles.languageButtonDialectDark,
-          ]}
+          ])}
           onPress={() => setShowLanguages(!showLanguages)}
         >
           <MaterialCommunityIcons
@@ -77,7 +78,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
             size={18}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       {/* Language Dropdown */}
@@ -115,18 +116,18 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
                     isDark && styles.languageRowDark,
                   ]}
                 >
-                  <TouchableOpacity
+                  <Pressable
                     onPress={() => {
                       const valueToUse =
                         lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value;
                       handleLanguageChange(valueToUse);
                     }}
-                    style={styles.languageLabelContainer}
+                    style={pressable(styles.languageLabelContainer)}
                   >
                     <Text style={[styles.languageLabel, isDark && styles.textLight]}>
                       {lang.label}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                   {lang.variants && (
                     <View style={styles.variantChips}>
                       {lang.variants.map((variant) => {
@@ -136,9 +137,9 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
                             isEnglishVariant(language) &&
                             getEnglishVariantValue(language) === variant.value);
                         return (
-                          <TouchableOpacity
+                          <Pressable
                             key={variant.value}
-                            style={[
+                            style={pressable([
                               styles.variantChip,
                               isDark && styles.variantChipDark,
                               variant.isDialect && !isVariantSelected && styles.variantChipDialect,
@@ -155,7 +156,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
                                 isVariantSelected &&
                                 isDark &&
                                 styles.variantChipDialectSelectedDark,
-                            ]}
+                            ])}
                             onPress={() => handleLanguageChange(variant.value)}
                             hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
                             accessibilityRole="button"
@@ -171,7 +172,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
                             >
                               {variant.label}
                             </Text>
-                          </TouchableOpacity>
+                          </Pressable>
                         );
                       })}
                     </View>
@@ -256,12 +257,12 @@ const styles = StyleSheet.create({
   },
   variantChips: {
     flexDirection: 'row',
-    gap: 6,
+    gap: spacing.xsPlus,
     marginLeft: 'auto',
   },
   variantChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusMd,
     backgroundColor: colors.background,
     borderWidth: 1,
@@ -299,7 +300,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   variantChipTextSelected: {
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
   },
   dialectLegendHeader: {
     position: 'absolute',

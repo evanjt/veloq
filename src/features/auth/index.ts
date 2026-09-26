@@ -22,6 +22,12 @@ export {
 } from './lib/oauth';
 
 export {
+  launchIdentityAction,
+  completeLaunchIdentity,
+  type LaunchIdentityAction,
+} from './lib/launchIdentity';
+
+export {
   accountChangeAction,
   confirmAccountChange,
   promptAccountMismatch,
@@ -29,6 +35,8 @@ export {
   getCachedAthleteId,
   type AccountChangeKind,
 } from './lib/accountChange';
+
+export { demoEntryAction, resolveStoredActivityCount } from './lib/storedActivityCount';
 
 export {
   useApiKeyLogin,
