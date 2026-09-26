@@ -3,6 +3,9 @@ name: Build
 on:
   push:
     branches: [main]
+    # A release tag builds the store artifacts that release.yml publishes.
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
   pull_request:
     branches: [main]
   schedule:
@@ -21,14 +24,16 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # main builds can feed release artifacts, only auto-cancel branch/PR re-runs
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # Only branch and PR re-runs auto-cancel; main and release tags run to the end.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref_type != 'tag' }}
 
 permissions:
   contents: read
 
 env:
   NODE_VERSION: "22"
+  # Store artifacts (AAB, signed IPA, every ABI) are built for a release tag or by hand.
+  RELEASE_BUILD: ${{ github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' }}
 
 jobs:
   # A pull request pays for the iOS build only when something native can
@@ -98,7 +103,7 @@ jobs:
 
       # Source-hash cache, skip build if code unchanged.
       # Key is segmented by build type so an APK-only cache from a feature branch
-      # can't satisfy a main/dispatch build that also needs the AAB.
+      # can't satisfy a release build that also needs the AAB.
       - name: Cache built APK/AAB
         id: apk-cache
         uses: actions/cache@v4
@@ -106,7 +111,7 @@ jobs:
           path: |
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
-          key: android-build-v2-${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && 'with-aab' || 'apk-only' }}-${{ steps.version.outputs.source_hash }}
+          key: android-build-v2-${{ env.RELEASE_BUILD == 'true' && 'with-aab' || 'apk-only' }}-${{ steps.version.outputs.source_hash }}
 
       - name: Setup Node.js
         if: steps.apk-cache.outputs.cache-hit != 'true'
@@ -158,7 +163,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: modules/veloqrs/android/src/main/jniLibs
-          key: rust-android-${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && '4arch' || '2arch' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
+          key: rust-android-${{ env.RELEASE_BUILD == 'true' && '4arch' || '2arch' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
 
       - name: Setup Rust for Android
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
@@ -173,7 +178,7 @@ jobs:
           echo "=== Building veloqrs for Android ==="
           mkdir -p ../android/src/main/jniLibs
 
-          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "$RELEASE_BUILD" == "true" ]]; then
             # Full build: all 4 architectures for release
             cargo ndk -t aarch64-linux-android -t armv7-linux-androideabi -t x86_64-linux-android -t i686-linux-android \
               --platform 24 -o ../android/src/main/jniLibs \
@@ -271,8 +276,8 @@ jobs:
             fi
           done
 
-          # Check extra architectures on main
-          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          # Check extra architectures on a release build
+          if [[ "$RELEASE_BUILD" == "true" ]]; then
             for arch in armeabi-v7a x86; do
               so_file="modules/veloqrs/android/src/main/jniLibs/$arch/libveloqrs.so"
               if [ -f "$so_file" ]; then
@@ -296,14 +301,14 @@ jobs:
           rm -rf android/app/build/intermediates/dex
 
       - name: Build Android APK
-        if: steps.apk-cache.outputs.cache-hit != 'true' && !(github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        if: steps.apk-cache.outputs.cache-hit != 'true' && env.RELEASE_BUILD != 'true'
         run: |
           cd android && ./gradlew assembleRelease \
             -PreactNativeArchitectures=arm64-v8a,x86_64 \
             --no-daemon --no-build-cache
 
       - name: Build Android APK + AAB
-        if: steps.apk-cache.outputs.cache-hit != 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        if: steps.apk-cache.outputs.cache-hit != 'true' && env.RELEASE_BUILD == 'true'
         run: cd android && ./gradlew assembleRelease bundleRelease --no-daemon --no-build-cache
 
       - name: Skip build (cache hit)
@@ -338,7 +343,7 @@ jobs:
           retention-days: 7
 
       - name: Copy AAB to artifacts
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        if: env.RELEASE_BUILD == 'true'
         run: |
           mkdir -p artifacts
           AAB_FILE="artifacts/${{ steps.version.outputs.filename }}.aab"
@@ -352,7 +357,7 @@ jobs:
           fi
 
       - name: Verify AAB signing
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        if: env.RELEASE_BUILD == 'true'
         env:
           EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
         run: |
@@ -388,7 +393,7 @@ jobs:
           echo "AAB signed with correct release key"
 
       - name: Upload AAB artifact
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        if: env.RELEASE_BUILD == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: android-aab-${{ steps.version.outputs.filename }}
@@ -446,10 +451,10 @@ jobs:
           build-type-override: ${{ inputs.build_type }}
           source-profile: ios
 
-      # Source-hash cache for simulator .app (skip on main/schedule/dispatch where
-      # the signed IPA step runs, it needs the xcodeproj from prebuild)
+      # Source-hash cache for simulator .app. Skipped wherever signing runs, since the
+      # signing check and the IPA both read the project prebuild generates.
       - name: Cache simulator app
-        if: github.ref != 'refs/heads/main' && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+        if: github.ref != 'refs/heads/main' && github.ref_type != 'tag' && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
         id: app-cache
         uses: actions/cache@v4
         with:
@@ -470,7 +475,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework
-          key: rust-ios-${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && 'full' || 'sim' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
+          key: rust-ios-${{ env.RELEASE_BUILD == 'true' && 'full' || 'sim' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
 
       # C++ bindings are needed by Xcode even when Rust libs are cached
       - name: Copy C++ bindings for iOS
@@ -499,8 +504,8 @@ jobs:
           echo "Building for aarch64-apple-ios-sim..."
           cargo build --release --target aarch64-apple-ios-sim -p veloqrs
 
-          # Build device target on main/dispatch (needed for signed IPA)
-          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          # The device target only feeds the signed IPA
+          if [[ "$RELEASE_BUILD" == "true" ]]; then
             echo "Building for aarch64-apple-ios (device)..."
             cargo build --release --target aarch64-apple-ios -p veloqrs
           fi
@@ -513,7 +518,7 @@ jobs:
           mkdir -p ../ios/Frameworks
           rm -rf ../ios/Frameworks/VeloqrsFFI.xcframework
 
-          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "workflow_dispatch" ]] && [ -f target/aarch64-apple-ios/release/libveloqrs.a ]; then
+          if [[ "$RELEASE_BUILD" == "true" ]] && [ -f target/aarch64-apple-ios/release/libveloqrs.a ]; then
             # Full XCFramework with device + simulator
             cp target/aarch64-apple-ios/release/libveloqrs.a target/aarch64-apple-ios/release/libveloqrs_ffi.a
             xcodebuild -create-xcframework \
@@ -585,7 +590,7 @@ jobs:
           key: cocoapods-v2-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
 
       - name: Setup Ruby
-        if: steps.app-cache.outputs.cache-hit != 'true' || (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+        if: steps.app-cache.outputs.cache-hit != 'true'
         uses: ruby/setup-ruby@v1
         with:
           # excon 1.7.1 in the fastlane lockfile needs Ruby 3.3 or later
@@ -699,7 +704,7 @@ jobs:
           path: ios-build.log
           retention-days: 3
 
-      # ---- Signed IPA (main/dispatch with secrets) ----
+      # ---- Signing: checked on every non-PR build, IPA built for a release ----
       - name: Check for iOS signing credentials
         id: check_ios_signing
         env:
@@ -712,24 +717,35 @@ jobs:
             echo "iOS signing credentials found"
           else
             echo "has_signing=false" >> $GITHUB_OUTPUT
-            echo "::notice::iOS signing not configured, skipping IPA build"
+            echo "::notice::iOS signing not configured, skipping signing check and IPA build"
           fi
 
       - name: Import code signing certificate
-        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && github.event_name != 'pull_request'
         uses: apple-actions/import-codesign-certs@v7
         with:
           p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT_P12 }}
           p12-password: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
 
       - name: Setup SSH for Match
-        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && github.event_name != 'pull_request'
         uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
 
+      # Reads the profiles against the prebuilt project, so a capability the portal
+      # lacks fails here in a minute rather than at the end of a release build.
+      - name: Check App Store signing
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && github.event_name != 'pull_request'
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
+        working-directory: config/fastlane
+        run: bundle exec fastlane ios check_signing
+
       - name: Pre-build diagnostics
-        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
         run: |
           echo "=== Pre-build Diagnostics ==="
           sw_vers
@@ -740,7 +756,7 @@ jobs:
           echo "=== End Diagnostics ==="
 
       - name: Start build watchdog
-        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
         run: |
           (
             sleep 60
@@ -760,7 +776,7 @@ jobs:
           echo "Watchdog started with PID $(cat /tmp/watchdog.pid)"
 
       - name: Build signed IPA
-        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
         timeout-minutes: 45
         env:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
@@ -773,7 +789,7 @@ jobs:
           echo "=== Build completed at $(date) ==="
 
       - name: Stop watchdog
-        if: always() && steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        if: always() && steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
         run: |
           if [ -f /tmp/watchdog.pid ]; then
             kill $(cat /tmp/watchdog.pid) 2>/dev/null || true
@@ -788,7 +804,7 @@ jobs:
           key: ${{ steps.ccache.outputs.cache-primary-key }}
 
       - name: Capture diagnostic info on failure
-        if: failure() && steps.check_ios_signing.outputs.has_signing == 'true'
+        if: failure() && steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
         run: |
           mkdir -p config/fastlane/artifacts/diagnostics
           ps aux > config/fastlane/artifacts/diagnostics/processes.txt 2>&1
@@ -800,7 +816,7 @@ jobs:
           vm_stat > config/fastlane/artifacts/diagnostics/memory.txt 2>&1
 
       - name: Upload build logs on failure
-        if: failure() && steps.check_ios_signing.outputs.has_signing == 'true'
+        if: failure() && steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ios-build-logs-${{ steps.version.outputs.filename }}
@@ -811,7 +827,7 @@ jobs:
           retention-days: 7
 
       - name: Rename IPA
-        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
         run: |
           mkdir -p artifacts
           IPA_PATH=$(find . -name "*.ipa" -type f | head -1)
@@ -821,7 +837,7 @@ jobs:
           fi
 
       - name: Verify IPA code signature
-        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
         env:
           EXPECTED_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
           EXPECTED_BUNDLE_ID: "com.veloq.app"
@@ -873,7 +889,7 @@ jobs:
           echo "IPA signed correctly by team $ACTUAL_TEAM with bundle ID $ACTUAL_BUNDLE_ID"
 
       - name: Upload IPA artifact
-        if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa-${{ steps.version.outputs.filename }}
