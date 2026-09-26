@@ -5,7 +5,7 @@ inputs:
   targets:
     description: 'Comma-separated Rust iOS targets (sim + optionally device)'
     required: false
-    default: 'aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios'
+    default: 'aarch64-apple-ios,aarch64-apple-ios-sim'
   cache-key:
     description: 'Extra cache-key suffix passed to Swatinem/rust-cache'
     required: false

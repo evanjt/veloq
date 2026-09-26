@@ -78,8 +78,8 @@ verify_ios() {
 
   case "$TARGET" in
     simulator)
-      check_dir "$MODULE_DIR/ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64_x86_64-simulator"
-      check_file "$MODULE_DIR/ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64_x86_64-simulator/libveloqrs_ffi.a"
+      check_dir "$MODULE_DIR/ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64-simulator"
+      check_file "$MODULE_DIR/ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64-simulator/libveloqrs_ffi.a"
       ;;
     device)
       check_dir "$MODULE_DIR/ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64"

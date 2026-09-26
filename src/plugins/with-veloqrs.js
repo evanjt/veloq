@@ -227,7 +227,7 @@ function binariesExist(platform) {
     // Check for XCFramework and C++ files in ios/cpp/
     const xcframeworkLib = path.join(
       MODULE_DIR,
-      'ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64_x86_64-simulator/libveloqrs_ffi.a'
+      'ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64-simulator/libveloqrs_ffi.a'
     );
     const iosCppDir = path.join(MODULE_DIR, 'ios/cpp');
     const iosCppGeneratedDir = path.join(MODULE_DIR, 'ios/cpp/generated');
@@ -457,34 +457,21 @@ async function runPreBuildSetup(platform) {
           // Only build iOS libraries - bindings are already committed
           if (!quiet) console.log('  Building iOS libraries...');
           try {
-            // Build Rust for iOS simulator (aarch64 + x86_64)
             if (!quiet) console.log('    Building Rust for iOS simulator...');
             execSync('cargo build --release --target aarch64-apple-ios-sim -p veloqrs', {
               cwd: path.join(RUST_DIR, 'veloqrs'),
               stdio: quiet ? 'pipe' : 'inherit',
             });
-            execSync('cargo build --release --target x86_64-apple-ios -p veloqrs', {
-              cwd: path.join(RUST_DIR, 'veloqrs'),
-              stdio: quiet ? 'pipe' : 'inherit',
-            });
 
-            // Create universal library for simulator
             if (!quiet) console.log('    Creating XCFramework...');
             const xcframeworkDir = path.join(
               MODULE_DIR,
-              'ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64_x86_64-simulator'
+              'ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64-simulator'
             );
             mkdirSync(xcframeworkDir, { recursive: true });
-            execFileSync(
-              'lipo',
-              [
-                '-create',
-                path.join(RUST_DIR, 'target/aarch64-apple-ios-sim/release/libveloqrs.a'),
-                path.join(RUST_DIR, 'target/x86_64-apple-ios/release/libveloqrs.a'),
-                '-output',
-                path.join(xcframeworkDir, 'libveloqrs_ffi.a'),
-              ],
-              { stdio: quiet ? 'pipe' : 'inherit' }
+            fs.copyFileSync(
+              path.join(RUST_DIR, 'target/aarch64-apple-ios-sim/release/libveloqrs.a'),
+              path.join(xcframeworkDir, 'libveloqrs_ffi.a')
             );
 
             // Create Info.plist for XCFramework
@@ -496,13 +483,12 @@ async function runPreBuildSetup(platform) {
   <array>
     <dict>
       <key>LibraryIdentifier</key>
-      <string>ios-arm64_x86_64-simulator</string>
+      <string>ios-arm64-simulator</string>
       <key>LibraryPath</key>
       <string>libveloqrs_ffi.a</string>
       <key>SupportedArchitectures</key>
       <array>
         <string>arm64</string>
-        <string>x86_64</string>
       </array>
       <key>SupportedPlatform</key>
       <string>ios</string>

@@ -47,16 +47,11 @@ case "$PLATFORM" in
 
     case "$TARGET" in
       simulator)
-        # Build for both arm64 and x86_64 simulators
         cargo build --release --target aarch64-apple-ios-sim -p veloqrs
-        cargo build --release --target x86_64-apple-ios -p veloqrs
 
-        # Create fat binary
-        mkdir -p "../../ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64_x86_64-simulator"
-        lipo -create \
-          ../target/aarch64-apple-ios-sim/release/libveloqrs.a \
-          ../target/x86_64-apple-ios/release/libveloqrs.a \
-          -output "../../ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64_x86_64-simulator/libveloqrs_ffi.a"
+        mkdir -p "../../ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64-simulator"
+        cp ../target/aarch64-apple-ios-sim/release/libveloqrs.a \
+          "../../ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64-simulator/libveloqrs_ffi.a"
         ;;
       device)
         # Build for arm64 device
@@ -70,7 +65,6 @@ case "$PLATFORM" in
         # Build for all targets and create full XCFramework
         cargo build --release --target aarch64-apple-ios -p veloqrs
         cargo build --release --target aarch64-apple-ios-sim -p veloqrs
-        cargo build --release --target x86_64-apple-ios -p veloqrs
 
         # Rename libveloqrs.a -> libveloqrs_ffi.a so the xcframework Info.plist
         # records LibraryPath: libveloqrs_ffi.a. This prevents CocoaPods from
@@ -81,10 +75,8 @@ case "$PLATFORM" in
         mkdir -p /tmp/veloqrs-xcf-build/device /tmp/veloqrs-xcf-build/sim
         cp ../target/aarch64-apple-ios/release/libveloqrs.a \
           /tmp/veloqrs-xcf-build/device/libveloqrs_ffi.a
-        lipo -create \
-          ../target/aarch64-apple-ios-sim/release/libveloqrs.a \
-          ../target/x86_64-apple-ios/release/libveloqrs.a \
-          -output /tmp/veloqrs-xcf-build/sim/libveloqrs_ffi.a
+        cp ../target/aarch64-apple-ios-sim/release/libveloqrs.a \
+          /tmp/veloqrs-xcf-build/sim/libveloqrs_ffi.a
 
         # Create XCFramework
         rm -rf "../../ios/Frameworks/VeloqrsFFI.xcframework"

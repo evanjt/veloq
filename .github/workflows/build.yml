@@ -486,7 +486,7 @@ jobs:
         if: steps.app-cache.outputs.cache-hit != 'true' && steps.rust-ios-cache.outputs.cache-hit != 'true'
         uses: ./.github/actions/setup-rust-ios
         with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
           copy-cpp-files: 'false'
 
       - name: Build Rust for iOS
@@ -496,11 +496,8 @@ jobs:
         run: |
           echo "=== Building veloqrs for iOS ==="
 
-          # Always build simulator targets
-          for target in aarch64-apple-ios-sim x86_64-apple-ios; do
-            echo "Building for $target..."
-            cargo build --release --target $target -p veloqrs
-          done
+          echo "Building for aarch64-apple-ios-sim..."
+          cargo build --release --target aarch64-apple-ios-sim -p veloqrs
 
           # Build device target on main/dispatch (needed for signed IPA)
           if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -508,13 +505,8 @@ jobs:
             cargo build --release --target aarch64-apple-ios -p veloqrs
           fi
 
-          # Create fat library for simulator (arm64 + x86_64)
-          echo "Creating fat library for simulator..."
-          mkdir -p target/sim-fat
-          lipo -create \
-            target/aarch64-apple-ios-sim/release/libveloqrs.a \
-            target/x86_64-apple-ios/release/libveloqrs.a \
-            -output target/sim-fat/libveloqrs_ffi.a
+          mkdir -p target/sim
+          cp target/aarch64-apple-ios-sim/release/libveloqrs.a target/sim/libveloqrs_ffi.a
 
           # Create XCFramework
           echo "Creating XCFramework..."
@@ -526,12 +518,12 @@ jobs:
             cp target/aarch64-apple-ios/release/libveloqrs.a target/aarch64-apple-ios/release/libveloqrs_ffi.a
             xcodebuild -create-xcframework \
               -library target/aarch64-apple-ios/release/libveloqrs_ffi.a \
-              -library target/sim-fat/libveloqrs_ffi.a \
+              -library target/sim/libveloqrs_ffi.a \
               -output ../ios/Frameworks/VeloqrsFFI.xcframework
           else
             # Simulator-only XCFramework
             xcodebuild -create-xcframework \
-              -library target/sim-fat/libveloqrs_ffi.a \
+              -library target/sim/libveloqrs_ffi.a \
               -output ../ios/Frameworks/VeloqrsFFI.xcframework
           fi
 
@@ -661,6 +653,7 @@ jobs:
             -sdk iphonesimulator \
             -destination "id=${{ steps.simulator.outputs.udid }}" \
             -derivedDataPath ios/build \
+            ARCHS=arm64 \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
