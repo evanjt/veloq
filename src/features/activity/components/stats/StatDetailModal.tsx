@@ -6,8 +6,19 @@ import React from 'react';
 import { View, Text, StyleSheet, Modal, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
+import {
+  colors,
+  darkColors,
+  opacity,
+  typography,
+  spacing,
+  layout,
+  verdictColor,
+  ink,
+  colorWithOpacity,
+} from '@/theme';
 import type { StatDetail } from './types';
+import { pressable } from '@/shared/ui';
 
 interface StatDetailModalProps {
   stat: StatDetail | null;
@@ -20,7 +31,7 @@ export function StatDetailModal({ stat, isDark, onClose }: StatDetailModalProps)
 
   return (
     <Modal visible={stat !== null} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
+      <Pressable style={pressable(styles.modalOverlay)} onPress={onClose}>
         <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
           {stat && (
             <>
@@ -38,7 +49,7 @@ export function StatDetailModal({ stat, isDark, onClose }: StatDetailModalProps)
               {/* Context */}
               {stat.context && (
                 <View style={[styles.contextBanner, { backgroundColor: `${stat.color}15` }]}>
-                  <Text style={[styles.contextBannerText, { color: stat.color }]}>
+                  <Text style={[styles.contextBannerText, isDark && styles.textLight]}>
                     {stat.context}
                   </Text>
                 </View>
@@ -95,17 +106,21 @@ export function StatDetailModal({ stat, isDark, onClose }: StatDetailModalProps)
                       size={18}
                       color={
                         stat.comparison.isGood === true
-                          ? colors.success
+                          ? verdictColor('positive', isDark)
                           : stat.comparison.isGood === false
-                            ? colors.error
-                            : colors.textSecondary
+                            ? verdictColor('negative', isDark)
+                            : verdictColor('neutral', isDark)
                       }
                     />
                     <Text
                       style={[
                         styles.comparisonLargeText,
-                        stat.comparison.isGood === true && styles.comparisonTextGood,
-                        stat.comparison.isGood === false && styles.comparisonTextBad,
+                        stat.comparison.isGood === true && {
+                          color: verdictColor('positive', isDark),
+                        },
+                        stat.comparison.isGood === false && {
+                          color: verdictColor('negative', isDark),
+                        },
                       ]}
                     >
                       {stat.comparison.value}
@@ -127,7 +142,7 @@ export function StatDetailModal({ stat, isDark, onClose }: StatDetailModalProps)
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: colorWithOpacity(ink.black, 0.6),
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
@@ -189,7 +204,7 @@ const styles = StyleSheet.create({
   explanationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
     marginBottom: spacing.xs,
   },
   explanationTitle: {
@@ -236,7 +251,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     backgroundColor: opacity.overlay.light,
     paddingHorizontal: layout.borderRadius,
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
     borderRadius: layout.borderRadius,
   },
   comparisonGood: {
@@ -249,12 +264,6 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     fontWeight: '700',
     color: colors.textSecondary,
-  },
-  comparisonTextGood: {
-    color: colors.success,
-  },
-  comparisonTextBad: {
-    color: colors.error,
   },
   closeHint: {
     fontSize: typography.label.fontSize,

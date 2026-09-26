@@ -4,16 +4,16 @@ import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import {
   ActivityMapView,
-  type SectionOverlay,
-  SectionCreationResult,
+  ATTRIBUTION_CLEARANCE,
+  type CreationState,
+  type MapStyleType,
   SectionCreationError,
-} from '@/features/maps/components/ActivityMapView';
-import { ATTRIBUTION_CLEARANCE } from '@/features/maps/components/AttributionOverlay';
-import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
-import { ComponentErrorBoundary, DetailHero } from '@/shared/ui';
+  SectionCreationResult,
+  type SectionOverlay,
+  type TerrainCamera,
+} from '@/features/maps';
+import { ComponentErrorBoundary, DetailHero, pressable } from '@/shared/ui';
 import type { ActivityDetail, ActivityStreams } from '@/types';
-import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
-import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import {
   formatDistance,
   formatDuration,
@@ -130,6 +130,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
                   }
                 : undefined
             }
+            style={pressable()}
           >
             <Text style={styles.activityName} numberOfLines={1}>
               {activity.name}
@@ -164,7 +165,6 @@ export const ActivityHeader = React.memo(function ActivityHeader({
       <ComponentErrorBoundary componentName="Activity Map">
         <ActivityMapView
           coordinates={coordinates}
-          polyline={activity.polyline}
           activityType={activity.type}
           activityId={activity.id}
           country={activity.country}
@@ -236,12 +236,12 @@ const styles = StyleSheet.create({
   inlineStatDivider: {
     fontSize: typography.bodyCompact.fontSize,
     color: colorWithOpacity(colors.textOnDark, 0.5),
-    marginHorizontal: 6,
+    marginHorizontal: spacing.xsPlus,
   },
   locationText: {
     fontSize: typography.label.fontSize,
     color: colorWithOpacity(colors.textOnDark, 0.7),
-    marginTop: 2,
+    marginTop: spacing.xxs,
     textShadowColor: opacity.overlay.heavy,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,

@@ -1,6 +1,6 @@
 export { fixtures, getActivity, getActivities } from './activities';
 export { getActivityMap } from './maps';
-export { getActivityStreams } from './streams';
+export { getActivityStreams, storableTimeStreams } from './streams';
 export { getActivityIntervals } from './intervals';
 export { getWellness } from '@/features/fitness/demo/wellness';
 export type {

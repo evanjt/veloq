@@ -38,7 +38,7 @@ export function InsightfulStats({
   const [selectedStat, setSelectedStat] = useState<StatDetail | null>(null);
 
   // Use extracted hook for stats computation
-  const { stats } = useActivityStats({ activity, wellness, recentActivities });
+  const { stats } = useActivityStats({ activity, wellness, recentActivities, isDark });
 
   const handleStatPress = useCallback((stat: StatDetail) => {
     setSelectedStat(stat);

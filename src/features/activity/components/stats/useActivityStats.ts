@@ -9,13 +9,15 @@
  */
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getApparentTemperature } from '@/features/activity/lib/activityUtils';
+import { getApparentTemperature } from '@/shared/activity/activityUtils';
 import { formatDuration } from '@/shared/format/format';
-import { getFormZone, FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
+import { getFormZone, formZoneTextColor, formZoneLabel } from '@/features/fitness/lib/fitness';
 import type { Activity, WellnessData } from '@/types';
 import type { StatDetail } from './types';
 import { colors, darkColors } from '@/theme';
 import { TEMPERATURE_THRESHOLDS, FEELS_LIKE_THRESHOLD } from '@/constants';
+import { formAsPercent } from '@/shared/app/FormPreferenceStore';
+import { formFromLoads } from '@/shared/math';
 
 // Explanation keys for each metric - educational, not interpretive
 const METRIC_EXPLANATION_KEYS: Record<string, string> = {
@@ -31,6 +33,12 @@ interface UseActivityStatsOptions {
   activity: Activity;
   wellness?: WellnessData | null;
   recentActivities?: Activity[];
+  /**
+   * The theme, for the card marks. Passed in rather than read from the app
+   * shell: this hook is data, and reaching the shell for a colour pulls the
+   * native module into every test that renders a stat.
+   */
+  isDark?: boolean;
 }
 
 interface UseActivityStatsResult {
@@ -44,8 +52,13 @@ export function useActivityStats({
   activity,
   wellness,
   recentActivities = [],
+  isDark = false,
 }: UseActivityStatsOptions): UseActivityStatsResult {
   const { t } = useTranslation();
+  // The card marks are icons and text on the card surface, so they take the
+  // theme's mark tone rather than the fill tone, which is 2.28:1 on white.
+  const green = isDark ? darkColors.successDeep : colors.successDeep;
+  const amber = isDark ? darkColors.warningAmber : colors.warningAmber;
 
   // Calculate averages from recent activities of same type (memoized)
   const { avgLoad, avgIntensity, avgHR } = useMemo(() => {
@@ -91,16 +104,25 @@ export function useActivityStats({
             }
           : undefined;
 
-      // Determine intensity level for color
+      // The icon's colour bands the session, and colour alone cannot say which
+      // band it is, so the context line names it and the icon is decoration.
       const intensity = activity.icu_intensity || 0;
       const loadColor =
         intensity > 100
           ? colors.error
           : intensity > 85
-            ? '#F59E0B' // Amber-500
+            ? amber
             : intensity > 70
               ? colors.chartYellow
-              : colors.success;
+              : green;
+      const intensityBand =
+        intensity > 100
+          ? t('activity.stats.intensityVeryHard')
+          : intensity > 85
+            ? t('activity.stats.intensityHard')
+            : intensity > 70
+              ? t('activity.stats.intensityModerate')
+              : t('activity.stats.intensityEasy');
 
       result.push({
         title: t('activity.stats.trainingLoad'),
@@ -108,7 +130,7 @@ export function useActivityStats({
         icon: 'lightning-bolt',
         color: loadColor,
         comparison: loadComparison,
-        context: `IF ${Math.round(intensity)}%`,
+        context: `IF ${Math.round(intensity)}% · ${intensityBand}`,
         explanation: t(METRIC_EXPLANATION_KEYS['Training Load'] as never),
         details: [
           {
@@ -226,7 +248,7 @@ export function useActivityStats({
         title: t('activity.stats.energy'),
         value: `${Math.round(activity.calories)}`,
         icon: 'fire',
-        color: darkColors.amberIcon,
+        color: amber,
         context: burnRate,
         explanation: t(METRIC_EXPLANATION_KEYS['Energy'] as never),
         details: [
@@ -276,7 +298,7 @@ export function useActivityStats({
         title: t('activity.stats.conditions'),
         value: `${Math.round(temp)}°`,
         icon: activity.has_weather ? 'weather-partly-cloudy' : 'thermometer',
-        color: isHot ? '#F59E0B' : isCold ? colors.secondary : colors.success, // Amber for hot
+        color: isHot ? amber : isCold ? colors.secondary : green,
         context: contextStr,
         explanation: t(METRIC_EXPLANATION_KEYS['Conditions'] as never),
         details: [
@@ -303,19 +325,23 @@ export function useActivityStats({
     // Form from wellness (TSB = CTL - ATL)
     if (wellness?.ctl != null && wellness?.atl != null) {
       const tsb = wellness.ctl - wellness.atl;
-      const formColor = FORM_ZONE_COLORS[getFormZone(tsb)];
+      const formZone = getFormZone(tsb, wellness.ctl, formAsPercent());
+      const formColor = formZoneTextColor(formZone, isDark);
+      const form = formFromLoads(wellness.ctl, wellness.atl);
+      const formText = `${form > 0 ? '+' : ''}${form}`;
 
       result.push({
         title: t('activity.stats.yourForm'),
-        value: `${tsb > 0 ? '+' : ''}${Math.round(tsb)}`,
+        value: formText,
         icon: 'account-heart',
         color: formColor,
-        context: t('activity.stats.dailyValue'),
+        // The zone is what the colour says, so the context says it in words.
+        context: formZoneLabel(formZone),
         explanation: t(METRIC_EXPLANATION_KEYS['Your Form'] as never),
         details: [
           {
             label: t('activity.stats.formTSB'),
-            value: `${tsb > 0 ? '+' : ''}${Math.round(tsb)}`,
+            value: formText,
           },
           {
             label: t('activity.stats.fitnessCTL'),
@@ -398,7 +424,7 @@ export function useActivityStats({
     }
 
     return result;
-  }, [activity, wellness, avgLoad, avgHR, t]);
+  }, [activity, wellness, avgLoad, avgHR, t, green, amber, isDark]);
 
   return { stats, avgLoad, avgIntensity, avgHR };
 }

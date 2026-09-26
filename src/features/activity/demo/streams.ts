@@ -12,7 +12,11 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
   const streamRandom = createActivitySeededRandom(id + '-streams');
 
   const duration = activity.moving_time;
-  const points = Math.min(Math.max(duration / 5, 100), 1000); // 100-1000 points, ~5 sec intervals
+  // The track is what the engine stores, and it refuses to compute a lap time
+  // when the time stream is not the same length (persistence/sections/mod.rs).
+  // So a tracked activity takes its resolution from the track, not from a rate.
+  const track = getActivityMap(id, false)?.latlngs ?? null;
+  const points = track ? track.length : Math.min(Math.max(Math.round(duration / 5), 100), 1000); // ~5 sec intervals
   const interval = Math.ceil(duration / points);
 
   const streams: ApiActivityStreams = {
@@ -42,16 +46,8 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
   }
 
   // GPS stream - only for outdoor activities with routes
-  if (activity.stream_types?.includes('latlng')) {
-    const map = getActivityMap(id, false);
-    if (map?.latlngs && map.latlngs.length > 0) {
-      // Interpolate to match time points
-      const coords = map.latlngs;
-      streams.latlng = streams.time.map((_, i) => {
-        const idx = Math.min(Math.floor((i / points) * coords.length), coords.length - 1);
-        return coords[idx];
-      });
-    }
+  if (activity.stream_types?.includes('latlng') && track && track.length > 0) {
+    streams.latlng = streams.time.map((_, i) => track[Math.min(i, track.length - 1)]);
   }
 
   // Altitude stream - generate realistic elevation profile
@@ -142,4 +138,25 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
   }
 
   return streams;
+}
+
+/**
+ * The time streams worth storing for a batch of demo activities.
+ *
+ * The engine computes a lap time only when the stream is the stored track's
+ * length, so one that is not is dropped here rather than written to be ignored.
+ */
+export function storableTimeStreams(
+  ids: readonly string[],
+  timesFor: (id: string) => number[] | undefined,
+  storedTrackLength: ReadonlyMap<string, number>
+): { activityId: string; times: number[] }[] {
+  const storable: { activityId: string; times: number[] }[] = [];
+  for (const activityId of ids) {
+    const times = timesFor(activityId) ?? [];
+    if (times.length === 0) continue;
+    if (times.length !== storedTrackLength.get(activityId)) continue;
+    storable.push({ activityId, times });
+  }
+  return storable;
 }
