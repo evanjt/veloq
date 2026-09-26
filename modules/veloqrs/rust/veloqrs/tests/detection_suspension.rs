@@ -151,7 +151,7 @@ fn detection_works_normally_again_after_release() {
     assert!(!detection_suspended());
     let handle = engine.detect_sections_background();
     assert!(
-        handle.recv().is_some(),
+        handle.recv().is_ok(),
         "detection runs again once the backfill releases"
     );
 }
@@ -171,7 +171,7 @@ fn an_unbackfilled_library_still_detects() {
 
     let handle = engine.detect_sections_background();
     assert!(
-        handle.recv().is_some(),
+        handle.recv().is_ok(),
         "a non-uniform library detects unless a backfill holds the guard"
     );
 }

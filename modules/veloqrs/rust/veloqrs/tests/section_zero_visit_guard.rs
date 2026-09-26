@@ -43,7 +43,7 @@ fn engine_with_sections() -> (PersistentEngine, TempDir, std::path::PathBuf) {
             .expect("update_activity_metadata");
     }
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).expect("initial apply");
 
     (engine, dir, path)

@@ -48,9 +48,11 @@ impl Counter {
 impl EngineObserver for Counter {
     fn sync_progress(&self) {}
     fn sync_settled(&self) {}
+    fn activities_stored(&self) {}
     fn body_stored(&self, _kind: String, _activity_id: String) {}
     fn time_streams_stored(&self, _activity_ids: Vec<String>) {}
     fn gps_track_stored(&self, _activity_id: String) {}
+    fn gps_tracks_mutated(&self, _activity_ids: Vec<String>) {}
     fn fit_parsed(&self, _activity_id: String) {}
     fn detection_applied(&self) {
         self.applied.fetch_add(1, Ordering::SeqCst);

@@ -63,7 +63,7 @@ fn engine_with_excludable(dir: &TempDir) -> (PersistentEngine, String, String) {
     engine.set_activity_metrics(metrics).unwrap();
     engine.set_time_streams_flat(&ids, &times, &offsets);
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).unwrap();
 
     let section = engine
@@ -106,7 +106,7 @@ fn engine_with_lapped_member(dir: &TempDir) -> (PersistentEngine, String, u32) {
         .update_activity_metadata("act_lapped", Some(base.start_date_unix), None, None, None)
         .unwrap();
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).unwrap();
 
     let candidate_ids: Vec<String> = engine
@@ -318,7 +318,7 @@ fn an_exclusion_survives_a_redetect() {
     engine.exclude_activity_from_section(&sid, &member).unwrap();
 
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).unwrap();
 
     assert_eq!(
@@ -336,7 +336,7 @@ fn a_per_lap_exclusion_survives_a_redetect() {
     engine.exclude_section_lap(&sid, "act_lapped", lap).unwrap();
 
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).unwrap();
 
     assert_eq!(

@@ -140,12 +140,13 @@ fn seeded(dir: &TempDir, name: &str, activities: usize) -> PersistentEngine {
 fn insights_params() -> FfiInsightsParams {
     let week = 7 * DAY;
     FfiInsightsParams {
-        current_start: NOW - week,
-        current_end: NOW,
-        prev_start: NOW - 2 * week,
-        prev_end: NOW - week,
-        chronic_start: NOW - 4 * week,
-        today_start: NOW - DAY,
+        history_limit: 20,
+        current_start: (NOW - week) as f64,
+        current_end: NOW as f64,
+        prev_start: (NOW - 2 * week) as f64,
+        prev_end: (NOW - week) as f64,
+        chronic_start: (NOW - 4 * week) as f64,
+        today_start: (NOW - DAY) as f64,
         include_sections: true,
         ranked_limit: 20,
         active_window_days: 180,
@@ -153,13 +154,20 @@ fn insights_params() -> FfiInsightsParams {
         efficiency_limit: 10,
         efficiency_min_efforts: 3,
         strength_month: FfiTimestampRange {
-            start_ts: NOW - 30 * DAY,
-            end_ts: NOW,
+            start_ts: (NOW - 30 * DAY) as f64,
+            end_ts: NOW as f64,
         },
         strength_weeks: vec![FfiTimestampRange {
-            start_ts: NOW - week,
-            end_ts: NOW,
+            start_ts: (NOW - week) as f64,
+            end_ts: NOW as f64,
         }],
+        wellness_oldest: "2026-01-01".to_string(),
+        wellness_newest: "2026-12-31".to_string(),
+        hrv_window_days: 7,
+        section_change_window_days: 14,
+        stale_threshold_days: 30,
+        stale_min_gain_percent: 3.0,
+        stale_max_opportunities: 3,
     }
 }
 
@@ -276,7 +284,12 @@ fn no_screen_read_grows_faster_than_the_library() {
         e.map_screen_data(NOW - 365 * DAY, NOW, vec![])
     });
     holds("routes_screen_data", FLAT, &mut small, &mut large, |e| {
-        e.get_routes_screen_data(20, 0, 20, 0, 2, false, false, f64::NAN, f64::NAN)
+        e.get_routes_screen_data(veloqrs::FfiRoutesScreenQuery {
+            group_limit: 20,
+            section_limit: 20,
+            min_group_activity_count: 2,
+            ..Default::default()
+        })
     });
     holds("startup_data", FLAT, &mut small, &mut large, |e| {
         e.startup_data(NOW - week, NOW, NOW - 2 * week, NOW - week, &[])

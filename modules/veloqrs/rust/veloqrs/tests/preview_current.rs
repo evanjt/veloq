@@ -13,14 +13,15 @@ use std::collections::BTreeSet;
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-use serde_json::Value;
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use veloqrs::FfiSectionConfig;
 use veloqrs::objects::SectionPreview;
+use veloqrs::objects::start::FfiStartOutcome;
+use veloqrs::objects::start::FfiStartOutcome::Started;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
+use veloqrs::{FfiPreviewSection, FfiSectionConfig};
 
 static SERIAL: Mutex<()> = Mutex::new(());
 
@@ -87,14 +88,8 @@ fn init_engine(path: &std::path::Path) {
     ));
 }
 
-fn rows(json: &str) -> Vec<Value> {
-    serde_json::from_str::<Vec<Value>>(json).expect("a JSON array of sections")
-}
-
-fn ids(rows: &[Value]) -> BTreeSet<String> {
-    rows.iter()
-        .map(|r| r["id"].as_str().expect("id").to_string())
-        .collect()
+fn ids(rows: &[FfiPreviewSection]) -> BTreeSet<String> {
+    rows.iter().map(|r| r.id.clone()).collect()
 }
 
 fn db_sha256(path: &std::path::Path) -> [u8; 32] {
@@ -122,18 +117,17 @@ fn the_current_catalogue_is_what_the_engine_holds_for_the_area() {
     assert!(!live.is_empty(), "the seed pool produced no live catalogue");
 
     let preview = SectionPreview::new();
-    let json = preview
+    let rows = preview
         .current(46.01, 7.0)
         .expect("current call")
         .expect("the seeded area is covered");
-    let rows = rows(&json);
 
     assert_eq!(ids(&rows), live);
     for row in &rows {
-        assert_eq!(row["status"], "unchanged");
-        assert_eq!(row["live_id"], row["id"]);
+        assert_eq!(row.status, "unchanged");
+        assert_eq!(row.live_id.as_deref(), Some(row.id.as_str()));
         assert!(
-            row["polyline"].as_str().is_some_and(|p| !p.is_empty()),
+            !row.polyline.is_empty(),
             "every row carries geometry to draw"
         );
     }
@@ -149,17 +143,15 @@ fn the_current_catalogue_is_the_one_a_run_diffs_against() {
     detect_and_apply();
 
     let preview = SectionPreview::new();
-    let opened = ids(&rows(
-        &preview
-            .current(46.01, 7.0)
-            .expect("current call")
-            .expect("covered"),
-    ));
+    let opened = ids(&preview
+        .current(46.01, 7.0)
+        .expect("current call")
+        .expect("covered"));
 
     let cfg = with_persistent_engine(|engine| engine.get_section_config()).expect("config");
     let mut ffi_cfg = FfiSectionConfig::from(&cfg);
     ffi_cfg.min_activities = 2;
-    assert!(preview.start(46.01, 7.0, ffi_cfg).expect("start"));
+    assert_eq!(preview.start(46.01, 7.0, ffi_cfg).expect("start"), Started);
 
     let deadline = Instant::now() + Duration::from_secs(120);
     loop {
@@ -171,21 +163,18 @@ fn the_current_catalogue_is_the_one_a_run_diffs_against() {
         assert!(Instant::now() < deadline, "preview never completed");
         std::thread::sleep(Duration::from_millis(50));
     }
-    let payload: Value =
-        serde_json::from_str(&preview.take_result().expect("take").expect("payload"))
-            .expect("payload json");
+    let payload = preview.take_result().expect("take").expect("payload");
 
     // The run's own view of the live catalogue: every row it paired against a
     // live section, plus every live section it retires.
-    let diffed: BTreeSet<String> = payload["sections"]
-        .as_array()
-        .expect("sections")
+    let diffed: BTreeSet<String> = payload
+        .sections
         .iter()
         .filter_map(|s| {
-            if s["status"] == "gone" {
-                s["id"].as_str().map(str::to_string)
+            if s.status == "gone" {
+                Some(s.id.clone())
             } else {
-                s["live_id"].as_str().map(str::to_string)
+                s.live_id.clone()
             }
         })
         .collect();
@@ -202,12 +191,12 @@ fn an_area_with_no_catalogue_yet_reads_empty_not_missing() {
     seed_engine();
 
     let preview = SectionPreview::new();
-    let json = preview
+    let rows = preview
         .current(46.01, 7.0)
         .expect("current call")
         .expect("the point is covered by activities");
 
-    assert!(rows(&json).is_empty());
+    assert!(rows.is_empty());
 }
 
 #[test]

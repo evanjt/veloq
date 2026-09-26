@@ -162,7 +162,7 @@ fn one_unreadable_track_is_named_in_the_pool_record() {
     s.corrupt("a3");
 
     let handle = s.engine.detect_sections_background();
-    assert!(handle.recv().is_some(), "detect should still complete");
+    assert!(handle.recv().is_ok(), "detect should still complete");
 
     let record = s
         .integrity_record()
@@ -192,7 +192,7 @@ fn a_single_bad_row_on_a_small_library_still_detects() {
 
     let handle = s.engine.detect_sections_background();
     assert!(
-        handle.recv().is_some(),
+        handle.recv().is_ok(),
         "one bad row must not abandon detection"
     );
     assert_eq!(
@@ -215,7 +215,7 @@ fn an_unreadable_pool_abandons_the_detect() {
 
     let handle = s.engine.detect_sections_background();
     assert!(
-        handle.recv().is_none(),
+        handle.recv().is_err(),
         "an unreadable pool must not yield a catalogue"
     );
 
@@ -242,11 +242,11 @@ fn an_abandoned_pool_is_not_reloaded_until_it_changes() {
     for i in 0..12 {
         s.corrupt(&format!("a{i}"));
     }
-    s.engine.detect_sections_background().recv();
+    let _ = s.engine.detect_sections_background().recv();
     s.forget(POOL_INTEGRITY_KEY);
 
     assert!(
-        s.engine.detect_sections_background().recv().is_none(),
+        s.engine.detect_sections_background().recv().is_err(),
         "the pool is still unreadable"
     );
     assert!(
@@ -257,7 +257,7 @@ fn an_abandoned_pool_is_not_reloaded_until_it_changes() {
     s.engine
         .add_activities_batch(vec![("a12".to_string(), track(12, 80), "Ride".to_string())])
         .expect("add activity");
-    s.engine.detect_sections_background().recv();
+    let _ = s.engine.detect_sections_background().recv();
     assert!(
         s.integrity_record().is_some(),
         "a changed pool must be loaded again rather than held off by the window"
@@ -278,7 +278,7 @@ fn a_clean_pool_clears_the_record() {
         .expect("seed record");
 
     let handle = s.engine.detect_sections_background();
-    handle.recv();
+    let _ = handle.recv();
 
     assert!(
         s.integrity_record().is_none(),

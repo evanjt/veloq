@@ -19,6 +19,8 @@ use tracematch::GpsPoint;
 use tracematch::sections::{Tunables, shares_ground};
 use veloqrs::FfiSectionConfig;
 use veloqrs::objects::SectionPreview;
+use veloqrs::objects::start::FfiStartOutcome;
+use veloqrs::objects::start::FfiStartOutcome::Started;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -173,10 +175,11 @@ fn a_preview_over_a_component_matches_the_cold_batch_over_its_activities() {
 
     // Preview from a point inside only the first spot, live config unchanged.
     let preview = SectionPreview::new();
-    assert!(
+    assert_eq!(
         preview
             .start(5.01, 10.0, FfiSectionConfig::from(&cfg))
             .expect("start call"),
+        Started,
         "a preview over the chain must start"
     );
     let deadline = Instant::now() + Duration::from_secs(120);
@@ -192,49 +195,41 @@ fn a_preview_over_a_component_matches_the_cold_batch_over_its_activities() {
         assert!(Instant::now() < deadline, "preview never completed");
         std::thread::sleep(Duration::from_millis(50));
     }
-    let json = preview
+    let payload = preview
         .take_result()
         .expect("take call")
         .expect("a completed preview yields a payload");
-    let payload: serde_json::Value = serde_json::from_str(&json).expect("payload parses");
 
     // The pool is the whole component, every spot included, nothing from the
     // far component.
     assert_eq!(
-        payload["pool"]["activities"].as_u64(),
-        Some((CHAIN_LATS.len() * PER_SPOT) as u64),
+        payload.pool.activities as usize,
+        CHAIN_LATS.len() * PER_SPOT,
         "the preview pool is not the whole component"
     );
 
     // An unchanged config over an unchanged pool reproduces the live
     // catalogue exactly: every row unchanged, nothing gone, minted or moved.
-    let counts = &payload["counts"];
-    assert_eq!(counts["gone"].as_u64(), Some(0), "phantom gone rows");
-    assert_eq!(counts["new"].as_u64(), Some(0), "phantom new rows");
-    assert_eq!(counts["changed"].as_u64(), Some(0), "phantom changed rows");
+    let counts = &payload.counts;
+    assert_eq!(counts.gone, 0, "phantom gone rows");
+    assert_eq!(counts.new, 0, "phantom new rows");
+    assert_eq!(counts.changed, 0, "phantom changed rows");
     assert_eq!(
-        counts["unchanged"].as_u64(),
-        Some(live_chain.len() as u64),
+        counts.unchanged as usize,
+        live_chain.len(),
         "the preview does not reproduce the live chain catalogue"
     );
-    assert_eq!(counts["current"].as_u64(), Some(live_chain.len() as u64));
-    assert_eq!(
-        counts["proposed"].as_u64(),
-        Some(cold.sections.len() as u64)
-    );
+    assert_eq!(counts.current as usize, live_chain.len());
+    assert_eq!(counts.proposed as usize, cold.sections.len());
 
     let mut live_ids: Vec<String> = live_chain.iter().map(|s| s.id.clone()).collect();
     live_ids.sort();
-    let mut paired_ids: Vec<String> = payload["sections"]
-        .as_array()
-        .expect("sections")
+    let mut paired_ids: Vec<String> = payload
+        .sections
         .iter()
         .map(|s| {
-            assert_eq!(s["status"].as_str(), Some("unchanged"));
-            s["live_id"]
-                .as_str()
-                .expect("unchanged carries live_id")
-                .to_string()
+            assert_eq!(s.status, "unchanged");
+            s.live_id.clone().expect("unchanged carries live_id")
         })
         .collect();
     paired_ids.sort();

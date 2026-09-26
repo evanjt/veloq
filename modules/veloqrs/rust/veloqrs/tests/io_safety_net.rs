@@ -1,13 +1,18 @@
-//! Concurrency safety net for the engine under the FFI lock discipline:
-//! mutations + SQLite access take the write lock, in-memory reads take the read
-//! lock (mirrors `with_engine` / `with_engine_read`). These guard the off-lock
-//! tile invalidation (`add_activities_batch`) and the settings path against
-//! deadlock, starvation, and lost updates under load.
+//! Concurrency safety net for the engine under the FFI lock discipline: every
+//! caller that reaches the engine takes one exclusive lock (mirrors
+//! `with_engine`), and a read that only needs SQLite goes to the pool instead
+//! and takes none. These guard the off-lock tile invalidation
+//! (`add_activities_batch`) and the settings path against deadlock,
+//! starvation, and lost updates under load.
+//!
+//! A `Mutex`, not an `RwLock`, because `PersistentEngine` holds a
+//! `rusqlite::Connection` and is `!Sync`: nothing hands out a shared borrow of
+//! it any more, which is what let the crate drop its `unsafe impl Sync`.
 //!
 //! No `synthetic` feature: activities are built from plain `GpsPoint`s so the
 //! test runs in the default `cargo test` set.
 
-use std::sync::{Arc, Barrier, Mutex, RwLock};
+use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -15,11 +20,11 @@ use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
 
-fn fresh_engine() -> (Arc<RwLock<PersistentEngine>>, TempDir) {
+fn fresh_engine() -> (Arc<Mutex<PersistentEngine>>, TempDir) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("io_safety.db");
     let engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");
-    (Arc::new(RwLock::new(engine)), dir)
+    (Arc::new(Mutex::new(engine)), dir)
 }
 
 fn track(seed: f64) -> Vec<GpsPoint> {
@@ -41,7 +46,7 @@ fn concurrent_reads_during_writes_make_progress() {
         handles.push(thread::spawn(move || {
             barrier.wait();
             for i in 0..WRITES {
-                let mut g = engine.write().unwrap_or_else(|e| e.into_inner());
+                let mut g = engine.lock().unwrap_or_else(|e| e.into_inner());
                 g.add_activity(format!("w{i}"), track(i as f64 * 0.01), "Ride".to_string())
                     .expect("add_activity");
             }
@@ -58,9 +63,8 @@ fn concurrent_reads_during_writes_make_progress() {
             for _ in 0..300 {
                 let t = Instant::now();
                 {
-                    // In-memory read under the read lock (safe per the SQLite
-                    // invariant, no `self.db` access here).
-                    let g = engine.read().unwrap_or_else(|e| e.into_inner());
+                    // An in-memory read, on the one lock the engine has.
+                    let g = engine.lock().unwrap_or_else(|e| e.into_inner());
                     let _ = g.activity_count();
                 }
                 let dt = t.elapsed();
@@ -78,7 +82,7 @@ fn concurrent_reads_during_writes_make_progress() {
 
     // Every write landed (no lost updates, no deadlock).
     let count = engine
-        .read()
+        .lock()
         .unwrap_or_else(|e| e.into_inner())
         .activity_count();
     assert_eq!(count, WRITES);
@@ -111,11 +115,11 @@ fn settings_under_concurrent_mutation_stay_consistent() {
                 // Both set and get touch SQLite, so both take the write lock
                 // (exclusive), matching the engine's db-access discipline.
                 {
-                    let g = engine.write().unwrap_or_else(|e| e.into_inner());
+                    let g = engine.lock().unwrap_or_else(|e| e.into_inner());
                     g.set_setting(&key, &val).expect("set_setting");
                 }
                 let got = {
-                    let g = engine.write().unwrap_or_else(|e| e.into_inner());
+                    let g = engine.lock().unwrap_or_else(|e| e.into_inner());
                     g.get_setting(&key).expect("get_setting")
                 };
                 // No other thread writes *our* key, so we read back our own
@@ -130,7 +134,7 @@ fn settings_under_concurrent_mutation_stay_consistent() {
     }
 
     // Final values are each thread's last iteration.
-    let g = engine.write().unwrap_or_else(|e| e.into_inner());
+    let g = engine.lock().unwrap_or_else(|e| e.into_inner());
     for t in 0..THREADS {
         assert_eq!(
             g.get_setting(&format!("k{t}")).unwrap().as_deref(),

@@ -111,3 +111,55 @@ fn minted_numbers_are_global_not_per_sport() {
         "two groups were numbered per sport, so they share a number: {minted:?}"
     );
 }
+
+/// Scenario: a group that already carries a minted name, and a new group that
+/// sorts ahead of it. Changing the order numbers are handed out in must not
+/// renumber a route the athlete has already seen.
+///
+/// Expected behaviour: a name lands in `route_names` once and is skipped on
+/// every later pass, so the order decides only which number a new group takes.
+#[test]
+fn a_group_that_is_already_named_keeps_its_name_when_a_bigger_one_arrives() {
+    let dir = TempDir::new().unwrap();
+    let db_path = dir.path().join("test.db");
+    let mut engine = PersistentEngine::new(db_path.to_str().unwrap()).unwrap();
+    seed(&mut engine);
+    engine.get_groups();
+    let before = names(&engine);
+    assert!(before.len() >= 2, "expected two route groups");
+
+    // A third loop, covered more times than either of the first two, so it
+    // sorts to the front of the mint order.
+    for i in 0..5 {
+        engine
+            .add_activity(
+                format!("run_{i}"),
+                make_track(45.0, 5.0, i as f64 * 0.5),
+                "Run".to_string(),
+            )
+            .unwrap();
+    }
+    engine.get_groups();
+    let after = names(&engine);
+
+    assert!(after.len() > before.len(), "the new loop was never grouped");
+    for (id, name) in &before {
+        assert_eq!(
+            after
+                .iter()
+                .find(|(after_id, _)| after_id == id)
+                .map(|(_, n)| n),
+            Some(name),
+            "{id} was renamed from {name:?} by a group that arrived later"
+        );
+    }
+    let numbers: std::collections::BTreeSet<&str> = after
+        .iter()
+        .map(|(_, n)| n.rsplit(' ').next().unwrap())
+        .collect();
+    assert_eq!(
+        numbers.len(),
+        after.len(),
+        "two routes share a number: {after:?}"
+    );
+}

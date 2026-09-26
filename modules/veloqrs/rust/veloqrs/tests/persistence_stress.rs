@@ -41,7 +41,7 @@ fn setup_engine_with_activities(scenario: &SyntheticScenario) -> (PersistentEngi
 /// Helper: run section detection synchronously on an engine.
 fn detect_and_apply(engine: &mut PersistentEngine) -> usize {
     let handle = engine.detect_sections_background();
-    let (sections, _warnings) = handle.recv().unwrap_or_default();
+    let (sections, _warnings) = handle.recv().expect("the detect ran");
     let count = sections.len();
     engine
         .apply_sections(sections)

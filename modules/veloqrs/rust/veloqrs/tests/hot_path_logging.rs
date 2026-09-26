@@ -110,7 +110,7 @@ fn engine_with_sections(dir: &TempDir) -> (PersistentEngine, String) {
     engine.set_activity_metrics(metrics).unwrap();
     engine.set_time_streams_flat(&ids, &times, &offsets);
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).unwrap();
 
     let section = engine

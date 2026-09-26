@@ -78,7 +78,7 @@ fn reapplying_the_same_catalogue_writes_nothing() {
     }
 
     let handle = engine.detect_sections_background();
-    let (sections, processed) = handle.recv().unwrap_or_default();
+    let (sections, processed) = handle.recv().expect("the detect ran");
     assert!(
         !sections.is_empty(),
         "the corpus must form sections for this test to mean anything"

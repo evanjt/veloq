@@ -67,7 +67,7 @@ fn the_batch_resolver_answers_for_every_row_that_has_one() {
     assert_eq!(resolved.get("i1").map(String::as_str), Some("i1"));
     assert_eq!(resolved.get("i3").map(String::as_str), Some("i3"));
 
-    let back = engine.local_ids_for_intervals_ids(&ids);
+    let back = engine.local_ids_for_intervals_ids(&ids).expect("lookup");
     assert_eq!(back.get("i1").map(String::as_str), Some("i1"));
     assert_eq!(back.get("i9"), None);
 }

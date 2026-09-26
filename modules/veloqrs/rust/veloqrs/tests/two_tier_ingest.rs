@@ -38,7 +38,7 @@ fn engine_with_sections(dir: &TempDir, corpus: &LifecycleCorpus) -> PersistentEn
     }
 
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).unwrap();
     assert!(
         !engine.get_sections().is_empty(),
@@ -269,7 +269,7 @@ fn a_lapped_attach_matches_what_batch_detection_assigns() {
     }
     store(&mut batch, "act_lapped", base.lapped(3), base);
     let handle = batch.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     batch.apply_sections(sections).unwrap();
 
     // How many sections the corridor is cut into is a detection decision and

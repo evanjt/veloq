@@ -59,7 +59,7 @@ fn unrelated_async_work_still_runs_while_engine_writes_are_queued() {
         runtime::block_on(async move {
             // Hold the write lock from outside the runtime, so every queued engine
             // call has to wait on it. Released by the watchdog below.
-            let held = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
+            let held = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
 
             let mut writes = Vec::new();
             for _ in 0..CONTENDERS {

@@ -420,8 +420,21 @@ pub fn try_ingest_step(
     // Cache-aware recv so a Unified drip actually folds through the evidence
     // cache; Control produces no cache update, so this is identical to the plain
     // path for the Control arm.
-    let (main, cache_update) = handle.recv_with_cache();
-    let (sections, processed_ids) = main.unwrap_or_default();
+    let (main, cache_update) = handle.recv_state_with_cache();
+    // Not `unwrap_or_default`: a worker that panics inside the fold drops its
+    // sender, the apply then writes an empty catalogue over nothing and leaves
+    // the previous one standing, and the scenario passes against a detect that
+    // never ran. That happened, and it hid a pool narrowed past what the fold
+    // reads.
+    let (sections, processed_ids) = match main {
+        veloqrs::persistence::WorkerPoll::Ready(v) => v,
+        veloqrs::persistence::WorkerPoll::Died => {
+            return Err("the detection worker died without sending a result".to_string());
+        }
+        veloqrs::persistence::WorkerPoll::Running => {
+            return Err("the detection worker never answered".to_string());
+        }
+    };
     let detection_ms = detect_start.elapsed().as_millis();
 
     let apply_start = Instant::now();

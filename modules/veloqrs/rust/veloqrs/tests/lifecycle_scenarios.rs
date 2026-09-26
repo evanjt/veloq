@@ -137,7 +137,7 @@ fn ingest_step(
 
     let detect_start = Instant::now();
     let handle = engine.detect_sections_background();
-    let (sections, processed_ids) = handle.recv().unwrap_or_default();
+    let (sections, processed_ids) = handle.recv().expect("the detect ran");
     let detection_ms = detect_start.elapsed().as_millis();
 
     let apply_start = Instant::now();
@@ -598,11 +598,165 @@ fn scenario_e_year_expansion_baseline() {
 }
 
 // ============================================================================
+// Ground diff, for comparing two catalogues that minted their own ids
+// ============================================================================
+
+/// What a section in one catalogue turned out to be in the other.
+///
+/// Section ids are minted per engine, so two catalogues built from the same
+/// corpus share none. The activities are the ground: both paths ingested the
+/// same rides under the same ids, so a section is identified by the set of
+/// activities that traverse it however it was numbered.
+#[derive(Debug, PartialEq, Eq)]
+enum Ground {
+    /// Some section of the other catalogue covers exactly these activities.
+    Same,
+    /// Every activity sits inside one section of the other catalogue, which
+    /// drew one section where this one drew several: a cut the other side
+    /// never made, or a fold this side never healed.
+    Inside(String),
+    /// The activities are spread over more than one section of the other, so
+    /// the two catalogues cut the same road in different places.
+    Across(usize),
+    /// No section of the other catalogue holds any of these activities. This
+    /// piece of road exists on one side only.
+    Alone,
+}
+
+fn ground_of(mine: &SectionFingerprint, other: &SectionSnapshot) -> Ground {
+    let mut covering = 0usize;
+    let mut container: Option<String> = None;
+    for (id, theirs) in &other.sections {
+        if theirs.activity_ids == mine.activity_ids {
+            return Ground::Same;
+        }
+        if !theirs.activity_ids.is_disjoint(&mine.activity_ids) {
+            covering += 1;
+            if mine.activity_ids.is_subset(&theirs.activity_ids) {
+                container = Some(id.clone());
+            }
+        }
+    }
+    match (covering, container) {
+        (0, _) => Ground::Alone,
+        (_, Some(id)) => Ground::Inside(id),
+        (n, None) => Ground::Across(n),
+    }
+}
+
+/// Name every section one catalogue holds that the other does not, by what it
+/// is over there. The counts alone say nine sections differ; this says what
+/// the nine are.
+fn print_ground_diff(label: &str, mine: &SectionSnapshot, other: &SectionSnapshot) {
+    let mut same = 0usize;
+    let mut inside = Vec::new();
+    let mut across = Vec::new();
+    let mut alone = Vec::new();
+
+    for (id, section) in &mine.sections {
+        let size = (section.activity_ids.len(), section.polyline_point_count);
+        match ground_of(section, other) {
+            Ground::Same => same += 1,
+            Ground::Inside(container) => inside.push((id, size, container)),
+            Ground::Across(n) => across.push((id, size, n)),
+            Ground::Alone => alone.push((id, size)),
+        }
+    }
+
+    println!(
+        "[lifecycle/{}] ground: {} identical, {} inside one of theirs, {} across several, {} on this side only",
+        label,
+        same,
+        inside.len(),
+        across.len(),
+        alone.len()
+    );
+    for (id, (visits, points), container) in &inside {
+        println!(
+            "[lifecycle/{label}]   inside: {id} over {visits} activities, {points} points, inside their {container}"
+        );
+    }
+    for (id, (visits, points), n) in &across {
+        println!(
+            "[lifecycle/{label}]   across: {id} over {visits} activities, {points} points, touching {n} of theirs"
+        );
+    }
+    for (id, (visits, points)) in &alone {
+        println!("[lifecycle/{label}]   alone: {id} over {visits} activities, {points} points");
+    }
+}
+
+/// The ground of a catalogue: one sorted activity-id set per section, sorted.
+///
+/// Ids are minted per engine and share nothing between the two paths, so the
+/// activities that traverse a section are the only thing the two catalogues can
+/// be compared on. Equality here is `Q169`'s gate stated exactly: the same
+/// rides played one at a time and played in one batch draw the same library.
+fn ground(snapshot: &SectionSnapshot) -> Vec<Vec<String>> {
+    let mut all: Vec<Vec<String>> = snapshot
+        .sections
+        .values()
+        .map(|s| s.activity_ids.iter().cloned().collect())
+        .collect();
+    all.sort();
+    all
+}
+
+/// The catalogue the detector last emitted, before the identity registry's
+/// k-step debounce damps it into the view. `get_sections` can lag this while a
+/// dissolve is still pressing through, so a drift measured on the view alone
+/// cannot say which layer moved.
+fn raw_snapshot(engine: &PersistentEngine) -> SectionSnapshot {
+    SectionSnapshot {
+        sections: engine
+            .raw_detection_catalogue()
+            .iter()
+            .map(|s| {
+                (
+                    s.id.clone(),
+                    SectionFingerprint {
+                        activity_ids: s.activity_ids.iter().cloned().collect(),
+                        visit_count: s.visit_count,
+                        polyline_point_count: s.polyline.len(),
+                        sport_type: s.sport_type.clone(),
+                    },
+                )
+            })
+            .collect(),
+    }
+}
+
+/// Re-detect with no new activities until the view stops moving, or `limit`
+/// rounds have passed. Each round is one decisive step for the debounce, so a
+/// dissolve armed on the last ingest needs `k` of them before the view can
+/// agree with the detector. Returns the rounds actually run.
+fn settle(engine: &mut PersistentEngine, limit: usize) -> usize {
+    let mut previous = snapshot(engine);
+    for round in 1..=limit {
+        let handle = engine.detect_sections_background();
+        let (sections, processed_ids) = handle.recv().expect("the detect ran");
+        engine.apply_sections(sections).expect("apply_sections");
+        engine
+            .save_processed_activity_ids(&processed_ids)
+            .expect("save_processed_activity_ids");
+        let now = snapshot(engine);
+        if now == previous {
+            return round;
+        }
+        previous = now;
+    }
+    limit
+}
+
+// ============================================================================
 // Scenario F, full-rebuild convergence (incremental sequence vs single-shot)
 // ============================================================================
 
+// No longer `#[ignore]`d: an assertion behind an ignore gates nothing, which is
+// what `B337` was. The whole file is behind `required-features = ["synthetic"]`,
+// so a plain `cargo test` still never builds it; the suite runs in 19 s in
+// release, measured 2026-09-13 on a busy machine.
 #[test]
-#[ignore] // pairs with scenario E; ~30s combined
 fn scenario_f_full_converges_to_incremental_baseline() {
     let cfg = LifecycleConfig::default();
     let corpus = LifecycleCorpus::generate(&cfg);
@@ -641,5 +795,71 @@ fn scenario_f_full_converges_to_incremental_baseline() {
         inc_step.section_count,
         full_step.section_count,
         drift * 100.0
+    );
+
+    // The counts say the two catalogues differ. These say what the difference
+    // is made of, which is what a gate on the drift has to be chosen against.
+    print_ground_diff("F_inc", &inc_step.snapshot, &full_step.snapshot);
+    print_ground_diff("F_full", &full_step.snapshot, &inc_step.snapshot);
+
+    // The same comparison one layer down. `get_sections` above is the DAMPED
+    // view: the identity registry holds a section the detector has stopped
+    // emitting until k consecutive decisive steps have passed, and the
+    // incremental path spent its last step ingesting 396 activities, so any
+    // dissolve that step armed cannot have applied. The raw catalogue is what
+    // the detector actually emitted, and it is the one a detector defect moves.
+    let inc_raw = raw_snapshot(&e_inc);
+    let full_raw = raw_snapshot(&e_full);
+    println!(
+        "[lifecycle/F_raw] incremental={} full={}",
+        inc_raw.sections.len(),
+        full_raw.sections.len()
+    );
+    print_ground_diff("F_raw_inc", &inc_raw, &full_raw);
+    print_ground_diff("F_raw_full", &full_raw, &inc_raw);
+
+    // And the view once the debounce has run out. Neither engine gains an
+    // activity here, so every round is the same detection against the same
+    // pool: what still differs after this is a difference the athlete keeps.
+    let inc_rounds = settle(&mut e_inc, 8);
+    let full_rounds = settle(&mut e_full, 8);
+    let inc_settled = snapshot(&mut e_inc);
+    let full_settled = snapshot(&mut e_full);
+    println!(
+        "[lifecycle/F_settled] incremental={} (after {} rounds) full={} (after {} rounds)",
+        inc_settled.sections.len(),
+        inc_rounds,
+        full_settled.sections.len(),
+        full_rounds
+    );
+    print_ground_diff("F_settled_inc", &inc_settled, &full_settled);
+    print_ground_diff("F_settled_full", &full_settled, &inc_settled);
+
+    // `Q169`, decided: "the same activities played one by one since a year, vs
+    // 1 batch of the exact same, should end up with the same library". Asserted
+    // on the two catalogues that can carry that claim, and not on the damped
+    // view above, which is read one step after a 396-activity ingest and is
+    // still pressing ten dissolves through the k-step debounce.
+    assert_eq!(
+        ground(&inc_raw),
+        ground(&full_raw),
+        "the detector's own catalogues differ: incremental {} sections, full {}",
+        inc_raw.sections.len(),
+        full_raw.sections.len()
+    );
+    assert_eq!(
+        ground(&inc_settled),
+        ground(&full_settled),
+        "the settled views differ: incremental {} sections after {} rounds, full {} after {}",
+        inc_settled.sections.len(),
+        inc_rounds,
+        full_settled.sections.len(),
+        full_rounds
+    );
+    // A view that was still moving when `settle` gave up proves nothing: the
+    // equality above would then be between two arbitrary intermediate states.
+    assert!(
+        inc_rounds < 8 && full_rounds < 8,
+        "a view was still moving when settle gave up: incremental {inc_rounds}, full {full_rounds}"
     );
 }

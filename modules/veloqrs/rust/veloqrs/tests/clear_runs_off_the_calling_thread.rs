@@ -92,7 +92,7 @@ fn the_whole_wipe_runs_on_its_own_thread() {
     let _tmp = seeded_engine();
     assert_eq!(activity_count(), 8, "seed must land");
 
-    let handle = clear_all_background();
+    let handle = clear_all_background(None);
     settle(|| handle.poll_state());
 
     assert_eq!(activity_count(), 0);

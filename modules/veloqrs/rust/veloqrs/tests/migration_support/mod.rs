@@ -76,6 +76,18 @@ pub fn stamp_app_schema_version(conn: &Connection, version: u32) {
     .expect("stamp schema_version");
 }
 
+/// The app-level version in `schema_info`, or `None` where the table or the row
+/// is absent, which is every database older than 012.
+pub fn app_schema_version(conn: &Connection) -> Option<u32> {
+    conn.query_row(
+        "SELECT value FROM schema_info WHERE key = 'schema_version'",
+        [],
+        |row| row.get::<_, String>(0),
+    )
+    .ok()
+    .and_then(|v| v.parse().ok())
+}
+
 /// Sorted user table names, SQLite internals excluded.
 pub fn tables_at(conn: &Connection) -> Vec<String> {
     let mut stmt = conn

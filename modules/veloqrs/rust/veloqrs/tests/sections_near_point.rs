@@ -103,6 +103,43 @@ fn a_fix_inside_a_long_section_is_not_a_fix_at_its_start() {
 }
 
 #[test]
+fn a_fix_at_the_far_end_is_offered_the_section_only_by_the_either_end_query() {
+    // A ride arriving at a section's last point is about to ride it backwards.
+    // The start-keyed query has no answer for that fix; the either-end query
+    // offers the line and says how far the nearer end is.
+    let mut s = setup();
+    let long = eastward(0.0, 0.0, 501);
+    let id = draw(&mut s, "Long", "Ride", long.clone());
+
+    let far_end = long.last().unwrap();
+    let found = s
+        .engine
+        .sections_near_point(far_end.latitude, far_end.longitude, None, 100.0);
+    assert!(found.is_empty(), "returned {:?}", ids(&found));
+
+    let found = s
+        .engine
+        .sections_near_either_end(far_end.latitude, far_end.longitude, None, 100.0);
+    let either_end_ids: Vec<&str> = found.iter().map(|s| s.id.as_str()).collect();
+    assert_eq!(either_end_ids, vec![id.as_str()]);
+    assert!(found[0].start_distance_meters > 4_000.0);
+    assert!(found[0].nearer_end_distance_meters < 1.0);
+
+    let start = long[0];
+    let found = s
+        .engine
+        .sections_near_either_end(start.latitude, start.longitude, None, 100.0);
+    assert_eq!(found.len(), 1);
+    assert!(found[0].nearer_end_distance_meters < 1.0);
+
+    let middle = long[250];
+    let found = s
+        .engine
+        .sections_near_either_end(middle.latitude, middle.longitude, None, 100.0);
+    assert!(found.is_empty(), "the middle of a line is neither end");
+}
+
+#[test]
 fn the_sport_filter_matches_the_stored_sport_exactly() {
     let mut s = setup();
     let ride = draw(&mut s, "Ride line", "Ride", eastward(0.0, 0.0, 20));

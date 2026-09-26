@@ -43,6 +43,16 @@ fn insert_section(db: &Connection, id: &str) {
 }
 
 fn insert_traversal(db: &Connection, section_id: &str, activity_id: &str, date: i64) {
+    insert_traversal_at(db, section_id, activity_id, date, 240.0)
+}
+
+fn insert_traversal_at(
+    db: &Connection,
+    section_id: &str,
+    activity_id: &str,
+    date: i64,
+    lap_time: f64,
+) {
     db.execute(
         "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng,
                                  start_date, name, distance_meters, duration_secs)
@@ -60,8 +70,8 @@ fn insert_traversal(db: &Connection, section_id: &str, activity_id: &str, date: 
     db.execute(
         "INSERT INTO section_activities (section_id, activity_id, direction, start_index,
                                          end_index, distance_meters, lap_time, lap_pace, excluded)
-         VALUES (?1, ?2, 'same', 0, 40, 800.0, 240.0, 3.33, 0)",
-        params![section_id, activity_id],
+         VALUES (?1, ?2, 'same', 0, 40, 800.0, ?3, 3.33, 0)",
+        params![section_id, activity_id, lap_time],
     )
     .expect("insert traversal");
 }
@@ -152,4 +162,111 @@ fn the_stale_candidate_carries_the_age_the_gate_needs() {
         neglected.days_since_last
     );
     assert_eq!(neglected.traversal_count, 3);
+}
+
+/// The stale-PR path took the whole ranked list for every sport and kept the few
+/// stale ones. Asking the query for the stale ones returns the same candidate
+/// without walking the other hundred and twenty.
+#[test]
+fn the_stale_query_returns_only_the_stale_section() {
+    let (engine, _tmp) = seeded();
+
+    let stale: Vec<String> = engine
+        .get_stale_ranked_sections(SPORT, 30)
+        .into_iter()
+        .map(|s| s.section_id)
+        .collect();
+
+    assert_eq!(
+        stale,
+        vec![NEGLECTED.to_string()],
+        "only the year-old section is stale at a thirty day threshold"
+    );
+}
+
+/// The bound is on each section's newest traversal, not on the rows, because the
+/// best time and the improvement signal are computed over every traversal a
+/// section has. A row-level date filter would silently change the times.
+#[test]
+fn the_stale_section_keeps_every_one_of_its_traversals() {
+    let (engine, _tmp) = seeded();
+
+    let stale = engine.get_stale_ranked_sections(SPORT, 30);
+    let neglected = stale
+        .iter()
+        .find(|s| s.section_id == NEGLECTED)
+        .expect("the neglected section is the stale one");
+
+    let uncapped = engine.get_ranked_sections(SPORT, u32::MAX);
+    let same = uncapped
+        .iter()
+        .find(|s| s.section_id == NEGLECTED)
+        .expect("and it is in the full ranking too");
+
+    assert_eq!(neglected.traversal_count, 3, "all three traversals counted");
+    assert_eq!(neglected.traversal_count, same.traversal_count);
+    assert!((neglected.best_time_secs - same.best_time_secs).abs() < 1e-9);
+    assert_eq!(neglected.days_since_last, same.days_since_last);
+}
+
+#[test]
+fn a_threshold_nothing_meets_returns_nothing() {
+    let (engine, _tmp) = seeded();
+
+    assert!(
+        engine.get_stale_ranked_sections(SPORT, 1000).is_empty(),
+        "no section has been idle for a thousand days"
+    );
+}
+
+/// A threshold of zero is every section, which is the whole ranked list. This
+/// pins that the narrowing is a filter and not a different query.
+#[test]
+fn a_zero_threshold_is_every_section() {
+    let (engine, _tmp) = seeded();
+
+    assert_eq!(
+        engine.get_stale_ranked_sections(SPORT, 0).len(),
+        engine.get_ranked_sections(SPORT, u32::MAX).len()
+    );
+}
+
+#[test]
+fn the_stale_query_answers_nothing_for_a_sport_with_no_sections() {
+    let (engine, _tmp) = seeded();
+
+    assert!(engine.get_stale_ranked_sections("Swim", 30).is_empty());
+}
+
+/// Scenario: the stale-PR card says what the athlete's fitness was when the
+/// record was set, so the record's own date has to reach it.
+///
+/// Expected behaviour: the ranked section carries the date of its fastest
+/// traversal, not of its newest.
+#[test]
+fn the_ranked_section_carries_the_date_of_its_fastest_lap() {
+    let tmp = TempDir::new().expect("temp dir");
+    let path: PathBuf = tmp.path().join("best-date.db");
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    let db = Connection::open(&path).expect("raw open");
+
+    let now = chrono::Utc::now().timestamp();
+    let record_day = now - 200 * 86_400;
+    insert_section(&db, "sec_best");
+    insert_traversal_at(&db, "sec_best", "act_slow_old", now - 300 * 86_400, 280.0);
+    insert_traversal_at(&db, "sec_best", "act_record", record_day, 205.0);
+    insert_traversal_at(&db, "sec_best", "act_slow_new", now - 40 * 86_400, 260.0);
+
+    let section = engine
+        .get_stale_ranked_sections(SPORT, 30)
+        .into_iter()
+        .find(|s| s.section_id == "sec_best")
+        .expect("the section is stale");
+
+    assert!((section.best_time_secs - 205.0).abs() < 1e-9);
+    assert_eq!(
+        section.best_date.map(|d| d as i64),
+        Some(record_day),
+        "the fastest lap's date, not the newest lap's"
+    );
 }

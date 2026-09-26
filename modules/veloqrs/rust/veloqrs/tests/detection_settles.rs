@@ -56,7 +56,7 @@ fn detected_engine(dir: &TempDir, corpus: &LifecycleCorpus) -> PersistentEngine 
 /// One detect+apply round, as a sync performs it.
 fn redetect(engine: &mut PersistentEngine) {
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).unwrap();
 }
 

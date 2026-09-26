@@ -163,3 +163,91 @@ fn a_derived_table_holding_an_athlete_decision_says_so() {
         );
     }
 }
+
+/// The tables `classify` calls `Record` or `Device` that name `activities` in
+/// an `ON DELETE CASCADE` foreign key.
+fn kept_tables_cascading_from_activities(
+    conn: &Connection,
+    classify: impl Fn(&str) -> Option<TableClass>,
+) -> Vec<String> {
+    let names: Vec<String> = conn
+        .prepare(
+            "SELECT name FROM sqlite_master
+             WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+        )
+        .and_then(|mut s| {
+            s.query_map([], |r| r.get::<_, String>(0))
+                .map(|rows| rows.filter_map(Result::ok).collect())
+        })
+        .expect("read schema");
+    names
+        .into_iter()
+        .filter(|name| {
+            matches!(
+                classify(name),
+                Some(TableClass::Record | TableClass::Device)
+            )
+        })
+        .filter(|name| {
+            conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_foreign_key_list(?1)
+                   WHERE \"table\" = 'activities' AND on_delete = 'CASCADE')",
+                [name],
+                |r| r.get::<_, bool>(0),
+            )
+            .expect("foreign keys")
+        })
+        .collect()
+}
+
+/// A clear removes activities, so a record table cascading from `activities`
+/// loses the athlete's rows through the foreign key, where no delete list and
+/// no clear test would see it. The declaration says the table is kept; the
+/// schema has to agree.
+#[test]
+fn no_record_or_device_table_cascades_from_activities() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("cascade.db");
+    PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    let conn = Connection::open(&path).expect("second connection");
+
+    let cascading =
+        kept_tables_cascading_from_activities(&conn, veloqrs::persistence::tables::class_of);
+
+    assert!(
+        cascading.is_empty(),
+        "these are declared the athlete's or the device's, and deleting an \
+         activity empties them: {cascading:?}"
+    );
+}
+
+/// The check above passes vacuously on a schema that has no such table, so
+/// it is shown to catch one.
+#[test]
+fn the_cascade_check_catches_a_record_table_that_cascades() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("cascade.db");
+    PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    let conn = Connection::open(&path).expect("second connection");
+    conn.execute_batch(
+        "CREATE TABLE athlete_notes (
+             activity_id TEXT NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+             note TEXT NOT NULL
+         );
+         CREATE TABLE athlete_labels (
+             activity_id TEXT NOT NULL REFERENCES activities(id),
+             label TEXT NOT NULL
+         );",
+    )
+    .expect("two new tables");
+
+    let classify = |name: &str| match name {
+        "athlete_notes" | "athlete_labels" => Some(TableClass::Record),
+        other => veloqrs::persistence::tables::class_of(other),
+    };
+
+    assert_eq!(
+        kept_tables_cascading_from_activities(&conn, classify),
+        vec!["athlete_notes".to_string()]
+    );
+}

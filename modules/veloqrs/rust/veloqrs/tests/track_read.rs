@@ -9,6 +9,7 @@
 use rusqlite::{Connection, params};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
@@ -419,16 +420,19 @@ fn tracks_batch_answers_a_repeated_id_the_same_way_twice() {
 }
 
 #[test]
-fn for_each_track_visits_every_activity_exactly_once() {
+fn for_each_track_visits_every_activity_asked_for_exactly_once() {
     let mut s = setup();
-    for i in 0..7 {
-        s.add(&format!("a{i}"), track(5, true));
+    let ids: Vec<String> = (0..7).map(|i| format!("a{i}")).collect();
+    for id in &ids {
+        s.add(id, track(5, true));
     }
     s.set_blob("a3", b"\x2c junk that claims nothing");
 
+    let wanted: HashSet<&str> = ids.iter().map(String::as_str).collect();
     let mut seen: Vec<(String, usize)> = Vec::new();
-    s.engine
-        .for_each_track(|id, points| seen.push((id.to_string(), points.len())));
+    s.engine.for_each_track(&wanted, |id, points| {
+        seen.push((id.to_string(), points.len()))
+    });
 
     seen.sort();
     assert_eq!(seen.len(), 7);
@@ -449,14 +453,18 @@ fn for_each_track_visits_every_activity_exactly_once() {
 #[test]
 fn a_row_the_driver_cannot_read_is_counted_not_hidden() {
     let mut s = setup();
-    for i in 0..5 {
-        s.add(&format!("a{i}"), track(5, true));
+    let ids: Vec<String> = (0..5).map(|i| format!("a{i}")).collect();
+    for id in &ids {
+        s.add(id, track(5, true));
     }
     s.set_unreadable_column("a2");
     s.set_blob("a4", b"\x2c junk that claims nothing");
 
+    let wanted: HashSet<&str> = ids.iter().map(String::as_str).collect();
     let mut seen: Vec<String> = Vec::new();
-    let walk = s.engine.for_each_track(|id, _| seen.push(id.to_string()));
+    let walk = s
+        .engine
+        .for_each_track(&wanted, |id, _| seen.push(id.to_string()));
 
     seen.sort();
     assert_eq!(seen, vec!["a0", "a1", "a3", "a4"]);
@@ -470,11 +478,13 @@ fn a_row_the_driver_cannot_read_is_counted_not_hidden() {
 #[test]
 fn a_clean_walk_reports_no_failures() {
     let mut s = setup();
-    for i in 0..3 {
-        s.add(&format!("a{i}"), track(5, true));
+    let ids: Vec<String> = (0..3).map(|i| format!("a{i}")).collect();
+    for id in &ids {
+        s.add(id, track(5, true));
     }
 
-    let walk = s.engine.for_each_track(|_, _| {});
+    let wanted: HashSet<&str> = ids.iter().map(String::as_str).collect();
+    let walk = s.engine.for_each_track(&wanted, |_, _| {});
     assert_eq!(walk.visited, 3);
     assert_eq!(walk.corrupt, 0);
     assert_eq!(walk.failed, 0);
@@ -570,18 +580,20 @@ fn for_each_track_holds_one_track_at_a_time() {
     const POINTS: usize = 400;
 
     let mut s = setup();
-    for i in 0..ACTIVITIES {
-        s.add(&format!("a{i}"), track(POINTS, true));
+    let ids: Vec<String> = (0..ACTIVITIES).map(|i| format!("a{i}")).collect();
+    for id in &ids {
+        s.add(id, track(POINTS, true));
     }
+    let wanted: HashSet<&str> = ids.iter().map(String::as_str).collect();
 
     // Warm the SQLite page cache so the measured pass allocates only what the
     // decode itself needs.
-    s.engine.for_each_track(|_, _| {});
+    s.engine.for_each_track(&wanted, |_, _| {});
 
     let baseline = live_bytes();
     let mut peak = 0isize;
     let mut visited = 0usize;
-    s.engine.for_each_track(|_, points| {
+    s.engine.for_each_track(&wanted, |_, points| {
         assert_eq!(points.len(), POINTS);
         visited += 1;
         peak = peak.max(live_bytes() - baseline);

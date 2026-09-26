@@ -86,7 +86,7 @@ fn redetect_same_set(
     let before = ingest_step(&mut engine, "cold", set).snapshot;
 
     let handle = engine.detect_sections_background();
-    let (sections, _processed) = handle.recv().unwrap_or_default();
+    let (sections, _processed) = handle.recv().expect("the detect ran");
     let returned = sections.len();
     engine.apply_sections(sections).expect("re-apply sections");
     let after = snapshot(&mut engine);

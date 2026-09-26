@@ -112,3 +112,43 @@ fn activity_matches_by_activity_uses_the_activity_index() {
         joined
     );
 }
+
+/// Scenario: every date-window aggregate on `activity_metrics` is a date-only
+/// predicate, and the only date index leads with `sport_type`, which a
+/// date-only predicate cannot use. The launch path runs several of them.
+///
+/// Expected behaviour: a date-only window searches an index rather than
+/// scanning the table, and so does the MIN/MAX pair the stats take.
+#[test]
+fn a_date_window_on_activity_metrics_searches_an_index() {
+    let (_dir, conn) = open_engine_db();
+    let plan = explain(
+        &conn,
+        "SELECT COUNT(*), COALESCE(SUM(moving_time), 0), COALESCE(SUM(distance), 0), \
+         COALESCE(SUM(training_load), 0) \
+         FROM activity_metrics WHERE date BETWEEN 1 AND 2",
+    );
+    let joined = plan.join(" | ");
+    assert!(
+        joined.contains("idx_activity_metrics_date"),
+        "expected plan to use idx_activity_metrics_date, got: {}",
+        joined
+    );
+    assert!(
+        !joined.contains("SCAN activity_metrics"),
+        "expected SEARCH (index lookup), got SCAN: {}",
+        joined
+    );
+}
+
+#[test]
+fn the_activity_date_range_reads_the_index_rather_than_the_table() {
+    let (_dir, conn) = open_engine_db();
+    let plan = explain(&conn, "SELECT MIN(date), MAX(date) FROM activity_metrics");
+    let joined = plan.join(" | ");
+    assert!(
+        joined.contains("idx_activity_metrics_date"),
+        "expected plan to use idx_activity_metrics_date, got: {}",
+        joined
+    );
+}

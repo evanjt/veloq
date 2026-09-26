@@ -156,6 +156,112 @@ fn index_lines(conn: &Connection, table: &str) -> Vec<String> {
         .collect()
 }
 
+/// The `CHECK` clauses a table carries, normalised and sorted.
+///
+/// No pragma exposes a CHECK, so this parses them out of the stored DDL. That
+/// is why they were absent: the dump is built from pragmas, and a migration
+/// whose whole content is a widened CHECK, which in SQLite is a
+/// create-copy-drop-rename, moves no column and no index. The golden diff for
+/// such a migration was one line, the `user_version`.
+///
+/// Normalised rather than compared as bytes, because the rewrite writes the
+/// clause with whatever formatting the migration file had and a byte comparison
+/// would report every reflow as drift. Sorted so the clause order inside the
+/// statement is not itself a difference.
+fn check_lines(conn: &Connection, table: &str) -> Vec<String> {
+    let sql: String = conn
+        .query_row(
+            "SELECT COALESCE(sql, '') FROM sqlite_master
+              WHERE type = 'table' AND name = ?1",
+            [table],
+            |r| r.get(0),
+        )
+        .unwrap_or_default();
+
+    let mut found: Vec<String> = checks_in(&normalise_ddl(&sql))
+        .into_iter()
+        .map(|clause| format!("  check {}", tighten(&clause)))
+        .collect();
+    found.sort_unstable();
+    found.dedup();
+    found
+}
+
+/// A clause with the space around its punctuation removed, outside literals.
+///
+/// `normalise_ddl` collapses a run of whitespace to one space, which is not
+/// enough: `CHECK(k IN ('a','b'))` and the same clause wrapped over three lines
+/// then differ by the spaces beside the brackets and the comma. The rewrite a
+/// widened CHECK needs carries the migration file's own formatting, so those
+/// spaces are noise and this removes them, on both sides of every bracket and
+/// comma. `IN(` rather than `IN (` reads slightly worse and is the same in
+/// every formatting, which is the property that matters in a tripwire. A space
+/// inside a quoted literal is content and is kept.
+fn tighten(clause: &str) -> String {
+    let mut out = String::with_capacity(clause.len());
+    let mut in_literal = false;
+    for ch in clause.chars() {
+        if ch == '\'' {
+            in_literal = !in_literal;
+            out.push(ch);
+            continue;
+        }
+        if in_literal {
+            out.push(ch);
+            continue;
+        }
+        if ch == ' ' && out.ends_with(['(', ',']) {
+            continue;
+        }
+        if matches!(ch, '(' | ')' | ',') && out.ends_with(' ') {
+            out.pop();
+        }
+        out.push(ch);
+    }
+    out.trim().to_string()
+}
+
+/// Every `CHECK(...)` body in a normalised CREATE TABLE, balanced on brackets.
+///
+/// Bracket counting rather than a regex: a CHECK body holds its own brackets,
+/// `CHECK(kind IN ('a','b'))` among them, so the first closing bracket is not
+/// the end of the clause. Quoted literals are skipped, since a bracket inside
+/// one is content.
+fn checks_in(ddl: &str) -> Vec<String> {
+    const KEYWORD: &str = "CHECK(";
+    let upper = ddl.to_uppercase();
+    let bytes = ddl.as_bytes();
+    let mut out = Vec::new();
+    let mut at = 0;
+
+    while let Some(found) = upper[at..].find(KEYWORD) {
+        let open = at + found + KEYWORD.len();
+        let mut depth = 1;
+        let mut in_literal = false;
+        let mut i = open;
+        while i < bytes.len() {
+            match bytes[i] {
+                b'\'' => in_literal = !in_literal,
+                b'(' if !in_literal => depth += 1,
+                b')' if !in_literal => {
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+        if depth != 0 {
+            break; // unbalanced, so there is nothing honest to report
+        }
+        out.push(ddl[open..i].trim().to_string());
+        at = i;
+    }
+    out
+}
+
 fn foreign_key_lines(conn: &Connection, table: &str) -> Vec<String> {
     let mut stmt = conn
         .prepare(&format!("PRAGMA foreign_key_list(\"{table}\")"))
@@ -225,6 +331,7 @@ fn canonical_schema(conn: &Connection) -> String {
         }
         lines.extend(index_lines(conn, table));
         lines.extend(foreign_key_lines(conn, table));
+        lines.extend(check_lines(conn, table));
     }
 
     for (kind, name, sql) in &objects {
@@ -333,6 +440,74 @@ fn upgraded_from_schema(seed: u32) -> (TempDir, String) {
 /// asks for a new artefact instead of quietly rewriting the old one.
 fn fresh_golden_name() -> String {
     format!("v{:02}_fresh", latest_version())
+}
+
+/// Scenario: the golden records a line per column, per index and per foreign
+/// key, and nothing for a table-level `CHECK`. A migration whose whole content
+/// is a widened `CHECK`, which in SQLite is a create-copy-drop-rename, changes
+/// no column and no index, so the golden diff for it was one line, the
+/// `user_version`.
+///
+/// Expected behaviour: a `CHECK` a table carries is in the dump, so narrowing
+/// one, dropping one or adding one moves the golden and has to be looked at.
+#[test]
+fn the_golden_records_the_check_constraints_a_table_carries() {
+    let conn = Connection::open_in_memory().expect("in-memory");
+    conn.execute_batch(
+        "CREATE TABLE intents (
+             id   TEXT PRIMARY KEY,
+             kind TEXT NOT NULL
+                  CHECK(kind IN ('disabled', 'deleted', 'named', 'fixed')),
+             n    INTEGER CHECK(n >= 0)
+         );",
+    )
+    .expect("create");
+
+    let dump = canonical_schema(&conn);
+
+    assert!(
+        dump.contains("check kind IN('disabled','deleted','named','fixed')"),
+        "the column CHECK is missing from:\n{dump}"
+    );
+    assert!(
+        dump.contains("check n >= 0"),
+        "the second CHECK is missing from:\n{dump}"
+    );
+}
+
+/// The reason the clause is normalised rather than compared as bytes: widening
+/// a CHECK rewrites the table with whatever formatting the migration file had,
+/// and a byte comparison would report every reflow as drift.
+#[test]
+fn a_check_reads_the_same_however_the_migration_formatted_it() {
+    let tight = Connection::open_in_memory().expect("in-memory");
+    tight
+        .execute_batch("CREATE TABLE t (k TEXT CHECK(k IN ('a','b')));")
+        .expect("create tight");
+    let loose = Connection::open_in_memory().expect("in-memory");
+    loose
+        .execute_batch(
+            "CREATE TABLE t (\n  k TEXT\n    CHECK( k IN ( 'a',\n                  'b' ) )\n);",
+        )
+        .expect("create loose");
+
+    assert_eq!(canonical_schema(&tight), canonical_schema(&loose));
+}
+
+/// And the half that matters: a widened CHECK must move the dump. This is the
+/// case the golden was blind to.
+#[test]
+fn widening_a_check_moves_the_golden() {
+    let before = Connection::open_in_memory().expect("in-memory");
+    before
+        .execute_batch("CREATE TABLE t (k TEXT CHECK(k IN ('a','b')));")
+        .expect("create before");
+    let after = Connection::open_in_memory().expect("in-memory");
+    after
+        .execute_batch("CREATE TABLE t (k TEXT CHECK(k IN ('a','b','c')));")
+        .expect("create after");
+
+    assert_ne!(canonical_schema(&before), canonical_schema(&after));
 }
 
 #[test]

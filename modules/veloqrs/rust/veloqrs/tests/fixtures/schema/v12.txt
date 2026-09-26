@@ -32,6 +32,7 @@ table activity_indicators
   index idx_activity_indicators_activity unique=0 origin=c partial=0 cols=[activity_id]
   index idx_activity_indicators_target unique=0 origin=c partial=0 cols=[target_id]
   index auto(activity_id,indicator_type,target_id,direction) unique=1 origin=pk partial=0 cols=[activity_id,indicator_type,target_id,direction]
+  check indicator_type IN('section_pr','route_pr','section_trend','route_trend')
 table activity_matches
   column activity_id type=TEXT notnull=1 default=<none> pk=2
   column direction type=TEXT notnull=1 default=<none> pk=0
@@ -196,6 +197,7 @@ table sections
   index idx_sections_superseded unique=0 origin=c partial=0 cols=[superseded_by]
   index idx_sections_type unique=0 origin=c partial=0 cols=[section_type]
   index auto(id) unique=1 origin=pk partial=0 cols=[id]
+  check section_type IN('auto','custom')
 table settings
   column key type=TEXT notnull=0 default=<none> pk=1
   column updated_at type=INTEGER notnull=1 default=strftime('%s', 'now') pk=0
