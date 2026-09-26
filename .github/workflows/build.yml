@@ -430,8 +430,9 @@ jobs:
           brew install ccache
           ccache --max-size=1G
 
-      - name: Cache ccache store
-        uses: actions/cache@v4
+      - name: Restore ccache store
+        id: ccache
+        uses: actions/cache/restore@v4
         with:
           path: ~/Library/Caches/ccache
           key: ccache-ios-v2-${{ runner.arch }}-${{ hashFiles('package-lock.json', 'app.json', 'app.config.js', 'src/plugins/**', 'widget/ios/**', 'modules/**/ios/**', 'modules/**/cpp/**', '.github/workflows/build.yml') }}
@@ -463,10 +464,10 @@ jobs:
 
       # ---- Rust Build ----
       # Rust library cache, skip toolchain install + compilation if Rust unchanged
-      - name: Cache Rust iOS libraries
+      - name: Restore Rust iOS libraries
         id: rust-ios-cache
         if: steps.app-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework
           key: rust-ios-${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && 'full' || 'sim' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
@@ -489,6 +490,7 @@ jobs:
           copy-cpp-files: 'false'
 
       - name: Build Rust for iOS
+        id: build-rust
         if: steps.app-cache.outputs.cache-hit != 'true' && steps.rust-ios-cache.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
         run: |
@@ -536,11 +538,20 @@ jobs:
           echo "XCFramework created"
           ls -la ../ios/Frameworks/
 
+      # The caches in this job save as soon as their contents exist rather than in the
+      # post step, which runs only when the whole job succeeds.
+      - name: Save Rust iOS libraries
+        if: steps.build-rust.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework
+          key: ${{ steps.rust-ios-cache.outputs.cache-primary-key }}
+
       # ---- iOS Native Project ----
-      - name: Cache iOS prebuild
+      - name: Restore iOS prebuild
         if: steps.app-cache.outputs.cache-hit != 'true'
         id: ios-prebuild-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ios
@@ -567,9 +578,10 @@ jobs:
         if: steps.app-cache.outputs.cache-hit != 'true' && steps.ios-prebuild-cache.outputs.cache-hit != 'true'
         run: APP_VARIANT=production npx expo prebuild --platform ios
 
-      - name: Cache CocoaPods
+      - name: Restore CocoaPods
+        id: pods-cache
         if: steps.app-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ios/Pods
@@ -595,6 +607,28 @@ jobs:
         run: |
           gem install cocoapods 2>/dev/null || true
           pod install
+
+      # Saved before fastlane rewrites the project's signing settings.
+      - name: Save iOS prebuild
+        if: steps.app-cache.outputs.cache-hit != 'true' && steps.ios-prebuild-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ios
+            !ios/Pods
+            !ios/build
+            !ios/**/build
+            !ios/Frameworks
+          key: ${{ steps.ios-prebuild-cache.outputs.cache-primary-key }}
+
+      - name: Save CocoaPods
+        if: steps.app-cache.outputs.cache-hit != 'true' && steps.pods-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ios/Pods
+            ~/Library/Caches/CocoaPods
+          key: ${{ steps.pods-cache.outputs.cache-primary-key }}
 
       # ---- Simulator Build (always) ----
       - name: Initialize simulator
@@ -751,6 +785,14 @@ jobs:
           if [ -f /tmp/watchdog.pid ]; then
             kill $(cat /tmp/watchdog.pid) 2>/dev/null || true
           fi
+
+      # After both xcodebuild runs, and whether or not the signed build passed.
+      - name: Save ccache store
+        if: ${{ !cancelled() && steps.ccache.outcome == 'success' && steps.ccache.outputs.cache-hit != 'true' && steps.app-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ~/Library/Caches/ccache
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
 
       - name: Capture diagnostic info on failure
         if: failure() && steps.check_ios_signing.outputs.has_signing == 'true'
