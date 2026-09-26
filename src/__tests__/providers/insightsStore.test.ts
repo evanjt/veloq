@@ -33,7 +33,7 @@ const makeInsight = (id: string, title: string): Insight => ({
   priority: 1,
   title,
   icon: 'trophy',
-  iconColor: '#D4AF37',
+  iconTone: 'record',
   timestamp: Date.now(),
   isNew: false,
 });

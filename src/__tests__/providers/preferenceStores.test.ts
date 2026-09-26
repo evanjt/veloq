@@ -758,7 +758,7 @@ describe('MapPreferencesContext', () => {
       expect(result.current.getStyleForActivity('Ride')).toBe('light');
 
       await act(async () => {
-        await result.current.setActivityTypeStyle('Ride', 'satellite');
+        await result.current.setActivityGroupStyle(['Ride'], 'satellite');
       });
       expect(result.current.getStyleForActivity('Ride')).toBe('satellite');
       expect(result.current.getStyleForActivity('Run')).toBe('light');
@@ -778,7 +778,7 @@ describe('MapPreferencesContext', () => {
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
       await act(async () => {
-        await result.current.setActivityTypeStyle('Ride', null);
+        await result.current.setActivityGroupStyle(['Ride'], null);
       });
       expect(result.current.getStyleForActivity('Ride')).toBe('light');
     });
@@ -792,7 +792,7 @@ describe('MapPreferencesContext', () => {
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
       await act(async () => {
-        await result.current.setActivityTypeStyle('Ride', 'dark');
+        await result.current.setActivityGroupStyle(['Ride'], 'dark');
       });
       await act(async () => {
         await result.current.setDefaultStyle('satellite');

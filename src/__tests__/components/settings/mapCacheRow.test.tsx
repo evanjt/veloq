@@ -13,6 +13,9 @@ import { render } from '@testing-library/react-native';
 import { StorageStatsPanel } from '@/features/settings/components/StorageStatsPanel';
 import { mapCacheTotal, MAP_CACHE_SOURCES } from '@/features/settings/lib/mapCacheTotal';
 
+// The maps barrel reaches the engine binding, which registers a TurboModule at
+// import time, so the graph this renders cannot load without the stub.
+jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 describe('the map cache total', () => {
   it('sums every store when all three have answered', () => {
     const total = mapCacheTotal({

@@ -1,3 +1,4 @@
+import { IDLE_EXTENDED_FETCH, isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 /**
  * SyncDateRangeStore Tests
  *
@@ -35,7 +36,7 @@ describe('SyncDateRangeStore', () => {
     useSyncDateRange.setState({
       oldest: defaultOldest,
       newest: defaultNewest,
-      isFetchingExtended: false,
+      extendedFetch: IDLE_EXTENDED_FETCH,
       hasExpanded: false,
       gpsSyncProgress: {
         status: 'idle',
@@ -64,7 +65,9 @@ describe('SyncDateRangeStore', () => {
 
       expect(useSyncDateRange.getState().oldest).toBe(earlierDate);
       expect(useSyncDateRange.getState().hasExpanded).toBe(true);
-      expect(useSyncDateRange.getState().isFetchingExtended).toBe(true);
+      // Widening the range asks for a download, it does not start one. The
+      // engine accepting the window is what says one is running.
+      expect(useSyncDateRange.getState().extendedFetch).toBe(IDLE_EXTENDED_FETCH);
     });
 
     it('expands newest date when requested is later', () => {
@@ -206,6 +209,28 @@ describe('SyncDateRangeStore', () => {
     });
   });
 
+  describe('the refusal expandRange gives back', () => {
+    it('names the lock rather than returning silently', () => {
+      useSyncDateRange.setState({ isExpansionLocked: true });
+
+      expect(useSyncDateRange.getState().expandRange(daysFromToday(-365), daysFromToday(0))).toBe(
+        'locked'
+      );
+    });
+
+    it('reports an expansion that widened the range', () => {
+      expect(useSyncDateRange.getState().expandRange(daysFromToday(-365), daysFromToday(0))).toBe(
+        'expanded'
+      );
+    });
+
+    it('reports a request already inside the range', () => {
+      expect(useSyncDateRange.getState().expandRange(daysFromToday(-30), daysFromToday(0))).toBe(
+        'unchanged'
+      );
+    });
+  });
+
   describe('Generation Counter', () => {
     it('getSyncGeneration() returns current generation', () => {
       useSyncDateRange.setState({ syncGeneration: 42 });
@@ -233,13 +258,24 @@ describe('SyncDateRangeStore', () => {
     });
   });
 
-  describe('setFetchingExtended()', () => {
-    it('sets isFetchingExtended flag', () => {
-      useSyncDateRange.getState().setFetchingExtended(true);
-      expect(useSyncDateRange.getState().isFetchingExtended).toBe(true);
+  describe('the widened-range download', () => {
+    it('runs from the accepted window until the engine lets the slot go', () => {
+      useSyncDateRange.getState().windowAccepted();
+      expect(isExtendedFetchRunning(useSyncDateRange.getState().extendedFetch)).toBe(true);
 
-      useSyncDateRange.getState().setFetchingExtended(false);
-      expect(useSyncDateRange.getState().isFetchingExtended).toBe(false);
+      useSyncDateRange.getState().syncStateChanged(true);
+      expect(useSyncDateRange.getState().extendedFetch.phase).toBe('downloading');
+
+      useSyncDateRange.getState().syncStateChanged(false);
+      expect(isExtendedFetchRunning(useSyncDateRange.getState().extendedFetch)).toBe(false);
+    });
+
+    it('is cleared by a reset along with the range', () => {
+      useSyncDateRange.getState().windowAccepted();
+
+      useSyncDateRange.getState().reset();
+
+      expect(useSyncDateRange.getState().extendedFetch).toBe(IDLE_EXTENDED_FETCH);
     });
   });
 });

@@ -1,11 +1,12 @@
 /**
  * Scenario: the athlete needs a control over how much stream history is kept,
- * a readout of what it costs, a 90 day default and a reset that clears the
- * excess. The engine owns the store and the window; nothing rendered either.
+ * a readout of what it costs, a default that keeps everything and a reset that
+ * returns to it. The engine owns the store and the window; nothing rendered
+ * either.
  *
  * Expected behaviour: the row reads the engine's window rather than a local
- * copy, a fresh install reads 90 days, choosing a window writes it once and
- * re-reads the size the eviction left behind, reset returns to 90, and the
+ * copy, a fresh install keeps everything, choosing a window writes it once and
+ * re-reads the size the eviction left behind, reset returns to the default, and the
  * activity retention path does not exist at all. That last
  * one deletes whole activities and is a different setting with a similar name.
  */
@@ -71,10 +72,11 @@ describe('StreamHistoryRow', () => {
     mockEngineHandle = buildEngine();
   });
 
-  it('reads 90 days from an install that has never chosen', () => {
+  it('keeps everything on an install that has never chosen', () => {
     const { getByTestId } = render(<StreamHistoryRow isDark={false} />);
+    expect(DEFAULT_STREAM_RETENTION_DAYS).toBe(0);
     expect(getByTestId('settings-stream-window').props.children).toBe(
-      `settings.streamHistoryDays:${DEFAULT_STREAM_RETENTION_DAYS} ›`
+      'settings.streamHistoryAll ›'
     );
   });
 
@@ -93,16 +95,17 @@ describe('StreamHistoryRow', () => {
     fireEvent.press(getByTestId('settings-stream-window'));
     expect(setStreamRetentionDays).toHaveBeenCalledTimes(1);
     expect(setStreamRetentionDays).toHaveBeenCalledWith(next);
-    expect(getByTestId('settings-stream-bytes').props.children).toBe('8.0 MB');
+    // The default is the open window, so the step off it is the narrowest one
+    // and the readout drops rather than grows.
+    expect(getByTestId('settings-stream-bytes').props.children).toBe('1.3 MB');
   });
 
   it('shrinking the window drops the readout', () => {
-    stored = 365;
-    bytes = 16 * 1024 * 1024;
+    bytes = 9 * 1024 * 1024;
     const { getByTestId } = render(<StreamHistoryRow isDark={false} />);
-    expect(getByTestId('settings-stream-bytes').props.children).toBe('16.0 MB');
-    fireEvent.press(getByTestId('settings-stream-reset'));
-    expect(getByTestId('settings-stream-bytes').props.children).toBe('4.0 MB');
+    expect(getByTestId('settings-stream-bytes').props.children).toBe('9.0 MB');
+    fireEvent.press(getByTestId('settings-stream-window'));
+    expect(getByTestId('settings-stream-bytes').props.children).toBe('1.3 MB');
   });
 
   it('cycles through every choice and comes back to where it started', () => {
@@ -132,8 +135,8 @@ describe('StreamHistoryRow', () => {
     expect(queryByTestId('settings-stream-reset')).not.toBeNull();
   });
 
-  it('reset returns to 90 days, which is what clears the excess', () => {
-    stored = 0;
+  it('reset returns to the default, which is keeping everything', () => {
+    stored = 365;
     const { getByTestId } = render(<StreamHistoryRow isDark={false} />);
     fireEvent.press(getByTestId('settings-stream-reset'));
     expect(setStreamRetentionDays).toHaveBeenCalledWith(DEFAULT_STREAM_RETENTION_DAYS);

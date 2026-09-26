@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { SectionHeader } from '@/features/routes/components/section/SectionHeader';
 import type { FrequentSection } from '@/types';
 
@@ -42,10 +42,11 @@ const BASE: FrequentSection = {
   createdAt: '2026-01-01T00:00:00Z',
 };
 
-function renderHeader(section: FrequentSection) {
+function renderHeader(section: FrequentSection, onUnflagLift?: () => void) {
   return render(
     <SectionHeader
       section={section}
+      onUnflagLift={onUnflagLift}
       insetTop={0}
       activityColor="#000000"
       iconName="bike"
@@ -90,5 +91,27 @@ describe('section lift badge', () => {
     expect(tree.getByText('Top Station')).toBeTruthy();
     expect(tree.getByTestId('section-rename-button')).toBeTruthy();
     expect(tree.getByTestId('section-lift-badge')).toBeTruthy();
+  });
+
+  it('takes the flag off when the badge is pressed', () => {
+    const onUnflagLift = jest.fn();
+    const tree = renderHeader({ ...BASE, isLift: true }, onUnflagLift);
+
+    fireEvent.press(tree.getByTestId('section-lift-badge'));
+
+    expect(onUnflagLift).toHaveBeenCalledTimes(1);
+  });
+
+  it('still draws the badge when nothing can take the flag off', () => {
+    const tree = renderHeader({ ...BASE, isLift: true });
+
+    expect(tree.getByTestId('section-lift-badge')).toBeTruthy();
+    expect(tree.queryByTestId('section-lift-unflag')).toBeNull();
+  });
+
+  it('offers the unflag affordance only alongside a handler', () => {
+    const tree = renderHeader({ ...BASE, isLift: true }, jest.fn());
+
+    expect(tree.getByTestId('section-lift-unflag')).toBeTruthy();
   });
 });

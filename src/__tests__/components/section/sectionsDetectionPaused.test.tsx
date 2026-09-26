@@ -1,9 +1,10 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, within } from '@testing-library/react-native';
 
 import { initializeI18n, changeLanguage } from '@/i18n';
 import { SectionsListHeader } from '@/features/routes/components/SectionsListHeader';
 import type { DetectionHold } from '@/features/routes/hooks/useDetectionHold';
+import type { ElevationBackfillState } from '@/features/routes/hooks/useElevationBackfill';
 import { StartOutcome } from 'veloqrs';
 
 /**
@@ -32,8 +33,23 @@ const BASE = {
   onRescan: jest.fn(),
 };
 
-function renderHeader(detectionHold: DetectionHold) {
-  return render(<SectionsListHeader {...BASE} detectionHold={detectionHold} />);
+function backfill(over: Partial<ElevationBackfillState> = {}): ElevationBackfillState {
+  return {
+    phase: 'idle',
+    completed: 0,
+    total: 0,
+    failed: 0,
+    remaining: null,
+    isRunning: false,
+    isPaused: false,
+    ...over,
+  };
+}
+
+function renderHeader(detectionHold: DetectionHold, elevation?: ElevationBackfillState) {
+  return render(
+    <SectionsListHeader {...BASE} detectionHold={detectionHold} elevationBackfill={elevation} />
+  );
 }
 
 describe('SectionsListHeader detection hold', () => {
@@ -59,10 +75,49 @@ describe('SectionsListHeader detection hold', () => {
     expect(tree.getByText('Detection paused while elevation downloads')).toBeTruthy();
   });
 
-  it('says the same for a queue nothing is working on, which is still owed', () => {
+  /**
+   * A queue nothing is working on ends on the network, not on its own, and a
+   * library that cannot drain reads this sentence for ever. It has to say how
+   * much is left and what lifts it, or it is indistinguishable from a pass
+   * that finishes in minutes.
+   */
+  it('sizes a queue nothing is working on, and says what lifts it', () => {
+    const tree = renderHeader('elevation-waiting', backfill({ remaining: 12 }));
+
+    expect(
+      tree.getByText(
+        'Detection waits on elevation for 12 activity tracks. Veloq retries them when you are online.'
+      )
+    ).toBeTruthy();
+    expect(tree.queryByText('Detection paused while elevation downloads')).toBeNull();
+  });
+
+  it('says one track singly', () => {
+    const tree = renderHeader('elevation-waiting', backfill({ remaining: 1 }));
+
+    expect(
+      tree.getByText(
+        'Detection waits on elevation for 1 activity track. Veloq retries it when you are online.'
+      )
+    ).toBeTruthy();
+  });
+
+  /**
+   * The count is the hold line's own now, so the standing outstanding row
+   * would say the same number twice.
+   */
+  it('does not say the count twice', () => {
+    const tree = renderHeader('elevation-waiting', backfill({ remaining: 12 }));
+
+    expect(tree.queryByTestId('elevation-backfill-row')).toBeNull();
+  });
+
+  /** An engine that could not answer must not render as a number. */
+  it('falls back to the unsized sentence when the count is unanswerable', () => {
     const tree = renderHeader('elevation-waiting');
 
     expect(tree.getByText('Detection paused while elevation downloads')).toBeTruthy();
+    expect(within(tree.getByTestId('detection-paused')).queryByText(/\d/)).toBeNull();
   });
 
   /**

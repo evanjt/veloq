@@ -1,14 +1,16 @@
 /**
  * Scenario: a feed card showing a cached basemap snapshot.
- * Expected behaviour: the snapshot is tile imagery, so it carries the same
- * credit line a live map does. The generator draws none into the image, so the
- * card overlays it.
+ * Expected behaviour: the preview draws the image and nothing over it but the
+ * compass. The credit for the same basemap is carried by every live map surface
+ * and by the detail screen the card opens, and on a card it cost a pill's
+ * height of the stat band for a line nobody reads at that size.
  */
 
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
 import { ActivityMapPreview } from '@/features/activity/components/ActivityMapPreview';
 import type { Activity } from '@/types';
+import { calculateTerrainCamera } from '@/features/maps/lib/cameraAngle';
 
 // The binding registers a TurboModule at import time. A hook on this screen's
 // import path compares against one of its generated enums, so the stub is the
@@ -41,6 +43,7 @@ jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
 jest.mock('@/features/maps/lib/storage/terrainPreviewCache', () => ({
   hasTerrainPreview: (id: string, style: string, is3D: boolean) =>
     mockCached.has(mockKey(id, style, is3D)),
+  isTerrainPreviewDowngraded: () => false,
   getTerrainPreviewUri: (id: string, style: string, is3D: boolean) =>
     `file:///snapshots/${mockKey(id, style, is3D)}.jpg`,
   isPrioritySnapshot: () => false,
@@ -96,37 +99,43 @@ describe('ActivityMapPreview', () => {
     mockCached.add(mockKey('demo-1', 'satellite', false));
   });
 
-  it('credits the basemap under the cached snapshot', () => {
-    const { getByTestId } = render(<ActivityMapPreview activity={activity} />);
+  it('draws no credit over the cached snapshot', () => {
+    const { queryByTestId } = render(<ActivityMapPreview activity={activity} />);
 
-    expect(getByTestId('map-attribution-text').props.children).toBe(
-      '© OpenFreeMap © OpenMapTiles © OpenStreetMap'
-    );
+    expect(queryByTestId('map-attribution')).toBeNull();
+    expect(queryByTestId('map-attribution-text')).toBeNull();
   });
 
-  it('names the satellite source drawing under the snapshot camera, and only it', () => {
+  it('draws none over a satellite snapshot either, where the credit was longest', () => {
     mockMapStyle = 'satellite';
 
-    const { getByTestId } = render(<ActivityMapPreview activity={activity} />);
+    const { queryByTestId } = render(<ActivityMapPreview activity={activity} />);
 
-    const text = getByTestId('map-attribution-text').props.children as string;
-    expect(text).toContain('swisstopo');
-    // Swisstopo is opaque and sits on top, so the global base is not drawn here
-    // and crediting it would be a licence claim nobody made (B410).
-    expect(text).not.toMatch(/EOX|Sentinel/i);
+    expect(queryByTestId('map-attribution')).toBeNull();
   });
 
-  it('queues a render when the activity is cached flat and the card wants the drape', () => {
+  it('asks for a stand-in with the terrain camera when only the flat key is cached', () => {
     mockTerrain3DMode = 'always';
     const requestSnapshot = jest.fn();
-    const snapshotRef = { current: { requestSnapshot, retryFailed: jest.fn() } };
+    const snapshotRef = {
+      current: { requestSnapshot, retryFailed: jest.fn() },
+    };
 
     render(
       <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
     );
 
     expect(requestSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({ activityId: 'demo-1', flat: false })
+      expect.objectContaining({
+        activityId: 'demo-1',
+        flat: true,
+        standIn: true,
+        firstPaint: true,
+        camera: calculateTerrainCamera(
+          SWISS_TRACK.map((p) => [p.longitude, p.latitude]),
+          []
+        ).camera,
+      })
     );
   });
 

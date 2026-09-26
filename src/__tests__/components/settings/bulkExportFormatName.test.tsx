@@ -26,18 +26,24 @@ jest.mock('react-i18next', () => ({
 jest.mock('@/features/settings/lib/bulkExport', () => ({
   bulkExportActivities: jest.fn(),
   bulkExportActivitiesGeoJson: jest.fn(),
+  resumePendingBulkExport: jest.fn(),
 }));
 
-const { bulkExportActivities, bulkExportActivitiesGeoJson } = jest.requireMock(
-  '@/features/settings/lib/bulkExport'
-) as {
-  bulkExportActivities: jest.Mock;
-  bulkExportActivitiesGeoJson: jest.Mock;
-};
+const { bulkExportActivities, bulkExportActivitiesGeoJson, resumePendingBulkExport } =
+  jest.requireMock('@/features/settings/lib/bulkExport') as {
+    bulkExportActivities: jest.Mock;
+    bulkExportActivitiesGeoJson: jest.Mock;
+    resumePendingBulkExport: jest.Mock;
+  };
 
 beforeEach(() => {
-  bulkExportActivities.mockReset().mockResolvedValue({ exported: 3, skipped: 0 });
-  bulkExportActivitiesGeoJson.mockReset().mockResolvedValue({ exported: 3, skipped: 0 });
+  bulkExportActivities
+    .mockReset()
+    .mockResolvedValue({ state: 'complete', exported: 3, skipped: 0 });
+  bulkExportActivitiesGeoJson
+    .mockReset()
+    .mockResolvedValue({ state: 'complete', exported: 3, skipped: 0 });
+  resumePendingBulkExport.mockReset().mockResolvedValue({ state: 'nothing-pending' });
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
 
@@ -80,7 +86,7 @@ describe('the hook reports which format is running', () => {
   });
 
   it('names the format in the alert that reports what was skipped', async () => {
-    bulkExportActivitiesGeoJson.mockResolvedValue({ exported: 2, skipped: 1 });
+    bulkExportActivitiesGeoJson.mockResolvedValue({ state: 'complete', exported: 2, skipped: 1 });
     const { result } = renderHook(() => useBulkExport());
 
     await act(async () => {
@@ -91,5 +97,34 @@ describe('the hook reports which format is running', () => {
     const body = (Alert.alert as jest.Mock).mock.calls[0][1] as string;
     expect(body).toContain('GeoJSON');
     expect(body).not.toContain('GPX');
+  });
+});
+
+/**
+ * Expected behaviour: an export still writing when the minute is up is said to
+ * be still running, and the pills are not left claiming a failure.
+ */
+describe('an export that outlived the wait', () => {
+  it('reports it as still running rather than as an error', async () => {
+    bulkExportActivities.mockResolvedValue({ state: 'still-running' });
+    // The spy carries its calls across tests in this file.
+    (Alert.alert as jest.Mock).mockClear();
+    const { result } = renderHook(() => useBulkExport());
+
+    await act(async () => {
+      await result.current.exportAll();
+    });
+
+    expect(result.current.stillRunning).toBe(true);
+    expect(result.current.error).toBeNull();
+    expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  it('stops saying so once the file the next mount finds has been shared', async () => {
+    resumePendingBulkExport.mockResolvedValue({ state: 'complete', exported: 3, skipped: 0 });
+    const { result } = renderHook(() => useBulkExport());
+
+    await waitFor(() => expect(resumePendingBulkExport).toHaveBeenCalled());
+    expect(result.current.stillRunning).toBe(false);
   });
 });

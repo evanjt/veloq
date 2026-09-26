@@ -1,5 +1,18 @@
-import { useRecordingStore, getRecordingStatus } from '@/features/recording/stores/RecordingStore';
+import { buildStreamPrefixes, windowGain } from '@/features/recording/lib/streamPrefixes';
+import { useRecordingStore, streamTotals } from '@/features/recording/stores/RecordingStore';
+import { elevationGain } from '@/shared/math/kinematics';
 import type { RecordingGpsPoint } from '@/types';
+
+const EMPTY = {
+  time: [],
+  latlng: [],
+  altitude: [],
+  heartrate: [],
+  power: [],
+  cadence: [],
+  speed: [],
+  distance: [],
+};
 
 function resetStore() {
   useRecordingStore.getState().reset();
@@ -640,18 +653,126 @@ describe('RecordingStore', () => {
     });
   });
 
-  describe('getRecordingStatus()', () => {
-    it('returns current status synchronously', () => {
-      expect(getRecordingStatus()).toBe('idle');
+  it.each([
+    [[null, 450, 452], 2],
+    [[450, null, 452], 2],
+    [[450, 452, null], 2],
+    [[null, null], 0],
+    [[0, 2, 0, 3], 5],
+  ])('keeps missing altitude out of live and restored gain: %j', (altitudes, gain) => {
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    const start = useRecordingStore.getState().startTime!;
+    altitudes.forEach((altitude, i) => {
+      useRecordingStore.getState().addGpsPoint({
+        latitude: 47 + i * 0.00001,
+        longitude: 8,
+        altitude,
+        accuracy: 5,
+        speed: 2,
+        heading: 0,
+        timestamp: start + (i + 1) * 1000,
+      });
+    });
+    const { streams, totals } = useRecordingStore.getState();
+    expect(streams.altitude).toEqual(altitudes.map((alt) => alt ?? NaN));
+    expect(totals.elevationGain).toBe(gain);
+    expect(streamTotals(streams).elevationGain).toBe(gain);
+    const prefixes = buildStreamPrefixes(streams);
+    expect(windowGain(prefixes, 0, streams.time.length - 1)).toBe(gain);
+  });
 
-      useRecordingStore.getState().startRecording('Ride', 'gps');
-      expect(getRecordingStatus()).toBe('recording');
+  it('continues ascent from the last valid altitude after restoring a gap', () => {
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    const streams = { ...EMPTY, time: [1, 2], altitude: [450, NaN] };
+    useRecordingStore.setState({ streams, totals: streamTotals(streams) });
+    const start = useRecordingStore.getState().startTime!;
+    useRecordingStore.getState().addGpsPoint({
+      latitude: 47,
+      longitude: 8,
+      altitude: 452,
+      accuracy: 5,
+      speed: 2,
+      heading: 0,
+      timestamp: start + 3000,
+    });
+    expect(useRecordingStore.getState().totals.elevationGain).toBe(2);
+  });
 
-      useRecordingStore.getState().pauseRecording();
-      expect(getRecordingStatus()).toBe('paused');
+  describe('running totals', () => {
+    /// Scenario: the metrics hook used to rescan the altitude and heart-rate
+    /// arrays on every fix, which is quadratic over a five-hour ride.
+    ///
+    /// Expected behaviour: the store carries the totals and keeps them per
+    /// appended sample, so they say the same thing a full scan would.
+    it('match a full scan of the stream they were accumulated from', () => {
+      const store = useRecordingStore.getState();
+      store.startRecording('Ride', 'gps');
 
-      useRecordingStore.getState().stopRecording();
-      expect(getRecordingStatus()).toBe('stopped');
+      const start = useRecordingStore.getState().startTime as number;
+      const altitudes = [100, 105, 103, 103, 120, 118, 130];
+      altitudes.forEach((altitude, i) => {
+        useRecordingStore.getState().setSensorSample('heartrate', 120 + i);
+        useRecordingStore.getState().addGpsPoint({
+          latitude: 46.5 + i * 0.001,
+          longitude: 6.6,
+          altitude,
+          timestamp: start + (i + 1) * 1000,
+        } as RecordingGpsPoint);
+      });
+
+      const { streams, totals } = useRecordingStore.getState();
+      const scanned = streams.heartrate.filter((v) => v > 0);
+      expect(totals.elevationGain).toBeCloseTo(elevationGain(streams.altitude), 6);
+      expect(totals.heartrateSum).toBe(scanned.reduce((sum, v) => sum + v, 0));
+      expect(totals.heartrateCount).toBe(scanned.length);
+    });
+
+    it('count an indoor sample, which carries no altitude and may carry no pulse', () => {
+      const store = useRecordingStore.getState();
+      store.startRecording('Ride', 'indoor');
+      useRecordingStore.getState().addIndoorSample();
+
+      const { streams, totals } = useRecordingStore.getState();
+      expect(totals).toEqual(streamTotals(streams));
+      expect(totals.heartrateCount).toBe(0);
+    });
+
+    it('start again from nothing when a new recording starts', () => {
+      const store = useRecordingStore.getState();
+      store.startRecording('Ride', 'gps');
+      const start = useRecordingStore.getState().startTime as number;
+      useRecordingStore.getState().addGpsPoint({
+        latitude: 46.5,
+        longitude: 6.6,
+        altitude: 100,
+        timestamp: start + 1000,
+      } as RecordingGpsPoint);
+      useRecordingStore.getState().addGpsPoint({
+        latitude: 46.5001,
+        longitude: 6.6,
+        altitude: 200,
+        timestamp: start + 2000,
+      } as RecordingGpsPoint);
+      expect(useRecordingStore.getState().totals.elevationGain).toBeCloseTo(100, 6);
+
+      useRecordingStore.getState().startRecording('Run', 'gps');
+      expect(useRecordingStore.getState().totals).toEqual(streamTotals(EMPTY));
+
+      useRecordingStore.getState().reset();
+      expect(useRecordingStore.getState().totals).toEqual(streamTotals(EMPTY));
+    });
+
+    /// A restore from the crash backup sets the streams wholesale, so the
+    /// totals are scanned back once rather than accumulated.
+    it('are rebuilt by streamTotals for a restored stream', () => {
+      const totals = streamTotals({
+        ...EMPTY,
+        altitude: [10, 20, 15, 25],
+        heartrate: [0, 140, 150, 0],
+      });
+      expect(totals.elevationGain).toBeCloseTo(20, 6);
+      expect(totals.heartrateSum).toBe(290);
+      expect(totals.heartrateCount).toBe(2);
     });
   });
 });

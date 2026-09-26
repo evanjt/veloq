@@ -90,3 +90,47 @@ describe('SectionHistoryPanel', () => {
     expect(getByText('sectionHistory.empty')).toBeTruthy();
   });
 });
+
+/**
+ * Scenario: the chips under a change name the traversals that were around it.
+ *
+ * Expected behaviour: each chip draws the activity's name. The id is what the
+ * engine keys on, not something an athlete can read, so it is the fallback and
+ * not the label.
+ */
+describe('the activity chips', () => {
+  it('draws the name when the engine knows one', () => {
+    const { getByTestId } = renderPanel({
+      activityNames: { act_a: 'Sunday hills', act_b: 'Commute home' },
+    });
+
+    expect(getByTestId('section-history-around-2-act_a')).toHaveTextContent('Sunday hills');
+    expect(getByTestId('section-history-around-2-act_b')).toHaveTextContent('Commute home');
+  });
+
+  it('falls back to the id for an activity it has no name for', () => {
+    const { getByTestId } = renderPanel({ activityNames: { act_a: 'Sunday hills' } });
+
+    expect(getByTestId('section-history-fork-2-act_f')).toHaveTextContent('act_f');
+  });
+
+  it('falls back to the id when no names were passed at all', () => {
+    const { getByTestId } = renderPanel();
+
+    expect(getByTestId('section-history-around-2-act_a')).toHaveTextContent('act_a');
+  });
+
+  it('treats a blank name as no name', () => {
+    const { getByTestId } = renderPanel({ activityNames: { act_a: '   ' } });
+
+    expect(getByTestId('section-history-around-2-act_a')).toHaveTextContent('act_a');
+  });
+
+  it('still navigates by id, whatever the chip says', () => {
+    const { getByTestId } = renderPanel({ activityNames: { act_a: 'Sunday hills' } });
+
+    fireEvent.press(getByTestId('section-history-around-2-act_a'));
+
+    expect(router.push).toHaveBeenCalledWith('/activity/act_a');
+  });
+});

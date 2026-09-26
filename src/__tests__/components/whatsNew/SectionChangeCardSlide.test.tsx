@@ -5,6 +5,8 @@ import { getEngine } from '@/shared/native/engine';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { getSlidesSince } from '@/features/settings/components/whatsNew/slides';
 
+import { routesStatus } from '../../__shared__/routesStatusStub';
+
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('react-i18next', () => ({
@@ -85,6 +87,28 @@ describe('SectionChangeCardSlide', () => {
     expect(getByText('whatsNew.v040.elevationLine')).toBeTruthy();
   });
 
+  it('re-reads the claims when the catalogue changes under an open carousel', () => {
+    const listeners = new Set<() => void>();
+    const getChangeCardSupport = jest.fn(() => ({ ...ALL_BUT_DEVICE, revert: false }));
+    (getEngine as jest.Mock).mockReturnValue({
+      subscribe: (event: string, cb: () => void) => {
+        if (event === 'sections') listeners.add(cb);
+        return () => listeners.delete(cb);
+      },
+      getChangeCardSupport,
+    });
+
+    const { queryByTestId } = render(<SectionChangeCardSlide />);
+    expect(queryByTestId('change-card-row-revert')).toBeNull();
+    const afterMount = getChangeCardSupport.mock.calls.length;
+
+    getChangeCardSupport.mockImplementation(() => ALL_BUT_DEVICE);
+    act(() => listeners.forEach((cb) => cb()));
+
+    expect(getChangeCardSupport.mock.calls.length).toBeGreaterThan(afterMount);
+    expect(queryByTestId('change-card-row-revert')).toBeTruthy();
+  });
+
   it('is registered as the 0.4.0 slide', () => {
     const since038 = getSlidesSince('0.3.8');
     expect(since038.some((s) => s.titleKey === 'whatsNew.v040.sectionsTitle')).toBe(true);
@@ -108,6 +132,8 @@ describe('SectionChangeCardSlide', () => {
         subscribe: () => () => {},
         getChangeCardSupport: () => ALL_BUT_DEVICE,
         getCutoverProgress: () => progress,
+        getRoutesStatusData: () =>
+          routesStatus({ cutover: progress as { phase: string; running: boolean } }),
         getCutoverDiff: () => diff,
       });
     }
@@ -181,6 +207,7 @@ describe('SectionChangeCardSlide', () => {
           sameOnEveryDevice: false,
         }),
         getCutoverProgress: () => ({ phase: 'detecting', running: true }),
+        getRoutesStatusData: () => routesStatus({ cutover: { phase: 'detecting', running: true } }),
         getCutoverDiff: () => ({ counts: COUNTS }),
       });
       expect(render(<SectionChangeCardSlide />).queryByTestId('change-card')).toBeNull();

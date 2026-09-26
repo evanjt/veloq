@@ -5,11 +5,15 @@
  * state registration with proxy, callback parsing, and validation.
  *
  * The OAuth flow uses a proxy (Cloudflare Worker) that holds the
- * client_secret - the proxy exchanges the code for a token and
- * redirects back to the app with token params in the URL.
+ * client_secret - the proxy exchanges the code for a token, then redirects back
+ * to the app with a one-time code the app redeems over HTTPS with its PKCE
+ * verifier. The token is never in the redirect URL, because that URL reaches any
+ * app registering the `veloq` scheme.
  */
 
 // Mock expo-crypto: deterministic getRandomBytes for state generation
+import { createHash } from 'node:crypto';
+
 import * as WebBrowser from 'expo-web-browser';
 import {
   buildAuthorizationUrl,
@@ -29,6 +33,16 @@ jest.mock('expo-crypto', () => ({
     }
     return arr;
   }),
+  // The challenge is the real SHA-256 so the assertions below compare against
+  // what the proxy will compute from the same verifier.
+  // A jest.mock factory may not close over an import, and WebCrypto is one of
+  // the globals it is allowed to reach.
+  digestStringAsync: jest.fn(async (_algorithm: string, data: string) => {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
+    return btoa(String.fromCharCode(...new Uint8Array(digest)));
+  }),
+  CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
+  CryptoEncoding: { BASE64: 'base64' },
 }));
 
 // Mock expo-web-browser: stub openAuthSessionAsync
@@ -161,15 +175,22 @@ describe('OAuth service', () => {
       expect(result).toBeNull();
     });
 
-    it('parses success URL with all required fields', () => {
+    it('reads the one-time code the proxy redirects with', () => {
+      const url = 'veloq://oauth/callback?success=true&code=onetimecode&state=statexyz';
+      const result = parseCallbackUrl(url);
+      expect(result).toEqual({ code: 'onetimecode', state: 'statexyz' });
+      expect(result).not.toHaveProperty('token');
+    });
+
+    it('parses a token URL from a proxy deployed before the code existed', () => {
       const url =
         'veloq://oauth/callback?success=true&access_token=abc123&athlete_id=i12345&token_type=Bearer&scope=ACTIVITY%3AREAD&athlete_name=Jane+Doe&state=statexyz';
       const result = parseCallbackUrl(url);
       expect(result).not.toBeNull();
-      expect(result!.access_token).toBe('abc123');
-      expect(result!.athlete_id).toBe('i12345');
-      expect(result!.token_type).toBe('Bearer');
-      expect(result!.scope).toBe('ACTIVITY:READ');
+      expect(result!.token!.access_token).toBe('abc123');
+      expect(result!.token!.athlete_id).toBe('i12345');
+      expect(result!.token!.token_type).toBe('Bearer');
+      expect(result!.token!.scope).toBe('ACTIVITY:READ');
       expect(result!.state).toBe('statexyz');
     });
 
@@ -177,9 +198,9 @@ describe('OAuth service', () => {
       const url = 'veloq://oauth/callback?success=true&access_token=tok&athlete_id=iABC';
       const result = parseCallbackUrl(url);
       expect(result).not.toBeNull();
-      expect(result!.token_type).toBe('Bearer');
-      expect(result!.scope).toBe('');
-      expect(result!.athlete_name).toBe('');
+      expect(result!.token!.token_type).toBe('Bearer');
+      expect(result!.token!.scope).toBe('');
+      expect(result!.token!.athlete_name).toBe('');
       expect(result!.state).toBeUndefined();
     });
 
@@ -254,51 +275,136 @@ describe('OAuth service', () => {
   });
 
   describe('handleOAuthCallback()', () => {
-    it('throws when callback URL is malformed / has no token data', () => {
-      expect(() => handleOAuthCallback('veloq://oauth/callback')).toThrow(/missing token data/);
+    /** Start a flow and hand back the state and challenge it registered. */
+    async function startedFlow() {
+      mockedOpenAuth.mockResolvedValue({
+        type: 'dismiss',
+      } as WebBrowser.WebBrowserAuthSessionResult);
+      await startOAuthFlow();
+      const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+      return { state: body.state as string, challenge: body.code_challenge as string };
+    }
+
+    it('throws when callback URL is malformed / has no token data', async () => {
+      await expect(handleOAuthCallback('veloq://oauth/callback')).rejects.toThrow(
+        /missing token data/
+      );
     });
 
     it('throws when state parameter is missing from success payload', async () => {
-      mockedOpenAuth.mockResolvedValue({
-        type: 'dismiss',
-      } as WebBrowser.WebBrowserAuthSessionResult);
-      await startOAuthFlow();
+      await startedFlow();
 
       const url = 'veloq://oauth/callback?success=true&access_token=tok&athlete_id=iABC';
-      expect(() => handleOAuthCallback(url)).toThrow(/missing state parameter/);
+      await expect(handleOAuthCallback(url)).rejects.toThrow(/missing state parameter/);
     });
 
     it('throws when state param does not match generated state (CSRF)', async () => {
-      mockedOpenAuth.mockResolvedValue({
-        type: 'dismiss',
-      } as WebBrowser.WebBrowserAuthSessionResult);
-      await startOAuthFlow();
+      await startedFlow();
 
       const url =
         'veloq://oauth/callback?success=true&access_token=tok&athlete_id=iABC&state=not-the-state';
-      expect(() => handleOAuthCallback(url)).toThrow(/state validation failed/);
+      await expect(handleOAuthCallback(url)).rejects.toThrow(/state validation failed/);
     });
 
-    it('returns token response when state matches', async () => {
-      mockedOpenAuth.mockResolvedValue({
-        type: 'dismiss',
-      } as WebBrowser.WebBrowserAuthSessionResult);
-      await startOAuthFlow();
+    it('redeems the code at the proxy, presenting the verifier', async () => {
+      const { state } = await startedFlow();
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          access_token: 'good-token',
+          token_type: 'Bearer',
+          scope: 'ACTIVITY:READ',
+          athlete_id: 'i99999',
+          athlete_name: 'Jane',
+        }),
+      });
 
-      const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
-      const state = body.state;
+      const result = await handleOAuthCallback(
+        `veloq://oauth/callback?success=true&code=onetime&state=${state}`
+      );
 
-      const url = `veloq://oauth/callback?success=true&access_token=good-token&athlete_id=i99999&state=${state}&athlete_name=Jane`;
-      const result = handleOAuthCallback(url);
+      const [url, opts] = (global.fetch as jest.Mock).mock.calls[1];
+      expect(url).toBe(`${OAUTH.PROXY_URL}/oauth/token`);
+      expect(opts.method).toBe('POST');
+      const sent = JSON.parse(opts.body);
+      expect(sent.code).toBe('onetime');
+      expect(sent.code_verifier).toMatch(/^[0-9a-f]{128}$/);
       expect(result.access_token).toBe('good-token');
       expect(result.athlete_id).toBe('i99999');
       expect(result.athlete_name).toBe('Jane');
-      expect(result.state).toBe(state);
+      expect(result.scope).toBe('ACTIVITY:READ');
     });
 
-    it('propagates parseCallbackUrl errors (OAuth-level failure)', () => {
+    it('sends the verifier the challenge it registered was made from', async () => {
+      const { state, challenge } = await startedFlow();
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ access_token: 'tok', athlete_id: 'i1' }),
+      });
+
+      await handleOAuthCallback(`veloq://oauth/callback?success=true&code=onetime&state=${state}`);
+
+      const sent = JSON.parse((global.fetch as jest.Mock).mock.calls[1][1].body);
+      const expected = createHash('sha256')
+        .update(sent.code_verifier)
+        .digest('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+      expect(challenge).toBe(expected);
+    });
+
+    it('refuses a second attempt with the same code, the verifier being spent', async () => {
+      const { state } = await startedFlow();
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({ access_token: 'tok', athlete_id: 'i1' }),
+      });
+      const url = `veloq://oauth/callback?success=true&code=onetime&state=${state}`;
+      await handleOAuthCallback(url);
+
+      // The state is single-use too, so this is the error it reaches first.
+      await expect(handleOAuthCallback(url)).rejects.toThrow(/state validation failed/);
+    });
+
+    it('throws when the proxy refuses the exchange', async () => {
+      const { state } = await startedFlow();
+      (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 400 });
+
+      await expect(
+        handleOAuthCallback(`veloq://oauth/callback?success=true&code=onetime&state=${state}`)
+      ).rejects.toThrow(/could not be redeemed/);
+    });
+
+    it('throws when the exchange answers without a token', async () => {
+      const { state } = await startedFlow();
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
+      await expect(
+        handleOAuthCallback(`veloq://oauth/callback?success=true&code=onetime&state=${state}`)
+      ).rejects.toThrow(/no token/);
+    });
+
+    it('takes the token straight from a proxy that has not been updated', async () => {
+      const { state } = await startedFlow();
+
+      const result = await handleOAuthCallback(
+        `veloq://oauth/callback?success=true&access_token=good-token&athlete_id=i99999&state=${state}&athlete_name=Jane`
+      );
+
+      expect(result.access_token).toBe('good-token');
+      expect(result.athlete_id).toBe('i99999');
+      // Only the state registration; nothing was redeemed.
+      expect((global.fetch as jest.Mock).mock.calls).toHaveLength(1);
+    });
+
+    it('propagates parseCallbackUrl errors (OAuth-level failure)', async () => {
       const url = 'veloq://oauth/callback?success=false&error=consent_denied';
-      expect(() => handleOAuthCallback(url)).toThrow('consent_denied');
+      await expect(handleOAuthCallback(url)).rejects.toThrow('consent_denied');
     });
   });
 });

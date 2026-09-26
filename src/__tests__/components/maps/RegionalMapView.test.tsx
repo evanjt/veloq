@@ -31,9 +31,10 @@ jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
 }));
 
 jest.mock('@/features/routes/hooks', () => ({
-  useEngineSections: () => ({ sections: [], isLoading: false }),
+  // The overlay's light read, and the full record the popup takes on a tap.
+  useMapSections: () => ({ sections: [], totalCount: 0 }),
+  useSectionDetail: () => ({ section: null }),
   useEngineSectionCount: () => 0,
-  useRouteSignatures: () => ({}),
 }));
 
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({

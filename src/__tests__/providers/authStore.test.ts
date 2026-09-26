@@ -218,7 +218,7 @@ describe('AuthStore', () => {
 
       await useAuthStore.getState().setOAuthCredentials('new-oauth-token', 'i66666');
 
-      expect(mockDeleteItemAsync).toHaveBeenCalledWith(API_KEY_STORAGE_KEY);
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(API_KEY_STORAGE_KEY, expect.anything());
       expect(useAuthStore.getState().apiKey).toBeNull();
     });
 
@@ -254,9 +254,9 @@ describe('AuthStore', () => {
 
       await useAuthStore.getState().clearCredentials();
 
-      expect(mockDeleteItemAsync).toHaveBeenCalledWith(API_KEY_STORAGE_KEY);
-      expect(mockDeleteItemAsync).toHaveBeenCalledWith(ATHLETE_ID_STORAGE_KEY);
-      expect(mockDeleteItemAsync).toHaveBeenCalledWith(ACCESS_TOKEN_STORAGE_KEY);
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(API_KEY_STORAGE_KEY, expect.anything());
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(ATHLETE_ID_STORAGE_KEY, expect.anything());
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(ACCESS_TOKEN_STORAGE_KEY, expect.anything());
     });
 
     it('resets all auth state', async () => {
@@ -333,8 +333,8 @@ describe('AuthStore', () => {
 
       await useAuthStore.getState().handleSessionExpired();
 
-      expect(mockDeleteItemAsync).toHaveBeenCalledWith(ACCESS_TOKEN_STORAGE_KEY);
-      expect(mockDeleteItemAsync).toHaveBeenCalledWith(ATHLETE_ID_STORAGE_KEY);
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(ACCESS_TOKEN_STORAGE_KEY, expect.anything());
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(ATHLETE_ID_STORAGE_KEY, expect.anything());
 
       const state = useAuthStore.getState();
       expect(state.accessToken).toBeNull();
@@ -375,8 +375,8 @@ describe('AuthStore', () => {
 
       await useAuthStore.getState().handleSessionExpired();
 
-      expect(mockDeleteItemAsync).not.toHaveBeenCalledWith(API_KEY_STORAGE_KEY);
-      expect(mockDeleteItemAsync).toHaveBeenCalledWith(ATHLETE_ID_STORAGE_KEY);
+      expect(mockDeleteItemAsync).not.toHaveBeenCalledWith(API_KEY_STORAGE_KEY, expect.anything());
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(ATHLETE_ID_STORAGE_KEY, expect.anything());
     });
 
     // Both halves have to go or `initialize()` reads the pair back and signs
@@ -422,19 +422,28 @@ describe('AuthStore', () => {
 
       await useAuthStore.getState().handleSessionExpired();
 
-      expect(mockDeleteItemAsync).not.toHaveBeenCalledWith(API_KEY_ATHLETE_STORAGE_KEY);
+      expect(mockDeleteItemAsync).not.toHaveBeenCalledWith(
+        API_KEY_ATHLETE_STORAGE_KEY,
+        expect.anything()
+      );
     });
 
     it('goes when an explicit sign-out takes the key', async () => {
       await useAuthStore.getState().clearCredentials();
 
-      expect(mockDeleteItemAsync).toHaveBeenCalledWith(API_KEY_ATHLETE_STORAGE_KEY);
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(
+        API_KEY_ATHLETE_STORAGE_KEY,
+        expect.anything()
+      );
     });
 
     it('goes when an OAuth sign-in takes the key', async () => {
       await useAuthStore.getState().setOAuthCredentials('token', 'i12345');
 
-      expect(mockDeleteItemAsync).toHaveBeenCalledWith(API_KEY_ATHLETE_STORAGE_KEY);
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(
+        API_KEY_ATHLETE_STORAGE_KEY,
+        expect.anything()
+      );
     });
   });
 

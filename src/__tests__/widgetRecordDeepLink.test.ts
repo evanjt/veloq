@@ -38,6 +38,7 @@ function raw(overrides: Partial<RawWidgetData> = {}): RawWidgetData {
     locale: 'en-AU',
     isMetric: true,
     nowSeconds: 1_700_000_000,
+    nowWallSeconds: 1_700_000_000,
     ...overrides,
   };
 }
@@ -78,7 +79,11 @@ describe('Android points its record surfaces at a started recording', () => {
     expect(KOTLIN_RENDERER).toContain('fun recordIntent(context: Context, snap: WidgetSnapshot?)');
     expect(KOTLIN_RENDERER).toContain('recordIntent(context, snap)');
     expect(KOTLIN_RECORD_PROVIDER).toContain('WidgetSnapshot.read(context)');
-    expect(KOTLIN_RECORD_PROVIDER).toContain('WidgetRenderer.recordIntent(context, snap)');
+    // The widget provider passes its own instance's choice alongside the
+    // snapshot; the tile and the dashboard button have no instance and take the
+    // two-argument form. `androidRecordWidgetSport.test.ts` holds that split.
+    expect(KOTLIN_RECORD_PROVIDER).toContain('WidgetRenderer.recordIntent(');
+    expect(KOTLIN_RECORD_PROVIDER).toContain('snap, RecordWidgetChoice.url(context, id), id');
   });
 
   it('refreshes the pending intent, because its URL is no longer constant', () => {
@@ -115,11 +120,24 @@ describe('iOS points its record surfaces at a started recording', () => {
 });
 
 describe('the gather path reads the sports the recording preferences published', () => {
-  const mockEngine = { getWidgetSnapshot: jest.fn(() => undefined) };
+  // An engine with nothing in it still answers. Handing back undefined models
+  // a shape the FFI never produces: it returns the payload or it throws.
+  const mockEngine = {
+    getWidgetSnapshot: jest.fn(() => ({
+      sparklines: null,
+      summary: null,
+      latest: null,
+      latestIsPr: false,
+      latestGps: null,
+    })),
+  };
 
   beforeEach(() => {
     jest.resetModules();
-    jest.doMock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+    jest.doMock('@/shared/native/engine', () => ({
+      getEngine: () => mockEngine,
+      isEngineReady: () => true,
+    }));
   });
 
   afterEach(() => {

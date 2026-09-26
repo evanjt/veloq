@@ -72,7 +72,13 @@ describe('ensureCredentialsHydrated', () => {
   it('reads once when two callers race the same cold start', async () => {
     await Promise.all([ensureCredentialsHydrated(), ensureCredentialsHydrated()]);
 
-    expect(mockGetItemAsync).toHaveBeenCalledTimes(3);
+    // Counted per key rather than in total: a key the shared access group does
+    // not hold is read a second time under the old attributes, which is the
+    // upgrade path and not a second hydration.
+    const athleteIdReads = mockGetItemAsync.mock.calls.filter(
+      ([key]) => key === ATHLETE_ID_STORAGE_KEY
+    );
+    expect(athleteIdReads).toHaveLength(1);
     expect(getStoredCredentials().athleteId).toBe('12345');
   });
 
