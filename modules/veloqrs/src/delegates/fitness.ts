@@ -7,47 +7,42 @@
  */
 
 import type {
+  FfiEftpChange,
   FfiFtpTrend,
   FfiInsightsData,
   FfiInsightsParams,
   FfiPaceTrend,
+  FfiMonthlyStats,
   FfiPeriodStats,
   FfiStalePrOpportunity,
   FfiStartupData,
-  FfiWeekLoadShape,
+  FfiSummaryCardData,
+  FfiWellnessSummary,
   FfiWidgetSnapshotData,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 import type { HeatmapDay } from './shared-types';
+import { present } from './optional';
 
 // Pre-initialization defaults (typed to match UniFFI-generated types)
 const EMPTY_PERIOD_STATS: FfiPeriodStats = {
   count: 0,
-  totalDuration: BigInt(0),
+  totalDuration: 0,
   totalDistance: 0,
   totalTss: 0,
 };
 
-const EMPTY_FTP_TREND: FfiFtpTrend = {
-  latestFtp: undefined,
-  latestDate: undefined,
-  previousFtp: undefined,
-  previousDate: undefined,
-  sampleCount: 0,
-};
+const EMPTY_FTP_TREND: FfiFtpTrend = { sampleCount: 0, history: [] };
 
-const EMPTY_PACE_TREND: FfiPaceTrend = {
-  latestPace: undefined,
-  latestDate: undefined,
-  previousPace: undefined,
-  previousDate: undefined,
-  sampleCount: 0,
-};
+const EMPTY_PACE_TREND: FfiPaceTrend = { sampleCount: 0, history: [] };
 
 export function getActivityMetricIds(host: DelegateHost): string[] {
   if (!host.ready) return [];
   return host.timed('getActivityMetricIds', () => host.engine.fitness().getActivityMetricIds());
 }
+
+/** No library yet: every number zero or absent, and no arrow to draw. */
+const EMPTY_WELLNESS_SUMMARY: FfiWellnessSummary = { fitness: 0, form: 0 };
 
 export function getSummaryCardData(
   host: DelegateHost,
@@ -55,15 +50,10 @@ export function getSummaryCardData(
   currentEnd: number,
   prevStart: number,
   prevEnd: number
-): {
-  currentWeek: FfiPeriodStats;
-  prevWeek: FfiPeriodStats;
-  ftpTrend: FfiFtpTrend;
-  runPaceTrend: FfiPaceTrend;
-  swimPaceTrend: FfiPaceTrend;
-} {
+): FfiSummaryCardData {
   if (!host.ready) {
     return {
+      wellness: EMPTY_WELLNESS_SUMMARY,
       currentWeek: EMPTY_PERIOD_STATS,
       prevWeek: EMPTY_PERIOD_STATS,
       ftpTrend: EMPTY_FTP_TREND,
@@ -113,29 +103,11 @@ export function getZoneDistribution(
   );
 }
 
-/**
- * How a week's load was spread, or `null` when the engine withheld a reading.
- * It withholds below four training days, because the ratio is a constant on a
- * sparser week, and half of a real account's weeks are that sparse.
- */
-export function getWeekLoadShape(
-  host: DelegateHost,
-  startTs: number,
-  endTs: number
-): FfiWeekLoadShape | null {
-  if (!host.ready) return null;
-  return (
-    host.timed('getWeekLoadShape', () =>
-      host.engine.fitness().getWeekLoadShape(BigInt(startTs), BigInt(endTs))
-    ) ??
-    null
-  );
-}
-
 export function savePaceSnapshot(
   host: DelegateHost,
   sportType: string,
   criticalSpeed: number,
+  windowDays: number,
   dPrime?: number,
   r2?: number,
   date?: number
@@ -145,16 +117,61 @@ export function savePaceSnapshot(
   const ts = BigInt(date ?? Math.floor(Date.now() / 1000));
   host.write('savePaceSnapshot', () => {
     try {
-      host.engine.fitness().savePaceSnapshot(sportType, criticalSpeed, dPrime, r2, ts);
+      host
+        .engine
+        .fitness()
+        .savePaceSnapshot(sportType, criticalSpeed, dPrime, r2, ts, BigInt(windowDays));
     } catch {
       // Pace snapshot save failed - non-critical
     }
   });
 }
 
+/** The activities that moved the accepted eFTP, oldest first. */
+export function getEftpChanges(host: DelegateHost): FfiEftpChange[] {
+  if (!host.ready) return [];
+  return host.timed('getEftpChanges', () => host.engine.fitness().getEftpChanges());
+}
+
 export function getAvailableSportTypes(host: DelegateHost): string[] {
   if (!host.ready) return [];
   return host.timed('getAvailableSportTypes', () => host.engine.fitness().getAvailableSportTypes());
+}
+
+/**
+ * Aggregated totals for one window: count, duration, distance, TSS.
+ *
+ * `activity_metrics` covers exactly what `activity_bodies` covers, since the
+ * sync writes both from the same page, so this answers any window the screens
+ * hold rather than only the GPS sync range.
+ */
+export function getPeriodStats(
+  host: DelegateHost,
+  startTs: number,
+  endTs: number
+): FfiPeriodStats | null {
+  if (!host.ready) return null;
+  return host.timed('getPeriodStats', () =>
+    host.engine.fitness().getPeriodStats(BigInt(startTs), BigInt(endTs))
+  );
+}
+
+/**
+ * A window's totals grouped by calendar month, oldest first.
+ *
+ * Months with no activity are absent rather than zero: a caller drawing a fixed
+ * twelve bars fills the gaps itself, and rows of zeroes would be the same answer
+ * with more rows.
+ */
+export function getMonthlyStats(
+  host: DelegateHost,
+  startTs: number,
+  endTs: number
+): FfiMonthlyStats[] {
+  if (!host.ready) return [];
+  return host.timed('getMonthlyStats', () =>
+    host.engine.fitness().getMonthlyStats(BigInt(startTs), BigInt(endTs))
+  );
 }
 
 export function getActivityHeatmap(
@@ -187,6 +204,31 @@ export interface WellnessRowInput {
   raw?: string;
 }
 
+/** One sport's contribution to a day's load, from the API's `sportInfo`. */
+export interface SportLoad {
+  sportGroup?: string;
+  load?: number;
+}
+
+/** One stored wellness day: every field the screens render, and nothing else. */
+export interface WellnessDay {
+  date: string;
+  ctl?: number;
+  atl?: number;
+  rampRate?: number;
+  hrv?: number;
+  restingHr?: number;
+  weight?: number;
+  sleepSecs?: number;
+  sleepScore?: number;
+  soreness?: number;
+  fatigue?: number;
+  stress?: number;
+  mood?: number;
+  motivation?: number;
+  sportLoad: SportLoad[];
+}
+
 export interface WellnessSparklines {
   fitness: number[];
   fatigue: number[];
@@ -212,40 +254,48 @@ export function upsertWellness(host: DelegateHost, rows: WellnessRowInput[]): vo
   if (!host.ready || rows.length === 0) return;
   host.timed('upsertWellness', () =>
     host.engine.fitness().upsertWellness(
-      rows.map((r) => ({
-        date: r.date,
-        ctl: r.ctl ?? undefined,
-        atl: r.atl ?? undefined,
-        rampRate: r.rampRate ?? undefined,
-        hrv: r.hrv ?? undefined,
-        restingHr: r.restingHr ?? undefined,
-        weight: r.weight ?? undefined,
-        sleepSecs: r.sleepSecs !== undefined ? BigInt(r.sleepSecs) : undefined,
-        sleepScore: r.sleepScore ?? undefined,
-        soreness: r.soreness ?? undefined,
-        fatigue: r.fatigue ?? undefined,
-        stress: r.stress ?? undefined,
-        mood: r.mood ?? undefined,
-        motivation: r.motivation ?? undefined,
-        raw: r.raw ?? undefined,
-      }))
+      rows.map((r) =>
+        present({
+          date: r.date,
+          ctl: r.ctl ?? undefined,
+          atl: r.atl ?? undefined,
+          rampRate: r.rampRate ?? undefined,
+          hrv: r.hrv ?? undefined,
+          restingHr: r.restingHr ?? undefined,
+          weight: r.weight ?? undefined,
+          sleepSecs: r.sleepSecs,
+          sleepScore: r.sleepScore ?? undefined,
+          soreness: r.soreness ?? undefined,
+          fatigue: r.fatigue ?? undefined,
+          stress: r.stress ?? undefined,
+          mood: r.mood ?? undefined,
+          motivation: r.motivation ?? undefined,
+          raw: r.raw ?? undefined,
+        })
+      )
     )
   );
 }
 
 /**
- * Untyped wellness bodies over an inclusive date window, oldest first.
+ * Stored wellness days over an inclusive date window, oldest first.
  *
- * The wellness screens read fields the typed row does not model (hrr,
- * hrvSDNN), so they parse these rather than a lossy reconstruction. Days
- * synced before the body column existed are absent rather than partial.
+ * Typed, so nothing parses a body to draw a chart. A day synced before the
+ * body column existed carries its columns and no per-sport breakdown.
  */
-export function getWellnessBodies(host: DelegateHost, oldest: string, newest: string): string[] {
+export function getWellnessDays(host: DelegateHost, oldest: string, newest: string): WellnessDay[] {
   if (!host.ready) return [];
+  const days =
+    host.timed('getWellnessDays', () => host.engine.fitness().getWellnessDays(oldest, newest)) ?? [];
+  // Sleep is an i64 the whole way down and reaches JS as a bigint; every
+  // screen reading it does arithmetic against plain numbers.
+  return days.map((d) => present({ ...d, sleepSecs: d.sleepSecs }));
+}
+
+export function getWellnessLatestDate(host: DelegateHost): string | null {
+  if (!host.ready) return null;
   return (
-    host.timed('getWellnessBodies', () =>
-      host.engine.fitness().getWellnessBodies(oldest, newest)
-    ) ?? []
+    host.timed('getWellnessLatestDate', () => host.engine.fitness().getWellnessLatestDate()) ?? null
   );
 }
 
@@ -282,29 +332,104 @@ export function findStalePrOpportunities(
   );
 }
 
-/** A stored power curve body, or null when it has never been fetched. */
-export function getPowerCurveBody(host: DelegateHost, sport: string, days: number): string | null {
-  if (!host.ready) return null;
-  return (
-    (host.timed('getPowerCurveBody', () =>
-      host.engine.fitness().getPowerCurveBody(sport, BigInt(days))
-    ) as string | undefined) ?? null
-  );
+/** An activity a curve point came from, as the body names it. */
+export interface CurveActivityRow {
+  id: string;
+  name: string;
+  distance: number;
+  movingTime: number;
+  trainingLoad: number;
+  weight: number;
+  startDateLocal: string;
+  race: boolean;
 }
 
-/** A stored pace curve body, keyed by sport, window and the gap flag. */
-export function getPaceCurveBody(
+/** A model the server finished fitting. */
+export interface PowerModelRow {
+  kind: string;
+  criticalPower: number;
+  wPrime: number;
+  ftp: number;
+  pMax?: number;
+}
+
+/** Fields every curve carries, whatever it measures. */
+interface CurveRow {
+  sport: string;
+  activityIds?: string[];
+  activities: Record<string, CurveActivityRow>;
+  startDate?: string;
+  endDate?: string;
+  days?: number;
+  /** Epoch milliseconds, so callers compare it against `Date.now()`. */
+  fetchedAt: number;
+}
+
+/** A stored power curve, parsed by the engine. */
+export interface PowerCurveRow extends CurveRow {
+  secs: number[];
+  watts: number[];
+  wattsPerKg?: number[];
+  wkgActivityIds?: string[];
+  weight?: number;
+  models: PowerModelRow[];
+}
+
+/** A stored pace curve, parsed by the engine. */
+export interface PaceCurveRow extends CurveRow {
+  distances: number[];
+  times: number[];
+  pace: number[];
+  criticalSpeed?: number;
+  dPrime?: number;
+  r2?: number;
+}
+
+/** The engine hands the activities over as a `Map`; the app reads an object. */
+function activitiesOf(
+  activities: Map<string, CurveActivityRow>
+): Record<string, CurveActivityRow> {
+  return Object.fromEntries(activities);
+}
+
+/** The column is epoch seconds, which is what every other body table stores. */
+const fetchedMs = (seconds: number): number => seconds * 1000;
+
+/** A stored power curve, or null when it has never been fetched. */
+export function getPowerCurve(
+  host: DelegateHost,
+  sport: string,
+  days: number
+): PowerCurveRow | null {
+  if (!host.ready) return null;
+  const row = host.timed('getPowerCurve', () =>
+    host.engine.fitness().getPowerCurve(sport, BigInt(days))
+  );
+  if (!row) return null;
+  return {
+    ...row,
+    activities: activitiesOf(row.activities),
+    fetchedAt: fetchedMs(row.fetchedAt),
+  };
+}
+
+/** A stored pace curve, keyed by sport, window and the gap flag. */
+export function getPaceCurve(
   host: DelegateHost,
   sport: string,
   days: number,
   gap: boolean
-): string | null {
+): PaceCurveRow | null {
   if (!host.ready) return null;
-  return (
-    (host.timed('getPaceCurveBody', () =>
-      host.engine.fitness().getPaceCurveBody(sport, BigInt(days), gap)
-    ) as string | undefined) ?? null
+  const row = host.timed('getPaceCurve', () =>
+    host.engine.fitness().getPaceCurve(sport, BigInt(days), gap)
   );
+  if (!row) return null;
+  return {
+    ...row,
+    activities: activitiesOf(row.activities),
+    fetchedAt: fetchedMs(row.fetchedAt),
+  };
 }
 
 /** An activity's stored interval body, or null if never fetched. */
@@ -352,17 +477,11 @@ export function getWeeklySummaries(
     host.engine
       .fitness()
       .getWeeklySummaries(weekStarts.map(BigInt), BigInt(weekLengthSecs))
-  ) as {
-    weekStart: bigint;
-    count: number;
-    movingTime: bigint;
-    distance: number;
-    trainingLoad: number;
-  }[];
+  );
   return rows.map((r) => ({
-    weekStart: Number(r.weekStart),
+    weekStart: r.weekStart,
     count: r.count,
-    movingTime: Number(r.movingTime),
+    movingTime: r.movingTime,
     distance: r.distance,
     trainingLoad: r.trainingLoad,
   }));
@@ -372,6 +491,10 @@ export function getWeeklySummaries(
  * Everything the home-screen widget snapshot is composed from, in one
  * round-trip: wellness sparklines, the summary card, and the latest activity
  * with its record flag and GPS track.
+ *
+ * `maxGpsPoints` is the widget's own point budget. The track used to cross
+ * whole on every background transition and every settled sync, for JavaScript
+ * to keep 150 points of it. Zero asks for the whole track.
  */
 export function getWidgetSnapshot(
   host: DelegateHost,
@@ -379,7 +502,8 @@ export function getWidgetSnapshot(
   currentEnd: number,
   prevStart: number,
   prevEnd: number,
-  sparklineDays: number
+  sparklineDays: number,
+  maxGpsPoints: number
 ): FfiWidgetSnapshotData | undefined {
   if (!host.ready) return undefined;
   return host.timed('getWidgetSnapshot', () =>
@@ -390,7 +514,8 @@ export function getWidgetSnapshot(
         BigInt(currentEnd),
         BigInt(prevStart),
         BigInt(prevEnd),
-        sparklineDays
+        sparklineDays,
+        maxGpsPoints
       )
   );
 }

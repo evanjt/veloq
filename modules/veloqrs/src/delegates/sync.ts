@@ -19,8 +19,11 @@
 import {
   FfiCallKind,
   FfiStartOutcome,
+  RangeCoverage,
+  type LibraryCoverage,
   type FfiCallOutcome,
   type FfiManualActivity,
+  type FfiOfflineEstimate,
   type FfiSyncStatus,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
@@ -31,6 +34,9 @@ export type SyncAuthMethod = 'oauth' | 'api_key';
 
 /** The generated record. `state` is the `SyncState` enum, not a word. */
 export type SyncStatus = FfiSyncStatus;
+
+/** What a date range costs to make available offline. */
+export type OfflineEstimate = FfiOfflineEstimate;
 
 /** Set the credential once. Never passed per request. */
 export function setSyncCredentials(
@@ -52,6 +58,26 @@ export function clearSyncCredentials(host: DelegateHost): void {
 /** Start a sync. Returns instantly, naming why when it refuses so a caller can
  *  tell a held slot from a missing credential. Progress surfaces through
  *  `getSyncStatus`. */
+/**
+ * What making an inclusive date range available offline will cost, in requests
+ * and bytes, so the athlete is told before they spend it.
+ *
+ * Null before the engine is ready, which is the caller's cue to show nothing
+ * rather than a zero: a zero here reads as "free".
+ */
+export function offlineEstimate(
+  host: DelegateHost,
+  oldest: number,
+  newest: number
+): OfflineEstimate | null {
+  if (!host.ready) return null;
+  return (
+    host.timed('offlineEstimate', () =>
+      host.engine.sync().offlineEstimate(BigInt(oldest), BigInt(newest))
+    ) ?? null
+  );
+}
+
 export function syncNow(host: DelegateHost): FfiStartOutcome {
   if (!host.ready) return FfiStartOutcome.NotReady;
   const outcome = host.timed('syncNow', () =>
@@ -76,6 +102,40 @@ export function syncActivitiesWindow(
   if (hasStarted(outcome)) host.notify('sync');
   return outcome;
 }
+
+/** What a date range holds: nothing, a download still owed, or every activity
+ *  in it local and current. A chart drawing an empty axis cannot say why on its
+ *  own, and "no data" was the answer for both of the first two.
+ *
+ *  An engine that is not open yet answers `NotFetched`: nothing is known about
+ *  the range either way, and `Empty` would be a claim. */
+export function rangeCoverage(host: DelegateHost, oldest: string, newest: string): RangeCoverage {
+  if (!host.ready) return RangeCoverage.NotFetched;
+  return host.timed('rangeCoverage', () =>
+    host.engine.sync().rangeCoverage(oldest, newest)
+  ) as RangeCoverage;
+}
+
+/** How much of the signed-in athlete's library is on the device: the activity
+ *  pages and the GPS tracks, each as stored against upstream. Every other
+ *  progress figure is the running pass's own queue, which says nothing about
+ *  the rides no pass has queued.
+ *
+ *  An engine that is not open yet answers zeros, which every surface reads as
+ *  nothing to report. */
+export function libraryCoverage(host: DelegateHost): LibraryCoverage {
+  if (!host.ready) return NOTHING_KNOWN;
+  return host.timed('libraryCoverage', () =>
+    host.engine.sync().libraryCoverage()
+  ) as LibraryCoverage;
+}
+
+const NOTHING_KNOWN: LibraryCoverage = {
+  upstream: 0,
+  fetched: 0,
+  tracksUpstream: 0,
+  tracksStored: 0,
+};
 
 /** Ask Rust to fetch and store a power curve. The verdict says whether waiting
  *  helps: `Busy` is the same curve already in flight, `NotConfigured` is no
@@ -213,19 +273,6 @@ export function createManualActivity(
 ): Promise<FfiCallOutcome> {
   if (!host.ready) return Promise.resolve(engineUnavailable('create an activity'));
   return host.engine.sync().createManualActivity(activity);
-}
-
-/**
- * Check a credential and report the athlete it belongs to, without storing it.
- * Login confirms a key this way before it is committed anywhere.
- */
-export function validateSyncCredentials(
-  host: DelegateHost,
-  method: SyncAuthMethod,
-  secret: string
-): Promise<FfiCallOutcome> {
-  if (!host.ready) return Promise.resolve(engineUnavailable('check the credential'));
-  return host.engine.sync().validateCredentials(method, secret);
 }
 
 /**

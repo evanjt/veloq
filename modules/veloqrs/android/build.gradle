@@ -52,18 +52,13 @@ def supportsNamespace() {
 android {
   if (supportsNamespace()) {
     namespace "com.veloq"
-
-    sourceSets {
-      main {
-        manifest.srcFile "src/main/AndroidManifestNew.xml"
-      }
-    }
   }
 
   ndkVersion getExtOrDefault("ndkVersion")
   compileSdkVersion getExtOrIntegerDefault("compileSdkVersion")
 
   defaultConfig {
+    testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     minSdkVersion getExtOrIntegerDefault("minSdkVersion")
     targetSdkVersion getExtOrIntegerDefault("targetSdkVersion")
     buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
@@ -128,9 +123,34 @@ android {
   }
 }
 
+// The instrumentation APK merges this module's jniLibs with React Native's,
+// and both carry `libc++_shared.so`. Scoped to the test variant on purpose: the
+// artifact the app ships keeps the packaging it has.
+androidComponents {
+  onVariants(selector().all()) { variant ->
+    variant.androidTest?.packaging?.jniLibs?.pickFirsts?.addAll([
+      "**/libc++_shared.so",
+      "**/libfbjni.so",
+      "**/libreactnative.so",
+      "**/libjsi.so",
+    ])
+  }
+}
+
 repositories {
   mavenCentral()
   google()
+  // `expo-secure-store` ships prebuilt rather than as a Gradle project, and
+  // `:expo`, which carries it for the app, depends on this module: a project
+  // dependency on it is a cycle. The artifact in its own package is the same
+  // classes, and the version is whatever is installed rather than a number
+  // pinned here.
+  maven {
+    url = file("${projectDir}/../../../node_modules/expo-secure-store/local-maven-repo")
+  }
+  maven {
+    url = file("${projectDir}/../../../node_modules/expo-notifications/local-maven-repo")
+  }
 }
 
 def kotlin_version = getExtOrDefault("kotlinVersion")
@@ -141,6 +161,35 @@ dependencies {
   //noinspection GradleDynamicVersion
   implementation "com.facebook.react:react-native:+"
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+  // The map's tile interceptor extends the library's own client and manager,
+  // so this module compiles against them. The app autolinks the library, so
+  // compileOnly keeps a second copy out of this module's artifact.
+  compileOnly project(':react-native-webview')
+  // The push worker reads the credential `expo-secure-store` wrote, through
+  // that module's own encryptor rather than a second copy of the format. The
+  // app autolinks every expo module under `:expo`, so this module compiles
+  // against it and ships no copy.
+  compileOnly "host.exp.exponent:expo.modules.securestore:+"
+  compileOnly project(':expo-modules-core')
+  androidTestImplementation "host.exp.exponent:expo.modules.securestore:+"
+  androidTestImplementation project(':expo-modules-core')
+  // The push worker reads the credential `expo-secure-store` wrote, using that
+  // module's own encryptor rather than a second copy of the format. Both are
+  // autolinked by the app, so this module only compiles against them.
+  androidTestImplementation "androidx.test:runner:1.5.2"
+  androidTestImplementation "androidx.test.ext:junit:1.1.5"
+  // The push service subclasses Expo's, which the app autolinks under `:expo`,
+  // and reads the FCM message that module's own dependency delivers. Neither
+  // ships in this module's artifact.
+  compileOnly "host.exp.exponent:expo.modules.notifications:+"
+  compileOnly "com.google.firebase:firebase-messaging:25.0.1"
+  // The push worker and the notification it posts.
+  implementation "androidx.work:work-runtime:2.10.2"
+  implementation "androidx.core:core:1.13.1"
+  // The JVM tests read the same FCM data map the service does, which is
+  // `org.json`, and the Android stub of it answers nothing.
+  testImplementation "junit:junit:4.13.2"
+  testImplementation "org.json:json:20180813"
 }
 
 if (isNewArchitectureEnabled()) {

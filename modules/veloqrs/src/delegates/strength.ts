@@ -10,11 +10,10 @@ import type { DelegateHost } from './host';
 import type {
   FfiExerciseActivities,
   FfiExerciseSet,
-  FfiMuscleExerciseSummary,
   FfiMuscleGroup,
   FfiMuscleGroupDetail,
   FfiStrengthInsightSeries,
-  FfiStrengthSummary,
+  FfiStrengthScreenData,
 } from '../generated/veloqrs';
 
 export function getExerciseSets(host: DelegateHost, activityId: string): FfiExerciseSet[] {
@@ -76,33 +75,27 @@ export function importSetsFromFit(
   );
 }
 
-export function getStrengthSummary(
-  host: DelegateHost,
-  startTs: number,
-  endTs: number
-): FfiStrengthSummary {
-  return host.timed('getStrengthSummary', () =>
-    host.engine.strength().getStrengthSummary(BigInt(startTs), BigInt(endTs))
-  );
-}
-
 export type StrengthInsightSeries = FfiStrengthInsightSeries;
+export type StrengthScreenData = FfiStrengthScreenData;
 
 /**
- * Batch variant of getStrengthSummary: each range is aggregated under a
- * single engine lock, eliminating per-range FFI overhead for series callers
- * (e.g. muscle progression charts).
+ * Everything the strength tab draws: the chosen period by muscle, the exercises
+ * behind each one, and the trailing weeks with the ranking across them. One
+ * read, because all four are aggregates of the same sets.
  */
-export function getStrengthSummaryBatch(
+export function getStrengthScreenData(
   host: DelegateHost,
-  ranges: { startTs: number; endTs: number }[]
-): FfiStrengthSummary[] {
-  if (ranges.length === 0) return [];
-  return host.timed('getStrengthSummaryBatch', () =>
+  startTs: number,
+  endTs: number,
+  weekRanges: { startTs: number; endTs: number }[]
+): FfiStrengthScreenData {
+  return host.timed('getStrengthScreenData', () =>
     host.engine
       .strength()
-      .getStrengthSummaryBatch(
-        ranges.map((r) => ({ startTs: BigInt(r.startTs), endTs: BigInt(r.endTs) }))
+      .getScreenData(
+        BigInt(startTs),
+        BigInt(endTs),
+        weekRanges.map((r) => ({ startTs: r.startTs, endTs: r.endTs }))
       )
   );
 }
@@ -127,17 +120,6 @@ export function getMuscleDetail(
 
 export function hasStrengthData(host: DelegateHost): boolean {
   return host.timed('hasStrengthData', () => host.engine.strength().hasStrengthData());
-}
-
-export function getExercisesForMuscle(
-  host: DelegateHost,
-  startTs: number,
-  endTs: number,
-  muscleSlug: string
-): FfiMuscleExerciseSummary {
-  return host.timed('getExercisesForMuscle', () =>
-    host.engine.strength().getExercisesForMuscle(BigInt(startTs), BigInt(endTs), muscleSlug)
-  );
 }
 
 export function getActivitiesForExercise(

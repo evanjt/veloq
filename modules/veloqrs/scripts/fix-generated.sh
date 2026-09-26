@@ -32,16 +32,21 @@ if [ -f android/src/main/java/com/veloq/VeloqrsModule.kt ]; then
   fi
 fi
 
-# Restore custom iOS TurboModule files if uniffi-bindgen-react-native overwrote them.
-# Our custom Veloqrs.h / Veloqrs.mm expose only installRustCrate/cleanupRustCrate;
-# the generated ones declare NativeVeloqrsSpec which isn't produced by Codegen for
-# monorepo-local modules and breaks the iOS build. The canonical versions live in git.
-# The script runs from the modules/veloqrs directory (via `npm run fix-includes`),
-# so the ios/ files are at modules/veloqrs/ios/Veloqrs.{h,mm} relative to the repo root.
-if git rev-parse --show-toplevel >/dev/null 2>&1; then
-  REPO_ROOT=$(git rev-parse --show-toplevel)
-  MODULE_REL=$(pwd | sed "s|^$REPO_ROOT/||")
-  git -C "$REPO_ROOT" checkout -- "$MODULE_REL/ios/Veloqrs.h" "$MODULE_REL/ios/Veloqrs.mm" 2>/dev/null || true
-fi
+# The generator's own comments carry em dashes, which style.md bans and
+# `scripts/lint-em-dashes.mjs` refuses across the whole index. These files are
+# the generator's text rather than ours and are rewritten wholesale on every
+# regeneration, so they are fixed here rather than by hand or by an exemption
+# in a guard whose whole design is to have no exemption list. Spaced ones
+# become a comma, which is how every one of them reads; anything left becomes a
+# hyphen, so a form nobody has seen yet cannot fail a merge either.
+for f in src/generated/veloqrs.ts src/generated/veloqrs-ffi.ts \
+         cpp/generated/veloqrs.cpp cpp/generated/veloqrs.hpp; do
+  [ -f "$f" ] || continue
+  sed "${SED_INPLACE[@]}" -e 's/ \xe2\x80\x94 /, /g' -e 's/\xe2\x80\x94/-/g' "$f"
+done
+
+# Restore the custom iOS TurboModule files, but only the ones the generator
+# actually took. See restore-ios-turbomodule.sh for why that matters.
+"$(dirname "$0")/restore-ios-turbomodule.sh" "$(pwd)"
 
 echo "Fixed generated files"

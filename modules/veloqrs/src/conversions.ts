@@ -2,7 +2,7 @@
  * Point conversions, validators, and shared types for the veloqrs module.
  */
 
-import type { FfiDetectionProgress } from "./generated/veloqrs";
+import type { FfiCatalogueCounts, FfiDetectionProgress } from "./generated/veloqrs";
 
 /**
  * Simple point type with lat/lng (used by app code).
@@ -106,3 +106,35 @@ export function validateId(id: string, fieldName: string): void {
   }
 }
 
+
+/**
+ * How a proposed catalogue compares with the live one, as the preview result
+ * and the cutover diff both carry it.
+ */
+export interface CatalogueCounts {
+  current: number;
+  proposed: number;
+  unchanged: number;
+  changed: number;
+  new: number;
+  gone: number;
+}
+
+/**
+ * The engine's counts record, as the app's own type.
+ *
+ * The generator used to rename `new` to `new_`, because it is a reserved word
+ * in the languages it also emits, and this is where that one spelling
+ * difference was absorbed. It spells it `new` again since 0.31.0-5, so the two
+ * shapes now agree field for field and this is a plain widening.
+ */
+export function toCatalogueCounts(counts: FfiCatalogueCounts): CatalogueCounts {
+  return {
+    current: counts.current,
+    proposed: counts.proposed,
+    unchanged: counts.unchanged,
+    changed: counts.changed,
+    new: counts.new,
+    gone: counts.gone,
+  };
+}

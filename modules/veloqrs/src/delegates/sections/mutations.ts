@@ -8,8 +8,35 @@
  */
 
 import { validateId, validateName } from '../../conversions';
+import { decodeCoords } from '../../coords';
 import type { FfiGpsPoint, FfiIndexActivitySummary } from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
+import { present } from '../optional';
+
+/**
+ * Mark or unmark a section as a lift.
+ *
+ * The unmark is durable in Rust: `isLift` is re-derived on every enrichment
+ * pass, so the engine writes an intent as well as the column. Nothing here has
+ * to remember that, but a caller expecting a column write will be surprised by
+ * how long it lasts.
+ */
+export function setSectionIsLift(
+  host: DelegateHost,
+  sectionId: string,
+  isLift: boolean
+): boolean {
+  if (!host.ready) return false;
+  validateId(sectionId, 'section ID');
+  try {
+    host.timed('setSectionIsLift', () => host.engine.sections().setIsLift(sectionId, isLift));
+    host.notify('sections');
+    return true;
+  } catch (e) {
+    console.error('[Engine] setSectionIsLift failed:', sectionId, e);
+    return false;
+  }
+}
 
 export function setSectionName(host: DelegateHost, sectionId: string, name: string): boolean {
   if (!host.ready) return false;
@@ -44,6 +71,11 @@ export function removeNamedCorridor(host: DelegateHost, intentId: string): boole
  * Build a new custom section from a slice of an activity's GPS track.
  * The caller must provide `getGpsTrack` (the facade supplies it) so this
  * delegate doesn't need to duplicate the activity lookup logic.
+ *
+ * The track arrives coordinate-encoded and the slice goes back to Rust as
+ * points, which is the one crossing that stays boxed: `create` takes a point
+ * array and a section is a couple of hundred points, so an encoder in
+ * TypeScript would buy nothing.
  */
 export function createSectionFromIndices(
   host: DelegateHost,
@@ -52,17 +84,19 @@ export function createSectionFromIndices(
   endIndex: number,
   sportType: string,
   name: string | undefined,
-  getGpsTrack: (activityId: string) => FfiGpsPoint[]
+  getGpsTrack: (activityId: string) => ArrayBuffer
 ): string {
   if (!host.ready) return '';
   validateId(activityId, 'activity ID');
 
-  const track = getGpsTrack(activityId);
-  if (!track || track.length === 0) {
+  const track = decodeCoords(getGpsTrack(activityId));
+  if (track.length === 0) {
     throw new Error(`No GPS track found for activity ${activityId}`);
   }
 
-  const sectionTrack = track.slice(startIndex, endIndex + 1);
+  const sectionTrack: FfiGpsPoint[] = track
+    .slice(startIndex, endIndex + 1)
+    .map((p) => present({ latitude: p.latitude, longitude: p.longitude, elevation: p.elevation }));
   if (sectionTrack.length < 2) {
     throw new Error('Section must have at least 2 points');
   }

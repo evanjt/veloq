@@ -9,6 +9,7 @@
 
 import type { DelegateHost } from './host';
 import type {
+  FfiNotificationTemplates,
   SettingPair,
   SuggestedHome as FfiSuggestedHome,
   ExportPrivacyPreview as FfiExportPrivacyPreview,
@@ -60,23 +61,6 @@ export function getSportSettings(host: DelegateHost): string {
   }
 }
 
-export function clearUserProfileCaches(host: DelegateHost): void {
-  host.write('clearUserProfileCaches', () => {
-    try {
-      // Cast to bypass stale generated bindings - the regenerated SettingsManager
-      // (after `npm run clean:rust && npx expo run:android`) has this method, but
-      // tsc would fail against the pre-rebuild .d.ts. Method binding via UniFFI
-      // resolves at runtime, and the catch below absorbs the case where Rust
-      // hasn't been rebuilt yet.
-      const settings = host.engine.settings() as unknown as {
-        clearUserProfileCaches?: () => void;
-      };
-      settings.clearUserProfileCaches?.();
-    } catch {
-      // Best-effort - failures here just leave stale rows that engine.clear() would catch later.
-    }
-  });
-}
 
 /**
  * Where the athlete's rides start and finish most often, for the export
@@ -146,6 +130,43 @@ export function setSettings(host: DelegateHost, pairs: SettingPair[]): number {
   } catch {
     // Settings write failed - non-critical
     return 0;
+  }
+}
+
+/**
+ * Hand the engine the notification templates for the locale the app is
+ * running in, so a push handler woken with no JavaScript alive can still write
+ * a sentence. Answers whether anything was written, which is false for the
+ * ordinary launch that re-pushes the bundle it pushed last time.
+ *
+ * Durable, unlike `setNameTranslations` beside it, which keeps its two words
+ * in a process global a fresh process cannot read.
+ */
+export function setNotificationTemplates(
+  host: DelegateHost,
+  locale: string,
+  templates: SettingPair[]
+): boolean {
+  if (!host.ready || templates.length === 0) return false;
+  try {
+    return host.timed('setNotificationTemplates', () =>
+      host.engine.settings().setNotificationTemplates(locale, templates)
+    );
+  } catch {
+    // A stored bundle that stays one locale behind beats a throw on launch.
+    return false;
+  }
+}
+
+/** The templates the last push left, or undefined before any push. */
+export function notificationTemplates(
+  host: DelegateHost
+): FfiNotificationTemplates | undefined {
+  if (!host.ready) return undefined;
+  try {
+    return host.engine.settings().notificationTemplates() ?? undefined;
+  } catch {
+    return undefined;
   }
 }
 

@@ -6,6 +6,7 @@ import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.module.model.ReactModuleInfo
 import com.facebook.react.module.model.ReactModuleInfoProvider
+import com.facebook.react.uimanager.ViewManager
 import java.util.HashMap
 
 class VeloqrsPackage : TurboReactPackage() {
@@ -15,6 +16,13 @@ class VeloqrsPackage : TurboReactPackage() {
     } else {
       null
     }
+  }
+
+  // Not generated. The map's tile interceptor is a WebViewClient, and only a
+  // view manager of ours can attach it, so it is registered beside TileBridge
+  // rather than in a module of its own.
+  override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
+    return listOf(VeloqWebViewManager())
   }
 
   override fun getReactModuleInfoProvider(): ReactModuleInfoProvider {

@@ -8,11 +8,13 @@
  */
 
 import type {
+  FfiActivityBody,
   FfiActivityDetailData,
   FfiActivityIndicator,
   FfiActivityMetrics,
+  FfiActivityNotification,
   FfiActivityRouteHighlight,
-  FfiGpsPoint,
+  FfiPreviewTrack,
 } from '../generated/veloqrs';
 import { validateId } from '../conversions';
 import type { DelegateHost } from './host';
@@ -30,10 +32,28 @@ export async function addActivities(
   });
 }
 
-/** A key for a ride the device recorded. Empty before the engine opens. */
-export function mintLocalActivityId(host: DelegateHost): string {
+/** Store the track, feed body and metrics together, or leave none of them. */
+export async function saveProvisionalActivity(
+  host: DelegateHost,
+  activityId: string,
+  coords: number[],
+  body: FfiActivityBody,
+  metrics: FfiActivityMetrics
+): Promise<boolean> {
+  if (!host.ready) return false;
+  validateId(activityId, 'activity ID');
+  await host.timed('saveProvisionalActivity', () =>
+    host.engine.activities().saveProvisional(activityId, coords, body, metrics)
+  );
+  host.notifyAll('activities', 'groups');
+  return true;
+}
+
+/** A recording always returns to the same local activity on a save retry. */
+export function provisionalActivityId(host: DelegateHost, recordingId: string): string {
   if (!host.ready) return '';
-  return host.timed('mintLocalActivityId', () => host.engine.activities().mintLocalId());
+  validateId(recordingId, 'recording ID');
+  return host.timed('provisionalActivityId', () => host.engine.activities().provisionalId(recordingId));
 }
 
 /** Record the id intervals.icu gave a locally keyed ride. */
@@ -54,15 +74,48 @@ export function getActivityIds(host: DelegateHost): string[] {
   return host.timed('getActivityIds', () => host.engine.activities().getIds());
 }
 
+/**
+ * Whether the library already holds this activity.
+ *
+ * One boolean, answered from the engine's in-memory metadata. Asking
+ * `getActivityIds().includes(id)` lifted every id string across the bridge to
+ * decide the same thing.
+ */
+export function hasActivity(host: DelegateHost, activityId: string): boolean {
+  if (!host.ready) return false;
+  validateId(activityId, 'activity ID');
+  return host.timed('hasActivity', () => host.engine.activities().has(activityId));
+}
+
 export function getActivityCount(host: DelegateHost): number {
   if (!host.ready) return 0;
   return host.timed('getActivityCount', () => host.engine.activities().getCount());
 }
 
-export function getGpsTrack(host: DelegateHost, activityId: string): FfiGpsPoint[] {
-  if (!host.ready) return [];
+/**
+ * The stored track, coordinate-encoded. Put it through `decodeCoords`.
+ *
+ * An empty buffer is both "no such activity" and "a track with no points", the
+ * same as the section line and the consensus route, and the decoder answers `[]`
+ * to either.
+ */
+export function getGpsTrack(host: DelegateHost, activityId: string): ArrayBuffer {
+  if (!host.ready) return new Uint8Array().buffer;
   validateId(activityId, 'activity ID');
   return host.timed('getGpsTrack', () => host.engine.activities().getGpsTrack(activityId));
+}
+
+/**
+ * One feed card's preview line, coordinate-encoded. Put it through
+ * `decodeCoords`. Undefined when the activity has no signature to draw.
+ */
+export function getPreviewTrack(
+  host: DelegateHost,
+  activityId: string
+): FfiPreviewTrack | undefined {
+  if (!host.ready) return undefined;
+  validateId(activityId, 'activity ID');
+  return host.timed('getPreviewTrack', () => host.engine.activities().getPreviewTrack(activityId));
 }
 
 /**
@@ -194,7 +247,7 @@ export function upsertActivityBodies(host: DelegateHost, rows: ActivityBodyInput
     host.engine.activities().upsertActivityBodies(
       rows.map((r) => ({
         activityId: r.activityId,
-        date: BigInt(r.date),
+        date: r.date,
         raw: r.raw,
       }))
     )
@@ -234,6 +287,35 @@ export function getActivityBodies(
     host.timed('getActivityBodies', () =>
       host.engine.activities().getActivityBodies(BigInt(oldestTs), BigInt(newestTs))
     ) ?? []
+  );
+}
+
+/** One activity's display name, as the engine knows it. */
+export interface ActivityName {
+  activityId: string;
+  name: string;
+  /** Start time as epoch seconds. */
+  date: number;
+}
+
+/**
+ * Display names for a batch of activity ids, in the order asked for.
+ *
+ * Ids the engine has no name for are absent rather than carrying an empty
+ * string, so a caller can tell "no name" from "a blank name" and fall back to
+ * the id. Batched because the callers draw a row at a time and a call per id
+ * is a blocking FFI hop each.
+ */
+export function getActivityNames(host: DelegateHost, activityIds: string[]): ActivityName[] {
+  if (!host.ready || activityIds.length === 0) return [];
+  return (
+    host
+      .timed('getActivityNames', () => host.engine.activities().getActivityNames(activityIds))
+      ?.map((row) => ({
+        activityId: row.activityId,
+        name: row.name,
+        date: Number(row.date),
+      })) ?? []
   );
 }
 
@@ -290,8 +372,33 @@ export function replaceCalendarEvents(
 ): void {
   const oldest = BigInt(oldestTs);
   const newest = BigInt(newestTs);
-  const events = rows.map((r) => ({ eventId: r.eventId, date: BigInt(r.date), raw: r.raw }));
+  const events = rows.map((r) => ({ eventId: r.eventId, date: r.date, raw: r.raw }));
   host.write('replaceCalendarEvents', () =>
     host.engine.activities().replaceCalendarEvents(oldest, newest, events)
+  );
+}
+
+/**
+ * What one activity was worth: the title and body a lock screen shows, and the
+ * same finding whole for a screen.
+ *
+ * Null before the engine opens, and on an install where no templates have
+ * been pushed yet, which is a body of raw keys avoided rather than a failure.
+ */
+export function activityNotification(
+  host: DelegateHost,
+  activityId: string,
+  activityName: string,
+  announcePrs: boolean,
+  milestoneTitle: string | null
+): FfiActivityNotification | null {
+  if (!host.ready) return null;
+  validateId(activityId, 'activity ID');
+  return (
+    host.timed('activityNotification', () =>
+      host.engine
+        .activities()
+        .activityNotification(activityId, activityName, announcePrs, milestoneTitle ?? undefined)
+    ) ?? null
   );
 }

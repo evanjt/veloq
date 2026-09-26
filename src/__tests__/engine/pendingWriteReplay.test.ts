@@ -30,6 +30,8 @@ const mockNativeEngine = {
   setObserver: jest.fn(),
   destroy: jest.fn(),
   clear: jest.fn(),
+  startClearAll: jest.fn(),
+  pollClearAll: jest.fn(() => 'complete'),
   sync: () => mockSync,
   settings: () => mockSettings,
   fitness: () => mockFitness,
@@ -102,7 +104,7 @@ describe('writes made before the engine opens', () => {
     client.setAthleteProfile('{"id":"demo"}');
     client.setSportSettings('{"Ride":{}}');
     client.setSetting('units', 'metric');
-    client.savePaceSnapshot('Run', 4.2, 120, 0.98);
+    client.savePaceSnapshot('Run', 4.2, 42, 120, 0.98);
     client.setCurveBody('power', 'Ride', 90, false, '{}');
 
     expect(order).toEqual([]);
@@ -125,7 +127,7 @@ describe('writes made before the engine opens', () => {
       jest.setSystemTime(new Date('2026-01-01T00:00:00Z'));
       const writtenAt = Math.floor(Date.now() / 1000);
 
-      client.savePaceSnapshot('Run', 4.2);
+      client.savePaceSnapshot('Run', 4.2, 42);
 
       jest.setSystemTime(new Date('2026-01-02T00:00:00Z'));
       client.initWithPath(DB);
@@ -158,7 +160,7 @@ describe('writes made before the engine opens', () => {
     expect(mockSettings.setSetting).not.toHaveBeenCalled();
   });
 
-  it('does not replay a write held before clear()', () => {
+  it('does not replay a write held before clear(), once the wipe lands and the engine re-opens', async () => {
     const client = closedClient();
     client.initWithPath(DB);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,9 +168,14 @@ describe('writes made before the engine opens', () => {
       { name: 'setSetting', run: () => mockSettings.setSetting('stale', 'value') },
     ];
 
-    client.clear();
+    await client.clear();
 
+    expect(mockNativeEngine.startClearAll).toHaveBeenCalledTimes(1);
+    expect(client.ready).toBe(true);
+    client.initWithPath(DB);
     expect(mockSettings.setSetting).not.toHaveBeenCalled();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((client as any).pendingWrites).toHaveLength(0);
   });
 
   it('keeps the queue when init fails and replays once on the retry', () => {

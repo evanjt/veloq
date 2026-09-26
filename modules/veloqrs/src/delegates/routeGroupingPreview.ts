@@ -7,7 +7,7 @@
  * against; the screen lands with the control itself.
  */
 
-import { RouteGroupingPreview } from '../generated/veloqrs';
+import { RouteGroupingPreview, FfiGroupingOutcome_Tags } from '../generated/veloqrs';
 import type { RouteGroupingPreviewLike } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
@@ -22,13 +22,24 @@ export interface RouteGroupPreview {
   activityIds: string[];
 }
 
-export type RouteGroupingPollStatus = 'idle' | 'running' | 'complete' | 'cancelled' | 'error';
+/**
+ * How one run ended.
+ *
+ * `cancelled` is the ordinary end of a run rather than a failure: every knob
+ * movement supersedes the one in flight. `refused` is a run already going or a
+ * library with no signatures, and the screen paints the same for both.
+ */
+export type RouteGroupingOutcome =
+  | { state: 'grouped'; groups: RouteGroupPreview[] }
+  | { state: 'cancelled' }
+  | { state: 'refused' };
 
 /** The surface the strictness control talks to. */
 export interface RouteGroupingPreviewClient {
-  startRouteGroupingPreview(minMatchPercentage: number, endpointThreshold: number): boolean;
-  pollRouteGroupingPreview(): RouteGroupingPollStatus;
-  takeRouteGroupingPreviewResult(): RouteGroupPreview[] | null;
+  runRouteGroupingPreview(
+    minMatchPercentage: number,
+    endpointThreshold: number
+  ): Promise<RouteGroupingOutcome>;
   cancelRouteGroupingPreview(): void;
 }
 
@@ -41,46 +52,34 @@ function previewObj(): RouteGroupingPreviewLike {
 }
 
 /**
- * Group the whole library at this strictness. False when a preview is already
- * running or the library has no signatures to group.
+ * Group the whole library at this strictness, resolving with what it found.
+ *
+ * A failure inside the engine reads as a refusal rather than throwing: the
+ * screen's move is the same either way, which is to paint nothing and leave the
+ * knob where the athlete put it.
  */
-export function startRouteGroupingPreview(
+export async function runRouteGroupingPreview(
   host: DelegateHost,
   minMatchPercentage: number,
   endpointThreshold: number
-): boolean {
-  if (!host.ready) return false;
+): Promise<RouteGroupingOutcome> {
+  if (!host.ready) return { state: 'refused' };
   try {
-    return host.timed('startRouteGroupingPreview', () =>
-      previewObj().start(minMatchPercentage, endpointThreshold)
-    );
+    const outcome = await previewObj().run(minMatchPercentage, endpointThreshold);
+    switch (outcome.tag) {
+      case FfiGroupingOutcome_Tags.Grouped:
+        return {
+          state: 'grouped',
+          groups: outcome.inner.groups.map((g) => ({ key: g.key, activityIds: g.activityIds })),
+        };
+      case FfiGroupingOutcome_Tags.Cancelled:
+        return { state: 'cancelled' };
+      default:
+        return { state: 'refused' };
+    }
   } catch (e) {
-    console.error('[Engine] startRouteGroupingPreview threw:', e);
-    return false;
-  }
-}
-
-export function pollRouteGroupingPreview(host: DelegateHost): RouteGroupingPollStatus {
-  if (!host.ready) return 'idle';
-  try {
-    return host.timed('pollRouteGroupingPreview', () =>
-      previewObj().poll()
-    ) as RouteGroupingPollStatus;
-  } catch (e) {
-    console.error('[Engine] pollRouteGroupingPreview threw:', e);
-    return 'error';
-  }
-}
-
-/** Take the one payload. Null while running or after taken. */
-export function takeRouteGroupingPreviewResult(host: DelegateHost): RouteGroupPreview[] | null {
-  if (!host.ready) return null;
-  try {
-    const groups = host.timed('takeRouteGroupingPreviewResult', () => previewObj().takeResult());
-    return groups ? groups.map((g) => ({ key: g.key, activityIds: g.activityIds })) : null;
-  } catch (e) {
-    console.error('[Engine] takeRouteGroupingPreviewResult threw:', e);
-    return null;
+    console.error('[Engine] runRouteGroupingPreview threw:', e);
+    return { state: 'refused' };
   }
 }
 

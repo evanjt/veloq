@@ -7,7 +7,11 @@
  */
 
 import type { SectionDetectionProgress } from '../conversions';
-import { FfiStartOutcome, type FfiSectionConfig } from '../generated/veloqrs';
+import {
+  FfiStartOutcome,
+  type FfiMatchStrictness,
+  type FfiSectionConfig,
+} from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
 export function startSectionDetection(host: DelegateHost): FfiStartOutcome {
@@ -107,6 +111,17 @@ export function setMatchStrictness(
   host.write('setMatchStrictness', () =>
     host.engine.detection().setMatchStrictness(minMatchPct, endpointThreshold)
   );
+}
+
+/**
+ * The match strictness the grouper is running at, or null before the engine is
+ * open. The setter has been bound since the preset chips shipped; the read-back
+ * had no caller until the grouping preview screen, which used to open on the
+ * defaults and claim a value that was not applied.
+ */
+export function getMatchStrictness(host: DelegateHost): FfiMatchStrictness | null {
+  if (!host.ready) return null;
+  return host.timed('getMatchStrictness', () => host.engine.detection().getMatchStrictness());
 }
 
 export function forceRedetectSections(host: DelegateHost): FfiStartOutcome {

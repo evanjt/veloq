@@ -34,6 +34,9 @@ Pod::Spec.new do |s|
   s.vendored_frameworks = "Frameworks/VeloqrsFFI.xcframework"
 
   s.dependency "uniffi-bindgen-react-native"
+  # The map's tile scheme handler extends the library's own web view and
+  # manager, so this pod compiles against its headers.
+  s.dependency "react-native-webview"
 
   # Base header search paths for cpp headers and Generated headers
   # Include ${PODS_TARGET_SRCROOT} for "cpp/veloqrs.h" includes (avoids case-insensitive conflict with Veloqrs.h)

@@ -15,9 +15,11 @@ import {
   BulkExportFormat,
   CallKind,
   InitOutcome,
+  RangeCoverage,
   StartOutcome,
   SyncErrorReason,
   SyncState,
+  SyncStep,
 } from '../__shared__/veloqrsStub';
 
 const GENERATED = resolve('modules/veloqrs/src/generated/veloqrs.ts');
@@ -53,8 +55,16 @@ describe('the binding stub enums', () => {
     expect(membersOf(SyncState)).toEqual(generatedEnum('SyncState'));
   });
 
+  it('carry RangeCoverage as the generated binding declares it', () => {
+    expect(membersOf(RangeCoverage)).toEqual(generatedEnum('RangeCoverage'));
+  });
+
   it('carry FfiSyncErrorReason as the generated binding declares it', () => {
     expect(membersOf(SyncErrorReason)).toEqual(generatedEnum('FfiSyncErrorReason'));
+  });
+
+  it('carry FfiSyncStep as the generated binding declares it', () => {
+    expect(membersOf(SyncStep)).toEqual(generatedEnum('FfiSyncStep'));
   });
 
   it('carry BulkExportFormat as the generated binding declares it', () => {
@@ -73,6 +83,7 @@ describe('the binding stub enums', () => {
     for (const value of Object.values(membersOf(CallKind))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(SyncState))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(SyncErrorReason))) expect(value).toBeGreaterThan(0);
+    for (const value of Object.values(membersOf(SyncStep))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(BulkExportFormat)))
       expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(StartOutcome))) expect(value).toBeGreaterThan(0);
