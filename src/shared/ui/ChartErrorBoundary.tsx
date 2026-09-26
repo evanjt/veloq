@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
+import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 
 interface Props {
   children: ReactNode;
@@ -32,13 +33,14 @@ export class ChartErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    recordBoundaryCrash(error, errorInfo, { fatal: false, screen: this.props.label });
     if (__DEV__) {
       console.error('[ChartErrorBoundary] Chart render error:', error, errorInfo);
     }
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       const { height = 150, label } = this.props;
       return (
@@ -95,10 +97,10 @@ const styles = StyleSheet.create({
   },
   retryText: {
     ...typography.label,
-    color: colors.primary,
+    color: colors.linkTeal,
   },
   retryTextDark: {
-    color: colors.primaryLight,
+    color: darkColors.linkTeal,
   },
 });
 

@@ -10,36 +10,30 @@
  * baseline, which is right for a lap time and wrong for a weight in kilograms,
  * so the two primitives stay separate and a verdict computed in Rust crosses
  * as a verdict rather than being recomputed.
+ *
+ * The table itself is Rust's, in `veloqrs/src/trend_table.rs`, and
+ * `trendTable.generated.ts` is written from it. Editing a threshold here fails
+ * `npm run audit`; edit the Rust table and run `npm run config:trend`.
  */
+
+import type { VerdictRung } from '@/theme/colors';
+
+import { TREND_DEADBAND, TREND_POLARITY, type TrendMetric } from './trendTable.generated';
+
+export { TREND_DEADBAND, TREND_POLARITY };
+export type { TrendMetric };
 
 /** Which way a number moved, or that it did not move enough to say. */
 export type TrendDirection = 'up' | 'down' | 'flat';
 
-/**
- * How much each metric has to move before it reads as a move at all.
- *
- * Both surfaces import this, so a threshold cannot be changed on one and not
- * the other. The units are the metric's own: points of CTL, hours, whole
- * activities, watts, minutes per kilometre, beats, kilograms.
- */
-export const TREND_DEADBAND = {
-  /** CTL and ATL are integers, so under a point is not a move. */
-  fitness: 1,
-  fatigue: 1,
-  /** Form is a difference of two, so it carries twice the noise. */
-  form: 2,
-  weekHours: 0.5,
-  weekCount: 1,
-  ftp: 2,
-  thresholdPace: 0.05,
-  css: 0.05,
-  hrv: 2,
-  rhr: 1,
-  weight: 0.3,
-} as const;
+/** The judgement a surface draws: not the direction, but whether it was good. */
+export type TrendVerdict = 'improved' | 'declined' | 'flat' | 'moved';
 
-/** A metric with a threshold of its own. */
-export type TrendMetric = keyof typeof TREND_DEADBAND;
+/** The glyph a dense surface draws. Flat is a glyph, never an empty string. */
+export type TrendGlyph = '↑' | '↓' | '→';
+
+/** The icon an insight card draws, from the same verdict as the glyph. */
+export type TrendIcon = 'trending-up' | 'trending-down' | 'minus';
 
 /**
  * The direction `current` moved from `baseline`, or `flat` when the move is
@@ -67,9 +61,49 @@ export function trendOfMetric(
   return trendDirection(current, baseline, TREND_DEADBAND[metric]);
 }
 
-/** The arrow the summary card and the wellness stats draw. */
-export function trendArrow(direction: TrendDirection): '↑' | '↓' | '' {
+/**
+ * The arrow for a direction. This is the number's own direction, which is what
+ * a chart axis and a metric with no polarity want; a judged surface draws
+ * `trendGlyph`.
+ */
+export function trendArrow(direction: TrendDirection): TrendGlyph {
   if (direction === 'up') return '↑';
   if (direction === 'down') return '↓';
-  return '';
+  return '→';
+}
+
+/** The judgement for a metric's move, read off the polarity table. */
+export function trendVerdict(metric: TrendMetric, direction: TrendDirection): TrendVerdict {
+  if (direction === 'flat') return 'flat';
+  const polarity = TREND_POLARITY[metric];
+  if (polarity === 'none') return 'moved';
+  const improved = polarity === 'higher' ? direction === 'up' : direction === 'down';
+  return improved ? 'improved' : 'declined';
+}
+
+/**
+ * The glyph a surface draws for a metric's move: up for an improvement even
+ * when the number fell, the bare direction for a metric with no polarity, and
+ * always something for flat.
+ */
+export function trendGlyph(metric: TrendMetric, direction: TrendDirection): TrendGlyph {
+  const verdict = trendVerdict(metric, direction);
+  if (verdict === 'improved') return '↑';
+  if (verdict === 'declined') return '↓';
+  return trendArrow(direction);
+}
+
+/** The same choice as `trendGlyph`, in the icon vocabulary the insight cards use. */
+export function trendIcon(metric: TrendMetric, direction: TrendDirection): TrendIcon {
+  const glyph = trendGlyph(metric, direction);
+  if (glyph === '↑') return 'trending-up';
+  if (glyph === '↓') return 'trending-down';
+  return 'minus';
+}
+
+/** The ladder rung a verdict is coloured from, so no caller writes its own mapping. */
+export function verdictRung(verdict: TrendVerdict): VerdictRung {
+  if (verdict === 'improved') return 'positive';
+  if (verdict === 'declined') return 'negative';
+  return 'neutral';
 }

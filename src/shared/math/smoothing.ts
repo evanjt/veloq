@@ -34,11 +34,12 @@ export function getEffectiveWindow(preference: SmoothingWindow, timeRange: TimeR
 /**
  * Apply centered moving average smoothing to data points
  *
- * Uses a centered window (equal days before and after) to avoid lag.
- * At edges, uses asymmetric window with available data.
+ * The window spans exactly `windowSize` rows: centred for an odd size, and one row further
+ * forward than back for an even one, so 7 means ±3 and 14 means 6 back and 7 forward.
+ * At edges, averages only the rows that exist.
  *
  * @param data Array of data points with x (index) and value
- * @param windowSize Total window size (e.g., 7 means ±3 days around each point)
+ * @param windowSize Total window size in rows
  * @returns New array with smoothed values (original rawValue preserved)
  */
 export function smoothDataPoints<T extends { x: number; value: number; rawValue: number }>(
@@ -51,15 +52,15 @@ export function smoothDataPoints<T extends { x: number; value: number; rawValue:
   const valueMap = new Map<number, number>();
   data.forEach((d) => valueMap.set(d.x, d.rawValue));
 
-  // Half window on each side (centered)
   const halfWindow = Math.floor(windowSize / 2);
+  const firstOffset = -(windowSize - 1 - halfWindow);
 
   return data.map((point) => {
     let sum = 0;
     let count = 0;
 
     // Collect values within the window
-    for (let offset = -halfWindow; offset <= halfWindow; offset++) {
+    for (let offset = firstOffset; offset <= halfWindow; offset++) {
       const targetX = point.x + offset;
       const value = valueMap.get(targetX);
       if (value !== undefined) {

@@ -99,19 +99,6 @@ export function EmptyState({
   );
 }
 
-export function NetworkErrorState({ onRetry }: { onRetry?: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <EmptyState
-      icon="wifi-off"
-      title={t('emptyState.networkError.title')}
-      description={t('emptyState.networkError.description')}
-      actionLabel={onRetry ? t('common.retry') : undefined}
-      onAction={onRetry}
-    />
-  );
-}
-
 // Preset for generic error
 export function ErrorStatePreset({ message, onRetry }: { message?: string; onRetry?: () => void }) {
   const { t } = useTranslation();
@@ -176,8 +163,8 @@ const styles = StyleSheet.create({
     ...shadows.tealGlow,
   },
   actionGradient: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingVertical: spacing.smPlus,
+    paddingHorizontal: spacing.lg,
   },
   actionText: {
     color: colors.textOnDark,

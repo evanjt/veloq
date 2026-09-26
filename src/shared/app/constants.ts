@@ -59,3 +59,15 @@ export const INTERVALS_URLS = {
   /** Developer Settings section for API key */
   developerSettings: 'https://intervals.icu/settings#developer',
 } as const;
+
+/**
+ * The pace-curve range whose critical speed is snapshotted for the pace
+ * milestone, and so the only range that milestone compares.
+ *
+ * The pace curve screen snapshots whatever range it is showing, 7 days to a
+ * year, and those rows are kept and not compared with these: a year curve's
+ * critical speed is the athlete's best year where a six-week curve's is recent
+ * form, and the difference between them is not an improvement. Agreed with
+ * `SYNC_PACE_WINDOW_DAYS` in `persistence/fitness/derivations.rs`.
+ */
+export const PACE_SNAPSHOT_WINDOW_DAYS = 42;

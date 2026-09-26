@@ -5,4 +5,7 @@ export {
   rememberCachedAthleteId,
   forgetCachedAthleteId,
   readCachedAthleteIdMirror,
+  rememberStoredActivityCount,
+  forgetStoredActivityCount,
+  readStoredActivityCountMirror,
 } from './cachedAthleteId';

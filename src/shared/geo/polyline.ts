@@ -6,14 +6,17 @@
  */
 
 import polyline from '@mapbox/polyline';
+import type { LatLng } from 'veloqrs';
+
+import type { LatLngShort } from '@/shared/geo/distance';
 
 /**
  * Geographic coordinate with latitude and longitude.
+ *
+ * The decoder's, re-exported rather than restated: it is the only declaration
+ * carrying elevation, and a coordinate list reaches TypeScript through it.
  */
-export interface LatLng {
-  latitude: number;
-  longitude: number;
-}
+export type { LatLng };
 
 /**
  * Decode Google Polyline encoded string to coordinate array.
@@ -237,11 +240,7 @@ export function getBoundsCenter(bounds: [[number, number], [number, number]]): [
   ];
 }
 
-/** Point with lat/lng properties (alternative format) */
-export interface LatLngShort {
-  lat: number;
-  lng: number;
-}
+export type { LatLngShort };
 
 /** MapLibre bounds format with northeast and southwest corners */
 export interface MapLibreBounds {

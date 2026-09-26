@@ -4,35 +4,40 @@
  * Posts native OS notifications for sync progress instead of rendering an in-app banner.
  */
 
-import { useEffect, useMemo, useRef, useCallback } from 'react';
+import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
 import { useActivities } from '@/features/activity/hooks';
 import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { useSectionHealthCheck } from '@/features/routes/hooks/useSectionHealthCheck';
+import { useStrengthReconnect } from '@/features/strength/hooks/useExerciseSets';
+import {
+  useMutatedPreviewTracks,
+  useStoredPreviewTracks,
+} from '@/features/activity/hooks/useMapPreviewCoordinates';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { onSyncComplete } from '@/features/settings/lib/autobackup';
-import { parsePaceCurveBody } from '@/features/stats/lib/curveBodies';
+
+import { PACE_SNAPSHOT_WINDOW_DAYS } from './constants';
 import { getEngine } from '@/shared/native/engine';
+import { SyncState } from 'veloqrs';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useEngineSync } from '@/shared/native/useEngineSync';
 import { useSyncAuthExpiry } from '@/shared/native/useSyncAuthExpiry';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
-import {
-  updateSyncNotification,
-  dismissSyncNotification,
-} from '@/features/settings/lib/notificationService';
+import { useSyncStatus } from '@/shared/native/useSyncStatus';
+import { usePushedWritesOnForeground } from '@/shared/native/usePushedWritesOnForeground';
+import { PICKUP_DEADLINE_MS } from '@/shared/app/extendedFetch';
+import { syncSettledForExpansion } from '@/shared/app/expansionLock';
 
 export function GlobalDataSync() {
-  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   // Get sync date range from global store (can be extended by timeline sliders)
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
-  const setFetchingExtended = useSyncDateRange((s) => s.setFetchingExtended);
+  const syncStateChanged = useSyncDateRange((s) => s.syncStateChanged);
+  const expirePickup = useSyncDateRange((s) => s.expirePickup);
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
   const delayedUnlockExpansion = useSyncDateRange((s) => s.delayedUnlockExpansion);
 
@@ -42,23 +47,48 @@ export function GlobalDataSync() {
   // Fill the engine-backed tables and wake their readers when the sync lands.
   useEngineSync();
 
+  // A FIT download the radio refused announces nothing, so the reconnect edge
+  // is the only thing that can wake the sets a strength card cached as empty.
+  useStrengthReconnect();
+
+  // A re-ingest that replaced a stored track moved the preview line cut from
+  // it. The engine names those activities, and only their cards re-read.
+  useMutatedPreviewTracks();
+  useStoredPreviewTracks();
+
   // The window every other reader shares. Rust's engine event is what wakes
   // it, so nothing is invalidated here at mount.
-  const { data: activities, isFetching } = useActivities({
+  const { data: activities } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
     enabled: isAuthenticated,
   });
 
-  // Update fetching state in store
+  // The widened-range download is the engine holding its sync slot, so that is
+  // what the flag follows. It used to follow `isFetching` above, which is a
+  // SQLite read settling in milliseconds against a download taking seconds.
+  const syncStatus = useSyncStatus();
+  const isEngineSyncing = syncStatus?.state === SyncState.Syncing;
   useEffect(() => {
-    setFetchingExtended(isFetching);
-  }, [isFetching, setFetchingExtended]);
+    syncStateChanged(isEngineSyncing);
+  }, [isEngineSyncing, syncStateChanged]);
+
+  // A window the engine accepted but never reports the slot for ends in a
+  // named state, or the banner stays up for the rest of the session.
+  useEffect(() => {
+    const timer = setInterval(expirePickup, PICKUP_DEADLINE_MS);
+    return () => clearInterval(timer);
+  }, [expirePickup]);
 
   // Use the route data sync hook to automatically sync GPS data.
   // Always enabled - GPS tracks are needed for heatmap even when route matching is off.
   // Section detection is gated separately in useGpsDataFetcher.
-  const { progress, isSyncing } = useRouteDataSync(activities, true);
+  const { progress } = useRouteDataSync(activities, true);
+
+  // A push handler can have written to the database from another process while
+  // the app was away, which leaves the engine's in-memory tiers behind the file
+  // with nothing to say so.
+  usePushedWritesOnForeground();
 
   // One-shot self-heal for upgrades across the corridor-detection regression.
   // Triggers a forced redetect when sync completes against an empty section
@@ -97,18 +127,18 @@ export function GlobalDataSync() {
 
           for (const sport of ['Run', 'Swim'] as const) {
             if (!sportTypes.includes(sport)) continue;
-            const stored = engine.getPaceCurveBody(sport, 42, false);
-            if (!stored) {
+            const curve = engine.getPaceCurve(sport, PACE_SNAPSHOT_WINDOW_DAYS, false);
+            if (!curve) {
               // Not fetched yet. Ask for it; the next sync-complete pass seeds
               // the snapshot, and the pace curve screen would anyway.
-              engine.syncPaceCurve(sport, 42, false);
+              engine.syncPaceCurve(sport, PACE_SNAPSHOT_WINDOW_DAYS, false);
               continue;
             }
-            const curve = parsePaceCurveBody(stored, sport);
-            if (curve?.criticalSpeed && curve.criticalSpeed > 0) {
+            if (curve.criticalSpeed && curve.criticalSpeed > 0) {
               engine.savePaceSnapshot(
                 sport,
                 curve.criticalSpeed,
+                PACE_SNAPSHOT_WINDOW_DAYS,
                 curve.dPrime ?? undefined,
                 curve.r2 ?? undefined,
                 todayTs
@@ -122,66 +152,16 @@ export function GlobalDataSync() {
     }
   }, [progress.status, queryClient]);
 
-  // Unlock expansion after sync completes (with delay to let UI stabilize)
+  // Unlock expansion once the sync has stopped, however it stopped (with a
+  // delay to let the UI stabilise). A pass that errors, and an athlete with
+  // nothing in the window, both have to release the latch: neither ever
+  // reaches 'complete', and the slider would stay locked for the session.
+  const activityCount = activities ? activities.length : null;
   useEffect(() => {
-    if (progress.status === 'complete' && isExpansionLocked) {
+    if (isExpansionLocked && syncSettledForExpansion(progress.status, activityCount)) {
       delayedUnlockExpansion();
     }
-  }, [progress.status, isExpansionLocked, delayedUnlockExpansion]);
-
-  // GPS sync display info
-  const gpsDisplayInfo = useMemo(
-    () => formatGpsSyncProgress(progress, isFetching && !isSyncing, t),
-    [progress, isFetching, isSyncing, t]
-  );
-
-  const displayInfo = gpsDisplayInfo;
-
-  // Debounce sync notification: indeterminate states (like "Loading activities..."
-  // during a background refetch) only post after 1.5s - if the fetch completes
-  // within that window the notification never shows. Determinate states (with real
-  // progress) post immediately so the user sees forward motion.
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const postNotification = useCallback((body: string) => {
-    updateSyncNotification(body);
-  }, []);
-
-  useEffect(() => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = null;
-    }
-
-    if (displayInfo !== null) {
-      const body = displayInfo.countText
-        ? `${displayInfo.text}... ${displayInfo.countText}`
-        : `${displayInfo.text}...`;
-
-      if (displayInfo.indeterminate) {
-        debounceTimerRef.current = setTimeout(() => {
-          postNotification(body);
-        }, 1500);
-      } else {
-        postNotification(body);
-      }
-    } else {
-      dismissSyncNotification();
-    }
-
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = null;
-      }
-    };
-  }, [displayInfo, postNotification]);
-
-  // Dismiss notification on unmount
-  useEffect(() => {
-    return () => {
-      dismissSyncNotification();
-    };
-  }, []);
+  }, [progress.status, activityCount, isExpansionLocked, delayedUnlockExpansion]);
 
   return null;
 }

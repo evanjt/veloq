@@ -30,6 +30,7 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'route/[id]': null,
   routes: null,
   'section/[id]': null,
+  'summary/[id]': { titleKey: 'activitySummary.title' },
 
   about: { titleKey: 'about.title' },
   account: { titleKey: 'settings.account' },
@@ -48,6 +49,7 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'notification-settings': { titleKey: 'notifications.settings.title' },
   record: { titleKey: 'recording.startActivity' },
   'recording-settings': { titleKey: 'recording.settings' },
+  'route-grouping-preview': { titleKey: 'settings.previewRouteGrouping' },
   'recording/review': { titleKey: 'recording.reviewActivity' },
   'recordings/[id]': { titleKey: 'recording.library.title', dynamic: true },
   'recordings/index': { titleKey: 'recording.library.title' },

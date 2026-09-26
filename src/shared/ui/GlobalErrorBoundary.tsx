@@ -1,7 +1,8 @@
 import React, { Component, ReactNode } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { recordCrash } from '@/shared/debug/crashLog';
-import { errorScreen, layout, typography } from '@/theme';
+import { View, Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
+import { errorScreen, layout, typography, spacing } from '@/theme';
+import { pressable } from '@/shared/ui';
 
 interface Props {
   children: ReactNode;
@@ -27,23 +28,14 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    try {
-      recordCrash({
-        source: 'react-boundary',
-        message: error?.message ? String(error.message) : String(error),
-        stack: error?.stack ? String(error.stack) : errorInfo?.componentStack || undefined,
-        fatal: true,
-      });
-    } catch {
-      // Recording the crash must never mask the crash itself.
-    }
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    recordBoundaryCrash(error, errorInfo, { fatal: true });
     if (__DEV__) {
       console.error('[GlobalErrorBoundary] Uncaught error:', error, errorInfo);
     }
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       return <GlobalErrorFallback error={this.state.error} />;
     }
@@ -58,10 +50,10 @@ function GlobalErrorFallback({ error }: { error: Error | null }) {
       <Text style={styles.body}>Close and reopen the app to continue.</Text>
       {__DEV__ && error?.message && <Text style={styles.devError}>{error.message}</Text>}
       {__DEV__ && (
-        <TouchableOpacity
+        <Pressable
           accessibilityRole="button"
           accessibilityLabel="Reload"
-          style={styles.reloadButton}
+          style={pressable(styles.reloadButton)}
           onPress={() => {
             // DevSettings is only available in dev builds
             const DevSettings = require('react-native').DevSettings;
@@ -69,7 +61,7 @@ function GlobalErrorFallback({ error }: { error: Error | null }) {
           }}
         >
           <Text style={styles.reloadText}>Reload</Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
   );
@@ -81,16 +73,16 @@ const styles = StyleSheet.create({
     backgroundColor: errorScreen.bg,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xl,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 40,
+    paddingBottom: spacing.xxl,
   },
   title: {
     color: errorScreen.title,
     fontSize: typography.sectionTitle.fontSize,
     fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.smPlus,
   },
   body: {
     color: errorScreen.detail,
@@ -102,13 +94,13 @@ const styles = StyleSheet.create({
     color: errorScreen.message,
     fontSize: typography.bodyCompact.fontSize,
     textAlign: 'center',
-    marginTop: 24,
+    marginTop: spacing.lg,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   reloadButton: {
-    marginTop: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 32,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.smPlus,
+    paddingHorizontal: spacing.xl,
     borderRadius: layout.borderRadiusSm,
     borderWidth: 1,
     borderColor: errorScreen.action,

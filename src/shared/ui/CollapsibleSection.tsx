@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

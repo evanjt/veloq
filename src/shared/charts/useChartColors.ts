@@ -8,7 +8,7 @@
  */
 
 import { useMemo } from 'react';
-import { brand, colors, darkColors, zoneColors } from '@/theme';
+import { brand, colors, darkColors, zoneColors, colorWithOpacity, ink } from '@/theme';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
 
 export interface ChartColorScheme {
@@ -18,8 +18,6 @@ export interface ChartColorScheme {
   form: string;
 
   // Activity metrics
-  power: string;
-  pace: string;
   heartRate: string;
   cadence: string;
   elevation: string;
@@ -40,7 +38,6 @@ export interface ChartColorScheme {
   // General chart colors
   primary: string;
   secondary: string;
-  tertiary: string;
   accent: string;
 
   // Chart UI elements
@@ -68,10 +65,6 @@ export interface ChartColorScheme {
 
   // Form zones (TSB)
   formHighRisk: string;
-  formOptimal: string;
-  formGreyZone: string;
-  formFresh: string;
-  formTransition: string;
 }
 
 /**
@@ -90,8 +83,6 @@ export function useChartColors(): ChartColorScheme {
       form: isDark ? darkColors.chartForm : brand.gold,
 
       // Activity metrics
-      power: isDark ? darkColors.chartPower : colors.chartAmber,
-      pace: isDark ? darkColors.chartPace : colors.chartGreen,
       heartRate: isDark ? darkColors.chartHR : colors.error,
       cadence: isDark ? darkColors.chartCadence : colors.chartPurple,
       elevation: isDark ? darkColors.chartElevation : colors.gray600,
@@ -112,11 +103,10 @@ export function useChartColors(): ChartColorScheme {
       // General chart colors
       primary: isDark ? brand.tealDark : brand.tealLight,
       secondary: isDark ? brand.blueLight : brand.blue,
-      tertiary: isDark ? darkColors.success : colors.chartGreen,
       accent: isDark ? brand.tealDark : brand.tealLight,
 
       // Chart UI elements
-      grid: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+      grid: isDark ? colorWithOpacity(ink.white, 0.08) : colorWithOpacity(ink.black, 0.08),
       gridFaint: isDark ? darkColors.chartGridFaint : colors.chartGridFaint,
       axis: isDark ? darkColors.textMuted : colors.textSecondary,
       label: isDark ? darkColors.textSecondary : colors.textSecondary,
@@ -138,12 +128,9 @@ export function useChartColors(): ChartColorScheme {
       zone6: zoneColors.zone6,
       zone7: zoneColors.zone7,
 
-      // Form zones (also theme-stable, they read as a traffic light)
+      // The one form zone a chart names for itself. The rest go through
+      // `FORM_ZONE_COLORS`, which is where a zone's colour is decided.
       formHighRisk: colors.formHighRisk,
-      formOptimal: colors.formOptimal,
-      formGreyZone: colors.formGreyZone,
-      formFresh: colors.formFresh,
-      formTransition: colors.formTransition,
     }),
     [isDark]
   );

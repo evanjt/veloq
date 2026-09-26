@@ -7,11 +7,21 @@
  * neither does the ready nonce `useEngineReady` reads: that store imports
  * `zustand` and nothing else.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { getEngine } from './engine';
 import { useEngineReady } from './useEngineReady';
 
-export type EngineEvent = 'activities' | 'groups' | 'sections';
+/**
+ * The channels this hook forwards to `engine.subscribe`. It is a narrower list
+ * than `EngineClient`'s own, spelled here rather than imported, so a consumer
+ * does not take the static native binding chain for a string literal.
+ * `detectionApplied` is on it because a detection run renames, splits and
+ * retires sections, and nothing else announces that it finished, and
+ * `fitParsed` because a FIT landing is what turns an awaiting strength tab
+ * into a ready one.
+ */
+export type EngineEvent = 'activities' | 'groups' | 'sections' | 'detectionApplied' | 'fitParsed';
 
 /**
  * Returns a trigger value that changes when any subscribed event fires.
@@ -59,4 +69,45 @@ export function useEngineSubscription(events: EngineEvent[]): number {
   }, [eventKey, engine]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return trigger;
+}
+
+/**
+ * A reader whose identity changes when a subscribed event fires, and at no
+ * other time.
+ *
+ * The counter [`useEngineSubscription`] returns is a key, not a value: a caller
+ * lists it in a memo's deps so the read re-runs after a sync, and the memo's
+ * body never touches it. `react-hooks/exhaustive-deps` is then right on the
+ * syntax and wrong on the purpose, and the reflex it invites, deleting the
+ * name, leaves the read showing what was true at mount.
+ *
+ * So the key becomes something the body does use. The memo calls this reader,
+ * depends on it honestly, and re-runs exactly when the engine has announced
+ * that its answer moved:
+ *
+ *     const readSections = useEngineRead(['sections']);
+ *     const rows = useMemo(
+ *       () => readSections((engine) => engine.getExcludedRouteActivityIds(id)),
+ *       [id, readSections]
+ *     );
+ *
+ * `undefined` when the engine is not open, which is the same answer a caller
+ * got from `getEngine()?.x()` and needs no new branch.
+ */
+export function useEngineRead(
+  events: EngineEvent[]
+): <T>(read: (engine: NonNullable<ReturnType<typeof getEngine>>) => T) => T | undefined {
+  const generation = useEngineSubscription(events);
+
+  // The generation is the whole dependency: a new identity per announcement is
+  // what re-runs every memo keyed on this reader, and holding it stable in
+  // between is what stops one re-running on an unrelated render.
+  return useCallback(
+    <T>(read: (engine: NonNullable<ReturnType<typeof getEngine>>) => T): T | undefined => {
+      void generation;
+      const engine = getEngine();
+      return engine ? read(engine) : undefined;
+    },
+    [generation]
+  );
 }

@@ -1,12 +1,25 @@
 /**
- * Unified settings read/write that prefers SQLite (via Rust FFI) with
- * AsyncStorage fallback. During the transition period, writes go to both.
+ * Unified settings read/write that prefers SQLite (via Rust FFI), with
+ * AsyncStorage behind it. Writes go to both.
  *
- * After a full release cycle, the AsyncStorage fallback can be removed.
+ * **The AsyncStorage half is load-bearing, not transitional.** The store
+ * initialisers run before `initWithPath`, so every read and write at cold
+ * start happens with no engine: `getSetting` falls through to AsyncStorage and
+ * `commitPending` drops the SQLite half at its `if (!engine) return`. Removing
+ * the fallback empties every preference on every launch, online or off, with
+ * nothing failing loudly to say so. `settingsColdStartFallback.test.ts` is
+ * what holds it in place.
+ *
+ * **It is not an ordering that could be changed.** `_layout` opens the engine
+ * inside an effect gated on `isAuthenticated`, so a signed-out launch has no
+ * engine at all and the sign-in screen's language and theme can only come from
+ * AsyncStorage however the initialisers are ordered. SQLite answers once the
+ * engine is open, and is where a preference written inside the app lands.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getEngine } from '@/shared/native/engine';
+import { SETTINGS_MIGRATED_KEY } from './migrateSettingsToSqlite';
 
 /**
  * Writes issued before the current tick ends, in the order their keys were
@@ -47,9 +60,28 @@ export async function getSetting(key: string): Promise<string | null> {
   if (engine) {
     const value = engine.getSetting(key);
     if (value !== undefined) return value;
+    if (sqliteHoldsEverything(engine)) return null;
   }
   // Fallback to AsyncStorage (pre-migration or engine not ready)
   return AsyncStorage.getItem(key);
+}
+
+/**
+ * True once the one-time migration has copied every preference into SQLite.
+ * After that an absent key is absent, and asking AsyncStorage is an async
+ * bridge round trip that can never find anything. A launch restores
+ * seventeen stores and most of their keys have never been written, so that
+ * is most of them, on every launch, forever.
+ *
+ * Only the true answer is remembered. A false one is this session's migration
+ * not having finished yet, which it can do at any moment.
+ */
+let migrationSeen = false;
+
+function sqliteHoldsEverything(engine: NonNullable<ReturnType<typeof getEngine>>): boolean {
+  if (migrationSeen) return true;
+  migrationSeen = engine.getSetting(SETTINGS_MIGRATED_KEY) !== undefined;
+  return migrationSeen;
 }
 
 /**

@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { colors, ink, spacing, layout, typography } from '@/theme';
+import { colors, ink, spacing, layout, typography, colorWithOpacity } from '@/theme';
+import { pressable } from '@/shared/ui';
 
 const SIZE_LABELS: Record<string, string> = {
   tip_small: 'support.tipSmall',
@@ -37,11 +38,11 @@ export function TipButtons({ products, isPurchasing, onTip, isDark, small }: Tip
           accessibilityState={{ disabled: isPurchasing }}
           onPress={() => onTip(product.id)}
           disabled={isPurchasing}
-          style={[
+          style={pressable([
             small ? styles.tipButtonSmall : styles.tipButton,
             isDark && styles.tipButtonDark,
             isPurchasing && styles.tipButtonDisabled,
-          ]}
+          ])}
         >
           <Text
             style={[small ? styles.tipPriceSmall : styles.tipPrice, isDark && styles.tipTextDark]}
@@ -104,11 +105,11 @@ const styles = StyleSheet.create({
   tipLabel: {
     ...typography.caption,
     fontSize: typography.label.fontSize,
-    color: 'rgba(255, 255, 255, 0.75)',
-    marginTop: 1,
+    color: colorWithOpacity(ink.white, 0.75),
+    marginTop: spacing.xxs,
   },
   tipLabelDark: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: colorWithOpacity(ink.white, 0.7),
   },
   tipTextDark: {
     color: ink.white,

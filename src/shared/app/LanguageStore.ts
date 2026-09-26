@@ -8,6 +8,7 @@ import {
   i18n,
 } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
+import { pushNotificationTemplates } from '@/i18n/notificationTemplates';
 
 const STORAGE_KEY = 'veloq-language-preference';
 
@@ -78,6 +79,11 @@ export const useLanguageStore = create<LanguageState>((set) => ({
       const sectionWord = i18n.t('routes.sectionWord');
       engine.setNameTranslations(routeWord, sectionWord);
     }
+
+    // The notification templates go with them, so a push handler woken with
+    // the app killed writes its sentence in the language just chosen. Unlike
+    // the two words above these are durable, which is the whole point.
+    pushNotificationTemplates();
 
     set({ language });
   },

@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { InitOutcome } from 'veloqrs';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
-import { colors, typography } from '@/theme';
+import { colors, typography, spacing } from '@/theme';
 
 /**
  * The line each reason names.
@@ -65,7 +65,7 @@ export function EngineInitBanner() {
   return (
     <Animated.View entering={SlideInUp.duration(250)} exiting={SlideOutUp.duration(200)}>
       <View style={styles.container} testID="engine-init-banner">
-        <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.warning} />
+        <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.warningAmber} />
         <Text style={styles.text}>{t(reasonKey)}</Text>
         <IconButton
           icon="refresh"
@@ -85,9 +85,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.warningBannerBg,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   text: {
     flex: 1,

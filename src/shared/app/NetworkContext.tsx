@@ -40,6 +40,12 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   // Debounce timer for going-offline transitions (3s delay prevents OfflineBanner flashing)
   const offlineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Whether any reading has come back yet. `isOnline` above is a seed, not an
+  // answer, so the first reading is not a transition and is not debounced: a
+  // cold boot in aeroplane mode otherwise reads as online for three seconds
+  // and every mount effect in that window latches on the online branch.
+  const hasReadingRef = useRef(false);
+
   useEffect(() => {
     // Cancellation flag to prevent state updates after unmount
     // and to coordinate between listener and fallback fetch
@@ -63,6 +69,11 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         // `refetchOnReconnect` never fires.
         onlineManager.setOnline(true);
         pushToEngine(true);
+      } else if (!hasReadingRef.current) {
+        // The first reading is the answer the seed was standing in for.
+        setNetworkState({ isOnline: false });
+        onlineManager.setOnline(false);
+        pushToEngine(false);
       } else {
         // Going offline: debounce by 3s to avoid flashing during brief hiccups
         offlineTimerRef.current = setTimeout(() => {
@@ -72,7 +83,10 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
           pushToEngine(false);
         }, 3000);
       }
+
+      hasReadingRef.current = true;
     };
+    applyRef.current = applyNetworkState;
 
     // Subscribe to network state updates
     const subscription = Network.addNetworkStateListener((state) => {
@@ -107,22 +121,50 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // The push is a value Rust holds, not a subscription, so it goes stale
-  // while the app is backgrounded and no listener fires. Re-stating what we
-  // already know on every foreground is what keeps Rust from refusing work on
-  // a connection that came back while nobody was watching.
+  // Nothing else re-reads the network. The listener fires on change, so a
+  // connection that never changes never produces a second reading, and the
+  // 100 ms fallback is armed once and skipped for ever after the first
+  // delivery. So a first reading that says offline on a working connection
+  // stood for the life of the process, with the banner up, the sync stopped
+  // and Rust refusing network work. The foreground asks again rather than
+  // repeating what it holds.
+  //
+  // The answer goes through `applyNetworkState`, not around it: that is where
+  // an online edge applies at once and a drop waits three seconds, and two
+  // paths that debounce differently is what one path avoids. The value already
+  // held is pushed first, because Rust's copy expires and a re-read that never
+  // answers must not leave it expired.
   const onlineRef = useRef(networkState.isOnline);
   useEffect(() => {
     onlineRef.current = networkState.isOnline;
   });
+  const applyRef = useRef<(state: Network.NetworkState) => void>(() => {});
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (status) => {
-      if (status === 'active') pushToEngine(onlineRef.current);
+      if (status !== 'active') return;
+      pushToEngine(onlineRef.current);
+      Network.getNetworkStateAsync()
+        .then((state) => applyRef.current(state))
+        .catch(() => {
+          // A reading that will not come back leaves the last one standing,
+          // which is what the engine was just handed.
+        });
     });
     return () => subscription.remove();
   }, []);
 
   return <NetworkContext.Provider value={networkState}>{children}</NetworkContext.Provider>;
+}
+
+/**
+ * Connectivity for a surface that has to render whether or not a provider is
+ * above it. A map is mounted in previews, snapshots and tests with no app
+ * shell, and a missing provider must not be what stops it drawing, so the
+ * answer there is online, which is what every surface assumed before any of
+ * them asked.
+ */
+export function useIsOnline(): boolean {
+  return useContext(NetworkContext)?.isOnline ?? true;
 }
 
 export function useNetwork(): NetworkContextValue {
