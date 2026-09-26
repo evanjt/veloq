@@ -5,23 +5,30 @@ import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext'
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  shadows,
+  typography,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import { getActivityTypeConfig } from './ActivityTypeFilter';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { ComponentErrorBoundary } from '@/shared/ui';
 import { type MapStyleType, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
 import { MapSurface, type MapCameraState, type MapSurfaceRef } from './MapSurface';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
-import type { ActivityBoundsItem, FrequentSection } from '@/types';
-import {
-  useEngineSections,
-  useEngineSectionCount,
-  useRouteSignatures,
-} from '@/features/routes/hooks';
+import type { ActivityBoundsItem } from '@/types';
+import { useMapSections, useSectionDetail, useEngineSectionCount } from '@/features/routes/hooks';
 import { useSectionAutoToggle, useVisibilityToggles } from '@/features/maps/hooks';
-import { TRACE_ZOOM_THRESHOLD, VIEWPORT_CULLING_THRESHOLD } from '@/features/maps/lib/mapBudgets';
+import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
+import { traceSubjects } from '@/features/maps/lib/traceBudget';
 import { buildSpiderGeoJSON } from '@/features/maps/lib/buildSpiderGeoJSON';
 import { isHeatmapEnabled } from '@/features/maps/stores/HeatmapPreferenceStore';
+import { reportHeatmapView, useHeatmapGeneration } from '@/features/maps/lib/heatmapGeneration';
 import {
   ActivityPopup,
   SectionPopup,
@@ -41,7 +48,7 @@ import {
   REGIONAL_INTERACTIVE_LAYERS,
 } from './regional/regionalMapLayerSpecs';
 import { EMPTY_FEATURE_COLLECTION } from '../lib/coordinates';
-import { useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
+import { surfaceIsLeaving, useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
 
 // Stable no-op function reference for disabled callbacks.
 // Inline `() => {}` creates a new reference every render, which destabilises
@@ -100,7 +107,14 @@ export function RegionalMapView({
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
-  const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
+  // Whether the camera has crossed into the zoom the trace layer draws at. The
+  // handler below has always computed this; the setter used to be a no-op, so
+  // the payload went up whatever the zoom.
+  const [aboveTraceZoom, setAboveTraceZoom] = useState(false);
+  // The overlay carries six fields per section. The popup wants the whole
+  // record, so it is read for the one section that was tapped.
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+  const { section: selectedSection } = useSectionDetail(selectedSectionId);
   const [spider, setSpider] = useState<SpiderState | null>(null);
   const surfaceRef = useRef<MapSurfaceRef>(null);
 
@@ -110,7 +124,6 @@ export function RegionalMapView({
   // its GL context and its tile textures, which is 122 MB nobody can see.
   const pathname = usePathname();
   const isMapFocused = pathname === '/map' || pathname.endsWith('/map');
-  const routeSignatures = useRouteSignatures(isMapFocused);
 
   // Cheap section count (SQL COUNT, no polylines) drives the toggle button's
   // visibility so it appears from first paint without the heavy polyline load.
@@ -124,14 +137,14 @@ export function RegionalMapView({
   // longer depends on this load - it reads sectionCount - so gating here can't
   // deadlock the button. The auto-toggle flips showSections on when zoomed in,
   // which triggers the load on demand.
-  const { sections } = useEngineSections({
+  const { sections } = useMapSections({
     minVisits: 1,
     enabled: showSections,
   });
 
   // Camera, bounds, and pre-computed activity centers
   const { activityCenters, mapCenter, currentZoomRef, currentCenterRef, markUserInteracted } =
-    useRegionalMapCamera({ activities, routeSignatures, surfaceRef });
+    useRegionalMapCamera({ activities, surfaceRef });
 
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const clusterOverlayRef = useRef<ClusterCountOverlayRef>(null);
@@ -177,19 +190,28 @@ export function RegionalMapView({
     center: [number, number];
     zoom: number;
   } | null>(null);
-  useEffect(() => {
-    if (!isMapFocused) setCameraOnBlur(settledCameraRef.current);
-  }, [isMapFocused]);
   // Within a session `cameraOnBlur` carries the position across a tab switch.
   // Across a launch nothing did, so every cold start opened on the world view
   // over a camera that had been saved on every settle since.
   const initialCamera = useInitialRegionalCamera(cameraOnBlur);
   const handleCameraSettled = useCallback((center: [number, number], zoom: number) => {
     settledCameraRef.current = { center, zoom };
+    // The tile pass writes every zoom in full before the next, so without a
+    // camera the ground under this view is drawn last on a fresh install.
+    // `center` is [longitude, latitude], MapLibre's order.
+    reportHeatmapView(center, zoom);
     if (mapStyleRef.current === 'satellite') {
       setCameraForAttribution({ center, zoom });
     }
   }, []);
+
+  /** The 3D surface's camera, kept in the same place the 2D one's settles. */
+  const handle3DCameraState = useCallback(
+    (camera: { center: [number, number]; zoom: number }) => {
+      handleCameraSettled(camera.center, camera.zoom);
+    },
+    [handleCameraSettled]
+  );
 
   // Dynamic attribution based on visible satellite sources at current location.
   // Shared with ActivityMapView via `computeAttribution` so both maps stay in sync
@@ -210,24 +232,23 @@ export function RegionalMapView({
     onAttributionChange?.(attributionText);
   }, [attributionText, onAttributionChange]);
 
-  // Clustering handles large point counts on its own. Culling below the
-  // threshold just churns array references through every GeoJSON builder.
-  const visibleActivities = useMemo(() => {
-    if (activities.length < VIEWPORT_CULLING_THRESHOLD) {
-      return activities;
-    }
-    if (!visibleActivityIds) {
-      // No viewport info yet - show all activities
-      return activities;
-    }
-    // Filter to only visible activities (only for large datasets)
-    return activities.filter((a) => visibleActivityIds.has(a.id));
-  }, [activities, visibleActivityIds]);
+  // Traces are a line per activity, and the layer draws none below the trace
+  // zoom, so below it there is nothing worth building or sending.
+  const traceActivities = useMemo(
+    () =>
+      traceSubjects({
+        activities,
+        visibleIds: visibleActivityIds,
+        zoom: aboveTraceZoom ? TRACE_ZOOM_THRESHOLD : null,
+        threshold: TRACE_ZOOM_THRESHOLD,
+        id: (a) => a.id,
+      }),
+    [activities, visibleActivityIds, aboveTraceZoom]
+  );
 
   // All GeoJSON data for map layers
   const {
     markersGeoJSON,
-    tracesGeoJSON,
     startPointsGeoJSON,
     sectionsGeoJSON,
     userLocationGeoJSON,
@@ -235,9 +256,8 @@ export function RegionalMapView({
     routeHasData,
   } = useMapGeoJSON({
     allActivities: activities,
-    visibleActivities,
+    traceActivities,
     activityCenters,
-    routeSignatures,
     sections,
     routeGroups: [],
     showRoutes: false,
@@ -262,10 +282,9 @@ export function RegionalMapView({
     handleFitAll,
   } = useMapHandlers({
     activities,
-    sections,
     selected,
     setSelected,
-    setSelectedSection,
+    setSelectedSectionId,
     showActivities,
     setShowActivities,
     showSections,
@@ -279,7 +298,7 @@ export function RegionalMapView({
     setVisibleActivityIds,
     currentZoomRef,
     currentCenterRef,
-    setAboveTraceZoom: NOOP, // Visibility is a zoom expression on the layer
+    setAboveTraceZoom,
     traceZoomThreshold: TRACE_ZOOM_THRESHOLD,
     onCameraSettled: handleCameraSettled,
     surfaceRef,
@@ -324,7 +343,7 @@ export function RegionalMapView({
     if (spider) setSpider(null);
   }
   if (!showSections && selectedSection) {
-    setSelectedSection(null);
+    setSelectedSectionId(null);
   }
 
   const toggleStyle = () => {
@@ -336,15 +355,9 @@ export function RegionalMapView({
   };
 
   // Handle 3D section click - receives section ID string, looks up section to select
-  const handle3DSectionClick = useCallback(
-    (sectionId: string) => {
-      const section = sections.find((s) => s.id === sectionId);
-      if (section) {
-        setSelectedSection(section);
-      }
-    },
-    [sections]
-  );
+  const handle3DSectionClick = useCallback((sectionId: string) => {
+    setSelectedSectionId(sectionId);
+  }, []);
 
   // Selected activity ID for MapLibre expressions (cheap to pass, doesn't trigger GeoJSON rebuild)
   const selectedActivityId = selected?.activity.id ?? null;
@@ -384,13 +397,22 @@ export function RegionalMapView({
   // Show 3D view when enabled
   const show3D = is3DMode && can3D;
 
+  // Entering 3D unmounts the 2D surface as surely as leaving the tab does, so
+  // both snapshot where it was. Without the 3D half, coming back opened on the
+  // camera saved at the last tab blur, and then saved that as the new one.
+  useEffect(() => {
+    if (surfaceIsLeaving(isMapFocused, show3D)) setCameraOnBlur(settledCameraRef.current);
+  }, [isMapFocused, show3D]);
+
   const heatmapEnabled = isHeatmapEnabled();
+  // A finished pass is new ground under the same tile URLs, and MapLibre does
+  // not ask twice. The count moves the source's URL, which is what makes it.
+  const heatmapGeneration = useHeatmapGeneration();
 
   const sources = useMemo(
     () =>
       buildRegionalSources({
         markersGeoJSON,
-        tracesGeoJSON,
         startPointsGeoJSON,
         sectionsGeoJSON,
         userLocationGeoJSON,
@@ -398,10 +420,10 @@ export function RegionalMapView({
         spiderPointsGeoJSON,
         spiderLinesGeoJSON,
         heatmapEnabled,
+        heatmapGeneration,
       }),
     [
       markersGeoJSON,
-      tracesGeoJSON,
       startPointsGeoJSON,
       sectionsGeoJSON,
       userLocationGeoJSON,
@@ -409,6 +431,7 @@ export function RegionalMapView({
       spiderPointsGeoJSON,
       spiderLinesGeoJSON,
       heatmapEnabled,
+      heatmapGeneration,
     ]
   );
 
@@ -482,6 +505,9 @@ export function RegionalMapView({
             tracesGeoJSON={EMPTY_FEATURE_COLLECTION}
             pointMarkersGeoJSON={showActivities ? markersGeoJSON : EMPTY_FEATURE_COLLECTION}
             showHeatmap={showHeatmap}
+            // The 3D camera is the camera: without this the 2D surface came
+            // back where 3D started rather than where the athlete left it.
+            onCameraStateChange={handle3DCameraState}
             onSectionClick={handle3DSectionClick}
             onActivityClick={(activityId) => {
               const activity = activities.find((a) => a.id === activityId);
@@ -591,9 +617,9 @@ export function RegionalMapView({
         <SectionPopup
           section={selectedSection}
           bottom={insets.bottom + 250}
-          onClose={() => setSelectedSection(null)}
+          onClose={() => setSelectedSectionId(null)}
           onViewDetails={() => {
-            setSelectedSection(null);
+            setSelectedSectionId(null);
             router.push(`/section/${selectedSection.id}`);
           }}
         />
@@ -615,7 +641,7 @@ const styles = StyleSheet.create({
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.mapOverlay,
@@ -636,9 +662,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    backgroundColor: colorWithOpacity(ink.white, 0.7),
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderTopLeftRadius: spacing.sm,
     zIndex: 5,
   },

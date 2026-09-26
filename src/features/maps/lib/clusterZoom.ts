@@ -74,14 +74,28 @@ export interface ClusterZoomPlanStacked {
   leafCount: number;
 }
 
-export type ClusterZoomPlan = ClusterZoomPlanSmall | ClusterZoomPlanStacked;
+/**
+ * No leaves came back at all, so there is nothing to fit and nothing to fan
+ * out. The page answers `[]` for a source it cannot find, a cluster id that no
+ * longer resolves and any error inside the query, and it says which of those it
+ * was in none of them. The caller falls back on supercluster's own split zoom,
+ * so a tap moves the camera whichever it was.
+ */
+export interface ClusterZoomPlanExpand {
+  kind: 'expand';
+  center: [number, number];
+}
+
+export type ClusterZoomPlan = ClusterZoomPlanSmall | ClusterZoomPlanStacked | ClusterZoomPlanExpand;
 
 /**
  * Decide how to zoom into a cluster given its leaves and tap coordinates.
  *
  * Rules:
+ *   - No leaves at all → expand plan: the caller has nothing to fit and nothing
+ *     to fan out, so it asks the map where the cluster splits.
  *   - If leaves collapse to a single point (span < epsilon) → stacked plan,
- *     caller can spider-expand or no-op.
+ *     caller can spider-expand.
  *   - Otherwise → fit to the leaves' bounds.
  *   - Animation is shorter (300ms) for small clusters, longer (600ms) for
  *     large ones so the camera transition stays readable.
@@ -90,6 +104,8 @@ export function planClusterZoom(
   leaves: readonly GeoJSON.Feature[],
   fallbackCenter: [number, number]
 ): ClusterZoomPlan {
+  if (leaves.length === 0) return { kind: 'expand', center: fallbackCenter };
+
   const bounds = computeLeafBounds(leaves);
 
   if (

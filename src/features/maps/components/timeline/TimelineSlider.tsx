@@ -4,7 +4,16 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
-import { colors, darkColors, typography, spacing, layout, smallElementShadow } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  layout,
+  smallElementShadow,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import { SyncProgressBanner } from './SyncProgressBanner';
 import { TimelineLegend } from './TimelineLegend';
 import { ActivityCategoryFilter } from './ActivityCategoryFilter';
@@ -425,7 +434,7 @@ export function TimelineSlider({
                                 ? colors.primary
                                 : isDark
                                   ? 'rgba(60,60,60,0.8)'
-                                  : 'rgba(255,255,255,0.8)',
+                                  : colorWithOpacity(ink.white, 0.8),
                           },
                         ]}
                       />
@@ -525,13 +534,13 @@ const styles = StyleSheet.create({
   wrapper: {},
   container: {
     backgroundColor: 'transparent',
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
     paddingHorizontal: layout.cardMargin,
   },
   sliderContainer: {
     height: layout.minTapTarget,
     justifyContent: 'center',
-    marginHorizontal: 14,
+    marginHorizontal: spacing.md,
   },
   track: {
     position: 'absolute',
@@ -635,8 +644,8 @@ const styles = StyleSheet.create({
   tickContainer: {
     position: 'relative',
     height: 20,
-    marginTop: 2,
-    marginHorizontal: 14,
+    marginTop: spacing.xxs,
+    marginHorizontal: spacing.md,
     overflow: 'visible',
   },
   tickMark: {

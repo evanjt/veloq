@@ -2,6 +2,8 @@
  * Wait for an on-demand GPS download to land in the engine.
  */
 
+import { decodeCoords } from 'veloqrs';
+
 import { getEngine } from '@/shared/native/engine';
 import { awaitEngineAnnouncement } from '@/shared/native/awaitEngineAnnouncement';
 
@@ -19,8 +21,10 @@ const GPS_WAIT_TIMEOUT_MS = 15_000;
 export function waitForGpsTrack(activityId: string): Promise<[number, number][] | null> {
   const engine = getEngine();
   const read = (): [number, number][] | null => {
-    const points = engine?.getGpsTrack(activityId);
-    if (!points || points.length === 0) return null;
+    const encoded = engine?.getGpsTrack(activityId);
+    if (!encoded) return null;
+    const points = decodeCoords(encoded);
+    if (points.length === 0) return null;
     return points.map((p) => [p.latitude, p.longitude] as [number, number]);
   };
 
@@ -39,4 +43,22 @@ export function waitForGpsTrack(activityId: string): Promise<[number, number][] 
       return read() ?? undefined;
     },
   });
+}
+
+/**
+ * Whether a track that has just landed still belongs on screen.
+ *
+ * The wait runs up to fifteen seconds, and the marker the athlete tapped is
+ * often not the one they are looking at by the time it returns. Applied
+ * unconditionally it reopened a dismissed popup, replaced the marker they had
+ * tapped since, or wrote into a screen that had already gone.
+ *
+ * `onScreen` is the id the popup is showing now, null when it is dismissed.
+ */
+export function trackStillWanted(
+  landedFor: string,
+  onScreen: string | null,
+  mounted: boolean
+): boolean {
+  return mounted && onScreen === landedFor;
 }

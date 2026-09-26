@@ -1,9 +1,10 @@
 /**
  * Camera position management for ActivityMapView.
  *
- * Tracks the viewport, fits the track once, syncs the compass and finds the
- * user. Position lives in refs rather than state so a gesture does not
- * re-render the tree sixty times a second.
+ * Tracks the viewport, syncs the compass and finds the user. The track is
+ * fitted once, by the surface's initial camera, and never again here.
+ * Position lives in refs rather than state so a gesture does not re-render
+ * the tree sixty times a second.
  *
  * The renderer keeps its own camera across a style swap, so there is no saved
  * position to restore and no remount to retry.
@@ -22,9 +23,6 @@ interface MapBounds {
   ne: [number, number];
   sw: [number, number];
 }
-
-/** Room left around the fitted track, in pixels. */
-const FIT_PADDING = 50;
 
 interface UseMapCameraParams {
   validCoordinates: LatLng[];
@@ -83,7 +81,6 @@ export function useMapCamera({
   const [mapFailed, setMapFailed] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const bearingAnim = useRef(new Animated.Value(0)).current;
-  const initialCameraAppliedRef = useRef(false);
 
   const bounds = useMemo(() => getMapLibreBounds(validCoordinates), [validCoordinates]);
 
@@ -119,14 +116,6 @@ export function useMapCamera({
   const handleMapFailed = useCallback(() => {
     setMapFailed(true);
   }, []);
-
-  // Fit the track once. Later bounds changes are the user's business.
-  useEffect(() => {
-    if (initialCameraAppliedRef.current) return;
-    if (!mapReady || !bounds) return;
-    surfaceRef.current?.fitBounds({ sw: bounds.sw, ne: bounds.ne }, FIT_PADDING);
-    initialCameraAppliedRef.current = true;
-  }, [mapReady, bounds]);
 
   const handleRegionIsChanging = useCallback(
     (state: MapCameraState) => {

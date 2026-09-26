@@ -11,6 +11,7 @@ import type { CreationState } from '@/features/maps/components/SectionCreationOv
 import type { SectionCreationResult } from '@/features/maps/components/ActivityMapView';
 import { haversineDistance } from '@/shared/math/geometry';
 import { debug } from '@/shared/debug/debug';
+import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
 
 const log = debug.create('SectionCreation');
 
@@ -197,12 +198,12 @@ export function useSectionCreation({
 
   const sectionGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
     if (!creationMode || startIndex === null) {
-      return { type: 'FeatureCollection' as const, features: [] };
+      return EMPTY_FEATURE_COLLECTION;
     }
     const end = endIndex ?? startIndex;
     const sectionCoords = validCoordinates.slice(startIndex, end + 1);
     if (sectionCoords.length < 2) {
-      return { type: 'FeatureCollection' as const, features: [] };
+      return EMPTY_FEATURE_COLLECTION;
     }
     return {
       type: 'Feature' as const,

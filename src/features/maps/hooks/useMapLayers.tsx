@@ -45,16 +45,12 @@ interface UseMapLayersParams {
 interface UseMapLayersResult {
   /** GeoJSON for the activity route line */
   routeGeoJSON: GeoJSON.FeatureCollection | GeoJSON.Feature;
-  /** Whether routeGeoJSON contains renderable data */
-  routeHasData: boolean;
   /** GeoJSON for the route overlay (matched route trace) */
   overlayGeoJSON: GeoJSON.FeatureCollection | GeoJSON.Feature;
   /** Whether overlayGeoJSON contains renderable data */
   overlayHasData: boolean;
   /** Per-overlay data for marker positioning */
   sectionOverlaysGeoJSON: SectionOverlayGeoJSON[] | null;
-  /** Consolidated section polylines GeoJSON (stable shape source) */
-  consolidatedSectionsGeoJSON: GeoJSON.FeatureCollection;
   /** Consolidated portion polylines GeoJSON (stable shape source) */
   consolidatedPortionsGeoJSON: GeoJSON.FeatureCollection;
   /** Perpendicular tick marks at each section's start/end. Cuts through stacked
@@ -72,29 +68,11 @@ interface UseMapLayersResult {
   highlightGeoJSON: GeoJSON.Feature<GeoJSON.Point>;
   /**
    * MapLibre `line-gradient` interpolation expression for the route line,
-   * derived from altitude + distance streams. `null` when gradient data is
-   * unavailable (no altitude/distance stream, or track too short).
+   * derived from the `grade_smooth` and `distance` streams. `null` when there
+   * is no grade stream or the track is too short.
    */
   gradientLineExpression: unknown | null;
 }
-
-/** Minimal valid geometry placeholder - prevents Fabric add/remove crashes */
-const MINIMAL_LINE: GeoJSON.FeatureCollection = {
-  type: 'FeatureCollection',
-  features: [
-    {
-      type: 'Feature',
-      properties: { _placeholder: true },
-      geometry: {
-        type: 'LineString',
-        coordinates: [
-          [0, 0],
-          [0, 0.0001],
-        ],
-      },
-    },
-  ],
-};
 
 export function useMapLayers({
   validCoordinates,
@@ -125,10 +103,6 @@ export function useMapLayers({
     };
   }, [validCoordinates]);
 
-  const routeHasData =
-    routeGeoJSON.type === 'Feature' ||
-    (routeGeoJSON.type === 'FeatureCollection' && routeGeoJSON.features.length > 0);
-
   // ----- route overlay (matched route trace) -----
   const overlayGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
     if (!routeOverlay || routeOverlay.length < 2) {
@@ -153,126 +127,115 @@ export function useMapLayers({
     (overlayGeoJSON.type === 'FeatureCollection' && overlayGeoJSON.features.length > 0);
 
   // ----- section overlays GeoJSON -----
-  const { sectionOverlaysGeoJSON, consolidatedSectionsGeoJSON, consolidatedPortionsGeoJSON } =
-    useMemo(() => {
-      if (!sectionOverlays || sectionOverlays.length === 0) {
-        return {
-          sectionOverlaysGeoJSON: null as SectionOverlayGeoJSON[] | null,
-          consolidatedSectionsGeoJSON: MINIMAL_LINE,
-          consolidatedPortionsGeoJSON: MINIMAL_LINE,
-        };
-      }
-
-      let skippedSections = 0;
-      let skippedPortions = 0;
-      const sectionFeatures: GeoJSON.Feature[] = [];
-      const portionFeatures: GeoJSON.Feature[] = [];
-      const overlayData: SectionOverlayGeoJSON[] = [];
-
-      sectionOverlays.forEach((overlay) => {
-        const overlayKey = overlay.overlayKey ?? overlay.id;
-
-        const validSectionPoints = overlay.sectionPolyline.filter(
-          (c) =>
-            Number.isFinite(c.latitude) &&
-            Number.isFinite(c.longitude) &&
-            !isNaN(c.latitude) &&
-            !isNaN(c.longitude)
-        );
-
-        let sectionGeo: GeoJSON.Feature | null = null;
-        if (validSectionPoints.length >= 2) {
-          sectionGeo = {
-            type: 'Feature',
-            properties: {
-              id: overlay.id,
-              overlayId: overlayKey,
-              type: 'section',
-              isPR: !!overlay.isPR,
-              colorIndex: sectionPaletteIndex(overlay.id),
-            },
-            geometry: {
-              type: 'LineString',
-              coordinates: validSectionPoints.map((c) => [c.longitude, c.latitude]),
-            },
-          };
-          sectionFeatures.push(sectionGeo);
-        } else if (overlay.sectionPolyline.length > 0) {
-          skippedSections++;
-          if (__DEV__) {
-            console.warn(
-              `[ActivityMapView] INVALID SECTION OVERLAY: id=${overlay.id} originalPoints=${overlay.sectionPolyline.length} validPoints=${validSectionPoints.length}`
-            );
-          }
-        }
-
-        const validPortionPoints = overlay.activityPortion?.filter(
-          (c) =>
-            Number.isFinite(c.latitude) &&
-            Number.isFinite(c.longitude) &&
-            !isNaN(c.latitude) &&
-            !isNaN(c.longitude)
-        );
-
-        let portionGeo: GeoJSON.Feature | null = null;
-        if (validPortionPoints && validPortionPoints.length >= 2) {
-          portionGeo = {
-            type: 'Feature',
-            properties: {
-              id: overlay.id,
-              overlayId: overlayKey,
-              type: 'portion',
-              isPR: !!overlay.isPR,
-              colorIndex: sectionPaletteIndex(overlay.id),
-            },
-            geometry: {
-              type: 'LineString',
-              coordinates: validPortionPoints.map((c) => [c.longitude, c.latitude]),
-            },
-          };
-          portionFeatures.push(portionGeo);
-        } else if (overlay.activityPortion && overlay.activityPortion.length > 0) {
-          skippedPortions++;
-          if (__DEV__) {
-            console.warn(
-              `[ActivityMapView] INVALID PORTION OVERLAY: id=${overlay.id} originalPoints=${overlay.activityPortion.length} validPoints=${validPortionPoints?.length ?? 0}`
-            );
-          }
-        }
-
-        overlayData.push({
-          id: overlay.id,
-          overlayId: overlayKey,
-          sectionGeo,
-          portionGeo,
-          isPR: overlay.isPR,
-        });
-      });
-
-      if (__DEV__ && (skippedSections > 0 || skippedPortions > 0)) {
-        console.warn(
-          `[ActivityMapView] sectionOverlaysGeoJSON: skipped ${skippedSections} sections, ${skippedPortions} portions with invalid polylines`
-        );
-      }
-
+  const { sectionOverlaysGeoJSON, consolidatedPortionsGeoJSON } = useMemo(() => {
+    if (!sectionOverlays || sectionOverlays.length === 0) {
       return {
-        sectionOverlaysGeoJSON: overlayData.length > 0 ? overlayData : null,
-        consolidatedSectionsGeoJSON:
-          sectionFeatures.length > 0
-            ? ({
-                type: 'FeatureCollection' as const,
-                features: sectionFeatures,
-              } as GeoJSON.FeatureCollection)
-            : MINIMAL_LINE,
-        consolidatedPortionsGeoJSON:
-          portionFeatures.length > 0
-            ? ({
-                type: 'FeatureCollection' as const,
-                features: portionFeatures,
-              } as GeoJSON.FeatureCollection)
-            : MINIMAL_LINE,
+        sectionOverlaysGeoJSON: null as SectionOverlayGeoJSON[] | null,
+        consolidatedPortionsGeoJSON: EMPTY_FEATURE_COLLECTION,
       };
-    }, [sectionOverlays]);
+    }
+
+    let skippedSections = 0;
+    let skippedPortions = 0;
+    const portionFeatures: GeoJSON.Feature[] = [];
+    const overlayData: SectionOverlayGeoJSON[] = [];
+
+    sectionOverlays.forEach((overlay) => {
+      const overlayKey = overlay.overlayKey ?? overlay.id;
+
+      const validSectionPoints = overlay.sectionPolyline.filter(
+        (c) =>
+          Number.isFinite(c.latitude) &&
+          Number.isFinite(c.longitude) &&
+          !isNaN(c.latitude) &&
+          !isNaN(c.longitude)
+      );
+
+      let sectionGeo: GeoJSON.Feature | null = null;
+      if (validSectionPoints.length >= 2) {
+        sectionGeo = {
+          type: 'Feature',
+          properties: {
+            id: overlay.id,
+            overlayId: overlayKey,
+            type: 'section',
+            isPR: !!overlay.isPR,
+            colorIndex: sectionPaletteIndex(overlay.id),
+          },
+          geometry: {
+            type: 'LineString',
+            coordinates: validSectionPoints.map((c) => [c.longitude, c.latitude]),
+          },
+        };
+      } else if (overlay.sectionPolyline.length > 0) {
+        skippedSections++;
+        if (__DEV__) {
+          console.warn(
+            `[ActivityMapView] INVALID SECTION OVERLAY: id=${overlay.id} originalPoints=${overlay.sectionPolyline.length} validPoints=${validSectionPoints.length}`
+          );
+        }
+      }
+
+      const validPortionPoints = overlay.activityPortion?.filter(
+        (c) =>
+          Number.isFinite(c.latitude) &&
+          Number.isFinite(c.longitude) &&
+          !isNaN(c.latitude) &&
+          !isNaN(c.longitude)
+      );
+
+      let portionGeo: GeoJSON.Feature | null = null;
+      if (validPortionPoints && validPortionPoints.length >= 2) {
+        portionGeo = {
+          type: 'Feature',
+          properties: {
+            id: overlay.id,
+            overlayId: overlayKey,
+            type: 'portion',
+            isPR: !!overlay.isPR,
+            colorIndex: sectionPaletteIndex(overlay.id),
+          },
+          geometry: {
+            type: 'LineString',
+            coordinates: validPortionPoints.map((c) => [c.longitude, c.latitude]),
+          },
+        };
+        portionFeatures.push(portionGeo);
+      } else if (overlay.activityPortion && overlay.activityPortion.length > 0) {
+        skippedPortions++;
+        if (__DEV__) {
+          console.warn(
+            `[ActivityMapView] INVALID PORTION OVERLAY: id=${overlay.id} originalPoints=${overlay.activityPortion.length} validPoints=${validPortionPoints?.length ?? 0}`
+          );
+        }
+      }
+
+      overlayData.push({
+        id: overlay.id,
+        overlayId: overlayKey,
+        sectionGeo,
+        portionGeo,
+        isPR: overlay.isPR,
+      });
+    });
+
+    if (__DEV__ && (skippedSections > 0 || skippedPortions > 0)) {
+      console.warn(
+        `[ActivityMapView] sectionOverlaysGeoJSON: skipped ${skippedSections} sections, ${skippedPortions} portions with invalid polylines`
+      );
+    }
+
+    return {
+      sectionOverlaysGeoJSON: overlayData.length > 0 ? overlayData : null,
+      consolidatedPortionsGeoJSON:
+        portionFeatures.length > 0
+          ? ({
+              type: 'FeatureCollection' as const,
+              features: portionFeatures,
+            } as GeoJSON.FeatureCollection)
+          : EMPTY_FEATURE_COLLECTION,
+    };
+  }, [sectionOverlays]);
 
   // ----- section marker GeoJSON -----
   // Sections tab: numbered markers (1, 2, 3...) for all sections
@@ -446,18 +409,16 @@ export function useMapLayers({
   // stops so the expression stays compact regardless of track length.
   const gradientLineExpression = useMemo(() => {
     if (!streams || validCoordinates.length < 2) return null;
-    const stops = buildGradientLineStops(streams.grade_smooth);
+    const stops = buildGradientLineStops(streams.grade_smooth, streams.distance);
     if (!stops) return null;
     return ['interpolate', ['linear'], ['line-progress'], ...stops];
   }, [streams, validCoordinates.length]);
 
   return {
     routeGeoJSON,
-    routeHasData,
     overlayGeoJSON,
     overlayHasData,
     sectionOverlaysGeoJSON,
-    consolidatedSectionsGeoJSON,
     consolidatedPortionsGeoJSON,
     sectionBoundariesGeoJSON,
     sectionMarkersGeoJSON,

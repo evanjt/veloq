@@ -12,11 +12,29 @@
  * values here.
  */
 import { MAP_3D_READY_TIMEOUT_MS } from '@/features/maps/lib/mapBudgets';
-import { TERRAIN_3D_CONFIG } from '@/features/maps/components/mapStyles';
+import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
+import { TERRAIN_3D_CONFIG, terrain3DSource } from '@/features/maps/components/mapStyles';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import { resolveStyleExpression, LIGHT_STYLE_URL, TERRAIN_STYLE_OPTIONS } from './styleResolution';
 import { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared';
 import { getTileCacheBudgetMb } from '@/features/maps/lib/storage/tileCacheSettings';
+import { jsLiteral, jsLiteralList } from '@/features/maps/lib/webViewLiterals';
+import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
+import { heatmapTileTemplate } from '@/features/maps/hooks/useHeatmapTiles';
+import { colors, colorWithOpacity } from '@/theme';
+
+/**
+ * What the app says when it declines a tile request of its own.
+ *
+ * The page logs every MapLibre `error` event, and a rejection the bridge made
+ * is not a map error: a heatmap tile the store does not hold is as expected as
+ * a 404 from a regional source. The prefix is what tells the two apart, so the
+ * bridge rejects with these and the handler suppresses them by name. Bare
+ * prose here cost a device session and an investigation.
+ */
+export const APP_ERROR_PREFIX = 'veloq: ';
+export const APP_TILE_MISS = `${APP_ERROR_PREFIX}tile not found`;
+export const APP_TILE_READ_ERROR = `${APP_ERROR_PREFIX}tile read error`;
 
 export interface Map3DHtmlConfig {
   /** Route coordinates as [lng, lat] pairs. Empty array = no route layer. */
@@ -91,7 +109,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
   const isDark = initStyle === 'dark' || initStyle === 'satellite';
 
   // Serialize shared terrain config for injection into initial HTML.
-  const initTerrainSourceJSON = JSON.stringify(TERRAIN_3D_CONFIG.source);
+  const initTerrainSourceJSON = JSON.stringify(terrain3DSource());
   const initSkyConfigJSON = JSON.stringify(
     isSatellite
       ? TERRAIN_3D_CONFIG.sky.satellite
@@ -126,7 +144,7 @@ ${consoleBridgeScript()}
     function sendMapReady() {
       if (mapReadySent || mapFailedSent) return;
       mapReadySent = true;
-      window._rn_log('sending mapReady - terrain:' + terrainHits + '/' + terrainMisses + ' sat:' + satHits + '/' + satMisses + ' vec:' + vecHits + '/' + vecMisses);
+      window._rn_log('sending mapReady - sat:' + satHits + '/' + satMisses + ' vec:' + vecHits + '/' + vecMisses);
       if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
       }
@@ -136,6 +154,12 @@ ${consoleBridgeScript()}
     // The renderer ships in the app but the DEM tiles do not, so an offline 3D
     // open draws a flat map that looks like broken 3D. Reported once, after
     // the page has settled, so the caller can drop back to 2D and say why.
+    //
+    // Deliveries and failures, not cache hits and misses: the DEM comes
+    // through the intercept, so the page has no handler of its own on that
+    // path and reads both off MapLibre's source events instead. A page with
+    // failures and no deliveries has no terrain at all.
+    var terrainDelivered = 0, terrainFailed = 0;
     var terrainReportSent = false;
 
     function reportTerrainState() {
@@ -173,6 +197,18 @@ ${consoleBridgeScript()}
 
     const coordinates = ${coordsJSON};
     window._routeCoords = coordinates;
+
+    // The two point features the start and end dots are drawn from.
+    function _startEndOf(line) {
+      if (!line || line.length === 0) return { type: 'FeatureCollection', features: [] };
+      return {
+        type: 'FeatureCollection',
+        features: [
+          { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: line[0] } },
+          { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: line[line.length - 1] } },
+        ],
+      };
+    }
     const bounds = ${boundsJSON};
     const center = ${centerJSON};
     const savedZoom = ${zoom};
@@ -201,7 +237,7 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
       };
       if (bounds && !${hasSavedCamera}) {
         opts.bounds = [bounds.sw, bounds.ne];
-        opts.fitBoundsOptions = { padding: 50 };
+        opts.fitBoundsOptions = { padding: ${TRACK_FIT_PADDING} };
       } else if (center) {
         opts.center = center;
         opts.zoom = savedZoom;
@@ -222,16 +258,28 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
       window.map = new maplibregl.Map(buildMapOptions(styleJSON));
     } else {
       window._rn_log('creating map with light style URL');
-      window.map = new maplibregl.Map(buildMapOptions('${LIGHT_STYLE_URL}'));
+      window.map = new maplibregl.Map(buildMapOptions(${jsLiteral(LIGHT_STYLE_URL)}));
     }
 
     var map = window.map;
 
-    // Surface map-level errors, but suppress expected tile 404s from regional sources
+    // Surface map-level errors, but not the expected ones: a tile 404 from a
+    // regional source, and a request the app itself declined. What is left is
+    // logged with its source and its URL, because a message alone sends the
+    // next reader looking for a cause that is not in it.
+    map.on('sourcedata', function(e) {
+      if (e.sourceId === 'terrain' && e.tile) terrainDelivered++;
+    });
+
     map.on('error', function(e) {
       var msg = e.error ? e.error.message || String(e.error) : e.message || '';
+      if (e.sourceId === 'terrain' && e.tile) terrainFailed++;
       if (msg.indexOf('HTTP 4') === 0) return;
-      window._rn_log('map error: ' + msg);
+      if (msg.indexOf(${jsLiteral(APP_ERROR_PREFIX)}) === 0) return;
+      var where = '';
+      if (e.sourceId) where += ' [' + e.sourceId + ']';
+      if (e.error && e.error.url) where += ' ' + e.error.url;
+      window._rn_log('map error: ' + msg + where);
     });
 
     // Track camera changes and save state for restoration
@@ -306,17 +354,22 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
         }, _hillshadeBefore);
       }
 
-      // Add route if coordinates exist
-      if (coordinates.length > 0) {
+      // The route layers are always mounted, empty and hidden when there is no
+      // route. Keying the page on the selected activity's coordinates instead
+      // rebuilt the whole terrain page on every tap, which reboots maplibre
+      // and refetches every DEM and hillshade tile. window._veloq3d.setRoute
+      // below is how a later selection arrives.
+      var hasRoute = coordinates.length > 0;
+      {
         map.addSource('route', {
           type: 'geojson',
           data: {
-            type: 'Feature',
-            properties: {},
-            geometry: {
-              type: 'LineString',
-              coordinates: coordinates,
-            },
+            type: 'FeatureCollection',
+            features: hasRoute ? [{
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'LineString', coordinates: coordinates },
+            }] : [],
           },
           tolerance: 0,
         });
@@ -329,6 +382,7 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
           layout: {
             'line-join': 'round',
             'line-cap': 'round',
+            visibility: hasRoute ? 'visible' : 'none',
           },
           paint: {
             'line-color': '#FFFFFF',
@@ -345,31 +399,25 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
           layout: {
             'line-join': 'round',
             'line-cap': 'round',
+            visibility: hasRoute ? 'visible' : 'none',
           },
           paint: {
-            'line-color': '${routeColor}',
+            'line-color': ${jsLiteral(routeColor)},
             'line-width': 3,
           },
         });
 
         // Start/end circle markers
-        var startPt = coordinates[0];
-        var endPt = coordinates[coordinates.length - 1];
         map.addSource('start-end-markers', {
           type: 'geojson',
-          data: {
-            type: 'FeatureCollection',
-            features: [
-              { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: startPt } },
-              { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: endPt } },
-            ],
-          },
+          data: _startEndOf(coordinates),
         });
         // White border ring
         map.addLayer({
           id: 'start-end-border',
           type: 'circle',
           source: 'start-end-markers',
+          layout: { visibility: hasRoute ? 'visible' : 'none' },
           paint: {
             'circle-radius': 7,
             'circle-color': '#FFFFFF',
@@ -380,12 +428,37 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
           id: 'start-end-fill',
           type: 'circle',
           source: 'start-end-markers',
+          layout: { visibility: hasRoute ? 'visible' : 'none' },
           paint: {
             'circle-radius': 5,
-            'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'],
+            'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.75))}, ${jsLiteral(colorWithOpacity(colors.error, 0.75))}],
           },
         });
       }
+
+      // Swap the drawn route without rebuilding the page. Injected from React
+      // Native when the selected activity changes.
+      window._veloq3d = window._veloq3d || {};
+      window._veloq3d.setRoute = function(next) {
+        try {
+          var on = next && next.length > 0;
+          window._routeCoords = next || [];
+          map.getSource('route').setData({
+            type: 'FeatureCollection',
+            features: on ? [{
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'LineString', coordinates: next },
+            }] : [],
+          });
+          map.getSource('start-end-markers').setData(_startEndOf(next || []));
+          ['route-outline', 'route-line', 'start-end-border', 'start-end-fill'].forEach(function(id) {
+            if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+          });
+        } catch (e) {
+          window._rn_log('setRoute failed: ' + e.message);
+        }
+      };
 
       // Create highlight marker as map layers (not DOM marker - immune to terrain occlusion)
       map.addSource('highlight-point', {
@@ -447,8 +520,8 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
         paint: {
           'circle-radius': 8,
           'circle-color': ['case',
-            ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.9)',
-            'rgba(239,68,68,0.9)'],
+            ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.9))},
+            ${jsLiteral(colorWithOpacity(colors.error, 0.9))}],
         },
         layout: { visibility: 'none' },
       });
@@ -458,6 +531,7 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
         source: 'section-creation-markers',
         layout: {
           'text-field': ['case', ['==', ['get', 'type'], 'start'], '▶', '■'],
+          'text-font': ${jsLiteralList(BUNDLED_TEXT_FONT)},
           'text-size': 10,
           'text-allow-overlap': true,
           'text-ignore-placement': true,
@@ -515,27 +589,32 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
         }
       });
 
-      // Heatmap raster overlay (reads tiles from device filesystem via heatmap-file:// protocol).
+      // Heatmap raster overlay. Intercepted where the platform can answer the
+      // URL out of the Rust-owned tiles, and over the bridge where it cannot.
       // The beforeId 'route-outline' only exists on activity-detail maps (when coordinates
       // were passed); on the global map the route layer is never added, so passing the
       // missing layer id silently drops the addLayer in some MapLibre versions. Probe
       // for it and only insert behind it when present.
       var showHeatmap = ${showHeatmap};
-      var isLightMap = '${mapStyle}' === 'light';
+      var isLightMap = ${jsLiteral(mapStyle)} === 'light';
       map.addSource('heatmap-tiles', {
         type: 'raster',
-        tiles: ['heatmap-file://{z}/{x}/{y}.png'],
+        tiles: [${jsLiteral(heatmapTileTemplate())}],
         tileSize: 256,
         minzoom: 5,
         maxzoom: 17
       });
       var heatmapBeforeId = map.getLayer('route-outline') ? 'route-outline' : undefined;
+      // Hidden with visibility, never with a zero opacity: a raster layer at
+      // zero opacity is still visible to MapLibre, so it requests every tile in
+      // the viewport and paints them invisibly.
       map.addLayer({
         id: 'heatmap-layer',
         type: 'raster',
         source: 'heatmap-tiles',
+        layout: { visibility: showHeatmap ? 'visible' : 'none' },
         paint: {
-          'raster-opacity': showHeatmap ? (isLightMap ? 0.82 : 0.72) : 0,
+          'raster-opacity': isLightMap ? 0.82 : 0.72,
           'raster-contrast': isLightMap ? 0.25 : 0,
           'raster-brightness-max': isLightMap ? 0.7 : 1,
           'raster-saturation': isLightMap ? 0.4 : 0,
@@ -577,30 +656,10 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
         }
       }, 4000);
 
-      // Preload adjacent DEM zoom levels after map settles, through the same
-      // cache the cached-terrain protocol reads, so zoom in/out has terrain to
-      // hand and the bytes stay inside the eviction budget.
+      // A DEM tile that fails after the ready signal still leaves a flat
+      // map, so the state is re-read once the page has stopped moving.
       map.once('idle', function() {
-        setTimeout(function() {
-          // A DEM tile that fails after the ready signal still leaves a flat
-          // map, so the state is re-read once the page has stopped moving.
-          reportTerrainState();
-          var z = Math.floor(map.getZoom());
-          var b = map.getBounds();
-          function lng2tile(lng, zoom) { return Math.floor((lng + 180) / 360 * Math.pow(2, zoom)); }
-          function lat2tile(lat, zoom) { return Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom)); }
-          [z - 1, z + 1].filter(function(v) { return v >= 0 && v <= 15; }).forEach(function(zl) {
-            var xMin = lng2tile(b.getWest(), zl);
-            var xMax = lng2tile(b.getEast(), zl);
-            var yMin = lat2tile(b.getNorth(), zl);
-            var yMax = lat2tile(b.getSouth(), zl);
-            for (var x = xMin; x <= xMax; x++) {
-              for (var y = yMin; y <= yMax; y++) {
-                window._prefetchTerrainTile('https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + zl + '/' + x + '/' + y + '.png');
-              }
-            }
-          });
-        }, 1000);
+        setTimeout(reportTerrainState, 1000);
       });
     });
 

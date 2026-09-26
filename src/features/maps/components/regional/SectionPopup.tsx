@@ -1,12 +1,13 @@
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Pressable, StyleSheet, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, typography, spacing, shadows } from '@/theme';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
-import { getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
 import type { FrequentSection } from '@/types';
+import { pressable } from '@/shared/ui';
 
 interface SectionPopupProps {
   section: FrequentSection;
@@ -42,21 +43,21 @@ export const SectionPopup = memo(function SectionPopup({
           </Text>
         </View>
         {onViewDetails && (
-          <TouchableOpacity
+          <Pressable
             testID="section-popup-view-details"
             onPress={onViewDetails}
-            style={styles.viewDetailsInline}
+            style={pressable(styles.viewDetailsInline)}
             accessibilityLabel={t('maps.viewSectionDetails')}
             accessibilityRole="button"
           >
             <Text style={styles.viewDetailsText}>{t('maps.viewDetails')}</Text>
             <MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />
-          </TouchableOpacity>
+          </Pressable>
         )}
-        <TouchableOpacity
+        <Pressable
           testID="section-popup-close"
           onPress={onClose}
-          style={styles.popupIconButton}
+          style={pressable(styles.popupIconButton)}
           accessibilityLabel={t('maps.closeSectionPopup')}
           accessibilityRole="button"
         >
@@ -65,7 +66,7 @@ export const SectionPopup = memo(function SectionPopup({
             size={22}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <View style={[styles.popupStats, isDark && styles.popupStatsDark]}>
@@ -114,10 +115,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: spacing.xsPlus,
   },
   popupIconButton: {
-    padding: 4,
+    padding: spacing.xs,
   },
   popupInfo: {
     flex: 1,
@@ -134,7 +135,7 @@ const styles = StyleSheet.create({
   popupDate: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   popupDateDark: {
     color: darkColors.textSecondary,
@@ -144,13 +145,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.md,
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
   },
   popupStatsDark: {},
   popupStat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   popupStatValue: {
     fontSize: typography.label.fontSize,
@@ -163,8 +164,8 @@ const styles = StyleSheet.create({
   viewDetailsInline: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xs,
   },
   viewDetailsText: {
     fontSize: typography.label.fontSize,

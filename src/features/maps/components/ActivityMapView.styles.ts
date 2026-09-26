@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, shadows, colorWithOpacity, ink } from '@/theme';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -22,7 +22,7 @@ export const styles = StyleSheet.create({
     zIndex: 2,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: colorWithOpacity(ink.black, 0.3),
     borderRadius: layout.borderRadius,
   },
   map: {
@@ -33,78 +33,6 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: layout.borderRadius,
-  },
-  markerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  marker: {
-    width: 12,
-    height: 12,
-    borderRadius: layout.borderRadiusFull,
-    borderWidth: 1.5,
-    borderColor: colors.textOnDark,
-  },
-  sectionNumberBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: layout.borderRadiusFull,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    ...shadows.pill,
-  },
-  prTrophyMarker: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ translateY: -30 }],
-  },
-  prTrophyBadge: {
-    width: 18,
-    height: 18,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: '#D4AF37',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    ...shadows.pill,
-  },
-  sectionNumberBadgeText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: typography.caption.fontSize,
-    textAlign: 'center',
-  },
-  startMarker: {
-    backgroundColor: 'rgba(34,197,94,0.75)',
-  },
-  endMarker: {
-    backgroundColor: 'rgba(239,68,68,0.75)',
-  },
-  sectionCreationMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: layout.borderRadiusFull,
-    borderWidth: 2,
-    borderColor: colors.textOnDark,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sectionStartMarker: {
-    backgroundColor: 'rgba(34,197,94,0.9)',
-  },
-  sectionEndMarker: {
-    backgroundColor: 'rgba(239,68,68,0.9)',
-  },
-  highlightMarker: {
-    width: 14,
-    height: 14,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: colors.primary,
-    borderWidth: 1.5,
-    borderColor: colors.textOnDark,
   },
   controlsContainer: {
     position: 'absolute',
@@ -118,7 +46,7 @@ export const styles = StyleSheet.create({
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.modal,

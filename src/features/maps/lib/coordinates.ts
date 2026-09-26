@@ -7,20 +7,13 @@
  * reaching the renderer produces an empty or broken layer with no error.
  */
 
+import type { LatLng, LatLngShort } from '@/shared/geo/polyline';
+
 /** GeoJSON order: longitude first. The single internal convention. */
 export type LngLat = [number, number];
 
 /** Shape used by the activity detail screen and expo-location. */
-export interface LatLngObject {
-  latitude: number;
-  longitude: number;
-}
-
-/** Shape used by `RoutePoint`, sections and routes. */
-export interface LatLngShort {
-  lat: number;
-  lng: number;
-}
+export type { LatLng, LatLngShort };
 
 export interface LngLatBounds {
   sw: LngLat;
@@ -67,7 +60,7 @@ export function lngLatFromShortPoint(point: LatLngShort | null | undefined): Lng
 }
 
 /** Single `{ latitude, longitude }` point, or null when it is not drawable. */
-export function lngLatFromLatLngPoint(point: LatLngObject | null | undefined): LngLat | null {
+export function lngLatFromLatLngPoint(point: LatLng | null | undefined): LngLat | null {
   if (!point || !isFinitePair(point.longitude, point.latitude)) return null;
   return [point.longitude, point.latitude];
 }
@@ -133,6 +126,26 @@ export function featureCollection(
     type: 'FeatureCollection',
     features: features.filter((feature): feature is GeoJSON.Feature => feature !== null),
   };
+}
+
+/**
+ * The start and end points of every line in a collection that has already been
+ * built. The nearby sections on the section map are decoded once into
+ * LineStrings, so their dots come off that geometry rather than decoding the
+ * same polylines a second time.
+ */
+export function lineEndpoints(lines: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
+  return featureCollection(
+    lines.features.flatMap((feature) => {
+      if (feature.geometry?.type !== 'LineString') return [];
+      const { coordinates } = feature.geometry;
+      if (coordinates.length < 2) return [];
+      return [
+        pointFeature(coordinates[0] as LngLat, { position: 'start' }),
+        pointFeature(coordinates[coordinates.length - 1] as LngLat, { position: 'end' }),
+      ];
+    })
+  );
 }
 
 /** Empty collection shared by every surface so idle sources stay cheap. */

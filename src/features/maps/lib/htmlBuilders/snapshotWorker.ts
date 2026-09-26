@@ -11,12 +11,7 @@
  *
  * Kept as a pure function so callers can memoize it off the worker list.
  */
-import {
-  bundledAssetsScript,
-  consoleBridgeScript,
-  mapLibreHead,
-  vectorProtocolScript,
-} from './shared';
+import { bundledAssetsScript, consoleBridgeScript, mapLibreHead } from './shared';
 import {
   cacheEvictionScript,
   DEFAULT_TILE_CACHE_BUDGET_MB,
@@ -85,6 +80,14 @@ export function heartbeatScript(): string {
  * The `workerId` is embedded directly into the page so postMessage
  * payloads can be routed back to the matching `WorkerState` on the JS side.
  */
+/**
+ * What a worker's map is constructed with.
+ *
+ * Empty on purpose: a boot style is thrown away by the first `setStyle` and
+ * every byte it fetches is one the first head card waits behind.
+ */
+export const SNAPSHOT_BOOT_STYLE = { version: 8, sources: {}, layers: [] } as const;
+
 export function buildSnapshotWorkerHtml(
   workerId: number,
   tileCacheBudgetMb: number = DEFAULT_TILE_CACHE_BUDGET_MB
@@ -125,58 +128,23 @@ export function buildSnapshotWorkerHtml(
       });
     }
 
-    // Cache terrain DEM tiles via Cache API - persists across snapshot requests.
-    // MapLibre v5.19.0 uses promise-based addProtocol.
-    var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
-
-    function fetchWithRetry(url, retries, delay) {
-      return fetch(url).catch(function(err) {
-        if (retries <= 0) throw err;
-        window._rn_log('DEM fetch retry (' + retries + ' left) for ' + url.split('/').slice(-3).join('/') + ': ' + err.message);
-        return new Promise(function(resolve) { setTimeout(resolve, delay); })
-          .then(function() { return fetchWithRetry(url, retries - 1, delay * 2); });
-      });
-    }
-
-    maplibregl.addProtocol('cached-terrain', function(params) {
-      var realUrl = 'https://' + params.url.substring('cached-terrain://'.length);
-      return caches.open(TERRAIN_CACHE).then(function(cache) {
-        return cache.match(realUrl).then(function(cached) {
-          if (cached) {
-            return cached.blob().then(demBlobToImage);
-          }
-          return fetchWithRetry(realUrl, 2, 300).then(function(r) {
-            window._rn_log('DEM fetch ' + r.status + ': ' + realUrl.split('/').slice(-3).join('/'));
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(TERRAIN_CACHE);
-            return r.blob().then(demBlobToImage);
-          });
-        });
-      }).catch(function(err) {
-        window._rn_log('DEM error: ' + err.message + ' url=' + realUrl.split('/').slice(-3).join('/'));
-        throw err;
-      });
-    });
-
-    // Cache satellite tiles via Cache API - same pattern as terrain DEM tiles.
-    var SATELLITE_CACHE = 'veloq-satellite-v1';
+    // Imagery is fetched through and dropped, not kept. The worker shares the
+    // device's caches with the interactive pages, so a snapshot render here
+    // would otherwise refill the satellite cache they stopped writing to.
+    //
+    // Reached only where nothing can intercept, which is the web: on both
+    // handsets a preview's imagery is asked for on the page's own origin and
+    // answered out of the Rust store, the same as an interactive surface's. No
+    // style this page is ever given names the vector protocol, so that one is
+    // not registered here at all, and the terrain DEM has no protocol either:
+    // it goes through the intercept and the Rust store is what keeps it.
     maplibregl.addProtocol('cached-satellite', function(params) {
       var realUrl = 'https://' + params.url.substring('cached-satellite://'.length);
-      return caches.open(SATELLITE_CACHE).then(function(cache) {
-        return cache.match(realUrl).then(function(cached) {
-          if (cached) {
-            return cached.blob().then(demBlobToImage);
-          }
-          return fetch(realUrl).then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(SATELLITE_CACHE);
-            return r.blob().then(demBlobToImage);
-          });
-        });
+      return fetch(realUrl).then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.blob().then(demBlobToImage);
       });
     });
-
-${vectorProtocolScript()}
 
     ${bundledAssetsScript({ workerId: 'window._workerId' })}
 
@@ -184,9 +152,23 @@ ${cacheEvictionScript(tileCacheBudgetMb)}
 
     window._rn_log('Initializing MapLibre (worker ${workerId})...');
 
+    // An empty style, so the boot fetches nothing. Every render calls setStyle
+    // with the style it actually wants, and _currentBaseStyle is null above,
+    // so the first request takes that path exactly as it did when this booted
+    // on the remote Liberty style. What that cost was a style document, its
+    // TileJSON, its sprite, its glyphs and a screen of Zurich tiles per worker
+    // per focus, thrown away by the first render, and on a slow link the head
+    // cards waited on Zurich. Offline it was worse: the boot never loaded, so
+    // the pool never became ready and no card was ever told why. MapLibre
+    // fires load for an empty style with no request at all, so mapReady now
+    // arrives at parse time and offline alike.
+    window._bootStyle = ${JSON.stringify(SNAPSHOT_BOOT_STYLE)};
+
     window.map = new maplibregl.Map({
       container: 'map',
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: window._bootStyle,
+      // Overwritten by the first render's jumpTo, and it fetches nothing now
+      // that no source is mounted under it.
       center: [8.5, 47.3],
       zoom: 10,
       pitch: 60,

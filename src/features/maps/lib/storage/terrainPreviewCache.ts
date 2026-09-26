@@ -9,14 +9,54 @@
  * `{activityId}_{style}_3d` for the terrain drape, so neither a style change
  * nor a 3D toggle serves the previous render.
  *
- * Storage location: cacheDirectory/terrain_previews/
+ * Storage location: documentDirectory/terrain_previews/
+ *
+ * ## The generation policy this cache serves
+ *
+ * Previews are made on demand and nowhere else. A card asks when it mounts
+ * within one screen of the viewport (`previewRange.ts`), and there is exactly
+ * one caller of `requestSnapshot`, the card's own effect in
+ * `ActivityMapPreview.tsx`. No pass walks the library ahead of the athlete, no
+ * sync schedules one, and none should be added: the reason this file has a
+ * policy at all is that generating for every activity turned an on-demand
+ * cache into a background job with no definition of done, which is what every
+ * preview bug from that period had in common.
+ *
+ * "Done" is therefore per card, not per library. A card is finished when it
+ * holds the render it asked for, and the feed is never finished, because it
+ * never owed the whole library a picture.
+ *
+ * The lookahead is one screen forward and none behind. A card above the
+ * viewport has already been on screen, so it either holds its preview or lost
+ * it to eviction and will ask again on the way back. The list itself mounts two
+ * to three screens either side so scrolling does not blank, and that window is
+ * deliberately not the generation window: the queue is two workers deep and a
+ * fast scroll would fill it with cards the athlete has gone past.
+ *
+ * Until a preview arrives the card is not blank. It draws the Skia route line
+ * with its PR sections and end dots under a short skeleton, so a library that
+ * has never been scrolled reads as lines rather than as loading, and the line
+ * is the design rather than a placeholder for a picture that is owed.
+ *
+ * The cap is entries, 150 of them, and recency decides what goes. It is not a
+ * byte budget: a JPEG at this height varies little, so entries track bytes
+ * closely enough, and an eviction that has to weigh files is an eviction that
+ * has to stat them.
+ *
+ * Nothing about generation is announced. There is no notification, no shade
+ * entry and no progress count, because a preview being made is not something
+ * the athlete can act on, and the only honest surface for it would report a
+ * queue they did not ask to fill.
  */
 
 // Use legacy API for SDK 54 compatibility
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const TERRAIN_DIR = `${FileSystem.cacheDirectory}terrain_previews/`;
+import { TERRAIN_PREVIEW_DIR } from '@/shared/storage/terrainPreviewRoot';
+
+const TERRAIN_DIR = TERRAIN_PREVIEW_DIR;
+
 const MAX_CACHED_PREVIEWS = 150;
 
 /**
@@ -28,6 +68,19 @@ export const TERRAIN_CACHE_VERSION = 7;
 /** The rendering version the cached previews on this device were drawn at. */
 export const TERRAIN_PREVIEW_VERSION_KEY = 'terrain-preview-cache-version';
 const VERSION_KEY = TERRAIN_PREVIEW_VERSION_KEY;
+
+/**
+ * The cached keys, least recently served first, so a launch does not have to
+ * stat every file to work it out. Written whenever the index changes.
+ */
+const ORDER_KEY = 'terrain-preview-order';
+
+/**
+ * A serve only reorders, so its write can wait and be one write for a scroll
+ * rather than one per card. Anything that changes what is in the cache still
+ * writes straight away.
+ */
+const ORDER_WRITE_COALESCE_MS = 1000;
 
 /**
  * What a render fell back to when the one asked for could not be drawn. Today
@@ -55,7 +108,7 @@ function cacheKey(
   return downgradedTo ? `${activityId}_${style}_3d_${downgradedTo}` : `${activityId}_${style}_3d`;
 }
 
-/** In-memory index of cached compound keys (ordered by insertion) */
+/** In-memory index of cached compound keys, least recently served first. */
 let cachedKeys: string[] = [];
 let initialized = false;
 
@@ -82,7 +135,15 @@ export async function initTerrainPreviewCache(): Promise<void> {
     }
 
     const files = await FileSystem.readDirectoryAsync(TERRAIN_DIR);
-    cachedKeys = files.filter((f) => f.endsWith('.jpg')).map((f) => f.replace('.jpg', ''));
+    const keysOnDisk = files.filter((f) => f.endsWith('.jpg')).map((f) => f.replace('.jpg', ''));
+    const storedOrder = await readStoredOrder();
+    // The stored order is the whole point: without it the only record of
+    // insertion order is each file's write time, and reading those is one
+    // native call per file.
+    cachedKeys = storedOrder
+      ? reconcileTerrainOrder(storedOrder, keysOnDisk)
+      : await orderByWriteTime(keysOnDisk.map((k) => `${k}.jpg`));
+    writeStoredOrder();
     initialized = true;
     for (const cb of cacheReadyListeners) cb();
   } catch {
@@ -90,6 +151,76 @@ export async function initTerrainPreviewCache(): Promise<void> {
     initialized = true;
     for (const cb of cacheReadyListeners) cb();
   }
+}
+
+/**
+ * Reconcile the stored order against what is actually on disk.
+ *
+ * The files are the truth about what exists and the stored order is the truth
+ * about how recently each was served, so each answers the half it knows. A key
+ * whose file has gone is dropped. A file the order has never heard of has never
+ * been seen served, and the rule below applies: unknown sorts coldest, so it
+ * goes to the front and is evicted before a preview that has been served.
+ *
+ * Pure, and the reason the stat pass is not needed: ordering used to cost one
+ * `getInfoAsync` per file, up to 150 of them, at every feed mount.
+ */
+export function reconcileTerrainOrder(storedOrder: string[], keysOnDisk: string[]): string[] {
+  const onDisk = new Set(keysOnDisk);
+  const known = new Set(storedOrder);
+  const unknownAge = keysOnDisk.filter((key) => !known.has(key));
+  const stillThere = storedOrder.filter((key) => onDisk.has(key));
+  return [...unknownAge, ...stillThere];
+}
+
+/**
+ * Eviction takes the front of the index, so rebuilding it in directory order
+ * evicts whatever the filesystem happened to name first. That can be the card
+ * on screen, which then re-renders and evicts its neighbour in turn. With no
+ * stored order there is no record of what was served, and the write time is the
+ * only thing left, since a filename is all this cache keeps on disk. A file
+ * whose time cannot be read sorts first, so it goes before one whose age is
+ * known.
+ *
+ * Only reached on the first launch after this cache learned to persist its own
+ * order, or if that record is lost. Everything after reads the order back.
+ */
+async function orderByWriteTime(files: string[]): Promise<string[]> {
+  const dated = await Promise.all(
+    files.map(async (f) => {
+      const info = await FileSystem.getInfoAsync(`${TERRAIN_DIR}${f}`);
+      const at = info.exists && 'modificationTime' in info ? info.modificationTime : undefined;
+      return { key: f.replace('.jpg', ''), at: at ?? 0 };
+    })
+  );
+  return dated.sort((a, b) => a.at - b.at).map((d) => d.key);
+}
+
+/** The persisted order, or null when there is none to read. */
+async function readStoredOrder(): Promise<string[] | null> {
+  try {
+    const raw = await AsyncStorage.getItem(ORDER_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    return parsed.filter((k): k is string => typeof k === 'string');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Record the order the index is in.
+ *
+ * Not awaited by the callers that mutate the index, and deliberately: those
+ * paths promise to drop an entry before they await anything, so a caller cannot
+ * see a key whose file is on its way out. A write that is lost or fails costs
+ * the next launch one stat pass, which is what every launch used to do, and the
+ * reconcile against the directory listing repairs a stale order anyway.
+ */
+function writeStoredOrder(): void {
+  flushOrderWrite();
+  void AsyncStorage.setItem(ORDER_KEY, JSON.stringify(cachedKeys)).catch(() => {});
 }
 
 type CacheReadyListener = () => void;
@@ -140,7 +271,53 @@ export function isTerrainPreviewDowngraded(
 }
 
 /**
+ * Move a served key to the back of the index, so eviction takes the least
+ * recently served rather than the oldest written.
+ *
+ * Only a serve moves an entry. `hasTerrainPreview` is a predicate the snapshot
+ * queue runs over every pending request, and touching from there would reorder
+ * the whole cache on a scan that draws nothing.
+ */
+function touch(key: string): void {
+  const at = cachedKeys.indexOf(key);
+  if (at === -1 || at === cachedKeys.length - 1) return;
+  cachedKeys.splice(at, 1);
+  cachedKeys.push(key);
+  scheduleOrderWrite();
+}
+
+/** Coalesces the writes a scroll would otherwise make one per card. */
+let pendingOrderWrite: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleOrderWrite(): void {
+  if (pendingOrderWrite) return;
+  pendingOrderWrite = setTimeout(() => {
+    pendingOrderWrite = null;
+    writeStoredOrder();
+  }, ORDER_WRITE_COALESCE_MS);
+  // React Native's timer ids are numbers. Under Node they are handles that
+  // hold the loop open, which is a leaked worker at the end of a test run.
+  (pendingOrderWrite as unknown as { unref?: () => void }).unref?.();
+}
+
+/**
+ * Flush a coalesced order write now. Every path that changes membership calls
+ * `writeStoredOrder` directly, so this exists for the serve path alone: a
+ * pending timer holding a reorder is why it is cleared before those write.
+ */
+function flushOrderWrite(): void {
+  if (!pendingOrderWrite) return;
+  clearTimeout(pendingOrderWrite);
+  pendingOrderWrite = null;
+}
+
+/**
  * Get cached preview URI (file:// path).
+ *
+ * Serving is what keeps a preview. The athlete sees the same recent rides
+ * every day and those were rendered first, so evicting by write order made one
+ * scroll into last year push the cards on screen out, each costing a full 3D
+ * re-render to come back.
  */
 export function getTerrainPreviewUri(activityId: string, style: string, is3D: boolean): string {
   const asked = cacheKey(activityId, style, is3D);
@@ -148,13 +325,16 @@ export function getTerrainPreviewUri(activityId: string, style: string, is3D: bo
     !cachedKeys.includes(asked) &&
     cachedKeys.includes(cacheKey(activityId, style, is3D, 'flat'))
   ) {
-    return `${TERRAIN_DIR}${cacheKey(activityId, style, is3D, 'flat')}.jpg`;
+    const standIn = cacheKey(activityId, style, is3D, 'flat');
+    touch(standIn);
+    return `${TERRAIN_DIR}${standIn}.jpg`;
   }
+  touch(asked);
   return `${TERRAIN_DIR}${asked}.jpg`;
 }
 
 /**
- * Save preview from base64 data. Evicts oldest if over cap.
+ * Save preview from base64 data. Evicts the least recently served if over cap.
  * Returns the file URI of the saved image.
  */
 export async function saveTerrainPreview(
@@ -180,7 +360,7 @@ export async function saveTerrainPreview(
     }
   }
 
-  // Evict oldest if at cap (and the key to save isn't already cached)
+  // Evict the coldest if at cap (and the key to save isn't already cached)
   if (!cachedKeys.includes(key) && cachedKeys.length >= MAX_CACHED_PREVIEWS) {
     const evictKey = cachedKeys.shift();
     if (evictKey) {
@@ -197,9 +377,9 @@ export async function saveTerrainPreview(
   // Update index - remove if already present, add to end
   cachedKeys = cachedKeys.filter((k) => k !== key);
   cachedKeys.push(key);
-
-  // Fresh preview saved, so the activity no longer needs the priority slot
-  prioritySnapshotIds.delete(activityId);
+  // One write for the whole call: the stale drop, the eviction and the append
+  // have all landed in the index by here.
+  writeStoredOrder();
 
   return filePath;
 }
@@ -216,6 +396,7 @@ export async function deleteTerrainPreviewsForActivity(activityId: string): Prom
   const prefix = `${activityId}_`;
   const toDelete = cachedKeys.filter((k) => k.startsWith(prefix));
   cachedKeys = cachedKeys.filter((k) => !k.startsWith(prefix));
+  writeStoredOrder();
 
   for (const key of toDelete) {
     const path = `${TERRAIN_DIR}${key}.jpg`;
@@ -236,11 +417,20 @@ export async function deleteSupersededTerrainPreviews(
   style: string,
   is3D: boolean
 ): Promise<void> {
+  // Two keys survive, not one. A drape that could not be rendered is saved as a
+  // flat stand-in under the 3D key with a downgrade marker, so keeping only the
+  // undowngraded key deleted the stand-in that had just landed and left the card
+  // holding a uri to nothing. The stand-in is also what an upgrade falls back to
+  // when it fails, so it is worth keeping after the real drape arrives.
   const keep = cacheKey(activityId, style, is3D);
+  const keepStandIn = cacheKey(activityId, style, is3D, 'flat');
   const prefix = `${activityId}_`;
-  const toDelete = cachedKeys.filter((k) => k.startsWith(prefix) && k !== keep);
+  const toDelete = cachedKeys.filter(
+    (k) => k.startsWith(prefix) && k !== keep && k !== keepStandIn
+  );
   if (toDelete.length === 0) return;
   cachedKeys = cachedKeys.filter((k) => !toDelete.includes(k));
+  writeStoredOrder();
 
   for (const key of toDelete) {
     await FileSystem.deleteAsync(`${TERRAIN_DIR}${key}.jpg`, { idempotent: true }).catch(() => {});
@@ -258,6 +448,12 @@ export async function clearTerrainPreviews(): Promise<void> {
   }
   cachedKeys = [];
   initialized = false;
+  // A coalesced serve write still holding the old order would land after the
+  // removal and put it back.
+  flushOrderWrite();
+  // The order has to go with the files, or the next launch reconciles a stored
+  // order against an empty directory and keeps nothing anyway, one pass late.
+  void AsyncStorage.removeItem(ORDER_KEY).catch(() => {});
 }
 
 /**
@@ -285,45 +481,16 @@ export async function getTerrainPreviewCacheSize(): Promise<number> {
   }
 }
 
-const prioritySnapshotIds = new Set<string>();
-
-/**
- * Mark activity IDs as needing priority snapshot generation.
- * Called by the feed screen after consuming the pending queue.
- */
-export function setPrioritySnapshotIds(ids: string[]): void {
-  for (const id of ids) {
-    prioritySnapshotIds.add(id);
-  }
-}
-
-/**
- * Check whether an activity has priority snapshot status.
- */
-export function isPrioritySnapshot(activityId: string): boolean {
-  return prioritySnapshotIds.has(activityId);
-}
-
-/**
- * Clear priority status for an activity (called after snapshot is requested).
- */
-export function clearPrioritySnapshot(activityId: string): void {
-  prioritySnapshotIds.delete(activityId);
-}
-
 // ============================================================================
-// Demand-driven snapshot worker mounting
-// ============================================================================
-
-type SnapshotNeededListener = () => void;
-let snapshotNeededListener: SnapshotNeededListener | null = null;
-
-export function signalSnapshotNeeded(): void {
-  snapshotNeededListener?.();
-}
-
-// ============================================================================
-// Pending snapshot queue (background task → foreground generation)
+// Pending snapshot queue (background task -> foreground generation)
+//
+// All the list does is mount the render pool without waiting out its 500 ms
+// defer. It used to also fill a priority set and ring a listener, and neither
+// reached the queue: the set's only reader cleared it, and the listener was
+// declared and never assigned. Previews are rendered on demand and there is no
+// build-ahead pass, so there is no background job for the list to seed and the
+// set had nothing to become. The one priority the queue honours is an athlete
+// changing a single card's map.
 // ============================================================================
 
 const PENDING_SNAPSHOTS_KEY = 'veloq-pending-terrain-snapshots';

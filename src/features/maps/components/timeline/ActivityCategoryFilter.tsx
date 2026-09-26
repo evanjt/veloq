@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback } from 'react';
-import { Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
@@ -8,6 +8,7 @@ import {
   getActivityCategory,
   groupTypesByCategory,
 } from '../ActivityTypeFilter';
+import { pressable } from '@/shared/ui';
 
 interface ActivityCategoryFilterProps {
   selectedTypes: Set<string>;
@@ -80,15 +81,15 @@ export function ActivityCategoryFilter({
       style={styles.filterScroll}
     >
       {/* All/Clear toggle */}
-      <TouchableOpacity
+      <Pressable
         testID="map-filter-clear"
-        style={[styles.controlChip, isDark && styles.controlChipDark]}
+        style={pressable([styles.controlChip, isDark && styles.controlChipDark])}
         onPress={toggleAllTypes}
       >
         <Text style={[styles.controlText, isDark && styles.controlTextDark]}>
           {selectedTypes.size === availableTypes.length ? t('maps.clear') : t('maps.allClear')}
         </Text>
-      </TouchableOpacity>
+      </Pressable>
 
       {/* Category chips */}
       {availableCategories.map((category) => {
@@ -96,15 +97,15 @@ export function ActivityCategoryFilter({
         const isSelected = isCategorySelected(category);
 
         return (
-          <TouchableOpacity
+          <Pressable
             key={category}
             testID={`map-filter-${category.toLowerCase()}`}
-            style={[
+            style={pressable([
               styles.filterChip,
               isSelected && { backgroundColor: config.color },
               !isSelected && styles.filterChipUnselected,
               !isSelected && isDark && styles.filterChipUnselectedDark,
-            ]}
+            ])}
             onPress={() => toggleCategory(category)}
           >
             <MaterialCommunityIcons
@@ -121,7 +122,7 @@ export function ActivityCategoryFilter({
             >
               {t(`maps.activityTypes.${config.labelKey}`)}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </ScrollView>
@@ -134,11 +135,11 @@ const styles = StyleSheet.create({
   },
   filterScrollContent: {
     paddingHorizontal: spacing.xs,
-    gap: 6,
+    gap: spacing.xsPlus,
     flexDirection: 'row',
   },
   controlChip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.cardMargin,
     backgroundColor: colors.background,
@@ -153,7 +154,7 @@ const styles = StyleSheet.create({
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: layout.cardMargin,
@@ -169,7 +170,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   filterChipTextSelected: {
-    color: colors.surface,
+    color: colors.textOnDark,
   },
   // Dark mode
   controlChipDark: {

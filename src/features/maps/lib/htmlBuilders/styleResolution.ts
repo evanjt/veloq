@@ -23,10 +23,11 @@ export const LIGHT_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 export interface WebViewStyleOptions {
   /**
-   * Route the basemap tiles through the `cached-vector://` and `cached-ground://`
-   * protocols. On by default: every 2D surface wants it, and rewriting after a
-   * `setStyle` is what the 3D paths avoid, since it leaves features blank until
-   * the cache warms.
+   * Route the basemap tiles through the tile store rather than straight at the
+   * host: the intercept on Android, the `cached-vector://` and `cached-ground://`
+   * protocols where nothing can intercept. On by default: every 2D surface wants
+   * it, and rewriting after a `setStyle` is what the 3D paths avoid, since it
+   * leaves features blank until the cache warms.
    */
   cacheVectorTiles?: boolean;
   /**

@@ -10,12 +10,12 @@ import * as Location from 'expo-location'; // 30 seconds
 import { normalizeBounds } from '@/shared/geo/polyline';
 import { activitySpatialIndex, mapBoundsToViewport } from '@/shared/geo/spatialIndex';
 import { planClusterZoom } from '@/features/maps/lib/clusterZoom';
-import { waitForGpsTrack } from '@/features/maps/lib/gpsTrackWait';
+import { trackStillWanted, waitForGpsTrack } from '@/features/maps/lib/gpsTrackWait';
 import { saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
-import { startFetchAndStore } from 'veloqrs';
+import { decodeCoords, DownloadPriority, startFetchAndStore } from 'veloqrs';
 import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import { getEngine } from '@/shared/native/engine';
-import type { ActivityBoundsItem, FrequentSection } from '@/types';
+import type { ActivityBoundsItem } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
 import type { Map3DWebViewRef } from '../Map3DWebView';
 import type { MapCameraState, MapPressEvent, MapSurfaceRef } from '../MapSurface';
@@ -35,6 +35,9 @@ import {
 // Cache for last known location (avoid slow GPS re-acquisition)
 const LOCATION_CACHE_MAX_AGE_MS = 30000;
 
+/** The ease onto a cluster whose leaves never arrived. */
+const CLUSTER_EXPAND_DURATION_MS = 400;
+
 /** State for spider/fan-out expansion of clusters at max zoom */
 export interface SpiderState {
   center: [number, number]; // [lng, lat] cluster center
@@ -43,10 +46,9 @@ export interface SpiderState {
 
 interface UseMapHandlersOptions {
   activities: ActivityBoundsItem[];
-  sections: FrequentSection[];
   selected: SelectedActivity | null;
   setSelected: (value: SelectedActivity | null) => void;
-  setSelectedSection: (value: FrequentSection | null) => void;
+  setSelectedSectionId: (value: string | null) => void;
   showActivities: boolean;
   setShowActivities: (value: boolean | ((prev: boolean) => boolean)) => void;
   showSections: boolean;
@@ -91,10 +93,9 @@ interface UseMapHandlersResult {
 
 export function useMapHandlers({
   activities,
-  sections,
   selected,
   setSelected,
-  setSelectedSection,
+  setSelectedSectionId,
   setShowActivities,
   setShowSections,
   setShowRoutes,
@@ -133,9 +134,15 @@ export function useMapHandlers({
   const prevCenterRef = useRef<[number, number] | null>(null);
   const prevZoomRef = useRef<number>(-1);
 
+  // Read by the track wait, which outlives this screen by up to fifteen
+  // seconds and must not write into it once it has gone.
+  const mountedRef = useRef(true);
+
   // Cleanup debounce timers on unmount
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       if (visibleDebounceRef.current) clearTimeout(visibleDebounceRef.current);
       if (zoomCenterDebounceRef.current) clearTimeout(zoomCenterDebounceRef.current);
     };
@@ -162,9 +169,10 @@ export function useMapHandlers({
       // Load route data after popup is shown (non-blocking)
       requestAnimationFrame(() => {
         const engine = getEngine();
-        const localTrack = engine?.getGpsTrack(activity.id);
+        const encoded = engine?.getGpsTrack(activity.id);
+        const localTrack = encoded ? decodeCoords(encoded) : [];
 
-        if (localTrack && localTrack.length > 0) {
+        if (localTrack.length > 0) {
           // Convert directly to GeoJSON format [lng, lat][]
           const routeCoords: [number, number][] = [];
           for (const p of localTrack) {
@@ -200,10 +208,17 @@ export function useMapHandlers({
                 sportType: activity.type,
                 startDate: activityStartEpoch(activity.date),
               },
-            ]
+            ],
+            // Somebody is looking at this one, so it goes out beside a bulk
+            // pass rather than behind its hundreds.
+            DownloadPriority.Interactive
           );
           setSelected({ activity, mapData: null, isLoading: true });
           waitForGpsTrack(activity.id).then((coords) => {
+            // The wait is up to fifteen seconds, so what the athlete is
+            // looking at now decides whether this lands.
+            const onScreen = selectedRef.current?.activity.id ?? null;
+            if (!trackStillWanted(activity.id, onScreen, mountedRef.current)) return;
             setSelected({
               activity,
               mapData: coords
@@ -262,9 +277,10 @@ export function useMapHandlers({
       }
 
       if (feature.layerId === SECTIONS_LINE_LAYER_ID) {
+        // The overlay carries six fields per section, so the popup's own record
+        // is read here, for the one section that was tapped.
         const sectionId = feature.properties?.id;
-        const section = sections.find((s) => s.id === sectionId);
-        if (section) setSelectedSection(section);
+        if (typeof sectionId === 'string') setSelectedSectionId(sectionId);
         return;
       }
 
@@ -302,10 +318,26 @@ export function useMapHandlers({
             REGIONAL_FIT_PADDING,
             plan.durationMs
           );
-        } else if (leaves.length > 0) {
+        } else if (plan.kind === 'stacked') {
           // Leaves are stacked on top of each other - fan out into a spider
           // pattern so each underlying activity is tappable.
           setSpider({ center: coords, leaves });
+        } else {
+          // No leaves came back, and the page says nothing about why. Ask
+          // supercluster where this cluster splits and go there, so the tap is
+          // never a tap that did nothing. A split zoom it cannot give either
+          // leaves the camera centred on the cluster, which still moves.
+          const splitZoom = await surfaceRef.current?.getClusterExpansionZoom(
+            CLUSTER_SOURCE_ID,
+            clusterId
+          );
+          surfaceRef.current?.setCamera(
+            {
+              center: coords,
+              zoom: Number.isFinite(splitZoom) ? (splitZoom as number) : undefined,
+            },
+            CLUSTER_EXPAND_DURATION_MS
+          );
         }
         return;
       }
@@ -316,7 +348,7 @@ export function useMapHandlers({
         if (activity) handleMarkerTap(activity);
       }
     },
-    [activities, sections, handleMarkerTap, setSelected, setSelectedSection, setSpider, surfaceRef]
+    [activities, handleMarkerTap, setSelected, setSelectedSectionId, setSpider, surfaceRef]
   );
 
   // Ref for spider dismissal during gestures (avoids adding setSpider to hot path deps)
@@ -487,11 +519,11 @@ export function useMapHandlers({
     setShowSections((current) => {
       if (current) {
         // We're hiding sections, clear selection
-        setSelectedSection(null);
+        setSelectedSectionId(null);
       }
       return !current;
     });
-  }, [setShowSections, setSelectedSection]);
+  }, [setShowSections, setSelectedSectionId]);
 
   // Toggle routes visibility - clear selection when hiding
   const toggleRoutes = useCallback(() => {

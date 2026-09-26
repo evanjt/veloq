@@ -7,10 +7,11 @@
  * the selected id rather than a rebuilt FeatureCollection, so panning with a
  * selection active does not re-upload every point.
  */
-import { brand, colors, mapLayerColors } from '@/theme';
+import { brand, colors, mapLayerColors, colorWithOpacity, ink } from '@/theme';
 import type { MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
-import { HEATMAP_TILE_PROTOCOL_URL } from '@/features/maps/hooks/useHeatmapTiles';
+import { heatmapTileTemplate } from '@/features/maps/hooks/useHeatmapTiles';
 import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
+import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
 
 export const CLUSTER_SOURCE_ID = 'activity-clusters';
 export const CLUSTER_CIRCLE_LAYER_ID = 'cluster-circles';
@@ -31,7 +32,6 @@ const UNCLUSTERED_MIN_ZOOM = 10;
 
 interface RegionalSourceInput {
   markersGeoJSON: GeoJSON.FeatureCollection;
-  tracesGeoJSON: GeoJSON.FeatureCollection;
   startPointsGeoJSON: GeoJSON.FeatureCollection;
   sectionsGeoJSON: GeoJSON.FeatureCollection;
   userLocationGeoJSON: GeoJSON.FeatureCollection;
@@ -39,6 +39,8 @@ interface RegionalSourceInput {
   spiderPointsGeoJSON: GeoJSON.FeatureCollection;
   spiderLinesGeoJSON: GeoJSON.FeatureCollection;
   heatmapEnabled: boolean;
+  /** How many tile passes have finished, which versions the source's URL. */
+  heatmapGeneration?: number;
 }
 
 export function buildRegionalSources(input: RegionalSourceInput): Record<string, MapSourceSpec> {
@@ -48,9 +50,11 @@ export function buildRegionalSources(input: RegionalSourceInput): Record<string,
       data: input.markersGeoJSON,
       cluster: true,
       clusterRadius: 50,
-      clusterMaxZoom: 14,
+      // One threshold: the cluster resolves into the points at the zoom the
+      // start points appear at. Clustering to 14 drew the count over the very
+      // points it stood for from 11 up.
+      clusterMaxZoom: TRACE_ZOOM_THRESHOLD - 1,
     },
-    'activity-traces': { kind: 'geojson', data: input.tracesGeoJSON },
     'activity-start-points': { kind: 'geojson', data: input.startPointsGeoJSON },
     sections: { kind: 'geojson', data: input.sectionsGeoJSON },
     'selected-route': { kind: 'geojson', data: input.routeGeoJSON },
@@ -62,7 +66,7 @@ export function buildRegionalSources(input: RegionalSourceInput): Record<string,
   if (input.heatmapEnabled) {
     sources['heatmap-tiles'] = {
       kind: 'raster',
-      tiles: [HEATMAP_TILE_PROTOCOL_URL],
+      tiles: [heatmapTileTemplate(input.heatmapGeneration ?? 0)],
       tileSize: 256,
       minzoom: 0,
       maxzoom: 17,
@@ -111,13 +115,19 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
   const layers: MapLayerSpec[] = [];
 
   // Heatmap sits under everything so markers stay readable over it.
+  //
+  // Hidden through `visible`, the way every other layer here is, never with a
+  // zero opacity: a raster layer at zero opacity is still visible as far as
+  // MapLibre is concerned, so it requests every tile in the viewport and paints
+  // them invisibly. The source stays declared either way.
   if (heatmapEnabled) {
     layers.push({
       id: 'heatmap-layer',
       type: 'raster',
       source: 'heatmap-tiles',
+      visible: showHeatmap,
       paint: {
-        'raster-opacity': showHeatmap ? (isLight ? 0.92 : 0.72) : 0,
+        'raster-opacity': isLight ? 0.92 : 0.72,
         'raster-contrast': isLight ? 0.45 : 0,
         'raster-brightness-max': isLight ? 0.55 : 1,
         'raster-saturation': isLight ? 0.6 : 0,
@@ -127,6 +137,11 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
     });
   }
 
+  // No per-activity lines. They were built from route signatures and
+  // stride-sampled on top, so the line under a tap never matched the full-
+  // coordinate route the tap painted, and the coverage they stood for is what
+  // the heatmap draws from disk tiles. The start points below are what a tap
+  // needs.
   layers.push(
     {
       id: 'sections-outline',
@@ -187,7 +202,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: 'selected-route',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': 'rgba(0, 0, 0, 0.4)',
+        'line-color': colorWithOpacity(ink.black, 0.4),
         'line-width': 8,
         'line-opacity': hasRouteData ? 1 : 0,
       },
@@ -222,6 +237,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       filter: ['has', 'point_count'],
       layout: {
         'text-field': ['get', 'point_count_abbreviated'],
+        'text-font': BUNDLED_TEXT_FONT,
         'text-size': 12,
         'text-allow-overlap': true,
         'text-ignore-placement': true,
@@ -236,6 +252,12 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       filter: ['!', ['has', 'point_count']],
       paint: {
         'circle-color': ['get', 'color'],
+        // On for the one zoom band between the clusters breaking up and the
+        // start points arriving, then off. The two layers drew one circle per
+        // activity each from `TRACE_ZOOM_THRESHOLD` up, this one at the bounds
+        // centre and the start point at the first GPS coordinate, so a ride
+        // that did not start at its own centre was two dots. The start point is
+        // the one a tap needs, so it is the one that stays.
         'circle-radius': [
           'interpolate',
           ['linear'],
@@ -244,6 +266,10 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
           0,
           UNCLUSTERED_MIN_ZOOM,
           selectedActivityId ? ['case', isSelectedActivity, 12, 8] : 8,
+          TRACE_ZOOM_THRESHOLD - 0.01,
+          selectedActivityId ? ['case', isSelectedActivity, 12, 8] : 8,
+          TRACE_ZOOM_THRESHOLD,
+          0,
         ],
         // Recency fade: recent activities full opacity, 1+ year old at 35%
         'circle-opacity': showActivities
@@ -251,8 +277,8 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
           : 0,
         'circle-stroke-width': selectedActivityId ? ['case', isSelectedActivity, 2.5, 1.5] : 1.5,
         'circle-stroke-color': selectedActivityId
-          ? ['case', isSelectedActivity, colors.primary, 'rgba(255, 255, 255, 0.8)']
-          : 'rgba(255, 255, 255, 0.8)',
+          ? ['case', isSelectedActivity, colors.primary, colorWithOpacity(ink.white, 0.8)]
+          : colorWithOpacity(ink.white, 0.8),
         'circle-stroke-opacity': showActivities ? 1 : 0,
       },
       visible: showActivities,
@@ -262,7 +288,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       type: 'line',
       source: 'spider-legs',
       paint: {
-        'line-color': isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
+        'line-color': isDark ? colorWithOpacity(ink.white, 0.5) : colorWithOpacity(ink.black, 0.3),
         'line-width': 1.5,
         'line-opacity': spiderVisible ? 1 : 0,
       },

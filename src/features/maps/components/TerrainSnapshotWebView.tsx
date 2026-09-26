@@ -25,11 +25,27 @@ import React, {
 import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 
+import { veloqWebViewNativeConfig } from '@/features/maps/lib/veloqWebView';
+import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
+
 import type { MapStyleType } from './mapStyles';
 import {
   saveTerrainPreview,
   hasTerrainPreview,
+  isTerrainPreviewDowngraded,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
+import { recordFFIMetric } from '@/shared/debug/renderTimer';
+import { pickSnapshotWorker } from '@/features/maps/lib/snapshotWorkerChoice';
+import {
+  SNAPSHOT_BOOT,
+  SNAPSHOT_SAVE,
+  SNAPSHOT_WAIT,
+  recordSnapshotPhases,
+  recordSnapshotTiles,
+  recordSnapshotTiming,
+  snapshotPageMetric,
+  snapshotRenderMetric,
+} from '@/features/maps/lib/snapshotTiming';
 import {
   emitSnapshotComplete,
   emitSnapshotFailed,
@@ -43,6 +59,7 @@ import {
   clearTileCachesScript,
   tileCacheStatsScript,
 } from '@/features/maps/lib/tileCacheBudget';
+import { pickStatsWorker } from '@/features/maps/lib/tileCacheStatsWorker';
 import {
   buildSnapshotWorkerHtml,
   buildBundledAssetReplyScript,
@@ -60,6 +77,7 @@ import type {
 } from '@/features/maps/hooks/useWebViewBridge';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { debug } from '@/shared/debug/debug';
+import { createSnapshotQueueTrace, holdShouldReport } from '@/features/maps/lib/snapshotQueueTrace';
 
 const log = debug.create('TerrainSnapshotWebView');
 
@@ -83,7 +101,86 @@ const MAX_SNAPSHOT_RETRIES = 1;
 const TILE_THROTTLE_BACKOFF_MS = 30000;
 const MAX_TILE_THROTTLE_BACKOFF_MS = 300000;
 
-const requestKey = (r: SnapshotRequest) => `${r.activityId}_${r.mapStyle}_${r.flat ? 'f' : 'd'}`;
+/**
+ * The drape, its flat stand-in and the selected flat basemap have separate
+ * cameras or cache destinations. Each needs its own request even while
+ * another mode for the same activity is queued or in flight.
+ */
+export const requestKey = (r: SnapshotRequest) =>
+  `${r.activityId}_${r.mapStyle}_${r.standIn ? 's' : r.flat ? 'f' : 'd'}`;
+
+const snapshotQueueTier = (request: SnapshotRequest): number =>
+  request.priority ? 0 : request.backgroundUpgrade || request.upgrade ? 2 : 1;
+
+/**
+ * How many times a card may ask again for a render it already has a stand-in
+ * for. Three is enough for a connection that comes back and few enough that a
+ * host which is throttling is left alone.
+ */
+export const MAX_UPGRADE_ATTEMPTS = 3;
+
+/**
+ * Whether a request that only wants to replace a downgraded preview may be
+ * queued, spending one of its attempts if so. A card holding a flat stand-in
+ * asks again every time it mounts, so without a cap a feed that cannot draw
+ * terrain re-queues every card on every scroll, firing straight back at a host
+ * that is most likely throttling already. An ordinary request is never capped
+ * and never counted: this gate exists only for the upgrade path.
+ */
+export function allowUpgradeAttempt(
+  attempts: Map<string, number>,
+  request: SnapshotRequest
+): boolean {
+  if (!request.upgrade) return true;
+  const key = requestKey(request);
+  const spent = attempts.get(key) ?? 0;
+  if (spent >= MAX_UPGRADE_ATTEMPTS) return false;
+  attempts.set(key, spent + 1);
+  return true;
+}
+
+/**
+ * What to do with a render that has run out of retries. A drape can still be
+ * drawn as a flat basemap, which is a finished card in the athlete's own style,
+ * so it falls back once instead of being filed as a failure. A flat render that
+ * fails has nowhere left to go, and neither does a stand-in that has already
+ * fallen back: one rung, taken once.
+ */
+export function fallbackRequest(
+  request: SnapshotRequest,
+  hasStandIn = false
+): SnapshotRequest | null {
+  if (request.flat || request.standIn || hasStandIn) return null;
+  return {
+    ...request,
+    flat: true,
+    standIn: true,
+    firstPaint: false,
+    backgroundUpgrade: false,
+    upgrade: false,
+    _retryAttempt: 0,
+  };
+}
+
+/**
+ * The downgraded renders a drape that just succeeded is evidence for. A drape
+ * proves the tile host is answering for that style, and it is the only free
+ * proof there is: nothing may probe the host, since a host that is throttling
+ * is the likely reason these fell back in the first place. A flat render, and
+ * a stand-in, say nothing about terrain and unlock nothing.
+ *
+ * Each card comes back at the top of the retry ladder and marked as an upgrade,
+ * so the per-render cap is what bounds how often this can happen.
+ */
+export function upgradesUnlockedBy(
+  downgraded: Map<string, SnapshotRequest>,
+  completed: SnapshotRequest
+): SnapshotRequest[] {
+  if (completed.flat || completed.standIn) return [];
+  return [...downgraded.values()]
+    .filter((request) => request.mapStyle === completed.mapStyle)
+    .map((request) => ({ ...request, upgrade: true, _retryAttempt: 0 }));
+}
 
 const rememberFailure = (failed: Map<string, SnapshotRequest>, req: SnapshotRequest) => {
   const key = requestKey(req);
@@ -103,9 +200,26 @@ interface WorkerState {
   webViewRef: { current: WebView | null };
   processingRef: { current: boolean };
   mapReadyRef: { current: boolean };
+  /**
+   * The page has loaded, so `caches` and `window._workerId` exist. Reached long
+   * before `mapReadyRef`, and offline it is reached when that one never is.
+   */
+  documentReadyRef: { current: boolean };
   generationRef: { current: number };
   timeoutRef: { current: ReturnType<typeof setTimeout> | null };
   currentRequestRef: { current: SnapshotRequest | null };
+  /**
+   * Epoch milliseconds the page was handed to the WebView, for `snapshot.boot`.
+   * Re-stamped on a reload, since that boot is a boot of its own.
+   */
+  mountedAtRef: { current: number };
+  /**
+   * What this worker was last asked to draw, so the pool can prefer it for a
+   * render that would reuse the style it already holds. Mirrored from the
+   * request rather than read back from the page, which cannot be asked.
+   * Cleared whenever the WebView goes, since a fresh page holds nothing.
+   */
+  lastRenderRef: { current: { mapStyle: string; flat: boolean } | null };
 }
 
 interface TerrainSnapshotWebViewProps {
@@ -130,9 +244,12 @@ export const TerrainSnapshotWebView = forwardRef<
       webViewRef: { current: null },
       processingRef: { current: false },
       mapReadyRef: { current: false },
+      documentReadyRef: { current: false },
       generationRef: { current: 0 },
       timeoutRef: { current: null },
       currentRequestRef: { current: null },
+      mountedAtRef: { current: Date.now() },
+      lastRenderRef: { current: null },
     }));
   }
   const workers = workersRef.current;
@@ -152,7 +269,19 @@ export const TerrainSnapshotWebView = forwardRef<
   // One silent idle retry per request, so a card whose render was dropped or
   // timed out does not wait for a pull-to-refresh it may never get.
   const idleRetriedRef = useRef(new Set<string>());
+  // Attempts spent asking again for a render this card already has a stand-in
+  // for, keyed by render identity. Emptied by pull-to-refresh, like the idle
+  // retry set: the athlete asking is the reset.
+  const upgradeAttemptsRef = useRef(new Map<string, number>());
+  // Drapes that fell back to a flat stand-in, keyed by the drape's own render
+  // identity. A drape rendering for any card is what brings these back.
+  const downgradedRef = useRef<Map<string, SnapshotRequest>>(new Map());
   const stalenessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // What the queue did, kept in memory because every log below is stripped from
+  // a release bundle and a stall on a real device has left nothing behind
+  // twice. Dumped once when the watchdog has held long enough to be wedged.
+  const traceRef = useRef(createSnapshotQueueTrace());
+  const consecutiveHoldsRef = useRef(0);
   // The whole pool's throttle floor, and the one timer that lifts it. Kept on
   // the pool rather than on a request because every worker shares the hosts.
   const throttledUntilRef = useRef(0);
@@ -174,6 +303,32 @@ export const TerrainSnapshotWebView = forwardRef<
   // nothing can make progress (e.g. no worker ever became ready), so fail the
   // remaining requests - cards fall back to the route line and pull-to-refresh
   // re-queues them - instead of leaving a stuck progress notification.
+  const trace = useCallback((event: Parameters<typeof traceRef.current.record>[0]) => {
+    traceRef.current.record(event, Date.now());
+  }, []);
+
+  /**
+   * The watchdog reaching its timeout and choosing to keep waiting. Legitimate
+   * once, and the field report's own shape when it never stops.
+   */
+  const held = useCallback(
+    (why: string) => {
+      trace({ kind: 'watchdogHeld', detail: why });
+      consecutiveHoldsRef.current++;
+      if (holdShouldReport(consecutiveHoldsRef.current)) {
+        // The one console call a release bundle keeps, per babel.config.js.
+        console.error(
+          traceRef.current.report(
+            Date.now(),
+            queueRef.current.length,
+            workersRef.current?.filter((w) => w.processingRef.current).length ?? 0
+          )
+        );
+      }
+    },
+    [trace]
+  );
+
   const armStalenessTimer = useCallback(
     function arm() {
       if (stalenessTimerRef.current) clearTimeout(stalenessTimerRef.current);
@@ -181,6 +336,7 @@ export const TerrainSnapshotWebView = forwardRef<
       stalenessTimerRef.current = setTimeout(() => {
         stalenessTimerRef.current = null;
         if (workers.some((w) => w.processingRef.current)) {
+          held('a worker is still rendering');
           arm();
           return;
         }
@@ -188,9 +344,15 @@ export const TerrainSnapshotWebView = forwardRef<
         // outlasts this timeout on purpose, so keep watching rather than
         // failing every queued card for waiting as instructed (B418).
         if (throttledUntilRef.current > Date.now()) {
+          held('waiting out a tile throttle');
           arm();
           return;
         }
+        consecutiveHoldsRef.current = 0;
+        trace({
+          kind: 'watchdogFired',
+          detail: `${queueRef.current.length} failed`,
+        });
         const remaining = queueRef.current.splice(0);
         for (const req of remaining) {
           rememberFailure(failedRequestsRef.current, req);
@@ -203,10 +365,13 @@ export const TerrainSnapshotWebView = forwardRef<
           .setTerrainSnapshotProgress({ status: 'idle', completed: 0, total: 0 });
       }, STALENESS_TIMEOUT_MS);
     },
-    [workers]
+    [workers, held, trace]
   );
 
   const updateProgress = useCallback(() => {
+    // Anything completing means the pool is moving, so the run of holds that
+    // would have dumped the trace starts again from nothing.
+    consecutiveHoldsRef.current = 0;
     const { setTerrainSnapshotProgress } = useSyncDateRange.getState();
     if (queueTotalRef.current === 0 || queueCompletedRef.current >= queueTotalRef.current) {
       setTerrainSnapshotProgress({ status: 'idle', completed: 0, total: 0 });
@@ -231,11 +396,25 @@ export const TerrainSnapshotWebView = forwardRef<
   // queued requests wedge, and the progress notification sticks. Reset the
   // worker, requeue its in-flight request, and reload - mapReady re-arms it.
   const handleWorkerGone = useCallback((worker: WorkerState) => {
+    traceRef.current.record(
+      {
+        kind: 'workerGone',
+        workerId: worker.id,
+        activityId: worker.currentRequestRef.current?.activityId,
+      },
+      Date.now()
+    );
     if (__DEV__) {
       console.warn(`[TerrainSnapshot:${worker.id}] WebView process gone - reloading`);
     }
     worker.mapReadyRef.current = false;
+    worker.documentReadyRef.current = false;
     worker.processingRef.current = false;
+    // A reload is a boot of its own, so `snapshot.boot` times it from here
+    // rather than from whenever the pool was first built. The fresh page holds
+    // no style either, so it is no longer worth preferring for one.
+    worker.mountedAtRef.current = Date.now();
+    worker.lastRenderRef.current = null;
     if (worker.timeoutRef.current) {
       clearTimeout(worker.timeoutRef.current);
       worker.timeoutRef.current = null;
@@ -255,6 +434,7 @@ export const TerrainSnapshotWebView = forwardRef<
     // is out, and one timer carries it for the whole pool.
     const throttledFor = throttledUntilRef.current - Date.now();
     if (throttledFor > 0) {
+      trace({ kind: 'throttled', detail: `${throttledFor}ms left` });
       if (throttleTimerRef.current === null) {
         throttleTimerRef.current = setTimeout(() => {
           throttleTimerRef.current = null;
@@ -282,6 +462,10 @@ export const TerrainSnapshotWebView = forwardRef<
           failedRequestsRef.current.set(key, req);
           continue;
         }
+        // A downgrade counts as present here on purpose. This drain is the one
+        // silent retry of a *failure*, and a card serving a flat stand-in has
+        // not failed: flat in the athlete's own style is a finished card.
+        // Upgrading one is a separate trigger's job, not this drain's.
         if (hasTerrainPreview(req.activityId, req.mapStyle, !req.flat)) continue;
         idleRetriedRef.current.add(key);
         // Already at the ladder's last rung, so this is one more render and
@@ -291,25 +475,44 @@ export const TerrainSnapshotWebView = forwardRef<
       }
     }
 
-    for (const worker of workers) {
-      if (worker.processingRef.current || !worker.mapReadyRef.current) continue;
+    for (;;) {
+      queueRef.current.sort((a, b) => snapshotQueueTier(a) - snapshotQueueTier(b));
+      const free = workers.filter((w) => !w.processingRef.current && w.mapReadyRef.current);
+      if (free.length === 0) break;
 
-      // Drain already-cached items from front of queue before assigning to this
-      // worker. They count as completed - otherwise the progress total can never
-      // be reached and the notification lingers at a stale count.
+      // Drain already-cached items from front of queue before assigning. They
+      // count as completed - otherwise the progress total can never be reached
+      // and the notification lingers at a stale count.
       let drained = 0;
       while (
         queueRef.current.length > 0 &&
+        // An upgrade is queued knowing a stand-in is already cached, so the
+        // cached check would drain it the moment it reached the front.
+        !queueRef.current[0].upgrade &&
+        !queueRef.current[0].backgroundUpgrade &&
         hasTerrainPreview(
           queueRef.current[0].activityId,
           queueRef.current[0].mapStyle,
-          !queueRef.current[0].flat
+          !queueRef.current[0].flat || queueRef.current[0].standIn === true
         )
       ) {
         queueRef.current.shift();
         drained++;
       }
+      const next = queueRef.current[0];
+      // Chosen for the request at the front rather than taken in pool order,
+      // so a render that could reuse the style a worker already holds goes to
+      // that worker. Nothing is held back for a match: with none free that
+      // fits, the first free worker takes it.
+      const worker =
+        (next
+          ? pickSnapshotWorker(
+              free.map((w) => ({ worker: w, lastRender: w.lastRenderRef.current })),
+              next
+            )
+          : null) ?? free[0];
       if (drained > 0) {
+        trace({ kind: 'drain', workerId: worker.id, detail: `${drained} cached` });
         queueCompletedRef.current += drained;
         updateProgress();
       }
@@ -318,6 +521,11 @@ export const TerrainSnapshotWebView = forwardRef<
         break;
       }
 
+      trace({ kind: 'start', workerId: worker.id, activityId: request.activityId });
+      worker.lastRenderRef.current = { mapStyle: request.mapStyle, flat: request.flat === true };
+      const assignedAt = Date.now();
+      recordSnapshotTiming(SNAPSHOT_WAIT, request._enqueuedAt ?? null, assignedAt);
+      request._startedAt = assignedAt;
       worker.processingRef.current = true;
       worker.currentRequestRef.current = request;
       worker.generationRef.current++;
@@ -339,6 +547,12 @@ export const TerrainSnapshotWebView = forwardRef<
       // Per-worker timeout fallback
       worker.timeoutRef.current = setTimeout(() => {
         if (worker.processingRef.current) {
+          trace({
+            kind: 'fail',
+            workerId,
+            activityId: request.activityId,
+            detail: `render timeout ${SNAPSHOT_TIMEOUT_MS}ms`,
+          });
           if (__DEV__) {
             console.warn(
               `[TerrainSnapshot:${workerId}] Timeout for ${request.activityId} gen=${gen} (${SNAPSHOT_TIMEOUT_MS}ms)`
@@ -354,12 +568,61 @@ export const TerrainSnapshotWebView = forwardRef<
         }
       }, SNAPSHOT_TIMEOUT_MS);
     }
-  }, [workers, updateProgress]);
+  }, [workers, updateProgress, trace]);
   processNextRef.current = processNext;
 
-  // Handle messages from WebView - dispatch via shared bridge.
-  // Each handler does its own worker lookup by `data.workerId` because
-  // multiple worker WebViews post through the same `onMessage` callback.
+  const requestSnapshot = useCallback(
+    (request: SnapshotRequest) => {
+      // Upgrades replace a cached stand-in; other requests stop at the cache.
+      if (
+        !request.upgrade &&
+        !request.backgroundUpgrade &&
+        hasTerrainPreview(
+          request.activityId,
+          request.mapStyle,
+          !request.flat || request.standIn === true
+        )
+      ) {
+        return;
+      }
+      if (queueRef.current.some((r) => requestKey(r) === requestKey(request))) return;
+      if (
+        (workersRef.current ?? []).some(
+          (w) =>
+            w.processingRef.current &&
+            w.currentRequestRef.current !== null &&
+            requestKey(w.currentRequestRef.current) === requestKey(request)
+        )
+      )
+        return;
+
+      if (!allowUpgradeAttempt(upgradeAttemptsRef.current, request)) return;
+      if (queueRef.current.length >= MAX_QUEUE_SIZE) {
+        const background = queueRef.current.findIndex((r) => snapshotQueueTier(r) === 2);
+        if (background === -1 && snapshotQueueTier(request) === 2) return;
+        const oldest =
+          background === -1 ? queueRef.current.findIndex((r) => !r.priority) : background;
+        queueRef.current.splice(oldest === -1 ? 0 : oldest, 1);
+        queueTotalRef.current--;
+      }
+      traceRef.current.record(
+        {
+          kind: 'enqueue',
+          activityId: request.activityId,
+          detail: request.priority ? 'priority' : `queued ${queueRef.current.length}`,
+        },
+        Date.now()
+      );
+      request._enqueuedAt = Date.now();
+      if (request.priority) queueRef.current.unshift(request);
+      else queueRef.current.push(request);
+      queueTotalRef.current++;
+      updateProgress();
+      processNext();
+    },
+    [processNext, updateProgress]
+  );
+
   const bridgeHandlers = useMemo<WebViewBridgeHandlers>(
     () => ({
       console: (data: WebViewBridgeMessage) => {
@@ -383,6 +646,7 @@ export const TerrainSnapshotWebView = forwardRef<
         const worker = workers[data.workerId];
         if (!worker) return;
         if (__DEV__) log.log(`[TerrainSnapshot:${data.workerId}] WebView map ready`);
+        recordSnapshotTiming(SNAPSHOT_BOOT, worker.mountedAtRef.current, Date.now());
         worker.mapReadyRef.current = true;
         processNext();
       },
@@ -424,6 +688,26 @@ export const TerrainSnapshotWebView = forwardRef<
         // The render is half the key, and only the request knows which one it
         // asked for: the page posts back the style, not the camera.
         const is3D = worker.currentRequestRef.current?.flat === false;
+        // A stand-in is a flat image filed under the drape that was asked for,
+        // so the card can tell a downgrade from a render the athlete chose.
+        const standIn = worker.currentRequestRef.current?.standIn === true;
+        const completed = worker.currentRequestRef.current;
+        trace({
+          kind: 'complete',
+          workerId: data.workerId,
+          activityId: data.activityId as string,
+        });
+        const capturedAt = Date.now();
+        recordSnapshotTiming(
+          snapshotRenderMetric({ flat: !is3D, standIn, firstPaint: completed?.firstPaint }),
+          completed?._startedAt ?? null,
+          capturedAt
+        );
+        if (typeof data.elapsed === 'number') {
+          recordFFIMetric(snapshotPageMetric(data.fastPath === true), data.elapsed);
+        }
+        recordSnapshotPhases(data.phases);
+        recordSnapshotTiles(data.tileStats);
         worker.processingRef.current = false;
         worker.currentRequestRef.current = null;
         queueCompletedRef.current++;
@@ -439,9 +723,40 @@ export const TerrainSnapshotWebView = forwardRef<
         }
         // Save concurrently - card shows loading state until emitSnapshotComplete
         try {
-          const uri = await saveTerrainPreview(activityId, style, is3D, base64);
+          const uri = standIn
+            ? await saveTerrainPreview(activityId, style, true, base64, { downgradedTo: 'flat' })
+            : await saveTerrainPreview(activityId, style, is3D, base64);
           if (__DEV__) log.log(`[TerrainSnapshot:${data.workerId}] Saved ${activityId} → ${uri}`);
           emitSnapshotComplete(activityId, uri);
+          // After the emit, because the card waking is the end of the stage:
+          // the JPEG on disk is no use to anyone until something reads it.
+          recordSnapshotTiming(SNAPSHOT_SAVE, capturedAt, Date.now());
+
+          if (completed?.firstPaint && completed.standIn) {
+            requestSnapshot({
+              ...completed,
+              flat: false,
+              standIn: false,
+              firstPaint: false,
+              backgroundUpgrade: true,
+              priority: false,
+              upgrade: false,
+              _retryAttempt: 0,
+            });
+          }
+          if (completed) {
+            downgradedRef.current.delete(requestKey(completed));
+            const unlocked = upgradesUnlockedBy(downgradedRef.current, completed);
+            for (const request of unlocked) {
+              downgradedRef.current.delete(requestKey(request));
+              queueRef.current.push(request);
+              queueTotalRef.current++;
+            }
+            if (unlocked.length > 0) {
+              updateProgress();
+              processNext();
+            }
+          }
         } catch (saveErr) {
           if (__DEV__) {
             console.warn(
@@ -457,9 +772,10 @@ export const TerrainSnapshotWebView = forwardRef<
         emitTileCacheStats({
           tileCount: (data.tileCount as number) ?? 0,
           totalBytes: (data.totalBytes as number) ?? 0,
-          terrain: (data.terrain as { tileCount: number; totalBytes: number }) ?? undefined,
-          satellite: (data.satellite as { tileCount: number; totalBytes: number }) ?? undefined,
           vector: (data.vector as { tileCount: number; totalBytes: number }) ?? undefined,
+          // The page posts two buckets and this once forwarded one, so the
+          // storage breakdown had no ground row however much it held.
+          ground: (data.ground as { tileCount: number; totalBytes: number }) ?? undefined,
         });
       },
       snapshotError: (data: WebViewBridgeMessage) => {
@@ -493,6 +809,8 @@ export const TerrainSnapshotWebView = forwardRef<
           return;
         }
 
+        recordSnapshotPhases(data.phases);
+        recordSnapshotTiles(data.tileStats);
         if (worker.timeoutRef.current) clearTimeout(worker.timeoutRef.current);
         worker.processingRef.current = false;
 
@@ -517,6 +835,12 @@ export const TerrainSnapshotWebView = forwardRef<
         }
 
         if (currentRequest && attempt < MAX_SNAPSHOT_RETRIES) {
+          trace({
+            kind: 'retry',
+            workerId: data.workerId,
+            activityId: data.activityId as string,
+            detail: `attempt ${attempt + 1}, ${tileErrors} tile errors`,
+          });
           // Retry: push back to front of queue with incremented attempt
           if (__DEV__) {
             console.warn(
@@ -530,11 +854,47 @@ export const TerrainSnapshotWebView = forwardRef<
           // Delay retry to let tile servers recover
           setTimeout(() => processNext(), 2000);
         } else {
+          trace({
+            kind: 'fail',
+            workerId: data.workerId,
+            activityId: data.activityId as string,
+            detail: `retries exhausted, ${tileErrors} tile errors`,
+          });
           // Exhausted retries - save for later re-attempt
           if (__DEV__) {
             console.warn(
               `[TerrainSnapshot:${data.workerId}] Giving up on ${data.activityId} (error: ${data.error}, tile errors: ${tileErrors})`
             );
+          }
+          // The drape is out of retries but the flat basemap is still drawable,
+          // so the card gets that rather than nothing. It is one more render
+          // and not another round of retries, and the same delay applies: the
+          // tile host is why this failed.
+          const hasStandIn =
+            currentRequest &&
+            !currentRequest.flat &&
+            isTerrainPreviewDowngraded(currentRequest.activityId, currentRequest.mapStyle, true);
+          const fallback = currentRequest ? fallbackRequest(currentRequest, !!hasStandIn) : null;
+          if ((fallback || hasStandIn) && currentRequest) {
+            // Remembered so a later drape success can bring it back. Bounded
+            // like the failed set: the oldest goes, and a card that drops out
+            // still upgrades whenever it next mounts and asks for itself.
+            const downgradedKey = requestKey(currentRequest);
+            downgradedRef.current.delete(downgradedKey);
+            downgradedRef.current.set(downgradedKey, currentRequest);
+            const oldest = downgradedRef.current.keys().next();
+            if (downgradedRef.current.size > MAX_FAILED_SIZE && !oldest.done) {
+              downgradedRef.current.delete(oldest.value);
+            }
+            if (fallback) {
+              queueRef.current.unshift(fallback);
+              setTimeout(() => processNext(), 2000);
+            } else {
+              queueCompletedRef.current++;
+              updateProgress();
+              processNext();
+            }
+            return;
           }
           if (currentRequest) {
             rememberFailure(failedRequestsRef.current, currentRequest);
@@ -546,7 +906,7 @@ export const TerrainSnapshotWebView = forwardRef<
         }
       },
     }),
-    [workers, processNext, updateProgress]
+    [workers, processNext, updateProgress, trace, requestSnapshot]
   );
   const handleMessage = useWebViewBridge(bridgeHandlers);
 
@@ -571,17 +931,27 @@ export const TerrainSnapshotWebView = forwardRef<
   // Listen for tile cache stats requests from settings
   useEffect(() => {
     return onTileCacheStatsRequest(() => {
-      // Query worker 0 if its map is ready
-      const worker = workers[0];
-      if (!worker?.mapReadyRef.current || !worker.webViewRef.current) return;
-      worker.webViewRef.current.injectJavaScript(tileCacheStatsScript());
+      const worker = pickStatsWorker(
+        workers.map((w) => ({
+          worker: w,
+          documentReady: w.documentReadyRef.current,
+          hasView: w.webViewRef.current !== null,
+        }))
+      );
+      worker?.worker.webViewRef.current?.injectJavaScript(tileCacheStatsScript());
     });
   }, [workers]);
 
   // Tear the pool down with the screen and build it back with it. A worker
   // that was mid-render loses its WebView, so its request goes back to the
   // front of the queue rather than being counted as failed.
+  const wasSuspendedRef = useRef(suspended);
   useEffect(() => {
+    // Mount is not a resume, so only a change of state goes into the trace.
+    if (suspended !== wasSuspendedRef.current) {
+      wasSuspendedRef.current = suspended;
+      trace({ kind: suspended ? 'suspend' : 'resume' });
+    }
     if (!suspended) {
       // The pause reported idle, so put the real count back before the pool
       // runs again. This also re-arms the staleness timer, which the suspend
@@ -592,7 +962,13 @@ export const TerrainSnapshotWebView = forwardRef<
     }
     for (const worker of workers) {
       worker.mapReadyRef.current = false;
+      worker.documentReadyRef.current = false;
       worker.processingRef.current = false;
+      // The suspend takes the WebViews down and the resume builds them back,
+      // so the next `mapReady` is a fresh boot and is timed from here, and the
+      // style the old page held went with it.
+      worker.mountedAtRef.current = Date.now();
+      worker.lastRenderRef.current = null;
       if (worker.timeoutRef.current) {
         clearTimeout(worker.timeoutRef.current);
         worker.timeoutRef.current = null;
@@ -613,7 +989,7 @@ export const TerrainSnapshotWebView = forwardRef<
     useSyncDateRange
       .getState()
       .setTerrainSnapshotProgress({ status: 'idle', completed: 0, total: 0 });
-  }, [suspended, workers, processNext, updateProgress]);
+  }, [suspended, workers, processNext, updateProgress, trace]);
 
   // Clear all pending timers on unmount so callbacks don't fire on a gone component
   useEffect(() => {
@@ -634,44 +1010,7 @@ export const TerrainSnapshotWebView = forwardRef<
   useImperativeHandle(
     ref,
     () => ({
-      requestSnapshot: (request: SnapshotRequest) => {
-        // Deduplicate: skip if already cached, already queued, or in-flight on
-        // a worker. The render is part of the identity: a 3D request that
-        // arrives while the flat one for the same activity is still rendering
-        // is a different image, and dropping it leaves the toggle with no
-        // effect at all.
-        if (hasTerrainPreview(request.activityId, request.mapStyle, !request.flat)) return;
-        if (queueRef.current.some((r) => requestKey(r) === requestKey(request))) return;
-        if (
-          (workersRef.current ?? []).some(
-            (w) =>
-              w.processingRef.current &&
-              w.currentRequestRef.current !== null &&
-              requestKey(w.currentRequestRef.current) === requestKey(request)
-          )
-        )
-          return;
-
-        // Drop oldest if queue is full. A dropped request never completes,
-        // so it comes back off the total too: leaving it counted is what kept
-        // completed from ever catching total while cards kept mounting, and
-        // the progress notification posted for the whole session.
-        //
-        // An override is dropped last, not first: the front of the queue is
-        // where it was just put, so the oldest ordinary request goes instead.
-        if (queueRef.current.length >= MAX_QUEUE_SIZE) {
-          const oldest = queueRef.current.findIndex((r) => !r.priority);
-          queueRef.current.splice(oldest === -1 ? 0 : oldest, 1);
-          queueTotalRef.current--;
-        }
-        // A direct instruction about the card in front of the athlete jumps
-        // every card the feed happens to have mounted (B416).
-        if (request.priority) queueRef.current.unshift(request);
-        else queueRef.current.push(request);
-        queueTotalRef.current++;
-        updateProgress();
-        processNext();
-      },
+      requestSnapshot,
       retryFailed: () => {
         const failed = [...failedRequestsRef.current.values()];
         if (failed.length === 0) return;
@@ -682,8 +1021,17 @@ export const TerrainSnapshotWebView = forwardRef<
         // grows a key per activity and style the pool has failed on for the
         // life of the screen.
         idleRetriedRef.current.clear();
+        upgradeAttemptsRef.current.clear();
         for (const req of failed) {
-          if (hasTerrainPreview(req.activityId, req.mapStyle, !req.flat)) continue;
+          // A downgraded entry is served but is not what was asked for, so it
+          // is re-queued rather than counted as present. Only a render that got
+          // what it asked for is skipped.
+          if (
+            hasTerrainPreview(req.activityId, req.mapStyle, !req.flat) &&
+            !isTerrainPreviewDowngraded(req.activityId, req.mapStyle, !req.flat)
+          ) {
+            continue;
+          }
           queueRef.current.push(req);
           queueTotalRef.current++;
         }
@@ -691,7 +1039,7 @@ export const TerrainSnapshotWebView = forwardRef<
         processNext();
       },
     }),
-    [processNext, updateProgress]
+    [processNext, updateProgress, requestSnapshot]
   );
 
   return (
@@ -702,7 +1050,7 @@ export const TerrainSnapshotWebView = forwardRef<
           ref={worker.webViewRef as React.RefObject<WebView>}
           source={{
             html: workerHtmls[worker.id],
-            baseUrl: 'https://veloq.fit/',
+            baseUrl: mapPageBaseUrl(),
           }}
           style={StyleSheet.absoluteFill}
           scrollEnabled={false}
@@ -713,7 +1061,11 @@ export const TerrainSnapshotWebView = forwardRef<
           originWhitelist={['*']}
           mixedContentMode="always"
           androidLayerType="hardware"
+          nativeConfig={veloqWebViewNativeConfig}
           onMessage={handleMessage}
+          onLoadEnd={() => {
+            worker.documentReadyRef.current = true;
+          }}
           onRenderProcessGone={() => handleWorkerGone(worker)}
           onContentProcessDidTerminate={() => handleWorkerGone(worker)}
         />

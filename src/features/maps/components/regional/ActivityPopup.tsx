@@ -6,8 +6,9 @@ import { colors, darkColors, typography, spacing, shadows } from '@/theme';
 import { formatDistance, formatDuration, formatFullDateWithWeekday } from '@/shared/format/format';
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
-import { getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
 import type { ActivityBoundsItem, ActivityMapData } from '@/types';
+import { pressable } from '@/shared/ui';
 
 export interface SelectedActivity {
   activity: ActivityBoundsItem;
@@ -128,7 +129,7 @@ export const ActivityPopup = memo(function ActivityPopup({
         <Pressable
           testID="activity-popup-view-details"
           onPress={onViewDetails}
-          style={styles.viewDetailsInline}
+          style={pressable(styles.viewDetailsInline)}
           accessibilityLabel={t('maps.viewDetails')}
           accessibilityRole="button"
         >
@@ -139,7 +140,7 @@ export const ActivityPopup = memo(function ActivityPopup({
           <Pressable
             testID="activity-popup-zoom"
             onPress={onZoom}
-            style={styles.popupIconButton}
+            style={pressable(styles.popupIconButton)}
             accessibilityLabel={t('maps.zoomToActivity')}
             accessibilityRole="button"
           >
@@ -148,7 +149,7 @@ export const ActivityPopup = memo(function ActivityPopup({
           <Pressable
             testID="activity-popup-close"
             onPress={onClose}
-            style={styles.popupIconButton}
+            style={pressable(styles.popupIconButton)}
             accessibilityLabel={t('maps.closePopup')}
             accessibilityRole="button"
           >
@@ -207,14 +208,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: spacing.xsPlus,
   },
   popupHeaderButtons: {
     flexDirection: 'row',
     gap: spacing.xs,
   },
   popupIconButton: {
-    padding: 4,
+    padding: spacing.xs,
   },
   popupInfo: {
     flex: 1,
@@ -231,7 +232,7 @@ const styles = StyleSheet.create({
   popupDate: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   popupDateDark: {
     color: darkColors.textSecondary,
@@ -241,13 +242,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.md,
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
   },
   popupStatsDark: {},
   popupStat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   popupStatValue: {
     fontSize: typography.label.fontSize,
@@ -260,8 +261,8 @@ const styles = StyleSheet.create({
   viewDetailsInline: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xs,
   },
   viewDetailsText: {
     fontSize: typography.label.fontSize,
