@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { resolve, sep } from 'node:path';
 
 import jestConfig from '../../../config/jest.config.js';
+import { gitFreeEnv } from '../__shared__/gitFixture';
 
 const REPO_ROOT = resolve(__dirname, '../../..');
 
@@ -38,9 +39,13 @@ describe('where Jest writes its caches', () => {
   it('is ignored, so a cache never reaches a commit', () => {
     const { execFileSync } = require('node:child_process');
     const probe = resolve(jestConfig.cacheDirectory, 'probe');
+    // `gitFreeEnv`, even for a read: a hook exports `GIT_DIR` and
+    // `GIT_INDEX_FILE`, and they beat `cwd`, so the answer would be about
+    // whatever those point at rather than about this repository.
     const ignored = execFileSync('git', ['check-ignore', probe], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
+      env: gitFreeEnv(),
     });
 
     expect(ignored.trim().length).toBeGreaterThan(0);

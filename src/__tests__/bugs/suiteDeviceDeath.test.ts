@@ -185,6 +185,26 @@ describe('a suite that lost the device', () => {
     expect(result.restarts).toBe(1);
   });
 
+  /**
+   * Scenario: the death lands on the suite's first call rather than mid-run,
+   * which is the 2026-08-23 sweep: the opening `deviceInfo` died and all 103
+   * flows reported in 27 seconds between them.
+   *
+   * Expected behaviour: the same one restart, and the retry pass then holds
+   * every flow rather than a handful.
+   */
+  it('recovers a death that landed before the first flow finished', () => {
+    const result = run([
+      { name: 'map-visual-validation', time: '0.021', failure: DIED },
+      { name: 'map-style-switching', time: '0.014', failure: 'Unknown error' },
+      { name: 'regional-map-toggles', time: '0.019', failure: 'Unknown error' },
+    ]);
+
+    expect(result.restarts).toBe(1);
+    expect(result.calls.filter((c) => c.includes('.yaml')).length).toBe(3);
+    expect(result.status).toBe(0);
+  });
+
   it('keeps a slow Unknown error as a real failure, it is not the device', () => {
     const result = run([{ name: 'map-style-switching', time: '61.0', failure: 'Unknown error' }], {
       'map-style-switching': 'Unknown error',

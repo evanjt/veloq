@@ -17,13 +17,14 @@ import { mkdtempSync, mkdirSync, symlinkSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { runGit } from '../__shared__/gitFixture';
+import { runGit, gitFreeEnv } from '../__shared__/gitFixture';
 
 const SCRIPT = join(__dirname, '../../../scripts/lint-module-link.mjs');
 
 function runGuard(root?: string): { status: number; output: string } {
   try {
     const output = execFileSync('node', root ? [SCRIPT, '--root', root] : [SCRIPT], {
+      env: gitFreeEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });

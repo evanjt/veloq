@@ -80,6 +80,9 @@ function hookEnv(repoRoot: string): NodeJS.ProcessEnv {
 }
 
 function runGuard(script: string, root: string, env: NodeJS.ProcessEnv) {
+  // inherits-git-env: deliberate. The environment is this suite's subject: it
+  // hands each guard a `GIT_DIR` and `GIT_INDEX_FILE` pointing somewhere else
+  // and asks what the guard then reports.
   const result = execFileSync('node', [script, '--root', root], {
     cwd: process.cwd(),
     env,

@@ -143,3 +143,58 @@ describe('a refusal no wait can lift', () => {
     expect(engine.subscribe).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Scenario: the athlete pulls to refresh while a sync runs, the pull is held,
+ * and the account then ends under it: a sign-out, or a "Clear & Sync" that
+ * wipes the library. The next settle belongs to whoever signed in after.
+ *
+ * Expected behaviour: the held refresh goes with the account that asked for
+ * it, so the next athlete's first sync is not followed by a pull they never
+ * made.
+ */
+describe('a held refresh whose account ends', () => {
+  function cancelSyncRefresh(): void {
+    (
+      require('@/shared/native/syncRefresh') as typeof import('@/shared/native/syncRefresh')
+    ).cancelSyncRefresh();
+  }
+
+  it('is dropped, so the next settle syncs nothing extra', () => {
+    const engine = engineThatRefuses([StartOutcome.Busy]);
+
+    requestSyncRefresh();
+    cancelSyncRefresh();
+    engine.settle();
+
+    expect(engine.syncNow).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets go of the listener rather than leaving it on the old engine', () => {
+    const engine = engineThatRefuses([StartOutcome.Busy]);
+
+    requestSyncRefresh();
+    cancelSyncRefresh();
+
+    expect(engine.unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('holds the next pull again, because the wait is dropped and not disabled', () => {
+    const engine = engineThatRefuses([StartOutcome.Busy, StartOutcome.Busy]);
+
+    requestSyncRefresh();
+    cancelSyncRefresh();
+    requestSyncRefresh();
+    engine.settle();
+
+    expect(engine.syncNow).toHaveBeenCalledTimes(3);
+  });
+
+  it('is a no-op when nothing is held', () => {
+    const engine = engineThatRefuses([StartOutcome.Started]);
+
+    cancelSyncRefresh();
+
+    expect(engine.unsubscribe).not.toHaveBeenCalled();
+  });
+});

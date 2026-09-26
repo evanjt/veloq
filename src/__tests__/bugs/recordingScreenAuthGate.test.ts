@@ -71,11 +71,24 @@ describe('the recording screen starts nothing it is not allowed to start', () =>
 });
 
 describe('the surfaces are handed no ride-starting URL while signed out', () => {
-  const mockEngine = { getWidgetSnapshot: jest.fn(() => undefined) };
+  // An engine with nothing in it still answers. Handing back undefined models
+  // a shape the FFI never produces: it returns the payload or it throws.
+  const mockEngine = {
+    getWidgetSnapshot: jest.fn(() => ({
+      sparklines: null,
+      summary: null,
+      latest: null,
+      latestIsPr: false,
+      latestGps: null,
+    })),
+  };
 
   beforeEach(() => {
     jest.resetModules();
-    jest.doMock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+    jest.doMock('@/shared/native/engine', () => ({
+      getEngine: () => mockEngine,
+      isEngineReady: () => true,
+    }));
   });
 
   afterEach(() => {

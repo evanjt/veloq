@@ -7,7 +7,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { initFixtureRepo } from '../__shared__/gitFixture';
+import { initFixtureRepo, gitFreeEnv } from '../__shared__/gitFixture';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -17,6 +17,7 @@ const SCRIPT = join(__dirname, '../../../scripts/lint-comment-line-refs.mjs');
 function runGuard(root?: string): { status: number; output: string } {
   try {
     const output = execFileSync('node', root ? [SCRIPT, '--root', root] : [SCRIPT], {
+      env: gitFreeEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });

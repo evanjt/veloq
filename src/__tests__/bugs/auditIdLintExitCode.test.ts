@@ -22,13 +22,14 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { initFixtureRepo } from '../__shared__/gitFixture';
+import { initFixtureRepo, gitFreeEnv } from '../__shared__/gitFixture';
 
 const SCRIPT = join(__dirname, '../../../scripts/lint-audit-ids.mjs');
 
 function runGuard(root?: string): { status: number; output: string } {
   try {
     const output = execFileSync('node', root ? [SCRIPT, '--root', root] : [SCRIPT], {
+      env: gitFreeEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -154,6 +155,33 @@ it("says nothing about the insights engine's own rule labels", () => {
   );
 
   expect(status).toBe(0);
+});
+
+it('says nothing about a standard identifier that collides with a key', () => {
+  // `S256` is RFC 7636's name for the code challenge method, and there is no
+  // item S256. Backticking is what a standard's own identifier gets in a
+  // comment, so the backtick rule cannot stand in for "this came from the
+  // register". Rewording the term to satisfy the lint loses the word a reader
+  // would search for, which the guard's own comment calls worse than the gap.
+  const { status, output } = runGuard(
+    fixture({
+      'src/e.ts': [
+        '/** Base64url of the SHA-256 of the verifier: the `S256` challenge method. */',
+        'export const e = 1;',
+      ].join('\n'),
+    })
+  );
+
+  expect(status).toBe(0);
+  expect(output).not.toContain('src/e.ts');
+});
+
+it('still catches a real id that shares the shape of a standard one', () => {
+  // The allowlist is exact, so narrowing it must not open the key it sits on.
+  expect(runGuard(fixture({ 'src/f.ts': '// From `S25`.\nexport const f = 2;\n' })).status).toBe(1);
+  expect(runGuard(fixture({ 'src/g.ts': '// From `S2560`.\nexport const g = 3;\n' })).status).toBe(
+    1
+  );
 });
 
 it('leaves a bare id mid-sentence alone, which is the half it cannot judge', () => {

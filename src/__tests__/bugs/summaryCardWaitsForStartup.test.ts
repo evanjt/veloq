@@ -26,6 +26,7 @@ jest.mock('@/shared/app/useAthlete', () => ({
 
 jest.mock('@/features/wellness', () => ({
   useWellness: () => ({ data: undefined }),
+  useWellnessGeneration: () => 0,
 }));
 
 jest.mock('@/shared/app/useSportSettings', () => ({

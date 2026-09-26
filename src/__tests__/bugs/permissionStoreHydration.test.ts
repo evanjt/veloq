@@ -121,10 +121,12 @@ describe('the screens act on the difference', () => {
 
   it('the recording screen waits rather than gating, and starts nothing while it waits', () => {
     expect(RECORDING).toContain("reason === 'checking'");
-    // The start is gated on canRecord, which `checking` leaves false.
-    expect(RECORDING).toContain(
-      'useInitRecordingEffect(status, activityType, mode, pairedEventId, canRecord)'
-    );
+    // The start is gated on canRecord, which `checking` leaves false. Matched
+    // over the whole call rather than one line: the arm countdown added a
+    // sixth argument and broke it across lines, and canRecord is the guarantee.
+    const call = RECORDING.match(/useInitRecordingEffect\([^)]*\)/s)?.[0] ?? '';
+    expect(call).toContain('status');
+    expect(call).toContain('canRecord');
   });
 
   it('the gate itself never renders a refusal for an answer that has not come', () => {

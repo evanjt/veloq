@@ -48,6 +48,18 @@ describe('render-time engine read lint', () => {
     return root;
   };
 
+  /** Two files: the hook, and the module it takes a helper from. */
+  const withModules = (files: Record<string, string>) => {
+    const root = mkdtempSync(join(tmpdir(), 'render-reads-'));
+    roots.push(root);
+    for (const [path, body] of Object.entries(files)) {
+      const full = join(root, path);
+      mkdirSync(join(full, '..'), { recursive: true });
+      writeFileSync(full, body);
+    }
+    return root;
+  };
+
   it('exits 0 on this repo, so the audit gate stays usable', () => {
     expect(runLint().status).toBe(0);
   });
@@ -210,6 +222,78 @@ describe('render-time engine read lint', () => {
       'export function readCount() {\n  return getEngine()?.getActivityCount() ?? 0;\n}\n',
       'src/features/x/lib/read.ts'
     );
+    expect(runLint(root).status).toBe(0);
+  });
+
+  it('fails a read reached through a helper imported by alias', () => {
+    const root = withModules({
+      'src/features/x/lib/read.ts':
+        "import { getEngine } from '@/shared/native/engine';\n" +
+        'export function readBody(id: string) {\n' +
+        '  return getEngine()?.getStreamBody(id) ?? null;\n' +
+        '}\n',
+      'src/features/x/hooks/useThing.ts':
+        "import { readBody } from '@/features/x/lib/read';\n" +
+        'export function useThing(id: string) {\n' +
+        '  return readBody(id) !== null;\n' +
+        '}\n',
+    });
+    const { status, output } = runLint(root);
+    expect(status).toBe(1);
+    expect(output).toContain('useThing.ts:3  useThing  engine.getStreamBody  via readBody:3');
+  });
+
+  it('follows a relative import and one through a barrel', () => {
+    const root = withModules({
+      'src/features/x/lib/read.ts':
+        "import { getEngine } from '@/shared/native/engine';\n" +
+        'export function readBody(id: string) {\n' +
+        '  return getEngine()?.getStreamBody(id) ?? null;\n' +
+        '}\n',
+      'src/features/x/lib/index.ts': "export { readBody } from './read';\n",
+      'src/features/x/hooks/useNear.ts':
+        "import { readBody } from '../lib/read';\n" +
+        'export function useNear(id: string) {\n  return readBody(id);\n}\n',
+      'src/features/x/hooks/useBarrel.ts':
+        "import { readBody } from '@/features/x/lib';\n" +
+        'export function useBarrel(id: string) {\n  return readBody(id);\n}\n',
+    });
+    const { status, output } = runLint(root);
+    expect(status).toBe(1);
+    expect(output).toContain('useNear.ts:3  useNear  engine.getStreamBody');
+    expect(output).toContain('useBarrel.ts:3  useBarrel  engine.getStreamBody');
+  });
+
+  it('passes an imported helper called from inside a queryFn', () => {
+    const root = withModules({
+      'src/features/x/lib/read.ts':
+        "import { getEngine } from '@/shared/native/engine';\n" +
+        'export function readBody(id: string) {\n' +
+        '  return getEngine()?.getStreamBody(id) ?? null;\n' +
+        '}\n',
+      'src/features/x/hooks/useThing.ts':
+        "import { useQuery } from '@tanstack/react-query';\n" +
+        "import { readBody } from '@/features/x/lib/read';\n" +
+        'export function useThing(id: string) {\n' +
+        '  return useQuery({ queryKey: ["x", id], queryFn: () => readBody(id) });\n' +
+        '}\n',
+    });
+    const { status, output } = runLint(root);
+    expect(status).toBe(0);
+    expect(output).toContain('render-time reads: 0');
+  });
+
+  it('does not follow an imported helper whose own read is deferred', () => {
+    const root = withModules({
+      'src/features/x/lib/read.ts':
+        "import { getEngine } from '@/shared/native/engine';\n" +
+        'export function subscribe(fn: () => void) {\n' +
+        '  setTimeout(() => { getEngine()?.getStats(); fn(); }, 0);\n' +
+        '}\n',
+      'src/features/x/hooks/useThing.ts':
+        "import { subscribe } from '@/features/x/lib/read';\n" +
+        'export function useThing() {\n  return subscribe(() => {});\n}\n',
+    });
     expect(runLint(root).status).toBe(0);
   });
 

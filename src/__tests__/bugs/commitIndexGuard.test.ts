@@ -11,7 +11,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { runGit } from '../__shared__/gitFixture';
+import { runGit, gitFreeEnv } from '../__shared__/gitFixture';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -40,7 +40,7 @@ function runGuard(
     const output = execFileSync('sh', [SCRIPT, hookPath], {
       cwd,
       encoding: 'utf8',
-      env: { ...process.env, ...env },
+      env: { ...gitFreeEnv(), ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     return { status: 0, output };

@@ -29,7 +29,10 @@ jest.mock('react-native-webview', () => ({
 
 const mockWebView = React.forwardRef(function MockWebView(
   props: { onMessage: (event: { nativeEvent: { data: string } }) => void },
-  ref: React.Ref<{ injectJavaScript: (script: string) => void; reload: () => void }>
+  ref: React.Ref<{
+    injectJavaScript: (script: string) => void;
+    reload: () => void;
+  }>
 ) {
   onMessage = props.onMessage;
   React.useImperativeHandle(ref, () => ({
@@ -98,6 +101,56 @@ describe('an override jumps the snapshot queue', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('does not queue a stand-in already cached under the drape key', () => {
+    mockCached.add('chosen_light_true');
+    pool().requestSnapshot(request('chosen', { standIn: true }));
+    post({ type: 'mapReady', workerId: 0 });
+    expect(injected.join('\n')).not.toContain('chosen');
+  });
+
+  it('drains a stand-in cached under the drape key while waiting', () => {
+    pool().requestSnapshot(request('chosen', { standIn: true }));
+    mockCached.add('chosen_light_true');
+    post({ type: 'mapReady', workerId: 0 });
+    expect(injected.join('\n')).not.toContain('chosen');
+    expect(mockProgress).toHaveBeenLastCalledWith({
+      completed: 0,
+      status: 'idle',
+      total: 0,
+    });
+  });
+
+  it('serves first paints before queued background terrain', () => {
+    pool().requestSnapshot(request('terrain', { flat: false, backgroundUpgrade: true }));
+    pool().requestSnapshot(request('visible'));
+    post({ type: 'mapReady', workerId: 0 });
+    expect(injected.join('\n')).toContain('activityId = "visible"');
+    expect(injected.join('\n')).not.toContain('activityId = "terrain"');
+  });
+
+  it('serves an override before a first paint and a background upgrade', () => {
+    pool().requestSnapshot(request('terrain', { flat: false, backgroundUpgrade: true }));
+    pool().requestSnapshot(request('visible'));
+    pool().requestSnapshot(request('chosen', { priority: true }));
+    post({ type: 'mapReady', workerId: 0 });
+    expect(injected.join('\n')).toContain('activityId = "chosen"');
+  });
+
+  it('evicts background terrain before the oldest first paint', () => {
+    queue(MAX_QUEUE_SIZE - 1);
+    pool().requestSnapshot(request('terrain', { flat: false, backgroundUpgrade: true }));
+    pool().requestSnapshot(request('visible'));
+    post({ type: 'mapReady', workerId: 0 });
+    expect(injected.join('\n')).toContain('activityId = "a0"');
+  });
+
+  it('drops an incoming upgrade when the queue is full of first paints', () => {
+    queue(MAX_QUEUE_SIZE);
+    pool().requestSnapshot(request('terrain', { flat: false, backgroundUpgrade: true }));
+    post({ type: 'mapReady', workerId: 0 });
+    expect(injected.join('\n')).toContain('activityId = "a0"');
   });
 
   it('renders the override first, ahead of everything already queued', () => {

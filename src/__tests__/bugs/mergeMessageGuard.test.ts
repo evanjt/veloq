@@ -14,7 +14,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runGit } from '../__shared__/gitFixture';
+import { runGit, gitFreeEnv } from '../__shared__/gitFixture';
 
 const SCRIPT = join(__dirname, '../../../scripts/check-merge-message.sh');
 
@@ -70,7 +70,7 @@ function runGuard(cwd: string, message: string): { status: number; output: strin
     const output = execFileSync('sh', [SCRIPT, file], {
       cwd,
       encoding: 'utf8',
-      env: { ...process.env },
+      env: gitFreeEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     return { status: 0, output };
@@ -127,7 +127,11 @@ describe('committing while a merge is in progress', () => {
   it('says nothing when it is handed no message at all', () => {
     const root = checkoutMidMerge();
 
-    const output = execFileSync('sh', [SCRIPT], { cwd: root, encoding: 'utf8' });
+    const output = execFileSync('sh', [SCRIPT], {
+      cwd: root,
+      encoding: 'utf8',
+      env: gitFreeEnv(),
+    });
 
     expect(output).toBe('');
   });

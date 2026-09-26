@@ -16,6 +16,9 @@ import { accountChangeAction, promptAccountMismatch } from '@/features/auth/lib/
 import { readCachedAthleteIdMirror } from '@/shared/storage/cachedAthleteId';
 import * as FileSystem from 'expo-file-system/legacy';
 
+// The maps barrel reaches the engine binding, which registers a TurboModule at
+// import time, so the graph this renders cannot load without the stub.
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 const mockEngine = {
   destroyEngine: jest.fn(),
   getActivityCount: jest.fn().mockReturnValue(80),
@@ -35,6 +38,12 @@ const mockNativeModule = {
 let mockAthleteId: string | null = null;
 const mockClearCredentials = jest.fn();
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    decodeCoords: (buf: ArrayBuffer) =>
+      (buf as unknown as { points?: { latitude: number; longitude: number }[] }).points ?? [],
+  })
+);
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockEngine,
   getRouteDbPath: () => '/data/veloq.db',
@@ -124,11 +133,13 @@ jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
   reloadCameraOverrides: jest.fn().mockResolvedValue(undefined),
 }));
 
-const BACKUP_META = JSON.stringify({
-  schema_version: '12',
-  athlete_id: 'athlete-9',
-  activity_count: 80,
-});
+const BACKUP_META = {
+  schemaVersion: '12',
+  athleteId: 'athlete-9',
+  activityCount: 80,
+  newestActivity: undefined,
+  supportedSchemaVersion: 32,
+};
 
 async function restoreWhileSignedOut() {
   mockNativeModule.validateBackupDatabase.mockImplementation((path: string) => {
@@ -165,7 +176,7 @@ describe('a restore performed while signed out', () => {
   it('leaves the stamp alone when the backup names no athlete', async () => {
     mockNativeModule.validateBackupDatabase.mockImplementation((path: string) => {
       if (path.includes('veloq.db')) throw new Error('fresh install');
-      return JSON.stringify({ schema_version: '12', athlete_id: null, activity_count: 80 });
+      return { ...BACKUP_META, athleteId: undefined };
     });
 
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
@@ -176,9 +187,10 @@ describe('a restore performed while signed out', () => {
   });
 
   it('does not stamp anything when the restore is refused', async () => {
-    mockNativeModule.validateBackupDatabase.mockImplementation(() =>
-      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-9', activity_count: 0 })
-    );
+    mockNativeModule.validateBackupDatabase.mockImplementation(() => ({
+      ...BACKUP_META,
+      activityCount: 0,
+    }));
 
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
 

@@ -7,7 +7,7 @@
  * and a merge touching nothing testable runs nothing.
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
@@ -140,6 +140,45 @@ describe('the commands a merge runs', () => {
     expect(command).toContain('--features synthetic');
   });
 
+  /// Scenario: a merge edits one of the two suites gated on `real-corpus`.
+  /// Named under `--features synthetic`, cargo refuses the whole command and
+  /// the merge is left staged in the shared checkout with `MERGE_HEAD` set,
+  /// for a reason that has nothing to do with the change.
+  describe('a suite gated on a feature the merge lane cannot supply', () => {
+    it('is left out of the command rather than naming it under the wrong feature', () => {
+      const [command] = mergeTestCommands(
+        mergeTestTargets([`${CRATE}/tests/corpus_preview_identity.rs`])
+      );
+
+      expect(command).toBeUndefined();
+    });
+
+    it('does not take the suites beside it down with it', () => {
+      const [command] = mergeTestCommands(
+        mergeTestTargets([
+          `${CRATE}/tests/corpus_migration.rs`,
+          `${CRATE}/tests/suite2_cache_coherence.rs`,
+        ])
+      );
+
+      expect(command).toContain('--test suite2_cache_coherence');
+      expect(command).not.toContain('corpus_migration');
+    });
+
+    it('reads the features from Cargo.toml rather than a second list of names', () => {
+      const manifest = readFileSync(join(ROOT, CRATE, 'Cargo.toml'), 'utf8');
+      const gated = Array.from(
+        manifest.matchAll(/\[\[test\]\]\s*\nname = "([^"]+)"\s*\nrequired-features = \[([^\]]*)\]/g)
+      ).filter(([, , features]) => !features.includes('synthetic'));
+
+      expect(gated.length).toBeGreaterThan(0);
+      for (const [, name] of gated) {
+        const [command] = mergeTestCommands(mergeTestTargets([`${CRATE}/tests/${name}.rs`]));
+        expect(command).toBeUndefined();
+      }
+    });
+  });
+
   // The hook runs the line through `eval`, and every tab screen lives under
   // `src/app/(tabs)/`, so an unquoted path is a merge that cannot land.
   it.each([
@@ -162,7 +201,9 @@ describe('the commands a merge runs', () => {
 });
 
 describe('the merge hook', () => {
-  const hook = readFileSync(join(ROOT, '.husky', 'pre-merge-commit'), 'utf8');
+  const hook =
+    readFileSync(join(ROOT, '.husky', 'pre-merge-commit'), 'utf8') +
+    readFileSync(join(ROOT, 'scripts/merge-gates.sh'), 'utf8');
 
   it('runs the suites the merge touched', () => {
     expect(hook).toMatch(/check-merge-tests/);
@@ -182,5 +223,65 @@ describe('the merge hook', () => {
 
   it('fails the merge rather than reporting and continuing', () => {
     expect(hook).toMatch(/^set -e$/m);
+  });
+});
+
+/**
+ * Scenario: a merge adds `src/migrations/029_*.sql` and edits
+ * `persistence/schema.rs`. Neither path is under `tests/`, so the plan named
+ * `--lib` and nothing else, and the golden whose job is to catch a schema
+ * change shipping without a migration was the one gate a schema change could
+ * not fire. It has happened: a column was added to `gps_tracks` without
+ * regenerating the fresh-install fixture, and the golden stayed red on the
+ * integration branch until someone ran the suite for another reason.
+ */
+describe('the schema gates', () => {
+  const SCHEMA_SUITES = ['migration_checksums', 'migration_upgrade', 'schema_golden'];
+
+  it('runs on a new migration', () => {
+    const targets = mergeTestTargets([`${CRATE}/src/migrations/029_stream_backfill.sql`]);
+
+    expect(targets.rustTests).toEqual(SCHEMA_SUITES);
+  });
+
+  it('runs on an edit to an already-applied migration, which splits the installed base', () => {
+    const targets = mergeTestTargets([`${CRATE}/src/migrations/012_sections.sql`]);
+
+    expect(targets.rustTests).toContain('migration_checksums');
+  });
+
+  it('runs when the schema itself moves', () => {
+    const targets = mergeTestTargets([`${CRATE}/src/persistence/schema.rs`]);
+
+    expect(targets.rustTests).toEqual(SCHEMA_SUITES);
+    expect(targets.rustLib).toBe(true);
+  });
+
+  it('runs on a fixture the golden reads', () => {
+    const targets = mergeTestTargets([`${CRATE}/tests/fixtures/schema/v28_fresh.txt`]);
+
+    expect(targets.rustTests).toContain('schema_golden');
+  });
+
+  it('names each suite once when the migration and the schema both moved', () => {
+    const targets = mergeTestTargets([
+      `${CRATE}/src/migrations/029_stream_backfill.sql`,
+      `${CRATE}/src/persistence/schema.rs`,
+      `${CRATE}/tests/schema_golden.rs`,
+    ]);
+
+    expect(targets.rustTests).toEqual(SCHEMA_SUITES);
+  });
+
+  it('leaves an ordinary source change alone', () => {
+    const targets = mergeTestTargets([`${CRATE}/src/persistence/wellness.rs`]);
+
+    expect(targets.rustTests).toEqual([]);
+  });
+
+  it('names suites that exist in the crate', () => {
+    for (const suite of SCHEMA_SUITES) {
+      expect(existsSync(join(ROOT, CRATE, 'tests', `${suite}.rs`))).toBe(true);
+    }
   });
 });

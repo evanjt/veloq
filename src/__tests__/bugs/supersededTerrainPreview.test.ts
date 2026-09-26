@@ -13,6 +13,7 @@ import {
   deleteSupersededTerrainPreviews,
   initTerrainPreviewCache,
   clearTerrainPreviews,
+  isTerrainPreviewDowngraded,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 
 const mockFileStore = new Map<string, string>();
@@ -80,6 +81,52 @@ describe('a superseded preview is deleted once its replacement has landed', () =
     await deleteSupersededTerrainPreviews('a1', 'light', FLAT);
 
     expect(hasTerrainPreview('a1', 'light', FLAT)).toBe(true);
+  });
+
+  /**
+   * A drape that cannot be rendered falls back to a flat stand-in saved under
+   * the 3D key with a `flat` downgrade marker. The key the deletion keeps is
+   * the undowngraded one, so the stand-in that had just landed was the file it
+   * deleted, and the card was left holding a uri to nothing.
+   */
+  it('keeps a flat stand-in that landed under the 3D key', async () => {
+    await saveTerrainPreview('a1', 'satellite', DRAPED, 'standin', { downgradedTo: 'flat' });
+
+    await deleteSupersededTerrainPreviews('a1', 'satellite', DRAPED);
+
+    expect(hasTerrainPreview('a1', 'satellite', DRAPED)).toBe(true);
+    expect(isTerrainPreviewDowngraded('a1', 'satellite', DRAPED)).toBe(true);
+  });
+
+  /**
+   * The stand-in is kept only while it is the render the card is showing. Once
+   * the real drape lands the stand-in is not superseded, it is wrong: the save
+   * drops it there and then, because leaving it indexed would report the
+   * activity as downgraded forever and keep asking for an upgrade it already
+   * has. Asserted here so the rule above is not read as the stronger one.
+   */
+  it('lets the real drape take the stand-in with it', async () => {
+    await saveTerrainPreview('a1', 'satellite', DRAPED, 'standin', { downgradedTo: 'flat' });
+    await saveTerrainPreview('a1', 'satellite', DRAPED, 'draped');
+
+    await deleteSupersededTerrainPreviews('a1', 'satellite', DRAPED);
+
+    expect(hasTerrainPreview('a1', 'satellite', DRAPED)).toBe(true);
+    expect(isTerrainPreviewDowngraded('a1', 'satellite', DRAPED)).toBe(false);
+  });
+
+  /** Everything else for that activity still goes. */
+  it('still drops the other styles while keeping both 3D keys', async () => {
+    await saveTerrainPreview('a1', 'light', FLAT, 'one');
+    await saveTerrainPreview('a1', 'satellite', FLAT, 'two');
+    await saveTerrainPreview('a1', 'satellite', DRAPED, 'standin', { downgradedTo: 'flat' });
+    await saveTerrainPreview('a1', 'satellite', DRAPED, 'draped');
+
+    await deleteSupersededTerrainPreviews('a1', 'satellite', DRAPED);
+
+    expect(hasTerrainPreview('a1', 'light', FLAT)).toBe(false);
+    expect(hasTerrainPreview('a1', 'satellite', FLAT)).toBe(false);
+    expect(hasTerrainPreview('a1', 'satellite', DRAPED)).toBe(true);
   });
 
   it('is safe when the render that landed is not cached at all', async () => {
