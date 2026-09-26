@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -8,7 +8,12 @@ import { useTheme } from '@/shared/app';
 import { useTodayWorkout } from '@/features/home/hooks/useTodayWorkout';
 import { useWorkoutSections } from '@/features/home/hooks/useWorkoutSections';
 import { useWellness } from '@/features/wellness';
-import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
+import {
+  getFormZone,
+  FORM_ZONE_COLORS,
+  formZoneTextColor,
+  formZoneLabel,
+} from '@/features/fitness/lib/fitness';
 import { formatDuration, formatDurationHuman, isolateNumeric } from '@/shared/format/format';
 import { WorkoutStepBar } from './WorkoutStepBar';
 import {
@@ -23,18 +28,19 @@ import {
 } from '@/theme';
 import type { CalendarEvent, ActivityPattern } from '@/types';
 import type { WorkoutSection } from '@/features/home/hooks/useWorkoutSections';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
+import { pressable } from '@/shared/ui';
+import { formFromLoads } from '@/shared/math';
 
 const PR_RECENCY_DAYS = 7;
 
-const DAY_NAMES_PLURAL = [
-  'Mondays',
-  'Tuesdays',
-  'Wednesdays',
-  'Thursdays',
-  'Fridays',
-  'Saturdays',
-  'Sundays',
-];
+// 2024-01-01 was a Monday, and `primaryDay` is 0 for Monday, so the offset is
+// the index. The weekday name then comes from the athlete's own locale rather
+// than a list that only ever held English.
+function weekdayName(primaryDay: number, locale: string): string {
+  const monday = new Date(Date.UTC(2024, 0, 1 + primaryDay));
+  return new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' }).format(monday);
+}
 
 interface TodayBannerProps {
   /**
@@ -62,12 +68,15 @@ export const TodayBanner = React.memo(function TodayBanner({ todayPattern }: Tod
   const latestWellness = wellnessData
     ? [...wellnessData].sort((a, b) => b.id.localeCompare(a.id))[0]
     : null;
-  const ctl = latestWellness?.ctl ?? latestWellness?.ctlLoad ?? 0;
-  const atl = latestWellness?.atl ?? latestWellness?.atlLoad ?? 0;
+  const ctl = latestWellness?.ctl ?? 0;
+  const atl = latestWellness?.atl ?? 0;
   const tsb = ctl - atl;
-  const formZone = getFormZone(tsb);
+  const form = formFromLoads(ctl, atl);
+  const asPercent = useFormPreference((s) => s.formAsPercent) === true;
+  const formZone = getFormZone(tsb, ctl, asPercent);
   const formColor = FORM_ZONE_COLORS[formZone];
-  const formLabel = FORM_ZONE_LABELS[formZone];
+  const formTextColor = formZoneTextColor(formZone, isDark);
+  const formLabel = formZoneLabel(formZone);
 
   if (isLoading) return null;
   if (!todayWorkout && !tomorrowWorkout && !todayPattern && !latestWellness) return null;
@@ -85,8 +94,8 @@ export const TodayBanner = React.memo(function TodayBanner({ todayPattern }: Tod
             ? t('routeIntelligence.tomorrow', 'TOMORROW')
             : t('routeIntelligence.today', 'TODAY')}
         </Text>
-        <Text style={[styles.readinessValue, { color: formColor }]}>
-          {formLabel} ({isolateNumeric(`${tsb > 0 ? '+' : ''}${Math.round(tsb)}`)} TSB)
+        <Text style={[styles.readinessValue, { color: formTextColor }]}>
+          {formLabel} ({isolateNumeric(`${form > 0 ? '+' : ''}${form}`)} TSB)
         </Text>
       </View>
 
@@ -114,14 +123,15 @@ const WorkoutCard = React.memo(function WorkoutCard({
   isTomorrow: boolean;
   isDark: boolean;
 }) {
+  const { t } = useTranslation();
   const sportIcon = workout.type === 'Run' ? '\u{1F3C3}' : '\u{1F6B4}';
   const targetLabel =
     workout.target === 'POWER'
-      ? 'Power'
+      ? t('routes.targetPower')
       : workout.target === 'HR'
-        ? 'HR'
+        ? t('routes.targetHr')
         : workout.target === 'PACE'
-          ? 'Pace'
+          ? t('routes.targetPace')
           : '';
 
   return (
@@ -147,17 +157,23 @@ const PatternCard = React.memo(function PatternCard({
   pattern: ActivityPattern;
   isDark: boolean;
 }) {
-  const sportLabel = pattern.sportType === 'Run' ? 'run' : 'ride';
-  const dayName = DAY_NAMES_PLURAL[pattern.primaryDay] ?? '';
+  const { t, i18n } = useTranslation();
+  const sport = t(pattern.sportType === 'Run' ? 'routes.patternRun' : 'routes.patternRide');
+  const day = weekdayName(pattern.primaryDay, i18n.language);
 
   return (
     <View style={styles.patternCard}>
       <Text style={[styles.patternText, isDark && styles.textLight]}>
-        {dayName} you usually {sportLabel} ~{formatDurationHuman(pattern.avgDurationSecs)}
+        {t('routes.patternSentence', {
+          day,
+          sport,
+          duration: formatDurationHuman(pattern.avgDurationSecs),
+        })}
       </Text>
       {pattern.avgTss > 0 && (
         <Text style={[styles.workoutMeta, isDark && styles.textMuted]}>
-          ~{Math.round(pattern.avgTss)} TSS {'\u00B7'} {pattern.activityCount} activities
+          ~{Math.round(pattern.avgTss)} TSS {'\u00B7'} {pattern.activityCount}{' '}
+          {t('routes.activities')}
         </Text>
       )}
     </View>
@@ -202,9 +218,9 @@ const SectionHighlights = React.memo(function SectionHighlights({
         const gain = delta != null && delta > 0 ? delta : null;
 
         return (
-          <TouchableOpacity
+          <Pressable
             key={section.id}
-            style={styles.sectionRow}
+            style={pressable(styles.sectionRow)}
             onPress={() => router.push(`/section/${section.id}`)}
           >
             <Text
@@ -243,7 +259,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
                 </Text>
               )}
             </View>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </View>
@@ -313,7 +329,7 @@ const styles = StyleSheet.create({
   workoutMeta: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   patternCard: {
     marginBottom: spacing.xs,
@@ -335,8 +351,8 @@ const styles = StyleSheet.create({
   prSummaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
   prSummaryText: {
     fontSize: typography.caption.fontSize,
@@ -348,7 +364,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 3,
+    paddingVertical: spacing.xs,
   },
   sectionName: {
     fontSize: typography.bodyCompact.fontSize,
@@ -366,7 +382,7 @@ const styles = StyleSheet.create({
   prCelebration: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs,
   },
   prTextCelebration: {
     fontSize: typography.bodyCompact.fontSize,

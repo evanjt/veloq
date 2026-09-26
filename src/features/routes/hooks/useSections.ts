@@ -6,14 +6,14 @@
 
 import { useMemo } from 'react';
 import { useCustomSections } from './useCustomSections';
-import { useEngineSubscription } from './useEngine';
-import { getEngine } from '@/shared/native/engine';
-import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import type { FrequentSection } from '@/types';
-import { convertSectionSummaryToApp } from '@/features/routes/lib/sectionConversions';
+import { unifySections } from '@/features/routes/lib/unifySections';
 
 // Re-export for backwards compatibility
 export { generateSectionName } from '@/features/routes/lib/sectionNaming';
+
+/** One reference, so a caller with no page does not re-unify every render. */
+const EMPTY_SECTIONS: FrequentSection[] = [];
 
 export interface UseSectionsOptions {
   /** Filter by sport type */
@@ -33,11 +33,6 @@ export interface UseSectionsResult {
   count: number;
   /** Auto-detected section count */
   autoCount: number;
-  /** Custom section count */
-  customCount: number;
-  /** Potential section count */
-  /** Disabled section count */
-  disabledCount: number;
   /** Loading state */
   isLoading: boolean;
   /** Error state */
@@ -50,18 +45,11 @@ export interface UseSectionsResult {
 export function useSections(options: UseSectionsOptions = {}): UseSectionsResult {
   const { sportType, includeCustom = true, enabled = true, preloadedEngineSections } = options;
 
-  // Load ALL engine sections including disabled/superseded (for sections list restore UI).
-  // This uses getAllSectionsIncludingHidden() so disabled sections appear at the bottom.
-  const skipEngineFetch = !!preloadedEngineSections;
-  const sectionsTrigger = useEngineSubscription(['sections']);
-  const hookEngineSections = useMemo(() => {
-    if (!enabled || skipEngineFetch) return [];
-    const engine = getEngine();
-    if (!engine) return [];
-    return engine.getAllSectionsIncludingHidden(sportType).map(convertSectionSummaryToApp);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, skipEngineFetch, sportType, sectionsTrigger]);
-  const engineSections = preloadedEngineSections ?? hookEngineSections;
+  // The engine rows are the caller's page and nothing else. There was a summary
+  // read here for the frames before that page landed, but the page is read while
+  // rendering now, so the gap it filled has closed. Disabled and superseded rows
+  // come from the page too: the read is filtered, not narrowed.
+  const engineSections = preloadedEngineSections ?? EMPTY_SECTIONS;
 
   // Load custom sections
   const {
@@ -70,85 +58,25 @@ export function useSections(options: UseSectionsOptions = {}): UseSectionsResult
     error: customError,
   } = useCustomSections({ sportType, enabled });
 
-  // Combine all sections
-  // NOTE: Overlap calculation for auto vs custom sections is pre-computed and stored
-  // in SupersededSectionsStore when custom sections are created.
-  const unified = useMemo(() => {
-    const result: FrequentSection[] = [];
-    const seenIds = new Set<string>(); // Track IDs to prevent duplicates
+  // Combine all sections. The engine row wins wherever it has the id, so a
+  // custom section keeps its rank scores, class and elevation.
+  // NOTE: Overlap calculation for auto vs custom sections is pre-computed and
+  // stored in SupersededSectionsStore when custom sections are created.
+  const unified = useMemo(
+    () => unifySections({ engineSections, customSections, includeCustom }),
+    [engineSections, customSections, includeCustom]
+  );
 
-    // Add custom sections first (user-created take priority)
-    // Note: custom.id already has "custom_" prefix from generateId()
-    if (includeCustom) {
-      for (const custom of customSections) {
-        if (seenIds.has(custom.id)) continue;
-        seenIds.add(custom.id);
-        result.push({
-          id: custom.id,
-          sectionType: 'custom',
-          name: custom.name || '',
-          polyline: custom.polyline,
-          sportType: custom.sportType,
-          distanceMeters: custom.distanceMeters,
-          activityIds: custom.activityIds || [],
-          visitCount: custom.visitCount || custom.activityIds?.length || 1,
-          createdAt: custom.createdAt || new Date().toISOString(),
-        });
-      }
-    }
-
-    // Add engine sections (auto-detected and custom from batch data)
-    // Disabled/superseded state is in the section data from SQLite
-    for (const engine of engineSections) {
-      if (seenIds.has(engine.id)) continue;
-
-      const actualType =
-        engine.sectionType === 'custom' || engine.id.startsWith('custom_') ? 'custom' : 'auto';
-
-      seenIds.add(engine.id);
-      result.push({
-        ...engine,
-        sectionType: actualType,
-        name: engine.name || generateSectionName(engine),
-        activityIds: engine.activityIds || [],
-        createdAt: engine.createdAt || new Date().toISOString(),
-      });
-    }
-
-    // Sort: disabled/superseded sections last, then by type. Stable within each
-    // group so upstream ordering (e.g. Rust-side nearest-distance pre-sort from
-    // batchSections) survives. Consumers like SectionsList apply their own
-    // visit/distance/name comparator after this; 'nearby' relies on the
-    // preserved upstream order.
-    result.sort((a, b) => {
-      const aHidden = !!(a.disabled || a.supersededBy);
-      const bHidden = !!(b.disabled || b.supersededBy);
-      if (aHidden && !bHidden) return 1;
-      if (!aHidden && bHidden) return -1;
-
-      const typePriority: Record<string, number> = { custom: 0, auto: 1 };
-      const aPriority = typePriority[a.sectionType] ?? 1;
-      const bPriority = typePriority[b.sectionType] ?? 1;
-
-      return aPriority - bPriority;
-    });
-
-    return result;
-  }, [engineSections, customSections, includeCustom]);
-
-  // Compute counts (disabled/superseded are hidden from counts)
+  // Counts that key a filter chip come from the engine, over the catalogue. A
+  // tally here only ever sees the page the caller preloaded.
   const autoCount = unified.filter(
     (s) => s.sectionType === 'auto' && !s.disabled && !s.supersededBy
   ).length;
-  const customCount = unified.filter((s) => s.sectionType === 'custom').length;
-  const disabledCount = unified.filter((s) => !!(s.disabled || s.supersededBy)).length;
 
   return {
     sections: unified,
     count: unified.length,
     autoCount,
-    customCount,
-    disabledCount,
     isLoading: customLoading,
     error: customError || null,
   };

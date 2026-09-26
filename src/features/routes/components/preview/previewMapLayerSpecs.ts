@@ -7,8 +7,7 @@
  */
 
 import { colors, brand, mapLayerColors } from '@/theme';
-import type { MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
-import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
+import { EMPTY_FEATURE_COLLECTION, type MapLayerSpec, type MapSourceSpec } from '@/features/maps';
 
 export const PREVIEW_INTERACTIVE_LAYERS = ['proposed-line', 'gone-line', 'current-line'];
 

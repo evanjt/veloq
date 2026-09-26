@@ -3,34 +3,21 @@
  * Displays the route with activity count and preview polyline.
  */
 
-import React, { memo, useState, useMemo, useId } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTranslation } from 'react-i18next';
-import {
-  colors,
-  darkColors,
-  opacity,
-  spacing,
-  layout,
-  typography,
-  shadows,
-  mapPreviewColors,
-  ink,
-} from '@/theme';
-import {
-  getActivityColor,
-  getActivityIcon,
-  isPaceSport,
-} from '@/features/activity/lib/activityUtils';
+import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
+import { getActivityColor, getActivityIcon, isPaceSport } from '@/shared/activity/activityUtils';
 import { formatPace, formatSpeed, formatDistance } from '@/shared/format/format';
 import { useConsensusRoute } from '@/features/routes/hooks/useEngine';
 import { toActivityType } from '@/features/routes/types';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
+import { rowIsUnchanged } from '@/shared/ui/rowMemo';
+import { TrackPreview, normalizeTrackPoints } from '@/shared/ui/TrackPreview';
 
 interface RouteRowProps {
   /** Route data - can be either DiscoveredRouteInfo (during processing) or RouteGroup (saved) */
@@ -46,127 +33,10 @@ function isRouteGroup(route: DiscoveredRouteInfo | RouteGroup): route is RouteGr
   return 'signature' in route;
 }
 
-/** Convert signature GPS points to normalized preview points (0-1) */
-function normalizePoints(points: { lat: number; lng: number }[]): { x: number; y: number }[] {
-  if (points.length < 2) return [];
-
-  const lats = points.map((p) => p.lat);
-  const lngs = points.map((p) => p.lng);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-
-  const latRange = maxLat - minLat || 1;
-  const lngRange = maxLng - minLng || 1;
-
-  return points.map((p) => ({
-    x: (p.lng - minLng) / lngRange,
-    y: 1 - (p.lat - minLat) / latRange, // Invert Y for screen coordinates
-  }));
-}
-
-interface RoutePreviewProps {
-  points: { x: number; y: number }[];
-  color: string;
-  isDark: boolean;
-}
-
-const RoutePreview = memo(function RoutePreview({ points, color, isDark }: RoutePreviewProps) {
-  // Unique ID for SVG gradient to avoid collisions between multiple instances
-  const uniqueId = useId();
-  const gradientId = `routeGradient-${uniqueId}`;
-
-  if (points.length < 2) return null;
-
-  const width = 48;
-  const height = 36;
-  const padding = 4;
-
-  const scaledPoints = points.map((p) => ({
-    x: p.x * (width - padding * 2) + padding,
-    y: p.y * (height - padding * 2) + padding,
-  }));
-
-  const pointsString = scaledPoints.map((p) => `${p.x},${p.y}`).join(' ');
-  const startPoint = scaledPoints[0];
-  const endPoint = scaledPoints[scaledPoints.length - 1];
-
-  // Background colors for map-like appearance
-  const preview = isDark ? mapPreviewColors.dark : mapPreviewColors.light;
-  const bgColor = preview.bg;
-  const gridColor = preview.grid;
-
-  return (
-    <Svg width={width} height={height}>
-      <Defs>
-        <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={bgColor} stopOpacity="1" />
-          <Stop offset="1" stopColor={preview.bgBottom} stopOpacity="1" />
-        </LinearGradient>
-      </Defs>
-
-      {/* Map-like background */}
-      <Rect x="0" y="0" width={width} height={height} fill={`url(#${gradientId})`} rx="4" />
-
-      {/* Subtle grid lines for map effect */}
-      <Polyline
-        points={`${width / 3},0 ${width / 3},${height}`}
-        stroke={gridColor}
-        strokeWidth={0.5}
-        strokeOpacity={0.5}
-      />
-      <Polyline
-        points={`${(2 * width) / 3},0 ${(2 * width) / 3},${height}`}
-        stroke={gridColor}
-        strokeWidth={0.5}
-        strokeOpacity={0.5}
-      />
-      <Polyline
-        points={`0,${height / 2} ${width},${height / 2}`}
-        stroke={gridColor}
-        strokeWidth={0.5}
-        strokeOpacity={0.5}
-      />
-
-      {/* Route shadow for depth */}
-      <Polyline
-        points={pointsString}
-        fill="none"
-        stroke={ink.black}
-        strokeWidth={3}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeOpacity={0.15}
-        transform="translate(0.5, 0.5)"
-      />
-
-      {/* Route line */}
-      <Polyline
-        points={pointsString}
-        fill="none"
-        stroke={color}
-        strokeWidth={2.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Start marker (green) */}
-      <Circle cx={startPoint.x} cy={startPoint.y} r={3} fill={colors.success} />
-      <Circle cx={startPoint.x} cy={startPoint.y} r={2} fill={ink.white} />
-
-      {/* End marker (red) */}
-      <Circle cx={endPoint.x} cy={endPoint.y} r={3} fill={colors.error} />
-      <Circle cx={endPoint.x} cy={endPoint.y} r={2} fill={ink.white} />
-    </Svg>
-  );
-});
-
 function RouteRowComponent({ route, navigable = false, distanceFromUser }: RouteRowProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
-  const [expanded, setExpanded] = useState(false);
 
   // Use pre-loaded consensus points if available (from batch FFI), otherwise lazy-load
   const preloadedConsensus =
@@ -189,23 +59,12 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
   const previewPoints = useMemo(() => {
     if (isRouteGroup(route)) {
       // RouteGroup - use lazy-loaded consensus points
-      return consensusPoints ? normalizePoints(consensusPoints) : [];
+      return consensusPoints ? normalizeTrackPoints(consensusPoints) : [];
     } else {
       // DiscoveredRouteInfo - use previewPoints directly
       return route.previewPoints || [];
     }
   }, [route, consensusPoints]);
-
-  // Get activity names for expansion
-  const activityNames = useMemo(() => {
-    if (isRouteGroup(route)) {
-      // RouteGroup doesn't have activity names, just IDs
-      return route.activityIds.map(
-        (_, i) => t('routes.defaultActivityName' as never, { number: i + 1 }) as string
-      );
-    }
-    return route.activityNames || [];
-  }, [route, t]);
 
   const getTypeIcon = (): 'bike' | 'run' | 'swim' | 'walk' | 'map-marker' => {
     const routeType = route.type?.toLowerCase() || '';
@@ -235,12 +94,11 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
     return showPace ? formatPace(bestPace, isMetric) : formatSpeed(bestPace, isMetric);
   }, [bestPace, showPace, isMetric]);
 
+  // The expandable form is gone: its activity list was fed by `activityIds`,
+  // which `batchGroupToRouteGroup` always builds empty, so it never had a row
+  // to draw. Every row the list renders is navigable.
   const handlePress = () => {
-    if (navigable) {
-      navigateTo(`/route/${route.id}`);
-    } else {
-      setExpanded(!expanded);
-    }
+    if (navigable) navigateTo(`/route/${route.id}`);
   };
 
   return (
@@ -254,7 +112,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
         {/* Route preview with map-like backdrop */}
         <View style={styles.previewBox}>
           {previewPoints.length > 1 ? (
-            <RoutePreview points={previewPoints} color={activityColor} isDark={isDark} />
+            <TrackPreview points={previewPoints} color={activityColor} isDark={isDark} />
           ) : (
             <View style={[styles.previewPlaceholder, isDark && styles.previewPlaceholderDark]}>
               <MaterialCommunityIcons
@@ -308,7 +166,12 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
               <Text style={[styles.paceText, { color: colors.primary }]}>{formattedPace}</Text>
             )}
             {avgMatchPercentage !== undefined && avgMatchPercentage > 0 && (
-              <Text style={[styles.matchPercent, { color: colors.success }]}>
+              <Text
+                style={[
+                  styles.matchPercent,
+                  { color: isDark ? darkColors.successDeep : colors.successDeep },
+                ]}
+              >
                 {Math.round(avgMatchPercentage)}% {t('routes.match')}
               </Text>
             )}
@@ -319,7 +182,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
         <View style={styles.countBadge}>
           <Text style={styles.countText}>{route.activityCount}</Text>
           <MaterialCommunityIcons
-            name={navigable ? 'chevron-right' : expanded ? 'chevron-up' : 'chevron-down'}
+            name={navigable ? 'chevron-right' : 'chevron-down'}
             size={16}
             color={
               navigable ? colors.textOnDark : isDark ? colors.neutralLine : colors.textSecondary
@@ -327,60 +190,35 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
           />
         </View>
       </TouchableOpacity>
-
-      {/* Expanded activity list - only show when not navigable */}
-      {expanded && !navigable && (
-        <View style={[styles.expandedList, isDark && styles.expandedListDark]}>
-          {activityNames.slice(0, 5).map((name, idx) => (
-            <View key={route.activityIds[idx] || idx} style={styles.activityItem}>
-              <MaterialCommunityIcons
-                name="checkbox-marked-circle-outline"
-                size={14}
-                color={colors.success}
-              />
-              <Text style={[styles.activityName, isDark && styles.textMuted]} numberOfLines={1}>
-                {name}
-              </Text>
-            </View>
-          ))}
-          {route.activityCount > 5 && (
-            <Text style={[styles.moreText, isDark && styles.textMuted]}>
-              {t('routes.more', { count: route.activityCount - 5 })}
-            </Text>
-          )}
-        </View>
-      )}
     </View>
   );
 }
 
 // Memoize - only re-render if route data changes
-export const RouteRow = memo(RouteRowComponent, (prevProps, nextProps) => {
-  const prevSportTypes =
-    'sportTypes' in prevProps.route ? (prevProps.route as RouteGroup).sportTypes : undefined;
-  const nextSportTypes =
-    'sportTypes' in nextProps.route ? (nextProps.route as RouteGroup).sportTypes : undefined;
-  return (
-    prevProps.route.id === nextProps.route.id &&
-    prevProps.route.name === nextProps.route.name &&
-    prevProps.route.activityCount === nextProps.route.activityCount &&
-    prevProps.navigable === nextProps.navigable &&
-    prevProps.distanceFromUser === nextProps.distanceFromUser &&
-    prevSportTypes?.length === nextSportTypes?.length
-  );
-});
+export const RouteRow = memo(RouteRowComponent, (prevProps, nextProps) =>
+  rowIsUnchanged(
+    {
+      record: prevProps.route,
+      extras: [prevProps.navigable, prevProps.distanceFromUser],
+    },
+    {
+      record: nextProps.route,
+      extras: [nextProps.navigable, nextProps.distanceFromUser],
+    }
+  )
+);
 
 const styles = StyleSheet.create({
   wrapper: {
     marginHorizontal: spacing.md,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadiusMd,
-    padding: 6,
+    padding: spacing.xsPlus,
     ...shadows.pill,
   },
   containerDark: {
@@ -422,12 +260,12 @@ const styles = StyleSheet.create({
   sportTypeIcons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: spacing.xxs,
     gap: spacing.sm,
   },
   metaText: {
@@ -437,7 +275,7 @@ const styles = StyleSheet.create({
   proximityTag: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    gap: 2,
+    gap: spacing.xxs,
   },
   proximityText: {
     fontSize: typography.micro.fontSize,
@@ -460,13 +298,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: layout.borderRadius,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    gap: 2,
+    paddingVertical: spacing.xxs,
+    gap: spacing.xxs,
   },
   countText: {
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '700',
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
   },
   textLight: {
     color: colors.textOnDark,
@@ -480,7 +318,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 10,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    marginTop: -2,
+    marginTop: -spacing.xxs,
   },
   expandedListDark: {
     backgroundColor: opacity.overlayDark.subtle,
@@ -489,7 +327,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
   activityName: {
     flex: 1,

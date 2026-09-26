@@ -3,17 +3,12 @@
  *
  * One builder per record and no more, each spreading rather than listing its
  * fields, so an enrichment column reaches every screen the day the engine
- * starts sending it. Listing is what left `straightness` on three engine
- * records with no app field at all, and `isLift` off the sections list while
- * the detail screen had it.
+ * starts sending it. Listing is what kept `isLift` off the sections list while
+ * the detail screen had it, and what left a fourth column on three engine
+ * records with no app field at all until it was cut for want of a reader.
  */
 
-import {
-  decodeCoords,
-  type Section as NativeSection,
-  type SectionSummary as NativeSectionSummary,
-  type SectionWithPolyline,
-} from 'veloqrs';
+import { decodeCoords, type Section as NativeSection, type SectionWithPolyline } from 'veloqrs';
 import { convertActivityPortions } from '@/shared/ffi/ffiConversions';
 import type { FrequentSection, RoutePoint, SectionType } from '@/types';
 
@@ -65,21 +60,6 @@ export function convertSectionWithPolylineToApp(native: SectionWithPolyline): Fr
     name: native.name ?? undefined,
     scale: native.scale ?? undefined,
     createdAt: new Date().toISOString(),
-    supersededBy: native.supersededBy ?? null,
-  };
-}
-
-/**
- * The summary record, which carries no geometry at all. A caller that draws
- * the line fetches it separately.
- */
-export function convertSectionSummaryToApp(native: NativeSectionSummary): FrequentSection {
-  return {
-    ...native,
-    sectionType: sectionTypeOf(native.sectionType),
-    polyline: [],
-    activityIds: [],
-    name: native.name ?? undefined,
     supersededBy: native.supersededBy ?? null,
   };
 }

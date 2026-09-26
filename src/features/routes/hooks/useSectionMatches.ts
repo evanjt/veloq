@@ -8,8 +8,8 @@
 
 import { useMemo } from 'react';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
-import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
-import type { Section as NativeSection } from 'veloqrs';
+import { convertSectionWithPolylineToApp } from '@/features/routes/lib/sectionConversions';
+import type { SectionWithPolyline } from 'veloqrs';
 import type { FrequentSection } from '@/types';
 
 /**
@@ -51,7 +51,7 @@ export interface UseSectionMatchesResult {
 
 /** Section matches a caller already read, so this hook can skip its own reads. */
 export interface PreComputedSectionMatches {
-  sections: NativeSection[];
+  sections: SectionWithPolyline[];
   sectionCount: number;
 }
 
@@ -76,14 +76,14 @@ export function useSectionMatches(
       return [];
     }
 
-    const nativeSections: NativeSection[] = bundle.sections;
+    const nativeSections: SectionWithPolyline[] = bundle.sections;
 
     const matches: SectionMatch[] = [];
 
     for (const native of nativeSections) {
       try {
         // Convert to app format
-        const converted = convertNativeSectionToApp(native);
+        const converted = convertSectionWithPolylineToApp(native);
         const section = {
           ...converted,
           name: generateSectionName(converted),

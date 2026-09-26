@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type {
   ActivityMetrics,
   MergeCandidate,
@@ -129,16 +130,17 @@ export function useSectionDetailPerformance(
   sportFilter: string | undefined,
   enabled: boolean
 ): SectionPerformanceData | null {
-  const trigger = useEngineSubscription(['sections']);
+  const readPerformance = useEngineRead(['sections']);
 
   return useMemo(() => {
     if (!enabled || !sectionId) return null;
-    const engine = getEngine();
-    if (!engine) return null;
-    try {
-      return engine.getSectionDetailPerformance(sectionId, timeRangeDays, sportFilter) ?? null;
-    } catch {
-      return null;
-    }
-  }, [sectionId, timeRangeDays, sportFilter, enabled, trigger]);
+    const records = readPerformance((engine) => {
+      try {
+        return engine.getSectionDetailPerformance(sectionId, timeRangeDays, sportFilter) ?? null;
+      } catch {
+        return null;
+      }
+    });
+    return records ?? null;
+  }, [sectionId, timeRangeDays, sportFilter, enabled, readPerformance]);
 }

@@ -25,34 +25,34 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
-import { getActivityColor } from '@/features/activity/lib/activityUtils';
-import { colors, darkColors } from '@/theme';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import { getActivityColor } from '@/shared/activity/activityUtils';
+import { colors, darkColors, spacing } from '@/theme';
 import {
   BaseMapView,
-  isDarkStyle,
-  getNextStyle,
-  getStyleIcon,
-  MapSurface,
-  type MapSurfaceRef,
-  type MapCameraState,
-} from '@/features/maps/components';
-import { Map3DWebView, type Map3DWebViewRef } from '@/features/maps/components/Map3DWebView';
-import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
-import { useMapFullscreen } from '@/features/maps/hooks/useMapFullscreen';
-import { useThrottledValue } from '@/features/maps/hooks/useThrottledValue';
-import {
   boundsOfLngLat,
   featureCollection,
+  getNextStyle,
+  getStyleIcon,
+  isDarkStyle,
+  lineEndpoints,
   lngLatFromShort,
   lngLatFromShortPoint,
+  Map3DWebView,
+  type Map3DWebViewRef,
+  type MapCameraState,
+  MapSurface,
+  type MapSurfaceRef,
   pointFeature,
-} from '@/features/maps/lib/coordinates';
-import { TRIM_UPDATE_THROTTLE_MS } from '@/features/maps/lib/mapBudgets';
-import { decodeCoords } from 'veloqrs';
+  TRIM_UPDATE_THROTTLE_MS,
+  useMapFullscreen,
+  useMapPreferences,
+  useThrottledValue,
+} from '@/features/maps';
+import { CompassArrow, ComponentErrorBoundary, HERO_HEADER_HEIGHT } from '@/shared/ui';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
 import { toActivityType } from '@/features/routes/types';
 import { useSectionMapLayers, type NearbyPolyline } from './useSectionMapLayers';
+import { SectionMapLegend } from './section/SectionMapLegend';
 import {
   buildSectionLayers,
   buildSectionSources,
@@ -94,7 +94,18 @@ interface SectionMapViewProps {
   nearbyPolylines?: NearbyPolyline[];
   /** Called when a nearby section polyline is tapped */
   onNearbyPress?: (sectionId: string) => void;
+  /**
+   * Top safe-area inset of the screen the map fills. The map draws edge to
+   * edge, so the legend and the controls are offset by this and the hero's
+   * header row to clear the status bar and the back button.
+   */
+  insetTop?: number;
 }
+
+// Stable identities, so the closed-modal memos below return the same empty set
+// every render rather than a new one the surface would re-stringify.
+const EMPTY_SOURCES: ReturnType<typeof buildSectionSources> = {};
+const EMPTY_LAYERS: ReturnType<typeof buildSectionLayers> = [];
 
 export const SectionMapView = memo(function SectionMapView({
   section,
@@ -109,11 +120,16 @@ export const SectionMapView = memo(function SectionMapView({
   extensionTrack = null,
   nearbyPolylines,
   onNearbyPress,
+  insetTop = 0,
 }: SectionMapViewProps) {
   const { t } = useTranslation();
   const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
   const [selectedNearby, setSelectedNearby] = useState<string | null>(null);
   const { getStyleForActivity } = useMapPreferences();
+
+  // The first row of the map that is not under the status bar or the hero's
+  // back button. Everything floated over the map's top corners starts here.
+  const overlayTop = insetTop + HERO_HEADER_HEIGHT + spacing.sm;
 
   // The engine sends the sport as a string, so it is read against the one
   // activity vocabulary the app keeps. A sport nothing recognises is `Other`,
@@ -144,7 +160,10 @@ export const SectionMapView = memo(function SectionMapView({
   const map3DOpacity = useRef(new Animated.Value(0)).current;
   const bearingAnim = useRef(new Animated.Value(0)).current;
 
-  const displayPoints = section.polyline || [];
+  // Memoised so the empty fallback is one array rather than a fresh one each
+  // render, which recomputed every projection below it.
+  const polyline = section.polyline;
+  const displayPoints = useMemo(() => polyline || [], [polyline]);
   const sectionCoords = useMemo(() => lngLatFromShort(displayPoints), [displayPoints]);
 
   // Expand mode fits the whole context window, not just the section portion, so
@@ -180,16 +199,25 @@ export const SectionMapView = memo(function SectionMapView({
     };
   }, [map3DOpacity, bearingAnim]);
 
-  // Refit camera when extension track changes (entering/leaving expand mode)
+  // Frame each section once, and again on entering or leaving expand mode.
+  // Keying the refit on the geometry took the camera back on every `sections`
+  // event, because the detail bundle hands down a fresh `polyline` array of the
+  // same points, so panning the map was undone by the next sync. Extending
+  // further inside expand mode is the athlete moving the handle rather than a
+  // mode change, so it leaves the viewport alone too.
+  const isExpanding = extensionCoords.length > 0;
+  const frameKey = `${section.id}|${isExpanding}`;
+  const framedSection = useRef<string | null>(null);
   useEffect(() => {
+    if (framedSection.current === frameKey) return;
     const nextBounds = boundsOfLngLat(
-      extensionCoords.length > 0 ? extensionCoords : sectionCoords,
+      isExpanding ? extensionCoords : sectionCoords,
       SECTION_MAP_BOUNDS_PADDING
     );
-    if (nextBounds) {
-      surfaceRef.current?.fitBounds(nextBounds, SECTION_MAP_FIT_PADDING, 500);
-    }
-  }, [extensionCoords, sectionCoords]);
+    if (!nextBounds) return;
+    framedSection.current = frameKey;
+    surfaceRef.current?.fitBounds(nextBounds, SECTION_MAP_FIT_PADDING, 500);
+  }, [frameKey, extensionCoords, sectionCoords, isExpanding]);
 
   // Reset 3D ready state when toggling off
   useEffect(() => {
@@ -302,22 +330,12 @@ export const SectionMapView = memo(function SectionMapView({
     ]);
   }, [startPoint, endPoint]);
 
-  const nearbyEndpoints = useMemo(() => {
-    if (!nearbyPolylines || nearbyPolylines.length === 0) return featureCollection([]);
-    return featureCollection(
-      nearbyPolylines.flatMap((entry) => {
-        if (!entry.encodedPolyline) return [];
-        const decoded = decodeCoords(entry.encodedPolyline);
-        if (decoded.length < 2) return [];
-        const first = decoded[0];
-        const last = decoded[decoded.length - 1];
-        return [
-          pointFeature([first.longitude, first.latitude], { position: 'start' }),
-          pointFeature([last.longitude, last.latitude], { position: 'end' }),
-        ];
-      })
-    );
-  }, [nearbyPolylines]);
+  // The nearby lines are already decoded into `nearbyGeoJSON`, so the dots come
+  // off that geometry rather than decoding every polyline a second time.
+  const nearbyEndpoints = useMemo(
+    () => lineEndpoints(sectionLayerData.nearbyGeoJSON),
+    [sectionLayerData.nearbyGeoJSON]
+  );
 
   // Trim drags arrive faster than the map needs. The slider stays smooth on the
   // UI thread while the geometry that reaches the surface is held to a budget.
@@ -391,13 +409,16 @@ export const SectionMapView = memo(function SectionMapView({
     [specInput]
   );
 
+  // Only the modal reads these, and a chart scrub sends a new `specInput` per
+  // index, so building them while it is shut is a whole spec set thrown away
+  // every frame of the gesture.
   const fullscreenSources = useMemo(
-    () => buildSectionSources(fullscreenSpecArgs),
-    [fullscreenSpecArgs]
+    () => (isFullscreen ? buildSectionSources(fullscreenSpecArgs) : EMPTY_SOURCES),
+    [isFullscreen, fullscreenSpecArgs]
   );
   const fullscreenLayers = useMemo(
-    () => buildSectionLayers(fullscreenSpecArgs),
-    [fullscreenSpecArgs]
+    () => (isFullscreen ? buildSectionLayers(fullscreenSpecArgs) : EMPTY_LAYERS),
+    [isFullscreen, fullscreenSpecArgs]
   );
 
   const handleSurfacePress = useCallback(
@@ -487,7 +508,10 @@ export const SectionMapView = memo(function SectionMapView({
 
           {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}
           {showControls && (
-            <View style={styles.controlsContainer}>
+            <View
+              testID="section-map-controls"
+              style={[styles.controlsContainer, { top: overlayTop }]}
+            >
               {/* Style toggle */}
               <TouchableOpacity
                 testID="section-map-style-toggle"
@@ -584,6 +608,12 @@ export const SectionMapView = memo(function SectionMapView({
                 </TouchableOpacity>
               )}
             </View>
+          )}
+
+          {/* What the map is drawing, named. The dashed nearby lines and their
+              endpoint dots read as this activity's own coverage otherwise. */}
+          {interactive && nearbyPolylines && nearbyPolylines.length > 0 && (
+            <SectionMapLegend isDark={isDark} sectionColor={activityColor} top={overlayTop} />
           )}
 
           {/* Nearby section preview popup */}

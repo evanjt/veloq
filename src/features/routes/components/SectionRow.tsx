@@ -5,7 +5,6 @@
 
 import React, { memo, useCallback, useMemo, useId } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useSectionPolyline } from '@/features/routes/hooks/useEngine';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,7 +22,7 @@ import {
   colorWithOpacity,
   ink,
 } from '@/theme';
-import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { getActivityColor, getActivityIcon } from '@/shared/activity/activityUtils';
 import { formatDistance, formatElevation } from '@/shared/format/format';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { sectionElevation } from '@/features/routes/lib/sectionElevation';
@@ -75,15 +74,11 @@ export const SectionRow = memo(function SectionRow({
 
   const elevation = useMemo(() => sectionElevation(section), [section]);
 
-  // Lazy-load polyline if not provided (e.g., when using SectionSummary)
-  // This is fast - Rust query with LRU caching
-  // Note: Check length, not truthiness - empty array [] is truthy but means "not loaded"
-  const shouldLazyLoad = !section.polyline?.length;
-  const { polyline: lazyPolyline } = useSectionPolyline(shouldLazyLoad ? section.id : null);
-
-  // Use provided polyline or lazy-loaded one
-  // Note: Check length, not truthiness - empty array [] is truthy
-  const polyline = section.polyline?.length ? section.polyline : lazyPolyline;
+  // The page the list reads carries every row's polyline, so a row draws what it
+  // was given and reads nothing. Twelve mounted rows each fetching their own was
+  // twelve synchronous reads and decodes in one microtask, on every sections
+  // event. An empty one draws no preview rather than going to the engine for it.
+  const polyline = section.polyline?.length ? section.polyline : undefined;
 
   const handlePress = useCallback(() => {
     onPress?.(section.id);
@@ -319,8 +314,20 @@ export const SectionRow = memo(function SectionRow({
               name="pin"
               size={12}
               color={isDark ? darkColors.textMuted : colors.textDisabled}
-              style={{ marginLeft: 4 }}
+              style={{ marginLeft: spacing.xs }}
             />
+          )}
+          {section.latestIsRecord && (
+            // A View rather than the icon alone: the icon does not carry an
+            // accessibility label through, and a trophy says nothing by itself.
+            <View
+              testID={`section-row-record-${section.id}`}
+              accessibilityRole="image"
+              accessibilityLabel={t('sections.latestIsRecord')}
+              style={{ marginLeft: spacing.xs }}
+            >
+              <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
+            </View>
           )}
           {section.sportTypes && section.sportTypes.length > 0 && (
             <View style={styles.sportIconsRow}>
@@ -330,7 +337,7 @@ export const SectionRow = memo(function SectionRow({
                   name={getActivityIcon(st)}
                   size={12}
                   color={getActivityColor(st as ActivityType)}
-                  style={{ marginLeft: 2 }}
+                  style={{ marginLeft: spacing.xxs }}
                 />
               ))}
             </View>
@@ -401,9 +408,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     marginHorizontal: spacing.md,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
     borderRadius: layout.borderRadiusMd,
-    padding: 6,
+    padding: spacing.xsPlus,
     ...shadows.pill,
   },
   containerDark: {
@@ -419,12 +426,12 @@ const styles = StyleSheet.create({
     width: PREVIEW_WIDTH,
     height: PREVIEW_HEIGHT,
     borderRadius: layout.borderRadiusXs,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: colorWithOpacity(ink.black, 0.05),
     justifyContent: 'center',
     alignItems: 'center',
   },
   previewPlaceholderDark: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colorWithOpacity(ink.white, 0.08),
   },
   infoContainer: {
     flex: 1,
@@ -438,7 +445,7 @@ const styles = StyleSheet.create({
   sportIconsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   sectionName: {
     flexShrink: 1,
@@ -449,7 +456,7 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: spacing.xxs,
     gap: spacing.sm,
   },
   metaText: {
@@ -462,13 +469,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: layout.borderRadius,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    gap: 2,
+    paddingVertical: spacing.xxs,
+    gap: spacing.xxs,
   },
   countText: {
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '700',
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
   },
   textLight: {
     color: colors.textOnDark,
@@ -479,12 +486,12 @@ const styles = StyleSheet.create({
   gainChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
   },
   proximityTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
   },
   proximityText: {
     fontSize: typography.micro.fontSize,
@@ -494,29 +501,29 @@ const styles = StyleSheet.create({
     color: darkColors.textDisabled,
   },
   customTag: {
-    backgroundColor: 'rgba(168, 85, 247, 0.12)',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
+    backgroundColor: colorWithOpacity(colors.chartPurple, 0.12),
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,
   },
   customTagDark: {
-    backgroundColor: 'rgba(192, 132, 252, 0.15)',
+    backgroundColor: colorWithOpacity(darkColors.chartFatigue, 0.15),
   },
   customTagText: {
     fontSize: typography.micro.fontSize,
     fontWeight: '600',
-    color: colors.chartPurple,
+    color: colors.chartPurpleText,
   },
   customTagTextDark: {
-    color: darkColors.chartFatigue,
+    color: darkColors.chartPurpleText,
   },
   disabledTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(217, 119, 6, 0.12)',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
+    gap: spacing.xs,
+    backgroundColor: colorWithOpacity(colors.amberIcon, 0.12),
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,
   },
   disabledTagDark: {

@@ -88,8 +88,17 @@ export function SectionContentArea({
           onPress={onToggleDisable}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons name="delete-outline" size={18} color={colors.warning} />
-          <Text style={styles.disabledBannerText}>
+          <MaterialCommunityIcons
+            name="delete-outline"
+            size={18}
+            color={isDark ? darkColors.warningAmber : colors.warningAmber}
+          />
+          <Text
+            style={[
+              styles.disabledBannerText,
+              { color: isDark ? darkColors.warningAmber : colors.warningAmber },
+            ]}
+          >
             {t('sections.removed')} - {t('sections.restoreSection')}
           </Text>
         </TouchableOpacity>

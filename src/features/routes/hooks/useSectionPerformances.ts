@@ -164,49 +164,59 @@ export function useSectionTimeStreamSync(
   const [fetchKey, setFetchKey] = useState(0); // For refetch
   const [fetchComplete, setFetchComplete] = useState(false);
 
-  // Fetch ONLY missing streams from API (ones not in Rust cache/SQLite)
-  const fetchMissingStreams = useCallback(async () => {
-    if (allActivityIds.length === 0) {
-      setFetchComplete(true);
-      return;
-    }
+  // Fetch ONLY missing streams from API (ones not in Rust cache/SQLite).
+  //
+  // The signal is what makes a wait belong to one run of the effect. Switching
+  // sections quickly used to leave the previous `awaitTimeStreams` running, so
+  // it settled against the new section's half-populated cache and flipped
+  // `ready` true early, and it held a subscription and a thirty-second timer
+  // for the full timeout past unmount.
+  const fetchMissingStreams = useCallback(
+    async (signal: AbortSignal) => {
+      if (allActivityIds.length === 0) {
+        setFetchComplete(true);
+        return;
+      }
 
-    // Check which activities are missing from cache (memory + SQLite)
-    const missingIds = knownMissingIds ?? engine.getActivitiesMissingTimeStreams(allActivityIds);
+      // Check which activities are missing from cache (memory + SQLite)
+      const missingIds = knownMissingIds ?? engine.getActivitiesMissingTimeStreams(allActivityIds);
 
-    // If all time streams are cached, we're done immediately
-    if (missingIds.length === 0) {
-      setFetchComplete(true);
-      return;
-    }
+      // If all time streams are cached, we're done immediately
+      if (missingIds.length === 0) {
+        setFetchComplete(true);
+        return;
+      }
 
-    // Only show loading for API fetches
-    setIsLoading(true);
-    setError(null);
+      // Only show loading for API fetches
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      // Rust fetches the missing streams behind the shared governor and
-      // persists them, announcing each one as it lands.
-      engine.syncTimeStreams(missingIds);
+      try {
+        // Rust fetches the missing streams behind the shared governor and
+        // persists them, announcing each one as it lands.
+        engine.syncTimeStreams(missingIds);
 
-      await awaitTimeStreams(missingIds, { timeoutMs: TIME_STREAM_TIMEOUT_MS });
+        await awaitTimeStreams(missingIds, { timeoutMs: TIME_STREAM_TIMEOUT_MS, signal });
 
-      setFetchComplete(true);
-    } catch {
-      setError('Failed to load activity streams');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [allActivityIds, knownMissingIds]);
+        if (signal.aborted) return;
+        setFetchComplete(true);
+      } catch {
+        if (signal.aborted) return;
+        setError('Failed to load activity streams');
+      } finally {
+        if (!signal.aborted) setIsLoading(false);
+      }
+    },
+    [allActivityIds, knownMissingIds]
+  );
 
   // Fetch missing streams when the activity set changes or refetch is triggered
   useEffect(() => {
     setFetchComplete(false);
-    if (allActivityIds.length > 0) {
-      fetchMissingStreams();
-    } else {
-      setFetchComplete(true);
-    }
+    const run = new AbortController();
+    // An empty list settles inside, so there is one exit and one cleanup.
+    fetchMissingStreams(run.signal);
+    return () => run.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allActivityIds, fetchKey]);
 

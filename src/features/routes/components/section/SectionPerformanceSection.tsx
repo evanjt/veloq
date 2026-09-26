@@ -15,6 +15,7 @@ import type {
 import { SECTION_TIME_RANGES, type SectionTimeRange } from '@/features/routes/constants';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
+import { pressable } from '@/shared/ui';
 
 export interface SectionPerformanceSectionProps {
   isDark: boolean;
@@ -73,13 +74,13 @@ export function SectionPerformanceSection({
               key={r.id}
               testID={`section-time-range-${r.id}`}
               onPress={() => onTimeRangeChange(r.id)}
-              style={[
+              style={pressable([
                 styles.pill,
                 sectionTimeRange === r.id && [
                   styles.pillActive,
                   isDark && { backgroundColor: darkColors.primary + '20' },
                 ],
-              ]}
+              ])}
             >
               <Text
                 style={[
@@ -154,11 +155,11 @@ const styles = StyleSheet.create({
   },
   timeRangePills: {
     flexDirection: 'row',
-    gap: 2,
+    gap: spacing.xxs,
   },
   pill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusMd,
   },
   pillActive: {

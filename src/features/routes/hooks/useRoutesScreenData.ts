@@ -12,8 +12,14 @@ import { InteractionManager } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from './useEngine';
-import type { RoutesScreenData, GroupWithPolyline, SectionWithPolyline } from 'veloqrs';
-import type { LatLng } from '@/shared/geo/distance';
+import type {
+  RoutesScreenData,
+  GroupWithPolyline,
+  SectionWithPolyline,
+  SectionHiddenFilters,
+} from 'veloqrs';
+import { GroupSort, SectionSort } from 'veloqrs';
+import type { LatLngShort } from '@/shared/geo/distance';
 
 const DEFAULT_PAGE_SIZE = 50;
 
@@ -34,17 +40,97 @@ interface UseRoutesScreenDataResult {
   hasMoreSections: boolean;
 }
 
+const NO_FILTERS: SectionHiddenFilters = {
+  hideCustom: false,
+  hideAuto: false,
+  hideDisabled: false,
+  hideUnaccepted: false,
+};
+
+/**
+ * The head of the list, read with no accumulator behind it.
+ *
+ * The paging path in the hook appends each page onto refs, which a render must
+ * not touch. At offset zero there is nothing to append to, so the first page can
+ * be read while rendering and the refs catch up in an effect.
+ *
+ * Measured on the S22 against its own library (1105 activities, 91 groups, 63
+ * sections): 0.89 ms warm, 1.44 ms on the first call after load, against a
+ * 100 ms mount budget. `benches/routes_screen_read_cost.rs` is the bench.
+ */
+function readFirstPage(query: {
+  groupLimit: number;
+  sectionLimit: number;
+  groupSort: GroupSort;
+  groupSearch: string;
+  sectionSort: SectionSort;
+  sectionSearch: string;
+  sectionFilters: SectionHiddenFilters;
+  sectionSportType?: string;
+  userLat: number;
+  userLng: number;
+}): PaginatedRoutesData | null {
+  try {
+    const engine = getEngine();
+    if (!engine) return null;
+
+    const result = engine.getRoutesScreenData({
+      groupLimit: query.groupLimit,
+      groupOffset: 0,
+      sectionLimit: query.sectionLimit,
+      sectionOffset: 0,
+      minGroupActivityCount: 2,
+      groupSort: query.groupSort,
+      groupSearch: query.groupSearch,
+      sectionSort: query.sectionSort,
+      sectionSearch: query.sectionSearch,
+      sectionFilters: query.sectionFilters,
+      sectionSportType: query.sectionSportType,
+      userLat: query.userLat,
+      userLng: query.userLng,
+    });
+    if (!result) return null;
+
+    return {
+      activityCount: result.activityCount,
+      groupCount: result.groupCount,
+      sectionCount: result.sectionCount,
+      oldestDate: result.oldestDate,
+      newestDate: result.newestDate,
+      unacceptedAutoCount: result.unacceptedAutoCount,
+      acceptedAutoCount: result.acceptedAutoCount,
+      customCount: result.customCount,
+      retiredCount: result.retiredCount,
+      groups: result.groups,
+      sections: result.sections,
+      hasMoreGroups: result.hasMoreGroups,
+      hasMoreSections: result.hasMoreSections,
+      groupsDirty: result.groupsDirty ?? false,
+    } as PaginatedRoutesData;
+  } catch {
+    return null;
+  }
+}
+
 export function useRoutesScreenData(opts?: {
   groupLimit?: number;
   sectionLimit?: number;
-  prioritizeNearestGroups?: boolean;
-  prioritizeNearestSections?: boolean;
-  userLocation?: LatLng | null;
+  groupSort?: GroupSort;
+  groupSearch?: string;
+  sectionSort?: SectionSort;
+  sectionSearch?: string;
+  sectionFilters?: SectionHiddenFilters;
+  sectionSportType?: string;
+  userLocation?: LatLngShort | null;
 }): UseRoutesScreenDataResult {
   const groupLimit = opts?.groupLimit ?? DEFAULT_PAGE_SIZE;
   const sectionLimit = opts?.sectionLimit ?? DEFAULT_PAGE_SIZE;
-  const prioritizeNearestGroups = opts?.prioritizeNearestGroups ?? false;
-  const prioritizeNearestSections = opts?.prioritizeNearestSections ?? false;
+  const groupSort = opts?.groupSort ?? GroupSort.Activities;
+  const groupSearch = opts?.groupSearch ?? '';
+  const sectionSort = opts?.sectionSort ?? SectionSort.Visits;
+  const sectionSearch = opts?.sectionSearch ?? '';
+  const sectionFilters = opts?.sectionFilters ?? NO_FILTERS;
+  const sectionSportType = opts?.sectionSportType;
   const userLat = opts?.userLocation?.lat ?? Number.NaN;
   const userLng = opts?.userLocation?.lng ?? Number.NaN;
 
@@ -99,10 +185,20 @@ export function useRoutesScreenData(opts?: {
 
   // Reset pagination on engine events (new sync, etc.)
   useEffect(() => {
+    // Every part of the query that changes what a page holds resets the paging,
+    // because an accumulated page taken under a different order or search is
+    // not the head of this one.
     const queryConfig = [
       combinedTrigger,
-      prioritizeNearestGroups ? 1 : 0,
-      prioritizeNearestSections ? 1 : 0,
+      groupSort,
+      groupSearch,
+      sectionSort,
+      sectionSearch,
+      sectionFilters.hideCustom ? 1 : 0,
+      sectionFilters.hideAuto ? 1 : 0,
+      sectionFilters.hideDisabled ? 1 : 0,
+      sectionFilters.hideUnaccepted ? 1 : 0,
+      sectionSportType ?? '',
       Number.isFinite(userLat) ? userLat.toFixed(6) : 'nan',
       Number.isFinite(userLng) ? userLng.toFixed(6) : 'nan',
     ].join(':');
@@ -117,28 +213,41 @@ export function useRoutesScreenData(opts?: {
       setGroupOffset(0);
       setSectionOffset(0);
     }
-  }, [combinedTrigger, prioritizeNearestGroups, prioritizeNearestSections, userLat, userLng]);
+  }, [
+    combinedTrigger,
+    groupSort,
+    groupSearch,
+    sectionSort,
+    sectionSearch,
+    sectionFilters,
+    sectionSportType,
+    userLat,
+    userLng,
+  ]);
 
-  // Compute data from engine. getRoutesScreenData routes through
-  // get_section_summaries (~277-325ms with real data) plus polyline batch loads,
-  // so running it synchronously in render blocks the tab-focus frame. Compute it
-  // inside InteractionManager (below) and return the last result synchronously.
+  // Compute data from engine, accumulating the page onto the ones before it. Runs
+  // inside InteractionManager for every page after the first, which arrives while
+  // the list is on screen and scrolling.
   const computeData = useCallback((): PaginatedRoutesData | null => {
     try {
       const engine = getEngine();
       if (!engine) return lastResultRef.current;
 
-      const result = engine.getRoutesScreenData(
+      const result = engine.getRoutesScreenData({
         groupLimit,
         groupOffset,
         sectionLimit,
         sectionOffset,
-        2,
-        prioritizeNearestGroups,
-        prioritizeNearestSections,
+        minGroupActivityCount: 2,
+        groupSort,
+        groupSearch,
+        sectionSort,
+        sectionSearch,
+        sectionFilters,
+        sectionSportType,
         userLat,
-        userLng
-      );
+        userLng,
+      });
       if (!result) return lastResultRef.current;
 
       // Accumulate groups
@@ -174,6 +283,10 @@ export function useRoutesScreenData(opts?: {
         sectionCount: result.sectionCount,
         oldestDate: result.oldestDate,
         newestDate: result.newestDate,
+        unacceptedAutoCount: result.unacceptedAutoCount,
+        acceptedAutoCount: result.acceptedAutoCount,
+        customCount: result.customCount,
+        retiredCount: result.retiredCount,
         groups: [...groupsRef.current],
         sections: [...sectionsRef.current],
         hasMoreGroups: result.hasMoreGroups,
@@ -198,16 +311,48 @@ export function useRoutesScreenData(opts?: {
     sectionOffset,
     groupLimit,
     sectionLimit,
-    prioritizeNearestGroups,
-    prioritizeNearestSections,
+    groupSort,
+    groupSearch,
+    sectionSort,
+    sectionSearch,
+    sectionFilters,
+    sectionSportType,
     userLat,
     userLng,
   ]);
 
-  // Deferred result: render returns the last computed value immediately
-  // (stale-while-revalidate), and the heavy FFI runs after the focus/mount
-  // interaction completes so it never lands inside the visible transition frame.
-  const [data, setData] = useState<PaginatedRoutesData | null>(null);
+  // The first page is read while rendering, so frame one already has it rather
+  // than a skeleton the list used to fill from a summary read of its own. It
+  // takes no accumulator with it: at offset zero the page IS the accumulation,
+  // and a render that touches a ref is a render that can be discarded.
+  const [data, setData] = useState<PaginatedRoutesData | null>(() =>
+    readFirstPage({
+      groupLimit,
+      sectionLimit,
+      groupSort,
+      groupSearch,
+      sectionSort,
+      sectionSearch,
+      sectionFilters,
+      sectionSportType,
+      userLat,
+      userLng,
+    })
+  );
+
+  // The accumulators catch up to that page once, off the render path, so the
+  // next page appends to it rather than replacing it.
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current || !data) return;
+    seeded.current = true;
+    groupsRef.current = [...data.groups];
+    sectionsRef.current = [...data.sections];
+    hasMoreGroupsRef.current = data.hasMoreGroups;
+    hasMoreSectionsRef.current = data.hasMoreSections;
+    lastResultRef.current = data;
+  }, [data]);
+
   useEffect(() => {
     let cancelled = false;
     const handle = InteractionManager.runAfterInteractions(() => {

@@ -1,12 +1,11 @@
 import { useMemo } from 'react';
 import type { EfficiencyTrend } from 'veloqrs';
-import { getEngine } from '@/shared/native/engine';
-import { useEngineSubscription } from './useEngine';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 
 /**
  * Aerobic efficiency over the matched efforts on one section.
  *
- * The engine regresses HR/pace across efforts that carry both signals, so a
+ * The engine regresses heart rate per unit of speed across efforts that carry both signals, so a
  * section with one such effort has a trend but no series. A single point
  * plots nothing, so it is dropped here rather than in every consumer.
  *
@@ -18,7 +17,7 @@ export function useSectionEfficiencyTrend(
   sectionId: string | null,
   bundledTrend?: EfficiencyTrend | null
 ): EfficiencyTrend | null {
-  const trigger = useEngineSubscription(['sections']);
+  const readSections = useEngineRead(['sections']);
 
   return useMemo(() => {
     if (bundledTrend !== undefined) {
@@ -26,16 +25,12 @@ export function useSectionEfficiencyTrend(
     }
     if (!sectionId) return null;
 
-    const engine = getEngine();
-    if (!engine) return null;
-
     try {
-      const trend = engine.getSectionEfficiencyTrend(sectionId);
+      const trend = readSections((engine) => engine.getSectionEfficiencyTrend(sectionId));
       if (!trend || trend.points.length < 2) return null;
       return trend;
     } catch {
       return null;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sectionId, trigger, bundledTrend]);
+  }, [sectionId, readSections, bundledTrend]);
 }

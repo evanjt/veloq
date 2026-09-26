@@ -6,13 +6,12 @@
  * Full group data is only loaded on detail page.
  */
 
-import React, { useEffect, useRef, memo, useMemo, useState } from 'react';
+import React, { memo, useMemo } from 'react';
 import {
   View,
   StyleSheet,
   FlatList,
   RefreshControl,
-  LayoutAnimation,
   Platform,
   ActivityIndicator,
   TouchableOpacity,
@@ -21,20 +20,21 @@ import {
 import { useRouteProcessing } from '@/features/routes/hooks/useRouteProcessing';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
-import { decodeCoords, type GroupWithPolyline } from 'veloqrs';
+import type { GroupWithPolyline } from 'veloqrs';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { UI } from '@/shared/app/constants';
-import { computeCenter, haversineDistance, type LatLng } from '@/shared/geo/distance';
+import { haversineDistance, type LatLngShort } from '@/shared/geo/distance';
 import { Shimmer } from '@/shared/ui';
 import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
-import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
-import { toActivityType } from '@/features/routes/types';
+import type { RouteGroup } from '@/types';
+import { batchGroupToRouteGroup } from '@/features/routes/lib/batchGroupToRouteGroup';
+import type { RoutesSortOption } from '@/features/routes/lib/routesScreenQuery';
 
-export type RoutesSortOption = 'activities' | 'distance' | 'name' | 'nearby';
+export type { RoutesSortOption };
 
 interface RoutesListProps {
   /** Callback when list is pulled to refresh */
@@ -48,13 +48,17 @@ interface RoutesListProps {
   /** Whether more groups are available to load */
   hasMore?: boolean;
   /** User's current location for "Nearby" sort */
-  userLocation?: LatLng | null;
+  userLocation?: LatLngShort | null;
   /** Total routes count for the header summary */
   totalGroupCount?: number;
   /** Active sort option */
   sortOption: RoutesSortOption;
   /** Called when sort changes */
   onSortChange: (next: RoutesSortOption) => void;
+  /** The search term the engine filtered on */
+  searchQuery: string;
+  /** Called when the search term changes */
+  onSearchChange: (next: string) => void;
   /** Engine data still loading - show skeletons instead of an empty state */
   isLoading?: boolean;
 }
@@ -71,108 +75,6 @@ function RouteRowSkeleton() {
   );
 }
 
-// Memoized routes list - only updates when route count changes
-const DiscoveredRoutesList = memo(
-  function DiscoveredRoutesList({
-    routes,
-    isDark,
-    t,
-  }: {
-    routes: DiscoveredRouteInfo[];
-    isDark: boolean;
-    t: (key: string) => string;
-  }) {
-    const prevCountRef = useRef(routes.length);
-
-    // Animate layout when routes are added
-    useEffect(() => {
-      if (routes.length > prevCountRef.current) {
-        LayoutAnimation.configureNext({
-          duration: 200,
-          create: {
-            type: LayoutAnimation.Types.easeOut,
-            property: LayoutAnimation.Properties.opacity,
-          },
-          update: { type: LayoutAnimation.Types.easeOut },
-        });
-      }
-      prevCountRef.current = routes.length;
-    }, [routes.length]);
-
-    if (routes.length === 0) {
-      return (
-        <View style={styles.noRoutesYet}>
-          <MaterialCommunityIcons
-            name="map-search-outline"
-            size={32}
-            color={isDark ? darkColors.iconDisabled : colors.gray400}
-          />
-          <Text style={[styles.noRoutesText, isDark && styles.textMuted]}>
-            {t('routes.lookingForRoutes')}
-          </Text>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.routesList}>
-        {routes.map((route) => (
-          <RouteRow key={route.id} route={route} />
-        ))}
-      </View>
-    );
-  },
-  (prev, next) => {
-    // Only re-render if route count changes or activity counts change
-    if (prev.routes.length !== next.routes.length) return false;
-    if (prev.isDark !== next.isDark) return false;
-    // Check if any route's activity count changed
-    for (let i = 0; i < prev.routes.length; i++) {
-      if (prev.routes[i].activityCount !== next.routes[i].activityCount) return false;
-    }
-    return true;
-  }
-);
-
-/**
- * Convert batch GroupWithPolyline to RouteGroup with pre-loaded consensus points.
- * Avoids per-row useConsensusRoute FFI calls.
- */
-function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteGroup {
-  const sportType = group.sportType || 'Ride';
-  // Decode delta+varint encoded polyline to RoutePoint[]
-  // encodedPolyline after Rust rebuild; consensusPolyline on stale bindings
-  const polylineData =
-    (group as Record<string, unknown>).encodedPolyline ??
-    (group as Record<string, unknown>).consensusPolyline;
-  const consensusPoints = (
-    polylineData instanceof ArrayBuffer ? decodeCoords(polylineData) : []
-  ).map((p) => ({
-    lat: p.latitude,
-    lng: p.longitude,
-  }));
-  const center = group.bounds
-    ? computeCenter({
-        minLat: group.bounds.minLat,
-        maxLat: group.bounds.maxLat,
-        minLng: group.bounds.minLng,
-        maxLng: group.bounds.maxLng,
-      })
-    : undefined;
-  return {
-    id: group.groupId,
-    name: group.customName || `Route ${index + 1}`,
-    type: toActivityType(sportType),
-    activityCount: group.activityCount,
-    activityIds: [],
-    signature: null,
-    consensusPoints,
-    distance: group.distanceMeters > 0 ? group.distanceMeters : undefined,
-    sportTypes: group.sportTypes ?? [sportType],
-    center,
-  };
-}
-
 export const RoutesList = memo(function RoutesList({
   onRefresh,
   isRefreshing = false,
@@ -184,35 +86,19 @@ export const RoutesList = memo(function RoutesList({
   sortOption,
   onSortChange,
   isLoading = false,
+  searchQuery,
+  onSearchChange,
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const [searchQuery, setSearchQuery] = useState('');
 
-  // Convert batch groups to RouteGroup format for RouteRow
+  // The engine searched and ordered the catalogue before it paged it, so the
+  // rows arrive ready to render. Searching or sorting again here would read one
+  // page and call it the library.
   const allGroups = useMemo(() => {
-    return batchGroups.map((g, i) => batchGroupToRouteGroup(g, i));
+    return batchGroups.map(batchGroupToRouteGroup);
   }, [batchGroups]);
-
-  // Filter groups by search query, then sort
-  const groups = useMemo(() => {
-    let filtered = [...allGroups];
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((g) => g.name?.toLowerCase().includes(query));
-    }
-    // Apply sort
-    if (sortOption === 'activities') {
-      filtered.sort((a, b) => b.activityCount - a.activityCount);
-    } else if (sortOption === 'distance') {
-      filtered.sort((a, b) => (b.distance ?? 0) - (a.distance ?? 0));
-    } else if (sortOption === 'name') {
-      filtered.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
-    }
-
-    // Preserve native order for nearby sorting so pagination stays correct.
-    return filtered;
-  }, [allGroups, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
+  const groups = allGroups;
 
   // Pre-compute distance from user for each route (used for display on every row)
   const distanceMap = useMemo(() => {
@@ -245,11 +131,6 @@ export const RoutesList = memo(function RoutesList({
   const showProcessing = progress.status === 'processing';
 
   const showActivityList = progress.status === 'processing';
-
-  // Memoize routes array reference to prevent unnecessary re-renders
-  const routes = useMemo(() => {
-    return [] as DiscoveredRouteInfo[];
-  }, []);
 
   const sortChips: {
     key: RoutesSortOption;
@@ -295,11 +176,16 @@ export const RoutesList = memo(function RoutesList({
                 : (t('routes.waiting' as never) as string)}
             </Text>
           </View>
-          <DiscoveredRoutesList
-            routes={routes}
-            isDark={isDark}
-            t={((key: string) => t(key as never) as string) as (key: string) => string}
-          />
+          <View style={styles.noRoutesYet}>
+            <MaterialCommunityIcons
+              name="map-search-outline"
+              size={32}
+              color={isDark ? darkColors.iconDisabled : colors.gray400}
+            />
+            <Text style={[styles.noRoutesText, isDark && styles.textMuted]}>
+              {t('routes.lookingForRoutes' as never) as string}
+            </Text>
+          </View>
         </View>
       )}
     </View>
@@ -319,9 +205,8 @@ export const RoutesList = memo(function RoutesList({
     if (!isReady) {
       return (
         <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons
-            name="loading"
-            size={48}
+          <ActivityIndicator
+            size="large"
             color={isDark ? darkColors.iconDisabled : colors.gray400}
           />
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
@@ -414,13 +299,13 @@ export const RoutesList = memo(function RoutesList({
               placeholder={t('routes.searchRoutes' as never) as string}
               placeholderTextColor={isDark ? darkColors.textDisabled : colors.textDisabled}
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={onSearchChange}
               returnKeyType="search"
               autoCorrect={false}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity
-                onPress={() => setSearchQuery('')}
+                onPress={() => onSearchChange('')}
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={t('common.clearSearch')}
@@ -552,7 +437,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   summaryText: {
     fontSize: typography.bodyCompact.fontSize,
@@ -594,14 +479,14 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   sportFilterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
     borderWidth: 1,
     borderColor: colors.border,
@@ -619,15 +504,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
-    marginTop: 2,
+    marginTop: spacing.xxs,
     marginBottom: spacing.md,
   },
   sortChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
     borderWidth: 1,
     borderColor: colors.border,

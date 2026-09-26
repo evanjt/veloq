@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
   label: {
     fontSize: typography.caption.fontSize,

@@ -4,6 +4,7 @@ import type { RouteGroup as EngineRouteGroup, FfiMapSignature } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import type { PerformanceDataPoint } from '../types';
 import type { RoutePerformancePoint } from './useRoutePerformances';
+import { chartBestIndex } from '@/features/routes/lib/chartBestIndex';
 
 export function useRouteChartData(
   performances: RoutePerformancePoint[],
@@ -79,20 +80,15 @@ export function useRouteChartData(
     const max = speeds.length > 0 ? Math.max(...speeds) : 1;
     const padding = (max - min) * 0.15 || 0.5;
 
-    // Find best (shortest time) - use the bestPerformance from hook if available
+    // The engine's pick where it has one, and the same rule locally where it
+    // does not: a record is a beat in its own direction, so the ring and the
+    // tooltip beside it cannot name different attempts.
     let bestIdx = 0;
     if (bestPerformance) {
       bestIdx = dataPoints.findIndex((d) => d.activityId === bestPerformance.activityId);
       if (bestIdx === -1) bestIdx = 0;
     } else {
-      let bestTime = Infinity;
-      for (let i = 0; i < dataPoints.length; i++) {
-        const time = dataPoints[i].sectionTime ?? Infinity;
-        if (time > 0 && time < bestTime) {
-          bestTime = time;
-          bestIdx = i;
-        }
-      }
+      bestIdx = chartBestIndex(dataPoints);
     }
 
     const hasAnyReverse = dataPoints.some((d) => d.direction === 'reverse');

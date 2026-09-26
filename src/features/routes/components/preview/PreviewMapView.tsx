@@ -15,20 +15,23 @@ import { useTranslation } from 'react-i18next';
 import { decodeCoords } from 'veloqrs';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
+// Straight from the context, not the app barrel: a surface mounted with no
+// app shell still has to draw, and the barrel is what such a caller stubs.
+import { useIsOnline } from '@/shared/app/NetworkContext';
 import {
   AttributionOverlay,
-  MapSurface,
   type AttributionOverlayRef,
-  type MapCameraState,
-  type MapSurfaceRef,
-} from '@/features/maps/components';
-import { computeAttribution } from '@/features/maps/lib/computeAttribution';
-import {
+  computeAttribution,
+  EMPTY_FEATURE_COLLECTION,
   getNextStyle,
   getStyleIcon,
+  type LngLat,
+  type MapCameraState,
   type MapStyleType,
-} from '@/features/maps/components/mapStyles';
-import { EMPTY_FEATURE_COLLECTION, type LngLat } from '@/features/maps/lib/coordinates';
+  MapSurface,
+  type MapSurfaceRef,
+  offlineMapStyle,
+} from '@/features/maps';
 import { sectionCameraSpec } from '@/features/routes/lib/sectionMapCamera';
 import {
   previewAreaBounds,
@@ -45,22 +48,15 @@ import {
   previewLayerSwatch,
   PREVIEW_INTERACTIVE_LAYERS,
 } from './previewMapLayerSpecs';
+import { pressable } from '@/shared/ui';
 
 /** Zoom assumed before the surface reports one, matching the camera fallback. */
 const DEFAULT_ATTRIBUTION_ZOOM = 11;
 
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
-}
-
-function decodePolyline(base64: string): LngLat[] {
+/** The delegate hands the bytes over already decoded. */
+function decodePolyline(polyline: ArrayBuffer): LngLat[] {
   try {
-    return decodeCoords(base64ToArrayBuffer(base64)).map(
-      (p) => [p.longitude, p.latitude] as LngLat
-    );
+    return decodeCoords(polyline).map((p) => [p.longitude, p.latitude] as LngLat);
   } catch {
     return [];
   }
@@ -106,6 +102,7 @@ export function PreviewMapView({
 }: PreviewMapViewProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isOnline = useIsOnline();
   const surfaceRef = useRef<MapSurfaceRef>(null);
 
   // A finished run supersedes the live catalogue: its rows already carry the
@@ -115,7 +112,7 @@ export function PreviewMapView({
   const decoded = useMemo(() => {
     const byId = new Map<string, LngLat[]>();
     for (const section of sections) {
-      byId.set(section.id, decodePolyline(section.polylineBase64));
+      byId.set(section.id, decodePolyline(section.polyline));
     }
     return byId;
   }, [sections]);
@@ -264,7 +261,10 @@ export function PreviewMapView({
   // is this component's and dies with it: nothing here writes the global
   // preference, so the next visit opens on street again.
   const [chosenStyle, setChosenStyle] = useState<MapStyleType | null>(null);
-  const mapStyle: MapStyleType = chosenStyle ?? (isDark ? 'dark' : 'light');
+  const themeStyle: MapStyleType = isDark ? 'dark' : 'light';
+  // Imagery is never kept offline, so the satellite choice draws the vector
+  // basemap until the connection is back rather than a grey grid.
+  const mapStyle: MapStyleType = offlineMapStyle(chosenStyle ?? themeStyle, isOnline, themeStyle);
   const cycleStyle = useCallback(() => {
     setChosenStyle(getNextStyle(mapStyle));
   }, [mapStyle]);
@@ -398,11 +398,11 @@ function LegendChip({
 }) {
   return (
     <Pressable
-      style={[
+      style={pressable([
         styles.legendChip,
         { backgroundColor: background, borderColor: border },
         !on && styles.legendChipOff,
-      ]}
+      ])}
       onPress={onPress}
       testID={testID}
       accessibilityRole="switch"

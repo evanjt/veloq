@@ -6,7 +6,7 @@
  * empty, which keeps a toggle to a data swap rather than a layer rebuild.
  */
 import { colors, mapLayerColors, mapPreviewColors } from '@/theme';
-import type { MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
+import { type MapLayerSpec, type MapSourceSpec } from '@/features/maps';
 import type { SectionMapLayers } from './useSectionMapLayers';
 
 export const NEARBY_LINE_LAYER_ID = 'nearby-line';

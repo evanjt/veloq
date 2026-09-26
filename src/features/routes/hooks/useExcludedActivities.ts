@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getEngine } from '@/shared/native/engine';
-import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import type { PerformanceDataPoint } from '../types';
 
@@ -14,8 +14,10 @@ export function useExcludedActivities(
   preComputedExcludedIds?: string[]
 ) {
   // A rematch or a sync changes which attempts are excluded and what the
-  // excluded ones read, and neither moves the keys below.
-  const sectionsTrigger = useEngineSubscription(['sections']);
+  // excluded ones read, and neither moves the keys below. The reader is that
+  // announcement: the memo calls it, so the dependency is one both gates read
+  // the same way.
+  const readSections = useEngineRead(['sections']);
 
   // Excluded activities state
   const [showExcluded, setShowExcluded] = useState(false);
@@ -68,9 +70,7 @@ export function useExcludedActivities(
   const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
     if (!showExcluded || excludedActivityIds.size === 0 || !id) return [];
     try {
-      const engine = getEngine();
-      if (!engine) return [];
-      const result = engine.getExcludedRoutePerformances(id, sportFilter);
+      const result = readSections((engine) => engine.getExcludedRoutePerformances(id, sportFilter));
       if (!result?.performances?.length) return [];
 
       return result.performances
@@ -91,7 +91,7 @@ export function useExcludedActivities(
       if (__DEV__) console.warn('[RouteDetail] getExcludedRoutePerformances failed:', e);
       return [];
     }
-  }, [showExcluded, excludedActivityIds, id, sportFilter, sectionsTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showExcluded, excludedActivityIds, id, sportFilter, readSections]);
 
   return {
     showExcluded,

@@ -7,7 +7,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { isPaceSport, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
+import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { getIntlLocale, formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import type { PerformanceDataPoint, DirectionStats, ActivityType } from '@/types';
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: typography.caption.fontSize,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   value: {
     fontSize: typography.body.fontSize,

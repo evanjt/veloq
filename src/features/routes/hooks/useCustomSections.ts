@@ -3,9 +3,11 @@
  * Uses unified sections table via Rust engine.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { decodeCoords } from 'veloqrs';
 import type { Section as NativeSection } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -82,6 +84,7 @@ function toAppSections(sections: NativeSection[]): Section[] {
 export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCustomSectionsResult {
   const { sportType, enabled = true, preComputedSections } = options;
   const queryClient = useQueryClient();
+  const { t, i18n } = useTranslation();
 
   // A caller that already read the sections owns the answer. Seeding the query
   // was not enough: a cache another screen primed wins over `initialData`, so
@@ -106,8 +109,20 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       // Get custom sections from unified table
       return toAppSections(engine.getSectionsByType('custom'));
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    // SQLite is the source and the engine says when it moved, so the clock
+    // only bounds how long a read that missed the announcement can be wrong.
+    // An edit used to sit unread for the whole five minutes.
+    staleTime: 1000 * 60 * 5,
   });
+
+  // The engine's own announcement, which a rename, a trim or a detection apply
+  // all raise. Without it this read was refreshed by nothing at all.
+  const sectionsTrigger = useEngineSubscription(['sections']);
+  const firstTrigger = useRef(sectionsTrigger);
+  useEffect(() => {
+    if (sectionsTrigger === firstTrigger.current) return;
+    void queryClient.invalidateQueries({ queryKey: queryKeys.sections.custom });
+  }, [queryClient, sectionsTrigger]);
 
   const preComputed = useMemo(
     () => (preComputedSections ? toAppSections(preComputedSections) : undefined),
@@ -144,10 +159,17 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         throw new Error('Route engine not initialized');
       }
 
-      // Generate date-stamped default name if none provided
+      // Generate date-stamped default name if none provided. The date is the
+      // athlete's locale, not en-US, and so is the wording around it.
       const name =
         params.name ??
-        `${params.sportType} Section (${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`;
+        t('routes.sectionDefaultName', {
+          sport: params.sportType,
+          date: new Date().toLocaleDateString(i18n.language, {
+            month: 'short',
+            day: 'numeric',
+          }),
+        });
 
       // Create section via unified FFI
       const sectionId = engine.createSectionFromIndices(
@@ -212,7 +234,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       await invalidate();
       return result;
     },
-    [invalidate]
+    [invalidate, t, i18n.language]
   );
 
   // Delete a section

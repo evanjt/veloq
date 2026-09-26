@@ -10,7 +10,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { getEngine } from '@/shared/native/engine';
-import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
+import { useEngineRead, useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
 import { decodeCoords, type RouteGroup, type SectionSummary, type GroupSummary } from 'veloqrs';
@@ -61,12 +61,12 @@ interface UseEngineGroupsResult {
  */
 export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngineGroupsResult {
   const { minActivities = 2, sortBy = 'count', enabled = true } = options;
-  const trigger = useEngineSubscription(['groups']);
+  const readGroups = useEngineRead(['groups']);
 
   return useMemo(() => {
     try {
       if (!enabled) return { groups: [], totalCount: 0 };
-      const engine = getEngine();
+      const engine = readGroups((open) => open);
       if (!engine) return { groups: [], totalCount: 0 };
 
       const allGroups = engine.getGroups();
@@ -85,7 +85,7 @@ export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngine
     } catch {
       return { groups: [], totalCount: 0 };
     }
-  }, [trigger, minActivities, sortBy, enabled]);
+  }, [readGroups, minActivities, sortBy, enabled]);
 }
 
 interface UseEngineSectionsOptions {
@@ -110,12 +110,12 @@ interface UseEngineSectionsResult {
  */
 export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEngineSectionsResult {
   const { sportType, minVisits = 1, enabled = true } = options;
-  const trigger = useEngineSubscription(['sections']);
+  const readSections = useEngineRead(['sections']);
 
   return useMemo(() => {
     if (!enabled) return { sections: [], totalCount: 0 };
     try {
-      const engine = getEngine();
+      const engine = readSections((open) => open);
       if (!engine) return { sections: [], totalCount: 0 };
 
       const nativeSections = engine.getSectionsFiltered(sportType, minVisits);
@@ -139,7 +139,70 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
       }
       return { sections: [], totalCount: 0 };
     }
-  }, [trigger, sportType, minVisits, enabled]);
+  }, [readSections, sportType, minVisits, enabled]);
+}
+
+/** What the regional map draws one section with. */
+export interface MapSection {
+  id: string;
+  name: string;
+  sportType: string;
+  visitCount: number;
+  distanceMeters: number;
+  polyline: { lat: number; lng: number }[];
+}
+
+interface UseMapSectionsResult {
+  sections: MapSection[];
+  totalCount: number;
+}
+
+/**
+ * Sections for the regional map's overlay.
+ *
+ * Six fields and a line, against `useEngineSections`, which took the whole
+ * record: the activity ids, one `activity_portions` entry per traversal and the
+ * point density for every section, converted each portion here and then read
+ * none of it. The label is still built in JavaScript because it is built from
+ * the athlete's own units, which Rust does not hold.
+ */
+export function useMapSections(options: UseEngineSectionsOptions = {}): UseMapSectionsResult {
+  const { sportType, minVisits = 1, enabled = true } = options;
+  const readSections = useEngineRead(['sections']);
+
+  return useMemo(() => {
+    if (!enabled) return { sections: [], totalCount: 0 };
+    try {
+      const engine = readSections((open) => open);
+      if (!engine) return { sections: [], totalCount: 0 };
+
+      const sections: MapSection[] = engine.getMapSections(sportType, minVisits).map((native) => ({
+        id: native.id,
+        name: generateSectionName({
+          id: native.id,
+          name: native.name ?? undefined,
+          sportType: native.sportType,
+          distanceMeters: native.distanceMeters,
+          klass: native.klass ?? undefined,
+          maxGradePercent: native.maxGradePercent ?? undefined,
+        }),
+        sportType: native.sportType,
+        visitCount: native.visitCount,
+        distanceMeters: native.distanceMeters,
+        polyline: decodeCoords(native.encodedPolyline).map((p) => ({
+          lat: p.latitude,
+          lng: p.longitude,
+        })),
+      }));
+
+      return { sections, totalCount: sections.length };
+    } catch (e) {
+      if (__DEV__) {
+        console.warn('[useMapSections] threw', e);
+      }
+      return { sections: [], totalCount: 0 };
+    }
+  }, [readSections, sportType, minVisits, enabled]);
 }
 
 /**
@@ -149,16 +212,15 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
  * polyline load behind a separate `useEngineSections({ enabled })` gate.
  */
 export function useEngineSectionCount(): number {
-  const trigger = useEngineSubscription(['sections']);
+  const readSections = useEngineRead(['sections']);
 
   return useMemo(() => {
     try {
-      return getEngine()?.getSectionCount() ?? 0;
+      return readSections((engine) => engine.getSectionCount()) ?? 0;
     } catch {
       return 0;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trigger]);
+  }, [readSections]);
 }
 
 interface UseSectionSummariesOptions {
@@ -186,12 +248,12 @@ export function useSectionSummaries(
   options: UseSectionSummariesOptions = {}
 ): UseSectionSummariesResult {
   const { sportType, minVisits = 1, enabled = true } = options;
-  const trigger = useEngineSubscription(['sections']);
+  const readSections = useEngineRead(['sections']);
 
   return useMemo(() => {
     if (!enabled) return { totalCount: 0, summaries: [] };
     try {
-      const engine = getEngine();
+      const engine = readSections((open) => open);
       if (!engine) return { totalCount: 0, summaries: [] };
 
       // Visit-count filter + sort done in Rust; TS only fills display names.
@@ -210,7 +272,7 @@ export function useSectionSummaries(
     } catch {
       return { totalCount: 0, summaries: [] };
     }
-  }, [trigger, sportType, minVisits, enabled]);
+  }, [readSections, sportType, minVisits, enabled]);
 }
 
 interface UseGroupSummariesOptions {
@@ -234,11 +296,11 @@ interface UseGroupSummariesResult {
  */
 export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGroupSummariesResult {
   const { minActivities = 2, sortBy = 'count' } = options;
-  const trigger = useEngineSubscription(['groups']);
+  const readGroups = useEngineRead(['groups']);
 
   return useMemo(() => {
     try {
-      const engine = getEngine();
+      const engine = readGroups((open) => open);
       if (!engine) return { totalCount: 0, summaries: [] };
 
       // Filter + sort pushed into Rust.
@@ -246,7 +308,7 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
     } catch {
       return { totalCount: 0, summaries: [] };
     }
-  }, [trigger, minActivities, sortBy]);
+  }, [readGroups, minActivities, sortBy]);
 }
 
 // ============================================================================
@@ -306,12 +368,12 @@ interface UseSectionDetailResult {
  * Converts GpsPoint format to RoutePoint format.
  */
 export function useSectionDetail(sectionId: string | null): UseSectionDetailResult {
-  const trigger = useEngineSubscription(['sections']);
+  const readSections = useEngineRead(['sections']);
 
   const section = useMemo(() => {
     if (!sectionId) return null;
 
-    const engine = getEngine();
+    const engine = readSections((open) => open);
     if (!engine) return null;
 
     try {
@@ -327,7 +389,7 @@ export function useSectionDetail(sectionId: string | null): UseSectionDetailResu
     } catch {
       return null;
     }
-  }, [sectionId, trigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sectionId, readSections]);
 
   return { section };
 }
@@ -342,12 +404,12 @@ interface UseGroupDetailResult {
  * Fetches from Rust/SQLite with LRU caching.
  */
 export function useGroupDetail(groupId: string | null): UseGroupDetailResult {
-  const trigger = useEngineSubscription(['groups']);
+  const readGroups = useEngineRead(['groups']);
 
   const group = useMemo(() => {
     if (!groupId) return null;
 
-    const engine = getEngine();
+    const engine = readGroups((open) => open);
     if (!engine) return null;
 
     try {
@@ -355,7 +417,7 @@ export function useGroupDetail(groupId: string | null): UseGroupDetailResult {
     } catch {
       return null;
     }
-  }, [groupId, trigger]);
+  }, [groupId, readGroups]);
 
   return { group };
 }
@@ -371,12 +433,12 @@ interface UseSectionPolylineResult {
  * Use this in list row components to fetch polylines only for visible items.
  */
 export function useSectionPolyline(sectionId: string | null): UseSectionPolylineResult {
-  const trigger = useEngineSubscription(['sections']);
+  const readSections = useEngineRead(['sections']);
 
   const polyline = useMemo(() => {
     if (!sectionId) return [];
 
-    const engine = getEngine();
+    const engine = readSections((open) => open);
     if (!engine) return [];
 
     try {
@@ -388,7 +450,7 @@ export function useSectionPolyline(sectionId: string | null): UseSectionPolyline
     } catch {
       return [];
     }
-  }, [sectionId, trigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sectionId, readSections]);
 
   return { polyline };
 }

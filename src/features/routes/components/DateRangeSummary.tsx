@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { getIntlLocale } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { pressable } from '@/shared/ui';
 
 interface DateRangeSummaryProps {
   activityCount: number;
@@ -82,7 +83,7 @@ export function DateRangeSummary({
           )}
         </View>
 
-        <Pressable style={styles.expandButton} onPress={handleExpandPress}>
+        <Pressable style={pressable(styles.expandButton)} onPress={handleExpandPress}>
           <MaterialCommunityIcons
             name="calendar-expand-horizontal"
             size={18}
@@ -139,7 +140,7 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   expandButton: {
     flexDirection: 'row',

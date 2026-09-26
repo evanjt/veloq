@@ -21,7 +21,7 @@ import {
   type EventDetails,
 } from '@/features/routes/lib/sectionLedger';
 
-const MAX_CHIPS = 6;
+export const MAX_CHIPS = 6;
 
 export interface SectionHistoryPanelProps {
   isDark: boolean;
@@ -32,9 +32,32 @@ export interface SectionHistoryPanelProps {
   onShowVersion: (version: number | null) => void;
   onRevert: (version: number) => void;
   onUnpin: () => void;
+  /** Activity display names by id. Ids absent from it draw as themselves. */
+  activityNames?: Record<string, string>;
 }
 
-function Chips({ ids, isDark, testID }: { ids: string[]; isDark: boolean; testID: string }) {
+/**
+ * What a chip says: the activity's name, or the id when there is none.
+ *
+ * A blank name is no name. It would draw an empty chip, which is worse than
+ * the id it replaced.
+ */
+export function chipLabel(id: string, names?: Record<string, string>): string {
+  const name = names?.[id]?.trim();
+  return name ? name : id;
+}
+
+function Chips({
+  ids,
+  isDark,
+  testID,
+  names,
+}: {
+  ids: string[];
+  isDark: boolean;
+  testID: string;
+  names?: Record<string, string>;
+}) {
   const shown = ids.slice(0, MAX_CHIPS);
   const rest = ids.length - shown.length;
   return (
@@ -53,7 +76,7 @@ function Chips({ ids, isDark, testID }: { ids: string[]; isDark: boolean; testID
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
           <Text style={[styles.chipText, isDark && styles.textDark]} numberOfLines={1}>
-            {id}
+            {chipLabel(id, names)}
           </Text>
         </TouchableOpacity>
       ))}
@@ -71,6 +94,7 @@ export function SectionHistoryPanel({
   onShowVersion,
   onRevert,
   onUnpin,
+  activityNames,
 }: SectionHistoryPanelProps) {
   const { t } = useTranslation();
   const locale = getIntlLocale();
@@ -200,7 +224,12 @@ export function SectionHistoryPanel({
                   <Text style={[styles.label, isDark && styles.textDark]}>
                     {t('sectionHistory.around')}
                   </Text>
-                  <Chips ids={d.around} isDark={isDark} testID={`section-history-around-${e.id}`} />
+                  <Chips
+                    ids={d.around}
+                    isDark={isDark}
+                    testID={`section-history-around-${e.id}`}
+                    names={activityNames}
+                  />
                 </>
               )}
               {d.forkAround.length > 0 && (
@@ -212,6 +241,7 @@ export function SectionHistoryPanel({
                     ids={d.forkAround}
                     isDark={isDark}
                     testID={`section-history-fork-${e.id}`}
+                    names={activityNames}
                   />
                 </>
               )}
