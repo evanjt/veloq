@@ -11,6 +11,13 @@
 import { create } from 'zustand';
 import { formatLocalDate } from '@/shared/format/format';
 import { debug } from '@/shared/debug/debug';
+import {
+  ExtendedFetchState,
+  IDLE_EXTENDED_FETCH,
+  expirePickup as afterPickupDeadline,
+  syncStateChanged as afterSyncState,
+  windowAccepted as afterWindowAccepted,
+} from '@/shared/app/extendedFetch';
 
 const log = debug.create('SyncDateRangeStore');
 
@@ -21,6 +28,12 @@ export interface GpsSyncProgress {
   percent: number;
   message: string;
 }
+
+/**
+ * What `expandRange` did with the request. A refusal is named so the caller
+ * can say why, rather than the drag producing nothing visible.
+ */
+export type ExpandRangeResult = 'expanded' | 'unchanged' | 'locked';
 
 export interface TerrainSnapshotProgress {
   status: 'idle' | 'rendering';
@@ -33,12 +46,30 @@ interface SyncDateRangeState {
   oldest: string;
   /** Newest date to sync (YYYY-MM-DD) */
   newest: string;
-  /** Whether we're currently fetching extended data */
-  isFetchingExtended: boolean;
+  /**
+   * Where the widened-range download has got to. Follows the engine's sync
+   * slot, which is what actually runs the download, rather than the SQLite
+   * read behind the feed.
+   */
+  extendedFetch: ExtendedFetchState;
   /** Whether the range has expanded since last sync (triggers route re-optimization) */
   hasExpanded: boolean;
   /** GPS sync progress (shared across all screens) */
   gpsSyncProgress: GpsSyncProgress;
+  /**
+   * The activities the bulk GPS run is about to fetch a track for.
+   *
+   * Published so a feed card can tell that its own track is already on its way
+   * and ask for nothing. A head card with no preview line otherwise downloads
+   * the same `latlng` and `altitude` body on the Interactive lane while the
+   * run fetches it off the same endpoint, which is two downloads per card and
+   * the run competing with taps for the lane. The card is filled by the
+   * track's own arrival instead.
+   *
+   * Empty whenever no run is going, so a card outside a run, and the same card
+   * after one ends without bringing it a line, asks as it always did.
+   */
+  gpsSyncPendingIds: ReadonlySet<string>;
   /** Terrain snapshot rendering progress */
   terrainSnapshotProgress: TerrainSnapshotProgress;
   /** Whether GPS sync is currently in progress */
@@ -47,7 +78,8 @@ interface SyncDateRangeState {
   lastSyncTimestamp: string | null;
   /**
    * Whether expansion is locked (after reset/clear).
-   * When locked, expandRange() is ignored until initial sync completes.
+   * When locked, expandRange() refuses with 'locked' until the GPS sync
+   * settles, which `expansionLock.ts` decides.
    * This prevents race conditions where old cached data triggers unwanted expansion.
    */
   isExpansionLocked: boolean;
@@ -59,17 +91,23 @@ interface SyncDateRangeState {
   syncGeneration: number;
 
   /** Update the sync date range - expands to include requested range */
-  expandRange: (oldest: string, newest: string) => void;
+  expandRange: (oldest: string, newest: string) => ExpandRangeResult;
   /** Restore range from engine without triggering re-computation */
   initializeRange: (oldest: string, newest: string) => void;
   /** Reset to default 90 days and lock expansion */
   reset: () => void;
-  /** Set fetching state */
-  setFetchingExtended: (fetching: boolean) => void;
+  /** The engine accepted a window download. */
+  windowAccepted: () => void;
+  /** The engine's sync status changed. */
+  syncStateChanged: (syncing: boolean) => void;
+  /** The pickup deadline ran out on a window the engine never reported. */
+  expirePickup: () => void;
   /** Mark expansion as processed (call after route re-optimization) */
   markExpansionProcessed: () => void;
   /** Update GPS sync progress (called from GlobalDataSync) */
   setGpsSyncProgress: (progress: GpsSyncProgress) => void;
+  /** What the bulk GPS run is about to fetch. Cleared when the run ends. */
+  setGpsSyncPendingIds: (ids: readonly string[]) => void;
   /** Update terrain snapshot progress (called from TerrainSnapshotWebView) */
   setTerrainSnapshotProgress: (progress: TerrainSnapshotProgress) => void;
   /** Unlock expansion (called after initial sync completes) */
@@ -115,11 +153,15 @@ export function getSyncGeneration(): number {
 /** Module-level timeout ID - kept outside Zustand to avoid triggering re-renders */
 let _unlockTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
+/** One frozen empty set, so an idle store hands every card the same reference. */
+const EMPTY_PENDING_IDS: ReadonlySet<string> = new Set<string>();
+
 export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   ...getDefaultRange(),
-  isFetchingExtended: false,
+  extendedFetch: IDLE_EXTENDED_FETCH,
   hasExpanded: false,
   gpsSyncProgress: defaultGpsSyncProgress,
+  gpsSyncPendingIds: EMPTY_PENDING_IDS,
   terrainSnapshotProgress: defaultTerrainSnapshotProgress,
   isGpsSyncing: false,
   lastSyncTimestamp: null,
@@ -136,7 +178,7 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
           `[SyncDateRange] Expansion BLOCKED (locked): requested ${requestedOldest} - ${requestedNewest}`
         );
       }
-      return;
+      return 'locked';
     }
 
     // Expand range if requested dates are outside current range
@@ -148,7 +190,6 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
       set({
         oldest: newOldest,
         newest: newNewest,
-        isFetchingExtended: true,
         hasExpanded: true,
         gpsSyncProgress: defaultGpsSyncProgress,
       });
@@ -158,7 +199,10 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
           `[SyncDateRange] Expanded range: ${current.oldest} - ${current.newest} -> ${newOldest} - ${newNewest}`
         );
       }
+      return 'expanded';
     }
+
+    return 'unchanged';
   },
 
   initializeRange: (oldest: string, newest: string) => {
@@ -185,19 +229,41 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
     }
     set({
       ...range,
-      isFetchingExtended: false,
+      extendedFetch: IDLE_EXTENDED_FETCH,
       hasExpanded: false,
+      // These belong to the account that just went away: an error status, a
+      // last sync time or a pending id left standing reads as the new
+      // athlete's.
+      gpsSyncProgress: defaultGpsSyncProgress,
+      gpsSyncPendingIds: EMPTY_PENDING_IDS,
+      isGpsSyncing: false,
+      lastSyncTimestamp: null,
+      terrainSnapshotProgress: defaultTerrainSnapshotProgress,
       isExpansionLocked: true, // Lock expansion until initial sync completes
       syncGeneration: newGeneration, // Invalidate in-flight fetches
     });
   },
 
-  setFetchingExtended: (fetching: boolean) => {
-    set({ isFetchingExtended: fetching });
+  windowAccepted: () => {
+    set({ extendedFetch: afterWindowAccepted(get().extendedFetch, Date.now()) });
+  },
+
+  syncStateChanged: (syncing: boolean) => {
+    const next = afterSyncState(get().extendedFetch, syncing, Date.now());
+    if (next !== get().extendedFetch) set({ extendedFetch: next });
+  },
+
+  expirePickup: () => {
+    const next = afterPickupDeadline(get().extendedFetch, Date.now());
+    if (next !== get().extendedFetch) set({ extendedFetch: next });
   },
 
   markExpansionProcessed: () => {
     set({ hasExpanded: false });
+  },
+
+  setGpsSyncPendingIds: (ids: readonly string[]) => {
+    set({ gpsSyncPendingIds: ids.length === 0 ? EMPTY_PENDING_IDS : new Set(ids) });
   },
 
   setGpsSyncProgress: (progress: GpsSyncProgress) => {
@@ -209,6 +275,10 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
       gpsSyncProgress: progress,
       isGpsSyncing: isSyncing,
     };
+    // A run that has ended holds nothing, so the cards it was covering are
+    // free to ask. Cleared here rather than at each of the three call sites
+    // that end a run, so none of them can forget.
+    if (!isSyncing) updates.gpsSyncPendingIds = EMPTY_PENDING_IDS;
     // Track timestamp when sync completes successfully
     // Note: Don't auto-unlock expansion here - let GlobalDataSync call delayedUnlockExpansion
     // to prevent race conditions with UI updates

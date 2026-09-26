@@ -4,6 +4,12 @@ import * as SecureStore from 'expo-secure-store';
 import type { Athlete } from '@/types';
 import { getEngine } from '@/shared/native/engine';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
+import {
+  CREDENTIAL_KEYCHAIN_OPTIONS,
+  deleteCredential,
+  readCredentialsWithMigration,
+  secureStoreIo,
+} from './credentialKeychain';
 
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
 const ATHLETE_ID_STORAGE_KEY = 'intervals_athlete_id';
@@ -63,10 +69,11 @@ export function pushCredentialsToEngine(): void {
 export async function readApiKeyForAthlete(athleteId: string | null): Promise<string | null> {
   if (!isValidCredential(athleteId)) return null;
 
-  const [apiKey, owner] = await Promise.all([
-    SecureStore.getItemAsync(API_KEY_STORAGE_KEY),
-    SecureStore.getItemAsync(API_KEY_ATHLETE_STORAGE_KEY),
+  const { values } = await readCredentialsWithMigration(secureStoreIo, [
+    API_KEY_STORAGE_KEY,
+    API_KEY_ATHLETE_STORAGE_KEY,
   ]);
+  const [apiKey, owner] = values;
 
   if (!isValidCredential(apiKey) || owner !== athleteId) return null;
   return apiKey;
@@ -129,11 +136,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize: async () => {
     try {
-      const [apiKey, athleteId, accessToken] = await Promise.all([
-        SecureStore.getItemAsync(API_KEY_STORAGE_KEY),
-        SecureStore.getItemAsync(ATHLETE_ID_STORAGE_KEY),
-        SecureStore.getItemAsync(ACCESS_TOKEN_STORAGE_KEY),
-      ]);
+      // Read the three separately: a rejection on one is not an answer about
+      // the other two, and it is worth one more try before it is taken as one.
+      const { values, failedKeys, migratedKeys } = await readCredentialsWithMigration(
+        secureStoreIo,
+        [API_KEY_STORAGE_KEY, ATHLETE_ID_STORAGE_KEY, ACCESS_TOKEN_STORAGE_KEY]
+      );
+      const [apiKey, athleteId, accessToken] = values;
+      if (failedKeys.length > 0 && __DEV__) {
+        console.warn(`[AuthStore] Keychain would not read: ${failedKeys.join(', ')}`);
+      }
+      if (migratedKeys.length > 0 && __DEV__) {
+        console.warn(`[AuthStore] Keychain moved to the shared group: ${migratedKeys.join(', ')}`);
+      }
 
       // Determine auth method: OAuth takes priority over API key
       let authMethod: AuthMethod = null;
@@ -181,16 +196,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     await Promise.all([
       SecureStore.setItemAsync(API_KEY_STORAGE_KEY, trimmedApiKey, {
-        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+        ...CREDENTIAL_KEYCHAIN_OPTIONS,
       }),
       SecureStore.setItemAsync(ATHLETE_ID_STORAGE_KEY, trimmedAthleteId, {
-        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+        ...CREDENTIAL_KEYCHAIN_OPTIONS,
       }),
       SecureStore.setItemAsync(API_KEY_ATHLETE_STORAGE_KEY, trimmedAthleteId, {
-        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+        ...CREDENTIAL_KEYCHAIN_OPTIONS,
       }),
       // Clear OAuth token when using API key auth
-      SecureStore.deleteItemAsync(ACCESS_TOKEN_STORAGE_KEY),
+      deleteCredential(secureStoreIo, ACCESS_TOKEN_STORAGE_KEY),
     ]);
 
     set({
@@ -218,14 +233,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     await Promise.all([
       SecureStore.setItemAsync(ACCESS_TOKEN_STORAGE_KEY, trimmedAccessToken, {
-        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+        ...CREDENTIAL_KEYCHAIN_OPTIONS,
       }),
       SecureStore.setItemAsync(ATHLETE_ID_STORAGE_KEY, trimmedAthleteId, {
-        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+        ...CREDENTIAL_KEYCHAIN_OPTIONS,
       }),
       // Clear API key when using OAuth
-      SecureStore.deleteItemAsync(API_KEY_STORAGE_KEY),
-      SecureStore.deleteItemAsync(API_KEY_ATHLETE_STORAGE_KEY),
+      deleteCredential(secureStoreIo, API_KEY_STORAGE_KEY),
+      deleteCredential(secureStoreIo, API_KEY_ATHLETE_STORAGE_KEY),
     ]);
 
     set({
@@ -277,10 +292,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     await Promise.all([
-      SecureStore.deleteItemAsync(API_KEY_STORAGE_KEY),
-      SecureStore.deleteItemAsync(API_KEY_ATHLETE_STORAGE_KEY),
-      SecureStore.deleteItemAsync(ATHLETE_ID_STORAGE_KEY),
-      SecureStore.deleteItemAsync(ACCESS_TOKEN_STORAGE_KEY),
+      deleteCredential(secureStoreIo, API_KEY_STORAGE_KEY),
+      deleteCredential(secureStoreIo, API_KEY_ATHLETE_STORAGE_KEY),
+      deleteCredential(secureStoreIo, ATHLETE_ID_STORAGE_KEY),
+      deleteCredential(secureStoreIo, ACCESS_TOKEN_STORAGE_KEY),
     ]);
 
     set({
@@ -360,8 +375,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // `initialize()` reads the pair back and signs the rejected key straight
     // in again. Only an explicit sign-out deletes the key itself.
     await Promise.all([
-      SecureStore.deleteItemAsync(ACCESS_TOKEN_STORAGE_KEY),
-      SecureStore.deleteItemAsync(ATHLETE_ID_STORAGE_KEY),
+      deleteCredential(secureStoreIo, ACCESS_TOKEN_STORAGE_KEY),
+      deleteCredential(secureStoreIo, ATHLETE_ID_STORAGE_KEY),
     ]);
 
     set({

@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 
 interface Props {
   children: ReactNode;
@@ -35,7 +36,8 @@ export class ScreenErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    recordBoundaryCrash(error, errorInfo, { fatal: false, screen: this.props.screenName });
     if (__DEV__) {
       console.error(
         `[ScreenErrorBoundary] ${this.props.screenName || 'Screen'} error:`,
@@ -49,7 +51,7 @@ export class ScreenErrorBoundary extends Component<Props, State> {
     this.setState((prev) => ({ hasError: false, error: null, retryKey: prev.retryKey + 1 }));
   };
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       return (
         <ScreenErrorFallback

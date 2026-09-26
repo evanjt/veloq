@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useNetwork } from '@/shared/app/NetworkContext';
-import { colors, darkColors, typography } from '@/theme';
+import { colors, darkColors, typography, spacing, colorWithOpacity } from '@/theme';
 
 export function OfflineBanner() {
   const { t } = useTranslation();
@@ -31,7 +31,7 @@ export function OfflineBanner() {
     <Animated.View entering={SlideInUp.duration(250)} exiting={SlideOutUp.duration(200)}>
       <View style={[styles.container, { paddingTop: topPadding }]} testID="offline-banner">
         <View style={styles.content}>
-          <MaterialCommunityIcons name="cloud-off-outline" size={16} color={colors.textOnDark} />
+          <MaterialCommunityIcons name="cloud-off-outline" size={16} color={colors.textOnPrimary} />
           <Text style={styles.text}>{t('emptyState.offline.title')}</Text>
           <Text style={styles.subtitleText}>{t('emptyState.offline.description')}</Text>
         </View>
@@ -49,17 +49,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
+  // Dark ink, because white on this grey is 2.56:1. Measured 2026-09-15: dark
+  // ink on `darkColors.textSecondary` is 6.91:1, and at 0.8 for the subtitle
+  // 4.90:1, which keeps the step down in weight inside the bar.
   text: {
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
   },
   subtitleText: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: colorWithOpacity(colors.textOnPrimary, 0.8),
     fontSize: typography.caption.fontSize,
   },
 });

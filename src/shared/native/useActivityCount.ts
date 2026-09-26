@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
-import { getEngine } from './engine';
-import { useEngineSubscription } from './useEngineSubscription';
+import { useEngineRead } from './useEngineSubscription';
 
 /**
  * How many activities the engine holds, re-read whenever a sync changes them.
@@ -10,7 +9,10 @@ import { useEngineSubscription } from './useEngineSubscription';
  * opened, which is what the backup row used to show.
  */
 export function useActivityCount(): number {
-  const trigger = useEngineSubscription(['activities']);
+  const readActivities = useEngineRead(['activities']);
 
-  return useMemo(() => getEngine()?.getActivityCount() ?? 0, [trigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  return useMemo(
+    () => readActivities((engine) => engine.getActivityCount()) ?? 0,
+    [readActivities]
+  );
 }

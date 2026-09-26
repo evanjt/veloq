@@ -29,7 +29,7 @@ import { useNetwork } from '@/shared/app/NetworkContext';
 import { useTheme } from '@/shared/app/useTheme';
 import { useSyncHealth } from '@/shared/native/useSyncHealth';
 import { formatDateTime } from '@/shared/format';
-import { amberBanner, typography } from '@/theme';
+import { amberBanner, typography, spacing } from '@/theme';
 
 /** The line each reason names. Written out so the key type checks. */
 const REASON_KEY = {
@@ -40,6 +40,7 @@ const REASON_KEY = {
   [SyncErrorReason.Storage]: 'emptyState.syncError.reason.storage',
   [SyncErrorReason.NotConfigured]: 'emptyState.syncError.reason.notConfigured',
   [SyncErrorReason.Internal]: 'emptyState.syncError.reason.internal',
+  [SyncErrorReason.EngineClosed]: 'emptyState.syncError.reason.engineClosed',
 } as const satisfies Record<SyncErrorReason, string>;
 
 export function SyncErrorBanner() {
@@ -99,14 +100,14 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 2,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xxs,
   },
   headline: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   title: {
     fontSize: typography.bodyCompact.fontSize,

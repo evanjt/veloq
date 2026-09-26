@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { brand, colors, darkColors, spacing, layout, typography } from '@/theme';
+import { pressable } from '@/shared/ui';
 
 // Gesture thresholds
 const SWIPE_THRESHOLD_RATIO = 0.2; // 20% of screen width
@@ -199,7 +200,7 @@ export function SwipeableTabs({
           return (
             <Pressable
               key={tab.key}
-              style={styles.tab}
+              style={pressable(styles.tab)}
               onPress={() => handleTabPress(tab.key)}
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
@@ -213,6 +214,11 @@ export function SwipeableTabs({
                 }
               />
               <Text
+                // The tabs share the width with `flex: 1`, so a label wider
+                // than its share used to wrap mid-word and the icon ended up
+                // between the halves: five tabs at 1080 wide gave "Insight"
+                // over "s". Truncating says the same thing and stays a row.
+                numberOfLines={1}
                 style={[
                   styles.tabText,
                   isActive && styles.tabTextActive,
@@ -307,13 +313,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    paddingVertical: 12,
+    paddingVertical: spacing.smPlus,
     paddingHorizontal: spacing.sm,
   },
   tabText: {
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
+    // Let the label give way rather than push the row wider than the tab.
+    flexShrink: 1,
   },
   tabTextActive: {
     color: colors.primary,
@@ -325,8 +333,8 @@ const styles = StyleSheet.create({
   tabBadge: {
     backgroundColor: colors.gray200,
     borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xxs,
     minWidth: 22,
     alignItems: 'center',
   },

@@ -19,22 +19,28 @@ export const queryKeys = {
       byAthlete: (athleteId: string) => ['activities-infinite', athleteId] as const,
     },
     detail: (id: string) => ['activity', id] as const,
+    labels: ['activity-labels'] as const,
+    labelsFor: (ids: readonly string[]) => ['activity-labels', ids.join(',')] as const,
     streams: (id: string) => ['activity-streams-v3', id] as const,
     intervals: (id: string) => ['activity-intervals', id] as const,
     mapPreview: (activityId: string) => ['map-preview-streams', activityId] as const,
+    previewTrack: (activityId: string) => ['activity-preview-track', activityId] as const,
+    highlight: (id: string, announcePrs: boolean) =>
+      ['activity-highlight', id, announcePrs] as const,
   },
 
   strength: {
     all: ['strength'] as const,
     exerciseSets: (activityId: string) => ['strength', 'exercise-sets', activityId] as const,
     muscleGroups: (activityId: string) => ['strength', 'muscle-groups', activityId] as const,
-    volume: (period: string) => ['strength', 'volume', period] as const,
-    // The muscle and exercise keys take the null the screen holds before a
-    // selection. The query is disabled then, but the key is still built, so a
-    // non-null type here only moved the missing value behind an assertion.
-    progression: (muscleSlug: string | null) => ['strength', 'progression', muscleSlug] as const,
-    exercisesForMuscle: (period: string, muscleSlug: string | null) =>
-      ['strength', 'exercises-for-muscle', period, muscleSlug] as const,
+    // The whole strength tab, keyed on the period alone: nothing it draws
+    // depends on which muscle is selected, so one entry serves a drag across
+    // the diagram.
+    screenData: (period: string, weekCount: number) =>
+      ['strength', 'screen-data', period, weekCount] as const,
+    // The exercise key takes the null the screen holds before a selection. The
+    // query is disabled then, but the key is still built, so a non-null type
+    // here only moved the missing value behind an assertion.
     activitiesForExercise: (
       period: string,
       muscleSlug: string | null,
@@ -48,6 +54,14 @@ export const queryKeys = {
     byRange: (range: string, oldest: string, newest: string) =>
       ['wellness', range, oldest, newest] as const,
     byDate: (date: string | undefined) => ['wellness', 'date', date] as const,
+    latestDate: ['wellness', 'latestDate'] as const,
+  },
+
+  stats: {
+    all: ['engine-stats'] as const,
+    monthly: (startTs: number, endTs: number) =>
+      ['engine-stats', 'monthly', startTs, endTs] as const,
+    period: (startTs: number, endTs: number) => ['engine-stats', 'period', startTs, endTs] as const,
   },
 
   athleteSummary: {

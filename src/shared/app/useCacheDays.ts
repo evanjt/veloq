@@ -5,8 +5,7 @@
  */
 import { useMemo } from 'react';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { getEngine } from '@/shared/native/engine';
-import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 
 /**
  * Returns the number of days of cached activity data.
@@ -20,11 +19,12 @@ import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 export function useCacheDays(preComputedActivityCount?: number): number {
   const oldest = useSyncDateRange((s) => s.oldest);
   const newest = useSyncDateRange((s) => s.newest);
-  const trigger = useEngineSubscription(['activities']);
+  const readActivities = useEngineRead(['activities']);
 
   return useMemo(() => {
     // Check if we have any activities in the engine
-    const activityCount = preComputedActivityCount ?? getEngine()?.getActivityCount() ?? 0;
+    const activityCount =
+      preComputedActivityCount ?? readActivities((engine) => engine.getActivityCount()) ?? 0;
 
     if (activityCount === 0 || !oldest || !newest) {
       return 90; // Default when no data
@@ -51,5 +51,5 @@ export function useCacheDays(preComputedActivityCount?: number): number {
     const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
 
     return diffDays;
-  }, [oldest, newest, preComputedActivityCount, trigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [oldest, newest, preComputedActivityCount, readActivities]);
 }

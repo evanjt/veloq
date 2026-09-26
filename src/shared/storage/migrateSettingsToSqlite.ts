@@ -10,7 +10,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getEngine } from '@/shared/native/engine';
 import { debug } from '@/shared/debug/debug';
 
-const SENTINEL_KEY = '__settings_migrated';
+/**
+ * Set once the migration below has copied everything across. `getSetting`
+ * reads it to decide whether an absent key is worth asking AsyncStorage for.
+ */
+export const SETTINGS_MIGRATED_KEY = '__settings_migrated';
+const SENTINEL_KEY = SETTINGS_MIGRATED_KEY;
 
 /** All AsyncStorage keys that should be consolidated into SQLite. */
 export const PREFERENCE_KEYS = [

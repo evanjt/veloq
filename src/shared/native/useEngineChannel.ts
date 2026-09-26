@@ -11,16 +11,23 @@ import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 
 import { getEngine } from './engine';
 
-export function useEngineChannel(event: string, queryKey: QueryKey): void {
+/**
+ * `bodyStored` carries the kind of body that landed, so a reader that wants one
+ * kind names it here rather than refetching on every body the engine stores.
+ * Omit it to wake on every announcement of `event`, which is what a channel
+ * with no payload means.
+ */
+export function useEngineChannel(event: string, queryKey: QueryKey, kind?: string): void {
   const queryClient = useQueryClient();
 
   useEffect(() => {
     const engine = getEngine();
     if (!engine) return undefined;
-    return engine.subscribe(event, () => {
+    return engine.subscribe(event, (payload) => {
+      if (kind !== undefined && (payload as { kind?: string } | undefined)?.kind !== kind) return;
       queryClient.invalidateQueries({ queryKey });
     });
     // The key is a literal tuple from queryKeys, stable across renders by value.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event, queryClient, JSON.stringify(queryKey)]);
+  }, [event, kind, queryClient, JSON.stringify(queryKey)]);
 }

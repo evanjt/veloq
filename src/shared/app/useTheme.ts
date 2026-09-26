@@ -32,8 +32,6 @@ export interface ThemeColors {
 
   // Activity colors
   ride: string;
-  run: string;
-  swim: string;
 
   // Chart colors
   fitness: string;
@@ -87,8 +85,6 @@ export function useTheme(): Theme {
 
     // Activity colors (same in both modes)
     ride: colors.ride,
-    run: colors.run,
-    swim: colors.swim,
 
     // Chart colors
     fitness: brand.blue,

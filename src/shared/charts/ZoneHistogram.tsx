@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     width: 32,
     textAlign: 'right',
     color: colors.textPrimary,
-    marginRight: 6,
+    marginRight: spacing.xsPlus,
   },
   percentCompact: {
     fontSize: typography.micro.fontSize,
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   },
   stats: {
     width: 75,
-    marginLeft: 6,
+    marginLeft: spacing.xsPlus,
     alignItems: 'flex-end',
   },
   statsCompact: {

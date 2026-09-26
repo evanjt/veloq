@@ -10,9 +10,14 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { debug } from '@/shared/debug/debug';
-import { getEngine } from '@/shared/native/engine';
-import { clearTerrainPreviews } from '@/features/maps/lib/storage/terrainPreviewCache';
-import { forgetCachedAthleteId } from './cachedAthleteId';
+import { getEngine, getRouteDbPath } from '@/shared/native/engine';
+import { readHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
+import {
+  clearTerrainPreviews,
+  getTerrainPreviewCacheSize,
+} from '@/features/maps/lib/storage/terrainPreviewCache';
+import { forgetCachedAthleteId, forgetStoredActivityCount } from './cachedAthleteId';
+import { forgetInsightFingerprint } from '@/features/insights/lib/fingerprintStore';
 
 const log = debug.create('GpsStorage');
 
@@ -77,7 +82,12 @@ export async function clearBoundsCache(): Promise<void> {
 // Routes Database Size (Rust SQLite)
 // =============================================================================
 
-const ROUTES_DB_PATH = `${FileSystem.documentDirectory}routes.db`;
+// Asked rather than spelled: since the database moved into the App Group
+// container on iOS there is one answer and `engine.ts` holds it.
+function routesDbPath(): string | null {
+  const path = getRouteDbPath();
+  return path === null ? null : `file://${path}`;
+}
 
 /**
  * Get the size of a single file, returning 0 if it doesn't exist.
@@ -100,56 +110,52 @@ async function getFileSize(path: string): Promise<number> {
  * which can be substantial in WAL mode.
  */
 export async function estimateRoutesDatabaseSize(): Promise<number> {
+  const path = routesDbPath();
+  if (path === null) return 0;
   const [main, wal, shm] = await Promise.all([
-    getFileSize(ROUTES_DB_PATH),
-    getFileSize(`${ROUTES_DB_PATH}-wal`),
-    getFileSize(`${ROUTES_DB_PATH}-shm`),
+    getFileSize(path),
+    getFileSize(`${path}-wal`),
+    getFileSize(`${path}-shm`),
   ]);
   return main + wal + shm;
 }
 
 /**
- * Recursively measure total size of a directory in bytes.
+ * One bucket's bytes, or zero if it cannot answer. A bucket that throws is
+ * not worth losing the other three over: the figure is a subtitle, and the
+ * engine is not open on every screen that reads it.
  */
-async function getDirectorySize(dirPath: string): Promise<number> {
+async function bucketSize(read: () => number | bigint | Promise<number>): Promise<number> {
   try {
-    const dirInfo = await FileSystem.getInfoAsync(dirPath);
-    if (!dirInfo.exists || !dirInfo.isDirectory) return 0;
-
-    const entries = await FileSystem.readDirectoryAsync(dirPath);
-    let total = 0;
-
-    for (const entry of entries) {
-      const fullPath = `${dirPath}${entry}`;
-      const info = await FileSystem.getInfoAsync(fullPath);
-      if (!info.exists) continue;
-      if (info.isDirectory) {
-        total += await getDirectorySize(`${fullPath}/`);
-      } else if ('size' in info) {
-        total += info.size || 0;
-      }
-    }
-    return total;
+    return Number(await read()) || 0;
   } catch {
     return 0;
   }
 }
 
 /**
- * Get total app storage usage across documentDirectory and cacheDirectory.
- * This is the ground-truth measurement that accounts for all files the app
- * has written, including SQLite WAL files, map caches, terrain previews, etc.
+ * Total app storage usage, as the sum of the four buckets that know their own
+ * size.
+ *
+ * Three of them answer natively and the fourth is three files, so nothing here
+ * touches the tile trees. Walking `documentDirectory` and `cacheDirectory`
+ * instead cost one `getInfoAsync` round trip per tile, awaited in series on
+ * the JS thread, over the two largest trees the app writes.
  */
 export async function getAppStorageSize(): Promise<number> {
-  const docDir = FileSystem.documentDirectory;
-  const cacheDir = FileSystem.cacheDirectory;
-
-  const [docSize, cacheSize] = await Promise.all([
-    docDir ? getDirectorySize(docDir) : Promise.resolve(0),
-    cacheDir ? getDirectorySize(cacheDir) : Promise.resolve(0),
+  const sizes = await Promise.all([
+    bucketSize(estimateRoutesDatabaseSize),
+    bucketSize(readHeatmapTilesCacheSize),
+    bucketSize(() => {
+      // Required lazily, not imported: `veloqrs` reaches the Turbo Module at
+      // import time, and this module is imported by cleanup paths that run in
+      // tests and on web, where that module does not exist.
+      const { basemapStore } = require('veloqrs') as typeof import('veloqrs');
+      return basemapStore().getCacheSize();
+    }),
+    bucketSize(getTerrainPreviewCacheSize),
   ]);
-
-  return docSize + cacheSize;
+  return sizes.reduce((total, size) => total + size, 0);
 }
 
 // =============================================================================
@@ -159,10 +165,16 @@ export async function getAppStorageSize(): Promise<number> {
 /**
  * Lightweight cleanup for the "Sign out (keep data)" path.
  *
- * Drops the previous user's identity (athlete profile + sport settings caches
- * in Rust, plus the persisted TanStack Query blob) but leaves activities,
- * GPS tracks, sections, and bounds caches intact so the same user can log
- * back in and see their data instantly.
+ * Drops the previous session, which is the persisted TanStack Query blob and
+ * the in-memory cache, and nothing else. Activities, GPS tracks, sections and
+ * bounds stay, and so do the athlete profile and the sport settings: they are
+ * the same athlete's, they can only be refilled by a sync, and a sign-out
+ * offline would otherwise cost the photo, the name and every sport setting
+ * until the radio came back. The destructive path is `clearAccountData`, which
+ * is what a different athlete on the phone takes.
+ *
+ * Nothing draws them while signed out. `useAthlete` reads only while there is
+ * a credential, so the previous athlete cannot appear on the login screen.
  */
 export async function clearAuthOnly(queryClient: { clear: () => void }): Promise<void> {
   const AsyncStorage = require('@react-native-async-storage/async-storage').default;
@@ -170,10 +182,7 @@ export async function clearAuthOnly(queryClient: { clear: () => void }): Promise
   queryClient.clear();
   await AsyncStorage.removeItem('veloq-query-cache');
 
-  const engine = getEngine();
-  if (engine) engine.clearUserProfileCaches();
-
-  log.log('Cleared auth-only caches (profile + query cache)');
+  log.log('Cleared the session cache, keeping the athlete profile');
 }
 
 /**
@@ -185,8 +194,11 @@ export async function clearAuthOnly(queryClient: { clear: () => void }): Promise
  * Clears:
  * - TanStack Query in-memory cache (via passed queryClient)
  * - Persisted query cache in AsyncStorage
- * - Rust engine cache including athlete_profile + sport_settings (engine.clear())
+ * - Rust engine cache including athlete_profile + sport_settings, and the
+ *   heatmap tiles whether or not the heatmap is on (engine.clear())
  * - FileSystem GPS tracks, bounds, route names, terrain previews
+ * - The insight fingerprint, whose constant ids would otherwise hide the next
+ *   athlete's own cards from them
  *
  * Does NOT clear:
  * - AuthStore (caller handles this)
@@ -202,8 +214,13 @@ export async function clearAccountData(queryClient: { clear: () => void }): Prom
   // all activity / GPS / section tables (see persistence/activities.rs).
   // Note: cannot delete the database file - Rust PERSISTENT_ENGINE global holds
   // the connection and VeloqEngine.create() skips re-init if the global is Some.
+  //
+  // The login screen runs with the engine closed, and both Try Demo and a
+  // sign-in to another account wipe from there, so the path goes with the
+  // request: a closed handle opens the real database rather than skipping the
+  // wipe the athlete has just accepted.
   const engine = getEngine();
-  if (engine) await engine.clear();
+  if (engine) await engine.clear(getRouteDbPath() ?? undefined);
 
   await Promise.all([
     clearAllGpsTracks(),
@@ -211,6 +228,8 @@ export async function clearAccountData(queryClient: { clear: () => void }): Prom
     FileSystem.deleteAsync(ROUTE_NAMES_FILE, { idempotent: true }),
     clearTerrainPreviews(),
     forgetCachedAthleteId(),
+    forgetStoredActivityCount(),
+    forgetInsightFingerprint(),
   ]);
 
   log.log('Cleared all app caches');

@@ -4,6 +4,7 @@ import { Text, Button } from 'react-native-paper';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
+import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 
 interface Props {
   children: ReactNode;
@@ -36,8 +37,9 @@ export class ComponentErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     const { componentName, onError } = this.props;
+    recordBoundaryCrash(error, errorInfo, { fatal: false, screen: componentName });
     if (__DEV__) {
       console.error(
         `[ComponentErrorBoundary] ${componentName || 'Component'} render error:`,
@@ -52,7 +54,7 @@ export class ComponentErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, error: null });
   };
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       const { componentName, minHeight, showRetry = true } = this.props;
       return (

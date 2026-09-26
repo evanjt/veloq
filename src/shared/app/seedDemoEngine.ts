@@ -11,7 +11,8 @@
  * engine, and it owns the section-detection run that follows.
  */
 
-import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
+import { toActivityMetrics } from '@/shared/activity/activityMetrics';
+import { PACE_SNAPSHOT_WINDOW_DAYS } from './constants';
 import { getEngine } from '@/shared/native/engine';
 import type { Activity, WellnessData } from '@/types';
 
@@ -49,8 +50,8 @@ export function seedDemoEngine(): void {
       engine.upsertWellness(
         wellness.map((w) => ({
           date: w.id,
-          ctl: w.ctl ?? w.ctlLoad,
-          atl: w.atl ?? w.atlLoad,
+          ctl: w.ctl,
+          atl: w.atl,
           rampRate: w.rampRate,
           hrv: w.hrv,
           restingHr: w.restingHR,
@@ -67,6 +68,9 @@ export function seedDemoEngine(): void {
           raw: JSON.stringify(w),
         }))
       );
+      // Rust announces a wellness write by kind; a seeded one has to say so
+      // too, or the wellness screens never hear the fixtures landed.
+      engine.announceBodyStored?.('wellness');
     }
 
     const activities = fixtures.activities as unknown as Activity[];
@@ -94,9 +98,12 @@ export function seedDemoEngine(): void {
 
     const { criticalSpeed, dPrime, r2 } = curves.demoPaceCurve;
     if (criticalSpeed && criticalSpeed > 0) {
+      // Under the window the sync writes, so the demo library's pace milestone
+      // reads its snapshot rather than skipping it as an unknown range.
       engine.savePaceSnapshot(
         'Run',
         criticalSpeed,
+        PACE_SNAPSHOT_WINDOW_DAYS,
         dPrime ?? undefined,
         r2 ?? undefined,
         todayTimestamp()

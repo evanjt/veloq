@@ -23,7 +23,7 @@
  * legible, which is its own item; it makes the wait terminate regardless of
  * why the body never came.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 
 import { getEngine } from './engine';
@@ -56,6 +56,20 @@ export const BODY_WAIT_MS = 15_000;
 export type EngineBodyStatus = 'idle' | 'waiting' | 'timedOut';
 
 /**
+ * The wait, and the way to start it over.
+ *
+ * `retry` asks again from the beginning: the request goes out a second time
+ * and the deadline restarts. It is for a caller showing the athlete that the
+ * fetch did not arrive, since nothing else re-asks. A `retry` while the wait
+ * is still running is a fresh request, which Rust folds into the one in
+ * flight.
+ */
+export interface EngineBodyWait {
+  status: EngineBodyStatus;
+  retry: () => void;
+}
+
+/**
  * The stored-body count, or null when the engine cannot answer. Null disables
  * the reconciliation for that mount, which costs a query that waits for the
  * next announcement. Never let it cost the fetch itself.
@@ -77,13 +91,19 @@ export function useEngineBody(
   request: () => void,
   queryKey: QueryKey,
   enabled = true
-): EngineBodyStatus {
+): EngineBodyWait {
   const queryClient = useQueryClient();
   const keyId = JSON.stringify(queryKey);
-  // The key whose wait ran out, rather than a bare flag: a change of
-  // parameters is a new request, and a new request starts waiting again
-  // without anything having to reset the flag.
-  const [expiredKey, setExpiredKey] = useState<string | null>(null);
+  // Bumped by `retry`. It is part of the wait's identity below, so asking
+  // again both re-runs the request and leaves the old expiry behind, with
+  // nothing to reset.
+  const [attempt, setAttempt] = useState(0);
+  // The parameters and the attempt together, so one request is one wait. The
+  // wait that ran out is held rather than a bare flag: a change of parameters,
+  // or a retry, is a new wait, and it starts waiting again without anything
+  // having to clear the old one.
+  const waitId = `${keyId}#${attempt}`;
+  const [expiredWait, setExpiredWait] = useState<string | null>(null);
 
   // The count as the request went out, or null when this mount asked for
   // nothing and so has no window to reconcile.
@@ -98,11 +118,11 @@ export function useEngineBody(
     // The clock only ends the wait: it reads nothing and asks for nothing, so
     // the promise above, that this hook costs no engine call between the
     // request and the event, still holds.
-    const timer = setTimeout(() => setExpiredKey(keyId), BODY_WAIT_MS);
+    const timer = setTimeout(() => setExpiredWait(waitId), BODY_WAIT_MS);
     return () => clearTimeout(timer);
     // `request` closes over the parameters already encoded in the key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, present, keyId]);
+  }, [enabled, present, waitId]);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -125,6 +145,8 @@ export function useEngineBody(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, queryClient, keyId]);
 
-  if (!enabled || present) return 'idle';
-  return expiredKey === keyId ? 'timedOut' : 'waiting';
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+
+  if (!enabled || present) return { status: 'idle', retry };
+  return { status: expiredWait === waitId ? 'timedOut' : 'waiting', retry };
 }
