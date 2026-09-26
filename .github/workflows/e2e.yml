@@ -189,24 +189,19 @@ jobs:
         if: steps.app-cache.outputs.cache-hit != 'true'
         uses: ./.github/actions/setup-rust-ios
         with:
-          targets: aarch64-apple-ios-sim,x86_64-apple-ios
+          targets: aarch64-apple-ios-sim
 
       - name: Build Rust for iOS simulator
         if: steps.app-cache.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
         run: |
-          for target in aarch64-apple-ios-sim x86_64-apple-ios; do
-            cargo build --release --target $target -p veloqrs
-          done
-          mkdir -p target/sim-fat
-          lipo -create \
-            target/aarch64-apple-ios-sim/release/libveloqrs.a \
-            target/x86_64-apple-ios/release/libveloqrs.a \
-            -output target/sim-fat/libveloqrs_ffi.a
+          cargo build --release --target aarch64-apple-ios-sim -p veloqrs
+          mkdir -p target/sim
+          cp target/aarch64-apple-ios-sim/release/libveloqrs.a target/sim/libveloqrs_ffi.a
           mkdir -p ../ios/Frameworks
           rm -rf ../ios/Frameworks/VeloqrsFFI.xcframework
           xcodebuild -create-xcframework \
-            -library target/sim-fat/libveloqrs_ffi.a \
+            -library target/sim/libveloqrs_ffi.a \
             -output ../ios/Frameworks/VeloqrsFFI.xcframework
 
       # The bridge pod compiles the Live Activity contract, which the plugin copies
@@ -245,6 +240,7 @@ jobs:
             -sdk iphonesimulator \
             -destination "id=${{ steps.simulator.outputs.udid }}" \
             -derivedDataPath ios/build \
+            ARCHS=arm64 \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
