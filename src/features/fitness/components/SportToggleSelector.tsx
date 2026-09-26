@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: layout.borderRadiusSm,
     backgroundColor: opacity.overlay.light,
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   sportToggleButtonDark: {
     backgroundColor: opacity.overlayDark.medium,

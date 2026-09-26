@@ -1,3 +1,10 @@
 export { WellnessTrendsChart } from './components';
 
-export { useWellness, useWellnessForDate, timeRangeToDays, type TimeRange } from './hooks';
+export {
+  useWellness,
+  useWellnessForDate,
+  useWellnessLatestDate,
+  useWellnessGeneration,
+  timeRangeToDays,
+  type TimeRange,
+} from './hooks';

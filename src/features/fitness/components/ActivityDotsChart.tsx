@@ -9,9 +9,11 @@ import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS } from 'react
 import { router } from 'expo-router';
 import { ChartCrosshair, useChartGestures } from '@/shared/charts';
 import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
-import { getActivityColor, sortByDateId } from '@/features/activity/lib/activityUtils';
+import { getActivityColor, sortByDateId } from '@/shared/activity/activityUtils';
 import type { Activity, ActivityType, WellnessData } from '@/types';
-import { stripMarks } from '../lib/stripMarks';
+import { stripMarks, markFills } from '../lib/stripMarks';
+import { formFromLoads } from '@/shared/math';
+import { pressable } from '@/shared/ui';
 
 // Simple emoji icons for activity types
 const ACTIVITY_EMOJIS: Record<string, string> = {
@@ -122,8 +124,8 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     const sorted = sortByDateId(data);
 
     return sorted.map((day, idx) => {
-      const fitnessRaw = day.ctl ?? day.ctlLoad ?? 0;
-      const fatigueRaw = day.atl ?? day.atlLoad ?? 0;
+      const fitnessRaw = day.ctl ?? 0;
+      const fatigueRaw = day.atl ?? 0;
       const fitness = Math.round(fitnessRaw);
       const fatigue = Math.round(fatigueRaw);
       const dayActivities = activitiesByDate.get(day.id) || [];
@@ -134,7 +136,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
         activities: dayActivities,
         fitness,
         fatigue,
-        form: fitness - fatigue,
+        form: formFromLoads(fitnessRaw, fatigueRaw),
       };
     });
   }, [data, activitiesByDate]);
@@ -247,9 +249,13 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   // Get activities to display:
   // - During scrub (this chart or other charts via sharedSelectedIdx): use selectedData
   // - After scrub ends: use persistedActivities
-  const displayActivities = selectedData?.activities?.length
-    ? selectedData.activities
-    : persistedActivities || [];
+  // Memoised so the empty fallback is one array rather than a fresh one each
+  // render, which changed the summary callback's identity on every frame of a
+  // scrub.
+  const displayActivities = useMemo(
+    () => (selectedData?.activities?.length ? selectedData.activities : persistedActivities || []),
+    [selectedData, persistedActivities]
+  );
 
   // Get activity summary for display
   const getActivitySummary = (acts: typeof displayActivities) => {
@@ -334,7 +340,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
         animationType="fade"
         onRequestClose={() => setShowPicker(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowPicker(false)}>
+        <Pressable style={pressable(styles.modalOverlay)} onPress={() => setShowPicker(false)}>
           <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
             <Text style={[styles.modalTitle, isDark && styles.textLight]}>
               {t('fitness.selectActivity')}
@@ -390,18 +396,19 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
                 {marks.map((mark) => {
                   const total = mark.height * height;
                   let top = height - total;
-                  return mark.segments.map((segment) => {
+                  const muted = isDark ? darkColors.textDisabled : colors.textDisabled;
+                  return markFills(mark, muted, getActivityColor).map((fill, n) => {
                     const y = top;
-                    const segmentHeight = segment.fraction * total;
-                    top += segmentHeight;
+                    const fillHeight = fill.fraction * total;
+                    top += fillHeight;
                     return (
                       <Rect
-                        key={`${mark.dates[0]}-${segment.type}`}
+                        key={`${mark.dates[0]}-${n}`}
                         x={mark.x}
                         y={y}
                         width={mark.width}
-                        height={segmentHeight}
-                        color={getActivityColor(segment.type)}
+                        height={fillHeight}
+                        color={fill.color}
                       />
                     );
                   });
@@ -508,7 +515,7 @@ const styles = StyleSheet.create({
   activityLoad: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   cancelButton: {
     marginTop: spacing.sm,

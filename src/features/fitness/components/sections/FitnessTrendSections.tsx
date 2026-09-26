@@ -7,10 +7,15 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CollapsibleSection } from '@/shared/ui';
 import { ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/features/stats';
 import { useTheme } from '@/shared/app';
-import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
+import {
+  SPORT_TEXT_COLORS,
+  SPORT_TEXT_COLORS_DARK,
+  type PrimarySport,
+} from '@/features/fitness/stores';
 import { formatPaceCompact } from '@/shared/format/format';
 import { PERIOD_LABEL_KEYS } from '@/shared/app/period';
-import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, opacity, verdictColor } from '@/theme';
+import { trendIcon, trendVerdict, verdictRung, type TrendDirection } from '@/shared/format/trend';
 import { type TimeRange } from '@/features/wellness';
 import type { ZoneDistribution, eFTPPoint, ActivityStreams } from '@/types';
 
@@ -27,7 +32,7 @@ interface FitnessTrendSectionsProps {
   // eFTP trend (cycling)
   eftpHistory: eFTPPoint[] | undefined;
   currentFTP: number | null | undefined;
-  ftpTrend: 'up' | 'down' | 'stable' | null;
+  ftpTrend: TrendDirection | null;
   trendsExpanded: boolean;
   onTrendsToggle: (expanded: boolean) => void;
   // Running thresholds
@@ -66,6 +71,9 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
 }: FitnessTrendSectionsProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  // A headline number is text, and the sport fills are 2.3:1 to 3.6:1 on the
+  // light card. The text pair is the same hues at text grade (B950).
+  const sportText = isDark ? SPORT_TEXT_COLORS_DARK : SPORT_TEXT_COLORS;
 
   // The chart below plots `eftpHistory`, so the header states a number only
   // when that series has one. A row that offers a figure its own chart calls
@@ -89,7 +97,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
           estimatedHeight={sportMode === 'Cycling' ? 400 : 200}
           headerRight={
             dominantZone ? (
-              <Text style={[styles.headerValue, { color: SPORT_COLORS[sportMode] }]}>
+              <Text style={[styles.headerValue, { color: sportText[sportMode] }]}>
                 {dominantZone.name}: {dominantZone.percentage}%
               </Text>
             ) : null
@@ -137,14 +145,14 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             headerRight={
               headerFtp ? (
                 <View style={styles.headerValueRow}>
-                  <Text style={[styles.headerValue, { color: SPORT_COLORS.Cycling }]}>
+                  <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
                     {headerFtp}w
                   </Text>
-                  {ftpTrend && ftpTrend !== 'stable' && (
+                  {ftpTrend && (
                     <MaterialCommunityIcons
-                      name={ftpTrend === 'up' ? 'trending-up' : 'trending-down'}
+                      name={trendIcon('ftp', ftpTrend)}
                       size={16}
-                      color={ftpTrend === 'up' ? colors.success : colors.error}
+                      color={verdictColor(verdictRung(trendVerdict('ftp', ftpTrend)), isDark)}
                       style={styles.trendIcon}
                     />
                   )}
@@ -166,7 +174,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
       )}
 
       {/* Running Threshold Stats */}
-      {sportMode === 'Running' && (thresholdPace || runLthr) && (
+      {sportMode === 'Running' && (
         <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
           <CollapsibleSection
             testID="fitness-section-threshold"
@@ -177,40 +185,49 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             estimatedHeight={100}
             headerRight={
               thresholdPace ? (
-                <Text style={[styles.headerValue, { color: SPORT_COLORS.Running }]}>
+                <Text style={[styles.headerValue, { color: sportText.Running }]}>
                   {formatPaceCompact(thresholdPace)}/km
                 </Text>
               ) : runLthr ? (
-                <Text style={[styles.headerValue, { color: SPORT_COLORS.Running }]}>
+                <Text style={[styles.headerValue, { color: sportText.Running }]}>
                   {runLthr} bpm
                 </Text>
               ) : null
             }
           >
             <View style={styles.collapsibleContent}>
-              <View style={styles.thresholdRow}>
-                <View style={styles.thresholdItem}>
-                  <Text style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}>
-                    {t('statsScreen.pace')}
-                  </Text>
-                  <Text style={[styles.thresholdValue, { color: SPORT_COLORS.Running }]}>
-                    {thresholdPace ? `${formatPaceCompact(thresholdPace)}/km` : '-'}
-                  </Text>
+              {!thresholdPace && !runLthr ? (
+                <Text
+                  testID="fitness-threshold-empty"
+                  style={[styles.thresholdEmpty, isDark && styles.thresholdLabelDark]}
+                >
+                  {t('statsScreen.notEnoughRuns')}
+                </Text>
+              ) : (
+                <View style={styles.thresholdRow}>
+                  <View style={styles.thresholdItem}>
+                    <Text style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}>
+                      {t('statsScreen.pace')}
+                    </Text>
+                    <Text style={[styles.thresholdValue, { color: sportText.Running }]}>
+                      {thresholdPace ? `${formatPaceCompact(thresholdPace)}/km` : '-'}
+                    </Text>
+                  </View>
+                  {runLthr && (
+                    <>
+                      <View style={styles.thresholdDivider} />
+                      <View style={styles.thresholdItem}>
+                        <Text style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}>
+                          {t('statsScreen.heartRate')}
+                        </Text>
+                        <Text style={[styles.thresholdValue, { color: sportText.Running }]}>
+                          {runLthr} bpm
+                        </Text>
+                      </View>
+                    </>
+                  )}
                 </View>
-                {runLthr && (
-                  <>
-                    <View style={styles.thresholdDivider} />
-                    <View style={styles.thresholdItem}>
-                      <Text style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}>
-                        {t('statsScreen.heartRate')}
-                      </Text>
-                      <Text style={[styles.thresholdValue, { color: SPORT_COLORS.Running }]}>
-                        {runLthr} bpm
-                      </Text>
-                    </View>
-                  </>
-                )}
-              </View>
+              )}
             </View>
           </CollapsibleSection>
         </View>
@@ -232,7 +249,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                   style={[
                     styles.headerValue,
                     {
-                      color: decouplingValue.isGood ? colors.success : colors.warning,
+                      color: verdictColor(decouplingValue.isGood ? 'positive' : 'caution', isDark),
                     },
                   ]}
                 >
@@ -286,7 +303,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   trendIcon: {
-    marginLeft: 2,
+    marginLeft: spacing.xxs,
     marginRight: spacing.sm,
   },
   zoneLoadingContainer: {
@@ -316,6 +333,11 @@ const styles = StyleSheet.create({
     ...typography.label,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
+  },
+  thresholdEmpty: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   thresholdLabelDark: {
     color: darkColors.textSecondary,

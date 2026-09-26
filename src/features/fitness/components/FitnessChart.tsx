@@ -8,11 +8,11 @@ import { useTranslation } from 'react-i18next';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
-import { colors, typography, spacing, layout, chartStyles } from '@/theme';
-import { calculateTSB } from '@/features/fitness/lib/fitness';
-import { sortByDateId } from '@/features/activity/lib/activityUtils';
+import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
+import { formFromLoads } from '@/shared/math';
+import { sortByDateId } from '@/shared/activity/activityUtils';
 import { formatShortDate } from '@/shared/format/format';
-import { ChartErrorBoundary } from '@/shared/ui';
+import { ChartErrorBoundary, pressable } from '@/shared/ui';
 import {
   ChartCanvas,
   ChartCrosshair,
@@ -111,12 +111,11 @@ export const FitnessChart = React.memo(function FitnessChart({
       };
     }
 
-    const withTSB = calculateTSB(data);
     const points: ChartDataPoint[] = [];
     const indices: number[] = [];
 
     // Sort by date
-    const sorted = sortByDateId(withTSB);
+    const sorted = sortByDateId(data);
 
     let maxL = 0;
     let maxF = 0;
@@ -124,12 +123,9 @@ export const FitnessChart = React.memo(function FitnessChart({
     let maxFm = 0;
 
     sorted.forEach((day, idx) => {
-      const fitnessRaw = day.ctl ?? day.ctlLoad ?? 0;
-      const fatigueRaw = day.atl ?? day.atlLoad ?? 0;
-      // Use rounded values for form calculation to match intervals.icu display
-      const fitness = Math.round(fitnessRaw);
-      const fatigue = Math.round(fatigueRaw);
-      const form = fitness - fatigue;
+      const fitness = Math.round(day.ctl ?? 0);
+      const fatigue = Math.round(day.atl ?? 0);
+      const form = formFromLoads(day.ctl, day.atl);
       // Estimate daily load from the difference in fatigue (rough approximation)
       const load = day.sportInfo?.reduce((sum, s) => sum + (s.load || 0), 0) || 0;
 
@@ -230,7 +226,10 @@ export const FitnessChart = React.memo(function FitnessChart({
             {markerChanges.length > 0 && (
               <Text
                 testID="fitness-eftp-change"
-                style={[styles.markerText, { color: chartColors.accent }]}
+                style={[
+                  styles.markerText,
+                  { color: isDark ? darkColors.chartAccentText : colors.chartAccentText },
+                ]}
               >
                 {markerChanges.map(formatEftpChange).join(', ')}
               </Text>
@@ -243,7 +242,10 @@ export const FitnessChart = React.memo(function FitnessChart({
               </Text>
               <Text
                 testID="fitness-ctl-value"
-                style={[styles.valueNumber, { color: chartColors.fitness }]}
+                style={[
+                  styles.valueNumber,
+                  { color: isDark ? darkColors.fitnessBlueText : colors.fitnessBlueText },
+                ]}
               >
                 {Math.round(displayData.fitness)}
               </Text>
@@ -254,7 +256,10 @@ export const FitnessChart = React.memo(function FitnessChart({
               </Text>
               <Text
                 testID="fitness-atl-value"
-                style={[styles.valueNumber, { color: chartColors.fatigue }]}
+                style={[
+                  styles.valueNumber,
+                  { color: isDark ? darkColors.chartPurpleText : colors.chartPurpleText },
+                ]}
               >
                 {Math.round(displayData.fatigue)}
               </Text>
@@ -351,7 +356,10 @@ export const FitnessChart = React.memo(function FitnessChart({
         {/* Legend - pressable to toggle lines */}
         <View style={styles.legend}>
           <Pressable
-            style={[styles.legendItem, !visibleLines.fitness && styles.legendItemDisabled]}
+            style={pressable([
+              styles.legendItem,
+              !visibleLines.fitness && styles.legendItemDisabled,
+            ])}
             onPress={() => toggleLine('fitness')}
             hitSlop={8}
           >
@@ -373,7 +381,10 @@ export const FitnessChart = React.memo(function FitnessChart({
             </Text>
           </Pressable>
           <Pressable
-            style={[styles.legendItem, !visibleLines.fatigue && styles.legendItemDisabled]}
+            style={pressable([
+              styles.legendItem,
+              !visibleLines.fatigue && styles.legendItemDisabled,
+            ])}
             onPress={() => toggleLine('fatigue')}
             hitSlop={8}
           >
@@ -431,7 +442,7 @@ const styles = StyleSheet.create({
   },
   markerText: {
     ...typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   valuesRow: {
     flexDirection: 'row',
@@ -443,7 +454,7 @@ const styles = StyleSheet.create({
   valueLabel: {
     fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   valueNumber: {
     fontSize: typography.cardTitle.fontSize,
@@ -471,7 +482,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: layout.borderRadiusFull,
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   legendText: {
     fontSize: typography.label.fontSize,

@@ -80,6 +80,6 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   timeRangeTextActive: {
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
   },
 });

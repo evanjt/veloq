@@ -4,12 +4,12 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useActivities } from '@/features/activity/hooks';
+import { useActivities } from '@/features/activity';
 import { useTheme } from '@/shared/app';
 import { formatDurationOrNull, formatLocalDate } from '@/shared/format/format';
 import { formatEffortValue } from '../lib/bestEfforts';
 import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography, colorWithOpacity, ink } from '@/theme';
 import { type BestEffort } from '@/features/stats';
 
 interface SeasonBestsSectionProps {
@@ -142,10 +142,10 @@ const styles = StyleSheet.create({
   rowDark: {},
   rowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+    borderBottomColor: colorWithOpacity(ink.black, 0.08),
   },
   rowBorderDark: {
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: colorWithOpacity(ink.white, 0.08),
   },
   label: {
     ...typography.bodySmall,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   time: {
     ...typography.micro,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   timeDark: {
     color: darkColors.textSecondary,
@@ -187,14 +187,14 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     marginTop: spacing.xs,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0, 0, 0, 0.08)',
+    borderTopColor: colorWithOpacity(ink.black, 0.08),
   },
   viewAllRowDark: {
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    borderTopColor: colorWithOpacity(ink.white, 0.08),
   },
   viewAllText: {
     ...typography.caption,
     fontWeight: '600',
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
 });

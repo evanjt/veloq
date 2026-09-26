@@ -10,10 +10,16 @@ import {
   PowerCurveChart,
   PaceCurveChart,
   SwimPaceCurveChart,
+  CurveFreshnessLine,
+  curveFreshness,
   type BestEffort,
 } from '@/features/stats';
 import { useTheme } from '@/shared/app';
-import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
+import {
+  SPORT_TEXT_COLORS,
+  SPORT_TEXT_COLORS_DARK,
+  type PrimarySport,
+} from '@/features/fitness/stores';
 import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { SeasonBestsSection } from '..';
@@ -49,6 +55,7 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
 }: PerformanceCurveSectionProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const sportText = isDark ? SPORT_TEXT_COLORS_DARK : SPORT_TEXT_COLORS;
 
   // The chart under each row decides whether there is a series, so the header
   // asks the same query it does. Both read one cache entry.
@@ -75,6 +82,15 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
     isError: swimCurve.isError,
   });
 
+  // The curve on screen is a stored body, so both sections date the same fetch:
+  // the season bests are read off the very curve the chart above draws.
+  const sportCurve =
+    sportMode === 'Cycling' ? powerCurve : sportMode === 'Running' ? runCurve : swimCurve;
+  const freshness = curveFreshness({
+    fetchedAt: sportCurve.fetchedAt,
+    isLoading: sportCurve.isLoading,
+  });
+
   return (
     <>
       {/* Performance Section - Power/Pace Curve */}
@@ -94,21 +110,20 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
           estimatedHeight={sportMode === 'Cycling' ? 270 : 240}
           headerRight={
             sportMode === 'Cycling' && headerFtp ? (
-              <Text style={[styles.headerValue, { color: SPORT_COLORS.Cycling }]}>
-                {headerFtp}w
-              </Text>
+              <Text style={[styles.headerValue, { color: sportText.Cycling }]}>{headerFtp}w</Text>
             ) : sportMode === 'Running' && headerRunPace ? (
-              <Text style={[styles.headerValue, { color: SPORT_COLORS.Running }]}>
+              <Text style={[styles.headerValue, { color: sportText.Running }]}>
                 {formatPaceCompact(headerRunPace)}/km
               </Text>
             ) : sportMode === 'Swimming' && headerSwimPace ? (
-              <Text style={[styles.headerValue, { color: SPORT_COLORS.Swimming }]}>
+              <Text style={[styles.headerValue, { color: sportText.Swimming }]}>
                 {formatSwimPace(headerSwimPace)}/100m
               </Text>
             ) : null
           }
         >
           <View style={styles.collapsibleContent}>
+            <CurveFreshnessLine freshness={freshness} />
             {sportMode === 'Cycling' && (
               // Taller than the pace charts by the row of fitted models under it.
               <PowerCurveChart height={230} days={days} ftp={currentFTP} />
@@ -130,13 +145,14 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
           estimatedHeight={200}
           headerRight={
             bestsHeader ? (
-              <Text style={[styles.headerValue, { color: SPORT_COLORS[sportMode] }]}>
+              <Text style={[styles.headerValue, { color: sportText[sportMode] }]}>
                 {bestsHeader}
               </Text>
             ) : null
           }
         >
           <View style={styles.collapsibleContent}>
+            <CurveFreshnessLine freshness={freshness} />
             <SeasonBestsSection
               efforts={bestsEfforts}
               sport={sportMode}

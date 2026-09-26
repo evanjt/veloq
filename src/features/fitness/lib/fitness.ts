@@ -1,16 +1,16 @@
+import { i18n } from '@/i18n';
 import type { WellnessData } from '@/types';
-import { colors } from '@/theme/colors';
+import { colors, darkColors } from '@/theme/colors';
 import { tsbFromLoads } from '@/shared/math';
 
 /**
- * Calculate TSB (Form) per day from wellness data, for chart rendering.
- * Handles both field name variants (ctl/atl and ctlLoad/atlLoad). A day missing
- * either load renders as 0 rather than a distorted -atl.
+ * Calculate TSB (Form) per day from wellness data, for chart rendering. A day
+ * missing either load renders as 0 rather than a distorted -atl.
  */
 export function calculateTSB(wellness: WellnessData[]): (WellnessData & { tsb: number })[] {
   return wellness.map((day) => ({
     ...day,
-    tsb: tsbFromLoads(day.ctl ?? day.ctlLoad, day.atl ?? day.atlLoad) ?? 0,
+    tsb: tsbFromLoads(day.ctl, day.atl) ?? 0,
   }));
 }
 
@@ -25,14 +25,26 @@ export function calculateTSB(wellness: WellnessData[]): (WellnessData & { tsb: n
  */
 export type FormZone = 'highRisk' | 'optimal' | 'greyZone' | 'fresh' | 'transition';
 
-export function getFormZone(tsb: number): FormZone {
-  if (tsb < -30) return 'highRisk';
-  if (tsb < -10) return 'optimal';
-  if (tsb < 5) return 'greyZone';
-  if (tsb < 25) return 'fresh';
+/**
+ * The band a form number falls in, on the denominator the athlete chose.
+ *
+ * `icu_form_as_percent` decides what form means: absolute TSB, or TSB as a
+ * share of fitness. The thresholds are the same either way, applied to
+ * whichever number the athlete reads. A percentage needs a denominator, so an
+ * athlete with no fitness yet, a sport with no load, or any day before the
+ * first activity falls back to the absolute band: that is what the number
+ * means when there is no fitness to be a percentage of.
+ */
+export function getFormZone(tsb: number, fitness?: number | null, asPercent?: boolean): FormZone {
+  const value = asPercent && fitness ? (tsb / fitness) * 100 : tsb;
+  if (value < -30) return 'highRisk';
+  if (value < -10) return 'optimal';
+  if (value < 5) return 'greyZone';
+  if (value < 25) return 'fresh';
   return 'transition';
 }
 
+/** Fills: the chart bands, the sparkline runs and the widget's form bar. */
 export const FORM_ZONE_COLORS: Record<FormZone, string> = {
   highRisk: colors.formHighRisk,
   optimal: colors.formOptimal,
@@ -41,13 +53,56 @@ export const FORM_ZONE_COLORS: Record<FormZone, string> = {
   transition: colors.formTransition,
 };
 
-export const FORM_ZONE_LABELS: Record<FormZone, string> = {
-  highRisk: 'High Risk',
-  optimal: 'Optimal',
-  greyZone: 'Grey Zone',
-  fresh: 'Fresh',
-  transition: 'Transition',
+/**
+ * Text: the form number, the zone name and any word coloured by zone. The fills
+ * run from 1.8:1 to 3.1:1 on white, and a zone label beside the number does not
+ * exempt it: 1.4.11 covers a graphic whose information is carried another way,
+ * text is held to 4.5:1 regardless (B928).
+ */
+export const FORM_ZONE_TEXT_COLORS: Record<FormZone, string> = {
+  highRisk: colors.formHighRiskText,
+  optimal: colors.formOptimalText,
+  greyZone: colors.formGreyZoneText,
+  fresh: colors.formFreshText,
+  transition: colors.formTransitionText,
 };
+
+export const FORM_ZONE_TEXT_COLORS_DARK: Record<FormZone, string> = {
+  highRisk: darkColors.formHighRiskText,
+  optimal: darkColors.formOptimalText,
+  greyZone: darkColors.formGreyZoneText,
+  fresh: darkColors.formFreshText,
+  transition: darkColors.formTransitionText,
+};
+
+/** The zone's text colour for the scheme on screen. */
+export function formZoneTextColor(zone: FormZone, isDark: boolean): string {
+  return isDark ? FORM_ZONE_TEXT_COLORS_DARK[zone] : FORM_ZONE_TEXT_COLORS[zone];
+}
+
+/**
+ * The same zones as marks rather than grounds. A band on the chart is a fill
+ * and the athlete reads the line over it, but a legend dot is the only thing
+ * keying a band to its name, so it holds 3:1 on every surface of both themes
+ * where four of the five fill tones sit between 1.8:1 and 2.7:1 on white.
+ * `highRisk` is the one that already clears it and keeps its fill.
+ */
+export const FORM_ZONE_MARK_COLORS: Record<FormZone, string> = {
+  highRisk: colors.formHighRisk,
+  optimal: colors.markFormOptimal,
+  greyZone: colors.markFormGreyZone,
+  fresh: colors.markFormFresh,
+  transition: colors.markFormTransition,
+};
+
+/**
+ * The zone's name in the athlete's language. The widget already read these
+ * keys while the screens read an English map beside them, so one device drew
+ * the same zone under two names.
+ */
+export function formZoneLabel(zone: FormZone): string {
+  return i18n.t(`formZones.${zone}`);
+}
 
 /**
  * Zone boundaries (TSB values) for chart rendering

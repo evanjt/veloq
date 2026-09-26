@@ -1,4 +1,7 @@
 import type { WellnessData } from '@/types';
+// The activity barrel loads the whole feature, components included, and this
+// module is reached from the demo fixtures that seeding requires before any
+// native module exists. The two leaves it needs carry no such weight.
 import type { ApiWellness } from '@/features/activity/demo/types';
 import { fixtures } from '@/features/activity/demo/activities';
 

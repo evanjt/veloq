@@ -1,1 +1,8 @@
-export { useWellness, useWellnessForDate, timeRangeToDays, type TimeRange } from './useWellness';
+export {
+  useWellness,
+  useWellnessForDate,
+  useWellnessLatestDate,
+  useWellnessGeneration,
+  timeRangeToDays,
+  type TimeRange,
+} from './useWellness';

@@ -7,11 +7,11 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue, runOnJS } from 'react-native-reanimated';
 
 import { useTheme } from '@/shared/app';
-import { colors, spacing, typography, opacity, chartStyles } from '@/theme';
+import { colors, spacing, typography, opacity, chartStyles, colorWithOpacity, ink } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { useChartColors } from '@/shared/charts';
-import { sortByDateId } from '@/features/activity/lib/activityUtils';
-import { formatShortDateWithWeekday } from '@/shared/format/format';
+import { sortByDateId } from '@/shared/activity/activityUtils';
+import { formatShortDate, formatShortDateWithWeekday } from '@/shared/format/format';
 import {
   smoothDataPoints,
   getEffectiveWindow,
@@ -277,28 +277,46 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 
   const sparklineHeight = 50;
 
-  // Build a single Skia Picture containing all sparkline paths + selection indicators
-  const chartPicture = useMemo(() => {
+  // Geometry is what the scrub does not move, so it is built once per data or
+  // layout change and both pictures below read it.
+  const metricGeometry = useMemo(() => {
     if (activeMetrics.length === 0 || sparklineWidth <= 0) return null;
+    return activeMetrics.map((metric, i) => {
+      const yOffset = i * sparklineHeight;
+      const values = metric.data.map((d) => d.value);
+      const minValue = Math.min(...values);
+      const maxValue = Math.max(...values);
+      const range = maxValue - minValue || 1;
+      return {
+        metric,
+        yOffset,
+        path: buildSparklinePath(
+          metric.data,
+          sparklineWidth,
+          sparklineHeight,
+          yOffset,
+          totalDays,
+          minValue - range * 0.15,
+          maxValue + range * 0.15
+        ),
+      };
+    });
+  }, [activeMetrics, sparklineWidth, sparklineHeight, totalDays]);
 
-    const totalHeight = activeMetrics.length * sparklineHeight;
+  // The sparklines and the row separators. Nothing here depends on the
+  // selection, so a scrub tick re-records none of it.
+  const chartPicture = useMemo(() => {
+    if (!metricGeometry) return null;
+
+    const totalHeight = metricGeometry.length * sparklineHeight;
     const recorder = Skia.PictureRecorder();
     const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, sparklineWidth, totalHeight));
+
     const paint = Skia.Paint();
     paint.setStyle(1); // stroke
     paint.setStrokeWidth(2);
     paint.setAntiAlias(true);
 
-    const selectionLinePaint = Skia.Paint();
-    selectionLinePaint.setStyle(1);
-    selectionLinePaint.setStrokeWidth(1);
-    selectionLinePaint.setColor(Skia.Color(isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'));
-
-    const circlePaint = Skia.Paint();
-    circlePaint.setStyle(0); // fill
-    circlePaint.setAntiAlias(true);
-
-    // Separator paint
     const separatorPaint = Skia.Paint();
     separatorPaint.setStyle(1);
     separatorPaint.setStrokeWidth(StyleSheet.hairlineWidth);
@@ -306,82 +324,81 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       Skia.Color(isDark ? opacity.overlayDark.medium : opacity.overlay.light)
     );
 
-    for (let i = 0; i < activeMetrics.length; i++) {
-      const metric = activeMetrics[i];
-      const yOffset = i * sparklineHeight;
-
-      // Compute domain with padding
-      const values = metric.data.map((d) => d.value);
-      const minValue = Math.min(...values);
-      const maxValue = Math.max(...values);
-      const range = maxValue - minValue || 1;
-      const yMin = minValue - range * 0.15;
-      const yMax = maxValue + range * 0.15;
-
-      const pathData = buildSparklinePath(
-        metric.data,
-        sparklineWidth,
-        sparklineHeight,
-        yOffset,
-        totalDays,
-        yMin,
-        yMax
-      );
-
-      if (pathData) {
-        // Draw sparkline path
+    metricGeometry.forEach(({ metric, yOffset, path }, i) => {
+      if (path) {
         paint.setColor(Skia.Color(metric.color));
-        canvas.drawPath(pathData.path, paint);
-
-        // Draw selection indicator
-        if (selectedIdx !== null) {
-          const selectedPoint = metric.data.find((d) => d.x === selectedIdx);
-          if (selectedPoint) {
-            // Vertical selection line
-            canvas.drawLine(
-              pathData.sx(selectedIdx),
-              yOffset + SPARKLINE_PADDING.top,
-              pathData.sx(selectedIdx),
-              yOffset + sparklineHeight - SPARKLINE_PADDING.bottom,
-              selectionLinePaint
-            );
-            // Selection dot
-            circlePaint.setColor(Skia.Color(metric.color));
-            canvas.drawCircle(
-              pathData.sx(selectedPoint.x),
-              pathData.sy(selectedPoint.value),
-              5,
-              circlePaint
-            );
-          }
-        }
+        canvas.drawPath(path.path, paint);
       }
-
-      // Draw row separator (except after last row)
-      if (i < activeMetrics.length - 1) {
+      if (i < metricGeometry.length - 1) {
         const separatorY = yOffset + sparklineHeight;
         canvas.drawLine(0, separatorY, sparklineWidth, separatorY, separatorPaint);
       }
+    });
+
+    return recorder.finishRecordingAsPicture();
+  }, [metricGeometry, sparklineWidth, sparklineHeight, isDark]);
+
+  // The selection line and dots, the only thing a scrub tick redraws.
+  const selectionPicture = useMemo(() => {
+    if (!metricGeometry || selectedIdx === null) return null;
+
+    const totalHeight = metricGeometry.length * sparklineHeight;
+    const recorder = Skia.PictureRecorder();
+    const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, sparklineWidth, totalHeight));
+
+    const linePaint = Skia.Paint();
+    linePaint.setStyle(1);
+    linePaint.setStrokeWidth(1);
+    linePaint.setColor(
+      Skia.Color(isDark ? colorWithOpacity(ink.white, 0.3) : colorWithOpacity(ink.black, 0.2))
+    );
+
+    const circlePaint = Skia.Paint();
+    circlePaint.setStyle(0); // fill
+    circlePaint.setAntiAlias(true);
+
+    for (const { metric, yOffset, path } of metricGeometry) {
+      if (!path) continue;
+      const selectedPoint = metric.data.find((d) => d.x === selectedIdx);
+      if (!selectedPoint) continue;
+      canvas.drawLine(
+        path.sx(selectedIdx),
+        yOffset + SPARKLINE_PADDING.top,
+        path.sx(selectedIdx),
+        yOffset + sparklineHeight - SPARKLINE_PADDING.bottom,
+        linePaint
+      );
+      circlePaint.setColor(Skia.Color(metric.color));
+      canvas.drawCircle(path.sx(selectedPoint.x), path.sy(selectedPoint.value), 5, circlePaint);
     }
 
     return recorder.finishRecordingAsPicture();
-  }, [activeMetrics, sparklineWidth, sparklineHeight, totalDays, selectedIdx, isDark]);
+  }, [metricGeometry, sparklineWidth, sparklineHeight, selectedIdx, isDark]);
 
   // Compute display values for each metric row
   const metricDisplayValues = useMemo(() => {
     return activeMetrics.map((metric) => {
       const latestValue = metric.data[metric.data.length - 1];
       const avgValue = metric.data.reduce((sum, d) => sum + d.rawValue, 0) / metric.data.length;
-      const selectedPoint =
-        selectedIdx !== null ? metric.data.find((d) => d.x === selectedIdx) || null : null;
-      const displayValue = selectedPoint || latestValue;
-      return {
-        displayValue,
-        avgValue,
-        isSelected: selectedIdx !== null,
-      };
+      const isSelected = selectedIdx !== null;
+      // A scrubbed day this metric was not logged on shows none, not its latest reading.
+      const displayValue = isSelected
+        ? (metric.data.find((d) => d.x === selectedIdx) ?? null)
+        : latestValue;
+      return { displayValue, avgValue, isSelected };
     });
   }, [activeMetrics, selectedIdx]);
+
+  // At rest the header names the newest reading across the rows, and a row whose
+  // own reading is older carries its date, so no stale value reads as today's.
+  const newestReadingDate = useMemo(
+    () =>
+      activeMetrics.reduce<string | null>((newest, metric) => {
+        const date = metric.data[metric.data.length - 1]?.date;
+        return date && (!newest || date > newest) ? date : newest;
+      }, null),
+    [activeMetrics]
+  );
 
   const updateSelectedIdx = useCallback(
     (x: number) => {
@@ -402,23 +419,28 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     onDateSelect?.(null);
   }, [onDateSelect]);
 
-  // Gesture handler
-  const gesture = Gesture.Pan()
-    .onStart((e) => {
-      isActive.value = true;
-      activeX.value = e.x;
-      runOnJS(updateSelectedIdx)(e.x);
-    })
-    .onUpdate((e) => {
-      activeX.value = e.x;
-      runOnJS(updateSelectedIdx)(e.x);
-    })
-    .onEnd(() => {
-      isActive.value = false;
-      runOnJS(clearSelection)();
-    })
-    .minDistance(0)
-    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
+  // Rebuilding the gesture each render hands the detector a new handler on
+  // every scrub tick, so it is built once per callback change.
+  const gesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .onStart((e) => {
+          isActive.value = true;
+          activeX.value = e.x;
+          runOnJS(updateSelectedIdx)(e.x);
+        })
+        .onUpdate((e) => {
+          activeX.value = e.x;
+          runOnJS(updateSelectedIdx)(e.x);
+        })
+        .onEnd(() => {
+          isActive.value = false;
+          runOnJS(clearSelection)();
+        })
+        .minDistance(0)
+        .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION),
+    [updateSelectedIdx, clearSelection, isActive, activeX]
+  );
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     setContainerWidth(e.nativeEvent.layout.width);
@@ -449,10 +471,14 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 
   return (
     <View style={styles.container} onLayout={onLayout}>
-      {/* Date header - shows selected date or "Today" */}
+      {/* Date header - the scrubbed day, or at rest the newest reading */}
       <View style={styles.dateHeader}>
         <Text style={[styles.dateText, isDark && styles.textLight]}>
-          {selectedDate ? formatShortDateWithWeekday(selectedDate) : t('time.today')}
+          {selectedDate
+            ? formatShortDateWithWeekday(selectedDate)
+            : newestReadingDate
+              ? formatShortDateWithWeekday(newestReadingDate)
+              : t('time.today')}
         </Text>
         {selectedIdx !== null && (
           <Text style={[styles.dateHint, isDark && chartStyles.textDark]}>
@@ -505,6 +531,13 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                     avg {metric.formatValue(metricDisplayValues[i]?.avgValue ?? 0)}
                   </Text>
                 )}
+                {!metricDisplayValues[i]?.isSelected &&
+                  metricDisplayValues[i]?.displayValue &&
+                  metricDisplayValues[i].displayValue.date !== newestReadingDate && (
+                    <Text style={[styles.metricAvg, isDark && chartStyles.textDark]}>
+                      {formatShortDate(metricDisplayValues[i].displayValue.date)}
+                    </Text>
+                  )}
               </View>
             </View>
           ))}
@@ -523,6 +556,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
             >
               <Canvas style={{ width: sparklineWidth, height: canvasHeight }}>
                 <Picture picture={chartPicture} />
+                {selectionPicture && <Picture picture={selectionPicture} />}
               </Canvas>
             </View>
           )}
@@ -620,12 +654,12 @@ const styles = StyleSheet.create({
   metricUnit: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
-    marginTop: -2,
+    marginTop: -spacing.xxs,
   },
   metricAvg: {
     fontSize: typography.pillLabel.fontSize - 1,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   periodLabel: {
     fontSize: typography.micro.fontSize,

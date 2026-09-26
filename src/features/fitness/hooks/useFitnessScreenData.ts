@@ -6,13 +6,13 @@ import {
   useActivityStreams,
   useEFTPHistory,
   getLatestFTP,
-} from '@/features/activity/hooks';
+} from '@/features/activity';
+import { isCyclingActivity } from '@/shared/activity/activityUtils';
 import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';
 import { usePaceCurve, useSeasonBests } from '@/features/stats';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { type PrimarySport } from '@/features/fitness/stores';
 import { useZoneDistribution } from './useZoneDistribution';
-import { isCyclingActivity } from '@/features/activity/lib/activityUtils';
 
 interface UseFitnessScreenDataArgs {
   timeRange: TimeRange;
@@ -51,8 +51,20 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
   );
   const runSettings = getSettingsForSport(sportSettings, 'Run');
 
-  const { data: runPaceCurve } = usePaceCurve({ sport: 'Run', days });
-  const { data: swimPaceCurve } = usePaceCurve({ sport: 'Swim', days });
+  // Only the sport in view renders a threshold from these, so only that one is
+  // worth a download and a `curve_bodies` row. Both were on by default, which
+  // cost a cyclist up to ten curves a session, one per time range, each with a
+  // pace snapshot write behind it.
+  const { data: runPaceCurve } = usePaceCurve({
+    sport: 'Run',
+    days,
+    enabled: sportMode === 'Running',
+  });
+  const { data: swimPaceCurve } = usePaceCurve({
+    sport: 'Swim',
+    days,
+    enabled: sportMode === 'Swimming',
+  });
 
   const {
     efforts: bestsEfforts,
