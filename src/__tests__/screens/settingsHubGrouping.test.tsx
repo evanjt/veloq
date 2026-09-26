@@ -56,7 +56,8 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
 // is computed from belongs to BackgroundJobsPanel's own tests.
 let mockJobs: { id: string; state: string }[] = [{ id: 'sync', state: 'idle' }];
 jest.mock('@/features/settings', () => ({
-  useBackgroundJobs: () => mockJobs,
+  useRunningJobCount: () => mockJobs.filter((job) => job.state === 'running').length,
+  useLastBackupTimestamp: () => null,
 }));
 
 jest.mock('@/features/settings/components', () => ({

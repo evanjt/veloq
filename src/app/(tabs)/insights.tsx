@@ -12,23 +12,37 @@ import {
 } from '@/shared/ui';
 import { aboutInsightsBody, InsightsPanel, StrengthTab, useInsights } from '@/features/insights';
 import { DateRangeSummary } from '@/features/routes/components/DateRangeSummary';
-import { RoutesList } from '@/features/routes/components/RoutesList';
-import { SectionsList } from '@/features/routes/components/SectionsList';
+import { RoutesList, type RoutesSortOption } from '@/features/routes/components/RoutesList';
+import { SectionsList, type SectionsSortOption } from '@/features/routes/components/SectionsList';
 import { SyncDebugTab } from '@/features/routes/components/SyncDebugTab';
-import type { RoutesSortOption } from '@/features/routes/components/RoutesList';
-import type { SectionsSortOption } from '@/features/routes/components/SectionsList';
-import { useActivityBoundsCache } from '@/features/activity/hooks';
+import { useActivityBoundsCache } from '@/features/activity';
 import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
 import { useRoutesScreenData } from '@/features/routes/hooks/useRoutesScreenData';
+import {
+  DEFAULT_SECTION_HIDE_FLAGS,
+  groupSortFor,
+  sectionFiltersFor,
+  sectionSortFor,
+  type SectionHideFlags,
+} from '@/features/routes/lib/routesScreenQuery';
 import { useTheme } from '@/shared/app';
 import { useUserLocation } from '@/shared/app/useUserLocation';
-import { useHasStrengthData } from '@/features/strength';
+import { useStrengthTabState } from '@/features/strength';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { colors, darkColors, spacing, amberBanner, layout, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  amberBanner,
+  layout,
+  typography,
+  colorWithOpacity,
+} from '@/theme';
 
 type TabType = 'insights' | 'strength' | 'routes' | 'sections' | 'debug';
 
@@ -132,8 +146,9 @@ export default function InsightsScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const { tab, insightId } = useLocalSearchParams<{ tab?: string; insightId?: string }>();
-  const { insights, todayPattern, markAsSeen } = useInsights();
-  const hasStrength = useHasStrengthData();
+  const { insights, todayPattern, markAsSeen, droppedFormSyncDate } = useInsights();
+  const strengthTab = useStrengthTabState();
+  const hasStrength = strengthTab !== 'hidden';
   const { location: userLocation, requestPermission } = useUserLocation();
   const routeSortTouchedRef = useRef(false);
   const sectionSortTouchedRef = useRef(false);
@@ -143,6 +158,14 @@ export default function InsightsScreen() {
   const [sectionSort, setSectionSort] = useState<SectionsSortOption>(
     userLocation ? 'nearby' : 'visits'
   );
+
+  // The sort, the search and the hide flags are the engine's query, not the
+  // list's own state: it orders, filters and counts the catalogue before it
+  // pages it.
+  const [routeSearch, setRouteSearch] = useState('');
+  const [sectionSearch, setSectionSearch] = useState('');
+  const [sectionHidden, setSectionHidden] = useState<SectionHideFlags>(DEFAULT_SECTION_HIDE_FLAGS);
+  const sectionFilters = useMemo(() => sectionFiltersFor(sectionHidden), [sectionHidden]);
 
   const routeSettings = useRouteSettings((s) => s.settings);
   const isRouteMatchingEnabled = routeSettings.enabled;
@@ -161,8 +184,11 @@ export default function InsightsScreen() {
   } = useRoutesScreenData({
     groupLimit: 50,
     sectionLimit: 100,
-    prioritizeNearestGroups: routeSort === 'nearby',
-    prioritizeNearestSections: sectionSort === 'nearby',
+    groupSort: groupSortFor(routeSort),
+    groupSearch: routeSearch,
+    sectionSort: sectionSortFor(sectionSort),
+    sectionSearch,
+    sectionFilters,
     userLocation,
   });
 
@@ -171,13 +197,15 @@ export default function InsightsScreen() {
 
   const { count: customSectionCount } = useCustomSections();
   const rustSectionCount = routesData?.sectionCount ?? 0;
-  const batchCustomCount =
-    routesData?.sections?.filter((s) => s.id.startsWith('custom_')).length ?? 0;
-  const totalSections = rustSectionCount + Math.max(0, customSectionCount - batchCustomCount);
+  // The engine's custom count is over the catalogue, so the only rows left to
+  // add are the store's that the engine has not seen yet.
+  const engineCustomCount = routesData?.customCount ?? 0;
+  const unseenCustomCount = Math.max(0, customSectionCount - engineCustomCount);
+  const totalSections = rustSectionCount + unseenCustomCount;
 
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
-  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
+  const isFetchingExtended = useSyncDateRange((s) => isExtendedFetchRunning(s.extendedFetch));
   const dataSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isDataSyncing = useSyncDateRange((s) => s.isGpsSyncing);
 
@@ -386,12 +414,13 @@ export default function InsightsScreen() {
       <InsightsPanel
         key="insights"
         insights={insights}
+        droppedFormSyncDate={droppedFormSyncDate}
         todayPattern={todayPattern}
         initialInsightId={insightId}
         onInsightOpened={handleInsightOpened}
       />
     ),
-    [insights, todayPattern, insightId, handleInsightOpened]
+    [insights, droppedFormSyncDate, todayPattern, insightId, handleInsightOpened]
   );
 
   const routesPage = useMemo(
@@ -408,6 +437,8 @@ export default function InsightsScreen() {
             totalGroupCount={routeGroupCount}
             sortOption={routeSort}
             onSortChange={handleRouteSortChange}
+            searchQuery={routeSearch}
+            onSearchChange={setRouteSearch}
             isLoading={!routesData}
           />
         ) : (
@@ -425,6 +456,7 @@ export default function InsightsScreen() {
       userLocation,
       routeGroupCount,
       routeSort,
+      routeSearch,
       handleRouteSortChange,
       isRouteMatchingEnabled,
       isDark,
@@ -443,6 +475,14 @@ export default function InsightsScreen() {
             userLocation={userLocation}
             sortOption={sectionSort}
             onSortChange={handleSectionSortChange}
+            searchQuery={sectionSearch}
+            onSearchChange={setSectionSearch}
+            hiddenFilters={sectionHidden}
+            onHiddenFiltersChange={setSectionHidden}
+            unacceptedAutoCount={routesData?.unacceptedAutoCount ?? 0}
+            acceptedAutoCount={routesData?.acceptedAutoCount ?? 0}
+            customSectionCount={engineCustomCount + unseenCustomCount}
+            retiredSectionCount={routesData?.retiredCount ?? 0}
           />
         ) : (
           <RouteTabDisabledState isDark={isDark} />
@@ -456,6 +496,13 @@ export default function InsightsScreen() {
       totalSections,
       userLocation,
       sectionSort,
+      sectionSearch,
+      sectionHidden,
+      routesData?.unacceptedAutoCount,
+      routesData?.acceptedAutoCount,
+      routesData?.retiredCount,
+      engineCustomCount,
+      unseenCustomCount,
       handleSectionSortChange,
       isRouteMatchingEnabled,
       isDark,
@@ -464,7 +511,8 @@ export default function InsightsScreen() {
 
   const tabPages = useMemo(() => {
     const pages: React.ReactNode[] = [insightsPage];
-    if (hasStrength) pages.push(<StrengthTab key="strength" />);
+    if (hasStrength)
+      pages.push(<StrengthTab key="strength" awaitingDownload={strengthTab === 'awaiting'} />);
     pages.push(routesPage);
     pages.push(sectionsPage);
     if (debugEnabled) {
@@ -475,7 +523,7 @@ export default function InsightsScreen() {
       );
     }
     return pages;
-  }, [insightsPage, routesPage, sectionsPage, hasStrength, debugEnabled]);
+  }, [insightsPage, routesPage, sectionsPage, hasStrength, strengthTab, debugEnabled]);
 
   return (
     <ScreenErrorBoundary screenName="Insights">
@@ -554,11 +602,11 @@ const styles = StyleSheet.create({
   disabledHint: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusMd,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    backgroundColor: colorWithOpacity(colors.warning, 0.1),
   },
   disabledHintText: {
     fontSize: typography.caption.fontSize,
@@ -612,7 +660,7 @@ const styles = StyleSheet.create({
   routeMessageBody: {
     fontSize: typography.caption.fontSize,
     color: amberBanner.light.text,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   routeMessageBodyDark: {
     color: amberBanner.dark.subtext,
@@ -647,6 +695,6 @@ const styles = StyleSheet.create({
     color: amberBanner.dark.text,
   },
   engineBannerClose: {
-    margin: -4,
+    margin: -spacing.xs,
   },
 });

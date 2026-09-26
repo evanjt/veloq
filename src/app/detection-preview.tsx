@@ -24,7 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { hasStarted } from 'veloqrs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, pressable } from '@/shared/ui';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import { usePreviewDetect } from '@/features/routes/hooks/usePreviewDetect';
 import { useDetectionHold } from '@/features/routes';
@@ -246,7 +246,10 @@ export default function DetectionPreviewScreen() {
           <View style={styles.actionRow}>
             {result && (
               <Pressable
-                style={[styles.actionBtn, { backgroundColor: surface, borderColor: border }]}
+                style={pressable([
+                  styles.actionBtn,
+                  { backgroundColor: surface, borderColor: border },
+                ])}
                 onPress={handleDiscard}
                 testID="preview-discard-button"
               >
@@ -256,12 +259,12 @@ export default function DetectionPreviewScreen() {
               </Pressable>
             )}
             <Pressable
-              style={[
+              style={pressable([
                 styles.actionBtn,
                 selectedCentre && !result
                   ? { backgroundColor: brand.tealLight, borderColor: brand.tealLight }
                   : { backgroundColor: surface, borderColor: border },
-              ]}
+              ])}
               onPress={handlePreview}
               disabled={!selectedCentre}
               testID="preview-run-button"
@@ -283,7 +286,7 @@ export default function DetectionPreviewScreen() {
             </Pressable>
             {result && (
               <Pressable
-                style={[styles.actionBtn, styles.keepBtn]}
+                style={pressable([styles.actionBtn, styles.keepBtn])}
                 onPress={handleKeep}
                 testID="preview-keep-button"
               >

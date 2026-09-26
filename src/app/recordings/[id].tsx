@@ -52,6 +52,7 @@ export default function RecordingDetailScreen() {
   }, [load]);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
+  const errorDeep = isDark ? darkColors.errorDeep : colors.errorDeep;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
@@ -173,7 +174,7 @@ export default function RecordingDetailScreen() {
             </Text>
           </View>
           {entry.lastError ? (
-            <Text style={[styles.errorText, { color: colors.error }]} numberOfLines={3}>
+            <Text style={[styles.errorText, { color: errorDeep }]} numberOfLines={3}>
               {entry.lastError}
             </Text>
           ) : null}
@@ -226,7 +227,7 @@ export default function RecordingDetailScreen() {
             activeOpacity={0.8}
           >
             <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.error} />
-            <Text style={[styles.secondaryButtonText, { color: colors.error }]}>
+            <Text style={[styles.secondaryButtonText, { color: errorDeep }]}>
               {t('recording.library.delete', 'Delete')}
             </Text>
           </TouchableOpacity>

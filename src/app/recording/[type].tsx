@@ -34,16 +34,18 @@ import { useHrZoneColorEffect } from '@/features/recording/hooks/useHrZoneColorE
 import { useGpsSessionEffect } from '@/features/recording/hooks/useGpsSessionEffect';
 import { useInitRecordingEffect } from '@/features/recording/hooks/useInitRecordingEffect';
 import {
+  ArmedCountdownOverlay,
   RecordingGate,
   useAlwaysLocationPrompt,
   useCanRecord,
   usePermissionUpgrade,
+  useUploadPermissionStore,
 } from '@/features/recording';
 import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKeepAwake';
 import { useSensorSession, useSensorIssue } from '@/features/sensors';
 import { useConsensusRoute } from '@/features/routes/hooks/useEngine';
 import { useRecordingHandlers } from '@/features/recording/hooks/useRecordingHandlers';
-import { colors } from '@/theme';
+import { colors, spacing } from '@/theme';
 import { styles } from '@/features/recording/RecordingScreen.styles';
 import type { ActivityType, DataFieldType } from '@/types';
 
@@ -63,6 +65,8 @@ export default function RecordingScreen() {
   // the picker applies has to be applied here too or it is not a gate at all.
   const { canRecord, reason } = useCanRecord();
   const { upgradePermissions, isUpgrading, error: upgradeError } = usePermissionUpgrade();
+  const ridingWithoutScope = useUploadPermissionStore((s) => s.recordingWithoutScope);
+  const continueWithoutScope = useUploadPermissionStore((s) => s.continueWithoutScope);
 
   const activityType = type as ActivityType;
   const mode = getRecordingMode(activityType);
@@ -133,7 +137,19 @@ export default function RecordingScreen() {
     setGpsWarning,
     onDiscard: handleDiscard,
   });
-  useInitRecordingEffect(status, activityType, mode, pairedEventId, canRecord);
+  const { countdown, cancelCountdown, startNow } = useInitRecordingEffect(
+    status,
+    activityType,
+    mode,
+    pairedEventId,
+    canRecord,
+    from
+  );
+
+  // The window is an abort and a pause: a cancel keeps the sport and the
+  // screen, so an athlete who wanted to wake a strap or change the sport first
+  // taps Start when they are ready rather than finding the widget again.
+  const cancelArmedStart = cancelCountdown;
   // Nothing to ask for on a ride that never started.
   useAlwaysLocationPrompt(canRecord && from === 'quickstart', status);
   useSensorSession();
@@ -146,6 +162,21 @@ export default function RecordingScreen() {
 
   // In-place tile customisation (long-press a tile while unlocked)
   const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null);
+
+  // Stable handles for the memoised children below. An arrow written at the
+  // call site is a new function on every render, and this screen renders every
+  // second while the timer runs, so `React.memo` on those children could never
+  // hold against one. The two padding objects are the same story: a fresh
+  // object literal per render is a changed prop.
+  const openTypePicker = useCallback(() => setShowTypePicker(true), [setShowTypePicker]);
+  const openRoutePicker = useCallback(() => setShowRoutePicker(true), []);
+  const dismissGpsWarning = useCallback(() => setGpsWarning(null), [setGpsWarning]);
+  const bottomPadding = insets.bottom + TAB_BAR_SAFE_PADDING;
+  const unlockTrackStyle = useMemo(
+    () => ({ paddingTop: spacing.sm, paddingBottom: bottomPadding }),
+    [bottomPadding]
+  );
+  const controlBarStyle = useMemo(() => ({ paddingBottom: bottomPadding }), [bottomPadding]);
   const effectiveFields = useMemo(
     () =>
       dataFields ??
@@ -187,14 +218,17 @@ export default function RecordingScreen() {
     );
   }
 
-  // Before anything else, including the manual entry form: a ride that cannot be
-  // uploaded should not be started or typed in either.
-  if (!canRecord && reason !== 'ok') {
+  // A missing account is the only refusal: that ride has nowhere to go. A missing
+  // scope stops the upload rather than the ride, so it warns once and the athlete
+  // decides, and the ride they take that way stays on the device.
+  const warnedPastScope = reason === 'no_permission' && ridingWithoutScope;
+  if (!canRecord && reason !== 'ok' && !warnedPastScope) {
     return (
       <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top }]}>
         <RecordingGate
           reason={reason}
           onGrantAccess={upgradePermissions}
+          onContinue={continueWithoutScope}
           isUpgrading={isUpgrading}
           error={upgradeError}
         />
@@ -225,7 +259,7 @@ export default function RecordingScreen() {
         textPrimary={textPrimary}
         textSecondary={textSecondary}
         border={border}
-        onOpenTypePicker={() => setShowTypePicker(true)}
+        onOpenTypePicker={openTypePicker}
         onLock={lock}
       />
 
@@ -236,8 +270,16 @@ export default function RecordingScreen() {
         gpsWarning={gpsWarning}
         sensorIssue={sensorIssue}
         splitBanner={splitBanner}
-        onDismissGpsWarning={() => setGpsWarning(null)}
+        onDismissGpsWarning={dismissGpsWarning}
       />
+
+      {countdown !== null && (
+        <ArmedCountdownOverlay
+          secondsLeft={countdown}
+          activityType={currentActivityType}
+          onCancel={cancelArmedStart}
+        />
+      )}
 
       {/* Main Content Area */}
       <View style={styles.mainContent} pointerEvents={isLocked ? 'none' : 'auto'}>
@@ -246,7 +288,7 @@ export default function RecordingScreen() {
             coordinates={coordinates}
             currentLocation={currentLocation}
             routeOverlay={overlayPoints}
-            onOpenRoutePicker={() => setShowRoutePicker(true)}
+            onOpenRoutePicker={openRoutePicker}
             style={styles.map}
           />
         ) : (
@@ -266,12 +308,12 @@ export default function RecordingScreen() {
         metrics={metrics}
         isMetric={isMetric}
         hrZone={hrZone}
-        onLongPressField={isLocked ? undefined : (index) => setEditingFieldIndex(index)}
+        onLongPressField={isLocked ? undefined : setEditingFieldIndex}
       />
 
       {/* Controls, or the unlock track while locked */}
       {isLocked ? (
-        <View style={{ paddingTop: 8, paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }}>
+        <View style={unlockTrackStyle}>
           <UnlockTrack onUnlock={unlock} />
         </View>
       ) : (
@@ -280,9 +322,10 @@ export default function RecordingScreen() {
           mode={mode}
           onPause={handlePause}
           onResume={handleResume}
+          onStart={startNow}
           onStop={handleStop}
           onLap={handleLap}
-          style={{ paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }}
+          style={controlBarStyle}
         />
       )}
 

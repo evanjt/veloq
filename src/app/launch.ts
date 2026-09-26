@@ -1,11 +1,14 @@
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { initializeInsightsStore } from '@/features/insights/store';
-import { initializeTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
+import {
+  handOverGroundTemplates,
+  initializeHeatmapPreference,
+  initializeTileCacheSettings,
+} from '@/features/maps';
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
 import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
-import { initializeHeatmapPreference } from '@/features/maps/stores/HeatmapPreferenceStore';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
 import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
@@ -13,14 +16,21 @@ import { initializeWhatsNewStore } from '@/features/settings/stores/WhatsNewStor
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { initializeLanguage } from '@/shared/app/LanguageStore';
 import { initializeSupportStore } from '@/shared/app/SupportStore';
+import { loadTrackFetchNotice } from '@/features/routes';
 import { initializeTheme } from '@/shared/app/ThemeProvider';
 import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { basemapStore } from 'veloqrs';
 
-import { getEngine, getRouteDbPath } from '@/shared/native/engine';
+import { excludeFromBackup } from '@/shared/native/backupExclusion';
+import {
+  TERRAIN_PREVIEW_DIR,
+  discardLegacyTerrainPreviews,
+} from '@/shared/storage/terrainPreviewRoot';
+import { getEngine, getRouteDbPath, resolveRouteDbPath } from '@/shared/native/engine';
 import { initializeI18n } from '@/i18n';
+import { pushNotificationTemplates } from '@/i18n/notificationTemplates';
 
 /** A `launch:` mark survives a release build, so a trace can split the JS window. */
 function markLaunch(step: 'auth' | 'engine' | 'stores'): void {
@@ -55,11 +65,41 @@ function openBasemapStore(): void {
   const docDir = FileSystem.documentDirectory;
   if (!docDir) return;
   const plain = docDir.startsWith('file://') ? docDir.slice(7) : docDir;
+  const path = `${plain}basemap-tiles`;
   try {
-    basemapStore().setPath(`${plain}basemap-tiles`);
+    basemapStore().setPath(path);
   } catch (reason) {
     console.warn('[launch] basemap tile store stayed closed:', errorMessage(reason));
+    return;
   }
+  // Before any map page is built, because the pre-seed runs off a sync and a
+  // fresh install can sync and lose the radio without a map ever being opened.
+  handOverGroundTemplates();
+  // Every launch, not once: the store creates the directory on first use and
+  // a cache clear makes a new one, and the attribute lives on the directory.
+  if (excludeFromBackup(path) === false) {
+    console.warn('[launch] basemap tile tree is not excluded from the device backup');
+  }
+}
+
+/**
+ * Keep the terrain previews out of the device backup, and clear the root they
+ * used to live under.
+ *
+ * Every launch, for the same reason the tile tree is: the attribute lives on the
+ * directory and the cache clear makes a new one. The previews redraw from local
+ * data, so an iCloud backup carrying 150 JPEGs of them is pure cost.
+ */
+function openTerrainPreviews(): void {
+  const plain = TERRAIN_PREVIEW_DIR.startsWith('file://')
+    ? TERRAIN_PREVIEW_DIR.slice(7)
+    : TERRAIN_PREVIEW_DIR;
+  if (excludeFromBackup(plain) === false) {
+    console.warn('[launch] terrain previews are not excluded from the device backup');
+  }
+  // Fire and forget: a directory a previous build filled is not something the
+  // first screen waits on.
+  void discardLegacyTerrainPreviews();
 }
 
 function errorMessage(reason: unknown): string {
@@ -74,11 +114,15 @@ export async function initializeApp(): Promise<string | null> {
   markLaunch('auth');
   await useAuthStore.getState().initialize();
   markLaunch('engine');
+  // Before the engine, never after: the move is only a consistent snapshot of
+  // the database and its journal while no connection is open.
+  await resolveRouteDbPath();
   openEngine();
   openBasemapStore();
+  openTerrainPreviews();
   markLaunch('stores');
   const results = await Promise.allSettled([
-    initializeLanguage().then(initializeI18n),
+    initializeLanguage().then(initializeI18n).then(pushNotificationTemplates),
     initializeTheme(),
     initializeSportPreference(),
     initializeUnitPreference(),
@@ -95,6 +139,7 @@ export async function initializeApp(): Promise<string | null> {
     initializeNotificationPreferences(),
     initializeNotificationPrompt(),
     initializeSupportStore(),
+    loadTrackFetchNotice(),
   ]);
   const failed = results.filter(
     (result): result is PromiseRejectedResult => result.status === 'rejected'

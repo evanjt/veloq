@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Text, ActivityIndicator } from 'react-native-paper';
@@ -7,12 +7,12 @@ import {
   TAB_BAR_SAFE_PADDING,
   ChartSkeleton,
   StatsPillSkeleton,
-  NetworkErrorState,
   ErrorStatePreset,
   ScreenErrorBoundary,
 } from '@/shared/ui';
 import { logScreenRender, logMemory } from '@/shared/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import {
@@ -22,15 +22,15 @@ import {
   TimeRangeSelector,
   SportToggleSelector,
   FitnessHeaderStats,
-  WeekShapeCard,
+  resolveThresholdPace,
 } from '@/features/fitness';
 import {
   useFitnessRefresh,
-  useWeekLoadShape,
   useFitnessComputations,
   useFitnessScreenData,
+  useStoredPaceTrend,
 } from '@/features/fitness/hooks';
-import { FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
+import { FORM_ZONE_COLORS, formZoneTextColor } from '@/features/fitness/lib/fitness';
 import { timeRangeToDays, type TimeRange } from '@/features/wellness';
 import { useTheme, useCollapsibleSections } from '@/shared/app';
 import { useChartInteraction } from '@/shared/charts/useChartInteraction';
@@ -38,12 +38,15 @@ import { useSportPreference, type PrimarySport } from '@/features/fitness/stores
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
-import { isNetworkError } from '@/shared/errors/errorHandler';
 import { DEFAULT_PERIOD } from '@/shared/app/period';
+import { fitnessEntryFromParams } from '@/shared/app/fitnessEntry';
 
 export default function FitnessScreen() {
   // Performance timing
   const perfEndRef = useRef<(() => void) | null>(null);
+  // Deliberately during render: the timer has to start where the render does,
+  // and an effect would measure from after paint instead.
+  // eslint-disable-next-line react-hooks/refs
   perfEndRef.current = logScreenRender('FitnessScreen');
   useEffect(() => {
     perfEndRef.current?.();
@@ -52,12 +55,12 @@ export default function FitnessScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const shared = createSharedStyles(isDark);
-  const [timeRange, setTimeRange] = useState<TimeRange>(DEFAULT_PERIOD);
+  // A card that summarised a window links here with it, so the screen opens on
+  // that window rather than on its own default.
+  const params = useLocalSearchParams<{ range?: string; date?: string }>();
+  const { range: entryRange, date: entryDate } = fitnessEntryFromParams(params);
+  const [timeRange, setTimeRange] = useState<TimeRange>(entryRange ?? DEFAULT_PERIOD);
 
-  // Chart shaders are pre-warmed at app boot by <ShaderWarmup /> in _layout.tsx,
-  // so secondary charts can mount on first paint without a shader-compile stutter.
-  // Keep `chartsReady` as `true` for downstream prop compatibility.
-  const chartsReady = true;
   useEffect(() => {
     logMemory('FitnessScreen:mount');
   }, []);
@@ -78,19 +81,32 @@ export default function FitnessScreen() {
     setSelectedValues,
     handleInteractionChange,
     handleDateSelect,
-  } = useChartInteraction();
+  } = useChartInteraction(entryDate);
 
   // Shared value for instant crosshair sync between charts
   const sharedSelectedIdx = useSharedValue(-1);
 
-  // Reset selection when time range changes
+  // The entry params are consumed once and cleared, the way the insights tab
+  // clears `insightId`, so going back does not re-apply them.
+  useEffect(() => {
+    if (!entryRange && !entryDate) return;
+    router.setParams({ range: undefined, date: undefined });
+  }, [entryRange, entryDate]);
+
+  // Reset selection when time range changes, but not on the first run when the
+  // entry params pinned a day: that selection is the day the card was about.
+  const entryApplied = useRef(false);
   React.useEffect(() => {
+    if (entryDate && !entryApplied.current) {
+      entryApplied.current = true;
+      return;
+    }
     sharedSelectedIdx.value = -1;
     setSelectedDate(null);
     setSelectedValues(null);
     // sharedSelectedIdx is a Reanimated SharedValue, whose identity never
     // changes, so listing it re-runs nothing that was not re-running already.
-  }, [timeRange, setSelectedDate, setSelectedValues, sharedSelectedIdx]);
+  }, [timeRange, entryDate, setSelectedDate, setSelectedValues, sharedSelectedIdx]);
 
   const { primarySport } = useSportPreference();
 
@@ -125,13 +141,18 @@ export default function FitnessScreen() {
     isLoading,
     isFetching,
     isError,
-    error,
     refetch,
   } = useFitnessScreenData({ timeRange, sportMode });
 
   const runLthr = runSettings?.lthr;
-  const thresholdPace = runPaceCurve?.criticalSpeed;
-  const swimThresholdPace = swimPaceCurve?.criticalSpeed;
+  // The curve is a download, so offline it is absent and the stored critical
+  // speed behind it is the only reading the screen has.
+  const storedRunPace = useStoredPaceTrend('Run');
+  const storedSwimPace = useStoredPaceTrend('Swim');
+  const thresholdPace =
+    resolveThresholdPace(runPaceCurve?.criticalSpeed, storedRunPace) ?? undefined;
+  const swimThresholdPace =
+    resolveThresholdPace(swimPaceCurve?.criticalSpeed, storedSwimPace) ?? undefined;
 
   // Memory profiling for crash investigation
   useEffect(() => {
@@ -139,20 +160,6 @@ export default function FitnessScreen() {
   }, [wellness]);
   // Handle pull-to-refresh - invalidate all fitness-related queries
   const { isRefreshing, onRefresh } = useFitnessRefresh(refetch);
-
-  // The last seven days, midnight to midnight, which is the window the engine
-  // reads a shape over. Held in a memo so it does not move every render.
-  const { weekStartTs, weekEndTs } = useMemo(() => {
-    const end = new Date();
-    end.setHours(0, 0, 0, 0);
-    const start = new Date(end);
-    start.setDate(start.getDate() - 6);
-    return {
-      weekStartTs: Math.floor(start.getTime() / 1000),
-      weekEndTs: Math.floor(end.getTime() / 1000),
-    };
-  }, []);
-  const weekShape = useWeekLoadShape(weekStartTs, weekEndTs);
 
   // Memoized derivations (FTP trend, dominant zone, decoupling, form zone, display values)
   const {
@@ -193,19 +200,13 @@ export default function FitnessScreen() {
   }
 
   if (isError || !wellness) {
-    const networkError = isNetworkError(error);
-
     return (
       <ScreenSafeAreaView style={shared.container}>
         <View style={styles.header}>
           <Text style={shared.screenTitle}>{t('fitnessScreen.title')}</Text>
         </View>
         <View style={shared.loadingContainer}>
-          {networkError ? (
-            <NetworkErrorState onRetry={() => refetch()} />
-          ) : (
-            <ErrorStatePreset message={t('fitnessScreen.failedToLoad')} onRetry={() => refetch()} />
-          )}
+          <ErrorStatePreset message={t('fitnessScreen.failedToLoad')} onRetry={() => refetch()} />
         </View>
       </ScreenSafeAreaView>
     );
@@ -246,9 +247,6 @@ export default function FitnessScreen() {
             rampRate={rampRate}
           />
 
-          {/* What shape the last seven days had, when the engine can read one */}
-          <WeekShapeCard shape={weekShape} />
-
           {/* Time range selector */}
           <TimeRangeSelector
             timeRange={timeRange}
@@ -260,10 +258,8 @@ export default function FitnessScreen() {
           <FitnessChartCard
             wellness={wellness}
             activities={activities || []}
-            chartsReady={chartsReady}
             selectedDate={selectedDate}
             sharedSelectedIdx={sharedSelectedIdx}
-            formZone={formZone}
             onDateSelect={handleDateSelect}
             onInteractionChange={handleInteractionChange}
           />
@@ -349,13 +345,15 @@ export default function FitnessScreen() {
                   {t('metrics.form')}
                 </Text>{' '}
                 {t('fitnessScreen.formDescription')}{' '}
-                <Text style={{ color: FORM_ZONE_COLORS.optimal }}>
+                <Text style={{ color: formZoneTextColor('optimal', isDark) }}>
                   {t('fitnessScreen.optimalZone')}
                 </Text>{' '}
                 {t('fitnessScreen.toBuildFitness')}{' '}
-                <Text style={{ color: FORM_ZONE_COLORS.fresh }}>{t('fitnessScreen.fresh')}</Text>{' '}
+                <Text style={{ color: formZoneTextColor('fresh', isDark) }}>
+                  {t('fitnessScreen.fresh')}
+                </Text>{' '}
                 {t('fitnessScreen.forRaces')}{' '}
-                <Text style={{ color: FORM_ZONE_COLORS.highRisk }}>
+                <Text style={{ color: formZoneTextColor('highRisk', isDark) }}>
                   {t('fitnessScreen.highRiskZone')}
                 </Text>{' '}
                 {t('fitnessScreen.toPreventOvertraining')}
@@ -445,7 +443,7 @@ const styles = StyleSheet.create({
     width: spacing.sm,
     height: spacing.sm,
     borderRadius: spacing.xs,
-    marginTop: 5,
+    marginTop: spacing.xs,
     marginRight: spacing.xs,
   },
   infoText: {

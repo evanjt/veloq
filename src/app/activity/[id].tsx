@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, ScrollView, StyleSheet, InteractionManager } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { Text, IconButton, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -12,9 +12,20 @@ import {
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useActivity, useActivityStreams, useActivityIntervals } from '@/features/activity/hooks';
-import { useSectionOverlays } from '@/features/activity/hooks/useSectionOverlays';
-import { useActivityDetailData } from '@/features/activity/hooks/useActivityDetailData';
+import {
+  useActivity,
+  useActivityStreams,
+  useActivityIntervals,
+  useDetailCoordinates,
+  groupSectionEncounters,
+  useSectionOverlays,
+  useActivityDetailData,
+  useActivitySectionHighlights,
+  ActivityChartsSection,
+  ActivityHeader,
+  ActivityRoutesSection,
+  ActivitySectionsSection,
+} from '@/features/activity';
 import { useActivityRematch } from '@/features/routes/hooks/useActivityRematch';
 import { useWellnessForDate } from '@/features/wellness';
 import { useGpxExport } from '@/features/settings/hooks/exportIndex';
@@ -24,33 +35,26 @@ import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
 import { useRouteMatch } from '@/features/routes/hooks/useRouteMatch';
 import { useSectionMatches } from '@/features/routes/hooks/useSectionMatches';
 import { useSectionEncounters } from '@/features/routes/hooks/useSectionEncounters';
-import { useActivitySectionHighlights } from '@/features/activity/hooks/useActivitySectionHighlights';
-import { ActivityChartsSection } from '@/features/activity/components/ActivityChartsSection';
-import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
-import { ActivityRoutesSection } from '@/features/activity/components/ActivityRoutesSection';
-import { ActivitySectionsSection } from '@/features/activity/components/ActivitySectionsSection';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
-import type {
-  SectionCreationResult,
-  SectionCreationError,
-} from '@/features/maps/components/ActivityMapView';
-import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
-import { convertLatLngTuples, decodePolyline } from '@/shared/geo/polyline';
+import {
+  calculateTerrainCamera,
+  type CreationState,
+  deleteCameraOverride,
+  getCameraOverride,
+  type MapStyleType,
+  type SectionCreationError,
+  type SectionCreationResult,
+  setCameraOverride,
+  type TerrainCamera,
+  useMapPreferences,
+} from '@/features/maps';
+import { convertLatLngTuples } from '@/shared/geo/polyline';
 import type { Section as NativeSection } from 'veloqrs';
 import { useExerciseSets, ExerciseTable, MuscleGroupView } from '@/features/strength';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import {
-  setCameraOverride,
-  getCameraOverride,
-  deleteCameraOverride,
-} from '@/features/maps/lib/storage/terrainCameraOverrides';
-import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
-import { calculateTerrainCamera } from '@/features/maps/lib/cameraAngle';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
-import type { MapStyleType } from '@/features/maps/components/mapStyles';
 
 /** Stable empty list so the custom-sections hook keeps skipping its own read. */
 const NO_CUSTOM_SECTIONS: NativeSection[] = [];
@@ -72,20 +76,19 @@ export default function ActivityDetailScreen() {
   const mapHeight = useHeroMapHeight();
 
   const { data: activity, isLoading, error, refetch } = useActivity(id || '');
-  const { data: streams, isLoading: streamsLoading } = useActivityStreams(id || '');
+  const {
+    data: streams,
+    isLoading: streamsLoading,
+    isDownloaded: streamsDownloaded,
+    bodyStatus: streamsStatus,
+    retryBody: retryStreams,
+  } = useActivityStreams(id || '');
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
-  // Defer the engine read off the push-animation frame so the screen is
-  // interactive immediately. It populates after interactions complete.
-  const [interactive, setInteractive] = useState(false);
-  useEffect(() => {
-    const handle = InteractionManager.runAfterInteractions(() => setInteractive(true));
-    return () => handle.cancel();
-  }, []);
-
   // One engine call covering route match, section matches, encounters,
-  // highlights, overlays and engine counts.
-  const { data: detail } = useActivityDetailData(id, interactive);
+  // highlights, overlays and engine counts. The card reads it at press time,
+  // so this takes what is already there and only reads when it is not.
+  const { data: detail } = useActivityDetailData(id);
 
   // Get the activity date for wellness lookup
   const activityDate = activity?.start_date_local?.split('T')[0];
@@ -98,14 +101,12 @@ export default function ActivityDetailScreen() {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
   // Fetch intervals data
-  const { data: intervalsData } = useActivityIntervals(id || '');
+  const { data: intervalsData, outcome: intervalsOutcome } = useActivityIntervals(id || '');
 
   // Track the selected point index from charts for map highlight
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   // Track whether any chart is being interacted with to disable ScrollView
   const [chartInteracting, setChartInteracting] = useState(false);
-  // Track whether 3D map mode is active
-  const [, setIs3DMapActive] = useState(false);
 
   // Snackbar for 3D camera override feedback
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -132,16 +133,13 @@ export default function ActivityDetailScreen() {
   // Get matched route for this activity
   const { routeGroup: matchedRoute, representativeActivityId } = useRouteMatch(
     id,
-    interactive,
+    true,
     detail?.routeGroups
   );
   const matchedRouteCount = matchedRoute ? 1 : 0;
 
   // Route PR delta for the Routes tab badge (negative = ahead of PR)
-  const activityIdsForHighlights = useMemo(
-    () => (interactive && id ? [id] : []),
-    [interactive, id]
-  );
+  const activityIdsForHighlights = useMemo(() => (id ? [id] : []), [id]);
   const { routes: routeHighlightsMap } = useActivitySectionHighlights(
     activityIdsForHighlights,
     detail?.highlights
@@ -159,16 +157,10 @@ export default function ActivityDetailScreen() {
     return convertLatLngTuples(representativeStreams.latlng);
   }, [activeTab, representativeStreams]);
 
-  // Get coordinates from streams or polyline
-  const coordinates = useMemo(() => {
-    if (streams?.latlng) {
-      return convertLatLngTuples(streams.latlng);
-    }
-    if (activity?.polyline) {
-      return decodePolyline(activity.polyline);
-    }
-    return [];
-  }, [streams, activity]);
+  // Stream, then the stored track. The track is what makes
+  // an offline ride draw: it is written for every ingested activity and this
+  // screen was the one surface not reading it.
+  const coordinates = useDetailCoordinates(id || '', streams?.latlng);
 
   const hasGpsData = coordinates.length > 0;
   const isRouteMatchingOn = useRouteSettings((s) => s.settings.enabled);
@@ -196,7 +188,7 @@ export default function ActivityDetailScreen() {
 
   // Get auto-detected sections from engine that include this activity
   const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(
-    interactive ? id : undefined,
+    id,
     preComputedMatches
   );
 
@@ -208,21 +200,23 @@ export default function ActivityDetailScreen() {
     isRematching,
   } = useActivityRematch();
 
+  // Stable, so the sections tab's memo holds. As inline literals they were a
+  // new function per render of this screen, which a scrub re-renders per index.
+  const handleScan = useCallback(() => scanForSections(id), [scanForSections, id]);
+  const handleRematch = useCallback(
+    (sectionId: string) => rematchSection(id, sectionId),
+    [rematchSection, id]
+  );
+
   // Section encounters for the sections tab (one entry per section+direction)
   const { encounters: encountersRaw, isLoading: encountersLoading } = useSectionEncounters(
     detail?.encounters ?? []
   );
 
-  // Filter custom sections that match this activity (still needed for map overlays)
-  const customMatchedSections = useMemo(() => {
-    if (!id) return [];
-    const engineSectionIds = new Set(engineSectionMatches.map((m) => m.section.id));
-    return sections.filter(
-      (section) =>
-        !engineSectionIds.has(section.id) &&
-        (section.sourceActivityId === id || section.activityIds?.includes(id))
-    );
-  }, [sections, id, engineSectionMatches]);
+  // The bundle already carries exactly these: the custom sections naming this
+  // activity that the engine's matches do not, filtered where the catalogue
+  // lives rather than after it has crossed the FFI.
+  const customMatchedSections = sections;
 
   // Section overlay computation (traces + map overlays)
   const { sectionOverlays } = useSectionOverlays(
@@ -294,6 +288,9 @@ export default function ActivityDetailScreen() {
     });
   }, [encountersRaw, sectionOverlays, coordinates, id]);
 
+  // The Sections tab counts cards, and a section crossed both ways is one card.
+  const sectionCardCount = useMemo(() => groupSectionEncounters(encounters).length, [encounters]);
+
   // Tabs configuration
   const tabs = useMemo<SwipeableTab[]>(() => {
     const allTabs: SwipeableTab[] = [
@@ -334,7 +331,7 @@ export default function ActivityDetailScreen() {
           key: 'sections',
           label: t('activityDetail.tabs.sections'),
           icon: 'road-variant',
-          count: encounters.length,
+          count: sectionCardCount,
         }
       );
     }
@@ -345,7 +342,7 @@ export default function ActivityDetailScreen() {
     hasGpsData,
     isRouteMatchingOn,
     matchedRouteCount,
-    encounters.length,
+    sectionCardCount,
     routeHighlight,
   ]);
 
@@ -365,7 +362,6 @@ export default function ActivityDetailScreen() {
   // Handle 3D map mode changes -- persist as per-activity override
   const handle3DModeChange = useCallback(
     (is3D: boolean) => {
-      setIs3DMapActive(is3D);
       if (activity?.id) {
         setActivityOverride(activity.id, { terrain3D: is3D });
       }
@@ -638,7 +634,11 @@ export default function ActivityDetailScreen() {
           activity={activity}
           activityId={id}
           streams={streams}
+          streamsDownloaded={streamsDownloaded}
+          streamsStatus={streamsStatus}
+          onRetryStreams={retryStreams}
           intervalsData={intervalsData}
+          intervalsOutcome={intervalsOutcome}
           activityWellness={activityWellness}
           coordinates={coordinates}
           isDark={isDark}
@@ -696,9 +696,9 @@ export default function ActivityDetailScreen() {
             removeSection={removeSection}
             scanMatches={scanMatches}
             isScanning={isRematching}
-            isSectionsLoading={encountersLoading || !interactive}
-            onScan={() => scanForSections(id)}
-            onRematch={(sectionId) => rematchSection(id, sectionId)}
+            isSectionsLoading={encountersLoading}
+            onScan={handleScan}
+            onRematch={handleRematch}
           />
         )}
       </SwipeableTabs>

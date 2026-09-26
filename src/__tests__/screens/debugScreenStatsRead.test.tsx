@@ -45,7 +45,20 @@ jest.mock('@/features/insights/lib/taskRunLog', () => ({
 const mockGetStats = jest.fn(() => ({ activityCount: 1 }));
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
-    EngineClient: { getInstance: () => ({ getStats: mockGetStats }) },
+    EngineClient: {
+      getInstance: () => ({
+        getStats: mockGetStats,
+        pushRuns: () => [],
+        engineEventDiagnostics: () => ({
+          live: true,
+          bindingInitError: null,
+          observerError: null,
+          received: {},
+          delivered: {},
+          listeners: {},
+        }),
+      }),
+    },
   })
 );
 

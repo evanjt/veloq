@@ -2,6 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { render } from '@testing-library/react-native';
 import DetectionSettingsScreen from '@/app/detection-settings';
+import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 
 // The binding registers a TurboModule at import time. A hook on this screen's
 // import path compares against one of its generated enums, so the stub is the
@@ -61,14 +62,14 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-const mockRescan = { isScanning: false, lapsed: false };
+const mockRescan = { isScanning: false, stillRunning: false, failed: false };
 jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
   useSectionRescan: () => ({
     forceRescan: jest.fn(),
     isScanning: mockRescan.isScanning,
-    lapsed: mockRescan.lapsed,
+    stillRunning: mockRescan.stillRunning,
     result: null,
-    failed: false,
+    failed: mockRescan.failed,
     clearResult: jest.fn(),
   }),
 }));
@@ -143,34 +144,71 @@ describe('detection settings screen', () => {
 });
 
 /**
- * Scenario: the rescan's end comes from an announcement, and a long detect and
- * one that will never end look identical while it is going.
+ * Scenario: the follow stops at its budget while Rust is still detecting, which
+ * the screen used to paint in danger as a rescan that could not finish.
  *
- * Expected behaviour: a run past its foreground budget says so on the screen,
- * and a run inside it says nothing.
+ * Expected behaviour: the athlete is told the run is still going and can leave,
+ * and nothing calls it a failure unless the engine did.
  */
-describe('a rescan that is taking a while', () => {
+describe('a rescan the screen stops watching', () => {
   afterEach(() => {
     mockRescan.isScanning = false;
-    mockRescan.lapsed = false;
+    mockRescan.stillRunning = false;
+    mockRescan.failed = false;
   });
 
   it('says nothing while the run is inside its budget', () => {
     mockRescan.isScanning = true;
 
-    expect(render(<DetectionSettingsScreen />).queryByTestId('detection-rescan-slow')).toBeNull();
+    expect(
+      render(<DetectionSettingsScreen />).queryByTestId('detection-rescan-still-running')
+    ).toBeNull();
   });
 
-  it('tells the athlete a lapsed run is still going', () => {
-    mockRescan.isScanning = true;
-    mockRescan.lapsed = true;
+  it('tells the athlete the run is still going and the screen can be left', () => {
+    mockRescan.stillRunning = true;
 
-    expect(render(<DetectionSettingsScreen />).getByTestId('detection-rescan-slow')).toBeTruthy();
+    const tree = render(<DetectionSettingsScreen />);
+    expect(tree.getByTestId('detection-rescan-still-running')).toBeTruthy();
+    expect(tree.queryByText('settings.rescanFailed')).toBeNull();
   });
 
-  it('says nothing once the run is over', () => {
-    mockRescan.lapsed = true;
+  it('keeps the failure wording for a failure the engine reported', () => {
+    mockRescan.failed = true;
 
-    expect(render(<DetectionSettingsScreen />).queryByTestId('detection-rescan-slow')).toBeNull();
+    const tree = render(<DetectionSettingsScreen />);
+    expect(tree.getByText('settings.rescanFailed')).toBeTruthy();
+    expect(tree.queryByTestId('detection-rescan-still-running')).toBeNull();
+  });
+});
+
+/**
+ * Scenario: turning route matching off starts a catalogue wipe that can outlive
+ * the wait on it, which used to be logged and shown nowhere.
+ *
+ * Expected behaviour: the switch carries the same still-running line the rescan
+ * uses, and nothing while the wipe landed in time.
+ */
+describe('a catalogue wipe the switch stopped watching', () => {
+  afterEach(() => {
+    useRouteSettings.setState({ clearNotice: null });
+  });
+
+  it('says nothing when the wipe landed inside the wait', () => {
+    expect(render(<DetectionSettingsScreen />).queryByTestId('detection-clear-notice')).toBeNull();
+  });
+
+  it('tells the athlete the wipe is still going', () => {
+    useRouteSettings.setState({ clearNotice: 'settings.stillRunning' });
+
+    const tree = render(<DetectionSettingsScreen />);
+    expect(tree.getByTestId('detection-clear-notice')).toBeTruthy();
+    expect(tree.getByText('settings.stillRunning')).toBeTruthy();
+  });
+
+  it('says which failure the engine reported, not the same line', () => {
+    useRouteSettings.setState({ clearNotice: 'engine.failure.database' });
+
+    expect(render(<DetectionSettingsScreen />).getByText('engine.failure.database')).toBeTruthy();
   });
 });

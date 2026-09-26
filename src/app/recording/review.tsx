@@ -17,9 +17,10 @@ import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, colorWithOpacity, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { formatDistance, formatDuration } from '@/shared/format/format';
-import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
+import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useUploadPermissionStore } from '@/features/recording';
 import { useReviewSave } from '@/features/recording/hooks/useReviewSave';
 import { useActivitySummary } from '@/features/recording/hooks/useActivitySummary';
 import { useDiscardWithAnimation } from '@/features/recording/hooks/useDiscardWithAnimation';
@@ -73,6 +74,11 @@ export default function ReviewScreen() {
 
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(Math.max(0, (streams.latlng?.length ?? 0) - 1));
+  // What the map draws. It follows the released handle, not the finger.
+  const [mapTrim, setMapTrim] = useState<[number, number]>([
+    0,
+    Math.max(0, (streams.latlng?.length ?? 0) - 1),
+  ]);
 
   const type = selectedType;
   const canTrim = !isManual && (streams.latlng?.length ?? 0) > 2;
@@ -81,6 +87,10 @@ export default function ReviewScreen() {
   const handleTrimChange = useCallback((startIdx: number, endIdx: number) => {
     setTrimStart(startIdx);
     setTrimEnd(endIdx);
+  }, []);
+
+  const handleTrimCommit = useCallback((startIdx: number, endIdx: number) => {
+    setMapTrim([startIdx, endIdx]);
   }, []);
 
   // Summary, trim delta, and trimmed-stream accessor extracted to useActivitySummary
@@ -96,6 +106,8 @@ export default function ReviewScreen() {
     isManual,
     params,
   });
+
+  const ridingWithoutScope = useUploadPermissionStore((s) => s.recordingWithoutScope);
 
   // Save/upload orchestration extracted to useReviewSave
   const {
@@ -169,9 +181,12 @@ export default function ReviewScreen() {
           canTrim={canTrim}
           trimStart={trimStart}
           trimEnd={trimEnd}
+          mapTrimStart={mapTrim[0]}
+          mapTrimEnd={mapTrim[1]}
           totalDuration={summary.duration}
           totalPoints={streams.latlng.length}
           onTrimChange={handleTrimChange}
+          onTrimCommit={handleTrimCommit}
           onBack={handleBack}
           disabled={isProcessing}
         />
@@ -250,9 +265,30 @@ export default function ReviewScreen() {
         {/* Queued success message */}
         {queuedMessage && (
           <View style={styles.queuedBanner}>
-            <MaterialCommunityIcons name="check-circle-outline" size={18} color={colors.success} />
-            <Text style={styles.queuedBannerText}>{queuedMessage}</Text>
+            <MaterialCommunityIcons
+              name="check-circle-outline"
+              size={18}
+              color={isDark ? darkColors.successDeep : colors.successDeep}
+            />
+            <Text
+              style={[
+                styles.queuedBannerText,
+                { color: isDark ? darkColors.successDeep : colors.successDeep },
+              ]}
+            >
+              {queuedMessage}
+            </Text>
           </View>
+        )}
+
+        {/* The scope the athlete recorded past: say where the ride is going. */}
+        {ridingWithoutScope && (
+          <Text
+            testID="review-stays-on-device"
+            style={[styles.localOnly, { color: textSecondary }]}
+          >
+            {t('recording.savedLocallyNoScope')}
+          </Text>
         )}
 
         {/* Error banner */}
@@ -313,7 +349,9 @@ export default function ReviewScreen() {
                 }),
               }}
             />
-            <Text style={styles.dangerBtnText}>{t('recording.discard', 'Discard')}</Text>
+            <Text style={[styles.dangerBtnText, isDark && styles.dangerBtnTextDark]}>
+              {t('recording.discard', 'Discard')}
+            </Text>
           </Animated.View>
         </View>
       </ScrollView>
@@ -350,6 +388,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.xs,
   },
+  localOnly: {
+    ...typography.caption,
+    textAlign: 'center',
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
   // Activity type chip
   typeChip: {
     flexDirection: 'row',
@@ -376,6 +420,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   // Banners
+  queuedBannerText: {
+    ...typography.caption,
+    flex: 1,
+  },
   queuedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -385,11 +433,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     marginTop: spacing.sm,
-  },
-  queuedBannerText: {
-    ...typography.caption,
-    color: colors.success,
-    flex: 1,
   },
   // Actions
   actions: {
@@ -416,6 +459,9 @@ const styles = StyleSheet.create({
   },
   dangerBtnText: {
     ...typography.bodyBold,
-    color: colors.error,
+    color: colors.errorDeep,
+  },
+  dangerBtnTextDark: {
+    color: darkColors.errorDeep,
   },
 });

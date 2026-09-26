@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -15,26 +15,24 @@ import {
   ScreenErrorBoundary,
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
-  Shimmer,
+  pressable,
 } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/features/stats';
+import type { ActivityHeatmapHandle } from '@/features/stats';
 import { WellnessTrendsChart } from '@/features/wellness';
-import { useActivities } from '@/features/activity/hooks';
 import { useAthleteSummary } from '@/features/fitness/hooks';
 import { useWellness, type TimeRange } from '@/features/wellness';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
-import { formatLocalDate } from '@/shared/format/format';
 import {
   SMOOTHING_PRESETS,
   getSmoothingDescription,
   type SmoothingWindow,
 } from '@/shared/math/smoothing';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { useAuthStore } from '@/shared/app/AuthStore';
 
 import { queryKeys } from '@/shared/query/queryKeys';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
@@ -46,7 +44,6 @@ export default function HealthScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isDark, colors: themeColors } = useTheme();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
 
   // Log render time (JS phase only)
@@ -77,29 +74,13 @@ export default function HealthScreen() {
   const [smoothingWindow, setSmoothingWindow] = useState<SmoothingWindow>('auto');
   const [showSmoothingModal, setShowSmoothingModal] = useState(false);
 
-  // Cross-chart scrubbing: highlight heatmap cell when scrubbing wellness trends
-  const [highlightDate, setHighlightDate] = useState<string | null>(null);
-
-  // Fetch activities for calendar year comparison (current + previous year)
-  const { oldest, newest } = useMemo(() => {
-    const n = new Date();
-    return {
-      oldest: formatLocalDate(new Date(n.getFullYear() - 1, 0, 1)),
-      newest: formatLocalDate(n),
-      currentYearStart: new Date(n.getFullYear(), 0, 1),
-    };
+  // Cross-chart scrubbing: the scrubbed day lives in the heatmap that draws it.
+  // Held here it re-rendered the whole tab per day the gesture crossed, up to
+  // 365 of them in one swipe.
+  const heatmap = useRef<ActivityHeatmapHandle>(null);
+  const handleDateSelect = useCallback((date: string | null) => {
+    heatmap.current?.setHighlight(date);
   }, []);
-  const {
-    data: activities,
-    isLoading: activitiesLoading,
-    isFetching: activitiesFetching,
-    isError: isActivitiesError,
-    refetch: refetchActivities,
-  } = useActivities({
-    oldest,
-    newest,
-    enabled: isAuthenticated,
-  });
 
   // Fetch wellness data
   const {
@@ -113,52 +94,28 @@ export default function HealthScreen() {
   // Fetch athlete summary for WeeklySummary (lifted from child component)
   const { data: summaryData, isLoading: summaryLoading } = useAthleteSummary(4);
 
-  // Combined loading states
-  const isFetching = activitiesFetching || wellnessFetching;
+  // Combined loading states. Every card on this tab now reads its own engine
+  // aggregate, so the tab's own fetching state is the wellness one.
+  const isFetching = wellnessFetching;
 
   // Handle pull-to-refresh - invalidate all training-related queries
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
     requestSyncRefresh();
     await Promise.all([
-      refetchActivities(),
       refetchWellness(),
       queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.stats.all }),
     ]);
     setIsRefreshing(false);
-  }, [refetchActivities, refetchWellness, queryClient]);
+  }, [refetchWellness, queryClient]);
 
-  // Split activities by calendar year for season comparison
-  const { currentYearActivities, previousYearActivities } = useMemo(() => {
-    if (!activities) return { currentYearActivities: [], previousYearActivities: [] };
-
-    const currentYear = new Date().getFullYear();
-    const previousYear = currentYear - 1;
-
-    const current: typeof activities = [];
-    const previous: typeof activities = [];
-
-    for (const activity of activities) {
-      const activityYear = new Date(activity.start_date_local).getFullYear();
-      if (activityYear === currentYear) {
-        current.push(activity);
-      } else if (activityYear === previousYear) {
-        previous.push(activity);
-      }
-    }
-
-    return { currentYearActivities: current, previousYearActivities: previous };
-  }, [activities]);
-
-  if (isActivitiesError && isWellnessError) {
+  // Wellness is the one read on this tab that can fail as a fetch. The rest are
+  // engine aggregates, which read empty rather than erroring.
+  if (isWellnessError) {
     return (
       <ScreenSafeAreaView style={shared.container} testID="training-screen">
-        <ErrorStatePreset
-          onRetry={() => {
-            refetchActivities();
-            refetchWellness();
-          }}
-        />
+        <ErrorStatePreset onRetry={refetchWellness} />
       </ScreenSafeAreaView>
     );
   }
@@ -192,13 +149,7 @@ export default function HealthScreen() {
         >
           {/* Activity Heatmap - promoted to top (Skia Picture, lightweight) */}
           <View style={[styles.card, isDark && styles.cardDark]}>
-            {activitiesLoading ? (
-              <View style={styles.loadingContainer}>
-                <Shimmer width="100%" height={110} />
-              </View>
-            ) : (
-              <ActivityHeatmap activities={activities} highlightDate={highlightDate} />
-            )}
+            <ActivityHeatmap ref={heatmap} />
           </View>
 
           {/* Time range selector with smoothing config */}
@@ -239,7 +190,9 @@ export default function HealthScreen() {
               <MaterialCommunityIcons
                 name="chart-bell-curve-cumulative"
                 size={18}
-                color={smoothingWindow !== 'auto' ? colors.textOnDark : themeColors.textSecondary}
+                color={
+                  smoothingWindow !== 'auto' ? colors.textOnPrimary : themeColors.textSecondary
+                }
               />
             </TouchableOpacity>
           </View>
@@ -264,7 +217,7 @@ export default function HealthScreen() {
                 height={200}
                 timeRange={timeRange}
                 smoothingWindow={smoothingWindow}
-                onDateSelect={setHighlightDate}
+                onDateSelect={handleDateSelect}
               />
             )}
           </View>
@@ -275,28 +228,14 @@ export default function HealthScreen() {
               tests to find the widget during data load. */}
           {belowFoldReady && (
             <View style={[styles.card, isDark && styles.cardDark]}>
-              <WeeklySummary
-                activities={activities}
-                summaryData={summaryData}
-                summaryLoading={summaryLoading || activitiesLoading}
-              />
+              <WeeklySummary summaryData={summaryData} summaryLoading={summaryLoading} />
             </View>
           )}
 
           {/* Below-fold Skia card - frame 2: SeasonComparison */}
           {chartsReady && (
             <View style={[styles.card, isDark && styles.cardDark]}>
-              {activitiesLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                </View>
-              ) : (
-                <SeasonComparison
-                  height={180}
-                  currentYearActivities={currentYearActivities}
-                  previousYearActivities={previousYearActivities}
-                />
-              )}
+              <SeasonComparison height={180} />
             </View>
           )}
         </ScrollView>
@@ -309,7 +248,10 @@ export default function HealthScreen() {
             animationType="fade"
             onRequestClose={() => setShowSmoothingModal(false)}
           >
-            <Pressable style={styles.modalOverlay} onPress={() => setShowSmoothingModal(false)}>
+            <Pressable
+              style={pressable(styles.modalOverlay)}
+              onPress={() => setShowSmoothingModal(false)}
+            >
               <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
                 <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
                   {t('wellness.smoothingTitle' as never)}
@@ -438,7 +380,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   timeRangeTextActive: {
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
   },
   smoothingButton: {
     paddingHorizontal: spacing.sm + 4,
@@ -517,7 +459,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   smoothingOptionTextActive: {
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
   },
   modalHint: {
     ...typography.caption,

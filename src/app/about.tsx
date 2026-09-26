@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, colorWithOpacity, brand } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import { useTheme } from '@/shared/app';
 import { INTERVALS_URLS } from '@/features/auth';
@@ -239,7 +239,7 @@ const getAppIconStyle = (isDark: boolean) => ({
   width: 80,
   height: 80,
   borderRadius: layout.borderRadiusXl,
-  backgroundColor: isDark ? 'rgba(20, 184, 166, 0.15)' : 'rgba(20, 184, 166, 0.1)',
+  backgroundColor: colorWithOpacity(brand.teal, isDark ? 0.15 : 0.1),
   justifyContent: 'center' as const,
   alignItems: 'center' as const,
   marginBottom: spacing.md,

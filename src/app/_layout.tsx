@@ -22,10 +22,15 @@ import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
 import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 import { updateWidgetSnapshot } from '@/features/home';
-import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesContext';
+import {
+  isHeatmapEnabled,
+  MapPreferencesProvider,
+  registerMapSurfaceReclaimer,
+  registerTileCacheReclaimer,
+  flushBasemapSidecars,
+} from '@/features/maps';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useCutoverRetry } from '@/features/routes/hooks/useCutoverRetry';
-import { isHeatmapEnabled } from '@/features/maps/stores/HeatmapPreferenceStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { NetworkProvider } from '@/shared/app/NetworkContext';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
@@ -34,10 +39,6 @@ import {
   registerImageCacheReclaimer,
   registerQueryCacheReclaimer,
 } from '@/shared/app/memoryReclaimers';
-import {
-  registerMapSurfaceReclaimer,
-  registerTileCacheReclaimer,
-} from '@/features/maps/lib/mapMemoryReclaimer';
 import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
 import { SCREEN_HEADERS } from '@/shared/app/screenHeaders';
@@ -45,11 +46,20 @@ import { RecordingTitle } from '@/features/recording';
 import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { i18n } from '@/i18n';
-import { lightTheme, darkTheme, colors, darkColors, amberBanner, typography } from '@/theme';
+import {
+  lightTheme,
+  darkTheme,
+  colors,
+  darkColors,
+  amberBanner,
+  typography,
+  spacing,
+} from '@/theme';
 import {
   ShaderWarmup,
   OfflineBanner,
   SyncErrorBanner,
+  TrackFetchNotice,
   BottomTabBar,
   GlobalErrorBoundary,
 } from '@/shared/ui';
@@ -57,13 +67,23 @@ import { DemoBanner } from '@/shared/app/DemoBanner';
 import { GlobalDataSync } from '@/shared/app/GlobalDataSync';
 import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
 import { WhatsNewModal, TourReturnPill } from '@/features/settings/components/whatsNew';
+import { LibraryRebuiltNotice } from '@/features/settings';
 import { RecordingReturnPill } from '@/features/recording/components/RecordingReturnPill';
 import { installRecordingSession } from '@/features/recording/lib/recordingSession';
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
+import {
+  runEngineInit,
+  startEngineInitRun,
+  type EngineInitAttempt,
+} from '@/shared/app/engineInitRun';
 import { rememberCachedAthleteId, migrateSettingsToSqlite } from '@/shared/storage';
-import { promptAccountMismatch } from '@/features/auth/lib/accountChange';
+import {
+  promptAccountMismatch,
+  launchIdentityAction,
+  completeLaunchIdentity,
+} from '@/features/auth';
 import {
   onAppBackground,
   onAppForeground,
@@ -136,6 +156,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const markEngineReady = useEngineStatus((s) => s.markEngineReady);
   useCutoverRetry();
   useEffect(() => {
+    const run = startEngineInitRun();
     if (isAuthenticated) {
       const engine = getEngine();
       if (engine) {
@@ -144,138 +165,150 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           if (__DEV__) {
             console.warn('[Engine] Cannot initialize - document directory not available.');
           }
-          return;
+          return () => run.cancel();
         }
 
-        const tryInit = async (attempt: number) => {
-          let success = engine.initWithPath(dbPath);
-          let cachedAthleteId: string | undefined;
-          if (success) {
+        /**
+         * Everything launch does once the library on disk is known to belong to
+         * the athlete who signed in. The launch sync, the elevation backfill and
+         * the detector cutover all write with their credentials, so none of it
+         * may run before that is settled. `completeLaunchIdentity` is the gate.
+         */
+        const afterInit = (cachedAthleteId?: string) => {
+          // A chain the athlete abandoned by tapping retry must not reach this
+          // block: two of them ask the backfill and cutover questions twice.
+          if (!run.live) return;
+          setEngineInitFailed(false);
+          setEngineInitFailureReason(null);
+          // Effects mounted below this one ran while the handle was null.
+          // The bump is what lets them try again, the launch sync first.
+          markEngineReady();
+          // The name translations, the heatmap toggle, the athlete id the
+          // backup's cross-athlete guard reads, and the stats the date range
+          // opens from, in one call. These were five round trips through the
+          // binding before first paint, and each one a place a sync page write
+          // could hold the launch behind the engine's write lock.
+          const athleteId = useAuthStore.getState().athleteId;
+          const stats = engine.launchData({
+            routeWord: i18n.t('routes.routeWord'),
+            sectionWord: i18n.t('routes.sectionWord'),
+            athleteId,
+            heatmapEnabled: isHeatmapEnabled(),
+          });
+          if (__DEV__) {
+            log.log(
+              `[Engine] Initialized with persistent storage: ${stats?.activityCount ?? 0} cached activities`
+            );
+          }
+          // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
+          migrateSettingsToSqlite().catch(() => {});
+          // Load WebDAV credentials into memory cache
+          initWebdavConfig().catch(() => {});
+          if (athleteId) {
+            rememberCachedAthleteId(athleteId).catch(() => {});
+          } else if (cachedAthleteId) {
+            // Installs from before the mirror existed only have the SQLite
+            // setting. Seed the mirror so the login screen can still name
+            // whose data is on disk once the engine is down.
+            rememberCachedAthleteId(cachedAthleteId).catch(() => {});
+          }
+          // AuthStore.initialize() usually runs before the engine exists, so
+          // its credential push was a no-op. Repeat it now the engine is up.
+          pushCredentialsToEngine();
+          // Demo mode reads the same tables as live mode, so the fixtures
+          // have to be in SQLite before any screen queries the engine.
+          if (useAuthStore.getState().isDemoMode) {
+            seedDemoEngine();
+          } else {
+            // Tracks stored before elevation was fetched need a re-fetch;
+            // the trigger keeps attempting each launch until nothing is
+            // left to ask. Runs after the credential push so Rust has
+            // something to authenticate with.
+            startElevationBackfillAfterUpdate().catch(() => {});
+            // A catalogue an older build cut stays until this runs; the
+            // trigger declines while the backfill still owes fetches, so a
+            // catalogue is never cut over a half-elevated library.
+            startDetectorCutoverAfterUpdate().catch(() => {});
+          }
+          // Initialize SyncDateRangeStore from engine's actual cached data
+          if (stats?.oldestDate && stats?.newestDate) {
+            const oldestDateStr = formatLocalDate(new Date(Number(stats.oldestDate) * 1000));
+            const newestDateStr = formatLocalDate(new Date(Number(stats.newestDate) * 1000));
+            initializeRange(oldestDateStr, newestDateStr);
+            if (__DEV__) {
+              log.log(
+                `[SyncDateRange] Initialized from engine: ${oldestDateStr} - ${newestDateStr}`
+              );
+            }
+          }
+        };
+
+        const attemptInit = async (attempt: number): Promise<EngineInitAttempt> => {
+          if (engine.initWithPath(dbPath)) {
             // Engine holds at most one identity's data at a time. If the cached
             // __athlete_id setting belongs to someone else (different real
             // account, or demo data left over after a force-quit), wipe and
             // re-init so the new identity starts from a clean slate.
-            cachedAthleteId = engine.getSetting('__athlete_id');
+            const cachedAthleteId = engine.getSetting('__athlete_id');
             const credentialsAthleteId = useAuthStore.getState().athleteId;
-            if (
-              cachedAthleteId &&
-              credentialsAthleteId &&
-              cachedAthleteId !== credentialsAthleteId
-            ) {
-              if (__DEV__) {
-                log.log(
-                  `[Engine] Identity mismatch (cached=${cachedAthleteId}, credentials=${credentialsAthleteId})`
-                );
-              }
-              // A restored library is the athlete's only copy, so it is never
-              // wiped without being asked. An empty engine has nothing to ask
-              // about and takes the new identity as it stands.
-              if (engine.getActivityCount() > 0) {
-                void promptAccountMismatch({
-                  storedAthleteId: cachedAthleteId,
-                  credentialsAthleteId,
-                }).then((cleared) => {
-                  if (cleared) engine.initWithPath(dbPath);
-                });
-              } else {
-                // The wipe runs on a Rust thread. This engine is empty, so it
-                // costs nothing, but the re-open below has to follow it rather
-                // than race it.
-                await engine.clear();
-                success = engine.initWithPath(dbPath);
-              }
-            }
-          }
-          if (success) {
-            setEngineInitFailed(false);
-            setEngineInitFailureReason(null);
-            // Effects mounted below this one ran while the handle was null.
-            // The bump is what lets them try again, the launch sync first.
-            markEngineReady();
-            if (__DEV__) {
+            const action = launchIdentityAction(
+              cachedAthleteId,
+              credentialsAthleteId,
+              engine.getActivityCount()
+            );
+            if (action !== 'proceed' && __DEV__) {
               log.log(
-                `[Engine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`
+                `[Engine] Identity mismatch (cached=${cachedAthleteId}, credentials=${credentialsAthleteId}), ${action}`
               );
             }
-            // Set name translations for auto-generated route/section names
-            const routeWord = i18n.t('routes.routeWord');
-            const sectionWord = i18n.t('routes.sectionWord');
-            engine.setNameTranslations(routeWord, sectionWord);
-            // Enable/disable heatmap tile generation based on setting
-            if (isHeatmapEnabled()) {
-              engine.enableHeatmapTiles();
-            } else {
-              engine.disableHeatmapTiles();
-            }
-            // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
-            migrateSettingsToSqlite().catch(() => {});
-            // Load WebDAV credentials into memory cache
-            initWebdavConfig().catch(() => {});
-            // Write athlete ID to SQLite for backup cross-athlete protection
-            const athleteId = useAuthStore.getState().athleteId;
-            if (athleteId) {
-              engine.setSetting('__athlete_id', athleteId);
-              rememberCachedAthleteId(athleteId).catch(() => {});
-            } else if (cachedAthleteId) {
-              // Installs from before the mirror existed only have the SQLite
-              // setting. Seed the mirror so the login screen can still name
-              // whose data is on disk once the engine is down.
-              rememberCachedAthleteId(cachedAthleteId).catch(() => {});
-            }
-            // AuthStore.initialize() usually runs before the engine exists, so
-            // its credential push was a no-op. Repeat it now the engine is up.
-            pushCredentialsToEngine();
-            // Demo mode reads the same tables as live mode, so the fixtures
-            // have to be in SQLite before any screen queries the engine.
-            if (useAuthStore.getState().isDemoMode) {
-              seedDemoEngine();
-            } else {
-              // Tracks stored before elevation was fetched need a re-fetch;
-              // the trigger keeps attempting each launch until nothing is
-              // left to ask. Runs after the credential push so Rust has
-              // something to authenticate with.
-              startElevationBackfillAfterUpdate().catch(() => {});
-              // A catalogue an older build cut stays until this runs; the
-              // trigger declines while the backfill still owes fetches, so a
-              // catalogue is never cut over a half-elevated library.
-              startDetectorCutoverAfterUpdate().catch(() => {});
-            }
-            // Initialize SyncDateRangeStore from engine's actual cached data
-            const stats = engine.getStats();
-            if (stats?.oldestDate && stats?.newestDate) {
-              const oldestDateStr = formatLocalDate(new Date(Number(stats.oldestDate) * 1000));
-              const newestDateStr = formatLocalDate(new Date(Number(stats.newestDate) * 1000));
-              initializeRange(oldestDateStr, newestDateStr);
-              if (__DEV__) {
-                log.log(
-                  `[SyncDateRange] Initialized from engine: ${oldestDateStr} - ${newestDateStr}`
-                );
-              }
-            }
-          } else if (attempt < 2 && isRetryableInit(engine.initOutcome())) {
-            // Retry once after delay - handles transient FS issues on first
-            // launch. Only a held file lifts on its own: a database from a
-            // newer build and a directory nothing can be written to answer the
-            // same way in 500 ms, so the athlete waits a second to be told
-            // what they could have been told at once.
+            // A restored library is the athlete's only copy, so it is never
+            // wiped without being asked, and nothing launch does runs until the
+            // question is answered. An empty engine has nothing to ask about and
+            // takes the new identity as it stands.
+            const settled = await completeLaunchIdentity(action, {
+              // The wipe runs on a Rust thread, so the re-open has to follow it
+              // rather than race it.
+              wipe: () => engine.clear(),
+              reopen: () => engine.initWithPath(dbPath),
+              ask: () =>
+                promptAccountMismatch({
+                  storedAthleteId: cachedAthleteId as string,
+                  credentialsAthleteId: credentialsAthleteId as string,
+                }),
+              // A wipe took the cached id with it, so only an identity that
+              // was already settled has one left to seed the mirror from.
+              proceed: () => afterInit(action === 'proceed' ? cachedAthleteId : undefined),
+            });
+            // `ask-first` is waiting on the athlete rather than failing, and
+            // everything else that did not settle failed to re-open, which is
+            // the same condition the retry is for.
+            if (action === 'ask-first') return 'waiting';
+            if (settled) return 'settled';
+          }
+          if (__DEV__) {
+            console.warn(`[Engine] Init attempt ${attempt + 1} failed`);
+          }
+          return 'failed';
+        };
+
+        // Only a held file lifts on its own: a database from a newer build and
+        // a directory nothing can be written to answer the same way in 500 ms,
+        // so the athlete waits a second to be told what they could have been
+        // told at once.
+        void runEngineInit(run, {
+          attempt: attemptInit,
+          retryable: () => isRetryableInit(engine.initOutcome()),
+          giveUp: () => {
             if (__DEV__) {
-              console.warn(`[Engine] Init attempt ${attempt + 1} failed, retrying in 500ms...`);
-            }
-            setTimeout(() => void tryInit(attempt + 1), 500);
-          } else {
-            if (__DEV__) {
-              console.warn(
-                `[Engine] Persistent init failed after ${attempt + 1} attempts for path: ${dbPath}`
-              );
+              console.warn(`[Engine] Persistent init failed for path: ${dbPath}`);
             }
             setEngineInitFailureReason(engine.initOutcome());
             setEngineInitFailed(true);
-          }
-        };
-
-        void tryInit(0);
+          },
+        });
       }
     }
+    return () => run.cancel();
   }, [
     isAuthenticated,
     initializeRange,
@@ -295,6 +328,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background') {
         onAppBackground();
+        // The last moment the process is reliably alive. Without this a tile
+        // source under the store's flush cadence keeps no index, and the next
+        // launch rebuilds it by walking the tree at mount.
+        flushBasemapSidecars();
         // Refresh the home-screen widget with the latest data while we have the
         // engine warm. No-op until the native widget module is built in.
         updateWidgetSnapshot();
@@ -463,16 +500,22 @@ export default function RootLayout() {
     if (!appReady) return;
     const {
       getNotificationPreferences,
+      resolvePendingUnregisterAthleteId,
       retryPendingUnregister,
     } = require('@/features/settings/stores/NotificationPreferencesStore');
     const { useAuthStore: authStore } = require('@/shared/app/AuthStore');
     const prefs = getNotificationPreferences();
     const { athleteId, isDemoMode: demo } = authStore.getState();
     if (prefs.enabled && athleteId && !demo) {
-      const { registerPushToken } = require('@/features/settings/lib/pushTokenRegistration');
-      registerPushToken(athleteId);
-    } else if (!prefs.enabled && prefs.pendingUnregister && athleteId) {
-      retryPendingUnregister(athleteId);
+      const {
+        ensurePushTokenRegistered,
+      } = require('@/features/settings/lib/pushTokenRegistration');
+      ensurePushTokenRegistered(athleteId);
+    } else {
+      // The id comes from the request, not the session: a sign-out between the
+      // two deletes the credential and the retry never fires again.
+      const pendingFor = resolvePendingUnregisterAthleteId();
+      if (pendingFor) retryPendingUnregister(pendingFor);
     }
   }, [appReady]);
 
@@ -499,15 +542,15 @@ export default function RootLayout() {
                             colorScheme === 'dark'
                               ? amberBanner.dark.border
                               : amberBanner.light.border,
-                          paddingHorizontal: 16,
-                          paddingVertical: 10,
+                          paddingHorizontal: spacing.md,
+                          paddingVertical: spacing.sm,
                         }}
                       >
                         <View
                           style={{
                             flexDirection: 'row',
                             alignItems: 'center',
-                            gap: 8,
+                            gap: spacing.sm,
                           }}
                         >
                           <ActivityIndicator size="small" color={amberBanner.light.border} />
@@ -528,7 +571,7 @@ export default function RootLayout() {
                         {__DEV__ ? (
                           <Text
                             style={{
-                              marginTop: 4,
+                              marginTop: spacing.xs,
                               color:
                                 colorScheme === 'dark'
                                   ? amberBanner.dark.subtext
@@ -544,9 +587,11 @@ export default function RootLayout() {
                     ) : null}
                     <OfflineBanner />
                     <SyncErrorBanner />
+                    <TrackFetchNotice />
                     <EngineInitBanner />
                     <GlobalDataSync />
                     <DemoBanner />
+                    <LibraryRebuiltNotice />
                     <WhatsNewModal />
                     <TourReturnPill />
                     <RecordingReturnPill />

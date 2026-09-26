@@ -11,8 +11,7 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
-import { getEngine } from '@/shared/native/engine';
-import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import { ledgerDate } from '@/features/routes/lib/sectionLedger';
 import { getIntlLocale } from '@/shared/format/format';
@@ -23,13 +22,16 @@ export default function SectionRetiredScreen() {
   const { isDark } = useTheme();
   const locale = getIntlLocale();
 
-  const trigger = useEngineSubscription(['sections']);
+  const readRetired = useEngineRead(['sections']);
 
-  const { retired, names } = useMemo(() => {
-    const engine = getEngine();
-    if (!engine) return { retired: [], names: {} as Record<string, string> };
-    return { retired: engine.getRetiredSections(), names: getAllSectionDisplayNames() };
-  }, [trigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { retired, names } = useMemo(
+    () =>
+      readRetired((engine) => ({
+        retired: engine.getRetiredSections(),
+        names: getAllSectionDisplayNames(),
+      })) ?? { retired: [], names: {} as Record<string, string> },
+    [readRetired]
+  );
 
   return (
     <ScreenErrorBoundary screenName="Retired Sections">

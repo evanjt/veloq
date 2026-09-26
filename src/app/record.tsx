@@ -8,6 +8,7 @@ import {
   Alert,
   Linking,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
@@ -19,8 +20,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
-import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
+import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
+import type { MaterialIconName } from '@/shared/activity/activityUtils';
 import { ACTIVITY_CATEGORIES } from '@/features/recording/lib/recordingModes';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
@@ -32,7 +33,11 @@ import {
   clearRecordingBackup,
 } from '@/features/recording/lib/storage/recordingBackup';
 import { BatteryOptimisationNudge } from '@/features/recording/components/BatteryOptimisationNudge';
-import { RecordingGate } from '@/features/recording';
+import {
+  RecordingGate,
+  useUploadPermissionStore,
+  restoreRecordingBackup,
+} from '@/features/recording';
 import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
 import { getEngine } from '@/shared/native/engine';
 import { readCalendarEvents } from '@/features/home/lib/calendarEvents';
@@ -78,12 +83,20 @@ export default function RecordScreen() {
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { canRecord, reason } = useCanRecord();
+  const ridingWithoutScope = useUploadPermissionStore((s) => s.recordingWithoutScope);
+  const continueWithoutScope = useUploadPermissionStore((s) => s.continueWithoutScope);
   const { upgradePermissions, isUpgrading, error: upgradeError } = usePermissionUpgrade();
   const recentTypes = useRecordingPreferences((s) => s.recentActivityTypes);
   const isLoaded = useRecordingPreferences((s) => s.isLoaded);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [showAllActivities, setShowAllActivities] = useState(false);
-  const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>([]);
+  // Read at first render rather than in an effect. An engine that is not open
+  // yet answers empty either way, and the `activities` subscription below is
+  // what recovers that case, as it was before.
+  const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>(() => {
+    const today = formatLocalDate(new Date());
+    return readCalendarEvents(today, today);
+  });
 
   // GPS readiness state
   const [gpsState, setGpsState] = useState<'checking' | 'ready' | 'weak' | 'none'>('checking');
@@ -171,63 +184,20 @@ export default function RecordScreen() {
             const backup = await loadRecordingBackup();
             if (!backup) return;
 
-            const now = Date.now();
-            // Load backup into store
-            const store = useRecordingStore.getState();
-            store.startRecording(
-              backup.activityType,
-              backup.mode,
-              backup.pairedEventId ?? undefined
-            );
-
-            if (backup.status === 'stopped') {
-              // Session was already stopped - restore straight to review
-              useRecordingStore.setState({
-                startTime: backup.startTime,
-                stopTime: backup.stopTime ?? backup.savedAt,
-                pausedDuration: backup.pausedDuration,
-                pauseIntervals: backup.pauseIntervals ?? [],
-                streams: backup.streams,
-                laps: backup.laps,
-                status: 'stopped',
-              });
-              navigateTo('/recording/review');
-              return;
-            }
-
-            // Credit the offline gap (savedAt → now) as paused time so moving
-            // time does not inflate, and open the ongoing pause so the wait on
-            // this prompt is credited too when the user resumes.
-            useRecordingStore.setState({
-              startTime: backup.startTime,
-              pausedDuration: backup.pausedDuration + Math.max(0, now - backup.savedAt),
-              pauseIntervals: [
-                ...(backup.pauseIntervals ?? []),
-                {
-                  start: (backup.savedAt - backup.startTime) / 1000,
-                  end: (Math.max(now, backup.savedAt) - backup.startTime) / 1000,
-                },
-              ],
-              streams: backup.streams,
-              laps: backup.laps,
-              status: 'paused', // Start paused so user can review before resuming
-              _pauseStart: now,
-            });
-
-            navigateTo(`/recording/${backup.activityType}`);
+            navigateTo(restoreRecordingBackup(backup));
           },
         },
       ]);
     })();
   }, [t]);
 
-  // Today's planned workouts. Ask Rust to refresh the day, then read what is
-  // stored; the engine event brings in anything the refresh adds.
+  // Today's planned workouts. The stored day is read in the initialiser above,
+  // so the first paint has it; this asks Rust to refresh the day and the engine
+  // event brings in anything the refresh adds.
   useEffect(() => {
     const today = formatLocalDate(new Date());
     const engine = getEngine();
     engine?.syncCalendarEvents(today, today);
-    setTodayEvents(readCalendarEvents(today, today));
 
     if (!engine) return undefined;
     return engine.subscribe('activities', () => {
@@ -263,12 +233,17 @@ export default function RecordScreen() {
   // athlete has already committed. The picker is reached by an athlete still
   // choosing a sport, so the safe default costs nothing and flips to the picker
   // the moment the answer lands.
-  if (!canRecord && reason !== 'ok') {
+  // A missing scope warns rather than refuses, here as on the recording screen:
+  // continuing picks a sport and the ride stays on the device. `checking` gets no
+  // continue, because nothing is known to be missing yet.
+  const warnedPastScope = reason === 'no_permission' && ridingWithoutScope;
+  if (!canRecord && reason !== 'ok' && !warnedPastScope) {
     return (
       <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
         <RecordingGate
           reason={reason === 'checking' ? 'no_permission' : reason}
           onGrantAccess={upgradePermissions}
+          onContinue={reason === 'no_permission' ? continueWithoutScope : undefined}
           isUpgrading={isUpgrading}
           error={upgradeError}
         />
@@ -501,7 +476,7 @@ function GpsReadinessBar({
       icon={config.icon}
       label={config.text}
     >
-      {state === 'checking' && <MaterialCommunityIcons name="loading" size={14} color={tint} />}
+      {state === 'checking' && <ActivityIndicator size="small" color={tint} />}
       {state === 'ready' && <MaterialCommunityIcons name="check-circle" size={14} color={tint} />}
       {state === 'none' && (
         <TouchableOpacity onPress={() => Linking.openSettings()}>
@@ -588,7 +563,7 @@ const styles = StyleSheet.create({
   },
   eventMeta: {
     ...typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   categorySection: {
     borderRadius: layout.borderRadius,
