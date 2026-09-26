@@ -11,6 +11,7 @@
 import { Alert } from 'react-native';
 import { i18n } from '@/i18n';
 import { getEngine, isEngineReady } from '@/shared/native/engine';
+import { engineErrorKey } from '@/shared/native/engineError';
 import { DEMO_ATHLETE_ID, useAuthStore } from '@/shared/app/AuthStore';
 import { safeJsonParse } from '@/shared/validation/validation';
 import { rememberCachedAthleteId, readCachedAthleteIdMirror } from '@/shared/storage';
@@ -174,7 +175,19 @@ export function promptAccountMismatch(args: PromptAccountMismatchArgs): Promise<
           onPress: () => {
             void (async () => {
               const engine = getEngine();
-              engine?.clear();
+              // The wipe runs on a Rust thread and `clear` re-opens the handle
+              // after it, so the stamp has to follow it rather than race it.
+              try {
+                await engine?.clear();
+              } catch (error) {
+                // Launch waits on this answer, so a failed wipe still has to
+                // give one. Signing out is Cancel's answer, and it leaves the
+                // library named for the athlete it still belongs to.
+                Alert.alert(t('alerts.error'), t(engineErrorKey(error, 'alerts.failedToClear')));
+                useAuthStore.getState().clearCredentials();
+                resolve(false);
+                return;
+              }
               engine?.setSetting('__athlete_id', credentialsAthleteId);
               await rememberCachedAthleteId(credentialsAthleteId);
               resolve(true);

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { CallKind, engine } from 'veloqrs';
+import { CallKind, validateCredentials } from 'veloqrs';
 
 import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
@@ -12,6 +12,17 @@ import {
 } from '@/features/auth/lib/accountChange';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useNetwork } from '@/shared/app/NetworkContext';
+import { useReconnect } from '@/shared/app/useRetryTriggers';
+import {
+  clearPendingApiKey,
+  readPendingApiKey,
+  savePendingApiKey,
+  signInPlan,
+} from '@/features/auth/lib/pendingSignIn';
+
+/** What became of a sign-in attempt. */
+type SignInOutcome = 'signedIn' | 'rejected' | 'unreachable' | 'refused';
 
 interface UseApiKeyLoginParams {
   setError: (message: string | null) => void;
@@ -24,24 +35,31 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
   const setCredentials = useAuthStore((state) => state.setCredentials);
 
   const [isApiKeyLoading, setIsApiKeyLoading] = useState(false);
+  const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
+  const { isOnline } = useNetwork();
 
-  const handleApiKeyLogin = useCallback(
-    async (apiKey: string) => {
-      if (!apiKey.trim()) {
-        setError(t('login.apiKeyRequired'));
-        return;
-      }
-
+  /**
+   * What became of an attempt: `unreachable` is the one outcome that keeps a
+   * held key, since the server never said anything about it.
+   */
+  const signIn = useCallback(
+    async (apiKey: string): Promise<SignInOutcome> => {
       setIsApiKeyLoading(true);
       setError(null);
 
       try {
-        // The engine checks the key against /athlete/me without storing it, so
-        // a rejected key never becomes the credential the app syncs with.
-        const check = await engine.validateSyncCredentials('api_key', apiKey.trim());
+        // Checked against /athlete/me without being stored, so a rejected key
+        // never becomes the credential the app syncs with.
+        //
+        // Not through the engine: the layout opens one only once the athlete is
+        // authenticated, so on a fresh install there is no engine here and the
+        // engine-object form answered "unavailable", which this screen rendered
+        // as a connection failure for a perfectly good key.
+        const check = await validateCredentials('api_key', apiKey.trim());
         if (check.kind !== CallKind.Ok || !check.id) {
-          setError(check.status === 401 ? t('login.invalidApiKey') : t('login.connectionFailed'));
-          return;
+          const rejected = check.status === 401;
+          setError(rejected ? t('login.invalidApiKey') : t('login.connectionFailed'));
+          return rejected ? 'rejected' : 'unreachable';
         }
 
         // Account-identity check. Engine holds at most one account at a time,
@@ -59,7 +77,7 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
           });
           if (!proceed) {
             setIsApiKeyLoading(false);
-            return;
+            return 'refused';
           }
         }
         if (action === 'keep') {
@@ -70,8 +88,10 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
         resetSyncDateRange();
         await setCredentials(apiKey.trim(), incomingId);
         replaceTo('/');
+        return 'signedIn';
       } catch {
         setError(t('login.connectionFailed'));
+        return 'unreachable';
       } finally {
         setIsApiKeyLoading(false);
       }
@@ -79,5 +99,40 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
     [t, queryClient, resetSyncDateRange, setCredentials, setError]
   );
 
-  return { handleApiKeyLogin, isApiKeyLoading };
+  const handleApiKeyLogin = useCallback(
+    async (apiKey: string) => {
+      switch (signInPlan(isOnline, apiKey)) {
+        case 'empty':
+          setError(t('login.apiKeyRequired'));
+          return;
+        case 'queue':
+          // Held, not signed in. The check that would refuse it, and the
+          // athlete-identity check that guards the cached library, both run on
+          // the reconnect edge below.
+          await savePendingApiKey(apiKey);
+          setError(null);
+          setQueuedMessage(t('login.queuedOffline'));
+          return;
+        case 'validate':
+          setQueuedMessage(null);
+          await signIn(apiKey);
+      }
+    },
+    [isOnline, signIn, setError, t]
+  );
+
+  // The radio came back, so the key that was typed without one gets the check
+  // it never had. A key the server refuses is dropped rather than retried for
+  // ever; one the server could not answer for at all stays held.
+  useReconnect(() => {
+    void (async () => {
+      const pending = await readPendingApiKey();
+      if (!pending) return;
+      setQueuedMessage(null);
+      const outcome = await signIn(pending);
+      if (outcome !== 'unreachable') await clearPendingApiKey();
+    })();
+  });
+
+  return { handleApiKeyLogin, isApiKeyLoading, queuedMessage };
 }

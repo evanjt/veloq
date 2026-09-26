@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { CollapsibleSection } from '@/shared/ui/CollapsibleSection';
+import { pressable } from '@/shared/ui';
 
 interface ApiKeyLoginFormProps {
   onLogin: (apiKey: string) => Promise<void>;
@@ -59,7 +60,7 @@ export const ApiKeyLoginForm = React.memo(function ApiKeyLoginForm({
           {t('login.apiKeyDescription')}
         </Text>
 
-        <Pressable onPress={onOpenDeveloperSettings} style={styles.getApiKeyLink}>
+        <Pressable onPress={onOpenDeveloperSettings} style={pressable(styles.getApiKeyLink)}>
           <Text style={styles.linkText}>{t('login.getApiKey')}</Text>
           <MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />
         </Pressable>

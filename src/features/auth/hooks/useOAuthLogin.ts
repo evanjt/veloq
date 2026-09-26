@@ -51,7 +51,7 @@ export function useOAuthLogin({ setError }: UseOAuthLoginParams) {
           return;
         }
 
-        const tokenResponse = handleOAuthCallback(result.url);
+        const tokenResponse = await handleOAuthCallback(result.url);
 
         // Account-identity check (see useApiKeyLogin.ts). Same-account OAuth
         // refresh keeps cached activities; switching accounts requires
