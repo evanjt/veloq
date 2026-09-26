@@ -8,7 +8,16 @@ import { useTranslation } from 'react-i18next';
 import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
-import { colors, darkColors, typography, spacing, chartStyles, layout } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  chartStyles,
+  layout,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import {
   ChartCanvas,
   ChartCrosshair,
@@ -17,16 +26,18 @@ import {
   useChartGestures,
 } from '@/shared/charts';
 import {
-  calculateTSB,
   getFormZone,
   FORM_ZONE_COLORS,
-  FORM_ZONE_LABELS,
+  formZoneTextColor,
+  FORM_ZONE_MARK_COLORS,
+  formZoneLabel,
   FORM_ZONE_BOUNDARIES,
   type FormZone,
 } from '@/features/fitness/lib/fitness';
-import { sortByDateId } from '@/features/activity/lib/activityUtils';
+import { sortByDateId } from '@/shared/activity/activityUtils';
 import { formatShortDate } from '@/shared/format/format';
 import type { WellnessData } from '@/types';
+import { formFromLoads } from '@/shared/math';
 
 interface FormZoneChartProps {
   data: WellnessData[];
@@ -77,16 +88,12 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    const withTSB = calculateTSB(data);
-    const sorted = sortByDateId(withTSB);
+    const sorted = sortByDateId(data);
 
     return sorted.map((day, idx) => {
-      const fitnessRaw = day.ctl ?? day.ctlLoad ?? 0;
-      const fatigueRaw = day.atl ?? day.atlLoad ?? 0;
-      // Use rounded values for form calculation to match intervals.icu display
-      const fitness = Math.round(fitnessRaw);
-      const fatigue = Math.round(fatigueRaw);
-      const form = fitness - fatigue;
+      const fitness = Math.round(day.ctl ?? 0);
+      const fatigue = Math.round(day.atl ?? 0);
+      const form = formFromLoads(day.ctl, day.atl);
       return {
         x: idx,
         date: day.id,
@@ -163,12 +170,12 @@ export const FormZoneChart = React.memo(function FormZoneChart({
           </Text>
         </View>
         <View style={styles.valuesRow}>
-          <Text style={[styles.formValue, { color: FORM_ZONE_COLORS[formZone] }]}>
+          <Text style={[styles.formValue, { color: formZoneTextColor(formZone, isDark) }]}>
             {displayData.form > 0 ? '+' : ''}
             {displayData.form}
           </Text>
-          <Text style={[styles.zoneText, { color: FORM_ZONE_COLORS[formZone] }]}>
-            {FORM_ZONE_LABELS[formZone]}
+          <Text style={[styles.zoneText, { color: formZoneTextColor(formZone, isDark) }]}>
+            {formZoneLabel(formZone)}
           </Text>
         </View>
       </View>
@@ -242,9 +249,9 @@ export const FormZoneChart = React.memo(function FormZoneChart({
       <View style={styles.zoneLegend}>
         {ZONES.map((zone) => (
           <View key={zone} style={styles.zoneLegendItem}>
-            <View style={[styles.zoneDot, { backgroundColor: FORM_ZONE_COLORS[zone] }]} />
+            <View style={[styles.zoneDot, { backgroundColor: FORM_ZONE_MARK_COLORS[zone] }]} />
             <Text style={[styles.zoneLabel, isDark && chartStyles.textDark]}>
-              {FORM_ZONE_LABELS[zone]}
+              {formZoneLabel(zone)}
             </Text>
           </View>
         ))}
@@ -320,8 +327,8 @@ const styles = StyleSheet.create({
   axisLabel: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 2,
+    backgroundColor: colorWithOpacity(ink.white, 0.7),
+    paddingHorizontal: spacing.xxs,
     borderRadius: spacing.xxs,
   },
   axisLabelDark: {
@@ -343,7 +350,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: layout.borderRadiusFull,
-    marginRight: 3,
+    marginRight: spacing.xs,
   },
   zoneLabel: {
     fontSize: typography.pillLabel.fontSize,

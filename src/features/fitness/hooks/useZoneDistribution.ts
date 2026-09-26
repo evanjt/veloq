@@ -7,8 +7,7 @@ import {
   HR_ZONE_COLORS,
 } from '@/shared/app/useSportSettings';
 import { type PrimarySport } from '@/features/fitness/stores';
-import { getEngine } from '@/shared/native/engine';
-import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 
 interface UseZoneDistributionOptions {
   type: 'power' | 'hr';
@@ -30,20 +29,19 @@ export function useZoneDistribution({
   type,
   sport,
 }: UseZoneDistributionOptions): ZoneDistribution[] | undefined {
-  const trigger = useEngineSubscription(['activities']);
+  const readActivities = useEngineRead(['activities']);
 
   return useMemo(() => {
     const defaultZones = type === 'power' ? DEFAULT_POWER_ZONES : DEFAULT_HR_ZONES;
     const zoneColors = type === 'power' ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
 
-    const engine = getEngine();
-    if (!engine || !sport) return undefined;
+    if (!sport) return undefined;
 
     const sportType = SPORT_TO_ENGINE_TYPE[sport];
     if (!sportType) return undefined;
 
-    const totals = engine.getZoneDistribution(sportType, type);
-    if (totals.length === 0) return undefined;
+    const totals = readActivities((engine) => engine.getZoneDistribution(sportType, type));
+    if (!totals || totals.length === 0) return undefined;
 
     const totalSeconds = totals.reduce((sum, t) => sum + t, 0);
     if (totalSeconds === 0) return undefined;
@@ -55,5 +53,5 @@ export function useZoneDistribution({
       percentage: Math.round(((totals[idx] || 0) / totalSeconds) * 100),
       color: zoneColors[idx] || zoneColors[zoneColors.length - 1],
     }));
-  }, [type, sport, trigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [type, sport, readActivities]);
 }

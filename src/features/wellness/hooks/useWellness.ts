@@ -1,9 +1,9 @@
 /**
  * Wellness reads come from SQLite, not the API.
  *
- * Rust's sync service fetches the year of wellness and stores each day both
- * typed (what Rust computes on) and as its untyped body (what these screens
- * read). The query key is woken by the sync-complete invalidation in
+ * Rust's sync service fetches the year of wellness and stores each day typed,
+ * and the engine answers typed, so nothing here parses a body. The query key
+ * is woken by the sync-complete invalidation in
  * GlobalDataSync and by the engine's own change channel, so a finished sync
  * refreshes the charts without a second network call.
  */
@@ -13,16 +13,28 @@ import { PERIOD_DAYS } from '@/shared/app/period';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { useEffect, useState } from 'react';
+
 import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { WellnessData } from '@/types';
+import type { WellnessDay } from 'veloqrs';
 import type { TimeRange } from '@/shared/app/timeRange';
 
 export type { TimeRange };
 
-/** Refetch the wellness queries whenever the engine reports a change. */
+/**
+ * Refetch the wellness queries when wellness lands, and not before.
+ *
+ * This followed the `activities` channel, because nothing announced wellness at
+ * all. That channel fires per synced page, measured five times in the first
+ * 4.5 s of a launch, while wellness is written once, so all three consumers
+ * re-read and re-parsed their whole window four times over for no change.
+ * `sync_wellness` now announces through `store_body`, so the kind is what to
+ * follow.
+ */
 function useWellnessInvalidation(): void {
-  useEngineChannel('activities', queryKeys.wellness.all);
+  useEngineChannel('bodyStored', queryKeys.wellness.all, 'wellness');
 }
 
 export function timeRangeToDays(range: TimeRange): number {
@@ -43,22 +55,58 @@ function getDateRange(range: TimeRange): { oldest: string; newest: string } {
 }
 
 /**
- * Read stored wellness bodies over a date window. A body that will not parse
- * is dropped rather than surfaced as a half-populated day.
+ * Read stored wellness days over a date window. The engine answers typed, so
+ * this is a rename of its fields onto the shape the screens read.
  */
+export function toWellnessData(day: WellnessDay): WellnessData {
+  return {
+    id: day.date,
+    ctl: day.ctl,
+    atl: day.atl,
+    rampRate: day.rampRate,
+    hrv: day.hrv,
+    restingHR: day.restingHr,
+    weight: day.weight,
+    sleepSecs: day.sleepSecs,
+    sleepScore: day.sleepScore,
+    soreness: day.soreness,
+    fatigue: day.fatigue,
+    stress: day.stress,
+    mood: day.mood,
+    motivation: day.motivation,
+    sportInfo: day.sportLoad.map((s) => ({ sportGroup: s.sportGroup, load: s.load })),
+  };
+}
+
 function readWellness(oldest: string, newest: string): WellnessData[] {
   const engine = getEngine();
-  if (!engine?.getWellnessBodies) return [];
+  if (!engine?.getWellnessDays) return [];
+  return engine.getWellnessDays(oldest, newest).map(toWellnessData);
+}
 
-  const out: WellnessData[] = [];
-  for (const body of engine.getWellnessBodies(oldest, newest)) {
-    try {
-      out.push(JSON.parse(body) as WellnessData);
-    } catch {
-      // A body we cannot parse is a corrupt row, not a day with no data.
-    }
-  }
-  return out;
+/**
+ * A counter that bumps when a wellness sync lands, without reading a row.
+ *
+ * The summary card used to keep a month of parsed bodies mounted for no other
+ * reason than to know when to look again. The engine answers the card's
+ * numbers itself now, so what is left to subscribe to is the fact of the
+ * sync.
+ */
+export function useWellnessGeneration(): number {
+  const [generation, setGeneration] = useState(0);
+
+  useEffect(() => {
+    const engine = getEngine();
+    if (!engine) return undefined;
+    // `setGeneration` is stable, so the subscription is set up once and needs
+    // no ref to reach the current closure.
+    return engine.subscribe('bodyStored', (payload) => {
+      if ((payload as { kind?: string } | undefined)?.kind !== 'wellness') return;
+      setGeneration((g) => g + 1);
+    });
+  }, []);
+
+  return generation;
 }
 
 export function useWellness(range: TimeRange = '3m') {
@@ -75,6 +123,26 @@ export function useWellness(range: TimeRange = '3m') {
     staleTime: Infinity,
     gcTime: 1000 * 60 * 60 * 24,
     placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * The newest stored wellness date, or null when nothing has synced.
+ *
+ * A scalar, so a screen can date the last sync without pulling the rows and
+ * their CTL back across the FFI to quote as today's figures.
+ */
+export function useWellnessLatestDate() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  useWellnessInvalidation();
+
+  return useQuery<string | null>({
+    queryKey: queryKeys.wellness.latestDate,
+    queryFn: () => getEngine()?.getWellnessLatestDate?.() ?? null,
+    enabled: isAuthenticated,
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 60 * 24,
   });
 }
 

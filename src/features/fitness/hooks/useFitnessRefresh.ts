@@ -18,14 +18,19 @@ export function useFitnessRefresh(refetchWellness: Refetcher) {
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
     requestSyncRefresh();
-    await Promise.all([
-      refetchWellness(),
-      queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
-    ]);
-    setIsRefreshing(false);
+    try {
+      await Promise.all([
+        refetchWellness(),
+        queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
+      ]);
+    } finally {
+      // A rejected refetch is offline, not broken. Leaving the spinner on has
+      // no way back short of leaving the screen.
+      setIsRefreshing(false);
+    }
   }, [refetchWellness, queryClient]);
 
   return { isRefreshing, onRefresh };

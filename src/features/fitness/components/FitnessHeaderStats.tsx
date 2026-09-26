@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { formatShortDateWithWeekday } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { FORM_ZONE_COLORS, FORM_ZONE_LABELS, type FormZone } from '../lib';
+import { formZoneTextColor, formZoneLabel, type FormZone } from '../lib';
 
 interface FitnessDisplayValues {
   fitness: number;
@@ -30,8 +30,8 @@ interface FitnessHeaderStatsProps {
  * wellness snapshot.
  *
  * The Form column dynamically tints its value and subtext with the form-zone
- * color (`FORM_ZONE_COLORS[formZone]`) and swaps the subtext label between the
- * TSB fallback and the zone's localized label (`FORM_ZONE_LABELS[formZone]`).
+ * text colour (`formZoneTextColor`) and swaps the subtext label between the
+ * TSB fallback and the zone's localized label (`formZoneLabel(formZone)`).
  */
 export const FitnessHeaderStats = React.memo(function FitnessHeaderStats({
   displayDate,
@@ -53,7 +53,12 @@ export const FitnessHeaderStats = React.memo(function FitnessHeaderStats({
           <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
             {t('metrics.fitness')}
           </Text>
-          <Text style={[styles.statValue, { color: colors.fitnessBlue }]}>
+          <Text
+            style={[
+              styles.statValue,
+              { color: isDark ? darkColors.fitnessBlueText : colors.fitnessBlueText },
+            ]}
+          >
             {displayValues ? Math.round(displayValues.fitness) : '-'}
           </Text>
           <Text style={[styles.statSubtext, isDark && styles.statSubtextDark]}>
@@ -64,7 +69,12 @@ export const FitnessHeaderStats = React.memo(function FitnessHeaderStats({
           <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
             {t('metrics.fatigue')}
           </Text>
-          <Text style={[styles.statValue, { color: colors.fatiguePurple }]}>
+          <Text
+            style={[
+              styles.statValue,
+              { color: isDark ? darkColors.fatiguePurpleText : colors.fatiguePurpleText },
+            ]}
+          >
             {displayValues ? Math.round(displayValues.fatigue) : '-'}
           </Text>
           <Text style={[styles.statSubtext, isDark && styles.statSubtextDark]}>
@@ -79,7 +89,7 @@ export const FitnessHeaderStats = React.memo(function FitnessHeaderStats({
             style={[
               styles.statValue,
               {
-                color: formZone ? FORM_ZONE_COLORS[formZone] : themeColors.text,
+                color: formZone ? formZoneTextColor(formZone, isDark) : themeColors.text,
               },
             ]}
           >
@@ -91,11 +101,11 @@ export const FitnessHeaderStats = React.memo(function FitnessHeaderStats({
             style={[
               styles.statSubtext,
               {
-                color: formZone ? FORM_ZONE_COLORS[formZone] : themeColors.textSecondary,
+                color: formZone ? formZoneTextColor(formZone, isDark) : themeColors.textSecondary,
               },
             ]}
           >
-            {formZone ? FORM_ZONE_LABELS[formZone] : t('fitnessScreen.tsb')}
+            {formZone ? formZoneLabel(formZone) : t('fitnessScreen.tsb')}
           </Text>
         </View>
       </View>
@@ -109,7 +119,16 @@ export const FitnessHeaderStats = React.memo(function FitnessHeaderStats({
             <Text
               style={[
                 styles.secondaryValue,
-                { color: rampRate >= 0 ? colors.fitnessBlue : colors.fatiguePurple },
+                {
+                  color:
+                    rampRate >= 0
+                      ? isDark
+                        ? darkColors.fitnessBlueText
+                        : colors.fitnessBlueText
+                      : isDark
+                        ? darkColors.fatiguePurpleText
+                        : colors.fatiguePurpleText,
+                },
               ]}
             >
               {`${rampRate > 0 ? '+' : ''}${rampRate.toFixed(1)}`}
@@ -165,7 +184,7 @@ const styles = StyleSheet.create({
   statSubtext: {
     ...typography.micro,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   statSubtextDark: {
     color: darkColors.textSecondary,
