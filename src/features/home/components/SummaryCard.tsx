@@ -11,11 +11,15 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
+import { canDrawProfilePhoto } from '@/shared/ui';
 import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
 import { SummaryCardSparkline, type ScrubValues } from './SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
-import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
+import { useTranslation } from 'react-i18next';
+import { getFormZone, formZoneTextColor } from '@/features/fitness/lib/fitness';
 import { debug } from '@/shared/debug/debug';
+import type { TrendGlyph } from '@/shared/format/trend';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 
 const log = debug.create('SummaryCard');
 
@@ -26,7 +30,7 @@ interface SupportingMetric {
   label: string;
   value: string | number;
   color?: string;
-  trend?: '↑' | '↓' | '';
+  trend?: TrendGlyph;
   navigationTarget?: '/fitness' | '/training';
 }
 
@@ -45,7 +49,7 @@ export interface SummaryCardProps {
   heroColor: string;
   heroZoneLabel?: string; // "Fresh", "Tired", etc.
   heroZoneColor?: string;
-  heroTrend?: '↑' | '↓' | '';
+  heroTrend?: TrendGlyph;
   onHeroPress?: () => void;
 
   // Sparkline data (30 days) - fitness line + fatigue line + form zone bar
@@ -96,6 +100,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   showSparklineLabels = false,
   supportingMetrics,
 }: SummaryCardProps) {
+  const { t } = useTranslation();
   const { width: windowWidth } = useWindowDimensions();
   if (__DEV__) {
     const start = performance.now();
@@ -118,9 +123,7 @@ export const SummaryCard = React.memo(function SummaryCard({
     setScrubValues(values);
   }, []);
 
-  // Validate profile URL - must be a non-empty string starting with http
-  const hasValidProfileUrl =
-    profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
+  const canDrawPhoto = canDrawProfilePhoto(profileUrl, profileImageError);
 
   // Determine which sparkline to show - deferred until after first frame
   const isHrvMode = heroMetric === 'hrv';
@@ -134,6 +137,11 @@ export const SummaryCard = React.memo(function SummaryCard({
   const hrvSparkline = showAny && isHrvMode && hrvData && hrvData.length >= 2 ? hrvData : null;
 
   // During scrub, override the hero display
+  // Headline numbers, so they are text and hold 4.5:1. The series fills they
+  // read from are 2.66:1 and 3.17:1 on the light card (B950).
+  const fitnessTextColor = isDark ? darkColors.fitnessBlueText : colors.fitnessBlueText;
+  const fatigueTextColor = isDark ? darkColors.chartPinkText : colors.chartPinkText;
+
   const displayValue =
     scrubValues !== null
       ? isHrvMode
@@ -141,7 +149,7 @@ export const SummaryCard = React.memo(function SummaryCard({
         : scrubValues.fitness
       : heroValue;
   const displayColor =
-    scrubValues !== null ? (isHrvMode ? colors.chartPink : colors.fitnessBlue) : heroColor;
+    scrubValues !== null ? (isHrvMode ? fatigueTextColor : fitnessTextColor) : heroColor;
 
   // Format hero value (no sign prefix - CTL/fitness/HRV values are always positive)
   const formattedHeroValue = String(displayValue);
@@ -151,8 +159,12 @@ export const SummaryCard = React.memo(function SummaryCard({
   const currentFitness = scrubValues ? scrubValues.fitness : (fitnessData?.[lastIdx] ?? 0);
   const currentFatigue = scrubValues ? scrubValues.fatigue : (fatigueData?.[lastIdx] ?? null);
   const currentForm = scrubValues ? scrubValues.form : (formData?.[lastIdx] ?? 0);
-  const currentFormZone = getFormZone(currentForm);
-  const currentFormColor = FORM_ZONE_COLORS[currentFormZone];
+  const asPercent = useFormPreference((s) => s.formAsPercent) === true;
+  const currentFormZone = getFormZone(currentForm, currentFitness, asPercent);
+  const currentFormColor = formZoneTextColor(currentFormZone, isDark);
+  // RHR borrows the high-risk red, and it is a value and a label, so it takes
+  // the text variant of that token like every other word drawn in one.
+  const rhrColor = formZoneTextColor('highRisk', isDark);
 
   // Current HRV sparkline values (latest or scrubbed)
   const hrvLastIdx = hrvData ? hrvData.length - 1 : 0;
@@ -184,7 +196,7 @@ export const SummaryCard = React.memo(function SummaryCard({
           accessibilityRole="button"
         >
           <View style={[styles.profilePhoto, isDark && styles.profilePhotoDark]}>
-            {hasValidProfileUrl && !profileImageError ? (
+            {canDrawPhoto ? (
               <Image
                 source={{ uri: profileUrl }}
                 style={StyleSheet.absoluteFill}
@@ -215,33 +227,33 @@ export const SummaryCard = React.memo(function SummaryCard({
           {fitnessSparkline ? (
             <View>
               <View style={styles.heroValueRow}>
-                <Text style={[styles.heroValueFixed, { color: colors.fitnessBlue }]}>
+                <Text style={[styles.heroValueFixed, { color: fitnessTextColor }]}>
                   {currentFitness}
                 </Text>
-                <Text style={[styles.heroLabel, { color: colors.fitnessBlue }]}>Fitness</Text>
+                <Text style={[styles.heroLabel, { color: fitnessTextColor }]}>Fitness</Text>
               </View>
               <View style={styles.heroSubLine}>
                 {currentFatigue !== null && (
-                  <Text style={[styles.heroSubText, { color: colors.chartPink }]}>
+                  <Text style={[styles.heroSubText, { color: fatigueTextColor }]}>
                     {currentFatigue} Fatigue
                   </Text>
                 )}
                 <Text style={[styles.heroSubText, { color: currentFormColor }]}>
                   {currentForm > 0 ? `+${currentForm}` : currentForm}{' '}
-                  {FORM_ZONE_LABELS[currentFormZone]}
+                  {t(`formZones.${currentFormZone}`)}
                 </Text>
               </View>
             </View>
           ) : hrvSparkline ? (
             <View style={styles.heroValueRow}>
-              <Text style={[styles.heroValueFixed, { color: colors.chartPink }]}>{currentHrv}</Text>
-              <Text style={[styles.heroLabel, { color: colors.chartPink }]}>HRV</Text>
+              <Text style={[styles.heroValueFixed, { color: fatigueTextColor }]}>{currentHrv}</Text>
+              <Text style={[styles.heroLabel, { color: fatigueTextColor }]}>HRV</Text>
               {currentRhr !== null && (
                 <>
-                  <Text style={[styles.secondaryValueFixed, { color: colors.formHighRisk }]}>
+                  <Text style={[styles.secondaryValueFixed, { color: rhrColor }]}>
                     {currentRhr}
                   </Text>
-                  <Text style={[styles.secondaryLabel, { color: colors.formHighRisk }]}>RHR</Text>
+                  <Text style={[styles.secondaryLabel, { color: rhrColor }]}>RHR</Text>
                 </>
               )}
             </View>
@@ -255,7 +267,7 @@ export const SummaryCard = React.memo(function SummaryCard({
               {heroZoneLabel && (
                 <View
                   testID="summary-card-form-zone"
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}
                 >
                   <View style={[styles.zoneDot, { backgroundColor: heroZoneColor || heroColor }]} />
                   <Text style={[styles.zoneLabel, { color: heroZoneColor || heroColor }]}>
@@ -473,7 +485,7 @@ const styles = StyleSheet.create({
   },
   heroTrend: {
     fontSize: typography.cardTitle.fontSize,
-    marginLeft: 1,
+    marginLeft: spacing.xxs,
   },
   heroLabel: {
     fontSize: typography.bodySmall.fontSize,
@@ -502,12 +514,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
     flexWrap: 'wrap',
-    gap: 2,
+    gap: spacing.xxs,
   },
   supportingMetric: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
   },
   metricLabel: {
     fontSize: typography.caption.fontSize,
@@ -521,7 +533,7 @@ const styles = StyleSheet.create({
   },
   metricTrend: {
     fontSize: typography.micro.fontSize,
-    marginLeft: 1,
+    marginLeft: spacing.xxs,
   },
   metricDivider: {
     fontSize: typography.caption.fontSize,

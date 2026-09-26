@@ -4,9 +4,9 @@ import { Canvas, Rect, Line as SkiaLine, Path, Skia, vec } from '@shopify/react-
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
-import { darkColors, colors, colorWithOpacity, typography } from '@/theme';
+import { darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
 import { getFormZone, FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
-import { getIntlLocale } from '@/shared/format/format';
+import { scrubDateLabel } from '../lib/scrubDateLabel';
 import { buildMonotoneSvg, useChartGestures } from '@/shared/charts';
 
 const PLOT_TOP = 2;
@@ -97,13 +97,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     const form = formRef.current;
     const cb = onScrubRef.current;
     if (!cb || index < 0 || index >= fitness.length) return;
-    const daysAgo = fitness.length - 1 - index;
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    const dateLabel = date.toLocaleDateString(getIntlLocale(), {
-      month: 'short',
-      day: 'numeric',
-    });
+    const dateLabel = scrubDateLabel(fitness.length - 1 - index);
     cb({
       fitness: fitness[index],
       fatigue: fatigue ? fatigue[index] : fitness[index],
@@ -191,7 +185,14 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
           {/* Optional inline labels (settings preview only) */}
           {showLabels && (
             <View style={[styles.labelColumn, { width: labelWidth }]}>
-              <RNText style={[styles.inlineLabel, { color: colors.fitnessBlue }]}>Fitness</RNText>
+              <RNText
+                style={[
+                  styles.inlineLabel,
+                  { color: isDark ? darkColors.fitnessBlueText : colors.fitnessBlueText },
+                ]}
+              >
+                Fitness
+              </RNText>
               <View style={{ flex: 1 }} />
               <RNText style={[styles.inlineLabel, { color: labelColor }]}>Form</RNText>
             </View>
@@ -303,7 +304,7 @@ const styles = StyleSheet.create({
   },
   labelColumn: {
     justifyContent: 'space-between',
-    paddingVertical: 1,
+    paddingVertical: spacing.xxs,
   },
   inlineLabel: {
     fontSize: typography.pillLabel.fontSize,

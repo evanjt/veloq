@@ -4,7 +4,8 @@ import { Canvas, Path, Skia, vec, LinearGradient } from '@shopify/react-native-s
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
-import { darkColors, colors, colorWithOpacity, typography } from '@/theme';
+import { darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
+import { formZoneTextColor } from '@/features/fitness';
 import {
   buildMonotoneSvg,
   buildMonotoneAreaSvg,
@@ -12,6 +13,7 @@ import {
   useChartGestures,
 } from '@/shared/charts';
 import type { ScrubValues } from './SummaryCardSparkline';
+import { scrubDateLabel } from '../lib/scrubDateLabel';
 
 /** Match total height of fitness sparkline (44 chart + 4 form bar) */
 const CHART_HEIGHT = 48;
@@ -87,13 +89,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
     const rhr = rhrRef.current;
     const cb = onScrubRef.current;
     if (!cb || index < 0 || index >= hrv.length) return;
-    const daysAgo = hrv.length - 1 - index;
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    const dateLabel = date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-    });
+    const dateLabel = scrubDateLabel(hrv.length - 1 - index);
     cb({
       fitness: 0,
       fatigue: 0,
@@ -178,10 +174,21 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
         <View style={styles.chartRow}>
           {showLabels && (
             <View style={[styles.labelColumn, { width: labelWidth }]}>
-              <RNText style={[styles.inlineLabel, { color: colors.chartPink }]}>HRV</RNText>
+              <RNText
+                style={[
+                  styles.inlineLabel,
+                  { color: isDark ? darkColors.chartPinkText : colors.chartPinkText },
+                ]}
+              >
+                HRV
+              </RNText>
               <View style={{ flex: 1 }} />
               {hasRhr && (
-                <RNText style={[styles.inlineLabel, { color: colors.formHighRisk }]}>RHR</RNText>
+                <RNText
+                  style={[styles.inlineLabel, { color: formZoneTextColor('highRisk', isDark) }]}
+                >
+                  RHR
+                </RNText>
               )}
             </View>
           )}
@@ -288,7 +295,7 @@ const styles = StyleSheet.create({
   },
   labelColumn: {
     justifyContent: 'space-between',
-    paddingVertical: 1,
+    paddingVertical: spacing.xxs,
   },
   inlineLabel: {
     fontSize: typography.pillLabel.fontSize,

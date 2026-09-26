@@ -29,6 +29,7 @@ export {
   type MetricPreference,
 } from './store';
 
+export { feedEmptyState, type FeedEmptyState } from './lib/feedEmptyState';
 export { updateWidgetSnapshot, writeWidgetSnapshot } from './lib/widgetBridge';
 export {
   composeSnapshot,
