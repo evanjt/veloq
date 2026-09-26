@@ -17,19 +17,12 @@ import { BASEMAP_SPRITE } from '@/features/maps/assets/basemapSprite.generated';
 import { BASEMAP_GLYPHS_NOTOSANSBOLD } from '@/features/maps/assets/basemapGlyphsNotoSansBold.generated';
 import { BASEMAP_GLYPHS_NOTOSANSITALIC } from '@/features/maps/assets/basemapGlyphsNotoSansItalic.generated';
 import { BASEMAP_GLYPHS_NOTOSANSREGULAR } from '@/features/maps/assets/basemapGlyphsNotoSansRegular.generated';
+import { BUNDLED_GLYPH_RANGES } from '@/features/maps/lib/bundledGlyphs';
 
 export const BUNDLED_SPRITE_DIR = 'sprites/ofm_f384';
 export const BUNDLED_SPRITE_FILES = ['ofm.json', 'ofm.png', 'ofm@2x.json', 'ofm@2x.png'];
 
-export const BUNDLED_GLYPH_STACKS = ['Noto Sans Regular', 'Noto Sans Bold', 'Noto Sans Italic'];
-export const BUNDLED_GLYPH_RANGES = [
-  '0-255',
-  '256-511',
-  '512-767',
-  '768-1023',
-  '7680-7935',
-  '8192-8447',
-];
+export { BUNDLED_GLYPH_STACKS, BUNDLED_GLYPH_RANGES } from '@/features/maps/lib/bundledGlyphs';
 
 const GLYPHS: Record<string, Record<string, string>> = {
   'Noto Sans Regular': BASEMAP_GLYPHS_NOTOSANSREGULAR,

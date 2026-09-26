@@ -16,8 +16,11 @@ import Animated, {
   cancelAnimation,
 } from 'react-native-reanimated';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
-import { colors, ink, typography } from '@/theme';
+import { formatLibraryCoverage } from '@/shared/format/libraryCoverage';
+import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
+import { colors, ink, typography, spacing, colorWithOpacity } from '@/theme';
 
 interface SyncProgressBannerProps {
   /** Whether the banner is visible */
@@ -29,7 +32,12 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   // GPS sync progress from shared store
   const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
-  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
+  const isFetchingExtended = useSyncDateRange((s) => isExtendedFetchRunning(s.extendedFetch));
+
+  // The queue figure above is the running pass's own, so it reaches "12/12"
+  // with a thousand rides still upstream. These lines are the library.
+  const coverage = useLibraryCoverage();
+  const libraryLines = useMemo(() => formatLibraryCoverage(coverage, t), [coverage, t]);
 
   const isProcessingRoutes =
     isGpsSyncing &&
@@ -63,13 +71,20 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   const heightFraction = useSharedValue(0);
   const indeterminateOffset = useSharedValue(0);
 
-  // Update shared values reactively
-  heightFraction.value = withTiming(shouldShow ? 1 : 0, { duration: 200 });
-  if (displayInfo) {
-    // Use a longer duration for the progress bar so it smoothly interpolates
-    // between reported values instead of jumping (600ms matches ~4 poll cycles).
-    progressValue.value = withTiming(displayInfo.percent / 100, { duration: 600 });
-  }
+  // In an effect, not the render body. A write there restarts both animations
+  // on every render the timeline causes, and on the renders React throws away,
+  // so the ease starts again from wherever it had got to.
+  const percent = displayInfo?.percent ?? null;
+  useEffect(() => {
+    heightFraction.value = withTiming(shouldShow ? 1 : 0, { duration: 200 });
+  }, [shouldShow, heightFraction]);
+
+  useEffect(() => {
+    if (percent === null) return;
+    // A longer duration for the progress bar so it interpolates between
+    // reported values instead of jumping (600ms is about four poll cycles).
+    progressValue.value = withTiming(percent / 100, { duration: 600 });
+  }, [percent, progressValue]);
 
   // Indeterminate animation
   const isIndeterminate = displayInfo?.indeterminate ?? false;
@@ -115,6 +130,15 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
         </Text>
         {displayInfo.countText && <Text style={styles.countText}>{displayInfo.countText}</Text>}
       </View>
+      {libraryLines.length > 0 && (
+        <View style={styles.libraryLines} testID="sync-library-coverage">
+          {libraryLines.map((line) => (
+            <Text key={line} style={styles.countText}>
+              {line}
+            </Text>
+          ))}
+        </View>
+      )}
       <View style={styles.progressTrack}>
         {displayInfo.indeterminate ? (
           <Animated.View
@@ -137,22 +161,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
   },
   text: {
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
   },
   countText: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: colorWithOpacity(ink.white, 0.7),
     fontSize: typography.caption.fontSize,
+  },
+  libraryLines: {
+    alignItems: 'center',
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   progressTrack: {
     height: 3,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: colorWithOpacity(ink.black, 0.2),
   },
   progressFill: {
     height: '100%',

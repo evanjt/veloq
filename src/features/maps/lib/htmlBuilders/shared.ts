@@ -69,8 +69,13 @@ export function vectorProtocolScript(): string {
           // A zero-length hit is a poisoned entry from the build that asked the
           // origin for the unversioned path. Refetch rather than serve it.
           if (cached) {
+            var touchable = cached.clone();
             return cached.arrayBuffer().then(function(d) {
-              if (d.byteLength > 0) { vecHits++; return { data: d }; }
+              if (d.byteLength > 0) {
+                vecHits++;
+                _veloqTouch(cache, realUrl, touchable);
+                return { data: d };
+              }
               return vectorFetch(cache, realUrl);
             });
           }
@@ -89,7 +94,7 @@ export function vectorProtocolScript(): string {
         var copy = r.clone();
         return r.arrayBuffer().then(function(d) {
           if (d.byteLength === 0) throw new Error('empty vector tile: ' + realUrl);
-          cache.put(realUrl, copy); maybeEvict(VECTOR_CACHE);
+          _veloqPut(cache, realUrl, copy); maybeEvict(VECTOR_CACHE);
           return { data: d };
         });
       });
@@ -98,19 +103,20 @@ export function vectorProtocolScript(): string {
 }
 
 /**
- * Registers the `cached-terrain`, `cached-satellite`, `cached-ground`,
- * `cached-vector` and `heatmap-file` protocols on `maplibregl`.
+ * Registers the `cached-satellite`, `cached-ground`, `cached-vector` and
+ * `heatmap-file` protocols on `maplibregl`.
  *
- * The three cache protocols back onto the Cache API keyed off the stable
- * `https://veloq.fit/` base URL, so tiles survive a WebView being recreated.
- * Eviction is FIFO and size-capped, checked every 50 inserts per cache.
- * `heatmap-file` round-trips to React Native, which reads the PNG off disk.
+ * Reached only where nothing can intercept, which is the web: both handsets
+ * ask for every tile on the page's own origin and the Rust store answers. The
+ * two cache protocols back onto the Cache API keyed off the page's base URL,
+ * so tiles survive a WebView being recreated. Eviction is FIFO and
+ * size-capped, checked every 50 inserts per cache. `heatmap-file` round-trips
+ * to React Native, which reads the PNG off disk. The terrain DEM has no
+ * protocol here at all: it goes through the intercept and the Rust store is
+ * the one tier that keeps it.
  *
- * Defines `terrainHits`/`terrainMisses`, `satHits`/`satMisses`,
- * `groundHits`/`groundMisses` and `vecHits`/`vecMisses` counters that callers
- * may log, plus
- * `terrainDelivered`/`terrainFailed`, which the 3D page reads to tell a flat
- * map from a terrain one.
+ * Defines `satHits`/`satMisses`, `groundHits`/`groundMisses` and
+ * `vecHits`/`vecMisses` counters that callers may log.
  *
  * `tileCacheBudgetMb` is the athlete's setting. It is baked in rather than
  * pushed at runtime because the page is rebuilt when it changes, and a live
@@ -140,67 +146,17 @@ export function tileProtocolsScript(options: { tileCacheBudgetMb?: number } = {}
 
 ${cacheEvictionScript(options.tileCacheBudgetMb)}
 
-    var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
-    var terrainHits = 0, terrainMisses = 0;
-    // Deliveries and failures, not cache hits and misses: a miss that the
-    // network serves is still terrain on screen. A page with failures and no
-    // deliveries has no terrain at all, which is what the 3D page reports on.
-    var terrainDelivered = 0, terrainFailed = 0;
-
-    // One path for the protocol handler and the zoom prefetch alike. A prefetch
-    // that fetches the tile any other way warms the platform HTTP cache, which
-    // no budget bounds and no handler reads.
-    function terrainTile(realUrl) {
-      return caches.open(TERRAIN_CACHE).then(function(cache) {
-        return cache.match(realUrl).then(function(cached) {
-          if (cached) {
-            terrainHits++;
-            return cached;
-          }
-          terrainMisses++;
-          return fetch(realUrl).then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(TERRAIN_CACHE);
-            return r;
-          });
-        });
-      });
-    }
-
-    window._prefetchTerrainTile = function(realUrl) {
-      return terrainTile(realUrl).catch(function(err) {
-        window._rn_log('terrain prefetch failed: ' + err.message);
-      });
-    };
-
-    maplibregl.addProtocol('cached-terrain', function(params) {
-      var realUrl = 'https://' + params.url.substring('cached-terrain://'.length);
-      return terrainTile(realUrl).then(function(r) {
-        return r.blob().then(demBlobToImage);
-      }).then(function(image) {
-        terrainDelivered++;
-        return image;
-      }).catch(function(err) {
-        terrainFailed++;
-        window._rn_log('terrain protocol error: ' + err.message);
-        throw err;
-      });
-    });
-
-    var SATELLITE_CACHE = 'veloq-satellite-v1';
+    // Imagery is drawn and dropped. Offline the map falls back to the vector
+    // basemap, so a satellite tile kept here would only spend the pool that
+    // basemap needs, and imagery is the heaviest source there is. satHits
+    // stays at zero and is kept so the counters the page logs still line up.
     var satHits = 0, satMisses = 0;
     maplibregl.addProtocol('cached-satellite', function(params) {
       var realUrl = 'https://' + params.url.substring('cached-satellite://'.length);
-      return caches.open(SATELLITE_CACHE).then(function(cache) {
-        return cache.match(realUrl).then(function(cached) {
-          if (cached) { satHits++; return cached.blob().then(demBlobToImage); }
-          satMisses++;
-          return fetch(realUrl).then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(SATELLITE_CACHE);
-            return r.blob().then(demBlobToImage);
-          });
-        });
+      satMisses++;
+      return fetch(realUrl).then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.blob().then(demBlobToImage);
       });
     });
 
@@ -213,11 +169,15 @@ ${cacheEvictionScript(options.tileCacheBudgetMb)}
       var realUrl = 'https://' + params.url.substring('cached-ground://'.length);
       return caches.open(GROUND_CACHE).then(function(cache) {
         return cache.match(realUrl).then(function(cached) {
-          if (cached) { groundHits++; return cached.blob().then(demBlobToImage); }
+          if (cached) {
+            groundHits++;
+            _veloqTouch(cache, realUrl, cached.clone());
+            return cached.blob().then(demBlobToImage);
+          }
           groundMisses++;
           return fetch(realUrl).then(function(r) {
             if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(GROUND_CACHE);
+            _veloqPut(cache, realUrl, r.clone()); maybeEvict(GROUND_CACHE);
             return r.blob().then(demBlobToImage);
           });
         });

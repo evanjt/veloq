@@ -10,7 +10,7 @@
 
 import React, { memo, forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import { colors, spacing, typography } from '@/theme';
+import { colors, spacing, typography, colorWithOpacity, ink } from '@/theme';
 
 const PILL_INSET = 4;
 /** Share of the map the pill may claim before it wraps instead of spreading. */
@@ -89,13 +89,13 @@ const attributionStyles = StyleSheet.create({
     // licence condition, so it is bounded and wrapped, never truncated.
     maxWidth: PILL_MAX_WIDTH,
     paddingBottom: PILL_INSET,
-    paddingRight: 6,
+    paddingRight: spacing.xsPlus,
     zIndex: 5,
   },
   attributionPill: {
     alignSelf: 'flex-end',
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 10,
+    backgroundColor: colorWithOpacity(ink.white, 0.7),
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: PILL_PADDING_VERTICAL,
     borderRadius: spacing.sm,
   },

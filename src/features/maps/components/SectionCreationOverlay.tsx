@@ -9,14 +9,15 @@ import {
   StyleSheet,
   TouchableOpacity,
   Text,
-  Animated,
+  ActivityIndicator,
   LayoutAnimation,
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, typography, spacing, layout, shadows } from '@/theme';
+import { colors, typography, spacing, layout, shadows, colorWithOpacity, ink } from '@/theme';
+import { sectionSizeTone, type SizeTone } from '@/features/maps/lib/sectionSizeTone';
 import { formatDistance } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app';
 
@@ -64,19 +65,6 @@ interface SectionCreationOverlayProps {
   onReset: () => void;
   /** Called to dismiss error and retry */
   onDismissError?: () => void;
-}
-
-/**
- * Get color based on section point count.
- * Correlates with storage size (~65 bytes/point, 500KB limit ≈ 7,700 points).
- * Green: <2000, Yellow: 2000-5000, Orange: 5000-7000, Red: >7000
- */
-function getSectionSizeColor(pointCount: number | null): string {
-  if (pointCount === null) return colors.primary;
-  if (pointCount < 2000) return colors.success;
-  if (pointCount < 5000) return colors.cautionYellow;
-  if (pointCount < 7000) return colors.cautionOrange;
-  return colors.error;
 }
 
 /**
@@ -172,14 +160,14 @@ export function SectionCreationOverlay({
   const isError = state === 'error';
   const hasSelection = startIndex !== null;
 
-  // Determine status color based on state
-  const getStatusColor = () => {
-    if (isError) return colors.error;
-    if (isCreating) return colors.primary;
-    if (isComplete) return getSectionSizeColor(sectionPointCount);
-    return colors.primary;
-  };
-  const statusColor = getStatusColor();
+  // The icon's fill and the line's text tone. Both used to be the one fill, so
+  // the line read at 1.47:1 on a pill that is 95 per cent white.
+  const statusTone = ((): SizeTone => {
+    if (isError) return { fill: colors.error, text: colors.errorDeep };
+    if (isCreating) return sectionSizeTone(null);
+    if (isComplete) return sectionSizeTone(sectionPointCount);
+    return sectionSizeTone(null);
+  })();
   const sizeWarning = isComplete ? getSectionSizeWarning(sectionPointCount) : null;
 
   // Auto-expand on error to show details
@@ -216,14 +204,12 @@ export function SectionCreationOverlay({
         >
           <View style={styles.statusRow}>
             {isCreating ? (
-              <Animated.View style={styles.spinner}>
-                <MaterialCommunityIcons name="loading" size={18} color={statusColor} />
-              </Animated.View>
+              <ActivityIndicator size="small" color={statusTone.fill} />
             ) : (
-              <MaterialCommunityIcons name={getStatusIcon()} size={18} color={statusColor} />
+              <MaterialCommunityIcons name={getStatusIcon()} size={18} color={statusTone.fill} />
             )}
             <Text
-              style={[styles.statusText, { color: statusColor }]}
+              style={[styles.statusText, { color: statusTone.text }]}
               numberOfLines={isError ? 2 : 1}
             >
               {getStatusText()}
@@ -327,8 +313,8 @@ export function SectionCreationOverlay({
               )}
               {sizeWarning && (
                 <View style={styles.warningRow}>
-                  <MaterialCommunityIcons name="alert-outline" size={14} color={statusColor} />
-                  <Text style={[styles.detailText, { color: statusColor }]}>{sizeWarning}</Text>
+                  <MaterialCommunityIcons name="alert-outline" size={14} color={statusTone.fill} />
+                  <Text style={[styles.detailText, { color: statusTone.text }]}>{sizeWarning}</Text>
                 </View>
               )}
               {/* Reset option in expanded view */}
@@ -404,7 +390,7 @@ const styles = StyleSheet.create({
   },
   statusPill: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     borderRadius: layout.borderRadiusFull,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
@@ -418,9 +404,6 @@ const styles = StyleSheet.create({
   statusPillError: {
     borderWidth: 1,
     borderColor: colors.error,
-  },
-  spinner: {
-    // Placeholder for spinner animation if needed
   },
   statusRow: {
     flexDirection: 'row',
@@ -481,7 +464,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   technicalDetails: {
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    backgroundColor: colorWithOpacity(ink.black, 0.03),
     borderRadius: spacing.xs,
     padding: spacing.sm,
     gap: spacing.xs,

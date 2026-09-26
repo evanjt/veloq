@@ -22,6 +22,9 @@ import React, {
 } from 'react';
 import { PixelRatio, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+
+import { veloqWebViewNativeConfig } from '@/features/maps/lib/veloqWebView';
+import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -30,6 +33,7 @@ import { darkColors, spacing, typography } from '@/theme';
 import { ComponentErrorBoundary } from '@/shared/ui';
 import { debug } from '@/shared/debug/debug';
 import { HEATMAP_TILES_DIR } from '@/features/maps/hooks/useHeatmapTiles';
+import { heatmapTilePath } from '@/features/maps/lib/webViewLiterals';
 import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
 import type {
   WebViewBridgeHandlers,
@@ -54,6 +58,8 @@ import {
   buildSetStyleScript,
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import { buildReleaseMapScript } from '@/features/maps/lib/htmlBuilders/shared';
+import { createSurfacePatcher } from '@/features/maps/lib/mapSurfacePatch';
+import { createPendingRequests } from '@/features/maps/lib/pendingRequests';
 import { registerReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
 import type {
   MapCameraSpec,
@@ -65,6 +71,13 @@ import type {
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import type { WebViewStyleOptions } from '@/features/maps/lib/htmlBuilders/styleResolution';
 import type { MapStyleType } from './mapStyles';
+import {
+  emitTileCacheStats,
+  onTileCacheStatsRequest,
+} from '@/features/maps/lib/terrainSnapshotEvents';
+import { useLiveTileCacheBudget } from '@/features/maps/hooks/useLiveTileCacheBudget';
+import { useLiveTileCacheClear } from '@/features/maps/hooks/useLiveTileCacheClear';
+import { tileCacheStatsScript } from '@/features/maps/lib/tileCacheBudget';
 
 const log = debug.create('MapSurface');
 
@@ -155,8 +168,6 @@ export interface MapSurfaceProps {
   testID?: string;
 }
 
-type PendingResolver = (value: unknown) => void;
-
 function toCameraState(data: WebViewBridgeMessage): MapCameraState | null {
   const center = data.center as LngLat | undefined;
   const bounds = data.bounds as LngLatBounds | undefined;
@@ -212,14 +223,10 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   const failedRef = useRef(false);
   const [unavailable, setUnavailable] = useState(false);
 
-  // Last spec actually sent, so a re-render only ships what moved.
-  const sentSourcesRef = useRef<Record<string, string>>({});
-  const sentLayersRef = useRef<string>('');
-  const sentMarkersRef = useRef<string>('');
-  const sentImagesRef = useRef<string>('');
+  // What the page has been told, so a re-render only ships what moved.
+  const patcherRef = useRef(createSurfacePatcher());
 
-  const pendingRef = useRef(new Map<string, PendingResolver>());
-  const requestSeqRef = useRef(0);
+  const pendingRef = useRef(createPendingRequests());
 
   // Callbacks live in refs so the bridge handler map stays stable.
   const callbacksRef = useRef({
@@ -276,48 +283,16 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     // until the page says it is ready and send the whole spec then.
     if (!readyRef.current) return;
 
-    const changedSources: Record<string, MapSourceSpec | null> = {};
-    let hasSourceChange = false;
+    const { patch } = patcherRef.current.next({
+      sources,
+      layers,
+      markers,
+      images,
+      interactiveLayers,
+    });
+    if (!patch) return;
 
-    for (const [id, spec] of Object.entries(sources)) {
-      const serialised = JSON.stringify(spec);
-      if (sentSourcesRef.current[id] !== serialised) {
-        changedSources[id] = spec;
-        sentSourcesRef.current[id] = serialised;
-        hasSourceChange = true;
-      }
-    }
-    for (const id of Object.keys(sentSourcesRef.current)) {
-      if (!(id in sources)) {
-        changedSources[id] = null;
-        delete sentSourcesRef.current[id];
-        hasSourceChange = true;
-      }
-    }
-
-    const layersJSON = JSON.stringify(layers);
-    const layersChanged = layersJSON !== sentLayersRef.current;
-    sentLayersRef.current = layersJSON;
-
-    const markersJSON = JSON.stringify(markers ?? []);
-    const markersChanged = markersJSON !== sentMarkersRef.current;
-    sentMarkersRef.current = markersJSON;
-
-    const imagesJSON = JSON.stringify(images ?? []);
-    const imagesChanged = imagesJSON !== sentImagesRef.current;
-    sentImagesRef.current = imagesJSON;
-
-    if (!hasSourceChange && !layersChanged && !markersChanged && !imagesChanged) return;
-
-    inject(
-      buildApplyScript({
-        ...(imagesChanged || images ? { images: images ?? [] } : {}),
-        ...(hasSourceChange ? { sources: changedSources } : {}),
-        ...(layersChanged ? { layers } : {}),
-        ...(markersChanged ? { markers: markers ?? [] } : {}),
-        ...(interactiveLayers ? { interactiveLayers } : {}),
-      })
-    );
+    inject(buildApplyScript(patch));
   }, [sources, layers, markers, images, interactiveLayers, inject]);
 
   // The bridge handlers are built once, so they reach the current patch sender
@@ -337,21 +312,14 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   }, []);
 
   const resolvePending = useCallback((requestId: string, value: unknown) => {
-    const resolver = pendingRef.current.get(requestId);
-    if (!resolver) return;
-    pendingRef.current.delete(requestId);
-    resolver(value);
+    pendingRef.current.settle(requestId, value);
   }, []);
 
+  // The empty answer each caller passes is what it is handed if the page goes
+  // away before it replies, so nothing waits on a promise that cannot settle.
   const request = useCallback(
-    <T,>(build: (requestId: string) => string): Promise<T> => {
-      requestSeqRef.current += 1;
-      const requestId = `req_${requestSeqRef.current}`;
-      return new Promise<T>((resolve) => {
-        pendingRef.current.set(requestId, resolve as PendingResolver);
-        inject(build(requestId));
-      });
-    },
+    <T,>(empty: T, build: (requestId: string) => string): Promise<T> =>
+      pendingRef.current.open<T>(empty, (requestId) => inject(build(requestId))),
     [inject]
   );
 
@@ -362,10 +330,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
         readyRef.current = true;
         failedRef.current = false;
         setUnavailable(false);
-        sentSourcesRef.current = {};
-        sentLayersRef.current = '';
-        sentMarkersRef.current = '';
-        sentImagesRef.current = '';
+        patcherRef.current.forget();
         sendPatchRef.current();
         callbacksRef.current.onMapReady?.();
       },
@@ -407,7 +372,9 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       },
       heatmapTileRequest: async (data) => {
         const requestId = data.requestId as string;
-        const tilePath = data.tilePath as string;
+        // The page decides this path, so it is checked against the one shape a
+        // tile can take before it is joined onto anything.
+        const tilePath = heatmapTilePath(data.tilePath);
         if (!requestId || !tilePath) return;
         if (!serveHeatmapTiles) {
           inject(buildHeatmapTileReplyScript(requestId, null));
@@ -427,9 +394,33 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
           inject(buildHeatmapTileReplyScript(requestId, null));
         }
       },
+      tileCacheStats: (data) => {
+        emitTileCacheStats({
+          tileCount: (data.tileCount as number) ?? 0,
+          totalBytes: (data.totalBytes as number) ?? 0,
+          vector: (data.vector as { tileCount: number; totalBytes: number }) ?? undefined,
+          ground: (data.ground as { tileCount: number; totalBytes: number }) ?? undefined,
+        });
+      },
     }),
     [inject, reportFailure, resolvePending, serveHeatmapTiles]
   );
+
+  // Any interactive map that is up can read the buckets, and it is the only
+  // surface that can: the snapshot pool is torn down whenever the feed is not
+  // focused, so a request made from settings reached nothing at all.
+  useEffect(() => {
+    return onTileCacheStatsRequest(() => {
+      if (!readyRef.current) return;
+      inject(tileCacheStatsScript());
+    });
+  }, [inject]);
+
+  // The ceiling is baked into the HTML when the page is built, so a change made
+  // while this map is open has to be sent in. The clear is the same: the pool
+  // that used to be the only subscriber is not mounted when settings is up.
+  useLiveTileCacheBudget(inject);
+  useLiveTileCacheClear(inject);
 
   const handleMessage = useWebViewBridge(handlers);
 
@@ -460,23 +451,23 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
         inject(buildResetOrientationScript());
       },
       queryFeatures: (point, queryLayers, radius) =>
-        request<MapFeatureHit[]>((requestId) =>
+        request<MapFeatureHit[]>([], (requestId) =>
           buildQueryFeaturesScript(requestId, point, queryLayers, radius)
         ),
       queryViewportFeatures: (queryLayers) =>
-        request<MapFeatureHit[]>((requestId) =>
+        request<MapFeatureHit[]>([], (requestId) =>
           buildQueryViewportFeaturesScript(requestId, queryLayers)
         ),
       getClusterLeaves: (sourceId, clusterId, limit = 100, offset = 0) =>
-        request<GeoJSON.Feature[]>((requestId) =>
+        request<GeoJSON.Feature[]>([], (requestId) =>
           buildClusterLeavesScript(requestId, sourceId, clusterId, limit, offset)
         ),
       getClusterExpansionZoom: (sourceId, clusterId) =>
-        request<number | null>((requestId) =>
+        request<number | null>(null, (requestId) =>
           buildClusterExpansionZoomScript(requestId, sourceId, clusterId)
         ),
       projectPoints: (points) =>
-        request<{ id: string; x: number; y: number }[]>((requestId) =>
+        request<{ id: string; x: number; y: number }[]>([], (requestId) =>
           buildProjectPointsScript(requestId, points)
         ),
     }),
@@ -486,10 +477,8 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   // A crashed render process comes back empty, so everything has to resend.
   const handleCrash = useCallback(() => {
     readyRef.current = false;
-    sentSourcesRef.current = {};
-    sentLayersRef.current = '';
-    sentMarkersRef.current = '';
-    sentImagesRef.current = '';
+    patcherRef.current.forget();
+    pendingRef.current.abandon();
     webViewRef.current?.reload();
   }, []);
 
@@ -500,6 +489,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       registerReleasableSurface({
         release: () => {
           readyRef.current = false;
+          pendingRef.current.abandon();
           inject(buildReleaseMapScript());
         },
         rebuild: handleCrash,
@@ -509,10 +499,14 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
 
   useEffect(() => {
     const pending = pendingRef.current;
+    // Both captured on mount. React detaches the ref before this cleanup runs,
+    // so reading `webViewRef.current` here finds null and the page goes on
+    // loading after the surface is gone.
+    const webView = webViewRef.current;
     return () => {
       readyRef.current = false;
-      pending.clear();
-      webViewRef.current?.stopLoading();
+      pending.abandon();
+      webView?.stopLoading();
     };
   }, []);
 
@@ -522,7 +516,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
         <WebView
           ref={webViewRef}
           testID={testID}
-          source={{ html, baseUrl: 'https://veloq.fit/' }}
+          source={{ html, baseUrl: mapPageBaseUrl() }}
           style={styles.webview}
           scrollEnabled={false}
           bounces={false}
@@ -536,6 +530,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
           originWhitelist={['*']}
           mixedContentMode="always"
           androidLayerType="hardware"
+          nativeConfig={veloqWebViewNativeConfig}
           onMessage={handleMessage}
           onContentProcessDidTerminate={handleCrash}
           onRenderProcessGone={handleCrash}

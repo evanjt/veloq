@@ -1,10 +1,10 @@
 /**
  * Source and layer specs for the activity detail map.
  *
- * Back to front: the matched route overlay, the activity line (solid or
- * gradient), the section portions cut out of that line, the boundary ticks that
- * mark where each portion starts and ends, the section markers, and finally the
- * chart-scrub highlight.
+ * Back to front: the matched route overlay and its casing, the activity line
+ * (solid or gradient), the section portions cut out of that line, the ticks that
+ * mark where each portion starts and ends, the section markers, and finally
+ * the chart-scrub highlight.
  *
  * Section markers used to be React views anchored with `MarkerView` because the
  * native renderer could not be trusted with a boolean filter. GL JS filters
@@ -12,14 +12,25 @@
  */
 import { colors, mapLayerColors, sectionPalette, sectionPaletteExpression, brand } from '@/theme';
 import type { MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
-import { TROPHY_ICON_ID } from '@/features/maps/lib/mapIcons';
+import {
+  SECTION_END_ICON_ID,
+  SECTION_START_ICON_ID,
+  TROPHY_ICON_ID,
+} from '@/features/maps/lib/mapIcons';
+import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
+import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
 
 export const SECTION_MARKER_LAYER_IDS = ['section-marker-pr-icon', 'section-marker-circle'];
 
-interface ActivityLayerInput {
+// The matched route runs under the activity track, often within a metre of it.
+// It needs its own casing and more width than the track above it, or satellite
+// terrain and the track between them leave nothing to follow.
+const OVERLAY_CASING_WIDTH = 12;
+const OVERLAY_LINE_WIDTH = 9;
+
+interface ActivitySourceInput {
   routeGeoJSON: GeoJSON.FeatureCollection | GeoJSON.Feature;
   overlayGeoJSON: GeoJSON.FeatureCollection | GeoJSON.Feature;
-  overlayHasData: boolean;
   consolidatedPortionsGeoJSON: GeoJSON.FeatureCollection;
   sectionBoundariesGeoJSON: GeoJSON.FeatureCollection;
   sectionMarkersGeoJSON: GeoJSON.FeatureCollection;
@@ -27,6 +38,10 @@ interface ActivityLayerInput {
   endpointsGeoJSON: GeoJSON.FeatureCollection;
   sectionCreationLine: GeoJSON.FeatureCollection | GeoJSON.Feature;
   sectionCreationMarkers: GeoJSON.FeatureCollection;
+}
+
+interface ActivityLayerInput {
+  overlayHasData: boolean;
   activityColor: string;
   gradientActive: boolean;
   gradientLineExpression: unknown;
@@ -37,20 +52,38 @@ interface ActivityLayerInput {
   creationMode: boolean;
 }
 
-export function buildActivitySources(input: ActivityLayerInput): Record<string, MapSourceSpec> {
+type GeoJSONData = GeoJSON.FeatureCollection | GeoJSON.Feature;
+
+// The surface patcher compares each source by identity, so a wrapper is made
+// once per data object. A scrub then re-serialises the highlight alone rather
+// than the whole track twice over.
+const plainSpecs = new WeakMap<GeoJSONData, MapSourceSpec>();
+const lineMetricSpecs = new WeakMap<GeoJSONData, MapSourceSpec>();
+
+function geojsonSource(data: GeoJSONData, lineMetrics = false): MapSourceSpec {
+  const cache = lineMetrics ? lineMetricSpecs : plainSpecs;
+  let spec = cache.get(data);
+  if (!spec) {
+    spec = lineMetrics ? { kind: 'geojson', data, lineMetrics: true } : { kind: 'geojson', data };
+    cache.set(data, spec);
+  }
+  return spec;
+}
+
+export function buildActivitySources(input: ActivitySourceInput): Record<string, MapSourceSpec> {
   return {
-    overlay: { kind: 'geojson', data: input.overlayGeoJSON },
-    route: { kind: 'geojson', data: input.routeGeoJSON },
+    overlay: geojsonSource(input.overlayGeoJSON),
+    route: geojsonSource(input.routeGeoJSON),
     // A separate source because line-gradient needs line-progress, and that
     // only exists on a source built with lineMetrics.
-    'route-gradient': { kind: 'geojson', data: input.routeGeoJSON, lineMetrics: true },
-    portions: { kind: 'geojson', data: input.consolidatedPortionsGeoJSON },
-    'section-boundaries': { kind: 'geojson', data: input.sectionBoundariesGeoJSON },
-    'section-markers': { kind: 'geojson', data: input.sectionMarkersGeoJSON },
-    'section-creation-line': { kind: 'geojson', data: input.sectionCreationLine },
-    'section-creation-markers': { kind: 'geojson', data: input.sectionCreationMarkers },
-    endpoints: { kind: 'geojson', data: input.endpointsGeoJSON },
-    highlight: { kind: 'geojson', data: input.highlightGeoJSON },
+    'route-gradient': geojsonSource(input.routeGeoJSON, true),
+    portions: geojsonSource(input.consolidatedPortionsGeoJSON),
+    'section-boundaries': geojsonSource(input.sectionBoundariesGeoJSON),
+    'section-markers': geojsonSource(input.sectionMarkersGeoJSON),
+    'section-creation-line': geojsonSource(input.sectionCreationLine),
+    'section-creation-markers': geojsonSource(input.sectionCreationMarkers),
+    endpoints: geojsonSource(input.endpointsGeoJSON),
+    highlight: geojsonSource(input.highlightGeoJSON),
   };
 }
 
@@ -84,13 +117,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
   ];
 
   return [
-    {
-      id: 'overlay-line',
-      type: 'line',
-      source: 'overlay',
-      layout: roundLine,
-      paint: { 'line-color': mapLayerColors.highlight, 'line-width': 5, 'line-opacity': 0.5 },
-    },
+    ...overlayLayers('', overlayHasData),
     {
       id: 'route-casing',
       type: 'line',
@@ -234,12 +261,18 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       type: 'symbol',
       source: 'section-creation-markers',
       layout: {
-        'text-field': ['case', ['==', ['get', 'position'], 'start'], '▶', '■'],
-        'text-size': 10,
-        'text-allow-overlap': true,
-        'text-ignore-placement': true,
+        'icon-image': [
+          'case',
+          ['==', ['get', 'position'], 'start'],
+          SECTION_START_ICON_ID,
+          SECTION_END_ICON_ID,
+        ],
+        'icon-size': 0.25,
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        'icon-anchor': 'center',
       },
-      paint: { 'text-color': colors.textOnDark, 'text-opacity': creationMode ? 1 : 0 },
+      paint: { 'icon-color': colors.textOnDark, 'icon-opacity': creationMode ? 1 : 0 },
       visible: creationMode,
     },
     {
@@ -268,6 +301,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       filter: ['!=', ['get', 'isPR'], true],
       layout: {
         'text-field': ['get', 'label'],
+        'text-font': BUNDLED_TEXT_FONT,
         'text-size': 11,
         'text-anchor': 'center',
         'text-allow-overlap': true,
@@ -312,22 +346,58 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
   ];
 }
 
+/** The matched route, drawn under everything that sits on the track. */
+function overlayLayers(prefix: string, overlayHasData: boolean): MapLayerSpec[] {
+  const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
+  return [
+    {
+      id: `${prefix}overlay-casing`,
+      type: 'line',
+      source: 'overlay',
+      layout: roundLine,
+      paint: {
+        'line-color': mapLayerColors.casing,
+        'line-width': OVERLAY_CASING_WIDTH,
+        'line-opacity': overlayHasData ? 0.9 : 0,
+      },
+    },
+    {
+      id: `${prefix}overlay-line`,
+      type: 'line',
+      source: 'overlay',
+      layout: roundLine,
+      paint: {
+        'line-color': mapLayerColors.routeOverlay,
+        'line-width': OVERLAY_LINE_WIDTH,
+        'line-opacity': overlayHasData ? 0.95 : 0,
+      },
+    },
+  ];
+}
+
 /**
- * Fullscreen draws the section portions over BaseMapView's own route line and
- * marks the PR sections, without the numbered badges or the creation overlays.
+ * Fullscreen draws the matched route and the section portions over
+ * BaseMapView's own route line and marks the PR sections, without the numbered
+ * badges or the creation overlays.
  */
 export function buildFullscreenSectionSources(
   portions: GeoJSON.FeatureCollection,
-  prMarkers: GeoJSON.FeatureCollection
+  prMarkers: GeoJSON.FeatureCollection,
+  overlay: GeoJSON.FeatureCollection | GeoJSON.Feature = EMPTY_FEATURE_COLLECTION
 ): Record<string, MapSourceSpec> {
   return {
+    overlay: { kind: 'geojson', data: overlay },
     portions: { kind: 'geojson', data: portions },
     'pr-markers': { kind: 'geojson', data: prMarkers },
   };
 }
 
-export function buildFullscreenSectionLayers(hasSectionOverlays: boolean): MapLayerSpec[] {
+export function buildFullscreenSectionLayers(
+  hasSectionOverlays: boolean,
+  overlayHasData = false
+): MapLayerSpec[] {
   return [
+    ...overlayLayers('fullscreen-', overlayHasData),
     {
       id: 'fullscreen-portion-casing',
       type: 'line',

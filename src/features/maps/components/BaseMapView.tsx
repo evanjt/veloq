@@ -1,11 +1,24 @@
 import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { useTheme } from '@/shared/app';
+// Straight from the context, not the app barrel: a surface mounted with no
+// app shell still has to draw, and the barrel is what such a caller stubs.
+import { useIsOnline } from '@/shared/app/NetworkContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
-import { colors, darkColors, mapLayerColors, spacing, layout, shadows, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  mapLayerColors,
+  spacing,
+  layout,
+  shadows,
+  typography,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { TerrainUnavailableNotice } from './TerrainUnavailableNotice';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
@@ -18,15 +31,9 @@ import {
   type LngLatBounds,
 } from '@/features/maps/lib/coordinates';
 import type { MapImageSpec, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
-import {
-  type MapStyleType,
-  isDarkStyle,
-  getNextStyle,
-  getStyleIcon,
-  MAP_ATTRIBUTIONS,
-  TERRAIN_ATTRIBUTION,
-  getCombinedSatelliteAttribution,
-} from './mapStyles';
+import { type MapStyleType, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
+import { computeAttribution } from '@/features/maps/lib/computeAttribution';
+import { offlineMapStyle } from '@/features/maps/lib/offlineStyleFallback';
 
 /** Room left around fitted bounds, in pixels. Extra on top for the controls. */
 const DEFAULT_FIT_PADDING = { top: 80, right: 40, bottom: 40, left: 40 } as const;
@@ -99,7 +106,15 @@ export function BaseMapView({
   const insets = useSafeAreaInsets();
   const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
 
-  const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
+  const [chosenStyle, setChosenStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
+  // Satellite imagery is never kept on the device, so with the radio off the
+  // choice is honoured as the vector basemap and the imagery returns by itself
+  // when the connection does.
+  const isOnline = useIsOnline();
+  const mapStyle = useMemo(
+    () => offlineMapStyle(chosenStyle, isOnline, systemStyle),
+    [chosenStyle, isOnline, systemStyle]
+  );
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
   const [terrainUnavailable, setTerrainUnavailable] = useState(false);
@@ -164,7 +179,7 @@ export function BaseMapView({
   );
 
   const toggleStyle = useCallback(() => {
-    setMapStyle((current) => getNextStyle(current));
+    setChosenStyle((current) => getNextStyle(current));
   }, []);
 
   const toggle3D = useCallback(() => {
@@ -259,20 +274,18 @@ export function BaseMapView({
     [routeColor, overlayLayers]
   );
 
-  // Dynamic attribution based on map style and current location
-  // For satellite mode, shows regional attributions (swisstopo, IGN, etc.) based on map center
-  const attributionText = useMemo(() => {
-    if (mapStyle === 'satellite' && currentCenter) {
-      const satAttribution = getCombinedSatelliteAttribution(
-        currentCenter[1], // lat
-        currentCenter[0], // lng
-        currentZoom
-      );
-      return is3DMode ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
-    }
-    const baseAttribution = MAP_ATTRIBUTIONS[mapStyle];
-    return is3DMode ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
-  }, [mapStyle, currentCenter, currentZoom, is3DMode]);
+  // Satellite mode reads its attribution from the viewport, so the sources named
+  // are the ones on screen. Shared with the activity and regional maps.
+  const attributionText = useMemo(
+    () =>
+      computeAttribution({
+        style: mapStyle,
+        is3D: is3DMode,
+        center: currentCenter,
+        zoom: currentZoom,
+      }),
+    [mapStyle, currentCenter, currentZoom, is3DMode]
+  );
 
   // Render controls (shared between 2D and 3D)
   const renderControls = () => (
@@ -468,7 +481,7 @@ const styles = StyleSheet.create({
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.mapOverlay,
@@ -494,7 +507,7 @@ const styles = StyleSheet.create({
     width: layout.minTapTarget, // 44 - Accessibility minimum
     height: layout.minTapTarget, // 44 - Accessibility minimum
     borderRadius: layout.minTapTarget / 2, // 22
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.mapOverlay,
@@ -510,14 +523,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     alignItems: 'flex-end',
-    paddingBottom: 4,
-    paddingRight: 6,
+    paddingBottom: spacing.xs,
+    paddingRight: spacing.xsPlus,
     zIndex: 5,
   },
   attributionPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    backgroundColor: colorWithOpacity(ink.white, 0.7),
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderRadius: spacing.sm,
   },
   attributionText: {

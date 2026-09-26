@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { darkColors } from '@/theme/colors';
 import { layout, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
+import { pressable } from '@/shared/ui';
 
 export const TERRAIN_UNAVAILABLE_TEST_ID = 'terrain-unavailable-notice';
 
@@ -28,7 +29,11 @@ export function TerrainUnavailableNotice({ onDismiss }: { onDismiss: () => void 
   }, [onDismiss]);
 
   return (
-    <Pressable style={styles.wrapper} onPress={onDismiss} testID={TERRAIN_UNAVAILABLE_TEST_ID}>
+    <Pressable
+      style={pressable(styles.wrapper)}
+      onPress={onDismiss}
+      testID={TERRAIN_UNAVAILABLE_TEST_ID}
+    >
       <View style={styles.pill}>
         <MaterialCommunityIcons name="terrain" size={16} color={darkColors.textSecondary} />
         <Text style={styles.text}>{t('maps.threeDUnavailable')}</Text>

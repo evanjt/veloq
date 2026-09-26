@@ -22,3 +22,15 @@ export function useInitialRegionalCamera(cameraOnBlur: RegionalCamera | null): R
   const [stored] = useState(getMapCameraState);
   return cameraOnBlur ?? stored ?? WORLD_CAMERA;
 }
+
+/**
+ * Whether the 2D surface is about to go away, so where it is now is worth
+ * keeping for the mount that brings it back.
+ *
+ * Focus was the only thing this asked about, and entering 3D unmounts the
+ * surface just as surely: coming back out opened on the camera saved at the
+ * last tab blur, and then saved that as the new one.
+ */
+export function surfaceIsLeaving(isMapFocused: boolean, show3D: boolean): boolean {
+  return !isMapFocused || show3D;
+}

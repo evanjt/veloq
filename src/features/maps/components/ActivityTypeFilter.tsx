@@ -1,11 +1,20 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, activityTypeColors, typography, spacing, layout } from '@/theme';
+import {
+  colors,
+  activityTypeColors,
+  typography,
+  spacing,
+  layout,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import type { ActivityType } from '@/types';
-import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
+import type { MaterialIconName } from '@/shared/activity/activityUtils';
 import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
+import { pressable } from '@/shared/ui';
 
 // Activity type label keys for translation
 type ActivityLabelKey =
@@ -102,7 +111,7 @@ export const ACTIVITY_CATEGORIES: Record<
     ],
   },
   Racket: {
-    color: activityTypeColors.Tennis || colors.success,
+    color: activityTypeColors.Tennis,
     icon: 'tennis',
     labelKey: 'racket',
     types: ['Tennis', 'Badminton', 'Pickleball', 'Racquetball', 'Squash', 'TableTennis'],
@@ -190,14 +199,14 @@ export function ActivityTypeFilter({
         contentContainerStyle={styles.scrollContent}
       >
         {/* Select All / Deselect All buttons */}
-        <TouchableOpacity
-          style={styles.controlChip}
+        <Pressable
+          style={pressable(styles.controlChip)}
           onPress={selectedTypes.size === availableTypes.length ? deselectAll : selectAll}
         >
           <Text style={styles.controlText}>
             {selectedTypes.size === availableTypes.length ? t('maps.clear') : t('maps.allClear')}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
 
         {/* Activity type chips */}
         {availableTypes.map((type) => {
@@ -205,13 +214,13 @@ export function ActivityTypeFilter({
           const isSelected = selectedTypes.has(type);
 
           return (
-            <TouchableOpacity
+            <Pressable
               key={type}
-              style={[
+              style={pressable([
                 styles.chip,
                 isSelected && { backgroundColor: config.color },
                 !isSelected && styles.chipUnselected,
-              ]}
+              ])}
               onPress={() => toggleType(type)}
             >
               <MaterialCommunityIcons
@@ -223,12 +232,12 @@ export function ActivityTypeFilter({
                 style={[
                   styles.chipText,
                   isSelected && styles.chipTextSelected,
-                  !isSelected && { color: config.color },
+                  !isSelected && styles.chipTextUnselected,
                 ]}
               >
                 {t(`maps.activityTypes.${config.labelKey}`)}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </ScrollView>
@@ -238,7 +247,7 @@ export function ActivityTypeFilter({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: colorWithOpacity(ink.white, 0.95),
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -250,7 +259,7 @@ const styles = StyleSheet.create({
   },
   controlChip: {
     paddingHorizontal: layout.cardMargin,
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
     borderRadius: spacing.md,
     backgroundColor: colors.background,
     borderWidth: 1,
@@ -266,7 +275,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
     paddingHorizontal: layout.cardMargin,
-    paddingVertical: 6,
+    paddingVertical: spacing.xsPlus,
     borderRadius: spacing.md,
     borderWidth: 1,
     borderColor: 'transparent',
@@ -280,6 +289,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chipTextSelected: {
-    color: colors.surface,
+    color: colors.textOnDark,
+  },
+  // Unselected read as the activity type's own hue, `run` at 2.28:1 on the card.
+  // The icon beside the label keeps it, and an icon is a mark at 3:1 (B927).
+  chipTextUnselected: {
+    color: colors.textPrimary,
   },
 });

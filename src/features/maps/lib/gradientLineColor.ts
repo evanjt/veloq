@@ -5,7 +5,7 @@
  * Colors: steep descents → blue, flats → green/yellow, steep climbs → red/purple.
  *
  * Usage:
- *   const stops = buildGradientLineStops(gradientStream);
+ *   const stops = buildGradientLineStops(streams.grade_smooth, streams.distance);
  *   <LineLayer style={{ lineGradient: ['interpolate', ['linear'], ['line-progress'], ...stops] }} />
  *
  * Requires the `ShapeSource` to set `lineMetrics: true` so that
@@ -81,6 +81,10 @@ export function gradientToColor(percent: number): string {
  * suitable for feeding into an `['interpolate', ['linear'], ['line-progress'], ...]`
  * expression. `progress` runs from 0 to 1 along the line.
  *
+ * `line-progress` is a fraction of the line's length, while the grade stream is
+ * sampled by time, so each stop is placed by its share of the distance stream.
+ * Index stands in only when distance cannot say where a sample is.
+ *
  * To keep the expression size manageable we cap at ~100 stops (downsampling
  * long streams by stride). 100 stops is plenty for a visually smooth gradient.
  *
@@ -88,23 +92,41 @@ export function gradientToColor(percent: number): string {
  */
 export function buildGradientLineStops(
   gradient: number[] | undefined,
+  distance: number[] | undefined,
   maxStops = 100
 ): (string | number)[] | null {
   if (!gradient || gradient.length < 2) return null;
   const n = gradient.length;
+  const last = n - 1;
+  const progressAt = usableDistance(distance, n)
+    ? (i: number) => (distance[i] - distance[0]) / (distance[last] - distance[0])
+    : (i: number) => i / last;
   const stride = Math.max(1, Math.floor(n / maxStops));
   const pairs: (string | number)[] = [];
 
-  for (let i = 0; i < n; i += stride) {
-    const progress = n === 1 ? 0 : i / (n - 1);
-    pairs.push(progress, gradientToColor(gradient[i]));
-  }
+  // A stop with the recorder running holds distance still for many samples.
+  // Interpolate refuses stops that do not strictly increase, so those collapse
+  // into the first sample at that distance.
+  const push = (progress: number, grade: number) => {
+    if (pairs.length > 0 && progress <= (pairs[pairs.length - 2] as number)) return;
+    pairs.push(progress, gradientToColor(grade));
+  };
 
-  // Always include the final point so the gradient reaches progress=1
-  const last = n - 1;
-  if ((pairs[pairs.length - 2] as number) !== 1) {
-    pairs.push(1, gradientToColor(gradient[last]));
+  for (let i = 0; i < n; i += stride) {
+    push(progressAt(i), gradient[i]);
   }
+  // Always include the final point so the gradient reaches progress=1
+  push(1, gradient[last]);
 
   return pairs;
+}
+
+/** Distance can place the samples only when it covers each one and never runs backwards. */
+function usableDistance(distance: number[] | undefined, n: number): distance is number[] {
+  if (!distance || distance.length !== n) return false;
+  for (let i = 0; i < n; i++) {
+    if (!Number.isFinite(distance[i])) return false;
+    if (i > 0 && distance[i] < distance[i - 1]) return false;
+  }
+  return distance[n - 1] > distance[0];
 }

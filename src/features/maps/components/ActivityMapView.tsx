@@ -4,12 +4,16 @@
 // in ActivityMapControls, and styles in ActivityMapView.styles.
 
 import React, { useMemo, useState, useRef, useCallback, useEffect, memo } from 'react';
-import { View, Modal, StatusBar, Animated, ActivityIndicator } from 'react-native';
+import { View, Modal, StatusBar, Animated, ActivityIndicator, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { getActivityColor } from '@/features/activity/lib/activityUtils';
-import { decodePolyline, LatLng } from '@/shared/geo/polyline';
+import { getActivityColor } from '@/shared/activity/activityUtils';
+import { LatLng } from '@/shared/geo/polyline';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
+import {
+  getTerrainPreviewUri,
+  hasTerrainPreview,
+} from '@/features/maps/lib/storage/terrainPreviewCache';
 import { colors } from '@/theme';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
@@ -24,7 +28,8 @@ import {
   pointFeature,
 } from '@/features/maps/lib/coordinates';
 import { HIGHLIGHT_THROTTLE_MS, REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
-import { TROPHY_ICON } from '@/features/maps/lib/mapIcons';
+import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
+import { SECTION_END_ICON, SECTION_START_ICON, TROPHY_ICON } from '@/features/maps/lib/mapIcons';
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
@@ -48,10 +53,13 @@ import {
   SECTION_MARKER_LAYER_IDS,
 } from './activityMapLayerSpecs';
 import { styles } from './ActivityMapView.styles';
-const OVERLAY_IMAGES = [TROPHY_ICON];
+const OVERLAY_IMAGES = [TROPHY_ICON, SECTION_START_ICON, SECTION_END_ICON];
 
 /** The 2D layer, held transparent until the surface reports one way or the other. */
 export const ACTIVITY_MAP_2D_LAYER_TEST_ID = 'activity-map-2d-layer';
+
+/** The feed's own snapshot, stood up while the surface behind it boots. */
+export const ACTIVITY_MAP_POSTER_TEST_ID = 'activity-map-poster';
 
 /** Section overlay for map visualization */
 export interface SectionOverlay {
@@ -87,7 +95,6 @@ export interface SectionCreationResult {
 }
 
 interface ActivityMapViewProps {
-  polyline?: string;
   coordinates?: LatLng[];
   activityType: ActivityType;
   /** Activity ID - used to resolve per-activity map style overrides */
@@ -153,7 +160,6 @@ interface ActivityMapViewProps {
 }
 
 export const ActivityMapView = memo(function ActivityMapView({
-  polyline: encodedPolyline,
   coordinates: providedCoordinates,
   activityType,
   activityId,
@@ -201,6 +207,11 @@ export const ActivityMapView = memo(function ActivityMapView({
     pitch: number;
   } | null>(null);
   const prev3DModeRef = useRef(false);
+  // A page that could not draw is not the athlete choosing the flat map. The
+  // caller persists what it is told, ahead of the per-sport and the global
+  // preference and with nothing to clear it, so one failed load turned 3D off
+  // for that activity for ever on a device where nobody touched the toggle.
+  const modeFromFailureRef = useRef(false);
 
   // Track if user manually overrode the style
   const [userOverride, setUserOverride] = useState(false);
@@ -210,11 +221,8 @@ export const ActivityMapView = memo(function ActivityMapView({
     if (providedCoordinates && providedCoordinates.length > 0) {
       return providedCoordinates;
     }
-    if (encodedPolyline) {
-      return decodePolyline(encodedPolyline);
-    }
     return [];
-  }, [encodedPolyline, providedCoordinates]);
+  }, [providedCoordinates]);
 
   // Filter valid coordinates for bounds and route display
   const validCoordinates = useMemo(() => {
@@ -332,6 +340,12 @@ export const ActivityMapView = memo(function ActivityMapView({
       onCameraCapture?.(camera3DRef.current);
     }
     prev3DModeRef.current = is3DMode;
+    // The failure keeps the local state and leaves the preference alone, so
+    // the next open tries again rather than mounting flat for ever.
+    if (modeFromFailureRef.current) {
+      modeFromFailureRef.current = false;
+      return;
+    }
     on3DModeChange?.(is3DMode);
   }, [is3DMode, on3DModeChange, onCameraCapture]);
 
@@ -389,6 +403,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   // that cannot render drops back to the 2D map rather than spinning forever.
   // Same landing as the error boundary below.
   const handleMap3DFailed = useCallback(() => {
+    modeFromFailureRef.current = true;
     setIs3DReady(false);
     setIs3DMode(false);
   }, []);
@@ -396,6 +411,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   // The page drew, it just had no DEM tiles, so the "3D" view is the flat map
   // with a wasted WebView on top of it. Same landing, plus a reason.
   const handleTerrainUnavailable = useCallback(() => {
+    modeFromFailureRef.current = true;
     setIs3DReady(false);
     setIs3DMode(false);
     setTerrainUnavailable(true);
@@ -416,6 +432,21 @@ export const ActivityMapView = memo(function ActivityMapView({
   // down rather than being hidden. Where it was is captured on the way out, so
   // the remount opens there instead of fitting the track again.
   const show2DSurface = !(is3DMode && is3DReady) && !isFullscreen;
+
+  // The card that was just tapped was drawn from a JPEG of this activity, in
+  // this style and this camera, and it is already on disk. The surface behind
+  // it takes 1.4 s on ground it has seen and up to 4.3 s on ground it has not
+  // measured on an S22, and it used to spend all of that dark. The image
+  // is the feed's aspect, so covering the hero may crop it, which is worth it
+  // for the seconds it stands.
+  const posterUri = useMemo(() => {
+    if (!activityId) return null;
+    return hasTerrainPreview(activityId, mapStyle, is3DMode)
+      ? getTerrainPreviewUri(activityId, mapStyle, is3DMode)
+      : null;
+  }, [activityId, mapStyle, is3DMode]);
+
+  const surfaceReady = is3DMode ? is3DReady : mapReady || mapFailed;
   const [camera2DOnHide, setCamera2DOnHide] = useState<MapCameraSpec | null>(null);
   useEffect(() => {
     if (!show2DSurface) setCamera2DOnHide(settledCameraRef.current);
@@ -517,30 +548,22 @@ export const ActivityMapView = memo(function ActivityMapView({
   // before it reaches the surface.
   const throttledHighlight = useThrottledValue(highlightGeoJSON, HIGHLIGHT_THROTTLE_MS);
 
-  const layerInput = useMemo(
-    () => ({
-      routeGeoJSON,
-      overlayGeoJSON,
-      overlayHasData,
-      consolidatedPortionsGeoJSON,
-      sectionBoundariesGeoJSON,
-      sectionMarkersGeoJSON,
-      highlightGeoJSON: throttledHighlight,
-      endpointsGeoJSON,
-      sectionCreationLine: sectionGeoJSON,
-      sectionCreationMarkers,
-      activityColor,
-      gradientActive,
-      gradientLineExpression,
-      hasSectionOverlays: !!sectionOverlaysGeoJSON,
-      highlightedSectionId,
-      hasHighlightPoint: !!highlightPoint,
-      creationMode,
-    }),
+  const sources = useMemo(
+    () =>
+      buildActivitySources({
+        routeGeoJSON,
+        overlayGeoJSON,
+        consolidatedPortionsGeoJSON,
+        sectionBoundariesGeoJSON,
+        sectionMarkersGeoJSON,
+        highlightGeoJSON: throttledHighlight,
+        endpointsGeoJSON,
+        sectionCreationLine: sectionGeoJSON,
+        sectionCreationMarkers,
+      }),
     [
       routeGeoJSON,
       overlayGeoJSON,
-      overlayHasData,
       consolidatedPortionsGeoJSON,
       sectionBoundariesGeoJSON,
       sectionMarkersGeoJSON,
@@ -548,26 +571,49 @@ export const ActivityMapView = memo(function ActivityMapView({
       endpointsGeoJSON,
       sectionGeoJSON,
       sectionCreationMarkers,
+    ]
+  );
+
+  // Keyed on whether there is a highlight, not where it is, so a scrub leaves
+  // the layer list alone.
+  const hasHighlightPoint = !!highlightPoint;
+  const hasSectionOverlays = !!sectionOverlaysGeoJSON;
+  const layers = useMemo(
+    () =>
+      buildActivityLayers({
+        overlayHasData,
+        activityColor,
+        gradientActive,
+        gradientLineExpression,
+        hasSectionOverlays,
+        highlightedSectionId,
+        hasHighlightPoint,
+        creationMode,
+      }),
+    [
+      overlayHasData,
       activityColor,
       gradientActive,
       gradientLineExpression,
-      sectionOverlaysGeoJSON,
+      hasSectionOverlays,
       highlightedSectionId,
-      highlightPoint,
+      hasHighlightPoint,
       creationMode,
     ]
   );
 
-  const sources = useMemo(() => buildActivitySources(layerInput), [layerInput]);
-  const layers = useMemo(() => buildActivityLayers(layerInput), [layerInput]);
-
   const fullscreenSources = useMemo(
-    () => buildFullscreenSectionSources(consolidatedPortionsGeoJSON, fullscreenPRMarkersGeoJSON),
-    [consolidatedPortionsGeoJSON, fullscreenPRMarkersGeoJSON]
+    () =>
+      buildFullscreenSectionSources(
+        consolidatedPortionsGeoJSON,
+        fullscreenPRMarkersGeoJSON,
+        overlayGeoJSON
+      ),
+    [consolidatedPortionsGeoJSON, fullscreenPRMarkersGeoJSON, overlayGeoJSON]
   );
   const fullscreenLayers = useMemo(
-    () => buildFullscreenSectionLayers(!!sectionOverlaysGeoJSON),
-    [sectionOverlaysGeoJSON]
+    () => buildFullscreenSectionLayers(!!sectionOverlaysGeoJSON, overlayHasData),
+    [sectionOverlaysGeoJSON, overlayHasData]
   );
 
   const handleFullscreenPress = useCallback(
@@ -647,6 +693,16 @@ export const ActivityMapView = memo(function ActivityMapView({
   return (
     <View style={[styles.outerContainer, { height }]}>
       <View style={styles.container}>
+        {/* The snapshot the feed drew, under everything, until a surface is up. */}
+        {posterUri && !surfaceReady && (
+          <Image
+            testID={ACTIVITY_MAP_POSTER_TEST_ID}
+            source={{ uri: posterUri }}
+            style={styles.mapLayer}
+            resizeMode="cover"
+          />
+        )}
+
         {/* 2D Map layer. Unmounted, not hidden, whenever another surface is the
             one being looked at: a hidden WebView keeps its GL context and its
             tile textures, which is the whole cost of having it. */}
@@ -660,7 +716,10 @@ export const ActivityMapView = memo(function ActivityMapView({
                 ref={surfaceRef}
                 mapStyle={mapStyle}
                 initialCamera={
-                  camera2DOnHide ?? { bounds: { sw: bounds.sw, ne: bounds.ne }, padding: 50 }
+                  camera2DOnHide ?? {
+                    bounds: { sw: bounds.sw, ne: bounds.ne },
+                    padding: TRACK_FIT_PADDING,
+                  }
                 }
                 sources={sources}
                 layers={layers}
@@ -682,7 +741,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           <ComponentErrorBoundary
             componentName="3D Map"
             showRetry={false}
-            onError={() => setIs3DMode(false)}
+            onError={handleMap3DFailed}
           >
             <Animated.View
               style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}
@@ -727,7 +786,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         )}
 
         {/* 3D loading spinner */}
-        {is3DMode && !is3DReady && !isFullscreen && (
+        {is3DMode && !is3DReady && !isFullscreen && !posterUri && (
           <View style={styles.loadingOverlay} testID="activity-map-3d-loading">
             <ActivityIndicator size="large" color={colors.primary} />
           </View>

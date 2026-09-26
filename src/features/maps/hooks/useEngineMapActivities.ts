@@ -2,9 +2,8 @@
  * Hook for getting map activities directly from the Rust engine.
  * All filtering happens in Rust (single O(n) pass) - no JS filtering.
  */
-import { useMemo, useState, useEffect } from 'react';
-import { getEngine } from '@/shared/native/engine';
-import { useEngineReady } from '@/shared/native/useEngineReady';
+import { useMemo } from 'react';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type { ActivityBoundsItem } from '@/types';
 
 interface UseEngineMapActivitiesOptions {
@@ -39,39 +38,19 @@ export function useEngineMapActivities({
   selectedTypes,
   enabled = true,
 }: UseEngineMapActivitiesOptions): UseEngineMapActivitiesReturn {
-  // Bumped by the engine subscription; the count itself comes from the bundle.
-  const [trigger, setTrigger] = useState(0);
-
-  // Subscribe to engine activity changes. An engine that opens after this
-  // mounts arrives as a dependency change through `useEngineReady`.
-  const engine = useEngineReady();
-  useEffect(() => {
-    if (!enabled || !engine) return undefined;
-
-    let cancelled = false;
-    setTrigger((v) => v + 1);
-
-    const unsubscribe = engine.subscribe('activities', () => {
-      if (cancelled) return;
-      setTrigger((v) => v + 1);
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribe?.();
-    };
-  }, [enabled, engine]);
+  // The reader carries the subscription: its identity changes when the channel
+  // fires and at no other time, so the memo below reads it and re-runs then.
+  const readEngine = useEngineRead(['activities']);
 
   // One call: engine total, sport types and the filtered activities.
   const { activities, availableTypes, activityCount } = useMemo(() => {
     const empty = { activities: [], availableTypes: [], activityCount: 0 };
     if (!enabled) return empty;
 
-    const engine = getEngine();
-    if (!engine) return empty;
-
     const sportTypesArray = selectedTypes.size > 0 ? Array.from(selectedTypes) : undefined;
-    const data = engine.getMapScreenData(startDate, endDate, sportTypesArray);
+    const data = readEngine((engine) =>
+      engine.getMapScreenData(startDate, endDate, sportTypesArray)
+    );
     if (!data || data.activityCount === 0) return empty;
 
     // Convert to ActivityBoundsItem format
@@ -87,6 +66,13 @@ export function useEngineMapActivities({
       date: new Date(Number(a.date) * 1000).toISOString(),
       distance: a.distance,
       duration: a.duration,
+      startPoint:
+        a.startLat !== null &&
+        a.startLat !== undefined &&
+        a.startLng !== null &&
+        a.startLng !== undefined
+          ? ([a.startLat, a.startLng] as [number, number])
+          : undefined,
     }));
 
     return {
@@ -94,7 +80,7 @@ export function useEngineMapActivities({
       availableTypes: data.availableSportTypes,
       activityCount: data.activityCount,
     };
-  }, [enabled, trigger, startDate, endDate, selectedTypes]);
+  }, [enabled, readEngine, startDate, endDate, selectedTypes]);
 
   return {
     activities,

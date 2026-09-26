@@ -4,6 +4,7 @@
 import { NATIVE_TILE_TRANSPORT, nativeTileUrl } from '@/features/maps/lib/tileTransport';
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
 import { NATURAL_EARTH_ORIGIN } from '@/features/maps/styles/liberty/sources';
+import { ink, colorWithOpacity } from '@/theme';
 
 export type MapStyleType = 'light' | 'dark' | 'satellite';
 
@@ -104,20 +105,39 @@ const REGIONS = {
   },
 } as const;
 
+/** Geographic bounds, [west, south, east, north]. */
+type Bbox = [number, number, number, number];
+
 // Satellite source configuration type
 interface SatelliteSource {
   tiles: string[];
   tileSize: number;
   maxzoom: number;
   attribution: string;
-  /** Geographic bounds [west, south, east, north] to limit tile requests */
-  bounds?: [number, number, number, number];
+  /** Geographic bounds to limit tile requests, where one box is close enough */
+  bounds?: Bbox;
+  /**
+   * The same thing for a country a single box cannot hold without reaching
+   * into a neighbour that has its own imagery. Each box becomes a source of
+   * its own, so MapLibre asks for no tile outside them.
+   */
+  boxes?: Bbox[];
 }
 
 // Satellite tile sources - all commercially licensed
 export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   // Switzerland: Swisstopo SWISSIMAGE (OGD license - commercial OK)
-  // Bounds tightened to actual country shape
+  //
+  // A staircase rather than the Swiss extent. The single box ran the full
+  // rectangle 5.956-10.492E by 45.818-47.808N, which holds Chamonix, Annecy,
+  // Aosta and Vorarlberg, and swisstopo sits above every other regional
+  // raster: it answered 404 over all of them and took the credit from whoever
+  // did draw them.
+  //
+  // Rectangles cannot follow this border either, so what stays inside is the
+  // ground no rectangle can cut away from Swiss ground beside it: the French
+  // and Italian shores immediately around Geneva, the Italian mouth of the
+  // Poschiavo valley, and Konstanz where the border runs through the town.
   swisstopo: {
     tiles: [
       'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg',
@@ -125,10 +145,45 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tileSize: 64,
     maxzoom: 20,
     attribution: '© swisstopo',
-    bounds: [5.956, 45.818, 10.492, 47.808], // Switzerland actual extent [west, south, east, north]
+    boxes: [
+      [8.55, 45.83, 9.15, 46.12], // Mendrisiotto and Lugano, north of Como
+      [7.5, 45.95, 8.25, 46.1], // Upper Valais and the Matterhorn, north of Aosta
+      [5.95, 46.12, 6.35, 46.33], // The Geneva salient
+      [6.95, 46.1, 8.1, 46.36], // Valais, east of Chamonix and the Chablais
+      [8.1, 46.145, 9.6, 46.36], // Ticino and Misox, north of the Ossola
+      [9.95, 46.2, 10.35, 46.5], // Poschiavo and Val Müstair, east of the Valtellina
+      [6.1, 46.36, 6.45, 46.47], // The lake's north shore, west of Thonon
+      [6.75, 46.36, 9.9, 46.47], // Montreux east, skipping the French shore
+      [6.1, 46.47, 9.9, 46.62], // Vaud, Oberland and Graubünden
+      [6.6, 46.62, 10.5, 47.0], // The Mittelland and the Engadine
+      [6.35, 47.0, 9.55, 47.45], // Jura, Aargau and the Zürich basin, west of Vorarlberg
+      [7.0, 47.45, 9.55, 47.82], // Basel, Schaffhausen and the Bodensee shore
+    ],
   },
   // France: IGN BD ORTHO via Géoplateforme (Licence Ouverte 2.0 - commercial OK)
-  // Bounds exclude Switzerland (handled separately with higher priority)
+  //
+  // A staircase down the eastern border rather than one metropolitan bbox. The
+  // single box ran to 9.56°E, which covers Geneva, Valais, the Bernese
+  // Oberland and Piedmont, and IGN answers 404 for every tile of them: a pan
+  // over the Valais logged 247 dead fetches in a minute. The western,
+  // southern and northern edges are still one box's worth, because nothing
+  // there has imagery of its own to reach into.
+  //
+  // Rectangles cannot follow the border exactly, so the Geneva salient and the
+  // Swiss shore of Lake Geneva stay inside the Haute-Savoie box. Swisstopo
+  // draws over both, and keeping them costs a few requests where dropping them
+  // would cost Thonon, Évian and Chamonix their imagery.
+  //
+  // The south-western edge is a staircase for the same reason. Every box still
+  // ran west to -5.142 and the first ran south to 41.333, which is Navarre,
+  // Aragón, Catalonia, the Ebro and as far in as Salamanca. PNOA has imagery
+  // for all of it and `satellite-layer-spain` sits below IGN, so IGN was asked
+  // first and answered 404 over ground that was already drawn. The southern
+  // boxes now stop at the Pyrenean crest, and Corsica is a box of its own
+  // because nothing joins it to the mainland at that latitude.
+  //
+  // What stays inside is Andorra, the Val d'Aran and the crest itself, which no
+  // rectangle can cut away from the French valleys beside them.
   ign: {
     tiles: [
       'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
@@ -136,7 +191,19 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tileSize: 64,
     maxzoom: 20,
     attribution: '© IGN France',
-    bounds: [-5.142, 41.333, 9.56, 51.089], // Metropolitan France [west, south, east, north]
+    boxes: [
+      [8.5, 41.33, 9.6, 43.05], // Corsica
+      [1.45, 42.33, 9.56, 42.6], // Cerdagne and Roussillon, east of the Segre
+      [0.55, 42.6, 9.56, 42.8], // Ariège, Aude and Luchon
+      [-0.75, 42.8, 9.56, 43.05], // Comminges and the Hautes-Pyrénées
+      [-1.8, 43.05, 7.75, 43.35], // Béarn, Marseille and the coast to Hendaye
+      [-5.142, 43.35, 7.75, 44.2], // Aquitaine and Provence, north of the border
+      [-5.142, 44.2, 7.2, 45.818], // Dauphiné and Savoie, west of Piedmont
+      [-5.142, 45.818, 7.05, 46.55], // Haute-Savoie, Chamonix and the lake shore
+      [-5.142, 46.55, 6.95, 47.5], // Jura and Doubs
+      [-5.142, 47.5, 7.45, 47.85], // Sundgau, west of Basel
+      [-5.142, 47.85, 8.25, 51.089], // Alsace north of Switzerland, and the rest
+    ],
   },
   // USA: USGS NAIP (Public Domain - commercial OK)
   naip: {
@@ -252,6 +319,47 @@ export interface CombinedSatelliteMapStyle {
   )[];
 }
 
+/**
+ * One MapLibre source per box of a multi-box satellite source, named
+ * `satellite-<id>-<n>`.
+ *
+ * MapLibre takes a single bbox per source and nothing finer, so a country
+ * whose border a rectangle cannot follow is handed over as several sources
+ * sharing one template. They are disjoint, so no tile is fetched or stored
+ * twice, and Rust files each under its own directory.
+ */
+function boxedSources(id: SatelliteSourceId): CombinedSatelliteMapStyle['sources'] {
+  const source = SATELLITE_SOURCES[id];
+  const boxes = source.boxes ?? [];
+  return Object.fromEntries(
+    boxes.map((bounds, i) => [
+      `satellite-${id}-${i + 1}`,
+      {
+        type: 'raster' as const,
+        tiles: source.tiles,
+        tileSize: source.tileSize,
+        maxzoom: source.maxzoom,
+        bounds,
+      },
+    ])
+  );
+}
+
+/** The layers those sources draw through, contiguous and all at one minzoom. */
+function boxedLayers(
+  id: SatelliteSourceId,
+  minzoom: number
+): Extract<CombinedSatelliteMapStyle['layers'][number], { type: 'raster' }>[] {
+  const boxes = SATELLITE_SOURCES[id].boxes ?? [];
+  return boxes.map((_, i) => ({
+    id: `satellite-layer-${id}-${i + 1}`,
+    type: 'raster' as const,
+    source: `satellite-${id}-${i + 1}`,
+    minzoom,
+    maxzoom: 22,
+  }));
+}
+
 export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
   return {
     version: 8,
@@ -264,22 +372,10 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
         tileSize: SATELLITE_SOURCES.eox.tileSize,
         maxzoom: SATELLITE_SOURCES.eox.maxzoom,
       },
-      // Switzerland (Swisstopo) - bounded to actual Swiss territory extent
-      'satellite-swisstopo': {
-        type: 'raster',
-        tiles: SATELLITE_SOURCES.swisstopo.tiles,
-        tileSize: SATELLITE_SOURCES.swisstopo.tileSize,
-        maxzoom: SATELLITE_SOURCES.swisstopo.maxzoom,
-        bounds: SATELLITE_SOURCES.swisstopo.bounds,
-      },
-      // France (IGN) - bounded to French territory
-      'satellite-ign': {
-        type: 'raster',
-        tiles: SATELLITE_SOURCES.ign.tiles,
-        tileSize: SATELLITE_SOURCES.ign.tileSize,
-        maxzoom: SATELLITE_SOURCES.ign.maxzoom,
-        bounds: SATELLITE_SOURCES.ign.bounds,
-      },
+      // Switzerland (Swisstopo) - one source per box of the border staircase
+      ...boxedSources('swisstopo'),
+      // France (IGN) - one source per box of the eastern staircase
+      ...boxedSources('ign'),
       // USA (NAIP) - bounded to continental US
       'satellite-naip': {
         type: 'raster',
@@ -368,13 +464,7 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
         minzoom: REGIONS.poland.minZoom,
         maxzoom: 22,
       },
-      {
-        id: 'satellite-layer-ign',
-        type: 'raster',
-        source: 'satellite-ign',
-        minzoom: REGIONS.france.minZoom,
-        maxzoom: 22,
-      },
+      ...boxedLayers('ign', REGIONS.france.minZoom),
       {
         id: 'satellite-layer-naip',
         type: 'raster',
@@ -411,13 +501,7 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
         maxzoom: 22,
       },
       // Switzerland - highest priority, on top of Austria and France
-      {
-        id: 'satellite-layer-swisstopo',
-        type: 'raster',
-        source: 'satellite-swisstopo',
-        minzoom: 8,
-        maxzoom: 22,
-      },
+      ...boxedLayers('swisstopo', 8),
     ],
   };
 }
@@ -454,14 +538,19 @@ export const MAP_ATTRIBUTIONS: Record<MapStyleType, string> = {
  * Get combined attribution for all satellite sources visible in the current viewport.
  * Uses precise polygon boundaries for accurate attribution.
  */
-function boundsContain(
-  bounds: [number, number, number, number] | undefined,
-  lng: number,
-  lat: number
-): boolean {
+function boundsContain(bounds: Bbox | undefined, lng: number, lat: number): boolean {
   if (!bounds) return false;
   const [west, south, east, north] = bounds;
   return lng >= west && lng <= east && lat >= south && lat <= north;
+}
+
+/**
+ * Whether a source draws at all at this point, by the same boxes MapLibre
+ * fetches through. A source with no box anywhere is global, which is EOX.
+ */
+function sourceCovers(source: SatelliteSource, lng: number, lat: number): boolean {
+  if (source.boxes) return source.boxes.some((b) => boundsContain(b, lng, lat));
+  return boundsContain(source.bounds, lng, lat);
 }
 
 const LAYER_PREFIX = 'satellite-layer-';
@@ -478,7 +567,9 @@ function satelliteLayerStack(): { id: SatelliteSourceId; minzoom: number }[] {
     layerStack = getCombinedSatelliteStyle()
       .layers.filter((l) => l.id.startsWith(LAYER_PREFIX) && 'minzoom' in l)
       .map((l) => ({
-        id: l.id.slice(LAYER_PREFIX.length) as SatelliteSourceId,
+        // A multi-box source draws through `satellite-layer-<id>-<n>`, and
+        // every one of those is the same source and the same credit.
+        id: l.id.slice(LAYER_PREFIX.length).replace(/-\d+$/, '') as SatelliteSourceId,
         minzoom: 'minzoom' in l ? l.minzoom : 0,
       }))
       .reverse();
@@ -502,8 +593,9 @@ export function getCombinedSatelliteAttribution(lat: number, lng: number, zoom: 
   for (const { id, minzoom } of satelliteLayerStack()) {
     if (zoom < minzoom) continue;
     const source = SATELLITE_SOURCES[id];
-    // No bounds means global coverage, which is EOX and the end of the stack.
-    if (source.bounds && !boundsContain(source.bounds, lng, lat)) continue;
+    // No box anywhere means global coverage, which is EOX and the end of the
+    // stack.
+    if ((source.bounds || source.boxes) && !sourceCovers(source, lng, lat)) continue;
     return source.attribution;
   }
   return SATELLITE_SOURCES.eox.attribution;
@@ -534,7 +626,8 @@ export function rewriteSatelliteUrls(style: CombinedSatelliteMapStyle): Combined
 }
 
 /**
- * Route the light style's `ne2_shaded` ground raster through `cached-ground://`.
+ * Point the light style's `ne2_shaded` ground raster at whichever tile transport
+ * is in force.
  *
  * The layer draws below zoom 6, where it is the whole visible ground, so left on
  * the network a map with no radio opens on nothing. Only sources pointing at the
@@ -544,29 +637,67 @@ export function rewriteSatelliteUrls(style: CombinedSatelliteMapStyle): Combined
 export function rewriteGroundRasterUrls<T extends object>(style: T): T {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rewritten: any = JSON.parse(JSON.stringify(style));
-  for (const source of Object.values(rewritten.sources ?? {}) as Record<string, unknown>[]) {
+  for (const [key, source] of Object.entries(rewritten.sources ?? {}) as [
+    string,
+    Record<string, unknown>,
+  ][]) {
     if (source.type !== 'raster' || !Array.isArray(source.tiles)) continue;
-    source.tiles = (source.tiles as string[]).map((url) =>
-      url.startsWith(NATURAL_EARTH_ORIGIN) ? url.replace(/^https:\/\//, 'cached-ground://') : url
-    );
+    const tiles = source.tiles as string[];
+    if (!tiles.some((url) => url.startsWith(NATURAL_EARTH_ORIGIN))) continue;
+    if (NATIVE_TILE_TRANSPORT) {
+      const native = nativeTileUrl(key, tiles[0]);
+      if (native) {
+        source.tiles = [native];
+        continue;
+      }
+    }
+    source.tiles = tiles.map((url) => url.replace(/^https:\/\//, 'cached-ground://'));
   }
   return rewritten;
 }
 
-/** Replace TileJSON url with explicit cached-vector:// tiles array */
+/**
+ * Point every vector source at whichever tile transport is in force.
+ *
+ * Under the native transport Rust is handed the TileJSON url itself rather than
+ * a tile template, because the origin serves tiles from a dated snapshot
+ * segment only that document names and answers the unversioned path with an
+ * empty body. Rust resolves it once and keeps what it resolved, so the page
+ * never learns a tile path and states the extension instead.
+ */
 export function rewriteVectorUrls<T extends object>(style: T): T {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rewritten: any = JSON.parse(JSON.stringify(style));
   if (rewritten.sources) {
-    for (const source of Object.values(rewritten.sources) as Record<string, unknown>[]) {
-      if (source.type === 'vector' && source.url === 'https://tiles.openfreemap.org/planet') {
-        // Point the source at the TileJSON through the protocol, rather than at a
-        // tile path built here. The origin serves tiles from a dated snapshot
-        // segment the TileJSON names, and answers the unversioned path with an
-        // empty body, so a template written here draws nothing. The handler
-        // rewrites the TileJSON's own template back onto the protocol.
-        source.url = 'cached-vector://tiles.openfreemap.org/planet';
-        delete source.tiles;
+    for (const [key, source] of Object.entries(rewritten.sources) as [
+      string,
+      Record<string, unknown>,
+    ][]) {
+      // Any vector source named by a TileJSON url, not one hardcoded host. The
+      // match used to be the literal openfreemap planet url, so a style on any
+      // other vector host went through uncached with nothing saying so.
+      //
+      // Point the source at the TileJSON through the protocol, rather than at a
+      // tile path built here. The origin serves tiles from a dated snapshot
+      // segment the TileJSON names, and answers the unversioned path with an
+      // empty body, so a template written here draws nothing. The handler
+      // rewrites the TileJSON's own template back onto the protocol.
+      if (
+        source.type === 'vector' &&
+        typeof source.url === 'string' &&
+        source.url.startsWith('https://')
+      ) {
+        // `pbf` is stated rather than read off the template: a TileJSON url
+        // names no file, and a vector tile is always protobuf.
+        const native = NATIVE_TILE_TRANSPORT ? nativeTileUrl(key, source.url, 'pbf') : null;
+        if (native) {
+          source.tiles = [native];
+          delete source.url;
+        } else {
+          source.url = source.url.replace(/^https:\/\//, 'cached-vector://');
+          delete source.tiles;
+        }
+        // The TileJSON carried it, and neither transport hands one to MapLibre.
         source.maxzoom = 14;
       }
     }
@@ -607,10 +738,14 @@ export const TERRAIN_ATTRIBUTION = 'Terrain: USGS, NOAA (Mapzen Terrain Tiles)';
  * Map3DWebView (interactive detail) and TerrainSnapshotWebView (feed previews).
  * Keeps terrain source, sky, and hillshade definitions in sync.
  */
+/** Where the terrarium DEM tiles come from, whichever transport carries them. */
+export const TERRAIN_UPSTREAM_TEMPLATE =
+  'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
+
 export const TERRAIN_3D_CONFIG = {
   source: {
     type: 'raster-dem' as const,
-    tiles: ['cached-terrain://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+    tiles: [TERRAIN_UPSTREAM_TEMPLATE],
     encoding: 'terrarium' as const,
     tileSize: 256,
     maxzoom: 15,
@@ -654,7 +789,7 @@ export const TERRAIN_3D_CONFIG = {
     },
     light: {
       'hillshade-shadow-color': '#473B24',
-      'hillshade-highlight-color': 'rgba(255,255,255,0.1)',
+      'hillshade-highlight-color': colorWithOpacity(ink.white, 0.1),
       'hillshade-illumination-anchor': 'map',
       'hillshade-exaggeration': 0.3,
     },
@@ -677,3 +812,25 @@ export const TERRAIN_3D_CONFIG = {
     'highway_path',
   ],
 } as const;
+
+/**
+ * The 3D terrain source, pointed at whichever tile transport is in force.
+ *
+ * A DEM miss is the one that shows: the page reports terrain unavailable and
+ * drops the view to 2D, so the tiles belong in the Rust store, which is the
+ * only tier that can be pre-seeded around a riding area and sized against the
+ * one budget. Where nothing can intercept, the web, the page asks the host
+ * itself: it keeps no DEM cache of its own, so there is no second tier for
+ * Rust to be unable to see.
+ *
+ * A function rather than a constant: the transport is decided per platform at
+ * the moment the page is built, and building it is what hands Rust the
+ * upstream template.
+ */
+export function terrain3DSource() {
+  const native = NATIVE_TILE_TRANSPORT ? nativeTileUrl('terrain', TERRAIN_UPSTREAM_TEMPLATE) : null;
+  return {
+    ...TERRAIN_3D_CONFIG.source,
+    tiles: [native ?? TERRAIN_UPSTREAM_TEMPLATE],
+  };
+}

@@ -1,7 +1,9 @@
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
-import { TERRAIN_3D_CONFIG } from '@/features/maps/components/mapStyles';
+import { TERRAIN_3D_CONFIG, terrain3DSource } from '@/features/maps/components/mapStyles';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { resolveStyleExpression, TERRAIN_STYLE_OPTIONS } from './styleResolution';
+import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
+import { colors, colorWithOpacity } from '@/theme';
 
 /**
  * JPEG quality for a captured preview.
@@ -39,7 +41,23 @@ export interface SnapshotRequest {
    * it goes to the head of the queue and survives an overflow (B416).
    */
   priority?: boolean;
+  /**
+   * The card already holds a stand-in for this render and is asking for the
+   * one it wanted. Capped per render identity, because a card holding a
+   * downgrade asks again every time it mounts.
+   */
+  upgrade?: boolean;
+  // A deliberate stand-in whose successful save queues the terrain render.
+  firstPaint?: boolean;
+  // The terrain render following a deliberate first paint, outside the retry cap.
+  backgroundUpgrade?: boolean;
+  // A flat image saved under the terrain key with a downgrade marker.
+  standIn?: boolean;
   _retryAttempt?: number;
+  /** Epoch milliseconds the request entered the queue, for `snapshot.wait`. */
+  _enqueuedAt?: number;
+  /** Epoch milliseconds a worker took it, for `snapshot.render`. */
+  _startedAt?: number;
 }
 
 // Builds the injected JS that renders one snapshot request - a 3D terrain
@@ -69,8 +87,11 @@ export function buildRenderSnapshotScript(
   const coordsJSON = JSON.stringify(request.coordinates);
   const cameraJSON = JSON.stringify(request.camera);
 
-  // Serialize shared terrain config values for injection into WebView JS
-  const terrainSourceJSON = JSON.stringify(TERRAIN_3D_CONFIG.source);
+  // Serialise shared terrain config values for injection into WebView JS.
+  // The source is built here rather than read off the config because
+  // building it is what points it at the intercept and hands Rust the
+  // upstream template.
+  const terrainSourceJSON = JSON.stringify(terrain3DSource());
   const skyConfigJSON = JSON.stringify(
     isSatellite
       ? TERRAIN_3D_CONFIG.sky.satellite
@@ -85,17 +106,36 @@ export function buildRenderSnapshotScript(
   return `
           (function() {
             try {
+              // Stamped before anything is decided, so the elapsed posted back
+              // covers the whole render and not the branch it ended up in.
+              window._renderStart = Date.now();
+              window._renderPath = 'setStyle';
+              // Reset before either path can emit source events.
+              window._tileStats = {};
+
+              // Each stage is closed by the next one opening, so the four sum
+              // to the elapsed posted beside them. A render that aborts part
+              // way through stamps only what it reached, and the host records
+              // only what it is given, so a stage reads as absent rather than
+              // as zero.
+              window._phases = {};
+              window._phaseAt = window._renderStart;
+              function phase(name) {
+                var now = Date.now();
+                window._phases[name] = now - window._phaseAt;
+                window._phaseAt = now;
+              }
               var workerId = ${workerId};
               var coords = ${coordsJSON};
               var camera = ${cameraJSON};
               var isSatellite = ${isSatellite};
               var isDark = ${isDark};
               var isFlat = ${isFlat};
-              var routeColor = '${request.routeColor}';
-              var lightStyleUrl = '${lightStyleUrl}';
+              var routeColor = ${jsLiteral(request.routeColor)};
+              var lightStyleUrl = ${jsLiteral(lightStyleUrl)};
               var inlineStyle = ${styleConfig};
-              var activityId = '${request.activityId}';
-              var mapStyle = '${request.mapStyle}';
+              var activityId = ${jsLiteral(request.activityId)};
+              var mapStyle = ${jsLiteral(request.mapStyle)};
               var myGen = ${gen};
               var terrainSource = ${terrainSourceJSON};
               var skyConfig = ${skyConfigJSON};
@@ -115,6 +155,7 @@ export function buildRenderSnapshotScript(
 
               function captureSnapshot() {
                 if (isStale()) { window._rn_log('gen=' + myGen + ' superseded, aborting'); return; }
+                phase('settle');
                 try {
                   var canvas = window.map.getCanvas();
                   var w = canvas.width;
@@ -146,6 +187,8 @@ export function buildRenderSnapshotScript(
                     if (whiteCount >= 2) {
                       window._rn_log('White tile detected (' + whiteCount + '/8 samples), rejecting');
                       window.ReactNativeWebView.postMessage(JSON.stringify({
+                        phases: window._phases,
+                        tileStats: window._tileStats,
                         type: 'snapshotError',
                         workerId: workerId,
                         activityId: activityId,
@@ -189,6 +232,8 @@ export function buildRenderSnapshotScript(
                     if (gapCount >= 3) {
                       window._rn_log('Gap detected (' + gapCount + '/6 interior samples), rejecting');
                       window.ReactNativeWebView.postMessage(JSON.stringify({
+                        phases: window._phases,
+                        tileStats: window._tileStats,
                         type: 'snapshotError',
                         workerId: workerId,
                         activityId: activityId,
@@ -205,6 +250,8 @@ export function buildRenderSnapshotScript(
                   if (window._tileErrorCount >= 2) {
                     window._rn_log('Tile errors detected (' + window._tileErrorCount + '), rejecting');
                     window.ReactNativeWebView.postMessage(JSON.stringify({
+                      phases: window._phases,
+                      tileStats: window._tileStats,
                       type: 'snapshotError',
                       workerId: workerId,
                       activityId: activityId,
@@ -216,8 +263,10 @@ export function buildRenderSnapshotScript(
                     return;
                   }
 
+                  phase('probe');
                   var dataUrl = canvas.toDataURL('image/jpeg', ${SNAPSHOT_JPEG_QUALITY});
                   var base64 = dataUrl.split(',')[1];
+                  phase('encode');
                   window._rn_log('Captured ' + activityId + ' (' + Math.round(base64.length / 1024) + 'KB)');
                   window.ReactNativeWebView.postMessage(JSON.stringify({
                     type: 'snapshot',
@@ -228,10 +277,23 @@ export function buildRenderSnapshotScript(
                     base64: base64,
                     tileErrors: window._tileErrorCount,
                     tileThrottles: window._tileThrottleCount,
+                    // The host cannot tell a camera jump over a mounted style
+                    // from a whole setStyle with its sources and its tiles,
+                    // and they differ by an order of magnitude. The page knows
+                    // which it took, so it says.
+                    fastPath: window._renderPath === 'fast',
+                    elapsed: window._renderStart ? Date.now() - window._renderStart : null,
+                    // Where those milliseconds went, since the elapsed alone
+                    // only says the render is the stage and not which part of
+                    // it is the wait.
+                    phases: window._phases,
+                    tileStats: window._tileStats,
                   }));
                 } catch(e) {
                   window._rn_log('Capture error: ' + e.message);
                   window.ReactNativeWebView.postMessage(JSON.stringify({
+                    phases: window._phases,
+                    tileStats: window._tileStats,
                     type: 'snapshotError',
                     workerId: workerId,
                     activityId: activityId,
@@ -290,7 +352,7 @@ export function buildRenderSnapshotScript(
                   id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
                   paint: {
                     'circle-radius': 5,
-                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'],
+                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.75))}, ${jsLiteral(colorWithOpacity(colors.error, 0.75))}],
                   },
                 });
                 window._rn_log('Route layers added via API');
@@ -324,10 +386,15 @@ export function buildRenderSnapshotScript(
               var baseMode = isFlat ? 'flat' : '3d';
               if (window._currentBaseStyle === mapStyle && window._currentBaseMode === baseMode && coords.length > 0) {
                 if (isFlat || window.map.getSource('terrain')) {
+                  window._renderPath = 'fast';
                   window.map.jumpTo({
                     center: camera.center, zoom: camera.zoom,
                     bearing: camera.bearing, pitch: camera.pitch,
                   });
+                  // The fast path mounts no style, so its style stage is the
+                  // jump alone. That it is near zero while the elapsed is not
+                  // is the reading.
+                  phase('style');
                   window._rn_log('Fast path: jumped camera, waiting for terrain...');
                   var done = false;
                   var fpStart = Date.now();
@@ -393,6 +460,8 @@ export function buildRenderSnapshotScript(
                       done = true;
                       window._rn_log('Fast path timeout (6s)');
                       window.ReactNativeWebView.postMessage(JSON.stringify({
+                        phases: window._phases,
+                        tileStats: window._tileStats,
                         type: 'snapshotError', workerId: workerId, activityId: activityId,
                         gen: myGen, error: 'Fast path render timeout',
                         tileErrors: window._tileErrorCount,
@@ -477,7 +546,7 @@ export function buildRenderSnapshotScript(
                   id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
                   paint: {
                     'circle-radius': 5,
-                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'],
+                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.75))}, ${jsLiteral(colorWithOpacity(colors.error, 0.75))}],
                   },
                 });
               }
@@ -493,9 +562,12 @@ export function buildRenderSnapshotScript(
                 bearing: camera.bearing,
                 pitch: camera.pitch,
               });
+              // Closes the style stage: the Liberty fetch for light mode, the
+              // terrain, hillshade and route spliced in above, and the call
+              // that mounts the lot.
+              phase('style');
 
               // Wait for everything to load (DEM + vector + route tiles)
-              window._tileStats = {};
               var done = false;
               var setStyleTime = Date.now();
 
@@ -521,6 +593,8 @@ export function buildRenderSnapshotScript(
                   done = true;
                   window._rn_log('Hard timeout (6s), skipping');
                   window.ReactNativeWebView.postMessage(JSON.stringify({
+                    phases: window._phases,
+                    tileStats: window._tileStats,
                     type: 'snapshotError',
                     workerId: workerId,
                     activityId: activityId,
@@ -557,9 +631,11 @@ export function buildRenderSnapshotScript(
               window._rn_log('Error: ' + e.message);
               if (window.ReactNativeWebView) {
                 window.ReactNativeWebView.postMessage(JSON.stringify({
+                  phases: window._phases,
+                  tileStats: window._tileStats,
                   type: 'snapshotError',
                   workerId: ${workerId},
-                  activityId: '${request.activityId}',
+                  activityId: ${jsLiteral(request.activityId)},
                   gen: ${gen},
                   error: e.message,
                 }));

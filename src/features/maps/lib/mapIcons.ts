@@ -20,3 +20,29 @@ export const TROPHY_ICON: MapImageSpec = {
 
 /** Raw base64 for builders that inline the image into a page themselves. */
 export const TROPHY_ICON_BASE64 = TROPHY_BASE64;
+
+export const SECTION_START_ICON_ID = 'section-start';
+export const SECTION_END_ICON_ID = 'section-end';
+
+// A right-pointing triangle and a square, the two shapes the section creation
+// markers used to label with as U+25B6 and U+25A0. Those codepoints sit in the
+// 9472-9727 glyph range, which the app does not carry: 108 KB to draw two
+// shapes, against 1.6 KB as icons. Signed distance fields, so `icon-color`
+// tints them the way the glyph's `text-color` did.
+const SECTION_START_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAACbklEQVR42u2bfW+CQAzGn8k5UNzL9/+WuilK5Nw/vay76AC9lxZp0kCOEPL82itcLwCzzTbbM9vLHfcsABg6AoAFcKbjpAEsAFQASgJQ0HhHAE7k3RQBGABr8hLAqwegZQBUgSgGRr4GsGFeE4yKYCxZVhg2RSyAi3YAK0+8cw7AeK4GRDEw+vUVADUBMP+4eBB9AJYUaR/CG3l1Q6waEEMBcK9J/Dt7IxitIPoAGIqy8xXzNUEoBogVC2IsAN/XBMNoBfEogArAx0DBIkGEAFBRXTAaQYQCsLlREMWDCAWAT4VCE4iQANybwWgCERJARa/F5YOCk4IIDcDVgxCCk4AwEerKKxVEf3nsxo4Pjvdd63JnQAXgc2QUs2VELAD+t4FYEDGmAO8jlA+kc5KpEROAD0ECiKPfvI0NwDVVpIAwAA7UxE0GQAqIhrXyv10mpASQE8SRFXy3j3HIBSAHCOO18EtXD3ICSAViSc9xmze8i91KABAbBFgBdN8KhasHCzy5ScoAeyXK1yLfd80fb2jen8k7cisFQCzhfPxAx9aDkRVACuE+hIaNZcuAlML9qbBn2ZC8BuQSzq8dyG1KABKEZ1sMNUKEZ1kON5KFpwCwkyw8NoCtdOExAbQahMcEsNMgPBaAvRbhMQDYnsInSngMAFtNwkMDOGoTHhrATpvwkAC+NAoPBeBMPXZ1wu8FcGHe3Sh8KoQPBWBZD821kVpa6IB1XNUJHwqAi27xd5Ph1PPpK1r4mAzgLaWCgTHsXJ3wMTXARd3tIXT43WgAyxBVwscAsNRHc+ctJvTLzPzT1B33TOq3udlmm+257Qf0p60O1xLVnAAAAABJRU5ErkJggg==';
+
+const SECTION_END_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAB1UlEQVR42u2bW2vDMAyFz1LT9LKN/P9f6YcubUKT7mEyFX3oxbE7GZ8DJlCK0PkiKxcUgKIoiqpXHy/+vwHg5GhRM4CzHJMCaABsALQCYGUUwCQABgCnZ0C4J4I6ADtZLYC1cQCjAHAAegESDaAR458A9gC2AsAZBXAWAEe1TQ/3KuGRkY0A2AuEnfzmIvpHbl0EwElVaOgJfQyARkq+lTO/UxDWRgGMylPYDu29fuAebA8nZteqGr4EiEUAR7UVBrVdncB4uQJWsjSMLYBvg41wkuOg8g35N0uuAvqSGdYKQGcMgL/J8Skt7eadIfNRSnE560o1nwrAf0LwSwOkvKHpSjOfGsA7IfhUgXLc0nalmM8FICcEnzpgzoeaNnG8IUeSVl9svE0EQAAEQAAEQAAEQAAEQAAEQAAEQAAEQAAEUJtyvhMcagbga64AX/MW8DX3gOLMpwRQpPlUAIo1nwJA0eZfBXBRazJofrrJcTGAWYKG+Vs9hQnYHZMbVb4h/6hJUW16xN+woVN3eVYHJXvJdbyBEVUBg6wjrnOBZ9gfle0l55B/9KxwOOuN2mcDyhiW/lHVEN0EZ1wHjWcJXsq4fC/r7jcD1X8wUf0nMxRFUVTN+gUw3IPArUxECQAAAABJRU5ErkJggg==';
+
+export const SECTION_START_ICON: MapImageSpec = {
+  id: SECTION_START_ICON_ID,
+  uri: `data:image/png;base64,${SECTION_START_BASE64}`,
+  sdf: true,
+};
+
+export const SECTION_END_ICON: MapImageSpec = {
+  id: SECTION_END_ICON_ID,
+  uri: `data:image/png;base64,${SECTION_END_BASE64}`,
+  sdf: true,
+};
