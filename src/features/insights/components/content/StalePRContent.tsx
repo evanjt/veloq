@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { getSportDisplayName, getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { getSportDisplayName, getActivityIcon } from '@/shared/activity/activityUtils';
 import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
@@ -17,8 +17,10 @@ import {
   insightIcon,
   layout,
   typography,
+  verdictColor,
 } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
+import { pressable } from '@/shared/ui';
 
 interface StalePRContentProps {
   insight: Insight;
@@ -124,7 +126,7 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
                 style={[
                   styles.dataValue,
                   isDark && styles.dataValueDark,
-                  dp.context === 'good' && styles.dataValueGood,
+                  dp.context === 'good' && { color: verdictColor('positive', isDark) },
                 ]}
               >
                 {String(dp.value)}
@@ -139,7 +141,7 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
           {sections.map((s: SupportingSection) => (
             <Pressable
               key={s.sectionId}
-              style={[styles.sectionCard, isDark && styles.sectionCardDark]}
+              style={pressable([styles.sectionCard, isDark && styles.sectionCardDark])}
               onPress={() => handleSectionPress(s.sectionId)}
             >
               <View style={styles.sectionContent}>
@@ -243,9 +245,6 @@ const styles = StyleSheet.create({
   dataValueDark: {
     color: darkColors.textPrimary,
   },
-  dataValueGood: {
-    color: colors.success,
-  },
   sectionList: {
     gap: spacing.xs,
   },
@@ -278,7 +277,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   sportIcon: {
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   sectionName: {
     flex: 1,

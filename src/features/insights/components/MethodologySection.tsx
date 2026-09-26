@@ -7,6 +7,7 @@ import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
 import type { Insight, SupportingActivity } from '@/types';
+import { pressable } from '@/shared/ui';
 
 interface MethodologySectionProps {
   insight: Insight;
@@ -104,7 +105,7 @@ const SourceActivitiesList = React.memo(function SourceActivitiesList({
       {displayed.map((activity) => (
         <Pressable
           key={activity.activityId}
-          style={[styles.activityRow, isDark && styles.activityRowDark]}
+          style={pressable([styles.activityRow, isDark && styles.activityRowDark])}
           onPress={() => handlePress(activity.activityId)}
         >
           <View style={styles.activityInfo}>

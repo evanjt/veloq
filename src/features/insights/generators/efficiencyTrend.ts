@@ -2,14 +2,13 @@ import type { EfficiencyTrend } from 'veloqrs';
 
 import type { Insight } from '../types';
 import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor } from '../lib/config';
-import { insightIcon } from '@/theme';
 
 /**
  * Aerobic Efficiency Trend Insights
  *
  * Detects improving aerobic efficiency on frequently-visited sections by
- * analysing the HR/pace ratio over time. A declining ratio (lower HR at the
- * same pace) indicates physiological adaptation.
+ * analysing heart rate per unit of speed over time. A declining ratio, fewer
+ * beats for the same speed, indicates physiological adaptation.
  *
  * Evidence base:
  * Coyle, E. F. et al. (1991). Time course of loss of adaptations after
@@ -18,7 +17,7 @@ import { insightIcon } from '@/theme';
  *   parameters of aerobic fitness. Sports Med, 29(6), 373–386.
  *
  * Data source: the engine's insights bundle, which computes linear regression
- * of HR/pace ratio over matched efforts and returns only the sections that
+ * of that ratio over matched efforts and returns only the sections that
  * cleared the improvement, effort-count and HR-change thresholds. Sections
  * without sufficient HR data never reach here.
  */
@@ -58,7 +57,7 @@ export function generateEfficiencyTrendInsights(
       category: 'efficiency_trend',
       priority: 1,
       icon: 'heart-pulse',
-      iconColor: insightIcon.positive,
+      iconTone: 'positive',
       title: t('insights.efficiencyTrend.title', { name: trend.sectionName }),
       subtitle: t('insights.efficiencyTrend.subtitle', {
         hrChange,
@@ -79,9 +78,12 @@ export function generateEfficiencyTrendInsights(
         repetitionCount: trend.effortCount,
         placeName: trend.sectionName,
         sectionId: trend.sectionId,
+        // The newest effort against the mean of its own series, taken where
+        // the series is built rather than averaged again here.
+        signalDelta: trend.signalDelta,
       },
       supportingData: {
-        // The engine already ships one HR/pace ratio per matched effort, so
+        // The engine already ships one efficiency ratio per matched effort, so
         // the sheet plots the efforts the claim rests on. Two is the least
         // that draws a line.
         ...(trend.points.length >= 2
@@ -117,8 +119,8 @@ export function generateEfficiencyTrendInsights(
       methodology: {
         name: 'Aerobic efficiency regression',
         description:
-          'Tracks the HR/pace ratio across matched section efforts over time. Uses ordinary least squares linear regression on the hr_pace_ratio time series.',
-        formula: 'efficiency = avg_hr / pace_secs_per_km',
+          'Tracks heart rate per unit of speed across matched section efforts over time. Uses ordinary least squares linear regression on that time series.',
+        formula: 'efficiency = avg_hr * pace_secs_per_km',
       },
     });
   }

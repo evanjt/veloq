@@ -7,6 +7,7 @@ import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
 import { colors, darkColors, spacing, opacity, brand, ink, layout, typography } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
+import { pressable } from '@/shared/ui';
 
 const MAX_EFFORTS = 5;
 
@@ -50,7 +51,7 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
         return (
           <Pressable
             key={record.activityId}
-            style={[styles.row, isDark && styles.rowDark]}
+            style={pressable([styles.row, isDark && styles.rowDark])}
             onPress={() => handlePress(record.activityId)}
           >
             <View style={styles.rowLeft}>
@@ -93,7 +94,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   headingDark: {
     color: darkColors.textSecondary,
@@ -145,10 +146,10 @@ const styles = StyleSheet.create({
   prBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
     backgroundColor: brand.gold,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusSm,
   },
   prText: {

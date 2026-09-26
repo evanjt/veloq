@@ -7,6 +7,7 @@ import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
 import { SupportingDataSection } from '../SupportingDataSection';
+import { pressable } from '@/shared/ui';
 
 interface EfficiencyTrendContentProps {
   insight: Insight;
@@ -50,8 +51,10 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
           </View>
           {effortCountPoint ? (
             <View style={styles.effortBadge}>
-              <Text style={styles.effortCount}>{effortCountPoint.value}</Text>
-              <Text style={styles.effortLabel}>efforts</Text>
+              <Text style={[styles.effortCount, isDark && styles.effortCountDark]}>
+                {effortCountPoint.value}
+              </Text>
+              <Text style={[styles.effortLabel, isDark && styles.effortLabelDark]}>efforts</Text>
             </View>
           ) : null}
         </View>
@@ -72,7 +75,7 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
 
       {sectionId && sectionName ? (
         <Pressable
-          style={[styles.sectionLink, isDark && styles.sectionLinkDark]}
+          style={pressable([styles.sectionLink, isDark && styles.sectionLinkDark])}
           onPress={handleSectionPress}
         >
           <MaterialCommunityIcons
@@ -159,15 +162,15 @@ const styles = StyleSheet.create({
   hrChange: {
     fontSize: typography.sectionTitle.fontSize,
     fontWeight: '700',
-    color: colors.formOptimal,
+    color: colors.formOptimalText,
   },
   hrChangeDark: {
-    color: colors.formFresh,
+    color: darkColors.formOptimalText,
   },
   hrLabel: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   hrLabelDark: {
     color: darkColors.textSecondary,
@@ -182,12 +185,18 @@ const styles = StyleSheet.create({
   effortCount: {
     fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
-    color: colors.formOptimal,
+    color: colors.formOptimalText,
+  },
+  effortCountDark: {
+    color: darkColors.formOptimalText,
   },
   effortLabel: {
     fontSize: typography.micro.fontSize,
-    color: colors.formOptimal,
+    color: colors.formOptimalText,
     fontWeight: '500',
+  },
+  effortLabelDark: {
+    color: darkColors.formOptimalText,
   },
   sectionLink: {
     flexDirection: 'row',

@@ -1,6 +1,5 @@
 import type { Insight } from '../types';
 import { NO_POPULATION, maxPerCategoryFor } from '../lib/config';
-import { insightIcon } from '@/theme';
 
 /**
  * Section changed insights.
@@ -46,7 +45,7 @@ export function generateSectionChangedInsights(
       category: 'section_changed',
       priority: 3,
       icon: 'history',
-      iconColor: insightIcon.info,
+      iconTone: 'info',
       title: t('insights.sectionChanged.title', { name: change.sectionName }),
       subtitle: t(`insights.sectionChanged.${change.kind}`),
       body: t('insights.sectionChanged.body'),

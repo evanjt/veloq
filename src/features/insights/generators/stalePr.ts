@@ -1,8 +1,8 @@
-import type { Insight } from '../types';
+import type { Insight, SeriesPoint } from '../types';
 import { formatDuration, formatPaceCompact, formatSwimPace } from '@/shared/format/format';
-import { getEngine } from '@/shared/native/engine';
-import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor, minAgeDaysFor } from '../lib/config';
-import { insightIcon } from '@/theme';
+import type { StalePrOpportunity as EngineStalePrOpportunity } from 'veloqrs';
+import { confidenceFrom } from '../lib/config';
+import { sparkline } from '../lib/sparkline';
 
 /**
  * Stale PR / Opportunity Detection
@@ -73,25 +73,10 @@ export interface StalePROpportunity {
   daysSinceLast: number;
   /** Lifetime traversals. Feeds the repetition gate. */
   traversalCount: number;
-}
-
-// ---------------------------------------------------------------------------
-// Config-derived constants (recomputed on each call so config edits apply)
-// ---------------------------------------------------------------------------
-
-/** Minimum days since last traversal to consider a section "stale". */
-function getStaleThresholdDays(): number {
-  return minAgeDaysFor('stale_pr');
-}
-
-/** Minimum FTP gain (%) to flag an opportunity. */
-function getMinFtpGainPercent(): number {
-  return INSIGHTS_CONFIG.thresholds.minFtpGainPercent;
-}
-
-/** Maximum opportunities to return. */
-function getMaxOpportunities(): number {
-  return maxPerCategoryFor('stale_pr');
+  /** The sport the section was ranked under, which the group card names. */
+  sportType?: string;
+  /** The last efforts on the section, oldest first, for the card's graphic. */
+  recentEfforts?: SeriesPoint[];
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +131,7 @@ export function stalePROpportunityToInsight(
       gainPercent: opportunity.gainPercent,
     }),
     icon: 'lightning-bolt',
-    iconColor: insightIcon.opportunity,
+    iconTone: 'opportunity',
     body: t('insights.stalePr.body', {
       section: opportunity.sectionName,
       metric: metricLabel,
@@ -166,6 +151,7 @@ export function stalePROpportunityToInsight(
       sectionId: opportunity.sectionId,
     },
     supportingData: {
+      ...sparkline(opportunity.recentEfforts, t('insights.data.recentEfforts')),
       dataPoints: [
         {
           label: t('insights.stalePr.currentMetric', { metric: metricLabel }),
@@ -205,62 +191,34 @@ export function stalePROpportunityToInsight(
 
 const MAX_STALE_PR_SECTIONS_IN_BODY = 3;
 
-/** Inputs for generating stale-PR insights, including dedup against already-present insights. */
-export interface GenerateStalePRInsightsInput {
-  sections: StalePRSectionData[];
-  ftpTrend: StalePRFtpTrend | null;
-  runPaceTrend: StalePRPaceTrend | null;
-  swimPaceTrend: StalePRPaceTrend | null;
-  /** IDs of insights already generated (to avoid duplicating section_pr cards) */
-  existingInsightIds: Set<string>;
-}
-
 /**
  * Generate stale-PR insights: single card when 1 opportunity, group card when 2+.
- * Handles dedup against existing section_pr insights so the same section isn't surfaced twice.
+ *
+ * The engine does the whole filter, sort and cap from SQLite-resident FTP and
+ * pace trends and ranked-section metadata, so TS never sees the raw candidates
+ * and never decides which ones qualify. The rows ride the insights bundle: this
+ * used to make an engine call of its own on top of the heaviest read in the
+ * tree, and pass back the sections to exclude, which the engine can see for
+ * itself in the `recentPrs` of the same bundle.
  */
 export function generateStalePRInsights(
-  input: GenerateStalePRInsightsInput,
+  opportunities: readonly EngineStalePrOpportunity[] | undefined,
   t: (key: string, params?: Record<string, string | number>) => string,
   now: number
 ): Insight[] {
-  // The Rust atomic on FitnessManager does the whole filter, sort and cap from
-  // SQLite-resident FTP and pace trends and ranked-section metadata, so TS
-  // never sees the raw candidates and never decides which ones qualify.
-  const excludeSectionIds: string[] = [];
-  for (const id of input.existingInsightIds) {
-    const m = id.match(/^section_pr-(.+)$/);
-    if (m) excludeSectionIds.push(m[1]);
-  }
-
-  let filtered: StalePROpportunity[] = [];
-  try {
-    const engine = getEngine();
-    if (engine?.findStalePrOpportunities) {
-      const rows = engine.findStalePrOpportunities(
-        getStaleThresholdDays(),
-        getMinFtpGainPercent(),
-        getMaxOpportunities(),
-        excludeSectionIds
-      );
-      filtered = rows.map((r) => ({
-        sectionId: r.sectionId,
-        sectionName: r.sectionName,
-        bestTimeSecs: r.bestTimeSecs,
-        daysSinceLast: r.daysSinceLast,
-        traversalCount: r.traversalCount,
-        fitnessMetric: r.fitnessMetric === 'power' ? 'power' : 'pace',
-        currentValue: r.currentValue,
-        previousValue: r.previousValue,
-        gainPercent: r.gainPercent,
-        unit: r.unit,
-      }));
-    }
-  } catch {
-    // The engine is the only opinion. One that cannot answer yet produces no
-    // card, rather than a second detector answering differently.
-    filtered = [];
-  }
+  const filtered: StalePROpportunity[] = (opportunities ?? []).map((r) => ({
+    sectionId: r.sectionId,
+    sectionName: r.sectionName,
+    bestTimeSecs: r.bestTimeSecs,
+    daysSinceLast: r.daysSinceLast,
+    traversalCount: r.traversalCount,
+    fitnessMetric: r.fitnessMetric === 'power' ? 'power' : 'pace',
+    currentValue: r.currentValue,
+    previousValue: r.previousValue,
+    gainPercent: r.gainPercent,
+    unit: r.unit,
+    sportType: r.sportType,
+  }));
 
   if (filtered.length === 0) return [];
   if (filtered.length === 1) return [stalePROpportunityToInsight(filtered[0], t, now)];
@@ -295,7 +253,7 @@ export function generateStalePRInsights(
       // well-visited section does not make the others' records solid.
       confidence: confidenceFrom('stale_pr', Math.min(...filtered.map((o) => o.traversalCount))),
       icon: 'lightning-bolt',
-      iconColor: insightIcon.opportunity,
+      iconTone: 'opportunity',
       title: t('insights.stalePr.groupTitle', { count: filtered.length }),
       subtitle: subtitleParts.join(', '),
       body:
@@ -322,7 +280,7 @@ export function generateStalePRInsights(
           sectionId: o.sectionId,
           sectionName: o.sectionName,
           bestTime: o.bestTimeSecs,
-          sportType: input.sections.find((s) => s.sectionId === o.sectionId)?.sportType,
+          sportType: o.sportType,
         })),
         formula: subtitleParts.join('; '),
         algorithmDescription: t('insights.stalePr.methodology'),

@@ -9,6 +9,9 @@ export { StrengthTab } from './components/StrengthTab';
 export { InsightDetailContent } from './components/content/InsightDetailContent';
 
 export { useInsights } from './hooks/useInsights';
+export { useActivityHighlight } from './hooks/useActivityHighlight';
+export type { ActivityHighlightView } from './hooks/useActivityHighlight';
+export type { ActivityInfo } from './lib/activityHighlight';
 
 export { generateInsights, getLastInsightOutcome } from './lib/generateInsights';
 export {
@@ -16,8 +19,8 @@ export {
   fetchInsightsDataFromEngine,
   consolidateInsights,
 } from './lib/computeInsightsData';
-export type { WellnessInput } from './lib/computeInsightsData';
 export { INSIGHTS_CONFIG } from './lib/config';
+export { signalDeltaFrom } from './lib/signalDelta';
 
 export { stalePROpportunityToInsight } from './generators/stalePr';
 export { generateEfficiencyTrendInsights } from './generators/efficiencyTrend';

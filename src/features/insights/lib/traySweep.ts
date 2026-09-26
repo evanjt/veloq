@@ -19,7 +19,7 @@ export function shouldDismissForActivity(
   activityId: string
 ): boolean {
   if (identifier === `activity-${activityId}`) return true;
-  return tapTargetFromPushData(data)?.path === `/activity/${activityId}`;
+  return tapTargetFromPushData(data)?.path === `/summary/${activityId}`;
 }
 
 /** One entry as the tray reports it: its identifier and its push payload. */
@@ -94,13 +94,21 @@ export async function replaceActivityTrayEntry(r: TrayReplacement): Promise<bool
  * `leave` is the outcome that was missing. `fetchAndIngestActivity` returns
  * null on three paths, the body then had nothing in it but the notification's
  * own title, and reposting that over the generic entry the push already put up
- * made the failure path produce a worse notification than doing nothing
- *.
+ * made the failure path produce a worse notification than doing nothing.
+ *
+ * An empty body means two opposite things and `ingested` is what separates
+ * them. An ingest that failed knows nothing about the ride, so the generic
+ * entry is the best thing standing and it stays. An ingest that worked and
+ * found no PR, no named route and no milestone has decided this ride is not
+ * worth a push, and the generic entry has to come down with it: leaving it
+ * would hand the athlete "Activity Recorded" permanently, which is worse than
+ * the line it replaced.
  */
 export function trayActionFor(
   body: string,
-  foreground: boolean
+  foreground: boolean,
+  ingested: boolean
 ): 'post' | 'dismiss-only' | 'leave' {
-  if (!body.trim()) return 'leave';
+  if (!body.trim()) return ingested ? 'dismiss-only' : 'leave';
   return foreground ? 'dismiss-only' : 'post';
 }

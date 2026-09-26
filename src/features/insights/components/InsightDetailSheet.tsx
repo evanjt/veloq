@@ -13,10 +13,13 @@ import {
   opacity,
   colorWithOpacity,
   layout,
+  insightToneColor,
+  ink,
 } from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
 import type { Insight } from '@/types';
+import { pressable } from '@/shared/ui';
 
 /** Share of the window the sheet rises to. */
 const SHEET_FRACTION = 0.85;
@@ -44,6 +47,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   }, [insight?.navigationTarget, onClose]);
 
   if (!insight) return null;
+  const toneColor = insightToneColor(insight.iconTone, isDark);
 
   // Content components for these categories already have embedded navigation
   // (e.g. tappable section names that go straight to the section detail page).
@@ -53,7 +57,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
+      <Pressable style={pressable(styles.backdrop)} onPress={onClose}>
         <View style={styles.backdropFill} />
       </Pressable>
       <View
@@ -79,22 +83,15 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
           {/* Compact header row */}
           <View style={styles.headerRow}>
             <View
-              style={[
-                styles.iconCircle,
-                { backgroundColor: colorWithOpacity(insight.iconColor, 0.12) },
-              ]}
+              style={[styles.iconCircle, { backgroundColor: colorWithOpacity(toneColor, 0.12) }]}
             >
-              <MaterialCommunityIcons
-                name={insight.icon as never}
-                size={16}
-                color={insight.iconColor}
-              />
+              <MaterialCommunityIcons name={insight.icon as never} size={16} color={toneColor} />
             </View>
             <Text style={[styles.title, isDark && styles.titleDark]} numberOfLines={2}>
               {insight.title}
             </Text>
             <Pressable
-              style={styles.closeButton}
+              style={pressable(styles.closeButton)}
               onPress={onClose}
               hitSlop={12}
               accessibilityRole="button"
@@ -135,7 +132,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
           {/* Navigation link */}
           {hasNavTarget ? (
             <Pressable
-              style={[styles.navLink, isDark && styles.navLinkDark]}
+              style={pressable([styles.navLink, isDark && styles.navLinkDark])}
               onPress={handleNavigate}
             >
               <Text style={[styles.navLinkText, isDark && styles.navLinkTextDark]}>
@@ -160,7 +157,7 @@ const styles = StyleSheet.create({
   },
   backdropFill: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
   },
   sheet: {
     position: 'absolute',

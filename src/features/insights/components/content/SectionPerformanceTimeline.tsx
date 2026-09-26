@@ -13,7 +13,16 @@ import {
 } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity, ink, layout, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  opacity,
+  ink,
+  layout,
+  typography,
+  colorWithOpacity,
+} from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import type { LayoutChangeEvent } from 'react-native';
@@ -132,11 +141,14 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
       };
     }, [sorted, bestRecord, chartWidth]);
 
-  if (sorted.length < 2 || !linePath) return null;
+  if (sorted.length < 2) return null;
 
   const textMuted = isDark ? darkColors.textMuted : colors.textMuted;
-  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-  const dotColor = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.2)';
+  const gridColor = isDark ? colorWithOpacity(ink.white, 0.06) : colorWithOpacity(ink.black, 0.06);
+  const dotColor = isDark ? colorWithOpacity(ink.white, 0.4) : colorWithOpacity(ink.black, 0.2);
+  // The 5 px dot among the faint ones is the only thing that says best record,
+  // so it is a mark and owes 3:1 rather than the amber chart tone (B929).
+  const bestMarkColor = isDark ? darkColors.chartGoldMark : colors.chartGoldMark;
   const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
   const yRange = yMax - yMin || 1;
 
@@ -147,7 +159,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
           All efforts ({records.length})
         </Text>
         <View style={styles.chartWrapper} onLayout={onChartLayout}>
-          {chartWidth > 0 ? (
+          {linePath ? (
             <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
               {/* Horizontal grid lines */}
               {yTicks.map((tick, i) => {
@@ -192,14 +204,14 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
                     cx={pointPositions[bestPointIdx].x}
                     cy={pointPositions[bestPointIdx].y}
                     r={7}
-                    color={colors.chartFtp}
+                    color={bestMarkColor}
                     opacity={0.3}
                   />
                   <Circle
                     cx={pointPositions[bestPointIdx].x}
                     cy={pointPositions[bestPointIdx].y}
                     r={5}
-                    color={colors.chartFtp}
+                    color={bestMarkColor}
                   />
                   <Circle
                     cx={pointPositions[bestPointIdx].x}
