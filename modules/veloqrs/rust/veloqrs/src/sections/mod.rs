@@ -138,7 +138,7 @@ pub struct CreateSectionParams {
 
 /// Lightweight section summary without polyline data.
 /// Unified type used by both the persistence layer and sections CRUD.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, uniffi::Record)]
 pub struct SectionSummary {
     /// Unique section ID
     pub id: String,
@@ -170,8 +170,6 @@ pub struct SectionSummary {
     pub elevation_loss_m: Option<f64>,
     /// Steepest grade (%) held over 300 m of the slice.
     pub max_grade_percent: Option<f64>,
-    /// Chord over arc, 0..1.
-    pub straightness: Option<f64>,
     /// climb, descent, rolling, flat or loop; None when nothing says.
     pub klass: Option<String>,
     pub is_lift: bool,

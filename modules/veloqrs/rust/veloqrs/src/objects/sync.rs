@@ -13,8 +13,11 @@
 //! upload verbs are async and resolve to an `FfiCallOutcome` the caller branches
 //! on, while still running their I/O on the shared runtime.
 
-use super::error::VeloqError;
+use super::coverage::RangeCoverage;
+use super::error::{VeloqError, with_reader};
+use super::library::LibraryCoverage;
 use super::observer;
+use super::observer::Announcement;
 use super::start::FfiStartOutcome;
 #[cfg(test)]
 use crate::governor;
@@ -73,6 +76,20 @@ struct Credentials {
     athlete_id: String,
 }
 
+/// What making a date range available offline will cost, for the surface that
+/// asks before it starts.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiOfflineEstimate {
+    /// Activities stored in the range.
+    pub activities: u32,
+    /// Their moving seconds, which the byte figure scales on.
+    pub moving_seconds: f64,
+    /// Requests the pass will make.
+    pub requests: u32,
+    /// Bytes it will pull, as response bodies.
+    pub bytes: f64,
+}
+
 /// The status fields TypeScript reads / subscribes to.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiSyncStatus {
@@ -80,6 +97,10 @@ pub struct FfiSyncStatus {
     pub in_flight: u32,
     pub completed: u32,
     pub total: u32,
+    /// Which endpoint the run is on, or `None` when nothing is running. The
+    /// counters beside it count steps, so this is the only field that says
+    /// what the sync is actually doing.
+    pub step: Option<FfiSyncStep>,
     pub last_error: Option<String>,
     /// Which kind of failure the message describes, so the banner can render a
     /// translated line rather than the engine's own English.
@@ -114,6 +135,47 @@ pub enum FfiSyncErrorReason {
     NotConfigured = 6,
     /// The sync stopped in a way it has no case for, including a panic.
     Internal = 7,
+    /// The engine went away while the run was going: a restore, or clear and
+    /// sync. Whatever the run had fetched had nowhere to land, so the run is
+    /// a failure however many steps had already succeeded.
+    EngineClosed = 8,
+}
+
+/// Which endpoint a running sync is on, so the line an athlete reads names the
+/// work rather than a counter.
+///
+/// The step is the engine's to report. `completed` counts steps that landed,
+/// so a label derived from it in TypeScript lags by one for every step that
+/// failed, and goes wrong outright the first time the order moves.
+///
+/// The wire carries the variant's position, so the order here is the contract:
+/// append, never reorder. The discriminants start at one so no member is falsy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[repr(u8)]
+pub enum FfiSyncStep {
+    /// The athlete profile: FTP, zones, the name on the settings screen.
+    Athlete = 1,
+    /// Per-sport settings, which the zone charts read.
+    SportSettings = 2,
+    /// A year of wellness rows.
+    Wellness = 3,
+    /// What the account holds against what is stored, which the window step
+    /// reads to know what is still owed.
+    Census = 4,
+    /// The newest owed window, the step a first launch waits on: the standby
+    /// lifts the moment its rows land.
+    Activities = 5,
+    /// The power and pace curves every fitness range charts.
+    Curves = 6,
+    /// Interval and lap bodies for the activities that have none.
+    IntervalBodies = 7,
+    /// The rest of the library, behind the profile slice. Its own step because
+    /// it is the backfill rather than the thing the standby is waiting on.
+    RemainingActivities = 8,
+    /// The newest few activities by count, ahead of every window. The step a
+    /// first launch actually waits on, since the window behind it spans the
+    /// whole library.
+    FirstActivities = 9,
 }
 
 /// A terminal failure: the kind, and the message that describes it.
@@ -147,7 +209,8 @@ impl From<&NetError> for SyncFailure {
             NetError::RateLimited => FfiSyncErrorReason::RateLimited,
             NetError::Http { .. } | NetError::Decode(_) => FfiSyncErrorReason::Server,
             NetError::Transport(_) => FfiSyncErrorReason::Network,
-            NetError::Io(_) => FfiSyncErrorReason::Storage,
+            NetError::Io(_) | NetError::Storage(_) => FfiSyncErrorReason::Storage,
+            NetError::EngineClosed => FfiSyncErrorReason::EngineClosed,
         };
         SyncFailure::new(reason, e.to_string())
     }
@@ -231,7 +294,10 @@ impl FfiCallOutcome {
             NetError::Transport(_) => (FfiCallKind::Network, None, None),
             // A decode or file failure is local. Calling it a network error
             // would queue the item for a connectivity retry that cannot help.
-            NetError::Decode(_) | NetError::Io(_) => (FfiCallKind::Internal, None, None),
+            NetError::Decode(_)
+            | NetError::Io(_)
+            | NetError::Storage(_)
+            | NetError::EngineClosed => (FfiCallKind::Internal, None, None),
         };
         FfiCallOutcome {
             kind,
@@ -270,8 +336,8 @@ pub struct FfiManualActivity {
     pub activity_type: String,
     pub name: String,
     pub start_date_local: String,
-    pub elapsed_time: i64,
-    pub moving_time: Option<i64>,
+    pub elapsed_time: f64,
+    pub moving_time: Option<f64>,
     pub distance: Option<f64>,
     pub total_elevation_gain: Option<f64>,
     pub average_heartrate: Option<f64>,
@@ -288,8 +354,8 @@ impl FfiManualActivity {
             activity_type: self.activity_type,
             name: self.name,
             start_date_local: self.start_date_local,
-            elapsed_time: self.elapsed_time,
-            moving_time: self.moving_time,
+            elapsed_time: self.elapsed_time as i64,
+            moving_time: self.moving_time.map(|v| v as i64),
             distance: self.distance,
             total_elevation_gain: self.total_elevation_gain,
             average_heartrate: self.average_heartrate,
@@ -305,10 +371,16 @@ struct SyncInner {
     in_flight: u32,
     completed: u32,
     total: u32,
+    step: Option<FfiSyncStep>,
     last_error: Option<String>,
     last_error_reason: Option<FfiSyncErrorReason>,
     running: bool,
     cancel: bool,
+    /// A credential the profile confirmed as rejected. Set by the park and
+    /// cleared only by a credential change, so the running sync's own
+    /// terminal transition cannot write `Idle` over it and nothing new
+    /// begins on the dead token.
+    auth_expired: bool,
 }
 
 impl Default for SyncInner {
@@ -318,10 +390,12 @@ impl Default for SyncInner {
             in_flight: 0,
             completed: 0,
             total: 0,
+            step: None,
             last_error: None,
             last_error_reason: None,
             running: false,
             cancel: false,
+            auth_expired: false,
         }
     }
 }
@@ -344,12 +418,17 @@ impl SyncService {
     }
 
     fn set_credentials(&self, method: AuthKind, secret: String, athlete_id: String) {
-        let mut g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
-        *g = Some(Credentials {
-            method,
-            secret,
-            athlete_id,
-        });
+        {
+            let mut g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
+            *g = Some(Credentials {
+                method,
+                secret,
+                athlete_id,
+            });
+        }
+        // A credential the athlete just gave is not the one that was
+        // rejected, so the park is released here and nowhere else.
+        self.release_auth_park();
     }
 
     fn clear_credentials(&self) {
@@ -357,6 +436,9 @@ impl SyncService {
             let mut g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
             *g = None;
         }
+        // A sign-out leaves nothing to be rejected, and the next sign-in must
+        // not find the park still standing.
+        self.release_auth_park();
         // A running sync built its transport before it spawned, with the token
         // already baked in, so clearing the credential does not stop it on its
         // own. Stop the dispatch as well, or the signed-out athlete's next step
@@ -388,7 +470,6 @@ impl SyncService {
     }
 
     /// The athlete id the held credential belongs to, if any.
-    #[cfg(test)]
     fn athlete_id(&self) -> Option<String> {
         let g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
         g.as_ref().map(|c| c.athlete_id.clone())
@@ -418,7 +499,7 @@ impl SyncService {
     /// sync is already in flight (so commands are idempotent under rapid taps).
     fn try_begin(&self) -> bool {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-        if inner.running {
+        if inner.running || inner.auth_expired {
             return false;
         }
         inner.running = true;
@@ -458,7 +539,20 @@ impl SyncService {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.total = total;
         inner.completed = 0;
+        inner.step = None;
         inner.in_flight = 1;
+    }
+
+    /// Name the step about to run, for the line that says what is happening.
+    ///
+    /// Set on entry rather than on completion, because the step an athlete is
+    /// waiting on is the one in flight, not the one that just landed.
+    fn begin_step(&self, step: FfiSyncStep) {
+        {
+            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            inner.step = Some(step);
+        }
+        observer::notify(Announcement::SyncProgress);
     }
 
     /// Advance the completed counter by one step.
@@ -467,7 +561,7 @@ impl SyncService {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
             inner.completed = (inner.completed + 1).min(inner.total);
         }
-        observer::notify(|o| o.sync_progress());
+        observer::notify(Announcement::SyncProgress);
     }
 
     /// Terminal transition for a finished job. The one place a job ends, so it
@@ -475,21 +569,60 @@ impl SyncService {
     pub fn finish(&self, state: SyncState, failure: Option<SyncFailure>, success: bool) {
         {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            // A park outlives whatever was running when it landed. Without
+            // this the interrupted run's own tail wrote `Idle` over it and
+            // the athlete was never told the session was gone.
+            if inner.auth_expired && state != SyncState::AuthExpired {
+                inner.running = false;
+                inner.in_flight = 0;
+                inner.step = None;
+                drop(inner);
+                observer::notify(Announcement::SyncSettled);
+                return;
+            }
             inner.state = state;
             inner.running = false;
             inner.in_flight = 0;
+            inner.step = None;
             if success {
                 inner.completed = inner.total;
             }
             inner.last_error_reason = failure.as_ref().map(|f| f.reason);
             inner.last_error = failure.map(|f| f.message);
         }
-        observer::notify(|o| o.sync_settled());
+        observer::notify(Announcement::SyncSettled);
+    }
+
+    /// Park the service on a credential the profile confirmed as rejected.
+    ///
+    /// The running slot is released, since nothing more will succeed on this
+    /// token, but the latch is what keeps the state: a sync that was already
+    /// mid-step reaches its own `finish` afterwards, and that call used to
+    /// overwrite `AuthExpired` with `Idle`.
+    pub fn park_auth_expired_now(&self) {
+        {
+            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            inner.auth_expired = true;
+        }
+        self.finish(
+            SyncState::AuthExpired,
+            Some(SyncFailure::unauthorized()),
+            false,
+        );
+    }
+
+    /// Release the park. Only a credential change does this.
+    fn release_auth_park(&self) {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner.auth_expired = false;
+        if inner.state == SyncState::AuthExpired {
+            inner.state = SyncState::Idle;
+        }
     }
 
     /// Soft cancel: flag the loop so it stops dispatching new work. An in-flight
     /// request is allowed to finish.
-    fn request_cancel(&self) {
+    pub(crate) fn request_cancel(&self) {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.cancel = true;
         // Pause dispatch while a request is in flight; the job's terminal
@@ -510,6 +643,7 @@ impl SyncService {
             in_flight: inner.in_flight,
             completed: inner.completed,
             total: inner.total,
+            step: inner.step,
             last_error: inner.last_error.clone(),
             last_error_reason: inner.last_error_reason,
         }
@@ -548,11 +682,7 @@ async fn credential_is_rejected(transport: &Transport, athlete_id: &str) -> bool
 /// error, so a single refusal never signs anybody out.
 pub async fn park_auth_expired(transport: &Transport, athlete_id: &str) {
     if credential_is_rejected(transport, athlete_id).await {
-        SYNC_SERVICE.finish(
-            SyncState::AuthExpired,
-            Some(SyncFailure::unauthorized()),
-            false,
-        );
+        SYNC_SERVICE.park_auth_expired_now();
     } else {
         log::info!("[Sync] a 401 was not confirmed by the profile, the session stands");
     }
@@ -620,34 +750,65 @@ pub(crate) fn bodies_discarded() -> u64 {
 /// The key is ours; `intervals_id` is the server's. They are equal for every
 /// row an older build stored, and a caller can name an activity no row claims,
 /// so an unknown one falls back to the key it was given.
-pub(crate) async fn upstream_id(activity_id: &str) -> String {
+pub(crate) async fn upstream_id(install: u64, activity_id: &str) -> String {
     let key = activity_id.to_string();
-    crate::persistence::with_persistent_engine_blocking(move |engine| engine.intervals_id(&key))
-        .await
-        .flatten()
-        .unwrap_or_else(|| activity_id.to_string())
+    crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
+        engine.intervals_id(&key)
+    })
+    .await
+    .flatten()
+    .unwrap_or_else(|| activity_id.to_string())
 }
 
-async fn store_body<F>(kind: &'static str, activity_id: String, write: F)
+async fn store_body<F>(install: u64, kind: &'static str, activity_id: String, write: F)
 where
     F: FnOnce(&mut PersistentEngine) -> SqlResult<()> + Send + 'static,
 {
-    let stored =
-        crate::persistence::with_persistent_engine_blocking(move |engine| match write(engine) {
-            Ok(()) => true,
-            Err(e) => {
-                log::warn!("[Sync] {} store failed: {}", kind, e);
-                false
-            }
+    // An on-demand fetch reports its own outcome to its own caller, so the
+    // engine's absence is counted and logged here and goes no further.
+    let _ = store_body_or_fail(install, kind, activity_id, write).await;
+}
+
+/// `store_body` for a caller that is a step of a sync run.
+///
+/// A step whose write found no engine used to count as a success: the run
+/// reported `Idle` with no error and the health row stamped `lastSuccessAt`,
+/// so a clear-and-sync or a restore mid-run left the athlete told the library
+/// was fresh as of now while every remaining write had been dropped.
+async fn store_body_or_fail<F>(
+    install: u64,
+    kind: &'static str,
+    activity_id: String,
+    write: F,
+) -> Result<(), NetError>
+where
+    F: FnOnce(&mut PersistentEngine) -> SqlResult<()> + Send + 'static,
+{
+    let stored = crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
+        write(engine).map_err(|e| {
+            log::warn!("[Sync] {} store failed: {}", kind, e);
+            e.to_string()
         })
-        .await;
-    if landed(stored) {
-        BODIES_STORED.fetch_add(1, Ordering::Relaxed);
-        observer::notify(|o| o.body_stored(kind.to_string(), activity_id));
-    } else if stored.is_none() {
-        // A write that failed already logged its SQL error. This is the other
-        // half: no engine answered, so nothing was even attempted.
-        discarded(kind, &activity_id);
+    })
+    .await;
+    match stored {
+        Some(Ok(())) => {
+            BODIES_STORED.fetch_add(1, Ordering::Relaxed);
+            observer::notify(Announcement::BodyStored {
+                kind: kind.to_string(),
+                activity_id,
+            });
+            Ok(())
+        }
+        // The write reached the engine and the engine refused it. Counting
+        // that as a step that landed is what stamped `lastSuccessAt` on a run
+        // whose page is not in the library.
+        Some(Err(message)) => Err(NetError::Storage(format!("{kind} store failed: {message}"))),
+        // No engine answered, so nothing was even attempted.
+        None => {
+            discarded(kind, &activity_id);
+            Err(NetError::EngineClosed)
+        }
     }
 }
 
@@ -656,23 +817,65 @@ where
 /// The announcement is made after the engine lock is released, and only when
 /// the write landed: a cold start has nowhere to put the stream, and a screen
 /// told it had arrived would read a gap that is still there.
-pub(crate) async fn store_time_stream(activity_id: String, times: Vec<u32>) {
+pub(crate) async fn store_time_stream(install: u64, activity_id: String, times: Vec<u32>) {
     let id = activity_id.clone();
-    let stored = crate::persistence::with_persistent_engine_blocking(move |engine| {
+    let stored = crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
         engine.set_time_streams_flat(&[id], &times, &[0]);
     })
     .await;
     if stored.is_some() {
-        observer::notify(|o| o.time_streams_stored(vec![activity_id]));
+        observer::notify(Announcement::TimeStreamsStored(vec![activity_id]));
     } else {
         discarded("time_stream", &activity_id);
     }
 }
 
-/// Whether a store attempt put a body where a reader can find it. `None` is a
-/// cold start with nowhere to write, `Some(false)` is a write that failed.
-fn landed(stored: Option<bool>) -> bool {
-    stored == Some(true)
+/// The walk over the activities missing a `time` stream, with the fetch, the
+/// store and the sign-in read handed in so every stop condition can be
+/// exercised without a transport.
+///
+/// The sign-in read is at the boundary and not only before the walk. The
+/// transport was built before the job was spawned, so it carries a token the
+/// athlete can sign out of part way through: a list of a hundred would
+/// otherwise keep fetching on a revoked credential until it was exhausted,
+/// spending the governor's budget and writing streams into a library that is
+/// about to be cleared. Signing out is not a failure, so the pass ends `Ok`
+/// and the job key releases rather than backing off against whoever signs in
+/// next.
+async fn drain_time_streams_with<S, F, Fut, St, StFut>(
+    missing: Vec<String>,
+    mut still_signed_in: S,
+    mut fetch: F,
+    mut store: St,
+) -> Result<(), NetError>
+where
+    S: FnMut() -> bool,
+    F: FnMut(String) -> Fut,
+    Fut: std::future::Future<Output = Result<Vec<u32>, NetError>>,
+    St: FnMut(String, Vec<u32>) -> StFut,
+    StFut: std::future::Future<Output = ()>,
+{
+    for activity_id in missing {
+        if !still_signed_in() {
+            log::info!("[Sync] abandoning a time-stream pass, the athlete has signed out");
+            return Ok(());
+        }
+        match fetch(activity_id.clone()).await {
+            // An empty answer is stored too, as a zero-length row. This lane
+            // asked for exactly one thing and upstream said there is none, so
+            // the row records that the question was put. Dropping it left the
+            // activity named by `get_activities_missing_time_streams` on every
+            // pass for the life of the install, and left the section screens
+            // waiting out `TIME_STREAM_TIMEOUT_MS` for an announcement that
+            // never came.
+            Ok(times) => store(activity_id, times).await,
+            // One activity without streams must not stop the batch; the
+            // section list would stay stuck on "loading".
+            Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+            Err(e) => log::warn!("[Sync] time stream {} failed: {}", activity_id, e),
+        }
+    }
+    Ok(())
 }
 
 /// Record a fetched body that had no engine to be written to.
@@ -703,7 +906,7 @@ pub(crate) fn discarded(kind: &str, activity_id: &str) {
 /// schedule. And a start before the engine opens is early, not refused.
 pub(crate) fn spawn_once<F, Fut>(key: JobKey, job: F) -> FfiStartOutcome
 where
-    F: FnOnce(Transport, String) -> Fut + Send + 'static,
+    F: FnOnce(u64, Transport, String) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<(), NetError>> + Send,
 {
     spawn_once_at(key, now_ms, job)
@@ -718,7 +921,7 @@ where
 /// the release, because the release genuinely happens later.
 fn spawn_once_at<F, Fut, C>(key: JobKey, clock: C, job: F) -> FfiStartOutcome
 where
-    F: FnOnce(Transport, String) -> Fut + Send + 'static,
+    F: FnOnce(u64, Transport, String) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<(), NetError>> + Send,
     C: Fn() -> i64 + Send + 'static,
 {
@@ -726,6 +929,10 @@ where
     let Ok((transport, athlete_id)) = SYNC_SERVICE.build_transport() else {
         return FfiStartOutcome::NotConfigured;
     };
+    // Which library this job belongs to, read on the calling thread, which is
+    // the one that holds the engine. The lease and every write the job makes
+    // belong to it, and a restore mid-fetch installs another.
+    let install = crate::persistence::engine_install();
     let claim = crate::persistence::with_persistent_engine(|engine| engine.claim_job(&key, now));
     match claim {
         // The lease lives in the engine, so a start before it opens is early
@@ -755,12 +962,13 @@ where
             key: JobKey,
             release: Release,
             clock: C,
+            install: u64,
         }
         impl<C: Fn() -> i64> Drop for ReleaseGuard<C> {
             fn drop(&mut self) {
                 let release = std::mem::replace(&mut self.release, Release::Done);
                 let at = (self.clock)();
-                crate::persistence::with_persistent_engine(|engine| {
+                crate::persistence::with_persistent_engine_for(self.install, |engine| {
                     if let Err(e) = engine.release_job(&self.key, release, at) {
                         log::warn!("[Sync] could not release {}: {}", self.key.as_str(), e);
                     }
@@ -771,6 +979,7 @@ where
             key,
             release: Release::failed(FfiStartOutcome::Failed, Some("the job did not return")),
             clock,
+            install,
         };
 
         // Kept back for the confirmation: the job consumes both, and the
@@ -785,7 +994,7 @@ where
             guard.release = Release::Done;
             return;
         }
-        guard.release = match job(transport, athlete_id).await {
+        guard.release = match job(install, transport, athlete_id).await {
             Ok(()) => Release::Done,
             Err(NetError::Unauthorized) => {
                 park_auth_expired(&confirm_on, &confirm_for).await;
@@ -813,6 +1022,13 @@ pub(crate) fn test_credentials() -> TestCredentials {
     TestCredentials
 }
 
+/// Take the process-wide credential away, for a test of a path that has to
+/// decline without one and may run after a test that left one standing.
+#[cfg(test)]
+pub(crate) fn clear_test_credentials() {
+    SYNC_SERVICE.clear_credentials();
+}
+
 #[cfg(test)]
 pub(crate) struct TestCredentials;
 
@@ -821,6 +1037,22 @@ impl Drop for TestCredentials {
     fn drop(&mut self) {
         SYNC_SERVICE.clear_credentials();
     }
+}
+
+/// Set the process-wide credential from a native handler, which reached Rust
+/// without JavaScript and so without `SyncManager`.
+///
+/// Its own function rather than the `SyncManager` method because that method is
+/// part of the UniFFI surface and a JNI caller has no object to call it on. The
+/// method name is the same on purpose: one credential slot, two doors.
+pub fn set_credentials_from_native(
+    method: &str,
+    secret: &str,
+    athlete_id: &str,
+) -> Result<(), String> {
+    let kind = AuthKind::parse(method).ok_or_else(|| format!("unknown auth method: {method}"))?;
+    SYNC_SERVICE.set_credentials(kind, secret.to_string(), athlete_id.to_string());
+    Ok(())
 }
 
 pub fn current_transport() -> Option<Result<Transport, String>> {
@@ -847,6 +1079,43 @@ pub fn current_session() -> Option<Result<(Transport, String), String>> {
 /// The work is spawned rather than awaited in place for two reasons: this future
 /// is polled by the foreign executor, which is not a tokio context, and the JS
 /// thread has to stay free while a large FIT goes up.
+/// Check a credential against `/athlete/me` and report the athlete it belongs
+/// to, without storing it.
+///
+/// A free function because it touches no engine state: the base URL is the
+/// process default until something sets it, the runtime is built on first use,
+/// and nothing here opens the database. That is what lets a sign-in screen use
+/// it on a fresh install, where no engine exists yet.
+pub(crate) async fn validate_credentials_detached(
+    method: String,
+    secret: String,
+) -> FfiCallOutcome {
+    let Some(kind) = AuthKind::parse(&method) else {
+        return FfiCallOutcome::internal(format!("unknown auth method: {}", method));
+    };
+    let base = SYNC_SERVICE
+        .base_url
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let auth = match kind {
+        AuthKind::OAuth => AuthMethod::Bearer(&secret),
+        AuthKind::ApiKey => AuthMethod::ApiKey(&secret),
+    };
+    let transport = match Transport::new(base, auth) {
+        Ok(t) => t,
+        Err(e) => return FfiCallOutcome::internal(e),
+    };
+    // A rejected candidate is not an expired session, so unlike a write this
+    // deliberately leaves the service state alone.
+    run_on_runtime(async move {
+        endpoints::fetch_current_athlete(&transport, Lane::Interactive)
+            .await
+            .map(|athlete| Some(athlete.id))
+    })
+    .await
+}
+
 async fn run_on_runtime<Fut>(job: Fut) -> FfiCallOutcome
 where
     Fut: std::future::Future<Output = Result<Option<String>, NetError>> + Send + 'static,
@@ -876,13 +1145,19 @@ where
     };
     // Kept back for the confirmation, for the same reason as `spawn_once`.
     let (confirm_on, confirm_for) = (transport.clone(), athlete_id.clone());
-    let outcome = run_on_runtime(job(transport, athlete_id)).await;
     // A write refused for a dead credential parks the service, so an upload
-    // reaches the same session-expiry path a failed sync already does.
-    if outcome.kind == FfiCallKind::Unauthorized {
-        park_auth_expired(&confirm_on, &confirm_for).await;
-    }
-    outcome
+    // reaches the same session-expiry path a failed sync already does. The
+    // confirmation goes inside the spawn with the job: awaited out here it
+    // would reach the transport from the foreign executor, which is not a
+    // tokio context, and panic rather than park.
+    run_on_runtime(async move {
+        let result = job(transport, athlete_id).await;
+        if matches!(result, Err(NetError::Unauthorized)) {
+            park_auth_expired(&confirm_on, &confirm_for).await;
+        }
+        result
+    })
+    .await
 }
 
 /// How many days of wellness one sync pulls. Matches the widest range the
@@ -895,8 +1170,17 @@ const WELLNESS_DAYS: i64 = 365;
 /// `sync_activities_window`; that expansion is still TypeScript's job.
 const ACTIVITY_DAYS: i64 = 90;
 
+/// The curve windows every screen asks for. The five fitness periods
+/// (`src/shared/app/period.ts`), the two hook defaults, 42 for a pace curve
+/// and 365 for a power one, and 3650 for Best Efforts All-time. A curve is
+/// cached verbatim under `(kind, sport, days, gap)`, so a window nobody
+/// fetched while online is a blank chart offline.
+const CURVE_DAYS: &[i64] = &[7, 30, 42, 90, 180, 365, 3650];
+
 /// The steps `perform_sync` runs, for the progress counters TypeScript polls.
-const SYNC_STEPS: u32 = 5;
+/// The activity pull is two of them: the newest owed window ahead of the
+/// profile slice, the rest of the library behind it.
+const SYNC_STEPS: u32 = 9;
 
 /// The sync job: fetch the profile slice and write it into SQLite. Every step
 /// is independent, so one failing endpoint does not cost the others their data.
@@ -904,7 +1188,12 @@ const SYNC_STEPS: u32 = 5;
 ///
 /// Free function over `&SyncService` so tests can drive it with a mock-server
 /// transport against a local service instance.
-pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlete_id: String) {
+pub(crate) async fn perform_sync(
+    svc: &SyncService,
+    install: u64,
+    transport: Transport,
+    athlete_id: String,
+) {
     if svc.is_cancelled() || !svc.still_signed_in(&athlete_id) {
         svc.finish(SyncState::Idle, None, false);
         return;
@@ -912,26 +1201,27 @@ pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlet
     svc.begin_steps(SYNC_STEPS);
 
     let mut last_error: Option<SyncFailure> = None;
+    let cancelled = || svc.is_cancelled();
 
     macro_rules! step {
-        ($body:expr) => {
+        ($step:expr, $body:expr) => {
             if svc.is_cancelled() || !svc.still_signed_in(&athlete_id) {
                 svc.finish(SyncState::Idle, last_error, false);
                 return;
             }
+            svc.begin_step($step);
             match $body {
                 Ok(()) => svc.complete_step(),
                 // The loop parks itself rather than calling
                 // `park_auth_expired`: it holds its own service, which under
                 // test is not the process-wide one, and it owes a terminal
-                // finish either way.
+                // finish either way. `park_auth_expired_now` is that finish
+                // plus the latch, so a confirmed rejection refuses the next
+                // `sync_now` rather than letting it spend a round trip on a
+                // credential already known to be dead.
                 Err(NetError::Unauthorized) => {
                     if credential_is_rejected(&transport, &athlete_id).await {
-                        svc.finish(
-                            SyncState::AuthExpired,
-                            Some(SyncFailure::unauthorized()),
-                            false,
-                        );
+                        svc.park_auth_expired_now();
                     } else {
                         svc.finish(
                             SyncState::Idle,
@@ -948,40 +1238,151 @@ pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlet
         };
     }
 
-    step!(sync_athlete(&transport, &athlete_id).await);
-    step!(sync_sport_settings(&transport, &athlete_id).await);
-    step!(sync_wellness(&transport, &athlete_id).await);
-    step!(sync_activities(&transport, &athlete_id).await);
-    step!(sync_activity_history_summary(&transport, &athlete_id).await);
+    // The census first, because it is the input to everything behind it: the
+    // windows ask it what is still owed. A census step that fails leaves them
+    // on their fixed range, which is what ran before the census existed, so
+    // the activities still land.
+    step!(
+        FfiSyncStep::Census,
+        sync_activity_history_summary(install, &transport, &athlete_id).await
+    );
+    // Then the newest owed window on its own, ahead of the profile slice. The
+    // first-launch standby lifts on the first stored activity
+    // (`src/features/home/lib/feedEmptyState.ts`), so an endpoint asked for
+    // before this one is a round trip the athlete spends on a spinner.
+    let windows = owed_activity_windows(&athlete_id).await;
+    // The newest few by count before any window, because the newest window is
+    // the whole library on a first launch and the athlete waits on it.
+    step!(
+        FfiSyncStep::FirstActivities,
+        sync_newest_activities(install, &transport, &athlete_id, &windows, &cancelled).await
+    );
+    let (head, rest) = windows.split_at(windows.len().min(1));
+    step!(
+        FfiSyncStep::Activities,
+        sync_activity_windows(install, &transport, &athlete_id, head, &cancelled).await
+    );
+    step!(
+        FfiSyncStep::Athlete,
+        sync_athlete(install, &transport, &athlete_id).await
+    );
+    step!(
+        FfiSyncStep::SportSettings,
+        sync_sport_settings(install, &transport, &athlete_id).await
+    );
+    step!(
+        FfiSyncStep::Wellness,
+        sync_wellness(install, &transport, &athlete_id).await
+    );
+    // The rest of the library behind the profile slice, so a ninety-day
+    // backfill does not hold the fitness and health screens on nothing.
+    step!(
+        FfiSyncStep::RemainingActivities,
+        sync_activity_windows(install, &transport, &athlete_id, rest, &cancelled).await
+    );
+    step!(
+        FfiSyncStep::Curves,
+        sync_curves(install, &transport, &athlete_id, &cancelled).await
+    );
+    step!(
+        FfiSyncStep::IntervalBodies,
+        sync_interval_bodies(install, &transport, &cancelled).await
+    );
 
     let success = last_error.is_none();
     svc.finish(SyncState::Idle, last_error, success);
 }
 
+/// The window job: fetch and store one date window of activities.
+///
+/// Free function over `&SyncService` for the same reason `perform_sync` is one,
+/// so a test can drive the whole job against a local service instead of the
+/// process-wide one.
+pub(crate) async fn perform_window_sync(
+    svc: &SyncService,
+    install: u64,
+    transport: Transport,
+    athlete_id: String,
+    oldest: &str,
+    newest: &str,
+) {
+    if svc.is_cancelled() || !svc.still_signed_in(&athlete_id) {
+        svc.finish(SyncState::Idle, None, false);
+        return;
+    }
+    svc.begin_steps(1);
+    svc.begin_step(FfiSyncStep::Activities);
+    let cancelled = || svc.is_cancelled();
+    match sync_activity_window(
+        install,
+        &transport,
+        &athlete_id,
+        oldest,
+        newest,
+        None,
+        &cancelled,
+    )
+    .await
+    {
+        Ok(WindowOutcome::Stored | WindowOutcome::Empty) => {
+            svc.complete_step();
+            svc.finish(SyncState::Idle, None, true);
+        }
+        // Nothing was written, so the step did not complete and the job did
+        // not succeed. Reporting it as one is what let the status say the
+        // window landed while the state machine said cancelled.
+        Ok(WindowOutcome::Abandoned) => svc.finish(SyncState::Idle, None, false),
+        Err(NetError::Unauthorized) => {
+            // Latched, for the same reason the step loop latches: one confirmed
+            // rejection is the answer for every caller until the credential
+            // changes.
+            if credential_is_rejected(&transport, &athlete_id).await {
+                svc.park_auth_expired_now();
+            } else {
+                svc.finish(
+                    SyncState::Idle,
+                    Some(SyncFailure::from(&NetError::Unauthorized)),
+                    false,
+                );
+            }
+        }
+        Err(e) => svc.finish(SyncState::Idle, Some(SyncFailure::from(&e)), false),
+    }
+}
+
 /// Persist the athlete profile body.
-async fn sync_athlete(transport: &Transport, athlete_id: &str) -> Result<(), NetError> {
+async fn sync_athlete(
+    install: u64,
+    transport: &Transport,
+    athlete_id: &str,
+) -> Result<(), NetError> {
     let body = endpoints::fetch_athlete_body(transport, athlete_id, Lane::Interactive).await?;
-    crate::persistence::with_persistent_engine_blocking(move |engine| {
+    // A dropped write leaves the previous athlete's profile, FTP and zones
+    // standing with nothing to say so, and the step above counts as done. The
+    // helper reports all three outcomes, so this needs no mapping of its own.
+    store_body_or_fail(install, "athlete profile", String::new(), move |engine| {
         engine.set_athlete_profile(&body)
     })
-    .await;
-    Ok(())
+    .await
 }
 
 /// Persist the sport settings body.
-async fn sync_sport_settings(transport: &Transport, athlete_id: &str) -> Result<(), NetError> {
+async fn sync_sport_settings(
+    install: u64,
+    transport: &Transport,
+    athlete_id: &str,
+) -> Result<(), NetError> {
     let body =
         endpoints::fetch_sport_settings_body(transport, athlete_id, Lane::Interactive).await?;
-    crate::persistence::with_persistent_engine_blocking(move |engine| {
+    store_body_or_fail(install, "sport settings", String::new(), move |engine| {
         engine.set_sport_settings(&body)
     })
-    .await;
-    Ok(())
+    .await
 }
 
 /// `start_date_local` as epoch seconds. intervals.icu sends local wall-clock
 /// with no zone, which is how the rest of the app already treats it.
-fn start_date_to_timestamp(start_date_local: Option<&str>) -> Option<i64> {
+pub(crate) fn start_date_to_timestamp(start_date_local: Option<&str>) -> Option<i64> {
     let raw = start_date_local?;
     let trimmed = raw.split('.').next().unwrap_or(raw);
     chrono::NaiveDateTime::parse_from_str(trimmed, "%Y-%m-%dT%H:%M:%S")
@@ -989,25 +1390,208 @@ fn start_date_to_timestamp(start_date_local: Option<&str>) -> Option<i64> {
         .map(|dt| dt.and_utc().timestamp())
 }
 
-/// Persist the activity list: aggregate metrics for Rust, plus the untyped
-/// body per activity for the screens. No GPS required, so activities that
-/// never reach the `activities` table still show up in the feed.
-async fn sync_activities(transport: &Transport, athlete_id: &str) -> Result<(), NetError> {
+/// The date windows the activity pull owes, newest first.
+///
+/// Read after the census step, because the census is its input: it says which
+/// days inside the span the device does not already hold. `None` is the
+/// census being unable to answer, which is a fresh install or a failed read,
+/// and then the fixed window is what runs, exactly as before it existed.
+async fn owed_activity_windows(athlete_id: &str) -> Vec<(String, String)> {
     let newest = chrono::Local::now().date_naive();
     let oldest = newest - chrono::Duration::days(ACTIVITY_DAYS);
-    sync_activity_window(
+    let whole = (oldest.to_string(), newest.to_string());
+
+    let owed = {
+        let athlete = athlete_id.to_string();
+        let (oldest, newest) = whole.clone();
+        crate::persistence::with_persistent_engine_blocking(move |engine| {
+            engine.owed_dates_in_window(&athlete, &oldest, &newest)
+        })
+        .await
+        .flatten()
+    };
+    match owed {
+        Some(dates) => owed_windows(&dates),
+        None => vec![whole],
+    }
+}
+
+/// Persist the given activity windows: aggregate metrics for Rust, plus the
+/// untyped body per activity for the screens. No GPS required, so activities
+/// that never reach the `activities` table still show up in the feed.
+///
+/// `perform_sync` calls this twice, the head window and then the rest, so the
+/// repair sweep runs per call rather than per sync. The head's rows are what
+/// the feed reads first and an activity that lost its metrics row is absent
+/// from every aggregate until something fills it. The sweep's ordinary answer
+/// is an empty list, so the second call costs one indexed read.
+async fn sync_activity_windows(
+    install: u64,
+    transport: &Transport,
+    athlete_id: &str,
+    windows: &[(String, String)],
+    cancelled: &(dyn Fn() -> bool + Sync),
+) -> Result<(), NetError> {
+    let mut stored = false;
+    for (oldest, newest) in windows {
+        if cancelled() {
+            break;
+        }
+        // The outcome is dropped because the loop's own gate owns the terminal
+        // state: an abandoned window is followed by a step check that finishes
+        // the job unsuccessfully, so reporting it twice would say nothing new.
+        let outcome = sync_activity_window(
+            install, transport, athlete_id, oldest, newest, None, cancelled,
+        )
+        .await?;
+        stored |= outcome == WindowOutcome::Stored;
+    }
+    // After the windows, so a page whose metrics write failed a moment ago is
+    // repaired by the same sync rather than by the next one. Nothing was
+    // written for an abandoned window, so there is nothing new to repair.
+    if stored {
+        repair_missing_activity_metrics(install).await;
+        // Here rather than at the settle, because the head window is the whole
+        // point of running first: its rows are in SQLite and nothing else in
+        // the job will write an activity for as long as the profile slice, the
+        // curves and the owed interval bodies take. Announced once per step
+        // rather than once per window, since every reader on the `activities`
+        // channel re-reads its whole range on one.
+        observer::notify(Announcement::ActivitiesStored);
+    }
+    Ok(())
+}
+
+/// How many of the newest activities the first request asks for, by count.
+///
+/// Five, because that is what fills the feed's first screen, and because the
+/// point is a round trip the athlete does not wait out rather than a slice of
+/// the library. Everything else about the sync is unchanged behind it: the
+/// window that spans these five runs next and upserts the same rows.
+///
+/// A count is possible at all because the endpoint takes `limit` beside the
+/// date range and answers newest first, measured against the real API on
+/// 2026-09-20. The head window below is counted in owed days because that is
+/// what the census answers in, which was taken at the time to rule a count
+/// out entirely.
+const FIRST_USE_ACTIVITIES: u32 = 5;
+
+/// The newest few activities, ahead of the window they sit in.
+///
+/// A fresh install owes one run of days, which collapses to a single window
+/// covering the whole library, so the step that lifts the standby was a
+/// request for everything. Five minutes into a first launch the OnePlus was
+/// still on curves at 6 of 8 with no card on screen.
+///
+/// Asked for only when the newest owed window spans more than a day. An
+/// ordinary launch owes one day, and a count-limited request there would fetch
+/// the rows the window is about to fetch anyway, for a second round trip that
+/// buys nothing.
+async fn sync_newest_activities(
+    install: u64,
+    transport: &Transport,
+    athlete_id: &str,
+    windows: &[(String, String)],
+    cancelled: &(dyn Fn() -> bool + Sync),
+) -> Result<(), NetError> {
+    let Some((oldest, newest)) = windows.first() else {
+        return Ok(());
+    };
+    if oldest == newest {
+        return Ok(());
+    }
+    let outcome = sync_activity_window(
+        install,
         transport,
         athlete_id,
-        &oldest.to_string(),
-        &newest.to_string(),
+        oldest,
+        newest,
+        Some(FIRST_USE_ACTIVITIES),
+        cancelled,
     )
-    .await
+    .await?;
+    if outcome == WindowOutcome::Stored {
+        // The whole point of the step: the rows are in SQLite and the feed can
+        // paint. Everything behind this is minutes on a fresh library.
+        repair_missing_activity_metrics(install).await;
+        observer::notify(Announcement::ActivitiesStored);
+    }
+    Ok(())
+}
+
+/// How many of the newest owed days the collapsed case asks for on its own,
+/// before the spanning window behind it.
+///
+/// Counted in owed days rather than calendar days or activities, because the
+/// census answers in distinct dates: ten of them is ten to twenty activities
+/// for someone who rides most days, and reaches further back for someone who
+/// rides monthly. Either way the feed has cards from the first request instead
+/// of waiting out the whole span.
+const HEAD_OWED_DAYS: usize = 10;
+
+/// The head has to fit inside what the collapse holds, or the index below it
+/// walks off the front. Both are compile-time, so this is caught at build time
+/// rather than by a runtime branch no test could ever reach.
+const _: () = assert!(HEAD_OWED_DAYS < MAX_OWED_WINDOWS);
+
+/// Past this many separate windows, ask for one spanning window instead.
+///
+/// A library with holes scattered through the year would otherwise be one
+/// request per hole, and the request that replaces them is the one the sync
+/// made before the census existed. So the scattered case is never worse than
+/// today by more than this many requests.
+const MAX_OWED_WINDOWS: usize = 30;
+
+/// Group owed days into the fewest windows that cover them, newest first.
+///
+/// One window per run of consecutive days: an unchanged library asks for
+/// nothing, one new ride is a one-day window, and a fresh install is the one
+/// window it is today. Days arrive ascending and as `YYYY-MM-DD`; a day that
+/// does not parse is its own window rather than being dropped, since the
+/// alternative is not downloading it at all.
+///
+/// The runs come back newest first because the sync walks them in order and
+/// the feed reads newest first. Ascending, a fresh install spent its first
+/// minutes downloading the oldest end of the 90 days while the top of the
+/// feed, which is what the athlete is looking at, filled last.
+fn owed_windows(days: &[String]) -> Vec<(String, String)> {
+    let mut runs: Vec<(String, String)> = Vec::new();
+    let mut last: Option<chrono::NaiveDate> = None;
+    for day in days {
+        let parsed = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").ok();
+        let continues = match (parsed, last) {
+            (Some(today), Some(previous)) => today == previous + chrono::Duration::days(1),
+            _ => false,
+        };
+        match runs.last_mut() {
+            Some(run) if continues => run.1 = day.clone(),
+            _ => runs.push((day.clone(), day.clone())),
+        }
+        last = parsed;
+    }
+    if runs.len() > MAX_OWED_WINDOWS {
+        // The collapse keeps a head. One spanning window meant nothing at all
+        // landed until the whole span did, which on a fresh install is the
+        // ninety days: a feed of download icons and a zero summary card for as
+        // long as that took. The newest owed days come first as their own
+        // window, so the feed has cards after the first request, and the rest
+        // follows behind it.
+        let newest = runs.last().expect("checked non-empty").1.clone();
+        let oldest = runs.first().expect("checked non-empty").0.clone();
+        let head_start = runs[runs.len() - HEAD_OWED_DAYS].0.clone();
+        // The remainder ends where the head begins rather than the day before
+        // it: one overlapping day costs nothing, and stepping back a day would
+        // have to know the calendar to do it.
+        return vec![(head_start.clone(), newest), (oldest, head_start)];
+    }
+    runs.reverse();
+    runs
 }
 
 /// One activity's metrics row from the record the page carried. The stats
 /// fields ride the same response, so the row is complete when it is written
 /// and nothing has to read the body back to fill it in.
-fn activity_metrics_row(record: ActivityRecord, date: i64) -> crate::ActivityMetrics {
+pub(crate) fn activity_metrics_row(record: ActivityRecord, date: i64) -> crate::ActivityMetrics {
     crate::ActivityMetrics {
         activity_id: record.id,
         name: record.name.unwrap_or_default(),
@@ -1036,25 +1620,53 @@ fn activity_metrics_row(record: ActivityRecord, date: i64) -> crate::ActivityMet
     }
 }
 
+/// What a window sync did with the page it asked for. A job that was cancelled
+/// wrote nothing, so its caller owes a terminal state that does not read as a
+/// success.
+#[derive(Debug, PartialEq, Eq)]
+enum WindowOutcome {
+    Stored,
+    /// The window was asked for and the server held nothing in it. The job
+    /// did what it was asked, so it is not an abandonment, but no row was
+    /// written and nothing reads differently for it: a repair sweep and an
+    /// announcement both cost every reader its whole range for no change.
+    Empty,
+    Abandoned,
+}
+
 /// Persist one date window of activities. The default sync covers 90 days; the
 /// feed asks for older windows as the reader scrolls past it.
 async fn sync_activity_window(
+    install: u64,
     transport: &Transport,
     athlete_id: &str,
     oldest: &str,
     newest: &str,
-) -> Result<(), NetError> {
+    limit: Option<u32>,
+    cancelled: &(dyn Fn() -> bool + Sync),
+) -> Result<WindowOutcome, NetError> {
+    if cancelled() {
+        return Ok(WindowOutcome::Abandoned);
+    }
     let items = endpoints::fetch_activities_with_bodies(
         transport,
         athlete_id,
         oldest,
         newest,
         true,
+        limit,
         Lane::Backfill,
     )
     .await?;
     if items.is_empty() {
-        return Ok(());
+        return Ok(WindowOutcome::Empty);
+    }
+    // The cancel is soft, so the page in flight was allowed to finish, but
+    // writing it is not part of that bargain: the state machine moved to
+    // Paused when the athlete stopped the sync, and rows landing after that
+    // is what makes the UI lie.
+    if cancelled() {
+        return Ok(WindowOutcome::Abandoned);
     }
 
     // The server names the activity by its own id; the row it belongs to is
@@ -1063,37 +1675,158 @@ async fn sync_activity_window(
     // column instead is what stops an activity the device minted and later
     // uploaded from being stored a second time.
     let named: Vec<String> = items.iter().map(|(record, _)| record.id.clone()).collect();
+    // A lookup that failed reads the same as an id no row claims, so the page
+    // is not written at all: storing it under the server's key is what puts a
+    // ride the device uploaded into the feed twice.
     let local = crate::persistence::with_persistent_engine_blocking(move |engine| {
         engine.local_ids_for_intervals_ids(&named)
     })
     .await
-    .unwrap_or_default();
+    .ok_or(NetError::EngineClosed)?
+    .map_err(|e| NetError::Storage(format!("activity id reconcile failed: {e}")))?;
 
     let mut bodies = Vec::with_capacity(items.len());
     let mut metrics = Vec::with_capacity(items.len());
+    // The activities that moved the accepted eFTP, which the fitness plot
+    // marks. Only a non-zero delta is a change: an activity that merely
+    // produced an estimate did not move anything.
+    let mut eftp_changes: Vec<(String, i64, f64, f64, String)> = Vec::new();
+    // The census names activities by the server's id, and the loop below
+    // rewrites `record.id` to the local key, so the mark is taken before that.
+    // Only rows that are actually written are marked: one skipped for a missing
+    // start date was not stored and does not cover anything.
+    let mut fetched: Vec<String> = Vec::with_capacity(items.len());
     for (mut record, body) in items {
         let Some(date) = start_date_to_timestamp(record.start_date_local.as_deref()) else {
             // Without a start time the row cannot be windowed or ordered, and
             // a fabricated one would sort into the wrong week.
             continue;
         };
+        fetched.push(record.id.clone());
         if let Some(key) = local.get(&record.id) {
             record.id = key.clone();
+        }
+        if let (Some(eftp), Some(delta)) = (record.icu_rolling_ftp, record.icu_rolling_ftp_delta)
+            && delta != 0.0
+            && eftp.is_finite()
+            && delta.is_finite()
+        {
+            eftp_changes.push((
+                record.id.clone(),
+                date,
+                eftp,
+                delta,
+                record.name.clone().unwrap_or_default(),
+            ));
         }
         bodies.push((record.id.clone(), date, body));
         metrics.push(activity_metrics_row(record, date));
     }
 
-    crate::persistence::with_persistent_engine_blocking(move |engine| {
+    let owner = athlete_id.to_string();
+    crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
         if let Err(e) = engine.upsert_activity_bodies(&bodies) {
             log::warn!("[Sync] activity body upsert failed: {}", e);
         }
         if let Err(e) = engine.set_activity_metrics(metrics) {
-            log::warn!("[Sync] activity metrics upsert failed: {}", e);
+            metrics_write_failed(&e);
         }
+        for (id, date, eftp, delta, name) in &eftp_changes {
+            if let Err(e) = engine.set_eftp_change(id, *date, *eftp, *delta, name) {
+                log::warn!("[Sync] eFTP marker write failed for {id}: {e}");
+            }
+        }
+        // In the same write as the rows, so a crash between the two cannot
+        // leave a window claiming coverage it does not have.
+        engine.mark_census_fetched(&owner, &fetched);
+    })
+    .await
+    .ok_or(NetError::EngineClosed)?;
+    Ok(WindowOutcome::Stored)
+}
+
+/// How many page metrics writes have failed this session.
+///
+/// The page write warns and carries on rather than failing, so before this
+/// counter nothing said whether the loss ever happens in the field. The
+/// running total rides on the warning, which is the only reader outside the
+/// test that proves it moves.
+static METRICS_WRITES_FAILED: AtomicU64 = AtomicU64::new(0);
+
+/// The count of page metrics writes that failed this session.
+#[cfg(test)]
+pub(crate) fn metrics_writes_failed() -> u64 {
+    METRICS_WRITES_FAILED.load(Ordering::Relaxed)
+}
+
+/// Record a page whose metrics write failed while its bodies landed.
+fn metrics_write_failed(e: &rusqlite::Error) {
+    let total = METRICS_WRITES_FAILED.fetch_add(1, Ordering::Relaxed) + 1;
+    log::warn!("[Sync] activity metrics upsert failed ({total} this session): {e}");
+}
+
+/// Fill the metrics rows of activities that hold a body and nothing else, and
+/// answer how many were written.
+///
+/// `sync_activity_window` writes both tables in one closure and warns rather
+/// than failing when the metrics half does not land, so an activity can keep
+/// its body and lose its row. It is then absent from every aggregate reading
+/// `activity_metrics`, which is the whole Health tab, until a later window
+/// happens to carry it again. The body is the payload the row was built from,
+/// so the repair needs no network.
+///
+/// Once per activity step, not once per page: the ordinary answer is an empty
+/// list, and the TypeScript pass this replaces read every stored id back over
+/// the FFI on every `activities` announcement and filtered a whole-library
+/// parsed array against it.
+async fn repair_missing_activity_metrics(install: u64) -> usize {
+    let orphans = crate::persistence::with_persistent_engine_blocking(|engine| {
+        engine.activity_bodies_without_metrics()
+    })
+    .await
+    .and_then(|r| r.ok())
+    .unwrap_or_default();
+    if orphans.is_empty() {
+        return 0;
+    }
+
+    let mut metrics = Vec::with_capacity(orphans.len());
+    for (activity_id, date, raw) in orphans {
+        // One unreadable payload is not the sweep's problem: failing here
+        // would leave every other activity out of the Health tab.
+        let Ok(mut record) = serde_json::from_str::<ActivityRecord>(&raw) else {
+            log::warn!("[Sync] metrics repair could not read the body for {activity_id}");
+            continue;
+        };
+        // The body is keyed by the local id, and the payload carries the
+        // intervals one. They differ for an activity the device minted and
+        // later uploaded, and the row belongs to the key.
+        record.id = activity_id;
+        metrics.push(activity_metrics_row(record, date));
+    }
+    if metrics.is_empty() {
+        return 0;
+    }
+
+    let filled = metrics.len();
+    let stored = crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
+        engine.set_activity_metrics(metrics)
     })
     .await;
-    Ok(())
+    match stored {
+        Some(Ok(())) => {
+            // No announcement of its own: the repair runs inside the activity
+            // step, and `sync_settled` at the end of the job is what wakes the
+            // screens that read `activity_metrics`.
+            log::info!("[Sync] metrics repair filled {filled} activities");
+            filled
+        }
+        Some(Err(e)) => {
+            metrics_write_failed(&e);
+            0
+        }
+        None => 0,
+    }
 }
 
 /// Midnight for a YYYY-MM-DD day, as epoch seconds.
@@ -1108,10 +1841,167 @@ pub const OLDEST_ACTIVITY_DATE_KEY: &str = "oldest_activity_date";
 /// object. The history slider gates a large widening on it.
 pub const ACTIVITY_YEAR_COUNTS_KEY: &str = "activity_year_counts";
 
+/// Fetch every power and pace curve the screens can ask for.
+///
+/// The curve is the one body no other step pulls: `usePowerCurve` and
+/// `usePaceCurve` fetch a window the first time it is opened, so a range the
+/// athlete never visited online reads as "No power data" offline rather than
+/// as a range nobody downloaded. Best Efforts All-time is the clearest case,
+/// because 3650 is a window nothing else ever asks for.
+///
+/// Backfill lane, so the whole sweep steps aside for a tapped screen. Roughly
+/// forty small bodies at three sports, replacing what is stored: the hooks
+/// hold their query for ever and leave freshness to a sync, so this is the
+/// thing that refreshes them.
+async fn sync_curves(
+    install: u64,
+    transport: &Transport,
+    athlete_id: &str,
+    cancelled: &(dyn Fn() -> bool + Sync),
+) -> Result<(), NetError> {
+    // A failed read used to read as "no sports", so the sweep fetched nothing
+    // and the run reported success: the athlete gets "No power data" offline
+    // for a library full of rides, with nothing logged and nothing in
+    // `last_error`.
+    let sports = crate::persistence::with_persistent_engine_blocking(|engine| {
+        engine.try_available_sport_types()
+    })
+    .await
+    .ok_or(NetError::EngineClosed)?
+    .map_err(|e| NetError::Io(format!("sport type read failed: {}", e)))?;
+    if sports.is_empty() {
+        return Ok(());
+    }
+
+    let mut last_error: Option<NetError> = None;
+
+    for sport in &sports {
+        for &days in CURVE_DAYS {
+            if cancelled() {
+                return Ok(());
+            }
+            let window = format!("{}d", days);
+
+            match endpoints::fetch_power_curve_body(
+                transport,
+                athlete_id,
+                sport,
+                &window,
+                Lane::Backfill,
+            )
+            .await
+            {
+                Ok(body) => {
+                    let sport = sport.clone();
+                    store_body_or_fail(install, "power_curve", String::new(), move |engine| {
+                        engine.set_curve_body(CurveKind::Power, &sport, days, false, &body)
+                    })
+                    .await?;
+                }
+                Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+                Err(e) => last_error = Some(e),
+            }
+
+            // Gradient-adjusted pace is a row of its own, and only running has
+            // one, so a switch flipped offline would otherwise replace a
+            // working chart with an empty one.
+            let gaps: &[bool] = if sport == "Run" {
+                &[false, true]
+            } else {
+                &[false]
+            };
+            for &gap in gaps {
+                if cancelled() {
+                    return Ok(());
+                }
+                match endpoints::fetch_pace_curve_body(
+                    transport,
+                    athlete_id,
+                    sport,
+                    &window,
+                    gap,
+                    Lane::Backfill,
+                )
+                .await
+                {
+                    Ok(body) => {
+                        let sport = sport.clone();
+                        store_body_or_fail(install, "pace_curve", String::new(), move |engine| {
+                            engine.set_curve_body(CurveKind::Pace, &sport, days, gap, &body)
+                        })
+                        .await?;
+                    }
+                    Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+                    Err(e) => last_error = Some(e),
+                }
+            }
+        }
+    }
+
+    match last_error {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
+}
+
+/// Fetch the interval body of every activity that has none.
+///
+/// `sync_activity_intervals` is demand-driven: the detail screen asks the
+/// first time it is opened, so an activity never opened online shows no lap
+/// table offline and nothing says the laps were simply never downloaded. One
+/// request per activity, once, which is what keeps the library as complete
+/// offline as it is online.
+///
+/// The queue is derived from SQLite rather than stored: an id whose body
+/// landed leaves it, so a sweep killed halfway resumes by re-deriving what is
+/// still missing and needs no checkpoint. Backfill lane, so the sweep steps
+/// aside for a tapped screen.
+async fn sync_interval_bodies(
+    install: u64,
+    transport: &Transport,
+    cancelled: &(dyn Fn() -> bool + Sync),
+) -> Result<(), NetError> {
+    // A failed read must not read as "nothing missing": that would report a
+    // sweep that fetched nothing as a success and leave the athlete with an
+    // empty lap table and no error anywhere.
+    let missing = crate::persistence::with_persistent_engine_blocking(|engine| {
+        engine.activities_missing_interval_bodies()
+    })
+    .await
+    .ok_or(NetError::EngineClosed)?
+    .map_err(|e| NetError::Io(format!("interval queue read failed: {}", e)))?;
+
+    let mut last_error: Option<NetError> = None;
+
+    for activity_id in missing {
+        if cancelled() {
+            return Ok(());
+        }
+        let upstream = upstream_id(install, &activity_id).await;
+        match endpoints::fetch_intervals_body(transport, &upstream, Lane::Backfill).await {
+            Ok(body) => {
+                let id = activity_id.clone();
+                store_body_or_fail(install, "intervals", activity_id, move |engine| {
+                    engine.set_interval_body(&id, &body)
+                })
+                .await?;
+            }
+            Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+            Err(e) => last_error = Some(e),
+        }
+    }
+
+    match last_error {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
+}
+
 /// Persist the athlete's history summary. It spans all history, not the synced
 /// window, so the timeline slider knows how far back it may reach and how much
 /// a widening would download. One request answers both.
 async fn sync_activity_history_summary(
+    install: u64,
     transport: &Transport,
     athlete_id: &str,
 ) -> Result<(), NetError> {
@@ -1123,9 +2013,15 @@ async fn sync_activity_history_summary(
     // The same pull that answers the timeline slider is the census. A request
     // that errored never reaches here, and an empty list is indistinguishable
     // from an athlete who deleted everything, so the reconcile refuses one.
-    let census = summary.ids.clone();
+    let census = summary.ids();
+    let entries = summary.entries.clone();
+    let athlete = athlete_id.to_string();
     if !census.is_empty() {
-        crate::persistence::with_persistent_engine_blocking(move |engine| {
+        crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
+            // Recorded before the reconcile, so a census that removes rows has
+            // already said what it carries: the two read the same pull and the
+            // coverage table is what the next sync diffs against.
+            engine.record_activity_census(&athlete, &entries);
             let removed = engine.reconcile_against_census(&census);
             if !removed.is_empty() {
                 log::info!(
@@ -1134,7 +2030,8 @@ async fn sync_activity_history_summary(
                 );
             }
         })
-        .await;
+        .await
+        .ok_or(NetError::EngineClosed)?;
     }
 
     let Some(oldest) = summary.oldest else {
@@ -1149,7 +2046,7 @@ async fn sync_activity_history_summary(
             String::new()
         }
     };
-    crate::persistence::with_persistent_engine_blocking(move |engine| {
+    crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
         if let Err(e) = engine.set_setting(OLDEST_ACTIVITY_DATE_KEY, &oldest) {
             log::warn!("[Sync] oldest activity date write failed: {}", e);
         }
@@ -1159,12 +2056,17 @@ async fn sync_activity_history_summary(
             }
         }
     })
-    .await;
+    .await
+    .ok_or(NetError::EngineClosed)?;
     Ok(())
 }
 
 /// Persist a year of wellness, typed columns plus the untyped body per day.
-async fn sync_wellness(transport: &Transport, athlete_id: &str) -> Result<(), NetError> {
+async fn sync_wellness(
+    install: u64,
+    transport: &Transport,
+    athlete_id: &str,
+) -> Result<(), NetError> {
     let newest = chrono::Local::now().date_naive();
     let oldest = newest - chrono::Duration::days(WELLNESS_DAYS);
     let days = endpoints::fetch_wellness_with_bodies(
@@ -1200,12 +2102,15 @@ async fn sync_wellness(transport: &Transport, athlete_id: &str) -> Result<(), Ne
         })
         .collect();
 
-    crate::persistence::with_persistent_engine_blocking(move |engine| {
-        if let Err(e) = engine.upsert_wellness(&rows) {
-            log::warn!("[Sync] wellness upsert failed: {}", e);
-        }
+    // Through `store_body` for the announcement: nothing else says wellness
+    // landed, so the three screens that read it were woken by the `activities`
+    // channel, which fires per synced page while wellness is written once. The
+    // activity id is empty because wellness is a day and not an activity; the
+    // kind is what a reader filters on.
+    store_body_or_fail(install, "wellness", String::new(), move |engine| {
+        engine.upsert_wellness(&rows)
     })
-    .await;
+    .await?;
     Ok(())
 }
 
@@ -1241,6 +2146,30 @@ impl SyncManager {
         SYNC_SERVICE.clear_credentials();
     }
 
+    /// What making an inclusive date range available offline will cost, in
+    /// requests and in bytes, so the athlete is told before they spend it on a
+    /// connection that may be metered.
+    ///
+    /// Read from the moving seconds already stored for the range rather than
+    /// from an activity count: per activity the cost spans fifty-fold across a
+    /// real library and per moving second it holds to about a third.
+    fn offline_estimate(&self, oldest: i64, newest: i64) -> Result<FfiOfflineEstimate, VeloqError> {
+        with_reader(|conn| {
+            let (activities, moving_seconds) =
+                crate::persistence::activities::pooled::offline_range_totals(conn, oldest, newest)
+                    .map_err(|err| VeloqError::Database {
+                        msg: format!("{}", err),
+                    })?;
+            let estimate = crate::net::offline_prefetch::estimate_range(activities, moving_seconds);
+            Ok(FfiOfflineEstimate {
+                activities: estimate.activities,
+                moving_seconds: estimate.moving_seconds as f64,
+                requests: estimate.requests,
+                bytes: estimate.bytes as f64,
+            })
+        })?
+    }
+
     /// Start a sync. Returns instantly, naming whether the job started and, if
     /// not, whether asking again later would. Work runs on the shared runtime;
     /// observe progress via `get_sync_status`.
@@ -1249,54 +2178,99 @@ impl SyncManager {
             Ok(pair) => pair,
             Err(refusal) => return Ok(refusal),
         };
+        // Which library this run belongs to, read on this thread rather than
+        // on the runtime: a restore installing another database mid-run would
+        // otherwise take pages fetched against the old one.
+        let install = crate::persistence::engine_install();
         crate::runtime::spawn(async move {
             let _guard = FinishGuard;
-            perform_sync(&SYNC_SERVICE, transport, athlete_id).await;
+            perform_sync(&SYNC_SERVICE, install, transport, athlete_id).await;
         });
         Ok(FfiStartOutcome::Started)
+    }
+
+    /// What a date range holds: nothing, a download still owed, or every
+    /// activity in it local and current.
+    ///
+    /// A chart that draws an empty axis cannot say why on its own, and saying
+    /// "no data" for a range nobody pulled is the collapse this answers. The
+    /// read is a count over the census, so it is a screen read and not a sync.
+    ///
+    /// No credential and no open engine both answer `NotFetched`: nothing is
+    /// known about the range either way, and `Empty` would be a claim.
+    fn range_coverage(&self, oldest: String, newest: String) -> RangeCoverage {
+        let Some(athlete_id) = SYNC_SERVICE.athlete_id() else {
+            return RangeCoverage::NotFetched;
+        };
+        crate::persistence::with_persistent_engine(move |engine| {
+            engine.range_coverage(&athlete_id, &oldest, &newest)
+        })
+        .unwrap_or(RangeCoverage::NotFetched)
+    }
+
+    /// How much of the signed-in athlete's library is on the device: the
+    /// activity pages and the GPS tracks, each as stored against upstream.
+    ///
+    /// Every progress figure before this one was the current run's own queue,
+    /// so a library of 1,598 rides with 400 tracks stored reported "12/12" and
+    /// then nothing. This is the whole account, counted off the census.
+    ///
+    /// No credential and no open engine both answer zeros, which every surface
+    /// reads as nothing to report: nothing is known about the account, and a
+    /// figure would be a claim.
+    fn library_coverage(&self) -> LibraryCoverage {
+        let Some(athlete_id) = SYNC_SERVICE.athlete_id() else {
+            return LibraryCoverage::default();
+        };
+        crate::persistence::with_persistent_engine(move |engine| {
+            engine.library_coverage(&athlete_id)
+        })
+        .unwrap_or_default()
     }
 
     /// Fetch and store one date window of activities. Returns instantly,
     /// naming whether the job started and, if not, whether asking again later
     /// would. The feed calls this for windows the default sync misses.
+    ///
+    /// A window the census says is already local and current answers `NotOwed`
+    /// without starting anything. The check is made before the exclusive slot
+    /// is claimed, so a window that owes nothing never shows up as a running
+    /// sync, and the caller needs no memory of what it has already asked for:
+    /// a `Set` a relaunch empties is what made every launch re-download the
+    /// pages the feed had already scrolled to.
     fn sync_activities_window(
         &self,
         oldest: String,
         newest: String,
     ) -> Result<FfiStartOutcome, VeloqError> {
+        if let Some(athlete_id) = SYNC_SERVICE.athlete_id() {
+            let window = (oldest.clone(), newest.clone());
+            match crate::persistence::with_persistent_engine(move |engine| {
+                engine.window_is_covered(&athlete_id, &window.0, &window.1)
+            }) {
+                // Early rather than refused: the engine is not open yet, so
+                // nothing is known about the window either way.
+                None => return Ok(FfiStartOutcome::NotReady),
+                Some(true) => return Ok(FfiStartOutcome::NotOwed),
+                Some(false) => {}
+            }
+        }
         let (transport, athlete_id) = match SYNC_SERVICE.try_start() {
             Ok(pair) => pair,
             Err(refusal) => return Ok(refusal),
         };
+        let install = crate::persistence::engine_install();
         crate::runtime::spawn(async move {
             let _guard = FinishGuard;
-            if !SYNC_SERVICE.still_signed_in(&athlete_id) {
-                SYNC_SERVICE.finish(SyncState::Idle, None, false);
-                return;
-            }
-            SYNC_SERVICE.begin_steps(1);
-            match sync_activity_window(&transport, &athlete_id, &oldest, &newest).await {
-                Ok(()) => {
-                    SYNC_SERVICE.complete_step();
-                    SYNC_SERVICE.finish(SyncState::Idle, None, true);
-                }
-                Err(NetError::Unauthorized) => {
-                    if credential_is_rejected(&transport, &athlete_id).await {
-                        SYNC_SERVICE.finish(
-                            SyncState::AuthExpired,
-                            Some(SyncFailure::unauthorized()),
-                            false,
-                        );
-                    } else {
-                        SYNC_SERVICE.finish(
-                            SyncState::Idle,
-                            Some(SyncFailure::from(&NetError::Unauthorized)),
-                            false,
-                        );
-                    }
-                }
-                Err(e) => SYNC_SERVICE.finish(SyncState::Idle, Some(SyncFailure::from(&e)), false),
-            }
+            perform_window_sync(
+                &SYNC_SERVICE,
+                install,
+                transport,
+                athlete_id,
+                &oldest,
+                &newest,
+            )
+            .await;
         });
         Ok(FfiStartOutcome::Started)
     }
@@ -1307,7 +2281,7 @@ impl SyncManager {
     fn sync_power_curve(&self, sport: String, days: i64) -> FfiStartOutcome {
         spawn_once(
             JobKey::new("power", &[&sport, &days.to_string()]),
-            move |transport, athlete_id| async move {
+            move |install, transport, athlete_id| async move {
                 let body = endpoints::fetch_power_curve_body(
                     &transport,
                     &athlete_id,
@@ -1316,7 +2290,7 @@ impl SyncManager {
                     Lane::Interactive,
                 )
                 .await?;
-                store_body("power_curve", String::new(), move |engine| {
+                store_body(install, "power_curve", String::new(), move |engine| {
                     engine.set_curve_body(CurveKind::Power, &sport, days, false, &body)
                 })
                 .await;
@@ -1330,7 +2304,7 @@ impl SyncManager {
     fn sync_pace_curve(&self, sport: String, days: i64, gap: bool) -> FfiStartOutcome {
         spawn_once(
             JobKey::new("pace", &[&sport, &days.to_string(), &gap.to_string()]),
-            move |transport, athlete_id| async move {
+            move |install, transport, athlete_id| async move {
                 let body = endpoints::fetch_pace_curve_body(
                     &transport,
                     &athlete_id,
@@ -1340,7 +2314,7 @@ impl SyncManager {
                     Lane::Interactive,
                 )
                 .await?;
-                store_body("pace_curve", String::new(), move |engine| {
+                store_body(install, "pace_curve", String::new(), move |engine| {
                     engine.set_curve_body(CurveKind::Pace, &sport, days, gap, &body)
                 })
                 .await;
@@ -1353,12 +2327,12 @@ impl SyncManager {
     fn sync_activity_intervals(&self, activity_id: String) -> FfiStartOutcome {
         spawn_once(
             JobKey::new("intervals", &[&activity_id]),
-            move |transport, _athlete_id| async move {
-                let upstream = upstream_id(&activity_id).await;
+            move |install, transport, _athlete_id| async move {
+                let upstream = upstream_id(install, &activity_id).await;
                 let body =
                     endpoints::fetch_intervals_body(&transport, &upstream, Lane::Interactive)
                         .await?;
-                store_body("intervals", activity_id.clone(), move |engine| {
+                store_body(install, "intervals", activity_id.clone(), move |engine| {
                     engine.set_interval_body(&activity_id, &body)
                 })
                 .await;
@@ -1372,7 +2346,7 @@ impl SyncManager {
     fn sync_calendar_events(&self, oldest: String, newest: String) -> FfiStartOutcome {
         spawn_once(
             JobKey::new("calendar", &[&oldest, &newest]),
-            move |transport, athlete_id| async move {
+            move |install, transport, athlete_id| async move {
                 let items = endpoints::fetch_calendar_events_bodies(
                     &transport,
                     &athlete_id,
@@ -1393,7 +2367,7 @@ impl SyncManager {
                 ) else {
                     return Ok(());
                 };
-                store_body("calendar", String::new(), move |engine| {
+                store_body(install, "calendar", String::new(), move |engine| {
                     engine.replace_calendar_events(oldest_ts, newest_ts, &rows)
                 })
                 .await;
@@ -1407,12 +2381,12 @@ impl SyncManager {
     fn sync_activity_streams(&self, activity_id: String, types: String) -> FfiStartOutcome {
         spawn_once(
             JobKey::new("streams", &[&activity_id, &types]),
-            move |transport, _athlete_id| async move {
-                let upstream = upstream_id(&activity_id).await;
+            move |install, transport, _athlete_id| async move {
+                let upstream = upstream_id(install, &activity_id).await;
                 let body =
                     endpoints::fetch_streams_body(&transport, &upstream, &types, Lane::Interactive)
                         .await?;
-                store_body("streams", activity_id.clone(), move |engine| {
+                store_body(install, "streams", activity_id.clone(), move |engine| {
                     engine.set_stream_body(&activity_id, &types, &body)
                 })
                 .await;
@@ -1426,8 +2400,8 @@ impl SyncManager {
     fn sync_activity_detail(&self, activity_id: String) -> FfiStartOutcome {
         spawn_once(
             JobKey::new("detail", &[&activity_id]),
-            move |transport, _athlete_id| async move {
-                let upstream = upstream_id(&activity_id).await;
+            move |install, transport, _athlete_id| async move {
+                let upstream = upstream_id(install, &activity_id).await;
                 let body = endpoints::fetch_activity_body(&transport, &upstream, Lane::Interactive)
                     .await?;
                 let date = serde_json::from_str::<serde_json::Value>(&body)
@@ -1440,9 +2414,14 @@ impl SyncManager {
                 let Some(date) = date else {
                     return Ok(());
                 };
-                store_body("activity_detail", activity_id.clone(), move |engine| {
-                    engine.upsert_activity_bodies(&[(activity_id.clone(), date, body)])
-                })
+                store_body(
+                    install,
+                    "activity_detail",
+                    activity_id.clone(),
+                    move |engine| {
+                        engine.upsert_activity_bodies(&[(activity_id.clone(), date, body)])
+                    },
+                )
                 .await;
                 Ok(())
             },
@@ -1459,27 +2438,30 @@ impl SyncManager {
             return FfiStartOutcome::NotOwed;
         }
         let key = JobKey::over("timestreams", &activity_ids);
-        spawn_once(key, move |transport, _athlete_id| async move {
-            let missing = crate::persistence::with_persistent_engine_blocking(move |engine| {
-                engine.get_activities_missing_time_streams(&activity_ids)
-            })
-            .await
-            .unwrap_or_default();
+        spawn_once(key, move |install, transport, athlete_id| async move {
+            let missing =
+                crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
+                    engine.get_activities_missing_time_streams(&activity_ids)
+                })
+                .await
+                .unwrap_or_default();
 
-            for activity_id in missing {
-                let upstream = upstream_id(&activity_id).await;
-                match endpoints::fetch_time_stream(&transport, &upstream, Lane::Backfill).await {
-                    Ok(times) if !times.is_empty() => {
-                        store_time_stream(activity_id, times).await;
+            drain_time_streams_with(
+                missing,
+                || SYNC_SERVICE.still_signed_in(&athlete_id),
+                |activity_id| {
+                    // Cloned per activity because the walk holds the fetch as
+                    // an `FnMut`: the transport is an `Arc` inside, which is
+                    // what `spawn_once` clones for the confirmation too.
+                    let transport = transport.clone();
+                    async move {
+                        let upstream = upstream_id(install, &activity_id).await;
+                        endpoints::fetch_time_stream(&transport, &upstream, Lane::Backfill).await
                     }
-                    Ok(_) => {}
-                    // One activity without streams must not stop the batch;
-                    // the section list would stay stuck on "loading".
-                    Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
-                    Err(e) => log::warn!("[Sync] time stream {} failed: {}", activity_id, e),
-                }
-            }
-            Ok(())
+                },
+                |activity_id, times| store_time_stream(install, activity_id, times),
+            )
+            .await
         })
     }
 
@@ -1548,33 +2530,6 @@ impl SyncManager {
     /// Check a credential against `/athlete/me` and report the athlete it
     /// belongs to. Login confirms a key this way before committing it, so the
     /// credential under test is deliberately not the one the service holds.
-    async fn validate_credentials(&self, method: String, secret: String) -> FfiCallOutcome {
-        let Some(kind) = AuthKind::parse(&method) else {
-            return FfiCallOutcome::internal(format!("unknown auth method: {}", method));
-        };
-        let base = SYNC_SERVICE
-            .base_url
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clone();
-        let auth = match kind {
-            AuthKind::OAuth => AuthMethod::Bearer(&secret),
-            AuthKind::ApiKey => AuthMethod::ApiKey(&secret),
-        };
-        let transport = match Transport::new(base, auth) {
-            Ok(t) => t,
-            Err(e) => return FfiCallOutcome::internal(e),
-        };
-        // A rejected candidate is not an expired session, so unlike a write
-        // this deliberately leaves the service state alone.
-        run_on_runtime(async move {
-            endpoints::fetch_current_athlete(&transport, Lane::Interactive)
-                .await
-                .map(|athlete| Some(athlete.id))
-        })
-        .await
-    }
-
     /// Soft-cancel the running sync.
     fn cancel(&self) {
         SYNC_SERVICE.request_cancel();
@@ -1605,6 +2560,167 @@ mod tests {
     fn transport_to(base: String) -> Transport {
         let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
         Transport::with_governor(base, AuthMethod::ApiKey("k"), gov).unwrap()
+    }
+
+    /// Scenario: the athlete signs out part way through a time-stream pass
+    /// over a long list. The transport in the job's hand was built before the
+    /// spawn, so it still carries the token they signed out of.
+    ///
+    /// Expected behaviour: the walk stops at the next activity rather than
+    /// fetching the rest of the list on a revoked credential.
+    mod time_stream_walk {
+        use super::*;
+        use std::cell::RefCell;
+
+        fn ids(n: usize) -> Vec<String> {
+            (0..n).map(|i| format!("a{i}")).collect()
+        }
+
+        /// The walk, with the sign-in read flipping false after `signed_in_for`
+        /// activities. Answers what was fetched and what was stored.
+        fn walk_signing_out_after(
+            signed_in_for: usize,
+        ) -> (Vec<String>, Vec<String>, Result<(), NetError>) {
+            let fetched = RefCell::new(Vec::new());
+            let stored = RefCell::new(Vec::new());
+            let reads = RefCell::new(0usize);
+
+            let outcome = crate::runtime::block_on(drain_time_streams_with(
+                ids(5),
+                || {
+                    let mut n = reads.borrow_mut();
+                    *n += 1;
+                    *n <= signed_in_for
+                },
+                |activity_id| {
+                    fetched.borrow_mut().push(activity_id);
+                    async { Ok(vec![0u32, 1, 2]) }
+                },
+                |activity_id, _times| {
+                    stored.borrow_mut().push(activity_id);
+                    async {}
+                },
+            ));
+
+            (fetched.into_inner(), stored.into_inner(), outcome)
+        }
+
+        #[test]
+        fn stops_at_the_activity_after_the_sign_out() {
+            let (fetched, stored, _) = walk_signing_out_after(2);
+
+            assert_eq!(fetched, vec!["a0".to_string(), "a1".to_string()]);
+            assert_eq!(stored, vec!["a0".to_string(), "a1".to_string()]);
+        }
+
+        #[test]
+        fn calls_a_sign_out_done_rather_than_failed() {
+            // A failure backs the job key off, which would hold it against
+            // whoever signs in next.
+            assert!(walk_signing_out_after(2).2.is_ok());
+        }
+
+        #[test]
+        fn fetches_nothing_at_all_when_the_sign_out_beat_the_first_read() {
+            let (fetched, stored, outcome) = walk_signing_out_after(0);
+
+            assert!(fetched.is_empty());
+            assert!(stored.is_empty());
+            assert!(outcome.is_ok());
+        }
+
+        #[test]
+        fn walks_the_whole_list_while_the_athlete_stays_signed_in() {
+            let (fetched, stored, outcome) = walk_signing_out_after(usize::MAX);
+
+            assert_eq!(fetched.len(), 5);
+            assert_eq!(stored.len(), 5);
+            assert!(outcome.is_ok());
+        }
+
+        #[test]
+        fn reads_the_flag_once_per_activity_and_not_once_per_pass() {
+            // Five activities, five reads. A pass that read once could not
+            // notice a sign-out at all.
+            let reads = RefCell::new(0usize);
+            crate::runtime::block_on(drain_time_streams_with(
+                ids(5),
+                || {
+                    *reads.borrow_mut() += 1;
+                    true
+                },
+                |_id| async { Ok(vec![]) },
+                |_id, _times| async {},
+            ))
+            .unwrap();
+
+            assert_eq!(reads.into_inner(), 5);
+        }
+
+        #[test]
+        fn a_rejected_credential_stops_the_walk_and_says_so() {
+            let fetched = RefCell::new(0usize);
+            let outcome = crate::runtime::block_on(drain_time_streams_with(
+                ids(5),
+                || true,
+                |_id| {
+                    *fetched.borrow_mut() += 1;
+                    async { Err(NetError::Unauthorized) }
+                },
+                |_id, _times| async {},
+            ));
+
+            assert!(matches!(outcome, Err(NetError::Unauthorized)));
+            assert_eq!(fetched.into_inner(), 1, "the rest of the list is not asked");
+        }
+
+        #[test]
+        fn one_activity_without_a_stream_does_not_stop_the_rest() {
+            let stored = RefCell::new(Vec::new());
+            let outcome = crate::runtime::block_on(drain_time_streams_with(
+                ids(3),
+                || true,
+                |activity_id| async move {
+                    if activity_id == "a1" {
+                        Err(NetError::Http {
+                            status: 500,
+                            body: String::new(),
+                        })
+                    } else {
+                        Ok(vec![1u32])
+                    }
+                },
+                |activity_id, _times| {
+                    stored.borrow_mut().push(activity_id);
+                    async {}
+                },
+            ));
+
+            assert_eq!(
+                stored.into_inner(),
+                vec!["a0".to_string(), "a2".to_string()]
+            );
+            assert!(outcome.is_ok());
+        }
+
+        #[test]
+        fn an_empty_answer_is_still_stored() {
+            // The row records that the question was put, or the activity comes
+            // back on every pass for the life of the install.
+            let stored = RefCell::new(Vec::new());
+            crate::runtime::block_on(drain_time_streams_with(
+                ids(1),
+                || true,
+                |_id| async { Ok(vec![]) },
+                |activity_id, times| {
+                    stored.borrow_mut().push((activity_id, times));
+                    async {}
+                },
+            ))
+            .unwrap();
+
+            assert_eq!(stored.into_inner(), vec![("a0".to_string(), vec![])]);
+        }
     }
 
     #[test]
@@ -1674,7 +2790,7 @@ mod tests {
             let refused = spawn_once_at(
                 key(),
                 || 1_000,
-                |_transport, _athlete| async { Ok::<(), NetError>(()) },
+                |_i, _transport, _athlete| async { Ok::<(), NetError>(()) },
             );
             assert_eq!(
                 refused,
@@ -1689,7 +2805,7 @@ mod tests {
             let busy = spawn_once_at(
                 key(),
                 || 1_001,
-                |_transport, _athlete| async { Ok::<(), NetError>(()) },
+                |_i, _transport, _athlete| async { Ok::<(), NetError>(()) },
             );
             assert_eq!(
                 busy,
@@ -1711,7 +2827,11 @@ mod tests {
 
             hold(&key(), 1_000);
             assert_eq!(
-                spawn_once_at(key(), || 1_001, |_t, _a| async { Ok::<(), NetError>(()) }),
+                spawn_once_at(
+                    key(),
+                    || 1_001,
+                    |_i, _t, _a| async { Ok::<(), NetError>(()) }
+                ),
                 FfiStartOutcome::Busy
             );
 
@@ -1719,7 +2839,11 @@ mod tests {
                 .expect("engine");
 
             assert_eq!(
-                spawn_once_at(key(), || 1_002, |_t, _a| async { Ok::<(), NetError>(()) }),
+                spawn_once_at(
+                    key(),
+                    || 1_002,
+                    |_i, _t, _a| async { Ok::<(), NetError>(()) }
+                ),
                 FfiStartOutcome::Started,
                 "a lease from a process that is gone stranded the key"
             );
@@ -1741,7 +2865,7 @@ mod tests {
                     spawn_once_at(
                         key(),
                         move || tick.load(Ordering::SeqCst),
-                        |_t, _a| async {
+                        |_i, _t, _a| async {
                             Err::<(), NetError>(NetError::Http {
                                 status: 500,
                                 body: "upstream".to_string(),
@@ -1756,7 +2880,7 @@ mod tests {
                 let held = spawn_once_at(
                     key(),
                     move || tick.load(Ordering::SeqCst),
-                    |_t, _a| async { Ok::<(), NetError>(()) },
+                    |_i, _t, _a| async { Ok::<(), NetError>(()) },
                 );
                 assert_eq!(
                     held,
@@ -1789,7 +2913,7 @@ mod tests {
                 spawn_once_at(
                     key(),
                     || 1_000,
-                    |_t, _a| async {
+                    |_i, _t, _a| async {
                         panic!("the job blew up");
                     }
                 ),
@@ -1819,7 +2943,11 @@ mod tests {
             let _creds = test_credentials();
 
             assert_eq!(
-                spawn_once_at(key(), || 1_000, |_t, _a| async { Ok::<(), NetError>(()) }),
+                spawn_once_at(
+                    key(),
+                    || 1_000,
+                    |_i, _t, _a| async { Ok::<(), NetError>(()) }
+                ),
                 FfiStartOutcome::Started
             );
             drain_spawned();
@@ -1830,7 +2958,11 @@ mod tests {
                     .is_none()
             );
             assert_eq!(
-                spawn_once_at(key(), || 1_001, |_t, _a| async { Ok::<(), NetError>(()) }),
+                spawn_once_at(
+                    key(),
+                    || 1_001,
+                    |_i, _t, _a| async { Ok::<(), NetError>(()) }
+                ),
                 FfiStartOutcome::Started
             );
         }
@@ -1843,7 +2975,11 @@ mod tests {
             crate::persistence::clear_persistent_engine();
             let _creds = test_credentials();
 
-            let outcome = spawn_once_at(key(), || 1_000, |_t, _a| async { Ok::<(), NetError>(()) });
+            let outcome = spawn_once_at(
+                key(),
+                || 1_000,
+                |_i, _t, _a| async { Ok::<(), NetError>(()) },
+            );
             assert_eq!(outcome, FfiStartOutcome::NotReady);
             assert!(outcome.is_retryable());
         }
@@ -1936,8 +3072,463 @@ mod tests {
         });
     }
 
+    /// Expected behaviour: the status names the step in flight, not the one
+    /// that just landed, and names none once the run is over. `completed` and
+    /// `total` count steps, so this is the only field that can say what the
+    /// sync is actually fetching.
+    #[test]
+    fn the_status_names_the_step_in_flight() {
+        let svc = SyncService::new();
+        svc.begin_steps(SYNC_STEPS);
+        assert_eq!(svc.snapshot().step, None, "no step has begun");
+
+        svc.begin_step(FfiSyncStep::Athlete);
+        assert_eq!(svc.snapshot().step, Some(FfiSyncStep::Athlete));
+
+        svc.complete_step();
+        assert_eq!(
+            svc.snapshot().step,
+            Some(FfiSyncStep::Athlete),
+            "a landed step stands until the next one begins"
+        );
+
+        svc.begin_step(FfiSyncStep::Activities);
+        assert_eq!(svc.snapshot().step, Some(FfiSyncStep::Activities));
+
+        svc.finish(SyncState::Idle, None, true);
+        assert_eq!(svc.snapshot().step, None, "nothing is running");
+    }
+
+    /// Every request the mock server answered, in the order it answered them,
+    /// for the tests that care where a step sits rather than what it wrote.
+    ///
+    /// A static rather than a captured handle: `httpmock`'s custom matcher is
+    /// a bare `fn` pointer, so it closes over nothing. Every test that reads
+    /// it holds `serial_global_state`, which is what keeps two of them out of
+    /// each other's log.
+    static REQUEST_ORDER: Mutex<Vec<(String, Option<FfiSyncStep>)>> = Mutex::new(Vec::new());
+
+    /// The step beside the name is read from the process-wide service, which
+    /// is the only one a bare `fn` matcher can reach. A test driving a local
+    /// service records `None` there and reads the names alone.
+    fn note_request(step: &str) {
+        REQUEST_ORDER
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push((step.to_string(), SYNC_SERVICE.snapshot().step));
+    }
+
+    fn taken_requests() -> Vec<(String, Option<FfiSyncStep>)> {
+        std::mem::take(&mut *REQUEST_ORDER.lock().unwrap_or_else(|e| e.into_inner()))
+    }
+
+    fn taken_request_order() -> Vec<String> {
+        taken_requests().into_iter().map(|(name, _)| name).collect()
+    }
+
+    /// Note an activities request under the window it asked for, since the
+    /// census and both window pulls share the one path.
+    fn note_activities(req: &HttpMockRequest) -> bool {
+        let oldest = req
+            .query_params
+            .as_ref()
+            .and_then(|q| q.iter().find(|(k, _)| k == "oldest"))
+            .map(|(_, v)| v.as_str())
+            .unwrap_or("");
+        // The census spans all history and the windows never do, so the
+        // sentinel date is what tells the two apart.
+        let limit = req
+            .query_params
+            .as_ref()
+            .and_then(|q| q.iter().find(|(k, _)| k == "limit"))
+            .map(|(_, v)| v.as_str())
+            .unwrap_or("");
+        if oldest == "2000-01-01" {
+            note_request("census");
+        } else if limit.is_empty() {
+            note_request(&format!("activities {oldest}"));
+        } else {
+            note_request(&format!("activities {oldest} limit {limit}"));
+        }
+        true
+    }
+
+    fn note_athlete(_: &HttpMockRequest) -> bool {
+        note_request("athlete");
+        true
+    }
+
+    fn note_sport_settings(_: &HttpMockRequest) -> bool {
+        note_request("sport-settings");
+        true
+    }
+
+    fn note_wellness(_: &HttpMockRequest) -> bool {
+        note_request("wellness");
+        true
+    }
+
+    /// The profile slice again, with every endpoint noting itself as it is
+    /// answered. `matches` runs after the path matcher, so a mock only ever
+    /// notes a request that was going to it.
+    fn mock_ordered_profile_slice(server: &MockServer) {
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1").matches(note_athlete);
+            then.status(200).json_body(json!({"id": "i1", "name": "x"}));
+        });
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/sport-settings")
+                .matches(note_sport_settings);
+            then.status(200).json_body(json!([]));
+        });
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/wellness")
+                .matches(note_wellness);
+            then.status(200).json_body(json!([]));
+        });
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities")
+                .matches(note_activities);
+            then.status(200).json_body(json!([]));
+        });
+    }
+
+    /// Scenario: a first launch. The census owes one run of days, so the plan
+    /// collapses to a single window covering the whole span, and the step that
+    /// lifts the standby is a request for the entire library. Five minutes in,
+    /// the OnePlus was still on curves at 6 of 8 with no card on screen.
+    ///
+    /// Expected behaviour: the newest few are asked for on their own first,
+    /// with a count rather than a date boundary, so the feed has cards after
+    /// one round trip. The span behind it runs unchanged.
+    #[test]
+    fn the_newest_few_are_asked_for_before_the_span_they_sit_in() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_first_use.db");
+        let today = chrono::Local::now().date_naive();
+        // One run of consecutive owed days, which collapses to one window: the
+        // fresh-install shape, where the head window is the whole library.
+        let days: Vec<String> = (0..20)
+            .map(|i| (today - chrono::Duration::days(i)).to_string())
+            .collect();
+        let oldest = days.last().expect("days").clone();
+        let census: Vec<crate::net::types::ActivityCensusEntry> = days
+            .iter()
+            .enumerate()
+            .map(|(i, date)| crate::net::types::ActivityCensusEntry {
+                id: format!("a{i}"),
+                start_date_local: Some(format!("{date}T08:30:00")),
+                created: Some(format!("{date}T08:00:00Z")),
+                icu_sync_date: Some(format!("{date}T09:00:00Z")),
+                has_latlng: false,
+            })
+            .collect();
+        crate::persistence::with_persistent_engine(move |engine| {
+            engine.record_activity_census("i1", &census);
+        })
+        .expect("engine");
+
+        let server = MockServer::start();
+        mock_ordered_profile_slice(&server);
+        taken_requests();
+
+        SYNC_SERVICE.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(SYNC_SERVICE.try_begin(), "nothing else holds the sync slot");
+        crate::runtime::block_on(perform_sync(
+            &SYNC_SERVICE,
+            crate::persistence::engine_install(),
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+        SYNC_SERVICE.clear_credentials();
+
+        let names = taken_request_order();
+        assert_eq!(
+            names.first().map(String::as_str),
+            Some("census"),
+            "the census still goes first: {names:?}"
+        );
+        assert_eq!(
+            names.get(1),
+            Some(&format!("activities {oldest} limit {FIRST_USE_ACTIVITIES}")),
+            "the newest few come before anything else: {names:?}"
+        );
+        assert_eq!(
+            names.get(2),
+            Some(&format!("activities {oldest}")),
+            "and the span behind them is unchanged: {names:?}"
+        );
+    }
+
+    /// Scenario: an ordinary launch with one new ride. The owed plan is a
+    /// single day, so a count-limited request would fetch the same rows the
+    /// window is about to fetch.
+    ///
+    /// Expected behaviour: the first-use step asks for nothing, and the window
+    /// runs as it always did.
+    #[test]
+    fn a_single_owed_day_costs_no_extra_request() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_first_use_warm.db");
+        let today = chrono::Local::now().date_naive();
+        let day = today.to_string();
+        let census = vec![crate::net::types::ActivityCensusEntry {
+            id: "a0".to_string(),
+            start_date_local: Some(format!("{day}T08:30:00")),
+            created: Some(format!("{day}T08:00:00Z")),
+            icu_sync_date: Some(format!("{day}T09:00:00Z")),
+            has_latlng: false,
+        }];
+        crate::persistence::with_persistent_engine(move |engine| {
+            engine.record_activity_census("i1", &census);
+        })
+        .expect("engine");
+
+        let server = MockServer::start();
+        mock_ordered_profile_slice(&server);
+        taken_requests();
+
+        SYNC_SERVICE.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(SYNC_SERVICE.try_begin(), "nothing else holds the sync slot");
+        crate::runtime::block_on(perform_sync(
+            &SYNC_SERVICE,
+            crate::persistence::engine_install(),
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+        SYNC_SERVICE.clear_credentials();
+
+        let names = taken_request_order();
+        assert!(
+            !names.iter().any(|name| name.contains("limit")),
+            "no count-limited request for a one-day window: {names:?}"
+        );
+    }
+
+    /// Scenario: a first launch on a slow connection. The standby lifts on the
+    /// first stored activity, so every endpoint asked for ahead of the
+    /// activities is a round trip the athlete spends watching a spinner, and
+    /// the profile, sport settings and wellness went first.
+    ///
+    /// Expected behaviour: the census, then the newest owed window on its own,
+    /// then the three profile endpoints, then the rest of the library. The
+    /// census stays ahead of the windows because it is what says which days
+    /// are owed.
+    #[test]
+    fn the_newest_activities_are_asked_for_before_the_profile_slice() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_order.db");
+        let today = chrono::Local::now().date_naive();
+        let newest = today.to_string();
+        let older = (today - chrono::Duration::days(10)).to_string();
+        // Two owed days with a gap between them, so the plan has a head and a
+        // remainder for the steps to straddle.
+        let census: Vec<crate::net::types::ActivityCensusEntry> = [&newest, &older]
+            .iter()
+            .enumerate()
+            .map(|(i, date)| crate::net::types::ActivityCensusEntry {
+                id: format!("a{i}"),
+                start_date_local: Some(format!("{date}T08:30:00")),
+                created: Some(format!("{date}T08:00:00Z")),
+                icu_sync_date: Some(format!("{date}T09:00:00Z")),
+                has_latlng: false,
+            })
+            .collect();
+        crate::persistence::with_persistent_engine(move |engine| {
+            engine.record_activity_census("i1", &census);
+        })
+        .expect("engine");
+
+        let server = MockServer::start();
+        mock_ordered_profile_slice(&server);
+        taken_request_order();
+
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            crate::persistence::engine_install(),
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+
+        assert_eq!(
+            taken_request_order(),
+            vec![
+                "census".to_string(),
+                format!("activities {newest}"),
+                "athlete".to_string(),
+                "sport-settings".to_string(),
+                "wellness".to_string(),
+                format!("activities {older}"),
+            ]
+        );
+    }
+
+    /// Scenario: a first launch sits on the standby while the sync walks its
+    /// endpoints, which is the run F20 was taken from and the run whose line
+    /// said "0 of 7 activities".
+    ///
+    /// Expected behaviour: the status names the endpoint being fetched, at the
+    /// moment it is being fetched. The step is read inside the mock's matcher,
+    /// so this is the label an athlete would have been shown rather than a
+    /// sample taken somewhere near it.
+    #[test]
+    fn a_running_sync_names_the_step_it_is_fetching() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_step_order.db");
+        let today = chrono::Local::now().date_naive();
+        let newest = today.to_string();
+        let older = (today - chrono::Duration::days(10)).to_string();
+        // Two owed days with a gap between them, so the plan has a head and a
+        // remainder and the two activity steps are told apart.
+        let census: Vec<crate::net::types::ActivityCensusEntry> = [&newest, &older]
+            .iter()
+            .enumerate()
+            .map(|(i, date)| crate::net::types::ActivityCensusEntry {
+                id: format!("a{i}"),
+                start_date_local: Some(format!("{date}T08:30:00")),
+                created: Some(format!("{date}T08:00:00Z")),
+                icu_sync_date: Some(format!("{date}T09:00:00Z")),
+                has_latlng: false,
+            })
+            .collect();
+        crate::persistence::with_persistent_engine(move |engine| {
+            engine.record_activity_census("i1", &census);
+        })
+        .expect("engine");
+
+        let server = MockServer::start();
+        mock_ordered_profile_slice(&server);
+        taken_requests();
+
+        // The process-wide service, because the matcher that reads the step is
+        // a bare `fn` and can reach no other one.
+        SYNC_SERVICE.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(SYNC_SERVICE.try_begin(), "nothing else holds the sync slot");
+        crate::runtime::block_on(perform_sync(
+            &SYNC_SERVICE,
+            crate::persistence::engine_install(),
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+
+        assert_eq!(
+            taken_requests(),
+            vec![
+                ("census".to_string(), Some(FfiSyncStep::Census)),
+                (
+                    format!("activities {newest}"),
+                    Some(FfiSyncStep::Activities)
+                ),
+                ("athlete".to_string(), Some(FfiSyncStep::Athlete)),
+                (
+                    "sport-settings".to_string(),
+                    Some(FfiSyncStep::SportSettings)
+                ),
+                ("wellness".to_string(), Some(FfiSyncStep::Wellness)),
+                (
+                    format!("activities {older}"),
+                    Some(FfiSyncStep::RemainingActivities)
+                ),
+            ]
+        );
+        assert_eq!(
+            SYNC_SERVICE.snapshot().step,
+            None,
+            "the settled run names no step"
+        );
+        SYNC_SERVICE.clear_credentials();
+    }
+
+    /// Scenario: a first launch. Every reader of the `activities` channel was
+    /// woken by the settle alone, which on a slow connection is the profile
+    /// slice, the rest of the library, the curves and every owed interval body
+    /// after the head window's rows are already in SQLite. So the feed held
+    /// its standby and the preview fetch had not started.
+    ///
+    /// Expected behaviour: each activity step announces the rows it stored, so
+    /// the head's cards and their previews start on that rather than on the
+    /// settle. A step that stored nothing announces nothing.
+    #[test]
+    fn each_activity_step_announces_its_rows_before_the_sync_settles() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_announce.db");
+        let today = chrono::Local::now().date_naive();
+        let newest = today.to_string();
+        let older = (today - chrono::Duration::days(10)).to_string();
+        let census: Vec<crate::net::types::ActivityCensusEntry> = [&newest, &older]
+            .iter()
+            .enumerate()
+            .map(|(i, date)| crate::net::types::ActivityCensusEntry {
+                id: format!("a{i}"),
+                start_date_local: Some(format!("{date}T08:30:00")),
+                created: Some(format!("{date}T08:00:00Z")),
+                icu_sync_date: Some(format!("{date}T09:00:00Z")),
+                has_latlng: false,
+            })
+            .collect();
+        crate::persistence::with_persistent_engine(move |engine| {
+            engine.record_activity_census("i1", &census);
+        })
+        .expect("engine");
+
+        let server = MockServer::start();
+        // Before the profile slice, because the first mock a request matches
+        // is the one that answers it and that slice holds a catch-all for the
+        // activities path. Only the head day carries an activity: the
+        // remainder window falls through to the empty page, so it stores
+        // nothing and owes no announcement.
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities")
+                .query_param("oldest", newest.clone())
+                .query_param("newest", newest.clone());
+            then.status(200).json_body(json!([
+                {"id": "a0", "type": "Ride", "name": "Loop",
+                 "start_date_local": format!("{newest}T08:30:00"), "distance": 9000.0}
+            ]));
+        });
+        mock_profile_slice(&server, 200);
+
+        let recorder = crate::objects::observer::recorder::Recorder::new();
+        crate::objects::observer::set_observer(Some(recorder.clone()));
+
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            crate::persistence::engine_install(),
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+        crate::objects::observer::set_observer(None);
+
+        let events = recorder.events();
+        let stored = events.iter().position(|e| e == "activities_stored");
+        let settled = events.iter().position(|e| e == "sync_settled");
+        assert!(
+            matches!((stored, settled), (Some(s), Some(t)) if s < t),
+            "the head's rows land long before the settle, the events were: {events:?}"
+        );
+        assert_eq!(
+            events.iter().filter(|e| *e == "activities_stored").count(),
+            1,
+            "the empty remainder window announces nothing: {events:?}"
+        );
+    }
+
     #[test]
     fn successful_sync_returns_to_idle_completed() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         mock_profile_slice(&server, 200);
         let svc = SyncService::new();
@@ -1945,6 +3536,7 @@ mod tests {
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
+            crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
         ));
@@ -1956,8 +3548,116 @@ mod tests {
         assert!(s.last_error.is_none());
     }
 
+    /// Scenario: the profile write fails, the shape a busy connection or a
+    /// constraint takes, here a table that is not there.
+    ///
+    /// Expected behaviour: the step fails with a storage reason. It used to
+    /// count as complete, so the run reported success and every reader kept
+    /// the previous athlete's profile, FTP and zones with nothing to say so.
+    #[test]
+    fn a_failed_profile_write_fails_its_step() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .db
+                .execute_batch("DROP TABLE athlete_profile")
+                .expect("drop");
+        })
+        .expect("engine");
+        let server = MockServer::start();
+        mock_profile_slice(&server, 200);
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            crate::persistence::engine_install(),
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+        let s = svc.snapshot();
+        assert_eq!(
+            s.completed,
+            SYNC_STEPS - 1,
+            "the failed step is not counted"
+        );
+        assert_eq!(s.last_error_reason, Some(FfiSyncErrorReason::Storage));
+        assert!(
+            s.last_error
+                .as_deref()
+                .is_some_and(|e| e.contains("athlete profile store failed")),
+            "the reason names the write: {:?}",
+            s.last_error
+        );
+    }
+
+    /// Scenario: the library read fails under a sweep that derives its work
+    /// from SQLite. Both sweeps read `activity_metrics`: the curves for the
+    /// sports they cover, the intervals for the activities still owed a body.
+    ///
+    /// Expected behaviour: each reports a storage failure naming its own read.
+    /// An empty list used to mean both "nothing to fetch" and "the read
+    /// failed", so a sweep fetched nothing and the run still reported success.
+    #[test]
+    fn a_failed_library_read_fails_the_sweep_that_needed_it() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .db
+                .execute_batch("DROP TABLE activity_metrics")
+                .expect("drop");
+        })
+        .expect("engine");
+        let server = MockServer::start();
+        mock_profile_slice(&server, 200);
+        let transport = transport_to(server.base_url());
+
+        let curves = crate::runtime::block_on(sync_curves(
+            crate::persistence::engine_install(),
+            &transport,
+            "i1",
+            &|| false,
+        ));
+        assert!(
+            matches!(&curves, Err(e) if e.to_string().contains("sport type read failed")),
+            "the reason names the read: {curves:?}"
+        );
+        assert_eq!(
+            curves
+                .as_ref()
+                .err()
+                .map(SyncFailure::from)
+                .map(|f| f.reason),
+            Some(FfiSyncErrorReason::Storage)
+        );
+
+        let intervals = crate::runtime::block_on(sync_interval_bodies(
+            crate::persistence::engine_install(),
+            &transport,
+            &|| false,
+        ));
+        assert!(
+            matches!(&intervals, Err(e) if e.to_string().contains("interval queue read failed")),
+            "the reason names the read: {intervals:?}"
+        );
+        assert_eq!(
+            intervals
+                .as_ref()
+                .err()
+                .map(SyncFailure::from)
+                .map(|f| f.reason),
+            Some(FfiSyncErrorReason::Storage)
+        );
+    }
+
     #[test]
     fn unauthorized_sync_moves_to_auth_expired() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         mock_profile_slice(&server, 401);
         let svc = SyncService::new();
@@ -1965,6 +3665,7 @@ mod tests {
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
+            crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
         ));
@@ -1981,6 +3682,10 @@ mod tests {
     /// error, which is what a caller sees for any other failed step.
     #[test]
     fn an_unconfirmed_401_leaves_the_session_standing() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         // The profile is the confirmation endpoint, so it answers, and the
         // step after it is the one that is refused.
@@ -1997,6 +3702,7 @@ mod tests {
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
+            crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
         ));
@@ -2060,6 +3766,10 @@ mod tests {
 
     #[test]
     fn server_error_records_error_but_returns_idle() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         mock_profile_slice(&server, 500);
         let svc = SyncService::new();
@@ -2067,12 +3777,17 @@ mod tests {
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
+            crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
         ));
         let s = svc.snapshot();
         assert_eq!(s.state, SyncState::Idle);
-        assert_eq!(s.completed, 0);
+        // Every step that reached the server failed. The three that did not
+        // are the ones with nothing to ask for: the two sweeps that derive
+        // their work from an empty library, and the remainder window, which a
+        // census that never landed leaves the head step covering whole.
+        assert_eq!(s.completed, 3);
         assert!(s.last_error.is_some());
     }
 
@@ -2083,6 +3798,10 @@ mod tests {
     /// closed set beside its message, and a clean settle carries none.
     #[test]
     fn a_rejected_credential_settles_with_the_unauthorized_reason() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         mock_profile_slice(&server, 401);
         let svc = SyncService::new();
@@ -2090,6 +3809,7 @@ mod tests {
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
+            crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
         ));
@@ -2101,6 +3821,10 @@ mod tests {
 
     #[test]
     fn a_server_error_settles_with_the_server_reason() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         mock_profile_slice(&server, 500);
         let svc = SyncService::new();
@@ -2108,6 +3832,7 @@ mod tests {
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
+            crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
         ));
@@ -2119,11 +3844,16 @@ mod tests {
 
     #[test]
     fn an_unreachable_host_settles_with_the_network_reason() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let svc = SyncService::new();
         svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
+            crate::persistence::engine_install(),
             transport_to("http://127.0.0.1:1".to_string()),
             "i1".into(),
         ));
@@ -2193,6 +3923,10 @@ mod tests {
     /// the signed-out athlete's data into the new athlete's database.
     #[test]
     fn a_sync_stops_when_the_credential_is_cleared_under_it() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         let hit = server.mock(|when, then| {
             when.method(GET).path("/athlete/i1");
@@ -2204,7 +3938,12 @@ mod tests {
         assert!(svc.try_begin());
         svc.clear_credentials();
 
-        crate::runtime::block_on(perform_sync(&svc, transport, "i1".into()));
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            crate::persistence::engine_install(),
+            transport,
+            "i1".into(),
+        ));
 
         hit.assert_hits(0);
         assert_eq!(svc.snapshot().state, SyncState::Idle);
@@ -2212,6 +3951,10 @@ mod tests {
 
     #[test]
     fn a_sync_stops_when_another_athlete_signs_in_under_it() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         let hit = server.mock(|when, then| {
             when.method(GET).path("/athlete/i1");
@@ -2223,7 +3966,12 @@ mod tests {
         assert!(svc.try_begin());
         svc.set_credentials(AuthKind::ApiKey, "other".into(), "i2".into());
 
-        crate::runtime::block_on(perform_sync(&svc, transport, "i1".into()));
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            crate::persistence::engine_install(),
+            transport,
+            "i1".into(),
+        ));
 
         hit.assert_hits(0);
         assert_eq!(svc.snapshot().state, SyncState::Idle);
@@ -2231,6 +3979,10 @@ mod tests {
 
     #[test]
     fn a_sync_for_the_athlete_who_is_still_signed_in_runs() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         mock_profile_slice(&server, 200);
         let svc = SyncService::new();
@@ -2238,7 +3990,12 @@ mod tests {
         let transport = transport_to(server.base_url());
         assert!(svc.try_begin());
 
-        crate::runtime::block_on(perform_sync(&svc, transport, "i1".into()));
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            crate::persistence::engine_install(),
+            transport,
+            "i1".into(),
+        ));
 
         let s = svc.snapshot();
         assert_eq!(s.state, SyncState::Idle);
@@ -2272,6 +4029,10 @@ mod tests {
 
     #[test]
     fn one_failing_endpoint_does_not_cost_the_others() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         // Steps are independent, so a broken sport-settings response must not
         // stop the athlete profile and wellness from landing.
         let server = MockServer::start();
@@ -2297,6 +4058,7 @@ mod tests {
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
+            crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
         ));
@@ -2308,6 +4070,10 @@ mod tests {
 
     #[test]
     fn cancel_before_run_skips_work() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let svc = SyncService::new();
         svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
         assert!(svc.try_begin());
@@ -2319,6 +4085,7 @@ mod tests {
         // must not touch it.
         crate::runtime::block_on(perform_sync(
             &svc,
+            crate::persistence::engine_install(),
             transport_to("http://127.0.0.1:1".into()),
             "i1".into(),
         ));
@@ -2409,9 +4176,87 @@ mod tests {
             then.status(200).json_body(json!([]));
         });
 
-        crate::runtime::block_on(sync_activities(&transport_to(server.base_url()), "i1"))
-            .expect("default sync");
+        let install = crate::persistence::engine_install();
+        let transport = transport_to(server.base_url());
+        crate::runtime::block_on(async {
+            let windows = owed_activity_windows("i1").await;
+            sync_activity_windows(install, &transport, "i1", &windows, &|| false).await
+        })
+        .expect("default sync");
         mock.assert();
+    }
+
+    /// Scenario: nothing announced wellness, so the three screens that read it
+    /// were woken by the `activities` channel instead. That channel fires per
+    /// synced page, measured five times in the first 4.5 s of a launch, and
+    /// wellness is written once, so each of them re-read and re-parsed its whole
+    /// window four times for nothing. A `1y` range is 365 bodies.
+    ///
+    /// Expected behaviour: one announcement, after the write, naming wellness.
+    #[test]
+    fn a_wellness_sync_announces_itself_once() {
+        let _guard = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/wellness");
+            then.status(200)
+                .json_body(json!([{"id": "2026-03-01", "ctl": 50.0, "atl": 40.0}]));
+        });
+        let recorder = crate::objects::observer::recorder::Recorder::new();
+        crate::objects::observer::set_observer(Some(recorder.clone()));
+
+        crate::runtime::block_on(sync_wellness(
+            crate::persistence::engine_install(),
+            &transport_to(server.base_url()),
+            "i1",
+        ))
+        .expect("wellness sync");
+
+        crate::objects::observer::set_observer(None);
+        assert_eq!(
+            recorder
+                .events()
+                .iter()
+                .filter(|e| e.starts_with("body_stored:wellness"))
+                .count(),
+            1,
+            "one announcement per sync, the events were: {:?}",
+            recorder.events()
+        );
+    }
+
+    /// A page the server answered with nothing stored nothing, so there is
+    /// nothing to wake a reader for. An announcement on an empty page would
+    /// re-read every range for no change, which is the cost being removed.
+    #[test]
+    fn an_empty_wellness_page_announces_nothing() {
+        let _guard = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/wellness");
+            then.status(200).json_body(json!([]));
+        });
+        let recorder = crate::objects::observer::recorder::Recorder::new();
+        crate::objects::observer::set_observer(Some(recorder.clone()));
+
+        crate::runtime::block_on(sync_wellness(
+            crate::persistence::engine_install(),
+            &transport_to(server.base_url()),
+            "i1",
+        ))
+        .expect("wellness sync");
+
+        crate::objects::observer::set_observer(None);
+        assert!(
+            !recorder
+                .events()
+                .iter()
+                .any(|e| e.starts_with("body_stored:wellness")),
+            "the events were: {:?}",
+            recorder.events()
+        );
     }
 
     #[test]
@@ -2430,8 +4275,12 @@ mod tests {
             then.status(200).json_body(json!([]));
         });
 
-        crate::runtime::block_on(sync_wellness(&transport_to(server.base_url()), "i1"))
-            .expect("wellness sync");
+        crate::runtime::block_on(sync_wellness(
+            crate::persistence::engine_install(),
+            &transport_to(server.base_url()),
+            "i1",
+        ))
+        .expect("wellness sync");
         mock.assert();
     }
 
@@ -2450,10 +4299,13 @@ mod tests {
         });
 
         crate::runtime::block_on(sync_activity_window(
+            crate::persistence::engine_install(),
             &transport_to(server.base_url()),
             "i1",
             "2019-01-01",
             "2019-12-31",
+            None,
+            &|| false,
         ))
         .expect("expansion window");
         mock.assert();
@@ -2484,10 +4336,13 @@ mod tests {
         });
 
         crate::runtime::block_on(sync_activity_window(
+            crate::persistence::engine_install(),
             &transport_to(server.base_url()),
             "i1",
             "2026-01-01",
             "2026-01-31",
+            None,
+            &|| false,
         ))
         .expect("window");
         mock.assert();
@@ -2495,6 +4350,11 @@ mod tests {
 
     #[test]
     fn activity_window_sync_stores_bodies_and_metrics() {
+        // The window writes what it fetched, so it needs a library to write
+        // into: without one the step now fails the run rather than reporting
+        // a success that stored nothing.
+        let _guard = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("window-sync.db");
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
             when.method(GET)
@@ -2508,19 +4368,610 @@ mod tests {
         });
 
         crate::runtime::block_on(sync_activity_window(
+            crate::persistence::engine_install(),
             &transport_to(server.base_url()),
             "i1",
             "2025-01-01",
             "2025-01-31",
+            None,
+            &|| false,
         ))
         .expect("window sync");
         mock.assert();
+    }
+
+    /// Scenario: the reconcile that matches a server record against the row
+    /// the device already minted for it reads the `activities` table. A failed
+    /// read used to answer with an empty map, which reads as "nothing claims
+    /// this id" and stores the same ride again under the server's key.
+    ///
+    /// Expected behaviour: the page is not written at all, and the step fails
+    /// so the next sync fetches it again.
+    #[test]
+    fn a_window_whose_id_reconcile_fails_stores_nothing() {
+        let _guard = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("reconcile-fail.db");
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .db
+                .execute_batch("DROP TABLE activities")
+                .expect("drop");
+        });
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities");
+            then.status(200).json_body(json!([
+                {"id": "a1", "type": "Ride", "name": "Loop",
+                 "start_date_local": "2025-01-15T08:30:00", "distance": 28400.0}
+            ]));
+        });
+
+        let outcome = crate::runtime::block_on(sync_activity_window(
+            crate::persistence::engine_install(),
+            &transport_to(server.base_url()),
+            "i1",
+            "2025-01-01",
+            "2025-01-31",
+            None,
+            &|| false,
+        ));
+
+        assert!(
+            outcome.is_err(),
+            "a reconcile it never got is not a success"
+        );
+        let stored = crate::runtime::block_on(crate::persistence::with_persistent_engine_blocking(
+            |engine| engine.get_activity_body("a1"),
+        ))
+        .flatten();
+        assert!(
+            stored.is_none(),
+            "the page was written without its reconcile"
+        );
+    }
+
+    /// Scenario: the activities that moved the accepted eFTP were found in
+    /// TypeScript, by reading `icu_rolling_ftp_delta` off every parsed body in
+    /// the window on every render of the fitness plot.
+    ///
+    /// Expected behaviour: the window stores the marker as it stores the
+    /// metrics, and an activity that only produced an estimate is not one.
+    #[test]
+    fn a_window_stores_the_activities_that_moved_the_eftp() {
+        let _guard = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("eftp-markers.db");
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities");
+            then.status(200).json_body(json!([
+                {"id": "moved", "type": "Ride", "name": "Hill repeats",
+                 "start_date_local": "2025-01-15T08:30:00", "distance": 28400.0,
+                 "icu_rolling_ftp": 367.0, "icu_rolling_ftp_delta": 20.0},
+                {"id": "steady", "type": "Ride", "name": "Commute",
+                 "start_date_local": "2025-01-16T08:30:00", "distance": 9000.0,
+                 "icu_rolling_ftp": 367.0, "icu_rolling_ftp_delta": 0.0},
+                {"id": "silent", "type": "Ride", "name": "Recovery",
+                 "start_date_local": "2025-01-17T08:30:00", "distance": 9000.0},
+                {"id": "half", "type": "Ride", "name": "Half a pair",
+                 "start_date_local": "2025-01-18T08:30:00", "icu_rolling_ftp_delta": 5.0},
+                {"id": "undated", "type": "Ride", "name": "No start time",
+                 "icu_rolling_ftp": 367.0, "icu_rolling_ftp_delta": 9.0}
+            ]));
+        });
+
+        crate::runtime::block_on(sync_activity_window(
+            crate::persistence::engine_install(),
+            &transport_to(server.base_url()),
+            "i1",
+            "2025-01-01",
+            "2025-01-31",
+            None,
+            &|| false,
+        ))
+        .expect("window");
+
+        let markers = crate::runtime::block_on(
+            crate::persistence::with_persistent_engine_blocking(|engine| engine.eftp_changes()),
+        )
+        .unwrap_or_default();
+
+        assert_eq!(
+            markers
+                .iter()
+                .map(|m| m.activity_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["moved"],
+            "only a non-zero delta on a dated activity with a rolling value is a change"
+        );
+        assert_eq!(markers[0].eftp, 367.0);
+        assert_eq!(markers[0].delta, 20.0);
+        assert_eq!(markers[0].activity_name, "Hill repeats");
+    }
+
+    /// Scenario: launch twice and scroll the feed to the same page. The first
+    /// launch's process-local `Set` is gone, so the window is asked for again
+    /// and a 30-day range already complete in SQLite is downloaded a second
+    /// time.
+    ///
+    /// Expected behaviour: a stored window marks the census rows it wrote at
+    /// the version it fetched, and the engine then answers that the window owes
+    /// nothing. The mark is the server's id, because the row it is stored under
+    /// may be a local key for an activity this device uploaded.
+    #[test]
+    fn a_stored_window_marks_what_it_fetched_so_the_next_ask_owes_nothing() {
+        let _guard = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("window-coverage.db");
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities");
+            then.status(200).json_body(json!([
+                {"id": "w1", "type": "Ride", "name": "Loop",
+                 "start_date_local": "2025-01-15T08:30:00", "distance": 9000.0},
+                {"id": "w2", "type": "Ride", "name": "Commute",
+                 "start_date_local": "2025-01-16T08:30:00", "distance": 9000.0}
+            ]));
+        });
+        let census = vec![
+            crate::net::types::ActivityCensusEntry {
+                id: "w1".into(),
+                start_date_local: Some("2025-01-15T08:30:00".into()),
+                created: Some("2025-01-15T08:00:00Z".into()),
+                icu_sync_date: Some("2025-01-15T09:00:00Z".into()),
+                has_latlng: false,
+            },
+            crate::net::types::ActivityCensusEntry {
+                id: "w2".into(),
+                start_date_local: Some("2025-01-16T08:30:00".into()),
+                created: Some("2025-01-16T08:00:00Z".into()),
+                icu_sync_date: Some("2025-01-16T09:00:00Z".into()),
+                has_latlng: false,
+            },
+        ];
+        crate::persistence::with_persistent_engine(move |engine| {
+            engine.record_activity_census("i1", &census);
+        })
+        .expect("engine");
+
+        // Before the window runs the census names two activities the device
+        // does not hold, so the window owes the download.
+        assert!(
+            !crate::persistence::with_persistent_engine(|engine| {
+                engine.window_is_covered("i1", "2025-01-01", "2025-01-31")
+            })
+            .expect("engine"),
+            "a window whose activities are not stored owes the download"
+        );
+
+        crate::runtime::block_on(sync_activity_window(
+            crate::persistence::engine_install(),
+            &transport_to(server.base_url()),
+            "i1",
+            "2025-01-01",
+            "2025-01-31",
+            None,
+            &|| false,
+        ))
+        .expect("window");
+
+        assert!(
+            crate::persistence::with_persistent_engine(|engine| {
+                engine.window_is_covered("i1", "2025-01-01", "2025-01-31")
+            })
+            .expect("engine"),
+            "the window that just stored both activities owes nothing"
+        );
+        // A neighbouring window is untouched: coverage is per date, not a flag
+        // saying a sync has run.
+        assert!(
+            !crate::persistence::with_persistent_engine(|engine| {
+                engine.window_is_covered("i2", "2025-01-01", "2025-01-31")
+            })
+            .expect("engine"),
+            "another athlete's coverage is not this one's"
+        );
+    }
+
+    /// Scenario: the launch sync asked for a fixed year on every run, whatever
+    /// was already in SQLite, and the census that could have said otherwise was
+    /// pulled a step later and thrown away.
+    ///
+    /// Expected behaviour: the window step asks the census what is still owed
+    /// and fetches only that. An unchanged library asks for nothing, one new
+    /// ride is a one-day window, and a census that cannot answer leaves the
+    /// fixed window running.
+    mod owed_windows_from_the_census {
+        use super::*;
+
+        fn day(offset: i64) -> String {
+            (chrono::Local::now().date_naive() - chrono::Duration::days(offset)).to_string()
+        }
+
+        fn entry(id: &str, date: &str) -> crate::net::types::ActivityCensusEntry {
+            crate::net::types::ActivityCensusEntry {
+                id: id.into(),
+                start_date_local: Some(format!("{date}T08:30:00")),
+                created: Some(format!("{date}T08:00:00Z")),
+                icu_sync_date: Some(format!("{date}T09:00:00Z")),
+                has_latlng: false,
+            }
+        }
+
+        /// The activity pull the way `perform_sync` runs it: the plan read
+        /// from the census, then every window in it.
+        fn sync_owed(server: &MockServer) -> Result<(), NetError> {
+            let install = crate::persistence::engine_install();
+            let transport = transport_to(server.base_url());
+            crate::runtime::block_on(async {
+                let windows = owed_activity_windows("i1").await;
+                sync_activity_windows(install, &transport, "i1", &windows, &|| false).await
+            })
+        }
+
+        fn record(census: Vec<crate::net::types::ActivityCensusEntry>) {
+            crate::persistence::with_persistent_engine(move |engine| {
+                engine.record_activity_census("i1", &census);
+            })
+            .expect("engine");
+        }
+
+        /// Store one activity the way a window sync does, so the census row for
+        /// it is marked fetched and its body is on disk.
+        fn store(server: &MockServer, id: &str, date: &str) {
+            let mut mock = server.mock(|when, then| {
+                when.method(GET)
+                    .path("/athlete/i1/activities")
+                    .query_param("oldest", date.to_string())
+                    .query_param("newest", date.to_string());
+                then.status(200).json_body(json!([
+                    {"id": id, "type": "Ride", "name": "Loop",
+                     "start_date_local": format!("{date}T08:30:00"), "distance": 9000.0}
+                ]));
+            });
+            crate::runtime::block_on(sync_activity_window(
+                crate::persistence::engine_install(),
+                &transport_to(server.base_url()),
+                "i1",
+                date,
+                date,
+                None,
+                &|| false,
+            ))
+            .expect("the seeding window");
+            mock.delete();
+        }
+
+        #[test]
+        fn a_library_the_census_agrees_with_asks_for_nothing() {
+            let _guard = crate::test_globals::serial_global_state();
+            let _tmp = crate::test_globals::init_global_engine("owed-none.db");
+            let server = MockServer::start();
+            let date = day(3);
+            record(vec![entry("a1", &date)]);
+            store(&server, "a1", &date);
+
+            let any = server.mock(|when, then| {
+                when.method(GET).path("/athlete/i1/activities");
+                then.status(200).json_body(json!([]));
+            });
+
+            sync_owed(&server).expect("the step");
+
+            any.assert_hits(0);
+        }
+
+        #[test]
+        fn an_activity_the_device_does_not_hold_is_asked_for_by_its_own_day() {
+            let _guard = crate::test_globals::serial_global_state();
+            let _tmp = crate::test_globals::init_global_engine("owed-one.db");
+            let server = MockServer::start();
+            let held = day(9);
+            let owed = day(4);
+            record(vec![entry("a1", &held), entry("a2", &owed)]);
+            store(&server, "a1", &held);
+
+            let one_day = server.mock(|when, then| {
+                when.method(GET)
+                    .path("/athlete/i1/activities")
+                    .query_param("oldest", owed.clone())
+                    .query_param("newest", owed.clone());
+                then.status(200).json_body(json!([
+                    {"id": "a2", "type": "Ride", "name": "Loop",
+                     "start_date_local": format!("{owed}T08:30:00"), "distance": 9000.0}
+                ]));
+            });
+            let anything_else = server.mock(|when, then| {
+                when.method(GET).path("/athlete/i1/activities");
+                then.status(200).json_body(json!([]));
+            });
+
+            sync_owed(&server).expect("the step");
+
+            one_day.assert_hits(1);
+            anything_else.assert_hits(0);
+        }
+
+        #[test]
+        fn a_version_that_moved_upstream_is_asked_for_again() {
+            let _guard = crate::test_globals::serial_global_state();
+            let _tmp = crate::test_globals::init_global_engine("owed-moved.db");
+            let server = MockServer::start();
+            let date = day(6);
+            record(vec![entry("a1", &date)]);
+            store(&server, "a1", &date);
+
+            // The same activity, edited upstream: a later `icu_sync_date`
+            // against the one the device came away with.
+            let mut moved = entry("a1", &date);
+            moved.icu_sync_date = Some(format!("{date}T18:00:00Z"));
+            record(vec![moved]);
+
+            let again = server.mock(|when, then| {
+                when.method(GET)
+                    .path("/athlete/i1/activities")
+                    .query_param("oldest", date.clone())
+                    .query_param("newest", date.clone());
+                then.status(200).json_body(json!([]));
+            });
+
+            sync_owed(&server).expect("the step");
+
+            again.assert_hits(1);
+        }
+
+        #[test]
+        fn a_census_that_cannot_answer_leaves_the_fixed_window_running() {
+            let _guard = crate::test_globals::serial_global_state();
+            let _tmp = crate::test_globals::init_global_engine("owed-no-census.db");
+            let server = MockServer::start();
+
+            let whole = server.mock(|when, then| {
+                when.method(GET)
+                    .path("/athlete/i1/activities")
+                    .query_param("oldest", day(ACTIVITY_DAYS))
+                    .query_param("newest", day(0));
+                then.status(200).json_body(json!([]));
+            });
+
+            sync_owed(&server).expect("the step");
+
+            whole.assert_hits(1);
+        }
+
+        #[test]
+        fn consecutive_days_are_one_window_and_a_gap_starts_another() {
+            let windows = owed_windows(&[
+                "2025-03-01".to_string(),
+                "2025-03-02".to_string(),
+                "2025-03-03".to_string(),
+                "2025-03-09".to_string(),
+            ]);
+
+            assert_eq!(
+                windows,
+                vec![
+                    ("2025-03-09".to_string(), "2025-03-09".to_string()),
+                    ("2025-03-01".to_string(), "2025-03-03".to_string()),
+                ]
+            );
+        }
+
+        /// Scenario: a fresh install owes a run two months back and a run from
+        /// yesterday. Expected behaviour: the recent run is asked for first,
+        /// because the feed reads newest first and that is the end of the
+        /// library the athlete watches fill.
+        #[test]
+        fn the_newest_run_is_asked_for_first() {
+            let windows = owed_windows(&[
+                "2025-03-01".to_string(),
+                "2025-03-02".to_string(),
+                "2025-05-09".to_string(),
+            ]);
+
+            assert_eq!(
+                windows,
+                vec![
+                    ("2025-05-09".to_string(), "2025-05-09".to_string()),
+                    ("2025-03-01".to_string(), "2025-03-02".to_string()),
+                ]
+            );
+        }
+
+        #[test]
+        fn nothing_owed_is_no_window_at_all() {
+            assert!(owed_windows(&[]).is_empty());
+        }
+
+        #[test]
+        fn a_month_boundary_is_still_one_run() {
+            let windows = owed_windows(&["2025-01-31".to_string(), "2025-02-01".to_string()]);
+
+            assert_eq!(
+                windows,
+                vec![("2025-01-31".to_string(), "2025-02-01".to_string())]
+            );
+        }
+
+        /// A library holed through the year would be one request per hole, and
+        /// the windows that replace them are capped rather than unbounded. The
+        /// head comes first so the feed has cards before the rest lands.
+        #[test]
+        fn a_library_holed_everywhere_collapses_to_a_head_and_a_remainder() {
+            let scattered: Vec<String> = (0..MAX_OWED_WINDOWS + 1)
+                .map(|i| {
+                    (chrono::NaiveDate::from_ymd_opt(2025, 1, 1).expect("date")
+                        + chrono::Duration::days(i as i64 * 3))
+                    .to_string()
+                })
+                .collect();
+
+            let windows = owed_windows(&scattered);
+
+            assert_eq!(windows.len(), 2, "a head and the rest, not one span");
+            let newest = scattered.last().expect("scattered");
+            let head_start = &scattered[scattered.len() - HEAD_OWED_DAYS];
+            assert_eq!(windows[0], (head_start.clone(), newest.clone()));
+            assert_eq!(windows[1], (scattered[0].clone(), head_start.clone()));
+        }
+
+        /// The head is the newest owed days, whatever the calendar span they
+        /// happen to cover: an athlete who rides daily gets ten days of it and
+        /// one who rides monthly gets most of a year, and both get cards.
+        #[test]
+        fn the_head_is_counted_in_owed_days_and_not_in_calendar_days() {
+            let sparse: Vec<String> = (0..MAX_OWED_WINDOWS + 1)
+                .map(|i| {
+                    (chrono::NaiveDate::from_ymd_opt(2025, 1, 1).expect("date")
+                        + chrono::Duration::days(i as i64 * 30))
+                    .to_string()
+                })
+                .collect();
+
+            let windows = owed_windows(&sparse);
+
+            let head = &windows[0];
+            let start = chrono::NaiveDate::parse_from_str(&head.0, "%Y-%m-%d").expect("start");
+            let end = chrono::NaiveDate::parse_from_str(&head.1, "%Y-%m-%d").expect("end");
+            assert_eq!((end - start).num_days(), 30 * (HEAD_OWED_DAYS as i64 - 1));
+        }
+
+        /// A library with fewer owed runs than the cap is already answered one
+        /// run at a time, newest first, so it needs no head of its own.
+        #[test]
+        fn a_library_under_the_cap_is_left_run_by_run() {
+            let few: Vec<String> = (0..5)
+                .map(|i| {
+                    (chrono::NaiveDate::from_ymd_opt(2025, 1, 1).expect("date")
+                        + chrono::Duration::days(i as i64 * 3))
+                    .to_string()
+                })
+                .collect();
+
+            let windows = owed_windows(&few);
+
+            assert_eq!(windows.len(), 5);
+            assert_eq!(windows[0], (few[4].clone(), few[4].clone()));
+        }
+
+        /// The smallest library that collapses still splits, because the head
+        /// is smaller than the cap. The compile-time assertion beside the
+        /// constants is what holds that; this is the behaviour it buys.
+        #[test]
+        fn the_smallest_collapsing_library_still_gets_a_head() {
+            let just_over: Vec<String> = (0..MAX_OWED_WINDOWS + 1)
+                .map(|i| {
+                    (chrono::NaiveDate::from_ymd_opt(2025, 1, 1).expect("date")
+                        + chrono::Duration::days(i as i64 * 3))
+                    .to_string()
+                })
+                .collect();
+
+            let windows = owed_windows(&just_over);
+
+            assert_eq!(windows.len(), 2);
+            assert_ne!(windows[0].0, windows[1].0, "the head is not the remainder");
+        }
+    }
+
+    /// Expected behaviour: a cancel that lands before the job runs stops the
+    /// request, not just the write. The state machine is already `Paused` by
+    /// then, so a request that still goes out spends the athlete's data on a
+    /// sync they stopped.
+    #[test]
+    fn a_window_cancelled_before_it_starts_never_asks_the_api() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities");
+            then.status(200)
+                .json_body(json!([{"id": "a1", "type": "Ride", "name": "Loop",
+                                   "start_date_local": "2025-01-15T08:30:00"}]));
+        });
+
+        let outcome = crate::runtime::block_on(sync_activity_window(
+            crate::persistence::engine_install(),
+            &transport_to(server.base_url()),
+            "i1",
+            "2025-01-01",
+            "2025-01-31",
+            None,
+            &|| true,
+        ))
+        .expect("a cancelled window is not an error");
+
+        assert_eq!(outcome, WindowOutcome::Abandoned);
+        mock.assert_hits(0);
+    }
+
+    /// Expected behaviour: the cancel is soft, so the request in flight is
+    /// allowed to finish, but what it carried is not written. Writing it is
+    /// what let the library keep filling after the UI said cancelled.
+    #[test]
+    fn a_window_cancelled_in_flight_stores_nothing_it_fetched() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities");
+            then.status(200)
+                .json_body(json!([{"id": "a1", "type": "Ride", "name": "Loop",
+                                   "start_date_local": "2025-01-15T08:30:00",
+                                   "distance": 28400.0}]));
+        });
+
+        // False at the gate before the request, true at the gate before the
+        // write: the cancel arrived while the page was in flight.
+        let checks = std::sync::atomic::AtomicU32::new(0);
+        let cancelled = || checks.fetch_add(1, std::sync::atomic::Ordering::Relaxed) > 0;
+
+        let outcome = crate::runtime::block_on(sync_activity_window(
+            crate::persistence::engine_install(),
+            &transport_to(server.base_url()),
+            "i1",
+            "2025-01-01",
+            "2025-01-31",
+            None,
+            &cancelled,
+        ))
+        .expect("a cancelled window is not an error");
+
+        assert_eq!(outcome, WindowOutcome::Abandoned);
+        mock.assert_hits(1);
+        assert!(
+            checks.load(std::sync::atomic::Ordering::Relaxed) >= 2,
+            "the write ran without asking whether the job was still wanted"
+        );
+    }
+
+    /// Expected behaviour: a cancelled job settles unsuccessfully, so the
+    /// status does not claim the window landed while the state machine was
+    /// moved to `Paused` by the cancel.
+    #[test]
+    fn a_cancelled_window_job_does_not_settle_as_a_success() {
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin());
+        svc.request_cancel();
+
+        // An unroutable base stands in for a mock that would fail the test if
+        // it were hit: a cancelled job must not dispatch at all.
+        crate::runtime::block_on(perform_window_sync(
+            &svc,
+            crate::persistence::engine_install(),
+            transport_to("http://127.0.0.1:1".into()),
+            "i1".into(),
+            "2025-01-01",
+            "2025-01-31",
+        ));
+
+        let s = svc.snapshot();
+        assert_eq!(s.state, SyncState::Idle);
+        assert_eq!(s.completed, 0, "a cancelled job completed a step");
+        assert!(s.last_error.is_none(), "a cancel is not a failure");
     }
 
     #[test]
     fn activity_without_a_start_time_is_skipped() {
         // A row with no start time cannot be windowed or ordered, and a
         // fabricated timestamp would sort it into the wrong week.
+        let _guard = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("window-no-start.db");
         let server = MockServer::start();
         server.mock(|when, then| {
             when.method(GET).path("/athlete/i1/activities");
@@ -2529,10 +4980,13 @@ mod tests {
         });
 
         crate::runtime::block_on(sync_activity_window(
+            crate::persistence::engine_install(),
             &transport_to(server.base_url()),
             "i1",
             "2025-01-01",
             "2025-01-31",
+            None,
+            &|| false,
         ))
         .expect("window sync tolerates the gap");
     }
@@ -2687,7 +5141,7 @@ mod tests {
             activity_type: "Yoga".to_string(),
             name: "Evening".to_string(),
             start_date_local: "2026-08-05T18:00:00".to_string(),
-            elapsed_time: 1800,
+            elapsed_time: 1800.0,
             moving_time: None,
             distance: None,
             total_elevation_gain: None,
@@ -2732,10 +5186,16 @@ mod tests {
         SYNC_SERVICE.finish(SyncState::Idle, None, false);
     }
 
+    /// Scenario: the sync's own step is refused and the confirmation agrees the
+    /// credential is dead. Nothing latches, so a `sync_now` arriving before the
+    /// sign-out lands starts a fresh run on the same dead credential.
+    ///
+    /// Expected behaviour: a confirmed rejection parks the service however it
+    /// was found, and only a credential change releases it.
     #[test]
-    fn auth_expired_recovers_on_next_begin() {
-        // After a 401 the service rests in authExpired. Once TypeScript re-auths
-        // and issues sync_now again, try_begin moves it back into syncing.
+    fn a_confirmed_401_from_the_sync_itself_latches_the_park() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
         let server = MockServer::start();
         mock_profile_slice(&server, 401);
         let svc = SyncService::new();
@@ -2743,10 +5203,43 @@ mod tests {
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
+            crate::persistence::engine_install(),
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+
+        assert_eq!(svc.snapshot().state, SyncState::AuthExpired);
+        assert!(
+            !svc.try_begin(),
+            "a rejected credential may not start another run"
+        );
+        svc.set_credentials(AuthKind::ApiKey, "fresh".into(), "i1".into());
+        assert!(svc.try_begin(), "a new credential releases the park");
+    }
+
+    #[test]
+    fn auth_expired_recovers_on_next_begin() {
+        // `perform_sync` reads the library for its curve sweep, so these
+        // drive global engine state even with a local service.
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
+        // After a 401 the service rests in authExpired and the park is latched.
+        // Once TypeScript re-auths, the credential change releases it and
+        // sync_now moves it back into syncing. The re-auth is what this test
+        // was always describing; it used to be left implicit.
+        let server = MockServer::start();
+        mock_profile_slice(&server, 401);
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            crate::persistence::engine_install(),
             transport_to(server.base_url()),
             "i1".into(),
         ));
         assert_eq!(svc.snapshot().state, SyncState::AuthExpired);
+        svc.set_credentials(AuthKind::ApiKey, "fresh".into(), "i1".into());
         assert!(svc.try_begin());
         assert_eq!(svc.snapshot().state, SyncState::Syncing);
     }
@@ -2835,6 +5328,7 @@ mod body_count_tests {
     impl EngineObserver for Bodies {
         fn sync_progress(&self) {}
         fn sync_settled(&self) {}
+        fn activities_stored(&self) {}
         fn body_stored(&self, kind: String, activity_id: String) {
             self.seen
                 .lock()
@@ -2843,6 +5337,7 @@ mod body_count_tests {
         }
         fn time_streams_stored(&self, _activity_ids: Vec<String>) {}
         fn gps_track_stored(&self, _activity_id: String) {}
+        fn gps_tracks_mutated(&self, _activity_ids: Vec<String>) {}
         fn fit_parsed(&self, _activity_id: String) {}
         fn detection_applied(&self) {}
         fn tiles_generated(&self) {}
@@ -3002,15 +5497,62 @@ mod body_count_tests {
         restore_service();
     }
 
+    /// A restore lands while a page is in flight. The write finishes and
+    /// stores a body fetched against the old library into the restored one,
+    /// which is the detection apply's failing case with a sync in it.
+    #[test]
+    fn a_body_from_the_library_before_a_restore_is_not_stored() {
+        let _guard = serial_global_state();
+        let _first = init_global_engine();
+        let started_against = crate::persistence::engine_install();
+
+        let _second = init_global_engine();
+        assert_ne!(crate::persistence::engine_install(), started_against);
+
+        let before = bodies_stored();
+        crate::runtime::block_on(store_body(
+            started_against,
+            "fixture",
+            String::new(),
+            |engine| engine.set_athlete_profile("{}"),
+        ));
+
+        assert_eq!(
+            bodies_stored(),
+            before,
+            "a body fetched against the old library reached the restored one"
+        );
+    }
+
+    /// The stamp must not refuse the run it belongs to.
+    #[test]
+    fn a_body_from_the_library_it_started_against_is_stored() {
+        let _guard = serial_global_state();
+        let _dir = init_global_engine();
+
+        let before = bodies_stored();
+        crate::runtime::block_on(store_body(
+            crate::persistence::engine_install(),
+            "fixture",
+            String::new(),
+            |engine| engine.set_athlete_profile("{}"),
+        ));
+
+        assert!(bodies_stored() > before, "the write did not land");
+    }
+
     #[test]
     fn a_write_that_fails_does_not_count() {
         let _guard = serial_global_state();
         let _dir = init_global_engine();
 
         let before = bodies_stored();
-        crate::runtime::block_on(store_body("fixture", String::new(), |_engine| {
-            Err(rusqlite::Error::InvalidQuery)
-        }));
+        crate::runtime::block_on(store_body(
+            crate::persistence::engine_install(),
+            "fixture",
+            String::new(),
+            |_engine| Err(rusqlite::Error::InvalidQuery),
+        ));
         assert_eq!(
             bodies_stored(),
             before,
@@ -3022,6 +5564,111 @@ mod body_count_tests {
     /// air, so the bytes come back with nowhere to be written.
     ///
     /// Expected behaviour: the loss is counted and named. Both counts staying
+    /// Scenario: Clear and Sync, or a restore, destroys the engine while a
+    /// sync is running. Every remaining write was dropped, each step still
+    /// answered `Ok`, and `finish` reported the run a success, so the health
+    /// row stamped `lastSuccessAt` and told the athlete the library was fresh
+    /// as of that moment.
+    ///
+    /// Expected behaviour: a step whose write found no engine fails the run,
+    /// with a reason that names what happened rather than the catch-all.
+    #[test]
+    fn a_step_that_found_no_engine_fails_the_run() {
+        let _guard = serial_global_state();
+        *crate::persistence::PERSISTENT_ENGINE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+
+        let outcome = crate::runtime::block_on(store_body_or_fail(
+            crate::persistence::engine_install(),
+            "fixture",
+            "no-engine".into(),
+            |_engine| Ok(()),
+        ));
+
+        assert!(matches!(outcome, Err(NetError::EngineClosed)));
+        let failure = SyncFailure::from(&NetError::EngineClosed);
+        assert_eq!(failure.reason, FfiSyncErrorReason::EngineClosed);
+        assert_eq!(failure.message, "the engine closed during the run");
+    }
+
+    /// The same for a step that writes through the engine directly rather
+    /// than through `store_body`.
+    #[test]
+    fn a_direct_step_write_with_no_engine_fails_the_run_too() {
+        let _guard = serial_global_state();
+        *crate::persistence::PERSISTENT_ENGINE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+
+        let answered = crate::runtime::block_on(
+            crate::persistence::with_persistent_engine_blocking(|_engine| ()),
+        );
+
+        assert!(
+            answered.is_none(),
+            "no engine answers, which is what the step maps to EngineClosed"
+        );
+    }
+
+    /// A run that never lost its engine still reports success, or the fix
+    /// would have turned every sync into a failure.
+    #[test]
+    fn a_step_with_an_engine_still_succeeds() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("engine-closed.db");
+
+        let outcome = crate::runtime::block_on(store_body_or_fail(
+            crate::persistence::engine_install(),
+            "fixture",
+            "present".into(),
+            |_engine| Ok(()),
+        ));
+
+        assert!(outcome.is_ok());
+    }
+
+    /// A write that reached the engine and failed in SQL is a third outcome:
+    /// not a closed engine, and not a success either. Counting it as one
+    /// stamped `lastSuccessAt` on a run whose page never landed.
+    #[test]
+    fn a_sql_failure_fails_the_step_as_storage_and_not_as_a_closed_engine() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("engine-closed-sql.db");
+
+        let outcome = crate::runtime::block_on(store_body_or_fail(
+            crate::persistence::engine_install(),
+            "fixture",
+            "sql".into(),
+            |_engine| Err(rusqlite::Error::ExecuteReturnedResults),
+        ));
+
+        let Err(NetError::Storage(message)) = outcome else {
+            panic!("a failed write is a storage failure, got {outcome:?}");
+        };
+        assert!(
+            message.contains("fixture"),
+            "the failure has to name what did not land: {message}"
+        );
+    }
+
+    /// The step reports it, so the run that carried it is not a success.
+    #[test]
+    fn a_failed_store_is_not_counted_as_a_body_stored() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("store-fail-count.db");
+
+        let before = bodies_stored();
+        let _ = crate::runtime::block_on(store_body_or_fail(
+            crate::persistence::engine_install(),
+            "fixture",
+            "sql".into(),
+            |_engine| Err(rusqlite::Error::ExecuteReturnedResults),
+        ));
+
+        assert_eq!(bodies_stored(), before, "a failed write stored nothing");
+    }
+
     /// still is what made a dropped body and a body nobody asked for look the
     /// same in a log.
     #[test]
@@ -3029,12 +5676,17 @@ mod body_count_tests {
         let _guard = serial_global_state();
         crate::test_log::capturing();
         *crate::persistence::PERSISTENT_ENGINE
-            .write()
+            .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
 
         let stored_before = bodies_stored();
         let discarded_before = bodies_discarded();
-        crate::runtime::block_on(store_body("fixture", "gone-body".into(), |_engine| Ok(())));
+        crate::runtime::block_on(store_body(
+            crate::persistence::engine_install(),
+            "fixture",
+            "gone-body".into(),
+            |_engine| Ok(()),
+        ));
 
         assert_eq!(
             bodies_stored(),
@@ -3062,11 +5714,15 @@ mod body_count_tests {
         let _guard = serial_global_state();
         crate::test_log::capturing();
         *crate::persistence::PERSISTENT_ENGINE
-            .write()
+            .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
 
         let discarded_before = bodies_discarded();
-        crate::runtime::block_on(store_time_stream("gone-stream".into(), vec![0, 1, 2]));
+        crate::runtime::block_on(store_time_stream(
+            crate::persistence::engine_install(),
+            "gone-stream".into(),
+            vec![0, 1, 2],
+        ));
 
         assert_eq!(
             bodies_discarded(),
@@ -3088,9 +5744,12 @@ mod body_count_tests {
         let _dir = init_global_engine();
 
         let before = bodies_discarded();
-        crate::runtime::block_on(store_body("fixture", "sql-error".into(), |_engine| {
-            Err(rusqlite::Error::InvalidQuery)
-        }));
+        crate::runtime::block_on(store_body(
+            crate::persistence::engine_install(),
+            "fixture",
+            "sql-error".into(),
+            |_engine| Err(rusqlite::Error::InvalidQuery),
+        ));
         assert_eq!(
             bodies_discarded(),
             before,
@@ -3154,15 +5813,513 @@ mod body_count_tests {
         restore_service();
     }
 
+    /// Scenario: interval bodies were fetched only by the detail screen, the
+    /// first time it was opened, so an activity never opened online showed no
+    /// lap table offline and nothing said the laps had simply never been
+    /// downloaded.
+    ///
+    /// Expected behaviour: one sync step pulls the body of every activity that
+    /// has none, and an activity already carrying one is not asked for again.
+    mod interval_bodies {
+        use super::*;
+        use crate::governor::{Governor, NoopPolicy};
+        use crate::persistence::with_persistent_engine;
+        use crate::types::ActivityMetrics;
+
+        fn transport_to(base: String) -> Transport {
+            let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+            Transport::with_governor(base, AuthMethod::ApiKey("k"), gov).expect("transport")
+        }
+
+        fn metric(id: &str) -> ActivityMetrics {
+            ActivityMetrics {
+                activity_id: id.to_string(),
+                name: id.to_string(),
+                date: 1_700_000_000,
+                distance: 1000.0,
+                moving_time: 600,
+                elapsed_time: 600,
+                elevation_gain: 0.0,
+                avg_hr: None,
+                avg_power: None,
+                sport_type: "Ride".to_string(),
+                training_load: None,
+                ftp: None,
+                power_zone_times: None,
+                hr_zone_times: None,
+            }
+        }
+
+        fn library_of(ids: &[&str]) {
+            let metrics = ids.iter().map(|id| metric(id)).collect::<Vec<_>>();
+            with_persistent_engine(move |engine| {
+                engine.set_activity_metrics(metrics).expect("store metrics");
+            })
+            .expect("engine");
+        }
+
+        fn stored(id: &str) -> Option<String> {
+            with_persistent_engine(|engine| engine.get_interval_body(id))
+                .expect("engine")
+                .expect("read")
+        }
+
+        fn never_cancelled() -> impl Fn() -> bool + Sync {
+            || false
+        }
+
+        #[test]
+        fn every_activity_without_a_body_is_fetched_once() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["a1", "a2"]);
+
+            let server = MockServer::start();
+            let intervals = server.mock(|when, then| {
+                when.method(GET).path_matches(
+                    httpmock::Regex::new(r"^/activity/a\d/intervals$").expect("pattern"),
+                );
+                then.status(200)
+                    .json_body(json!({"icu_intervals": [{"type": "WORK"}]}));
+            });
+
+            let transport = transport_to(server.base_url());
+            crate::runtime::block_on(sync_interval_bodies(
+                crate::persistence::engine_install(),
+                &transport,
+                &never_cancelled(),
+            ))
+            .expect("the sweep");
+
+            intervals.assert_hits(2);
+            assert!(stored("a1").is_some());
+            assert!(stored("a2").is_some());
+            restore_service();
+        }
+
+        /// The sweep is a step of the run, not a helper nothing calls: before
+        /// this, `perform_sync` had no interval step at all and the body
+        /// arrived only when the detail screen asked for it.
+        #[test]
+        fn a_sync_leaves_no_activity_without_its_interval_body() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["a1"]);
+
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(GET).path("/activity/a1/intervals");
+                then.status(200)
+                    .json_body(json!({"icu_intervals": [{"type": "WORK"}]}));
+            });
+            server.mock(|when, then| {
+                when.method(GET);
+                then.status(200).json_body(json!([]));
+            });
+
+            let svc = SyncService::new();
+            svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+            assert!(svc.try_begin());
+            crate::runtime::block_on(perform_sync(
+                &svc,
+                crate::persistence::engine_install(),
+                transport_to(server.base_url()),
+                "i1".into(),
+            ));
+
+            assert!(
+                stored("a1").is_some(),
+                "the run finished with an activity whose laps were never downloaded"
+            );
+            restore_service();
+        }
+
+        #[test]
+        fn an_activity_that_already_has_its_body_is_not_asked_for_again() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["a1", "a2"]);
+            with_persistent_engine(|engine| {
+                engine.set_interval_body("a1", r#"{"icu_intervals":[]}"#)
+            })
+            .expect("engine")
+            .expect("seed");
+
+            let server = MockServer::start();
+            let asked = server.mock(|when, then| {
+                when.method(GET).path("/activity/a1/intervals");
+                then.status(200).json_body(json!({"icu_intervals": []}));
+            });
+            server.mock(|when, then| {
+                when.method(GET);
+                then.status(200).json_body(json!({"icu_intervals": []}));
+            });
+
+            let transport = transport_to(server.base_url());
+            crate::runtime::block_on(sync_interval_bodies(
+                crate::persistence::engine_install(),
+                &transport,
+                &never_cancelled(),
+            ))
+            .expect("the sweep");
+
+            asked.assert_hits(0);
+            assert_eq!(
+                stored("a1").as_deref(),
+                Some(r#"{"icu_intervals":[]}"#),
+                "the stored body is left as it is, not refetched over"
+            );
+            restore_service();
+        }
+
+        #[test]
+        fn a_cancelled_sync_stops_the_sweep() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["a1"]);
+
+            let server = MockServer::start();
+            let any = server.mock(|when, then| {
+                when.method(GET);
+                then.status(200).json_body(json!({"icu_intervals": []}));
+            });
+
+            let transport = transport_to(server.base_url());
+            crate::runtime::block_on(sync_interval_bodies(
+                crate::persistence::engine_install(),
+                &transport,
+                &|| true,
+            ))
+            .expect("the sweep");
+
+            any.assert_hits(0);
+            restore_service();
+        }
+
+        #[test]
+        fn a_refused_credential_ends_the_sweep_rather_than_being_carried() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["a1", "a2"]);
+
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(GET);
+                then.status(401);
+            });
+
+            let transport = transport_to(server.base_url());
+            let outcome = crate::runtime::block_on(sync_interval_bodies(
+                crate::persistence::engine_install(),
+                &transport,
+                &never_cancelled(),
+            ));
+
+            assert!(
+                matches!(outcome, Err(NetError::Unauthorized)),
+                "a dead credential is terminal, not one more failed activity"
+            );
+            restore_service();
+        }
+
+        #[test]
+        fn one_activity_that_fails_does_not_cost_the_others_their_bodies() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["a1", "a2"]);
+
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(GET).path("/activity/a1/intervals");
+                then.status(500);
+            });
+            server.mock(|when, then| {
+                when.method(GET);
+                then.status(200).json_body(json!({"icu_intervals": []}));
+            });
+
+            let transport = transport_to(server.base_url());
+            let outcome = crate::runtime::block_on(sync_interval_bodies(
+                crate::persistence::engine_install(),
+                &transport,
+                &never_cancelled(),
+            ));
+
+            assert!(
+                outcome.is_err(),
+                "a failed activity is not a completed step"
+            );
+            assert!(
+                stored("a2").is_some(),
+                "the activities that landed are still on disk"
+            );
+            assert!(
+                stored("a1").is_none(),
+                "the one that failed keeps its place in the queue for the next sync"
+            );
+            restore_service();
+        }
+    }
+
+    /// Scenario: the curve is cached verbatim under `(kind, sport, days, gap)`
+    /// and every screen fetched its own window the first time it was opened,
+    /// so a range the athlete never visited online read as "No power data"
+    /// offline. Best Efforts All-time is the clearest case: 3650 is a window
+    /// nothing else ever asks for.
+    ///
+    /// Expected behaviour: one sync step pulls every window for every sport
+    /// the library carries, and the Run gap variant with them.
+    mod curves {
+        use super::*;
+        use crate::governor::{Governor, NoopPolicy};
+        use crate::persistence::bodies::CurveKind;
+        use crate::persistence::with_persistent_engine;
+        use crate::types::ActivityMetrics;
+
+        fn transport_to(base: String) -> Transport {
+            let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+            Transport::with_governor(base, AuthMethod::ApiKey("k"), gov).expect("transport")
+        }
+
+        fn metric(id: &str, sport: &str) -> ActivityMetrics {
+            ActivityMetrics {
+                activity_id: id.to_string(),
+                name: format!("{} {}", sport, id),
+                date: 1_700_000_000,
+                distance: 1000.0,
+                moving_time: 600,
+                elapsed_time: 600,
+                elevation_gain: 0.0,
+                avg_hr: None,
+                avg_power: None,
+                sport_type: sport.to_string(),
+                training_load: None,
+                ftp: None,
+                power_zone_times: None,
+                hr_zone_times: None,
+            }
+        }
+
+        fn library_of(sports: &[&str]) {
+            let metrics = sports
+                .iter()
+                .enumerate()
+                .map(|(i, sport)| metric(&format!("a{i}"), sport))
+                .collect::<Vec<_>>();
+            with_persistent_engine(move |engine| {
+                engine.set_activity_metrics(metrics).expect("store metrics");
+            })
+            .expect("engine");
+        }
+
+        fn stored(kind: CurveKind, sport: &str, days: i64, gap: bool) -> Option<String> {
+            with_persistent_engine(|engine| engine.get_curve_body(kind, sport, days, gap))
+                .expect("engine")
+                .expect("read")
+        }
+
+        fn never_cancelled() -> impl Fn() -> bool + Sync {
+            || false
+        }
+
+        #[test]
+        fn every_window_the_screens_can_ask_for_is_fetched_for_every_sport() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["Ride", "Swim"]);
+
+            let server = MockServer::start();
+            let power = server.mock(|when, then| {
+                when.method(GET).path("/athlete/i1/power-curves.json");
+                then.status(200).json_body(json!({"list": []}));
+            });
+            let pace = server.mock(|when, then| {
+                when.method(GET).path("/athlete/i1/pace-curves.json");
+                then.status(200).json_body(json!({"list": []}));
+            });
+
+            let transport = transport_to(server.base_url());
+            crate::runtime::block_on(sync_curves(
+                crate::persistence::engine_install(),
+                &transport,
+                "i1",
+                &never_cancelled(),
+            ))
+            .expect("the sweep");
+
+            let windows = CURVE_DAYS.len();
+            power.assert_hits(windows * 2);
+            pace.assert_hits(windows * 2);
+
+            assert!(
+                stored(CurveKind::Power, "Ride", 3650, false).is_some(),
+                "Best Efforts All-time is the window nothing else fetches"
+            );
+            assert!(stored(CurveKind::Pace, "Swim", 42, false).is_some());
+            restore_service();
+        }
+
+        #[test]
+        fn running_takes_the_gradient_adjusted_pace_as_a_row_of_its_own() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["Run"]);
+
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(GET).path("/athlete/i1/power-curves.json");
+                then.status(200).json_body(json!({"list": []}));
+            });
+            let gap = server.mock(|when, then| {
+                when.method(GET)
+                    .path("/athlete/i1/pace-curves.json")
+                    .query_param("gap", "true");
+                then.status(200).json_body(json!({"list": ["gap"]}));
+            });
+            server.mock(|when, then| {
+                when.method(GET).path("/athlete/i1/pace-curves.json");
+                then.status(200).json_body(json!({"list": []}));
+            });
+
+            let transport = transport_to(server.base_url());
+            crate::runtime::block_on(sync_curves(
+                crate::persistence::engine_install(),
+                &transport,
+                "i1",
+                &never_cancelled(),
+            ))
+            .expect("the sweep");
+
+            gap.assert_hits(CURVE_DAYS.len());
+            assert!(
+                stored(CurveKind::Pace, "Run", 42, true).is_some(),
+                "the gap row is separate, and a switch flipped offline reads it"
+            );
+            assert!(stored(CurveKind::Pace, "Run", 42, false).is_some());
+            restore_service();
+        }
+
+        #[test]
+        fn an_empty_library_asks_for_nothing() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+
+            let server = MockServer::start();
+            let any = server.mock(|when, then| {
+                when.method(GET);
+                then.status(200).json_body(json!({"list": []}));
+            });
+
+            let transport = transport_to(server.base_url());
+            crate::runtime::block_on(sync_curves(
+                crate::persistence::engine_install(),
+                &transport,
+                "i1",
+                &never_cancelled(),
+            ))
+            .expect("the sweep");
+
+            any.assert_hits(0);
+        }
+
+        #[test]
+        fn a_cancelled_sweep_stops_rather_than_finishing_the_sports() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["Ride"]);
+
+            let server = MockServer::start();
+            let any = server.mock(|when, then| {
+                when.method(GET);
+                then.status(200).json_body(json!({"list": []}));
+            });
+
+            let transport = transport_to(server.base_url());
+            crate::runtime::block_on(sync_curves(
+                crate::persistence::engine_install(),
+                &transport,
+                "i1",
+                &|| true,
+            ))
+            .expect("the sweep");
+
+            any.assert_hits(0);
+        }
+
+        #[test]
+        fn a_refused_credential_ends_the_sweep_rather_than_being_carried() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["Ride"]);
+
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(GET);
+                then.status(401);
+            });
+
+            let transport = transport_to(server.base_url());
+            let outcome = crate::runtime::block_on(sync_curves(
+                crate::persistence::engine_install(),
+                &transport,
+                "i1",
+                &never_cancelled(),
+            ));
+
+            assert!(
+                matches!(outcome, Err(NetError::Unauthorized)),
+                "a dead credential is terminal, not one more failed window"
+            );
+        }
+
+        #[test]
+        fn one_window_that_fails_does_not_cost_the_others_their_bodies() {
+            let _guard = serial_global_state();
+            let _dir = init_global_engine();
+            library_of(&["Ride"]);
+
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(GET)
+                    .path("/athlete/i1/power-curves.json")
+                    .query_param("curves", "3650d");
+                then.status(500);
+            });
+            server.mock(|when, then| {
+                when.method(GET);
+                then.status(200).json_body(json!({"list": []}));
+            });
+
+            let transport = transport_to(server.base_url());
+            let outcome = crate::runtime::block_on(sync_curves(
+                crate::persistence::engine_install(),
+                &transport,
+                "i1",
+                &never_cancelled(),
+            ));
+
+            assert!(outcome.is_err(), "a failed window is not a completed step");
+            assert!(
+                stored(CurveKind::Power, "Ride", 42, false).is_some(),
+                "the windows that landed are still on disk"
+            );
+            restore_service();
+        }
+    }
+
     #[test]
     fn a_write_that_fails_announces_nothing() {
         let _guard = serial_global_state();
         let _dir = init_global_engine();
         let recorder = Bodies::record();
 
-        crate::runtime::block_on(store_body("fixture", String::new(), |_engine| {
-            Err(rusqlite::Error::InvalidQuery)
-        }));
+        crate::runtime::block_on(store_body(
+            crate::persistence::engine_install(),
+            "fixture",
+            String::new(),
+            |_engine| Err(rusqlite::Error::InvalidQuery),
+        ));
+        observer::flush();
 
         assert!(
             recorder.seen().is_empty(),
@@ -3177,19 +6334,332 @@ mod body_count_tests {
         let _dir = init_global_engine();
         let recorder = Bodies::record();
 
-        crate::runtime::block_on(store_body("fixture", "f1".into(), |_engine| Ok(())));
-        crate::runtime::block_on(store_body("fixture", "f2".into(), |_engine| Ok(())));
+        crate::runtime::block_on(store_body(
+            crate::persistence::engine_install(),
+            "fixture",
+            "f1".into(),
+            |_engine| Ok(()),
+        ));
+        crate::runtime::block_on(store_body(
+            crate::persistence::engine_install(),
+            "fixture",
+            "f2".into(),
+            |_engine| Ok(()),
+        ));
+        observer::flush();
 
         assert_eq!(recorder.seen(), vec!["fixture:f1", "fixture:f2"]);
         set_observer(None);
     }
+}
+
+/// Scenario: a write is refused with 401 and the foreign caller polls the
+/// returned future itself, on a thread that is not a tokio context.
+///
+/// Expected behaviour: the confirmation reaches the profile, the session parks,
+/// and the caller gets an `Unauthorized` outcome rather than a panic.
+#[cfg(test)]
+mod write_auth_tests {
+    use super::*;
+    use crate::test_globals::serial_global_state;
+    use httpmock::prelude::*;
+
+    fn aim_service_at(server: &MockServer) {
+        *SYNC_SERVICE
+            .base_url
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = server.base_url();
+        SYNC_SERVICE.set_credentials(AuthKind::ApiKey, "k".into(), "i1".into());
+    }
+
+    fn restore_service() {
+        SYNC_SERVICE.clear_credentials();
+        SYNC_SERVICE.finish(SyncState::Idle, None, false);
+        *SYNC_SERVICE
+            .base_url
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = INTERVALS_BASE_URL.to_string();
+    }
+
+    /// Run the call the way uniffi's foreign executor does: on a plain thread
+    /// that polls the future itself with no tokio runtime entered, so anything
+    /// reaching the reactor inline panics instead of working.
+    fn off_the_runtime<F>(call: F) -> FfiCallOutcome
+    where
+        F: FnOnce() -> FfiCallOutcome + Send + 'static,
+    {
+        std::thread::spawn(call)
+            .join()
+            .expect("the write panicked instead of reporting the refusal")
+    }
 
     #[test]
-    fn only_a_completed_write_counts_as_a_landing() {
-        // `None` is a cold start with nowhere to write and `Some(false)` is a
-        // write that failed. Neither leaves a body for a woken reader to find.
-        assert!(landed(Some(true)));
-        assert!(!landed(Some(false)));
-        assert!(!landed(None));
+    fn a_confirmed_refusal_parks_the_session_when_polled_off_the_runtime() {
+        let _guard = serial_global_state();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a9");
+            then.status(401);
+        });
+        let profile = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(401);
+        });
+        aim_service_at(&server);
+
+        let outcome = off_the_runtime(|| {
+            futures::executor::block_on(SyncManager::new().confirm_activity_uploaded("a9".into()))
+        });
+
+        assert_eq!(outcome.kind, FfiCallKind::Unauthorized);
+        profile.assert();
+        assert_eq!(SYNC_SERVICE.snapshot().state, SyncState::AuthExpired);
+        restore_service();
+    }
+
+    /// Scenario: a token expires while a sync is running. An on-demand fetch
+    /// confirms the 401 and parked the service by calling `finish`, which
+    /// releases the running slot. A second sync then started on the dead
+    /// token, and the first sync's own tail wrote `Idle` over `AuthExpired`,
+    /// so the athlete was never told the session was gone.
+    ///
+    /// Expected behaviour: the park is a latch. It survives the running
+    /// sync's own terminal transition, and nothing new begins behind it until
+    /// a credential is set or cleared.
+    #[test]
+    fn a_park_survives_the_running_syncs_own_finish() {
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin(), "a sync is running");
+
+        svc.park_auth_expired_now();
+        assert_eq!(svc.snapshot().state, SyncState::AuthExpired);
+        assert!(
+            !svc.try_begin(),
+            "nothing new starts on a credential already rejected"
+        );
+
+        // The run that was already going reaches its own end and reports it.
+        svc.finish(SyncState::Idle, None, true);
+        assert_eq!(
+            svc.snapshot().state,
+            SyncState::AuthExpired,
+            "the parked state is not overwritten by the tail of the run it interrupted"
+        );
+        assert_eq!(
+            svc.snapshot().last_error_reason,
+            Some(FfiSyncErrorReason::Unauthorized)
+        );
+        assert!(!svc.try_begin(), "still parked after the run ended");
+    }
+
+    #[test]
+    fn a_re_auth_releases_the_park_and_a_sign_out_does_too() {
+        for sign_out in [false, true] {
+            let svc = SyncService::new();
+            svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+            assert!(svc.try_begin());
+            svc.park_auth_expired_now();
+            svc.finish(SyncState::Idle, None, true);
+            assert!(!svc.try_begin());
+
+            if sign_out {
+                svc.clear_credentials();
+            }
+            svc.set_credentials(AuthKind::ApiKey, "fresh".into(), "i1".into());
+
+            assert!(
+                svc.try_begin(),
+                "a credential the athlete just gave is not the one that was rejected"
+            );
+            assert_eq!(svc.snapshot().state, SyncState::Syncing);
+        }
+    }
+
+    #[test]
+    fn an_unconfirmed_refusal_leaves_the_session_standing() {
+        let _guard = serial_global_state();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a9");
+            then.status(401);
+        });
+        let profile = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(200).body("{}");
+        });
+        aim_service_at(&server);
+
+        let outcome = off_the_runtime(|| {
+            futures::executor::block_on(SyncManager::new().confirm_activity_uploaded("a9".into()))
+        });
+
+        assert_eq!(outcome.kind, FfiCallKind::Unauthorized);
+        profile.assert();
+        assert_ne!(SYNC_SERVICE.snapshot().state, SyncState::AuthExpired);
+        restore_service();
+    }
+}
+
+#[cfg(test)]
+mod metrics_repair_tests {
+    use super::*;
+    use crate::test_globals::serial_global_state;
+    use serde_json::json;
+
+    /// Scenario: `sync_activity_window` writes the bodies and the metrics rows
+    /// in one closure and only warns when the metrics write fails, so an
+    /// activity can end up with a body and no metrics row. It is then absent
+    /// from every aggregate that reads `activity_metrics`, which is the whole
+    /// Health tab.
+    ///
+    /// Expected behaviour: the repair reads the bodies nothing holds metrics
+    /// for and fills them from the stored payload, once per sync.
+    #[test]
+    fn a_body_stored_without_its_metrics_is_repaired_from_the_payload() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("metrics_repair.db");
+        let raw = json!({
+            "id": "i-77",
+            "name": "Morning Ride",
+            "type": "Ride",
+            "start_date_local": "2026-01-02T08:00:00",
+            "distance": 24_000.0,
+            "moving_time": 3_600,
+            "elapsed_time": 3_900,
+            "total_elevation_gain": 310.0,
+            "average_heartrate": 142.4,
+            "icu_average_watts": 187.6,
+            "icu_training_load": 62.0,
+        })
+        .to_string();
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .upsert_activity_bodies(&[("a77".to_string(), 1_767_340_800, raw)])
+                .expect("body");
+        })
+        .expect("engine");
+
+        let filled = crate::runtime::block_on(repair_missing_activity_metrics(
+            crate::persistence::engine_install(),
+        ));
+
+        assert_eq!(filled, 1, "the one body with no metrics row");
+        let row = crate::persistence::with_persistent_engine(|engine| {
+            engine.activity_metrics.get("a77").cloned()
+        })
+        .expect("engine")
+        .expect("the repaired row");
+        // Keyed by the row the body is stored under, not by the id inside the
+        // payload: `sync_activity_window` remaps an uploaded activity's id to
+        // the local key before it writes either table.
+        assert_eq!(row.activity_id, "a77");
+        assert_eq!(row.name, "Morning Ride");
+        assert_eq!(row.date, 1_767_340_800);
+        assert_eq!(row.moving_time, 3_600);
+        assert_eq!(row.avg_hr, Some(142));
+        assert_eq!(row.avg_power, Some(188));
+        assert_eq!(row.training_load, Some(62.0));
+    }
+
+    /// A body that already has its metrics row is not rewritten. The repair
+    /// runs on every sync, so a pass that rewrote the whole library would pay
+    /// a full `activity_metrics` transaction each time.
+    #[test]
+    fn the_repair_leaves_a_body_that_already_has_its_metrics_alone() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("metrics_repair_noop.db");
+        let raw = json!({
+            "id": "a78",
+            "name": "From the payload",
+            "start_date_local": "2026-01-02T08:00:00",
+        })
+        .to_string();
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .upsert_activity_bodies(&[("a78".to_string(), 1_767_340_800, raw)])
+                .expect("body");
+            engine
+                .set_activity_metrics(vec![activity_metrics_row(
+                    serde_json::from_value(json!({"id": "a78", "name": "Already stored"}))
+                        .expect("record"),
+                    1_767_340_800,
+                )])
+                .expect("metrics");
+        })
+        .expect("engine");
+
+        let filled = crate::runtime::block_on(repair_missing_activity_metrics(
+            crate::persistence::engine_install(),
+        ));
+
+        assert_eq!(filled, 0, "nothing is missing its metrics row");
+        let row = crate::persistence::with_persistent_engine(|engine| {
+            engine.activity_metrics.get("a78").cloned()
+        })
+        .expect("engine")
+        .expect("the row it already had");
+        assert_eq!(row.name, "Already stored");
+    }
+
+    /// A body that cannot be parsed back into a record is skipped and the rest
+    /// of the sweep still lands. Failing the sweep on one unreadable payload
+    /// would leave every other activity absent from the Health tab.
+    #[test]
+    fn an_unreadable_body_does_not_cost_the_sweep_the_rest() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("metrics_repair_junk.db");
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .upsert_activity_bodies(&[
+                    ("a79".to_string(), 1_767_340_800, "not json".to_string()),
+                    (
+                        "a80".to_string(),
+                        1_767_340_800,
+                        json!({"id": "a80", "name": "Readable"}).to_string(),
+                    ),
+                ])
+                .expect("bodies");
+        })
+        .expect("engine");
+
+        let filled = crate::runtime::block_on(repair_missing_activity_metrics(
+            crate::persistence::engine_install(),
+        ));
+
+        assert_eq!(filled, 1, "the readable one");
+        let row = crate::persistence::with_persistent_engine(|engine| {
+            engine.activity_metrics.get("a80").cloned()
+        })
+        .expect("engine")
+        .expect("the readable row");
+        assert_eq!(row.name, "Readable");
+    }
+    /// The page write warns and carries on rather than failing, so nothing said
+    /// whether the loss happens in the field. The counter on the warning is
+    /// what says, and the repair runs on the rows it leaves behind.
+    #[test]
+    fn a_failed_page_metrics_write_is_counted() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("metrics_write_failure.db");
+        let before = metrics_writes_failed();
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .db
+                .execute_batch("DROP TABLE activity_metrics")
+                .expect("drop the table the write needs");
+            let row = activity_metrics_row(
+                serde_json::from_value(json!({"id": "a81"})).expect("record"),
+                1_767_340_800,
+            );
+            if let Err(e) = engine.set_activity_metrics(vec![row]) {
+                metrics_write_failed(&e);
+            } else {
+                panic!("the write must fail with the table gone");
+            }
+        })
+        .expect("engine");
+
+        assert_eq!(metrics_writes_failed(), before + 1);
     }
 }

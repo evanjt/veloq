@@ -1,7 +1,9 @@
-use super::error::{VeloqError, with_engine, with_engine_read};
+use super::error::{VeloqError, with_engine, with_reader};
+use crate::objects::start::FfiStartOutcome;
+use crate::persistence::attempts::{self, Claim, JobKey, Release};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::route_grouping_preview::{
-    PreviewPoll as GroupingPoll, PreviewStrictness, ROUTE_GROUPING_PREVIEW_HANDLE,
+    PreviewOutcome as GroupingOutcome, PreviewStrictness, ROUTE_GROUPING_PREVIEW_HANDLE,
 };
 use crate::persistence::sections::preview::{PreviewOverlay, PreviewPoll, SECTION_PREVIEW_HANDLE};
 use log::info;
@@ -58,12 +60,16 @@ impl SectionPreview {
         })
     }
 
-    /// The live auto catalogue for the riding area containing (lat, lng), as
-    /// a JSON array in the same section shape a run's payload carries. Scoped
+    /// The live auto catalogue for the riding area containing (lat, lng), in
+    /// the same section shape a run's payload carries. Scoped
     /// by the same component the run uses, so the screen opens on exactly the
     /// catalogue the next run will diff against. None when no activity covers
     /// the point.
-    pub fn current(&self, lat: f64, lng: f64) -> Result<Option<String>, VeloqError> {
+    pub fn current(
+        &self,
+        lat: f64,
+        lng: f64,
+    ) -> Result<Option<Vec<crate::FfiPreviewSection>>, VeloqError> {
         // Write lock, not read: this queries SQLite for pin intent and the
         // read lock is memory-only by invariant.
         with_engine(|e| e.preview_current(lat, lng))
@@ -71,77 +77,29 @@ impl SectionPreview {
 
     /// Resolve the whole geo component containing (lat, lng) and start the
     /// pure preview detect over it. Only the five exposed fields of `config`
-    /// overlay the engine's live config. Returns false when a preview or real
-    /// detect is running, detection is suspended for a backfill, or no
-    /// activity covers the point.
+    /// overlay the engine's live config.
+    ///
+    /// The refusals are four opposite answers rather than one `false`.
+    /// `Held` is a backfill holding detection, a real detect running, or the
+    /// same component backing off after a failed attempt: all three lift on
+    /// their own. `Busy` is a run already in flight, which ends. `NotOwed` is
+    /// no activity covering the point, which no amount of asking changes.
+    /// `NotReady` is the engine not being open yet, which is early rather
+    /// than refused.
+    ///
+    /// The component, not the point, is the job: two taps a metre apart
+    /// resolve to one component and so to one key. The five config fields are
+    /// deliberately **not** in the key. The backoff exists to stop a
+    /// re-rendering screen asking on every frame, and a slider is what that
+    /// screen re-renders over, so keying on the config would free the backoff
+    /// exactly when it is needed.
     pub fn start(
         &self,
         lat: f64,
         lng: f64,
         config: crate::FfiSectionConfig,
-    ) -> Result<bool, VeloqError> {
-        if crate::persistence::detection_suspended() {
-            info!("veloqrs: [SectionPreview] Start refused: detection is suspended");
-            return Ok(false);
-        }
-
-        // The slot mutex is held across reap, check, spawn and install, so two
-        // concurrent starts cannot both pass the emptiness check.
-        let mut slot = SECTION_PREVIEW_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-
-        // Reap a terminal run first: a cancelled, dead or complete-but-untaken
-        // preview must not occupy the slot forever once its poller has gone
-        // away. A fresh start supersedes an untaken payload, which was cut for
-        // parameters the caller has already abandoned.
-        if let Some(handle) = slot.as_mut() {
-            match handle.poll_status() {
-                PreviewPoll::Running => {
-                    info!("veloqrs: [SectionPreview] Start refused: a preview is already running");
-                    return Ok(false);
-                }
-                PreviewPoll::Complete
-                | PreviewPoll::Cancelled
-                | PreviewPoll::PoolUnusable
-                | PreviewPoll::Died => {
-                    *slot = None;
-                }
-            }
-        }
-
-        // Checked under the preview slot lock so a real detect observed here
-        // is current as of this start; a detect that begins mid-spawn merely
-        // overlaps a read-only run, it cannot corrupt anything.
-        {
-            let detect_guard = SECTION_DETECTION_HANDLE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
-            if detect_guard.is_some() {
-                info!("veloqrs: [SectionPreview] Start refused: a real detect is running");
-                return Ok(false);
-            }
-        }
-
-        let overlay = PreviewOverlay {
-            proximity_threshold: config.proximity_threshold,
-            min_section_length: config.min_section_length,
-            max_section_length: config.max_section_length,
-            min_activities: config.min_activities,
-            divergence_threshold: config.divergence_threshold,
-        };
-
-        match with_engine_read(|e| e.preview_detect_background(lat, lng, overlay))? {
-            Some(handle) => {
-                *slot = Some(handle);
-                info!("veloqrs: [SectionPreview] Preview started");
-                Ok(true)
-            }
-            None => {
-                info!("veloqrs: [SectionPreview] Start refused: no activity covers the point");
-                Ok(false)
-            }
-        }
+    ) -> Result<FfiStartOutcome, VeloqError> {
+        self.start_at(lat, lng, config, attempts::now_ms)
     }
 
     /// "idle" | "running" | "complete" | "cancelled" | "pool_unusable" | "error"
@@ -194,8 +152,8 @@ impl SectionPreview {
         }))
     }
 
-    /// The one JSON payload, once. None while running or after taken.
-    pub fn take_result(&self) -> Result<Option<String>, VeloqError> {
+    /// The one payload, once. None while running or after taken.
+    pub fn take_result(&self) -> Result<Option<crate::FfiPreviewResult>, VeloqError> {
         let mut slot = SECTION_PREVIEW_HANDLE
             .lock()
             .unwrap_or_else(|e| e.into_inner());
@@ -203,9 +161,9 @@ impl SectionPreview {
             return Ok(None);
         };
         match handle.take_payload() {
-            Some(json) => {
+            Some(payload) => {
                 *slot = None;
-                Ok(Some(json))
+                Ok(Some(payload))
             }
             None => Ok(None),
         }
@@ -223,6 +181,152 @@ impl SectionPreview {
         }
         Ok(())
     }
+}
+
+impl SectionPreview {
+    /// The start itself, with the clock handed in.
+    ///
+    /// Split the way `spawn_once_at` is split from `spawn_once`, and for the
+    /// same reason: the backoff is a pure function of the attempt count, so a
+    /// test that had to spend the ladder would assert on wall clock.
+    pub(crate) fn start_at<C: Fn() -> i64>(
+        &self,
+        lat: f64,
+        lng: f64,
+        config: crate::FfiSectionConfig,
+        clock: C,
+    ) -> Result<FfiStartOutcome, VeloqError> {
+        // The slot mutex is held across reap, check, spawn and install, so two
+        // concurrent starts cannot both pass the emptiness check.
+        let mut slot = SECTION_PREVIEW_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+
+        // Reap a terminal run first: a cancelled, dead or complete-but-untaken
+        // preview must not occupy the slot forever once its poller has gone
+        // away. A fresh start supersedes an untaken payload, which was cut for
+        // parameters the caller has already abandoned.
+        if let Some(handle) = slot.as_mut() {
+            match handle.poll_status() {
+                PreviewPoll::Running => {
+                    info!("veloqrs: [SectionPreview] Start refused: a preview is already running");
+                    return Ok(FfiStartOutcome::Busy);
+                }
+                PreviewPoll::Complete
+                | PreviewPoll::Cancelled
+                | PreviewPoll::PoolUnusable
+                | PreviewPoll::Died => {
+                    *slot = None;
+                }
+            }
+        }
+
+        // Read after the slot, not before it. A preview in flight holds a
+        // suspension of its own, so asking this first answered "a backfill is
+        // holding detection" for the commonest case there is, a second start
+        // while one runs. The slot knows the specific answer, so it goes first
+        // and this is left with the one it is actually about.
+        if crate::persistence::detection_suspended() {
+            info!("veloqrs: [SectionPreview] Start refused: detection is suspended");
+            return Ok(FfiStartOutcome::Held);
+        }
+
+        // Checked under the preview slot lock so a real detect observed here
+        // is current as of this start; a detect that begins mid-spawn merely
+        // overlaps a read-only run, it cannot corrupt anything.
+        {
+            let detect_guard = SECTION_DETECTION_HANDLE
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            if detect_guard.is_some() {
+                info!("veloqrs: [SectionPreview] Start refused: a real detect is running");
+                return Ok(FfiStartOutcome::Held);
+            }
+        }
+
+        let overlay = PreviewOverlay {
+            proximity_threshold: config.proximity_threshold,
+            min_section_length: config.min_section_length,
+            max_section_length: config.max_section_length,
+            min_activities: config.min_activities,
+            divergence_threshold: config.divergence_threshold,
+        };
+
+        // The component is resolved before anything is claimed, because it is
+        // the key. No component is `NotOwed` and takes no key at all: there is
+        // nothing to back off from and nothing to ask again about.
+        let Some(component) = with_reader(|conn| {
+            crate::persistence::sections::preview::pooled::preview_component(conn, lat, lng)
+        })?
+        else {
+            info!("veloqrs: [SectionPreview] Start refused: no activity covers the point");
+            return Ok(FfiStartOutcome::NotOwed);
+        };
+
+        let key = JobKey::over("preview", &component);
+        // The claim writes, so it takes the write lock rather than riding on
+        // the read lock the resolve above used.
+        let claim =
+            crate::persistence::with_persistent_engine(|engine| engine.claim_job(&key, clock()));
+        match claim {
+            // The lease lives in the engine, so a start before it opens is
+            // early rather than refused for a reason that will never lift.
+            None => return Ok(FfiStartOutcome::NotReady),
+            Some(Err(e)) => {
+                log::warn!(
+                    "veloqrs: [SectionPreview] could not claim {}: {}",
+                    key.as_str(),
+                    e
+                );
+                return Ok(FfiStartOutcome::NotReady);
+            }
+            // Nothing in this process holds the slot, or the check above would
+            // have said so, but a run whose lease outlived its handle can.
+            Some(Ok(Claim::InFlight)) => return Ok(FfiStartOutcome::Busy),
+            Some(Ok(Claim::BackingOff { until })) => {
+                info!(
+                    "veloqrs: [SectionPreview] {} is backing off until {}",
+                    key.as_str(),
+                    until
+                );
+                return Ok(FfiStartOutcome::Held);
+            }
+            Some(Ok(Claim::Taken)) => {}
+        }
+
+        // The write lock: `preview_detect_background` reaches SQLite, which the
+        // read lock may not.
+        match with_engine(|e| e.preview_detect_background(lat, lng, overlay, key.clone()))? {
+            Some(handle) => {
+                *slot = Some(handle);
+                info!("veloqrs: [SectionPreview] Preview started");
+                Ok(FfiStartOutcome::Started)
+            }
+            None => {
+                // The component resolved a moment ago, so this is the pool
+                // moving under the start rather than an ordinary refusal. The
+                // lease has to be freed here: no worker was spawned to free it.
+                info!("veloqrs: [SectionPreview] Start refused: the component went away");
+                crate::persistence::with_persistent_engine(|engine| {
+                    let _ = engine.release_job(&key, Release::Done, clock());
+                });
+                Ok(FfiStartOutcome::NotOwed)
+            }
+        }
+    }
+}
+
+/// How one grouping-preview run ended.
+#[derive(Debug, Clone, uniffi::Enum)]
+pub enum FfiGroupingOutcome {
+    /// The grouping the strictness produced.
+    Grouped { groups: Vec<FfiRouteGroupPreview> },
+    /// A run the caller superseded, which is the normal end of one: every knob
+    /// movement cancels the run in flight.
+    Cancelled,
+    /// A run already going, or a library with no signatures to group. Neither
+    /// is a failure and the screen paints the same for both.
+    Refused,
 }
 
 /// One proposed route group at a previewed strictness.
@@ -254,106 +358,88 @@ impl RouteGroupingPreview {
         Arc::new(Self { _private: () })
     }
 
-    /// Group the whole library at this strictness. Only the two knobs the
-    /// control exposes cross the boundary; the rest of the match config is the
-    /// engine's live one. Returns false when a preview is already running or
-    /// the library has no signatures to group.
-    pub fn start(
+    /// Group the whole library at this strictness, resolving with what it
+    /// found. Only the two knobs the control exposes cross the boundary; the
+    /// rest of the match config is the engine's live one.
+    ///
+    /// The run is superseded rather than waited out: every knob movement
+    /// cancels the one in flight and asks for another, so `Cancelled` is the
+    /// ordinary end of a run and not a failure. `Refused` is a run already
+    /// going or a library with no signatures to group.
+    ///
+    /// The ceiling is the caller's. The grouping is one tracematch call and
+    /// cannot be interrupted, so a caller that gives up cancels, and the run
+    /// discards its result when it reaches the latch.
+    pub async fn run(
         &self,
         min_match_percentage: f64,
         endpoint_threshold: f64,
-    ) -> Result<bool, VeloqError> {
-        // The slot mutex is held across reap, check, spawn and install, so two
-        // concurrent starts cannot both pass the emptiness check.
-        let mut slot = ROUTE_GROUPING_PREVIEW_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+    ) -> Result<FfiGroupingOutcome, VeloqError> {
+        let handle = {
+            // The slot mutex is held across reap, check, spawn and install, so
+            // two concurrent calls cannot both pass the emptiness check.
+            let mut slot = ROUTE_GROUPING_PREVIEW_HANDLE
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            if slot.is_some() {
+                info!("veloqrs: [RouteGroupingPreview] Refused: a preview is already running");
+                return Ok(FfiGroupingOutcome::Refused);
+            }
 
-        // Reap a terminal run first: a cancelled, dead or complete-but-untaken
-        // run must not hold the slot once its poller has gone away. A fresh
-        // start supersedes an untaken payload, which was grouped at a
-        // strictness the caller has already moved off.
-        if let Some(handle) = slot.as_mut() {
-            match handle.poll_status() {
-                GroupingPoll::Running => {
-                    info!(
-                        "veloqrs: [RouteGroupingPreview] Start refused: a preview is already running"
-                    );
-                    return Ok(false);
+            let strictness = PreviewStrictness {
+                min_match_percentage,
+                endpoint_threshold,
+            };
+            // Write lock, not read: the signature cache this fills is the
+            // engine's, and a miss reads SQLite.
+            match with_engine(|e| e.grouping_preview_background(strictness))? {
+                Some(handle) => {
+                    // The latch is what `cancel` reaches, and it stays behind
+                    // when the handle goes to the thread that awaits it.
+                    *slot = Some(handle.cancel_handle());
+                    info!("veloqrs: [RouteGroupingPreview] Preview started");
+                    handle
                 }
-                GroupingPoll::Complete | GroupingPoll::Cancelled | GroupingPoll::Died => {
-                    *slot = None;
+                None => {
+                    info!("veloqrs: [RouteGroupingPreview] Refused: no signatures to group");
+                    return Ok(FfiGroupingOutcome::Refused);
                 }
             }
-        }
-
-        let strictness = PreviewStrictness {
-            min_match_percentage,
-            endpoint_threshold,
         };
-        // Write lock, not read: the signature cache this fills is the
-        // engine's, and a miss reads SQLite.
-        match with_engine(|e| e.grouping_preview_background(strictness))? {
-            Some(handle) => {
-                *slot = Some(handle);
-                info!("veloqrs: [RouteGroupingPreview] Preview started");
-                Ok(true)
-            }
+
+        let outcome = crate::runtime::ASYNC_RUNTIME
+            .spawn_blocking(move || {
+                let outcome = handle.recv();
+                // The slot is the run's, not the waiter's: it is freed when the
+                // grouping ends, however the caller behaved.
+                *ROUTE_GROUPING_PREVIEW_HANDLE
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner()) = None;
+                outcome
+            })
+            .await
+            .map_err(|e| VeloqError::Database {
+                msg: format!("Preview thread died without a result: {e}"),
+            })?;
+
+        Ok(match outcome {
+            Some(GroupingOutcome::Complete(groups)) => FfiGroupingOutcome::Grouped {
+                groups: groups
+                    .into_iter()
+                    .map(|g| FfiRouteGroupPreview {
+                        key: g.key,
+                        activity_ids: g.activity_ids,
+                    })
+                    .collect(),
+            },
+            Some(GroupingOutcome::Cancelled) => FfiGroupingOutcome::Cancelled,
             None => {
-                info!("veloqrs: [RouteGroupingPreview] Start refused: no signatures to group");
-                Ok(false)
-            }
-        }
-    }
-
-    /// "idle" | "running" | "complete" | "cancelled" | "error"
-    pub fn poll(&self) -> Result<String, VeloqError> {
-        let mut slot = ROUTE_GROUPING_PREVIEW_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let Some(handle) = slot.as_mut() else {
-            return Ok("idle".to_string());
-        };
-        Ok(match handle.poll_status() {
-            GroupingPoll::Running => "running".to_string(),
-            // The slot stays occupied until take_result so the payload cannot
-            // be lost between polls.
-            GroupingPoll::Complete => "complete".to_string(),
-            GroupingPoll::Cancelled => {
-                *slot = None;
-                "cancelled".to_string()
-            }
-            GroupingPoll::Died => {
-                *slot = None;
                 log::error!("veloqrs: [RouteGroupingPreview] Preview thread died without a result");
-                "error".to_string()
+                return Err(VeloqError::Database {
+                    msg: "Preview thread died without a result".to_string(),
+                });
             }
         })
-    }
-
-    /// The one payload, once. None while running or after taken.
-    pub fn take_result(&self) -> Result<Option<Vec<FfiRouteGroupPreview>>, VeloqError> {
-        let mut slot = ROUTE_GROUPING_PREVIEW_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let Some(handle) = slot.as_mut() else {
-            return Ok(None);
-        };
-        match handle.take_groups() {
-            Some(groups) => {
-                *slot = None;
-                Ok(Some(
-                    groups
-                        .into_iter()
-                        .map(|g| FfiRouteGroupPreview {
-                            key: g.key,
-                            activity_ids: g.activity_ids,
-                        })
-                        .collect(),
-                ))
-            }
-            None => Ok(None),
-        }
     }
 
     /// Cooperative. The grouping itself is one tracematch call and cannot be
@@ -363,8 +449,8 @@ impl RouteGroupingPreview {
         let slot = ROUTE_GROUPING_PREVIEW_HANDLE
             .lock()
             .unwrap_or_else(|e| e.into_inner());
-        if let Some(handle) = slot.as_ref() {
-            handle.request_cancel();
+        if let Some(cancel) = slot.as_ref() {
+            cancel.store(true, std::sync::atomic::Ordering::SeqCst);
             info!("veloqrs: [RouteGroupingPreview] Cancel requested");
         }
         Ok(())
@@ -380,6 +466,162 @@ mod tests {
         *SECTION_PREVIEW_HANDLE
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
+    }
+
+    /// Scenario: the preview screen asks for a run. Four unrelated reasons
+    /// used to leave as one `false`, so a caller could not tell the refusal
+    /// that lifts on its own from the one that never will, and nothing bounded
+    /// how often it asked.
+    mod refusals {
+        use super::*;
+        use crate::persistence::attempts::{JobKey, Release, attempt_backoff_ms};
+        use crate::persistence::with_persistent_engine;
+
+        /// The key `start` would take for this point, read the same way it
+        /// reads it.
+        fn key_for(lat: f64, lng: f64) -> JobKey {
+            let ids = with_persistent_engine(|e| e.preview_component(lat, lng))
+                .expect("engine")
+                .expect("the seeded pool covers the point");
+            JobKey::over("preview", &ids)
+        }
+
+        fn drive_to_idle(preview: &SectionPreview) {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+            while preview.poll().unwrap() == "running" {
+                assert!(std::time::Instant::now() < deadline, "preview never ended");
+                std::thread::sleep(std::time::Duration::from_millis(25));
+            }
+            let _ = preview.take_result();
+            clear_slot();
+        }
+
+        #[test]
+        fn a_point_no_activity_covers_is_not_owed_rather_than_refused() {
+            let _guard = serial_global_state();
+            let _tmp = seeded_global_engine();
+            clear_slot();
+            let preview = SectionPreview::new();
+
+            assert_eq!(
+                preview
+                    .start(0.0, 0.0, crate::FfiSectionConfig::default())
+                    .unwrap(),
+                FfiStartOutcome::NotOwed,
+                "nowhere is still nowhere on the next ask"
+            );
+        }
+
+        #[test]
+        fn a_real_detect_running_holds_the_preview_rather_than_refusing_it() {
+            let _guard = serial_global_state();
+            let _tmp = seeded_global_engine();
+            clear_slot();
+            let preview = SectionPreview::new();
+            let first = preview.centres(1).unwrap().remove(0);
+
+            // A detect in flight is what `Held` is for: it ends.
+            let _suspend = crate::persistence::sections::conditioning::suspend_detection();
+            assert_eq!(
+                preview
+                    .start(first.lat, first.lng, crate::FfiSectionConfig::default())
+                    .unwrap(),
+                FfiStartOutcome::Held
+            );
+        }
+
+        /// The backoff is read rather than spent: the clock is handed in, so
+        /// nothing here sleeps and nothing asserts on wall clock.
+        #[test]
+        fn a_component_that_failed_backs_off_and_lifts_when_the_clock_passes_it() {
+            let _guard = serial_global_state();
+            let _tmp = seeded_global_engine();
+            clear_slot();
+            let preview = SectionPreview::new();
+            let first = preview.centres(1).unwrap().remove(0);
+            let key = key_for(first.lat, first.lng);
+
+            // One failed attempt on this component, recorded the way a worker
+            // that died would record it.
+            let failed_at = 1_000_000i64;
+            with_persistent_engine(|engine| {
+                engine.claim_job(&key, failed_at).expect("claim");
+                engine
+                    .release_job(
+                        &key,
+                        Release::failed(FfiStartOutcome::Failed, Some("for the test")),
+                        failed_at,
+                    )
+                    .expect("release");
+            })
+            .expect("engine");
+
+            // The store waits `attempt_backoff_ms(attempts - 1)`, so one
+            // failure behind the key is the ladder's first rung and not its
+            // second.
+            let backoff = attempt_backoff_ms(0);
+            assert_eq!(
+                preview
+                    .start_at(
+                        first.lat,
+                        first.lng,
+                        crate::FfiSectionConfig::default(),
+                        move || failed_at + backoff - 1,
+                    )
+                    .unwrap(),
+                FfiStartOutcome::Held,
+                "a screen re-rendering inside the backoff is asking again, not asking anew"
+            );
+
+            assert_eq!(
+                preview
+                    .start_at(
+                        first.lat,
+                        first.lng,
+                        crate::FfiSectionConfig::default(),
+                        move || failed_at + backoff,
+                    )
+                    .unwrap(),
+                FfiStartOutcome::Started,
+                "the backoff running out is what lifts it"
+            );
+            drive_to_idle(&preview);
+        }
+
+        /// The five config fields are deliberately not in the key: a slider is
+        /// what the screen re-renders over, so keying on them would free the
+        /// backoff exactly when it is needed.
+        #[test]
+        fn the_backoff_is_not_freed_by_moving_a_slider() {
+            let _guard = serial_global_state();
+            let _tmp = seeded_global_engine();
+            clear_slot();
+            let preview = SectionPreview::new();
+            let first = preview.centres(1).unwrap().remove(0);
+            let key = key_for(first.lat, first.lng);
+
+            let failed_at = 2_000_000i64;
+            with_persistent_engine(|engine| {
+                engine.claim_job(&key, failed_at).expect("claim");
+                engine
+                    .release_job(
+                        &key,
+                        Release::failed(FfiStartOutcome::Failed, Some("for the test")),
+                        failed_at,
+                    )
+                    .expect("release");
+            })
+            .expect("engine");
+
+            let mut moved = crate::FfiSectionConfig::default();
+            moved.min_activities += 1;
+            assert_eq!(
+                preview
+                    .start_at(first.lat, first.lng, moved, move || failed_at + 1)
+                    .unwrap(),
+                FfiStartOutcome::Held
+            );
+        }
     }
 
     /// A panic while a slot lock is held poisons it. The engine lock and the
@@ -470,18 +712,10 @@ mod tests {
             "the fixture has a grouping to disturb"
         );
 
-        assert!(preview.start(40.0, 500.0).unwrap());
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
-        while preview.poll().unwrap() == "running" {
-            assert!(
-                std::time::Instant::now() < deadline,
-                "preview never finished"
-            );
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
-        assert_eq!(preview.poll().unwrap(), "complete");
-
-        let groups = preview.take_result().unwrap().expect("one payload");
+        let groups = match crate::runtime::block_on(preview.run(40.0, 500.0)).expect("the run") {
+            FfiGroupingOutcome::Grouped { groups } => groups,
+            other => panic!("the preview did not group: {other:?}"),
+        };
         assert!(
             !groups.is_empty(),
             "six activities on one track group into something"
@@ -500,8 +734,6 @@ mod tests {
         );
 
         assert_eq!(grouping_state(), before, "the preview wrote something");
-        assert!(preview.take_result().unwrap().is_none(), "taken once");
-        assert_eq!(preview.poll().unwrap(), "idle");
         clear_grouping_slot();
     }
 
@@ -515,16 +747,10 @@ mod tests {
         let preview = RouteGroupingPreview::new();
 
         let run = |min_pct: f64, endpoint: f64| -> usize {
-            assert!(preview.start(min_pct, endpoint).unwrap());
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
-            while preview.poll().unwrap() == "running" {
-                assert!(
-                    std::time::Instant::now() < deadline,
-                    "preview never finished"
-                );
-                std::thread::sleep(std::time::Duration::from_millis(10));
+            match crate::runtime::block_on(preview.run(min_pct, endpoint)).expect("the run") {
+                FfiGroupingOutcome::Grouped { groups } => groups.len(),
+                other => panic!("the preview did not group: {other:?}"),
             }
-            preview.take_result().unwrap().expect("one payload").len()
         };
 
         let strict = run(99.0, 1.0);
@@ -544,9 +770,10 @@ mod tests {
         clear_grouping_slot();
         let preview = RouteGroupingPreview::new();
 
-        assert!(!preview.start(65.0, 500.0).unwrap());
-        assert_eq!(preview.poll().unwrap(), "idle");
-        assert!(preview.take_result().unwrap().is_none());
+        assert!(matches!(
+            crate::runtime::block_on(preview.run(65.0, 500.0)).expect("the run"),
+            FfiGroupingOutcome::Refused
+        ));
         preview.cancel().unwrap();
     }
 
@@ -559,19 +786,11 @@ mod tests {
         let preview = RouteGroupingPreview::new();
         poison(&ROUTE_GROUPING_PREVIEW_HANDLE);
 
-        assert_eq!(preview.poll().unwrap(), "idle");
-        assert!(preview.take_result().unwrap().is_none());
         preview.cancel().unwrap();
-        assert!(preview.start(65.0, 500.0).unwrap());
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
-        while preview.poll().unwrap() == "running" {
-            assert!(
-                std::time::Instant::now() < deadline,
-                "preview never finished"
-            );
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
-        assert!(preview.take_result().unwrap().is_some());
+        assert!(matches!(
+            crate::runtime::block_on(preview.run(65.0, 500.0)).expect("the run"),
+            FfiGroupingOutcome::Grouped { .. }
+        ));
         clear_grouping_slot();
     }
 
@@ -590,10 +809,11 @@ mod tests {
         preview.cancel().unwrap();
 
         let first = preview.centres(1).unwrap().remove(0);
-        assert!(
+        assert_eq!(
             preview
                 .start(first.lat, first.lng, crate::FfiSectionConfig::default())
-                .unwrap()
+                .unwrap(),
+            FfiStartOutcome::Started
         );
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
         while preview.poll().unwrap() == "running" {
@@ -616,10 +836,12 @@ mod tests {
 
         assert!(preview.centres(5).unwrap().is_empty());
         assert!(preview.current(46.2, 7.35).unwrap().is_none());
-        assert!(
-            !preview
+        assert_eq!(
+            preview
                 .start(46.2, 7.35, crate::FfiSectionConfig::default())
-                .unwrap()
+                .unwrap(),
+            FfiStartOutcome::NotOwed,
+            "an empty library covers no point, and no amount of asking changes that"
         );
         assert_eq!(preview.poll().unwrap(), "idle");
         assert!(preview.get_progress().unwrap().is_none());
@@ -661,17 +883,19 @@ mod tests {
         let preview = SectionPreview::new();
         let first = preview.centres(1).unwrap().remove(0);
 
+        assert_eq!(
+            preview
+                .start(first.lat, first.lng, crate::FfiSectionConfig::default())
+                .unwrap(),
+            FfiStartOutcome::Started
+        );
         assert!(
             preview
                 .start(first.lat, first.lng, crate::FfiSectionConfig::default())
                 .unwrap()
-        );
-        assert!(
-            !preview
-                .start(first.lat, first.lng, crate::FfiSectionConfig::default())
-                .unwrap()
+                == FfiStartOutcome::Busy
                 || preview.poll().unwrap() != "running",
-            "a second start while one runs is refused"
+            "a second start while one runs is busy"
         );
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
         while preview.poll().unwrap() == "running" {
@@ -688,13 +912,12 @@ mod tests {
         );
 
         let payload = preview.take_result().unwrap().expect("one payload");
-        let json: serde_json::Value = serde_json::from_str(&payload).expect("a JSON payload");
-        assert_eq!(json["pool"]["activities"], 6, "{payload}");
-        assert_eq!(json["pool"]["unreadable"], 0);
-        assert!(json["sections"].is_array());
-        assert_eq!(
-            json["counts"]["proposed"],
-            json["sections"].as_array().unwrap().len()
+        assert_eq!(payload.pool.activities, 6, "{payload:?}");
+        assert_eq!(payload.pool.unreadable, 0);
+        assert_eq!(payload.counts.proposed as usize, payload.sections.len());
+        assert!(
+            payload.sections.iter().all(|s| !s.polyline.is_empty()),
+            "every row carries its encoded line as bytes"
         );
         assert!(preview.take_result().unwrap().is_none(), "taken once");
         assert_eq!(preview.poll().unwrap(), "idle");

@@ -1,4 +1,4 @@
-use super::error::{VeloqError, with_engine};
+use super::error::{VeloqError, with_engine, with_reader};
 use std::sync::Arc;
 use tracematch::Bounds;
 
@@ -39,7 +39,16 @@ impl MapManager {
         end_date: i64,
         sport_types: Vec<String>,
     ) -> Result<crate::FfiMapScreenData, VeloqError> {
-        with_engine(|e| e.map_screen_data(start_date, end_date, sport_types))
+        // Off the engine lock: the map tab is dragged, and this read needs
+        // nothing the engine holds in memory.
+        with_reader(|conn| {
+            crate::persistence::screens::pooled::map_screen_data(
+                conn,
+                start_date,
+                end_date,
+                sport_types,
+            )
+        })
     }
 
     fn get_all_signatures(&self) -> Result<Vec<crate::ffi_types::FfiMapSignature>, VeloqError> {
@@ -52,7 +61,18 @@ mod tests {
     use super::*;
     use crate::test_globals::{init_global_engine, serial_global_state};
     use crate::with_persistent_engine;
+    use std::sync::Arc as StdArc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{Duration, Instant};
     use tracematch::GpsPoint;
+
+    /// One 60 Hz frame. The map tab is dragged, so a read over this drops a
+    /// frame the athlete sees.
+    const FRAME_BUDGET: Duration = Duration::from_millis(16);
+
+    /// Long enough that a wait on the writer cannot be read as scheduling
+    /// noise.
+    const WRITE_HOLD: Duration = Duration::from_millis(200);
 
     #[test]
     fn the_viewport_and_the_screen_read_the_seeded_activity() {
@@ -125,5 +145,43 @@ mod tests {
             "the total is the library, not the window"
         );
         assert!(outside.activities.is_empty());
+    }
+
+    /// Scenario: the athlete drags the map while a sync page commits.
+    ///
+    /// Expected behaviour: the map tab's read is served inside a frame,
+    /// because it goes to the read pool and never asks for the engine lock the
+    /// writer is holding.
+    #[test]
+    fn the_map_screen_read_does_not_wait_for_a_writer() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("maps_under_a_writer.db");
+        let maps = MapManager::new();
+
+        let holding = StdArc::new(AtomicBool::new(false));
+        let signal = StdArc::clone(&holding);
+        let writer = std::thread::spawn(move || {
+            with_persistent_engine(|_| {
+                signal.store(true, Ordering::SeqCst);
+                std::thread::sleep(WRITE_HOLD);
+            });
+        });
+        while !holding.load(Ordering::SeqCst) {
+            std::thread::yield_now();
+        }
+
+        let started = Instant::now();
+        let screen = maps
+            .get_screen_data(1_600_000_000, 1_800_000_000, Vec::new())
+            .expect("the map tab reads while a writer holds the engine");
+        let waited = started.elapsed();
+
+        assert_eq!(screen.activity_count, 0);
+        assert!(
+            waited < FRAME_BUDGET,
+            "the map screen read waited {waited:?} behind a writer, which is over a frame"
+        );
+
+        writer.join().expect("writer");
     }
 }

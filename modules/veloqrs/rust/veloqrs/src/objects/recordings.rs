@@ -62,11 +62,6 @@ impl RecordingManager {
         with_engine(|e| e.set_recording_reconciled(&id).map_err(db))?
     }
 
-    /// Forget the streams sidecar, once the engine holds the ride's track.
-    fn clear_streams_path(&self, id: String) -> Result<(), VeloqError> {
-        with_engine(|e| e.clear_recording_streams_path(&id).map_err(db))?
-    }
-
     fn mark_uploading(&self, id: String) -> Result<(), VeloqError> {
         with_engine(|e| e.set_recording_uploading(&id).map_err(db))?
     }
@@ -111,6 +106,16 @@ impl RecordingManager {
         with_engine(|e| e.hold_recording_for_auth(&id, &error).map_err(db))?
     }
 
+    /// The transport failed before the server was reached. The ride keeps its
+    /// attempts for the same reason a 401 does, and is stamped so the backoff
+    /// still holds it back.
+    fn hold_for_network(&self, id: String, error: String, now_ms: i64) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.hold_recording_for_network(&id, &error, now_ms)
+                .map_err(db)
+        })?
+    }
+
     /// An athlete signed in: stop auto-uploading every ride that is not
     /// theirs, unstamped ones included. Returns how many were held.
     fn hold_other_athletes(&self, athlete_id: String) -> Result<u32, VeloqError> {
@@ -148,10 +153,6 @@ impl RecordingManager {
     /// Recordings intervals.icu does not hold yet.
     fn unuploaded_count(&self) -> Result<u32, VeloqError> {
         with_engine(|e| e.unuploaded_recording_count().map_err(db))?
-    }
-
-    fn permission_blocked_count(&self) -> Result<u32, VeloqError> {
-        with_engine(|e| e.permission_blocked_recording_count().map_err(db))?
     }
 
     /// Drop every row. A `.veloqdb` restore carries this table like any other

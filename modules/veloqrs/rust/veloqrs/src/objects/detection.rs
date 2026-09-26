@@ -1,8 +1,9 @@
 use super::error::{VeloqError, with_engine};
 use super::start::FfiStartOutcome;
+use crate::persistence::attempts::{Claim, JobKey, Release, now_ms};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::sections::DetectionRefusal;
-use log::info;
+use log::{info, warn};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, AtomicU32, AtomicUsize, Ordering};
 use std::time::Duration;
@@ -57,10 +58,11 @@ pub(crate) enum DetectionPoll {
 
 /// The longest any caller waits on the detection slot before giving up.
 ///
-/// Matched to what TypeScript already allows a run: `DETECTION_FOLLOW_MS` in
-/// `useGpsDataFetcher.ts` follows a detect for 420 s before answering
-/// `timeout`, and a cold re-cut over a large library legitimately takes
-/// minutes. A limit under that would abandon runs that were going to finish.
+/// Sized on the work, not on any screen: a cold re-cut over a large library
+/// legitimately takes minutes, and a limit under that would abandon runs that
+/// were going to finish. TypeScript stops watching at two minutes and says the
+/// run is still going, which is a screen giving up and not a caller: this wait
+/// is off the screen and outlives it.
 pub(crate) const SLOT_WAIT_LIMIT: Duration = Duration::from_secs(420);
 
 /// How often the slot is re-read while a run holds it.
@@ -101,13 +103,39 @@ pub(crate) fn wait_on_slot_with(
     limit: Duration,
     poll_every: Duration,
     stop_at_end: bool,
+    poll: impl FnMut() -> Result<DetectionPoll, VeloqError>,
+    sleep: impl FnMut(Duration),
+    elapsed: impl FnMut() -> Duration,
+) -> SlotWait {
+    wait_on_slot_counting(
+        &SLOT_TIMEOUTS,
+        limit,
+        poll_every,
+        stop_at_end,
+        poll,
+        sleep,
+        elapsed,
+    )
+}
+
+/// The same wait, counting its give-ups where it is told to.
+///
+/// Production counts into `SLOT_TIMEOUTS`, which is process-wide and which
+/// every caller and every other test reaches. A test that asserts one wait
+/// counted once needs a counter nobody else holds, or it reads a neighbour's
+/// increment and fails in a full run rather than on the test that caused it.
+pub(crate) fn wait_on_slot_counting(
+    timeouts: &AtomicU32,
+    limit: Duration,
+    poll_every: Duration,
+    stop_at_end: bool,
     mut poll: impl FnMut() -> Result<DetectionPoll, VeloqError>,
     mut sleep: impl FnMut(Duration),
     mut elapsed: impl FnMut() -> Duration,
 ) -> SlotWait {
     loop {
         if elapsed() >= limit {
-            SLOT_TIMEOUTS.fetch_add(1, Ordering::Relaxed);
+            timeouts.fetch_add(1, Ordering::Relaxed);
             return SlotWait::TimedOut;
         }
         match poll() {
@@ -140,16 +168,6 @@ static SLOT_DRIVERS: AtomicUsize = AtomicUsize::new(0);
 /// the give-up becomes a fact somebody can read rather than only a line
 /// somebody has to be watching for.
 static SLOT_TIMEOUTS: AtomicU32 = AtomicU32::new(0);
-
-/// How many waits on the detection slot have run out of time, this process.
-///
-/// Not exported. A counter no screen reads is the defect this exists to fix
-/// wearing a different hat, so it stays a fact the tests can assert until
-/// there is a surface that reports what the background work gave up on.
-#[cfg(test)]
-pub(crate) fn slot_timeouts() -> u32 {
-    SLOT_TIMEOUTS.load(Ordering::Relaxed)
-}
 
 /// How many detached drivers are on the slot right now. Read by the test
 /// globals alone: production never waits on this, it only counts.
@@ -198,6 +216,61 @@ pub(crate) fn wait_on_slot(poll_every: Duration, stop_at_end: bool) -> SlotWait 
     )
 }
 
+/// Section detection's identity on the attempt store. One key: there is one
+/// detection slot for the whole catalogue, so there is nothing to discriminate
+/// on.
+pub(crate) fn detect_key() -> JobKey {
+    JobKey::new("section_detect", &[])
+}
+
+/// What a claim on that key means for a start.
+///
+/// A pure mapping, so the taxonomy is read rather than exercised through a
+/// worker. `BackingOff` is `Held` and not `Busy`: nothing else holds the key,
+/// the last run failed, and this one would too. `Held` is the answer for work
+/// a stage that does finish is keeping back, and it is retryable.
+fn outcome_for_claim(claim: Claim) -> Result<(), FfiStartOutcome> {
+    match claim {
+        Claim::Taken => Ok(()),
+        Claim::InFlight => Err(FfiStartOutcome::Busy),
+        Claim::BackingOff { until } => {
+            info!("veloqrs: [DetectionManager] section_detect is backing off until {until}");
+            Err(FfiStartOutcome::Held)
+        }
+    }
+}
+
+/// Claim the detect key, or say why the start does not happen.
+///
+/// An engine that is not open yet is `NotReady` rather than a refusal that
+/// will never lift: the lease lives in the engine, so nothing is known about
+/// the key until it opens. Same reading as `spawn_once`.
+pub(crate) fn claim_detect() -> Result<(), FfiStartOutcome> {
+    match crate::persistence::with_persistent_engine(|engine| {
+        engine.claim_job(&detect_key(), now_ms())
+    }) {
+        None => Err(FfiStartOutcome::NotReady),
+        Some(Err(e)) => {
+            log::warn!("veloqrs: [DetectionManager] could not claim section_detect: {e}");
+            Err(FfiStartOutcome::NotReady)
+        }
+        Some(Ok(claim)) => outcome_for_claim(claim),
+    }
+}
+
+/// Give the detect key back, saying how the run ended.
+///
+/// Called at every terminal transition of a run, which is the same set of
+/// points that records the outcome. A key never released is detection wedged
+/// for the session, so a path that clears the handle clears this too.
+pub(crate) fn settle_detect(release: Release) {
+    crate::persistence::with_persistent_engine(|engine| {
+        if let Err(e) = engine.release_job(&detect_key(), release, now_ms()) {
+            log::warn!("veloqrs: [DetectionManager] could not release section_detect: {e}");
+        }
+    });
+}
+
 /// Poll the shared detection handle once and, when the worker has finished,
 /// apply its results under the engine lock. Shared by the FFI poll (the TS
 /// sync UI) and the conditioning driver: whichever caller polls Ready first
@@ -233,9 +306,17 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
             if cancelled {
                 info!("veloqrs: [DetectionManager] Detection cancelled, the slot is free");
                 record_outcome(OUTCOME_IDLE);
+                // A run that was asked to stop did what it was told, so the
+                // key starts clean: backing it off would hold the next detect
+                // back for a cancel the athlete made.
+                settle_detect(Release::Done);
             } else {
                 log::error!("veloqrs: [DetectionManager] Detection thread died without a result");
                 record_outcome(OUTCOME_ERROR);
+                settle_detect(Release::failed(
+                    FfiStartOutcome::Failed,
+                    Some("the detection thread died without a result"),
+                ));
             }
             Ok(DetectionPoll::Died)
         }
@@ -259,12 +340,17 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
                     log::error!(
                         "veloqrs: [DetectionManager] The run could not apply itself, the catalogue is unchanged"
                     );
+                    settle_detect(Release::failed(
+                        FfiStartOutcome::Failed,
+                        Some("the run could not apply itself"),
+                    ));
                     return Err(VeloqError::Database {
                         msg: "detection apply failed on the worker".to_string(),
                     });
                 }
                 info!("veloqrs: [DetectionManager] Section detection complete");
                 record_outcome(OUTCOME_COMPLETE);
+                settle_detect(Release::Done);
                 return Ok(DetectionPoll::Applied);
             }
 
@@ -295,8 +381,15 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
             // as this returns. The cache is adopted only if the save succeeds
             // and dropped if it fails, so it never outruns the applied
             // catalogue.
+            // Off the lock: a 1,000-activity cache is about 13 MB to encode and
+            // every reader used to wait it out inside the apply.
+            let encoded = crate::persistence::sections::detection::encode_cache_for_apply(
+                cache_update.as_ref(),
+            );
             with_engine(|e| {
-                if let Err(err) = e.apply_sections_save_with_cache(sections, cache_update) {
+                if let Err(err) =
+                    e.apply_sections_save_with_cache_row(sections, cache_update, encoded)
+                {
                     log::error!("apply_sections_save failed: {}", err);
                     return Err(VeloqError::Database {
                         msg: format!("apply_sections_save failed: {}", err),
@@ -333,18 +426,107 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
 
             info!("veloqrs: [DetectionManager] Section detection complete");
             record_outcome(OUTCOME_COMPLETE);
+            settle_detect(Release::Done);
             Ok(DetectionPoll::Applied)
         }
         crate::persistence::WorkerPoll::Running => {
             if let Some(checkpoint) = handle_guard.as_ref().and_then(|h| h.take_checkpoint()) {
                 drop(handle_guard);
-                with_engine(|e| {
-                    e.persist_evidence_checkpoint(&checkpoint);
-                    Ok(())
-                })??;
+                persist_checkpoint(checkpoint);
             }
             Ok(DetectionPoll::Running)
         }
+    }
+}
+
+/// Persist the checkpoints of a run started from TypeScript.
+///
+/// The conditioning path has had a driver since it was written; `start` and
+/// `force_redetect` had none, and TypeScript's follower reads the engine once
+/// at start and once on `detectionApplied`, never on the clock. So
+/// `persist_evidence_checkpoint` never ran on the one path that most needs it:
+/// a `force_redetect` clears the processed set and the evidence cache, so it is
+/// a cold rebatch of minutes that resumed from nothing when the OS killed it.
+///
+/// It writes checkpoints and nothing else. It deliberately does not go through
+/// `poll_detection_once`, which is what applies a finished run and publishes
+/// its outcome: the follower that asked for this run is the one that settles
+/// it, and a second poller would take that completion out from under it.
+///
+/// It follows the run it was spawned for and no other, by holding that run's
+/// own checkpoint slot: a handle in the shared slot whose slot is a different
+/// one is somebody else's run, and this thread is done.
+fn spawn_checkpoint_driver() {
+    const DRIVER_POLL: Duration = Duration::from_millis(250);
+
+    let Some(slot) = SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .map(|h| h.checkpoint_slot())
+    else {
+        return;
+    };
+
+    // Counted before the thread starts, so a caller that asks straight after
+    // the start does not race the spawn and read no driver at all.
+    let counted = SlotDriver::started();
+    std::thread::spawn(move || {
+        let _counted = counted;
+        let started = std::time::Instant::now();
+        loop {
+            std::thread::sleep(DRIVER_POLL);
+            if !still_running(&slot) {
+                return;
+            }
+            if let Some(checkpoint) = slot.take() {
+                persist_checkpoint(checkpoint);
+            }
+            if started.elapsed() > SLOT_WAIT_LIMIT {
+                log::warn!(
+                    "veloqrs: [DetectionManager] checkpoint driver gave up after {:?}",
+                    started.elapsed()
+                );
+                return;
+            }
+        }
+    });
+}
+
+/// Whether the run that owns `slot` still holds the shared handle.
+fn still_running(slot: &Arc<crate::persistence::CheckpointSlot>) -> bool {
+    SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .is_some_and(|h| Arc::ptr_eq(&h.checkpoint_slot(), slot))
+}
+
+/// Write one checkpoint, paying the encode off the engine lock.
+///
+/// The encode is the expensive half, about 75 ms at 1,000 activities. Run under
+/// the lock it was that long a hold every two seconds for the length of the
+/// detect, and every screen read arriving inside one waited it out. So the lock
+/// is taken twice and briefly instead: once for the digest, once for the write.
+fn persist_checkpoint(checkpoint: crate::persistence::CacheUpdate) {
+    if checkpoint.folded_ids.is_empty() {
+        return;
+    }
+    let digest =
+        match with_engine(|e| -> Result<String, VeloqError> { Ok(e.evidence_config_digest()) }) {
+            Ok(Ok(d)) => d,
+            _ => return,
+        };
+    let row = crate::persistence::sections::detection::encode_evidence_row(
+        &checkpoint.cache,
+        &checkpoint.folded_ids,
+        digest,
+    );
+    if let Some(row) = row {
+        let _ = with_engine(|e| -> Result<(), VeloqError> {
+            e.write_evidence_row(&row);
+            Ok(())
+        });
     }
 }
 
@@ -417,6 +599,12 @@ impl DetectionManager {
             info!("veloqrs: [DetectionManager] Section detection already running");
             return Ok(FfiStartOutcome::Busy);
         }
+        // Before the preview is cancelled and before the pool is read: a run
+        // inside its backoff is not going to happen, so it must not cost a
+        // running preview its answer either.
+        if let Err(refusal) = claim_detect() {
+            return Ok(refusal);
+        }
 
         // A real detect supersedes any running preview: the preview's answer
         // is for a catalogue that is about to move, so cancel it rather than
@@ -434,6 +622,10 @@ impl DetectionManager {
             .unwrap_or_else(|e| e.into_inner());
         if handle_guard.is_some() {
             info!("veloqrs: [DetectionManager] Section detection already running");
+            // The claim above won, and this start is not the run that will use
+            // it. Handing it straight back keeps the key with whoever holds
+            // the slot rather than wedging it on a start that did nothing.
+            settle_detect(Release::Done);
             return Ok(FfiStartOutcome::Busy);
         }
 
@@ -446,10 +638,18 @@ impl DetectionManager {
         // suspension, or the detector cutover is still owed. Installing it
         // would occupy the slot with a run that never happened.
         if let Some(refusal) = crate::persistence::sections::detection_refusal(&handle) {
-            info!(
+            // `warn!` rather than `info!`: a release build filters the
+            // engine's log at Warn (`lib.rs:376-382`), so at `info!` this
+            // said nothing on the CI runner, where detection is held for a
+            // whole flow and the only evidence was a screenshot.
+            warn!(
                 "veloqrs: [DetectionManager] Start refused: {}",
                 refusal_reason(refusal)
             );
+            // Nothing ran, so nothing failed. A backoff for a suspension or an
+            // owed cutover would hold detection back after the stage that
+            // refused it has finished.
+            settle_detect(Release::Done);
             return Ok(refusal_outcome(refusal));
         }
 
@@ -458,6 +658,8 @@ impl DetectionManager {
         // started has not, so the previous outcome stops being the answer the
         // moment this one takes the slot.
         record_outcome(OUTCOME_IDLE);
+        drop(handle_guard);
+        spawn_checkpoint_driver();
         info!("veloqrs: [DetectionManager] Section detection started");
         Ok(FfiStartOutcome::Started)
     }
@@ -580,7 +782,11 @@ impl DetectionManager {
             )
         })?;
         if let Some(refusal) = crate::persistence::sections::detection_refusal(&handle) {
-            info!(
+            // `warn!` rather than `info!`: a release build filters the
+            // engine's log at Warn (`lib.rs:376-382`), so at `info!` this
+            // said nothing on the CI runner, where detection is held for a
+            // whole flow and the only evidence was a screenshot.
+            warn!(
                 "veloqrs: [DetectionManager] Force redetect refused: {}",
                 refusal_reason(refusal)
             );
@@ -589,6 +795,8 @@ impl DetectionManager {
 
         *handle_guard = Some(handle);
         record_outcome(OUTCOME_IDLE);
+        drop(handle_guard);
+        spawn_checkpoint_driver();
         info!("veloqrs: [DetectionManager] Forced full section re-detection started");
         Ok(FfiStartOutcome::Started)
     }
@@ -645,6 +853,7 @@ mod tests {
             last: Result<DetectionPoll, String>,
             now: Cell<Duration>,
             slept: Cell<usize>,
+            timeouts: AtomicU32,
         }
 
         impl Fake {
@@ -657,11 +866,13 @@ mod tests {
                     last,
                     now: Cell::new(Duration::ZERO),
                     slept: Cell::new(0),
+                    timeouts: AtomicU32::new(0),
                 }
             }
 
             fn run(&self, stop_at_end: bool) -> SlotWait {
-                wait_on_slot_with(
+                wait_on_slot_counting(
+                    &self.timeouts,
                     LIMIT,
                     POLL,
                     stop_at_end,
@@ -721,28 +932,24 @@ mod tests {
         /// downstream.
         #[test]
         fn a_wait_that_ran_out_of_time_is_counted() {
-            // The count is process-wide and other waits reach it, so the
-            // delta is only this test's while this test holds the globals.
-            let _serial = crate::test_globals::serial_global_state();
-            let before = slot_timeouts();
-
             let hung = Fake::new(vec![], Ok(DetectionPoll::Running));
             assert_eq!(hung.run(false), SlotWait::TimedOut);
 
-            assert_eq!(slot_timeouts() - before, 1);
+            assert_eq!(hung.timeouts.load(Ordering::Relaxed), 1);
         }
 
         #[test]
         fn a_wait_that_ended_is_not_counted() {
-            let _serial = crate::test_globals::serial_global_state();
-            let before = slot_timeouts();
-
             let empty = Fake::new(vec![], Ok(DetectionPoll::Idle));
             assert_eq!(empty.run(false), SlotWait::Idle);
             let applied = Fake::new(vec![], Ok(DetectionPoll::Applied));
             assert_eq!(applied.run(true), SlotWait::Applied);
 
-            assert_eq!(slot_timeouts(), before, "an ended wait is not a give-up");
+            assert_eq!(
+                empty.timeouts.load(Ordering::Relaxed) + applied.timeouts.load(Ordering::Relaxed),
+                0,
+                "an ended wait is not a give-up"
+            );
         }
 
         #[test]
@@ -831,6 +1038,159 @@ mod tests {
         std::panic::set_hook(previous);
         assert!(result.is_err(), "the closure was supposed to panic");
         assert!(lock.is_poisoned(), "the lock must be poisoned now");
+    }
+
+    /// Scenario: a detect dies on one unreadable track. The handle is cleared,
+    /// the conditioner's pending count is still standing, and the next due
+    /// batch starts another run at once. The whole pool is scanned again, it
+    /// dies again, and nothing slows it down for the life of the process.
+    ///
+    /// Expected behaviour: a run that failed backs its key off on the attempt
+    /// store, so the next start is `Held` and installs nothing. A restart is
+    /// what clears it, which is the store's lease generation rather than a
+    /// clock.
+    mod the_attempt_store_bounds_a_failing_detect {
+        use super::*;
+        use crate::persistence::attempts::{Claim, Release, now_ms};
+        use crate::persistence::with_persistent_engine;
+
+        /// The taxonomy, read rather than exercised through a worker.
+        #[test]
+        pub fn a_claim_maps_to_one_start_outcome_each() {
+            assert!(outcome_for_claim(Claim::Taken).is_ok());
+            assert_eq!(
+                outcome_for_claim(Claim::InFlight).unwrap_err(),
+                FfiStartOutcome::Busy,
+                "somebody else holds the key"
+            );
+            assert_eq!(
+                outcome_for_claim(Claim::BackingOff { until: 42 }).unwrap_err(),
+                FfiStartOutcome::Held,
+                "nothing holds it, the last run failed, and this one would too"
+            );
+            assert!(
+                FfiStartOutcome::Held.is_retryable(),
+                "a backoff ends, so the caller has somewhere to put the retry"
+            );
+        }
+
+        fn claim_state(now: i64) -> Claim {
+            with_persistent_engine(|engine| engine.claim_job(&detect_key(), now))
+                .expect("engine")
+                .expect("claim")
+        }
+
+        #[test]
+        pub fn a_failed_run_holds_the_next_start_back() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            clear_detection_handle();
+            // The sequence a died worker leaves: the run claimed the key, then
+            // the poll that found the thread gone released it as a failure.
+            // Written directly so the test does not have to kill a thread.
+            with_persistent_engine(|engine| {
+                engine.claim_job(&detect_key(), now_ms()).expect("claim");
+                engine
+                    .release_job(
+                        &detect_key(),
+                        Release::failed(FfiStartOutcome::Failed, Some("the thread died")),
+                        now_ms(),
+                    )
+                    .expect("release");
+            })
+            .expect("engine");
+
+            let outcome = DetectionManager::new().start().expect("start");
+
+            assert_eq!(
+                outcome,
+                FfiStartOutcome::Held,
+                "a key inside its backoff holds the start rather than refusing it for ever"
+            );
+            assert!(
+                SECTION_DETECTION_HANDLE
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .is_none(),
+                "nothing was installed, so the slot is free for the run that follows the backoff"
+            );
+            with_persistent_engine(|engine| {
+                engine
+                    .release_job(&detect_key(), Release::Done, now_ms())
+                    .expect("release");
+            })
+            .expect("engine");
+        }
+
+        #[test]
+        pub fn a_started_run_holds_the_key_until_it_settles() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            clear_detection_handle();
+            with_persistent_engine(|engine| {
+                engine
+                    .release_job(&detect_key(), Release::Done, now_ms())
+                    .expect("clear");
+            })
+            .expect("engine");
+
+            let manager = DetectionManager::new();
+            assert!(manager.start().expect("start").started(), "the run starts");
+
+            assert!(
+                matches!(claim_state(now_ms()), Claim::InFlight),
+                "the run holds its key while it is in the slot"
+            );
+
+            drain_detection();
+            clear_detection_handle();
+            assert!(
+                matches!(claim_state(now_ms()), Claim::InFlight | Claim::Taken),
+                "a settled run leaves no backoff behind"
+            );
+            with_persistent_engine(|engine| {
+                engine
+                    .release_job(&detect_key(), Release::Done, now_ms())
+                    .expect("release");
+            })
+            .expect("engine");
+        }
+
+        /// A suspension is not a failure. Backing the key off for one would
+        /// hold detection back after the backfill that took it has finished,
+        /// which is the opposite of what the suspension is for.
+        #[test]
+        pub fn a_suspension_refuses_without_taking_the_key() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            clear_detection_handle();
+            with_persistent_engine(|engine| {
+                engine
+                    .release_job(&detect_key(), Release::Done, now_ms())
+                    .expect("clear");
+            })
+            .expect("engine");
+
+            let guard = crate::persistence::suspend_detection();
+            let outcome = DetectionManager::new().start().expect("start");
+            drop(guard);
+
+            assert_eq!(
+                outcome,
+                FfiStartOutcome::Held,
+                "a suspension holds the work"
+            );
+            assert!(
+                matches!(claim_state(now_ms()), Claim::Taken),
+                "the key was never claimed, so nothing is backing off"
+            );
+            with_persistent_engine(|engine| {
+                engine
+                    .release_job(&detect_key(), Release::Done, now_ms())
+                    .expect("release");
+            })
+            .expect("engine");
+        }
     }
 
     #[test]
@@ -1191,6 +1551,90 @@ mod tests {
             "and the wait does not return until it is gone"
         );
         driver.join().expect("the driver ends");
+    }
+
+    /// Scenario: a rescan started from TypeScript parked a checkpoint every two
+    /// seconds and nothing drained or persisted it. The follower reads the
+    /// engine once at start and once on `detectionApplied`, never on the clock,
+    /// so `persist_evidence_checkpoint` never ran on the path that most needs
+    /// it: a `force_redetect` clears the processed set and the evidence cache,
+    /// so it is a cold rebatch of minutes that resumed from nothing.
+    ///
+    /// Expected behaviour: both start paths leave a follower behind that writes
+    /// the checkpoints.
+    #[test]
+    fn a_rescan_started_from_typescript_leaves_a_checkpoint_follower() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        wait_for_slot_drivers();
+
+        let manager = DetectionManager::new();
+        assert!(manager.start().expect("start").started());
+
+        assert!(
+            slot_drivers() >= 1,
+            "the run is followed, so its checkpoints reach the database"
+        );
+
+        manager.cancel();
+        drain_detection();
+        wait_for_slot_drivers();
+    }
+
+    /// The follower writes checkpoints and never applies. A second poller would
+    /// take the completion the follower that asked for the run is waiting on,
+    /// which is the bug the background-jobs screen already caused once.
+    #[test]
+    fn the_checkpoint_follower_never_settles_the_run() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        wait_for_slot_drivers();
+
+        let manager = DetectionManager::new();
+        assert!(manager.start().expect("start").started());
+        // Longer than the follower's own 250 ms tick, so it has polled if it
+        // ever will.
+        std::thread::sleep(Duration::from_millis(600));
+
+        assert_eq!(
+            manager.last_outcome(),
+            "idle",
+            "the follower publishes no outcome, so the run is still the caller's to settle"
+        );
+
+        manager.cancel();
+        drain_detection();
+        wait_for_slot_drivers();
+    }
+
+    /// A checkpoint from a run that has already left the slot belongs to
+    /// nobody: the follower holds its own run's slot and stops when the shared
+    /// handle is somebody else's.
+    #[test]
+    fn a_follower_stops_when_its_own_run_leaves_the_slot() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        wait_for_slot_drivers();
+
+        let mine = Arc::new(crate::persistence::CheckpointSlot::default());
+        assert!(
+            !still_running(&mine),
+            "an empty slot is not this run still going"
+        );
+
+        let manager = DetectionManager::new();
+        assert!(manager.start().expect("start").started());
+        assert!(
+            !still_running(&mine),
+            "and neither is somebody else's run holding it"
+        );
+
+        manager.cancel();
+        drain_detection();
+        wait_for_slot_drivers();
     }
 
     /// A driver that panics still leaves the count where it found it, or the

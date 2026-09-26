@@ -1,4 +1,5 @@
-use super::error::{VeloqError, with_engine, with_engine_read};
+use super::error::{VeloqError, with_engine, with_reader};
+use crate::persistence::sections::{named, queries};
 use crate::sections::SectionType;
 use std::sync::Arc;
 
@@ -24,32 +25,10 @@ impl SectionManager {
         &self,
         filter: crate::FfiSectionFilter,
     ) -> Result<Vec<crate::FfiSection>, VeloqError> {
-        // Read lock throughout: every path below borrows the engine and none
-        // mutates it, so the section list no longer serialises on the write
-        // lock the detector's apply holds.
-        with_engine_read(|e| {
-            let mut sections: Vec<crate::FfiSection> =
-                match (&filter.activity_id, &filter.section_type) {
-                    (Some(activity_id), _) => e
-                        .get_sections_for_activity(activity_id)
-                        .into_iter()
-                        .map(crate::FfiSection::from)
-                        .collect(),
-                    (None, Some(section_type)) => e
-                        .get_sections_by_type(SectionType::from_str(section_type))
-                        .into_iter()
-                        .map(crate::FfiSection::from)
-                        .collect(),
-                    (None, None) => e
-                        .get_sections_filtered(filter.sport_type.as_deref(), filter.min_visits)
-                        .into_iter()
-                        .map(crate::FfiSection::from)
-                        .collect(),
-                };
-
-            // The two database-backed paths above filter by their own key
-            // alone, so a filter naming more than one narrowing is finished
-            // here rather than in three query builders.
+        // A filter naming more than one narrowing is finished here rather
+        // than in three query builders, because each path filters by its own
+        // key alone.
+        let narrow = |sections: &mut Vec<crate::FfiSection>| {
             if filter.activity_id.is_some() || filter.section_type.is_some() {
                 if let Some(sport) = filter.sport_type.as_deref() {
                     sections.retain(|s| s.sport_type == sport);
@@ -61,6 +40,44 @@ impl SectionManager {
             if let Some(section_type) = filter.section_type.as_deref() {
                 sections.retain(|s| s.section_type == section_type);
             }
+        };
+
+        // The two database-backed paths read through the pool, overlay and
+        // all, so opening a ride's sections never waits behind a sync. The
+        // unfiltered one still takes the write lock: `get_sections_filtered`
+        // reads the in-memory catalogue with a pin exemption and per-sport
+        // outing counts, and re-expressing that as SQL is its own item.
+        if filter.activity_id.is_some() || filter.section_type.is_some() {
+            let mut sections = with_reader(|conn| {
+                let names = named::pooled::overlay_names(conn);
+                match filter.activity_id.as_deref() {
+                    Some(activity_id) => {
+                        queries::pooled::sections_for_activity(conn, activity_id, &names)
+                    }
+                    None => queries::pooled::sections_by_type(
+                        conn,
+                        filter
+                            .section_type
+                            .as_deref()
+                            .and_then(SectionType::from_str),
+                        &names,
+                    ),
+                }
+                .into_iter()
+                .map(crate::FfiSection::from)
+                .collect::<Vec<crate::FfiSection>>()
+            })?;
+            narrow(&mut sections);
+            return Ok(sections);
+        }
+
+        with_engine(|e| {
+            let mut sections: Vec<crate::FfiSection> = e
+                .get_sections_filtered(filter.sport_type.as_deref(), filter.min_visits)
+                .into_iter()
+                .map(crate::FfiSection::from)
+                .collect();
+            narrow(&mut sections);
 
             let names = e.named_overlay_cached_names();
             for section in &mut sections {
@@ -139,6 +156,16 @@ impl SectionManager {
         })
     }
 
+    fn get_map_sections(
+        &self,
+        sport_type: Option<String>,
+        min_visits: Option<u32>,
+    ) -> Result<Vec<crate::FfiMapSection>, VeloqError> {
+        // The write lock: `get_map_sections` reaches `get_section_summaries`,
+        // which prepares a statement, and the read lock may not.
+        with_engine(|e| e.get_map_sections(sport_type.as_deref(), min_visits))
+    }
+
     /// The section's line, coordinate-encoded like every other track that
     /// leaves the engine. It used to box a record per point and its one caller
     /// unboxed them again, which is the cost the encoding exists to avoid.
@@ -157,14 +184,21 @@ impl SectionManager {
         })
     }
 
+    /// Read through the pool, so the section detail screen does not wait
+    /// behind a sync writing its pages. The answer is
+    /// `performances::pooled::section_performances`, the same arithmetic the
+    /// engine runs, and `read_cache::performances` is the reader's own LRU
+    /// standing in for the engine's `perf_cache`.
     fn get_performances(
         &self,
         section_id: String,
         sport_type: Option<String>,
     ) -> Result<crate::FfiSectionPerformanceResult, VeloqError> {
-        with_engine(|e| {
+        with_reader(|conn| {
             crate::FfiSectionPerformanceResult::from(
-                e.get_section_performances_filtered(&section_id, sport_type.as_deref()),
+                pooled_performances(conn, &section_id, sport_type.as_deref())
+                    .as_ref()
+                    .clone(),
             )
         })
     }
@@ -178,14 +212,14 @@ impl SectionManager {
         section_ids: Vec<String>,
         sport_type: Option<String>,
     ) -> Result<Vec<crate::FfiSectionPerformanceBatchEntry>, VeloqError> {
-        with_engine(|e| {
+        with_reader(|conn| {
             section_ids
                 .into_iter()
                 .map(|id| {
-                    let result = e.get_section_performances_filtered(&id, sport_type.as_deref());
+                    let result = pooled_performances(conn, &id, sport_type.as_deref());
                     crate::FfiSectionPerformanceBatchEntry {
                         section_id: id,
-                        result: crate::FfiSectionPerformanceResult::from(result),
+                        result: crate::FfiSectionPerformanceResult::from(result.as_ref().clone()),
                     }
                 })
                 .collect()
@@ -281,6 +315,18 @@ impl SectionManager {
         })?
     }
 
+    /// Mark or unmark a section as a lift.
+    ///
+    /// The unmark is durable: `is_lift` is re-derived on every enrichment pass,
+    /// so the engine records an intent as well as the column. Marking it again
+    /// takes the intent back off.
+    fn set_is_lift(&self, section_id: String, is_lift: bool) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_section_is_lift(&section_id, is_lift)
+                .map_err(|msg| VeloqError::Database { msg })
+        })?
+    }
+
     fn get_named_corridors(&self) -> Result<Vec<crate::FfiNamedCorridor>, VeloqError> {
         with_engine(|e| {
             e.get_named_corridors()
@@ -341,7 +387,7 @@ impl SectionManager {
             e.exclude_activity_from_section(&section_id, &activity_id)
                 .map_err(|e| VeloqError::Database { msg: e })?;
             // Recompute indicators since exclusion changes PR/trend calculations
-            if let Err(err) = e.recompute_activity_indicators() {
+            if let Err(err) = e.recompute_indicators_for_section(&section_id) {
                 log::warn!(
                     "veloqrs: [exclude_activity] Indicator recomputation failed: {}",
                     err
@@ -356,7 +402,7 @@ impl SectionManager {
             e.include_activity_in_section(&section_id, &activity_id)
                 .map_err(|e| VeloqError::Database { msg: e })?;
             // Recompute indicators since inclusion changes PR/trend calculations
-            if let Err(err) = e.recompute_activity_indicators() {
+            if let Err(err) = e.recompute_indicators_for_section(&section_id) {
                 log::warn!(
                     "veloqrs: [include_activity] Indicator recomputation failed: {}",
                     err
@@ -379,7 +425,7 @@ impl SectionManager {
         with_engine(|e| {
             e.exclude_section_lap(&section_id, &activity_id, start_index)
                 .map_err(|e| VeloqError::Database { msg: e })?;
-            if let Err(err) = e.recompute_activity_indicators() {
+            if let Err(err) = e.recompute_indicators_for_section(&section_id) {
                 log::warn!(
                     "veloqrs: [exclude_lap] Indicator recomputation failed: {}",
                     err
@@ -398,7 +444,7 @@ impl SectionManager {
         with_engine(|e| {
             e.include_section_lap(&section_id, &activity_id, start_index)
                 .map_err(|e| VeloqError::Database { msg: e })?;
-            if let Err(err) = e.recompute_activity_indicators() {
+            if let Err(err) = e.recompute_indicators_for_section(&section_id) {
                 log::warn!(
                     "veloqrs: [include_lap] Indicator recomputation failed: {}",
                     err
@@ -416,11 +462,11 @@ impl SectionManager {
             e.section_history(&section_id)
                 .into_iter()
                 .map(|h| crate::FfiSectionHistoryEvent {
-                    id: h.id,
+                    id: h.id as f64,
                     at: h.at,
                     kind: h.kind,
                     details: h.details,
-                    geometry_version: h.geometry_version,
+                    geometry_version: h.geometry_version.map(|v| v as f64),
                 })
                 .collect()
         })
@@ -435,7 +481,7 @@ impl SectionManager {
             e.section_geometry_versions(&section_id)
                 .into_iter()
                 .map(|v| crate::FfiSectionGeometryVersion {
-                    version: v.version,
+                    version: v.version as f64,
                     created_at: v.created_at,
                     milestone: v.milestone,
                     pinned: pinned == Some(v.version),
@@ -625,7 +671,9 @@ impl SectionManager {
         custom_section_id: String,
         overlap_threshold: f64,
     ) -> Result<Vec<String>, VeloqError> {
-        with_engine_read(|e| {
+        // The write lock: `find_superseded_auto_sections` prepares a statement,
+        // which the read lock may not reach.
+        with_engine(|e| {
             e.find_superseded_auto_sections(&custom_section_id, 50.0, overlap_threshold)
         })
     }
@@ -635,25 +683,6 @@ impl SectionManager {
             e.clear_superseded(&custom_section_id)
                 .map_err(|e| VeloqError::Database { msg: e })
         })?
-    }
-
-    /// Get ALL section summaries including disabled/superseded (for restore UI).
-    fn get_all_summaries_including_hidden(
-        &self,
-        sport_type: Option<String>,
-    ) -> Result<Vec<crate::SectionSummary>, VeloqError> {
-        with_engine(|e| match sport_type {
-            Some(ref sport) => {
-                // Use the unfiltered variant
-                e.get_all_section_summaries(None)
-                    .into_iter()
-                    .filter(|s| {
-                        crate::persistence::PersistentEngine::summary_covers_sport(s, sport)
-                    })
-                    .collect()
-            }
-            None => e.get_all_section_summaries(None),
-        })
     }
 
     /// Match an activity's GPS track against all existing sections.
@@ -689,8 +718,10 @@ impl SectionManager {
                         section_id: m.section_id,
                         section_name: section.and_then(|s| s.name.clone()),
                         sport_type: section.map(|s| s.sport_type.clone()).unwrap_or_default(),
-                        start_index: m.start_index,
-                        end_index: m.end_index,
+                        // The matcher counts stream points in u64; a track long
+                        // enough to overflow u32 is 4 billion points.
+                        start_index: m.start_index as u32,
+                        end_index: m.end_index as u32,
                         match_quality: m.match_quality,
                         same_direction: m.same_direction,
                         distance_meters: distance,
@@ -785,8 +816,14 @@ impl SectionManager {
         sport_type: Option<String>,
         radius_meters: f64,
     ) -> Result<Vec<crate::FfiSectionNearPoint>, VeloqError> {
-        with_engine_read(|e| {
-            e.sections_near_point(latitude, longitude, sport_type.as_deref(), radius_meters)
+        with_reader(|conn| {
+            crate::persistence::sections::proximity::pooled::sections_near_point(
+                conn,
+                latitude,
+                longitude,
+                sport_type.as_deref(),
+                radius_meters,
+            )
         })
     }
 
@@ -794,25 +831,51 @@ impl SectionManager {
     /// have been fetched: the section, its neighbours and merge candidates,
     /// exclusions, bounds state, per-activity metrics and signatures, and the
     /// activities whose streams are still missing.
+    ///
+    /// Read through the pool, so opening the screen while a sync page commits
+    /// does not wait out the write. What the engine path answers from memory,
+    /// the count, the per-activity metrics and the section record, is loaded
+    /// from the same rows at init, so the pooled read answers off what the
+    /// memory tier is a copy of. The engine method is still the write path's,
+    /// and `screens::tests::the_pooled_section_detail_matches_the_one_a_lock_holder_gets`
+    /// holds the two to one answer.
     fn get_detail_data(
         &self,
         section_id: String,
         nearby_radius_meters: f64,
     ) -> Result<crate::FfiSectionDetailData, VeloqError> {
-        with_engine(|e| e.section_detail_data(&section_id, nearby_radius_meters))
+        with_reader(|conn| {
+            crate::persistence::screens::pooled::section_detail_data(
+                conn,
+                &section_id,
+                nearby_radius_meters,
+            )
+        })
     }
 
     /// The lap-time reads for the section detail screen: calendar summary,
     /// performance records and chart payload. Call once the streams reported
     /// by `get_detail_data` have landed.
+    ///
+    /// Read through the pool, so opening the screen while a sync page commits
+    /// does not wait out the write. Every part of the bundle is arithmetic over
+    /// one set of performances and that set is a query, so nothing here needs
+    /// the memory tier. The engine method is still the write path's, and
+    /// `screens::tests::the_pooled_section_performance_matches_the_one_a_lock_holder_gets`
+    /// holds the two to one answer.
     fn get_detail_performance(
         &self,
         section_id: String,
         time_range_days: u32,
         sport_filter: Option<String>,
     ) -> Result<crate::FfiSectionPerformanceData, VeloqError> {
-        with_engine(|e| {
-            e.section_detail_performance(&section_id, time_range_days, sport_filter.as_deref())
+        with_reader(|conn| {
+            crate::persistence::screens::pooled::section_detail_performance(
+                conn,
+                &section_id,
+                time_range_days,
+                sport_filter.as_deref(),
+            )
         })
     }
 }
@@ -821,6 +884,106 @@ impl SectionManager {
 mod tests {
     use super::*;
     use crate::test_globals::{init_global_engine, seeded_global_engine, serial_global_state};
+
+    /// Scenario: the athlete opens a section while a sync page commits. The
+    /// page holds the engine write lock for the length of its transaction and
+    /// the performance bundle used to wait it out, which is the whole screen.
+    ///
+    /// Expected behaviour: the read goes through the pool, so it is inside a
+    /// frame however long the writer holds.
+    #[test]
+    fn the_section_performance_does_not_wait_for_a_writer() {
+        use std::sync::Arc as StdArc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::time::{Duration, Instant};
+
+        /// One 60 Hz frame.
+        const FRAME_BUDGET: Duration = Duration::from_millis(16);
+        /// Long enough that a wait cannot be read as scheduling noise.
+        const WRITE_HOLD: Duration = Duration::from_millis(200);
+
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("section_perf_under_a_writer.db");
+        let manager = SectionManager::new();
+
+        let holding = StdArc::new(AtomicBool::new(false));
+        let signal = StdArc::clone(&holding);
+        let writer = std::thread::spawn(move || {
+            crate::with_persistent_engine(|_| {
+                signal.store(true, Ordering::SeqCst);
+                std::thread::sleep(WRITE_HOLD);
+            });
+        });
+        while !holding.load(Ordering::SeqCst) {
+            std::thread::yield_now();
+        }
+
+        let started = Instant::now();
+        let bundle = manager
+            .get_detail_performance("no-such-section".to_string(), 0, None)
+            .expect("the bundle reads while a writer holds the engine");
+        let waited = started.elapsed();
+
+        writer.join().expect("writer");
+        assert!(
+            bundle.performances.records.is_empty(),
+            "a section nothing traversed has no efforts, on either path"
+        );
+        assert!(
+            waited < FRAME_BUDGET,
+            "the bundle waited {waited:?} behind a writer holding for {WRITE_HOLD:?}"
+        );
+    }
+
+    /// Scenario: the athlete opens a section while a sync page commits, and the
+    /// detail bundle, the half the screen paints before its streams land, used
+    /// to wait the write out.
+    ///
+    /// Expected behaviour: the read goes through the pool, so it is inside a
+    /// frame however long the writer holds.
+    #[test]
+    fn the_section_detail_does_not_wait_for_a_writer() {
+        use std::sync::Arc as StdArc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::time::{Duration, Instant};
+
+        /// One 60 Hz frame.
+        const FRAME_BUDGET: Duration = Duration::from_millis(16);
+        /// Long enough that a wait cannot be read as scheduling noise.
+        const WRITE_HOLD: Duration = Duration::from_millis(200);
+
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("section_detail_under_a_writer.db");
+        let manager = SectionManager::new();
+
+        let holding = StdArc::new(AtomicBool::new(false));
+        let signal = StdArc::clone(&holding);
+        let writer = std::thread::spawn(move || {
+            crate::with_persistent_engine(|_| {
+                signal.store(true, Ordering::SeqCst);
+                std::thread::sleep(WRITE_HOLD);
+            });
+        });
+        while !holding.load(Ordering::SeqCst) {
+            std::thread::yield_now();
+        }
+
+        let started = Instant::now();
+        let bundle = manager
+            .get_detail_data("no-such-section".to_string(), 500.0)
+            .expect("the bundle reads while a writer holds the engine");
+        let waited = started.elapsed();
+
+        writer.join().expect("writer");
+        assert!(
+            bundle.section.is_none(),
+            "a section that is not there answers nothing, on either path"
+        );
+        assert!(
+            waited < FRAME_BUDGET,
+            "the detail bundle waited {waited:?} behind a writer holding for {WRITE_HOLD:?}"
+        );
+    }
 
     fn filter() -> crate::FfiSectionFilter {
         crate::FfiSectionFilter {
@@ -839,6 +1002,104 @@ mod tests {
                 elevation: None,
             })
             .collect()
+    }
+
+    /// Scenario: the athlete opens a ride's sections while a sync page
+    /// commits, which is the list every detail screen draws.
+    ///
+    /// Expected behaviour: the filtered list comes back inside a frame,
+    /// because it reads through the pool and never asks for the engine lock
+    /// the writer holds.
+    #[test]
+    fn the_sections_list_does_not_wait_for_a_writer() {
+        use std::sync::Arc as StdArc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::time::{Duration, Instant};
+
+        /// One 60 Hz frame.
+        const FRAME_BUDGET: Duration = Duration::from_millis(16);
+        /// Long enough that a wait cannot be read as scheduling noise.
+        const WRITE_HOLD: Duration = Duration::from_millis(200);
+
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("sections_under_a_writer.db");
+        let sections = SectionManager::new();
+
+        let holding = StdArc::new(AtomicBool::new(false));
+        let signal = StdArc::clone(&holding);
+        let writer = std::thread::spawn(move || {
+            crate::with_persistent_engine(|_| {
+                signal.store(true, Ordering::SeqCst);
+                std::thread::sleep(WRITE_HOLD);
+            });
+        });
+        while !holding.load(Ordering::SeqCst) {
+            std::thread::yield_now();
+        }
+
+        let mut by_activity = filter();
+        by_activity.activity_id = Some("a1".to_string());
+
+        let started = Instant::now();
+        let listed = sections
+            .get_sections(by_activity)
+            .expect("the list reads while a writer holds the engine");
+        let waited = started.elapsed();
+
+        assert!(listed.is_empty(), "nothing is seeded");
+        assert!(
+            waited < FRAME_BUDGET,
+            "the sections list waited {waited:?} behind a writer, which is over a frame"
+        );
+
+        writer.join().expect("writer");
+    }
+
+    /// Scenario: the athlete opens a section while a sync page commits, and
+    /// the performance read is the whole screen.
+    ///
+    /// Expected behaviour: it comes back inside a frame, because it reads
+    /// through the pool and never asks for the engine lock the writer holds.
+    #[test]
+    fn the_section_performance_read_does_not_wait_for_a_writer() {
+        use std::sync::Arc as StdArc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::time::{Duration, Instant};
+
+        /// One 60 Hz frame.
+        const FRAME_BUDGET: Duration = Duration::from_millis(16);
+        /// Long enough that a wait cannot be read as scheduling noise.
+        const WRITE_HOLD: Duration = Duration::from_millis(200);
+
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("section_perf_under_a_writer.db");
+        let sections = SectionManager::new();
+
+        let holding = StdArc::new(AtomicBool::new(false));
+        let signal = StdArc::clone(&holding);
+        let writer = std::thread::spawn(move || {
+            crate::with_persistent_engine(|_| {
+                signal.store(true, Ordering::SeqCst);
+                std::thread::sleep(WRITE_HOLD);
+            });
+        });
+        while !holding.load(Ordering::SeqCst) {
+            std::thread::yield_now();
+        }
+
+        let started = Instant::now();
+        let performances = sections
+            .get_performances("s1".to_string(), None)
+            .expect("the section reads while a writer holds the engine");
+        let waited = started.elapsed();
+
+        assert!(performances.records.is_empty(), "nothing is seeded");
+        assert!(
+            waited < FRAME_BUDGET,
+            "the section performance read waited {waited:?} behind a writer, which is over a frame"
+        );
+
+        writer.join().expect("writer");
     }
 
     #[test]
@@ -869,9 +1130,8 @@ mod tests {
         );
         assert!(sections.get_excluded_laps("s1".into()).unwrap().is_empty());
         assert!(
-            sections
-                .get_all_summaries_including_hidden(None)
-                .unwrap()
+            crate::persistence::with_persistent_engine(|e| e.get_all_section_summaries(None))
+                .expect("engine")
                 .is_empty()
         );
         assert!(
@@ -982,11 +1242,11 @@ mod tests {
             "a disabled section leaves the visible list"
         );
         assert_eq!(
-            sections
-                .get_all_summaries_including_hidden(None)
-                .unwrap()
+            crate::persistence::with_persistent_engine(|e| e.get_all_section_summaries(None))
+                .expect("engine")
                 .len(),
-            1
+            1,
+            "a disabled section is still in the catalogue, it is only out of the list"
         );
         sections.enable(id.clone()).unwrap();
         assert_eq!(
@@ -1070,4 +1330,23 @@ mod tests {
         sections.include_activity(id.clone(), "a0".into()).unwrap();
         assert!(sections.get_excluded_activities(id).unwrap().is_empty());
     }
+}
+
+/// One section's performances on a pooled connection, remembered until the
+/// database moves. The key carries the sport filter, because a filtered read
+/// and an unfiltered one are different answers for the same section.
+fn pooled_performances(
+    conn: &rusqlite::Connection,
+    section_id: &str,
+    sport_type: Option<&str>,
+) -> std::sync::Arc<crate::SectionPerformanceResult> {
+    let key = match sport_type {
+        Some(sport) => format!("{}:{}", section_id, sport),
+        None => section_id.to_string(),
+    };
+    crate::persistence::read_cache::performances(&key, || {
+        crate::persistence::fitness::performances::pooled::section_performances(
+            conn, section_id, sport_type,
+        )
+    })
 }
