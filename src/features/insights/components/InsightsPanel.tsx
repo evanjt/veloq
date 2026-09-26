@@ -8,12 +8,19 @@ import { TodayBanner } from '@/features/routes/components/TodayBanner';
 import { InsightListCard } from './InsightListCard';
 import { InsightDetailSheet } from './InsightDetailSheet';
 import { InsightDebugPanel } from './InsightDebugPanel';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { TAB_BAR_SAFE_PADDING, pressable } from '@/shared/ui';
+import { formatRelativeDate } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { ActivityPattern, Insight } from '@/types';
 
 interface InsightsPanelProps {
   insights: Insight[];
+  /**
+   * The date of the last wellness sync, set only when the form cards were
+   * dropped because the window has no row. One quiet line says so rather
+   * than letting the cards vanish unexplained.
+   */
+  droppedFormSyncDate?: string | null;
   /** Today's pattern from the same insights bundle the list was built from */
   todayPattern: ActivityPattern | null;
   /**
@@ -28,6 +35,7 @@ interface InsightsPanelProps {
 
 export const InsightsPanel = React.memo(function InsightsPanel({
   insights,
+  droppedFormSyncDate,
   todayPattern,
   initialInsightId,
   onInsightOpened,
@@ -55,7 +63,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({
   return (
     <View style={styles.container} testID="insights-panel">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <Pressable onLongPress={handleLongPress} delayLongPress={800}>
+        <Pressable onLongPress={handleLongPress} delayLongPress={800} style={pressable()}>
           <TodayBanner todayPattern={todayPattern} />
         </Pressable>
         {insights.length > 0 ? (
@@ -82,6 +90,13 @@ export const InsightsPanel = React.memo(function InsightsPanel({
             </Text>
           </View>
         )}
+        {droppedFormSyncDate ? (
+          <Text style={[styles.staleForm, isDark && styles.emptyDark]} testID="insights-stale-form">
+            {t('insights.formFromLastSync', {
+              date: formatRelativeDate(droppedFormSyncDate),
+            })}
+          </Text>
+        ) : null}
       </ScrollView>
       <InsightDetailSheet
         insight={selectedInsight}
@@ -122,5 +137,12 @@ const styles = StyleSheet.create({
   },
   emptyDark: {
     color: darkColors.textSecondary,
+  },
+  staleForm: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
 });

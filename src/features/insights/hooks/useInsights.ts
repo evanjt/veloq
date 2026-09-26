@@ -4,14 +4,17 @@ import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from 'expo-router';
 
 import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
-import { useWellness } from '@/features/wellness';
+import { useStableBy } from '@/shared/app/useStableBy';
+import { useWellness, useWellnessLatestDate } from '@/features/wellness';
 
 import { useInsightsStore, computeInsightFingerprint, diffInsights } from '../store';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from '../lib/computeInsightsData';
-import type { InsightsData, SummaryCardData } from 'veloqrs';
+import { droppedFormSyncDate } from '../lib/wellnessWindow';
 import type { ActivityPattern } from '@/types';
 import type { Insight } from '../types';
 
+/** What `useWellness` hands back, without reaching into another feature for the row type. */
+type WellnessArray = ReturnType<typeof useWellness>['data'];
 /**
  * How long a recompute waits for further engine announcements before it runs.
  * Long enough to swallow a launch's burst, short enough that a real change
@@ -22,24 +25,42 @@ const RECOMPUTE_SETTLE_MS = 400;
 /**
  * Compute ranked insights from FFI data.
  *
- * When `preComputedInsightsData` is provided (from getStartupData), skips the
- * separate getInsightsData FFI call entirely. Falls back to its own deferred
- * FFI call when no pre-computed data is available (e.g., on routes tab).
+ * Makes its own deferred `getInsightsData` call. It used to take pre-computed
+ * data and a flag to suppress that call, for a caller that handed it
+ * `getStartupData`'s bundle; no caller has passed either since that path went,
+ * and the one caller left is the Insights tab.
  *
  * Uses computeInsightsFromData() - the shared pure function that can also run
  * in background tasks without React.
  */
-export function useInsights(
-  preComputedInsightsData?: InsightsData | null,
-  /** When true, never make own getInsightsData FFI call - wait for preComputedInsightsData */
-  skipOwnFfiCall = false,
-  preComputedSummaryCardData?: SummaryCardData | null
-): {
+/**
+ * What makes one wellness array the same data as the last.
+ *
+ * `useWellness` hands back a new array on every background refetch, which
+ * `refetchOnWindowFocus` makes often, and a fresh reference would recompute
+ * every insight. Only the length and the latest day's four numbers decide
+ * anything downstream, so they are the key. `undefined` is not an empty
+ * library: one is "nothing loaded yet" and the other "nothing recorded".
+ */
+function wellnessKey(data: WellnessArray): string {
+  if (data === undefined) return 'none';
+  const last = data[data.length - 1];
+  if (!last) return `${data.length}|empty`;
+  return `${data.length}|${last.id}|${last.ctl}|${last.atl}|${last.hrv}`;
+}
+
+export function useInsights(): {
   insights: Insight[];
   /** Today's pattern out of the same bundle, so no caller recomputes it */
   todayPattern: ActivityPattern | null;
   hasNewInsights: boolean;
   markAsSeen: () => void;
+  /**
+   * The last wellness sync's date, set only when the today-anchored window is
+   * empty and wellness has synced at least once, so the form cards were
+   * dropped rather than never earned.
+   */
+  droppedFormSyncDate: string | null;
 } {
   const { t } = useTranslation();
   const trigger = useEngineSubscription(['activities', 'sections']);
@@ -73,31 +94,14 @@ export function useInsights(
 
   // Get wellness data for form/TSB (from TanStack Query, not FFI)
   const { data: wellnessData } = useWellness('1m');
+  // The window is anchored on today, so a library synced a month ago answers
+  // empty and every form insight drops out. The last sync's date is what the
+  // panel says instead of leaving that silent.
+  const { data: wellnessLatestDate } = useWellnessLatestDate();
 
-  // Stabilise wellness reference - only update when the latest CTL/ATL values
-  // actually change.  useWellness returns a new array on every background
-  // refetch (refetchOnWindowFocus: true) even when data is identical, which
-  // would otherwise trigger a full insights recomputation.
-  const prevWellnessRef = useRef(wellnessData);
-  const stableWellness = useMemo(() => {
-    const prev = prevWellnessRef.current;
-    if (prev && wellnessData && prev.length === wellnessData.length) {
-      const last = wellnessData[wellnessData.length - 1];
-      const prevLast = prev[prev.length - 1];
-      if (
-        last &&
-        prevLast &&
-        last.id === prevLast.id &&
-        last.ctl === prevLast.ctl &&
-        last.atl === prevLast.atl &&
-        last.hrv === prevLast.hrv
-      ) {
-        return prev;
-      }
-    }
-    prevWellnessRef.current = wellnessData;
-    return wellnessData;
-  }, [wellnessData]);
+  // Only update when the latest CTL/ATL values actually change: the reason is
+  // on `wellnessKey`.
+  const stableWellness = useStableBy(wellnessData, wellnessKey(wellnessData));
 
   // Deferred insights computation - starts empty, populates after interactions
   const [insights, setInsights] = useState<Insight[]>([]);
@@ -123,22 +127,15 @@ export function useInsights(
       handle = InteractionManager.runAfterInteractions(() => {
         if (!isMountedRef.current) return;
 
-        // Use pre-computed data from getStartupData when available
-        let data = preComputedInsightsData;
-        let summaryData = preComputedSummaryCardData;
-        if (!data) {
-          if (skipOwnFfiCall) return;
-          const fetched = fetchInsightsDataFromEngine();
-          data = fetched?.insightsData ?? null;
-          summaryData = fetched?.summaryCardData ?? null;
-        }
+        const fetched = fetchInsightsDataFromEngine();
+        const data = fetched?.insightsData ?? null;
+        const summaryData = fetched?.summaryCardData ?? null;
 
         if (!data || !isMountedRef.current) return;
 
         // Delegate to the shared pure function
         const result = computeInsightsFromData(
           data,
-          stableWellness ?? null,
           t as (key: string, params?: Record<string, string | number>) => string,
           summaryData
         );
@@ -160,57 +157,42 @@ export function useInsights(
       clearTimeout(settle);
       handle?.cancel();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    trigger,
-    focusTrigger,
-    preComputedInsightsData,
-    preComputedSummaryCardData,
-    stableWellness,
-    t,
-  ]);
+  }, [trigger, focusTrigger, stableWellness, t]);
 
   // Stabilise reference -- only update when insight IDs actually change
-  const prevInsightsRef = useRef<Insight[]>([]);
-  const stableInsights = useMemo(() => {
-    const prevIds = prevInsightsRef.current.map((i) => i.id).join(',');
-    const newIds = insights.map((i) => i.id).join(',');
-    if (prevIds === newIds) return prevInsightsRef.current;
-    prevInsightsRef.current = insights;
-    return insights;
-  }, [insights]);
+  const stableInsights = useStableBy(insights, insights.map((i) => i.id).join(','));
 
-  // Compute fingerprint + diff once, reuse in both memo and effect
-  const lastComputedRef = useRef<{ fingerprint: string; changed: Set<string> }>({
-    fingerprint: '',
-    changed: new Set(),
-  });
-
-  // Annotate isNew based on fingerprint diffing
-  const annotatedInsights = useMemo(() => {
+  // The fingerprint and the diff are computed once and both the annotated list
+  // and the flag below read them. They were written to a ref inside this memo,
+  // which a discarded render also writes, so the effect could read a fingerprint
+  // the committed tree never had.
+  const annotated = useMemo(() => {
     if (stableInsights.length === 0) {
-      lastComputedRef.current = { fingerprint: '', changed: new Set() };
-      return stableInsights;
+      return { insights: stableInsights, fingerprint: '', changed: new Set<string>() };
     }
-    const currentFingerprint = computeInsightFingerprint(stableInsights);
+    const fingerprint = computeInsightFingerprint(stableInsights);
     const changed =
-      currentFingerprint === lastSeenFingerprint
+      fingerprint === lastSeenFingerprint
         ? new Set<string>()
         : diffInsights(stableInsights, lastSeenFingerprint);
-    lastComputedRef.current = { fingerprint: currentFingerprint, changed };
-    if (changed.size === 0) return stableInsights;
-    return stableInsights.map((i) => (changed.has(i.id) ? { ...i, isNew: true } : i));
+    const insights =
+      changed.size === 0
+        ? stableInsights
+        : stableInsights.map((i) => (changed.has(i.id) ? { ...i, isNew: true } : i));
+    return { insights, fingerprint, changed };
   }, [stableInsights, lastSeenFingerprint]);
+
+  const annotatedInsights = annotated.insights;
 
   // Update hasNewInsights flag - reuse fingerprint/diff from above
   useEffect(() => {
-    const { fingerprint, changed } = lastComputedRef.current;
-    if (annotatedInsights.length === 0 || fingerprint === lastSeenFingerprint) {
+    const { fingerprint, changed } = annotated;
+    if (annotated.insights.length === 0 || fingerprint === lastSeenFingerprint) {
       setNewInsights(new Set());
     } else {
       setNewInsights(changed);
     }
-  }, [annotatedInsights, lastSeenFingerprint, setNewInsights]);
+  }, [annotated, lastSeenFingerprint, setNewInsights]);
 
   // markAsSeen stores the current fingerprint
   const markAsSeen = useMemo(
@@ -223,5 +205,6 @@ export function useInsights(
     todayPattern,
     hasNewInsights,
     markAsSeen,
+    droppedFormSyncDate: droppedFormSyncDate(wellnessData, wellnessLatestDate),
   };
 }

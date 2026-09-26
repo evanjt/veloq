@@ -6,6 +6,7 @@ import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 import { getLastInsightOutcome } from '../lib/generateInsights';
+import { pressable } from '@/shared/ui';
 
 interface Props {
   visible: boolean;
@@ -41,7 +42,7 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
       <View style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: textColor }]}>Insight pipeline debug</Text>
-          <Pressable onPress={onClose} style={styles.closeBtn}>
+          <Pressable onPress={onClose} style={pressable(styles.closeBtn)}>
             <Text style={{ color: textColor, fontSize: typography.bodyMedium.fontSize }}>
               Close
             </Text>
@@ -148,6 +149,6 @@ const styles = StyleSheet.create({
   row: {
     fontFamily: 'monospace',
     fontSize: typography.label.fontSize,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
 });

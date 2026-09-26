@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Insight } from '@/types';
+import type { Insight, InsightCategory } from '@/features/insights/types';
 import { SectionPRContent } from './SectionPRContent';
 import { SectionTrendContent } from './SectionTrendContent';
 import { StalePRContent } from './StalePRContent';
@@ -9,43 +9,46 @@ import { FitnessMilestoneContent } from './FitnessMilestoneContent';
 import { EfficiencyTrendContent } from './EfficiencyTrendContent';
 import { SupportingDataSection } from '../SupportingDataSection';
 
-interface InsightDetailContentProps {
+interface InsightContentProps {
   insight: Insight;
 }
 
+/** The flat list, for a category with no screen of its own. */
+function SupportingDataOnly({ insight }: InsightContentProps) {
+  if (!insight.supportingData) return null;
+  return <SupportingDataSection data={insight.supportingData} />;
+}
+
+/**
+ * The component each category opens.
+ *
+ * Keyed on category alone. The dispatch used to key `section_pr` and then split
+ * inside that case on an id prefix, so `section_trend`, which is what the trend
+ * generator emits, had no case at all and every trend card fell through to the
+ * flat list. `Record` over the union is what stops that returning: a category
+ * added without a screen does not compile.
+ */
+export const CONTENT_BY_CATEGORY: Record<
+  InsightCategory,
+  React.ComponentType<InsightContentProps>
+> = {
+  section_pr: SectionPRContent,
+  section_trend: SectionTrendContent,
+  stale_pr: StalePRContent,
+  fitness_milestone: FitnessMilestoneContent,
+  period_comparison: PeriodComparisonContent,
+  hrv_trend: HrvTrendContent,
+  efficiency_trend: EfficiencyTrendContent,
+  strength_progression: SupportingDataOnly,
+  strength_balance: SupportingDataOnly,
+  // Carries no supporting data, so this renders nothing between the body and
+  // the method block. That is the screen as designed, not a missing case.
+  section_changed: SupportingDataOnly,
+};
+
 export const InsightDetailContent = React.memo(function InsightDetailContent({
   insight,
-}: InsightDetailContentProps) {
-  switch (insight.category) {
-    case 'section_pr': {
-      // Actual PRs start with 'section_pr-', trends/summaries start with 'section_trend-' or 'rest_day-'
-      const isActualPR = insight.id.startsWith('section_pr-');
-      if (isActualPR) {
-        return <SectionPRContent insight={insight} />;
-      }
-      return <SectionTrendContent insight={insight} />;
-    }
-    case 'hrv_trend':
-      return <HrvTrendContent insight={insight} />;
-    case 'period_comparison':
-      return <PeriodComparisonContent insight={insight} />;
-    case 'fitness_milestone':
-      return <FitnessMilestoneContent insight={insight} />;
-    case 'stale_pr':
-      return <StalePRContent insight={insight} />;
-    case 'efficiency_trend':
-      return <EfficiencyTrendContent insight={insight} />;
-    case 'strength_progression':
-    case 'strength_balance':
-      if (insight.supportingData) {
-        return <SupportingDataSection data={insight.supportingData} />;
-      }
-      return null;
-    default:
-      // Fallback: render existing SupportingDataSection for unhandled categories
-      if (insight.supportingData) {
-        return <SupportingDataSection data={insight.supportingData} />;
-      }
-      return null;
-  }
+}: InsightContentProps) {
+  const Content = CONTENT_BY_CATEGORY[insight.category] ?? SupportingDataOnly;
+  return <Content insight={insight} />;
 });

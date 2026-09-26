@@ -2,18 +2,49 @@ import type {
   InsightMethodology,
   InsightSupportingData,
   Insight,
+  PeriodComparison,
   PeriodStats,
   TFunc,
+  SeriesPoint,
 } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
-import { INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
-import { insightIcon } from '@/theme';
+import { ACTIVE_WINDOW_DAYS, INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
 import { formatDurationCompact } from '@/shared/format/format';
+import { fitnessTarget, rangeCovering } from '@/shared/app/fitnessEntry';
+import { sparkline } from '../lib/sparkline';
+
+/** A week against the week before it. */
+const WEEK_OVER_WEEK_DAYS = 14;
+
+/** A week against the four weeks before it, so the whole span is five. */
+const WEEK_AGAINST_CHRONIC_DAYS = ACTIVE_WINDOW_DAYS + 7;
+
+/**
+ * The chronic weeks as the points a strip is drawn from, in the unit the
+ * comparison is stated in. Dated at the engine's own week boundaries would be
+ * better, but the bundle sends totals rather than ranges, so the index stands
+ * in: the strip is a shape and not a timeline.
+ */
+function weeklySeries(weeks: PeriodStats[] | undefined, useTss: boolean): SeriesPoint[] {
+  if (!weeks) return [];
+  return weeks.map((week, at) => ({
+    value: displayValue(useTss ? week.totalTss : week.totalDuration, useTss),
+    date: at,
+  }));
+}
+
+/** A comparison's own value as the card shows it: TSS as it stands, seconds as minutes. */
+function displayValue(value: number, useTss: boolean): number {
+  return Math.round(useTss ? value : value / 60);
+}
 
 export function generatePeriodComparisonInsights(
   currentPeriod: PeriodStats | null,
   previousPeriod: PeriodStats | null,
   chronicPeriod: PeriodStats | null | undefined,
+  chronicWeeks: PeriodStats[] | undefined,
+  weekOverWeek: PeriodComparison | null | undefined,
+  weekAgainstChronic: PeriodComparison | null | undefined,
   now: number,
   t: TFunc
 ): Insight[] {
@@ -22,19 +53,20 @@ export function generatePeriodComparisonInsights(
   if (!cur || !prev) return [];
 
   if (cur.count === 0) {
-    return generateLastWeekVsAverageInsight(prev, chronicPeriod ?? null, now, t);
+    return generateLastWeekVsAverageInsight(
+      prev,
+      chronicPeriod ?? null,
+      weekAgainstChronic ?? null,
+      now,
+      t
+    );
   }
 
-  const useTss = prev.totalTss > 0 && cur.totalTss > 0;
-  const curValue = useTss ? cur.totalTss : cur.totalDuration;
-  const prevValue = useTss ? prev.totalTss : prev.totalDuration;
+  if (!weekOverWeek) return [];
 
-  if (prevValue <= 0) return [];
-
-  const ratio = curValue / prevValue - 1;
+  const useTss = weekOverWeek.metric === 'tss';
+  const ratio = weekOverWeek.ratio;
   const percent = Math.round(Math.abs(ratio) * 100);
-
-  if (curValue === 0) return [];
 
   const body = useTss
     ? t('insights.loadBody', {
@@ -61,15 +93,18 @@ export function generatePeriodComparisonInsights(
   };
 
   const comparisonSupportingData: InsightSupportingData = {
+    // The four weeks behind the chronic total, in whichever unit the
+    // comparison is stated in, so the strip and the numbers agree.
+    ...sparkline(weeklySeries(chronicWeeks, useTss), t('insights.data.weeklyLoad')),
     comparisonData: {
       current: {
         label: t('insights.data.thisWeek'),
-        value: useTss ? Math.round(cur.totalTss) : Math.round(cur.totalDuration / 60),
+        value: displayValue(weekOverWeek.current, useTss),
         unit: useTss ? 'TSS' : 'min',
       },
       previous: {
         label: t('insights.data.lastWeek'),
-        value: useTss ? Math.round(prev.totalTss) : Math.round(prev.totalDuration / 60),
+        value: displayValue(weekOverWeek.previous, useTss),
         unit: useTss ? 'TSS' : 'min',
       },
       change: {
@@ -103,10 +138,13 @@ export function generatePeriodComparisonInsights(
         category: 'period_comparison',
         priority: 2,
         icon: 'trending-up',
-        iconColor: insightIcon.positive,
+        iconTone: 'positive',
         title: t(upKey, { percent }),
         body,
-        navigationTarget: '/insights?tab=routes',
+        // A comparison is a picture of a fitness window, so it opens that
+        // window. It used to open the Insights tab, which is where the sheet
+        // was opened from, so the tap read as doing nothing.
+        navigationTarget: fitnessTarget({ range: rangeCovering(WEEK_OVER_WEEK_DAYS) }),
         timestamp: now,
         confidence: periodConfidence,
         methodology: comparisonMethodology,
@@ -121,10 +159,13 @@ export function generatePeriodComparisonInsights(
         category: 'period_comparison',
         priority: 2,
         icon: 'trending-down',
-        iconColor: insightIcon.caution,
+        iconTone: 'negative',
         title: t(downKey, { percent }),
         body,
-        navigationTarget: '/insights?tab=routes',
+        // A comparison is a picture of a fitness window, so it opens that
+        // window. It used to open the Insights tab, which is where the sheet
+        // was opened from, so the tap read as doing nothing.
+        navigationTarget: fitnessTarget({ range: rangeCovering(WEEK_OVER_WEEK_DAYS) }),
         timestamp: now,
         confidence: periodConfidence,
         methodology: comparisonMethodology,
@@ -140,18 +181,14 @@ export function generatePeriodComparisonInsights(
 function generateLastWeekVsAverageInsight(
   prev: PeriodStats,
   chronic: PeriodStats | null,
+  comparison: PeriodComparison | null,
   now: number,
   t: TFunc
 ): Insight[] {
-  if (prev.count === 0 || !chronic) return [];
+  if (prev.count === 0 || !chronic || !comparison) return [];
 
-  const useTss = prev.totalTss > 0 && chronic.totalTss > 0;
-  const prevValue = useTss ? prev.totalTss : prev.totalDuration;
-  const avgValue = useTss ? chronic.totalTss : chronic.totalDuration;
-
-  if (avgValue <= 0 || prevValue <= 0) return [];
-
-  const ratio = prevValue / avgValue - 1;
+  const useTss = comparison.metric === 'tss';
+  const ratio = comparison.ratio;
   const percent = Math.round(Math.abs(ratio) * 100);
   if (percent < Math.round(INSIGHTS_CONFIG.thresholds.volumeChangePct * 100)) return [];
 
@@ -163,9 +200,9 @@ function generateLastWeekVsAverageInsight(
       category: 'period_comparison',
       priority: 2,
       icon: ratio > 0 ? 'trending-up' : 'trending-down',
-      iconColor: ratio > 0 ? insightIcon.positive : insightIcon.caution,
+      iconTone: ratio > 0 ? 'positive' : 'negative',
       title: t('insights.weeklyLoad.title', { percent, direction }),
-      navigationTarget: '/insights?tab=routes',
+      navigationTarget: fitnessTarget({ range: rangeCovering(WEEK_AGAINST_CHRONIC_DAYS) }),
       timestamp: now,
       // A week against a chronic average: the week's activities plus the ones
       // the average was built from.
@@ -178,12 +215,12 @@ function generateLastWeekVsAverageInsight(
         comparisonData: {
           current: {
             label: t('insights.data.lastWeek'),
-            value: useTss ? Math.round(prev.totalTss) : Math.round(prev.totalDuration / 60),
+            value: displayValue(comparison.current, useTss),
             unit: useTss ? 'TSS' : 'min',
           },
           previous: {
             label: t('insights.data.fourWeekAvgTss'),
-            value: useTss ? Math.round(chronic.totalTss) : Math.round(chronic.totalDuration / 60),
+            value: displayValue(comparison.previous, useTss),
             unit: useTss ? 'TSS' : 'min',
           },
           change: {

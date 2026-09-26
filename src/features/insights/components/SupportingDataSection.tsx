@@ -6,15 +6,55 @@ import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, shadows, ink, layout, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  opacity,
+  shadows,
+  ink,
+  layout,
+  typography,
+  verdictColor,
+  colorWithOpacity,
+} from '@/theme';
 import { DataPointRow } from './DataPointRow';
 import { formatDuration } from '@/shared/format/format';
 import type { InsightSupportingData } from '@/types';
+import { pressable } from '@/shared/ui';
+import { TrackPreview, normalizeTrackPoints } from '@/shared/ui/TrackPreview';
 
 const SPARKLINE_HEIGHT = 60;
 
 interface SupportingDataSectionProps {
   data: InsightSupportingData;
+}
+
+/**
+ * The section the record was set on, as a thumbnail. A name like "Section 6"
+ * says nothing about which stretch of road it is, and the engine hands the
+ * line over with the row rather than the card reading geometry of its own.
+ */
+function SectionPreview({
+  sectionId,
+  points,
+}: {
+  sectionId: string;
+  points?: { lat: number; lng: number }[];
+}) {
+  const { isDark } = useTheme();
+  const normalised = useMemo(() => normalizeTrackPoints(points ?? []), [points]);
+  if (normalised.length < 2) return null;
+  return (
+    <View style={styles.sectionPreview}>
+      <TrackPreview
+        testID={`section-preview-${sectionId}`}
+        points={normalised}
+        color={colors.primary}
+        isDark={isDark}
+      />
+    </View>
+  );
 }
 
 function getTrendIcon(trend?: number): string {
@@ -24,11 +64,14 @@ function getTrendIcon(trend?: number): string {
   return 'minus';
 }
 
+// A rise and a fall are the two polarity rungs. This used to answer a fall
+// with `colors.warning` while the sparkline below answered the same fall with
+// `colors.error`, so one panel drew one verdict in two colours.
 function getTrendColor(trend?: number, isDark?: boolean): string {
-  if (trend == null) return isDark ? darkColors.textSecondary : colors.textSecondary;
-  if (trend > 0) return colors.success;
-  if (trend < 0) return colors.warning;
-  return isDark ? darkColors.textSecondary : colors.textSecondary;
+  if (trend == null) return verdictColor('neutral', !!isDark);
+  if (trend > 0) return verdictColor('positive', !!isDark);
+  if (trend < 0) return verdictColor('negative', !!isDark);
+  return verdictColor('neutral', !!isDark);
 }
 
 function computeSparklineTrend(data: number[]): { direction: string; change: string } {
@@ -97,10 +140,10 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
   );
 
   const trendColor = useMemo(() => {
-    if (!sparklineTrend) return colors.success;
-    if (sparklineTrend.direction === 'trending-up') return colors.success;
-    if (sparklineTrend.direction === 'trending-down') return colors.error;
-    return isDark ? darkColors.textSecondary : colors.textSecondary;
+    if (!sparklineTrend) return verdictColor('positive', isDark);
+    if (sparklineTrend.direction === 'trending-up') return verdictColor('positive', isDark);
+    if (sparklineTrend.direction === 'trending-down') return verdictColor('negative', isDark);
+    return verdictColor('neutral', isDark);
   }, [sparklineTrend, isDark]);
 
   return (
@@ -129,8 +172,12 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
                 <Text
                   style={[
                     styles.sparklineChange,
-                    sparklineTrend.direction === 'trending-up' && styles.sparklinePositive,
-                    sparklineTrend.direction === 'trending-down' && styles.sparklineNegative,
+                    sparklineTrend.direction === 'trending-up' && {
+                      color: verdictColor('positive', isDark),
+                    },
+                    sparklineTrend.direction === 'trending-down' && {
+                      color: verdictColor('negative', isDark),
+                    },
                   ]}
                 >
                   {sparklineTrend.change}
@@ -191,19 +238,19 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
               size={16}
               color={
                 comparison.change.context === 'good'
-                  ? colors.success
+                  ? verdictColor('positive', isDark)
                   : comparison.change.context === 'concern'
-                    ? colors.error
-                    : isDark
-                      ? darkColors.textSecondary
-                      : colors.textSecondary
+                    ? verdictColor('negative', isDark)
+                    : verdictColor('neutral', isDark)
               }
             />
             <Text
               style={[
                 styles.comparisonChangeText,
-                comparison.change.context === 'good' && styles.changePositive,
-                comparison.change.context === 'concern' && styles.changeNegative,
+                comparison.change.context === 'good' && { color: verdictColor('positive', isDark) },
+                comparison.change.context === 'concern' && {
+                  color: verdictColor('negative', isDark),
+                },
               ]}
             >
               {String(comparison.change.value)}
@@ -219,9 +266,10 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
           {sections.map((section) => (
             <Pressable
               key={section.sectionId}
-              style={[styles.sectionCard, isDark && styles.sectionCardDark]}
+              style={pressable([styles.sectionCard, isDark && styles.sectionCardDark])}
               onPress={() => navigateTo(`/section/${section.sectionId}`)}
             >
+              <SectionPreview sectionId={section.sectionId} points={section.previewPoints} />
               <View style={styles.sectionContent}>
                 <Text
                   style={[styles.sectionName, isDark && styles.sectionNameDark]}
@@ -335,12 +383,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
   },
-  sparklinePositive: {
-    color: colors.success,
-  },
-  sparklineNegative: {
-    color: colors.error,
-  },
   // Comparison
   comparisonCard: {
     borderRadius: layout.borderRadiusMd,
@@ -352,10 +394,10 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   comparisonPositive: {
-    backgroundColor: 'rgba(34, 197, 94, 0.08)',
+    backgroundColor: colorWithOpacity(colors.success, 0.08),
   },
   comparisonNegative: {
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    backgroundColor: colorWithOpacity(colors.warning, 0.08),
   },
   comparisonColumns: {
     flexDirection: 'row',
@@ -393,7 +435,7 @@ const styles = StyleSheet.create({
   comparisonLabel: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   comparisonLabelDark: {
     color: darkColors.textSecondary,
@@ -409,12 +451,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
-  },
-  changePositive: {
-    color: colors.success,
-  },
-  changeNegative: {
-    color: colors.error,
   },
   // Sections
   sectionsContainer: {
@@ -435,6 +471,9 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surfaceCard,
     borderColor: darkColors.border,
     ...shadows.none,
+  },
+  sectionPreview: {
+    marginRight: spacing.sm,
   },
   sectionContent: {
     flex: 1,

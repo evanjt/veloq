@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Canvas, Path, Circle } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
-import { colors, opacity, ink, layout } from '@/theme';
+import { colors, opacity, ink, layout, colorWithOpacity } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { RoutePoint } from '@/types';
 import type { LayoutChangeEvent } from 'react-native';
@@ -103,21 +103,24 @@ export const SectionInsightMap = React.memo(function SectionInsightMap({
     };
   }, [polyline, mapWidth]);
 
-  if (polyline.length < 2 || !linePath) return null;
+  const drawablePoints = polyline.filter(
+    (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
+  ).length;
+  if (drawablePoints < 2) return null;
 
   const bgColor = isDark ? opacity.overlayDark.light : opacity.overlay.subtle;
 
   return (
     <ChartErrorBoundary height={MAP_HEIGHT}>
       <View style={[styles.container, { backgroundColor: bgColor }]} onLayout={onMapLayout}>
-        {mapWidth > 0 ? (
+        {linePath ? (
           <Canvas style={{ width: mapWidth, height: MAP_HEIGHT }}>
             {/* Route line shadow */}
             <Path
               path={linePath}
               style="stroke"
               strokeWidth={5}
-              color={isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.12)'}
+              color={colorWithOpacity(ink.black, isDark ? 0.4 : 0.12)}
               strokeCap="round"
               strokeJoin="round"
             />
@@ -153,6 +156,7 @@ export const SectionInsightMap = React.memo(function SectionInsightMap({
 
 const styles = StyleSheet.create({
   container: {
+    height: MAP_HEIGHT,
     borderRadius: layout.borderRadiusMd,
     overflow: 'hidden',
     alignItems: 'center',

@@ -8,13 +8,14 @@
  */
 
 import type { Insight, InsightMeta, InsightMethodology, InsightSupportingData } from '../types';
+import type { InsightTone } from '@/theme';
 
 export interface InsightFields {
   id: string;
   category: Insight['category'];
   priority: Insight['priority'];
   icon: string;
-  iconColor: string;
+  iconTone: InsightTone;
   title: string;
   subtitle?: string;
   body?: string;

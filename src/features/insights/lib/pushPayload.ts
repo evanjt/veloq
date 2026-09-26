@@ -115,7 +115,10 @@ export function tapTargetFromPushData(data: unknown): PushTapTarget | null {
   for (const { obj } of unwrappings(outer)) {
     if (!obj) continue;
     const activityId = text(obj.activityId) ?? text(obj.activity_id);
-    if (activityId) return { path: `/activity/${activityId}`, mode: 'push' };
+    // The summary, not the detail. The push's whole point is the sentence it
+    // carries, and until this screen existed the tap landed on four tabs of
+    // charts that never repeat the claim, so the athlete could not check it.
+    if (activityId) return { path: `/summary/${activityId}`, mode: 'push' };
     const sectionId = text(obj.sectionId) ?? text(obj.section_id);
     if (sectionId) return { path: `/section/${sectionId}`, mode: 'push' };
     const route = text(obj.route);

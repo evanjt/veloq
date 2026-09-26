@@ -1,8 +1,8 @@
 import { formatDuration } from '@/shared/format/format';
-import { brand } from '@/theme/colors';
 import type { Insight, SectionPR, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom, maxPerCategoryFor } from '../lib/config';
+import { sparkline } from '../lib/sparkline';
 
 const DAY_MS = 86_400_000;
 
@@ -25,7 +25,7 @@ export function generateSectionPRInsights(
         category: 'section_pr',
         priority: 1,
         icon: 'trophy-outline',
-        iconColor: brand.gold,
+        iconTone: 'record',
         title: t('insights.sectionPr', { name: pr.sectionName }),
         subtitle: t('insights.sectionPrSubtitle', {
           time: formatDuration(pr.bestTime),
@@ -35,11 +35,19 @@ export function generateSectionPRInsights(
         timestamp: now,
         confidence: confidenceFrom('section_pr', pr.traversalCount),
         supportingData: {
+          // What the card draws: the efforts the engine already held when it
+          // found the record, oldest first. Nothing is derived here.
+          ...sparkline(pr.recentEfforts, t('insights.data.recentEfforts')),
           sections: [
             {
               sectionId: pr.sectionId,
               sectionName: pr.sectionName,
               bestTime: pr.bestTime,
+              // The record's sport, not the section's: the sheet's icon reads
+              // this and a run on a much-ridden climb drew a bicycle.
+              sportType: pr.sportType,
+              traversalCount: pr.traversalCount,
+              previewPoints: pr.previewPoints,
             },
           ],
           dataPoints: [

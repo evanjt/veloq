@@ -5,7 +5,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { useSectionPerformances } from '@/features/routes/hooks/useSectionPerformances';
-import { getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { findPreviousBest } from '@/features/insights/lib/previousBest';
+import { cardSportType } from '@/features/insights/lib/cardSport';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { Shimmer } from '@/shared/ui/Shimmer';
 import { SectionInsightMap } from './SectionInsightMap';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
@@ -13,7 +15,6 @@ import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration, formatShortDate } from '@/shared/format/format';
 import { colors, darkColors, spacing, opacity, brand, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
-import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 const ACCENT_COLOR = brand.gold;
 
@@ -21,34 +22,21 @@ interface SectionPRContentProps {
   insight: Insight;
 }
 
-/**
- * Compute the second-best time from all records (the "previous best" before the current PR).
- * Returns the record with the second-lowest bestTime, excluding the PR record.
- */
-function findPreviousBest(
-  records: SectionPerformanceRecord[],
-  bestRecord: SectionPerformanceRecord | null
-): SectionPerformanceRecord | null {
-  if (!bestRecord || records.length < 2) return null;
-  let secondBest: SectionPerformanceRecord | null = null;
-  for (const r of records) {
-    if (r.activityId === bestRecord.activityId) continue;
-    if (!secondBest || r.bestTime < secondBest.bestTime) {
-      secondBest = r;
-    }
-  }
-  return secondBest;
-}
-
 export const SectionPRContent = React.memo(function SectionPRContent({
   insight,
 }: SectionPRContentProps) {
   const { isDark } = useTheme();
-  const sectionId = insight.supportingData?.sections?.[0]?.sectionId ?? null;
-  const { section } = useSectionDetail(sectionId);
-  const { records, bestRecord, isLoading } = useSectionPerformances(section);
-
   const prData = insight.supportingData?.sections?.[0];
+  const sectionId = prData?.sectionId ?? null;
+  const { section } = useSectionDetail(sectionId);
+  // The record's sport, so the timeline, the effort count, the percentile and
+  // the previous best all stand on the rows the record was set against. Read
+  // unfiltered, a ride PR on ground that is also run opened on the runs.
+  const { records, bestRecord, isLoading } = useSectionPerformances(section, prData?.sportType);
+
+  // The record's sport, not the section's: shared ground holds a record in
+  // each sport that travels it.
+  const sportType = cardSportType(prData?.sportType, section?.sportType);
   const bestTime = bestRecord?.bestTime ?? prData?.bestTime ?? null;
   const bestTimeFormatted = bestTime != null ? formatDuration(bestTime) : null;
   const effortCount = records.length > 0 ? records.length : undefined;
@@ -89,9 +77,9 @@ export const SectionPRContent = React.memo(function SectionPRContent({
           {/* Section name */}
           {prData?.sectionName ? (
             <View style={styles.sectionTitleRow}>
-              {section?.sportType ? (
+              {sportType ? (
                 <MaterialCommunityIcons
-                  name={getActivityIcon(section.sportType)}
+                  name={getActivityIcon(sportType)}
                   size={14}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                   style={styles.sportIcon}
@@ -192,10 +180,10 @@ const styles = StyleSheet.create({
   sectionTitleRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   sportIcon: {
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   sectionTitle: {
     fontSize: typography.bodySmall.fontSize,
@@ -240,8 +228,8 @@ const styles = StyleSheet.create({
   contextChip: {
     backgroundColor: opacity.overlay.light,
     borderRadius: layout.borderRadiusMd,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
   },
   contextChipDark: {
     backgroundColor: opacity.overlayDark.medium,

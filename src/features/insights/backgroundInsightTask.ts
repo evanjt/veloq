@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { debug } from '@/shared/debug/debug';
 import {
@@ -10,15 +10,15 @@ import {
 } from '@/features/settings/lib/notificationService';
 import type { NotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 
-import { buildActivityNotification } from './lib/activityNotificationBody';
-import type { ActivityInfo } from './lib/activityNotificationBody';
+import { pushNotificationTemplates } from '@/i18n/notificationTemplates';
+import type { ActivityInfo } from './lib/activityHighlight';
 import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import { extractPushPayload } from './lib/pushPayload';
 import { replaceActivityTrayEntry, trayActionFor } from './lib/traySweep';
 import { appendTaskRun } from './lib/taskRunLog';
 import { awaitActivityBody } from './lib/awaitActivityBody';
+import { writeRouteLineAttachment } from './lib/routeLineImage';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
-import type { WellnessInput } from './lib/computeInsightsData';
 import {
   filterInsightsForNotificationPreferences,
   formatInsightNotification,
@@ -57,9 +57,6 @@ async function appendPushHistory(ts: number): Promise<void> {
     log.warn('Could not persist push history:', e);
   }
 }
-
-/** Wellness window the insight generators need, matching the app's '1m' range. */
-const WELLNESS_WINDOW_DAYS = 30;
 
 /** Max time to wait for GPS download (15 seconds) */
 const GPS_DOWNLOAD_TIMEOUT_MS = 15_000;
@@ -115,7 +112,7 @@ async function waitForRunResult(
 
 /**
  * Attach a freshly ingested activity to existing sections and route groups so
- * its PRs are available when buildActivityNotification queries the engine.
+ * its PRs are available when the engine is asked what the activity was worth.
  * Cheap (one activity vs existing sections, incremental regroup) so it fits
  * the background push budget where a full O(N²) detection cannot. New sections
  * the activity might create wait for the next full detection run.
@@ -145,6 +142,25 @@ async function indexActivity(
       activityId,
       detail: `failed: ${e instanceof Error ? e.message : String(e)}`,
     });
+  }
+}
+
+/**
+ * Draw the route line the enriched notification carries beside its text.
+ * iOS only: a locally scheduled notification on Android resolves its image to
+ * the static large icon, so there is nothing for the file to attach to.
+ * Returns null whenever the picture cannot be made, which never blocks the
+ * notification itself.
+ */
+async function drawRouteLine(activityId: string): Promise<string | null> {
+  if (Platform.OS !== 'ios') return null;
+  try {
+    const { engine, decodeCoords } = require('veloqrs');
+    const points = decodeCoords(engine.getGpsTrack(activityId));
+    return await writeRouteLineAttachment(activityId, points.length > 0 ? points : null);
+  } catch (e) {
+    log.warn('Route picture could not be drawn:', e);
+    return null;
   }
 }
 
@@ -190,7 +206,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
     // a pointless 150–15000ms network roundtrip.
     const alreadyIngested = (() => {
       try {
-        return engine.getActivityIds().includes(activityId);
+        return engine.hasActivity(activityId);
       } catch {
         return false;
       }
@@ -223,7 +239,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       log.warn(`GPS ingest timed out after ${GPS_DOWNLOAD_TIMEOUT_MS}ms for ${activityId}`);
     }
     if (result && result.successCount > 0) {
-      const { toActivityMetrics } = require('@/features/activity/lib/activityMetrics');
+      const { toActivityMetrics } = require('@/shared/activity/activityMetrics');
       engine.setActivityMetrics([toActivityMetrics(activity)]);
       engine.triggerRefresh('activities');
       activityInfo.ingested = true;
@@ -333,39 +349,12 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       });
     }
 
-    // 6. Read wellness from the engine, refreshed by the sync above
-    let wellnessData: WellnessInput[] | null = null;
-    try {
-      const { engine } = require('veloqrs');
-      const newest = new Date();
-      const oldest = new Date(newest);
-      oldest.setDate(oldest.getDate() - WELLNESS_WINDOW_DAYS);
-      const bodies: string[] = engine.getWellnessBodies(
-        oldest.toISOString().split('T')[0],
-        newest.toISOString().split('T')[0]
-      );
-      wellnessData = bodies
-        .map((body) => {
-          try {
-            return JSON.parse(body) as WellnessInput;
-          } catch {
-            return null;
-          }
-        })
-        .filter((row): row is WellnessInput => row !== null);
-    } catch (e) {
-      log.warn('Could not read wellness data:', e);
-    }
-
-    // 7. Generate insights (now includes new activity if ingested)
+    // 6. Generate insights (now includes new activity if ingested). Form rides
+    // the bundle, read off the wellness the sync above refreshed, so there is
+    // no second read of a month of rows here.
     const enginePayload = fetchInsightsDataFromEngine();
     const insights = enginePayload
-      ? computeInsightsFromData(
-          enginePayload.insightsData,
-          wellnessData,
-          t,
-          enginePayload.summaryCardData
-        )
+      ? computeInsightsFromData(enginePayload.insightsData, t, enginePayload.summaryCardData)
       : [];
 
     // 7b. Refresh the home-screen widget - the engine already holds the newly
@@ -390,21 +379,36 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       // An ingest that failed has no name, and an empty body is how that
       // reaches the tray decision below rather than as the notification's own
       // title repeated back to the athlete.
-      const { title, body } = buildActivityNotification(
+      // The ladder and the templates are the engine's, so the sentence a
+      // native handler builds and the one this builds are the same sentence.
+      // The templates are pushed here too: the headless task runs in a process
+      // that may never have been through `initializeApp`, and this is the last
+      // point that still has i18next to resolve one.
+      pushNotificationTemplates();
+      // Lazily required like every other engine reach in this file, to keep
+      // the headless module graph lean.
+      const { engine } = require('veloqrs') as typeof import('veloqrs');
+      const milestone = prefs.categories.fitnessMilestone
+        ? allowedNewInsights.find((i) => i.category === 'fitness_milestone')
+        : undefined;
+      const { title, body } = engine.activityNotification(
         activityId,
         activityInfo?.name ?? '',
-        allowedNewInsights,
-        prefs,
-        activityInfo,
-        t
-      );
+        prefs.categories.sectionPr,
+        milestone?.title ?? null
+      ) ?? { title: '', body: '' };
 
       // The enriched entry goes up, then the entries it replaces come down.
       // Nothing is posted when the app is already open: the athlete is on the
       // activity and a tray entry is noise, which is the common case when
       // tapping the visible push cold-starts the app and the silent push fires
       // the task a second later. The old entries still come down.
-      const action = trayActionFor(body, AppState.currentState === 'active');
+      const action = trayActionFor(
+        body,
+        AppState.currentState === 'active',
+        activityInfo?.ingested ?? false
+      );
+      const attachmentUri = action === 'post' ? await drawRouteLine(activityId) : null;
       const posted =
         action === 'leave'
           ? false
@@ -420,10 +424,13 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
                 action === 'dismiss-only'
                   ? null
                   : () =>
-                      presentActivityNotification(activityId, title, body, {
-                        route: `/activity/${activityId}`,
+                      presentActivityNotification(
                         activityId,
-                      }),
+                        title,
+                        body,
+                        { route: `/activity/${activityId}`, activityId },
+                        attachmentUri
+                      ),
             });
 
       if (posted) {

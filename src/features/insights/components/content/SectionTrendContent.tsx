@@ -3,7 +3,7 @@ import { View, StyleSheet, LayoutAnimation, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { getSportDisplayName, getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { getSportDisplayName, getActivityIcon } from '@/shared/activity/activityUtils';
 import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { useSectionPerformances } from '@/features/routes/hooks/useSectionPerformances';
 import { navigateTo } from '@/shared/app/navigation';
@@ -23,6 +23,7 @@ import {
   typography,
 } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
+import { pressable } from '@/shared/ui';
 
 function getTrendIcon(trend?: number): string {
   if (trend == null) return 'minus';
@@ -94,7 +95,12 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
 }) {
   const { isDark } = useTheme();
   const { section: fullSection } = useSectionDetail(expanded ? section.sectionId : null);
-  const { records, bestRecord, isLoading } = useSectionPerformances(expanded ? fullSection : null);
+  // The trend's sport, which is what the row was ranked under. Read
+  // unfiltered, the accordion opened on every sport's efforts.
+  const { records, bestRecord, isLoading } = useSectionPerformances(
+    expanded ? fullSection : null,
+    section.sportType
+  );
 
   const handleToggle = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -109,7 +115,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
     <View style={[styles.sectionCard, isDark && styles.sectionCardDark]}>
       <View style={styles.sectionHeader}>
         {/* Section name: tappable to navigate to section detail */}
-        <Pressable onPress={handleNavigateToSection} style={styles.sectionContent}>
+        <Pressable onPress={handleNavigateToSection} style={pressable(styles.sectionContent)}>
           <View style={styles.sectionNameRow}>
             {section.sportType ? (
               <MaterialCommunityIcons
@@ -151,7 +157,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
         <Pressable
           onPress={handleToggle}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 4 }}
-          style={styles.chevronButton}
+          style={pressable(styles.chevronButton)}
         >
           <MaterialCommunityIcons
             name={expanded ? 'chevron-up' : 'chevron-down'}
@@ -184,7 +190,10 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
   insight,
 }: SectionTrendContentProps) {
   const { isDark } = useTheme();
-  const sections = insight.supportingData?.sections ?? [];
+  // Memoised so the empty fallback is one array rather than a fresh one each
+  // render, which recomputed the cluster context and the rows below it.
+  const supportingSections = insight.supportingData?.sections;
+  const sections = useMemo(() => supportingSections ?? [], [supportingSections]);
   const context = useMemo(() => getClusterContext(sections), [sections]);
 
   // All sections start collapsed
@@ -309,7 +318,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   sportIcon: {
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   sectionName: {
     flex: 1,
@@ -327,7 +336,7 @@ const styles = StyleSheet.create({
     height: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   sectionMeta: {
     flexDirection: 'row',
@@ -350,7 +359,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   chevronButton: {
-    padding: 4,
+    padding: spacing.xs,
   },
   expandedContent: {
     paddingHorizontal: spacing.sm,
@@ -376,7 +385,7 @@ const styles = StyleSheet.create({
   legend: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
     paddingTop: spacing.xs,
     paddingHorizontal: spacing.xs,
   },

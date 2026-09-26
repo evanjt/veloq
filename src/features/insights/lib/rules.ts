@@ -172,8 +172,12 @@ export function specificityScore(insight: Insight, cfg: InsightsConfig = INSIGHT
 
 /**
  * R6 - signal-to-noise (Csikszentmihalyi flow corridor). Peaks in
- * [floorDelta, ceilingDelta]; penalises below-floor noise; small credit above
- * ceiling ("surprising but possibly outlier").
+ * [floorDelta, ceilingDelta]; small credit above ceiling ("surprising but
+ * possibly outlier"); nothing below the floor.
+ *
+ * Below the floor used to score -5, which put an insight that measured an
+ * honest small change below one that measured nothing at all. `confidence` lost
+ * the same inversion: computing a reading can help or be neutral, never cost.
  */
 export function signalScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CONFIG): number {
   const delta = insight.meta?.signalDelta;
@@ -182,7 +186,7 @@ export function signalScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CON
   const { signalFloorDelta: floor, signalCeilingDelta: ceiling } = cfg.thresholds;
   if (abs >= floor && abs <= ceiling) return 10;
   if (abs > ceiling) return 3;
-  return -5; // below floor - actively suppress noise-level signals
+  return 0; // below floor - no signal to credit, and none to punish either
 }
 
 /**

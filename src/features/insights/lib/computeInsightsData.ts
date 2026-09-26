@@ -2,18 +2,37 @@ import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayN
 import type { SectionChangeInput } from '../generators/sectionChanged';
 import { ledgerDate } from '@/features/routes/lib/sectionLedger';
 import type { StrengthSummary } from '@/features/strength/types';
+import { normalizeStrengthProgression } from '@/features/strength';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { getEngine } from '@/shared/native/engine';
 
-import type { InsightsData, PeriodStats, SummaryCardData } from 'veloqrs';
+import { LoadMetric, decodeCoords } from 'veloqrs';
+import type {
+  InsightsData,
+  PeriodComparison as EnginePeriodComparison,
+  PeriodStats,
+  SectionChange,
+  SummaryCardData,
+} from 'veloqrs';
 
-import type { Insight, SectionRankingScores } from '../types';
+import type { Insight, PeriodComparison, SectionRankingScores, SeriesPoint } from '../types';
 import { generateInsights, recordConsolidation } from './generateInsights';
 import type { ConsolidationDrop } from './generateInsights';
 import { buildInsightsParams } from './insightsParams';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('ComputeInsightsData');
+
+/** The engine's comparison, with its metric as the word the generators key on. */
+function toComparison(raw: EnginePeriodComparison | undefined): PeriodComparison | null {
+  if (!raw) return null;
+  return {
+    metric: raw.metric === LoadMetric.Tss ? 'tss' : 'duration',
+    current: raw.current,
+    previous: raw.previous,
+    ratio: raw.ratio,
+  };
+}
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
@@ -29,6 +48,16 @@ function normalizeStrengthSummary(raw: {
   }[];
   activityCount?: number;
   totalSets?: number;
+  balance?: {
+    id: string;
+    leftSlug: string;
+    rightSlug: string;
+    leftWeightedSets: number;
+    rightWeightedSets: number;
+    dominantSlug?: string | null;
+    ratio?: number | null;
+    status: string;
+  }[];
 }): StrengthSummary {
   return {
     muscleVolumes: (raw.muscleVolumes ?? []).map((volume) => ({
@@ -42,6 +71,12 @@ function normalizeStrengthSummary(raw: {
     })),
     activityCount: raw.activityCount ?? 0,
     totalSets: raw.totalSets ?? 0,
+    balance: (raw.balance ?? []).map((pair) => ({
+      ...pair,
+      dominantSlug: pair.dominantSlug ?? null,
+      ratio: pair.ratio ?? null,
+      status: pair.status as StrengthSummary['balance'][number]['status'],
+    })),
   };
 }
 
@@ -51,34 +86,27 @@ function normalizeStrengthSummary(raw: {
  * Can come from TanStack Query (React) or direct API fetch (background task).
  */
 /**
- * Visible changes the ledger recorded in the last fortnight, named. An
- * input that cannot be read is an empty list, never a broken feed.
+ * Visible changes the ledger recorded, named.
+ *
+ * The rows ride the insights bundle, which is one engine call for the whole
+ * screen: reading them here cost a second call on top of the heaviest read in
+ * the tree. Only the naming stays, because the display names are a memo this
+ * side and not a column.
  */
-function recentSectionChanges(): SectionChangeInput[] {
+function namedSectionChanges(changes: readonly SectionChange[]): SectionChangeInput[] {
   try {
-    const engine = getEngine();
-    if (!engine) return [];
     const names = getAllSectionDisplayNames();
-    return engine.getRecentSectionChanges(14).map((c) => ({
+    return changes.map((c) => ({
       sectionId: c.sectionId,
       sectionName: names[c.sectionId] ?? c.sectionId,
       kind: c.kind,
       at: ledgerDate(c.at).getTime(),
     }));
   } catch {
+    // A naming lookup that cannot answer is an unnamed list, never a feed that
+    // does not render.
     return [];
   }
-}
-
-export interface WellnessInput {
-  id: string; // date string YYYY-MM-DD
-  ctl?: number | null;
-  ctlLoad?: number | null;
-  atl?: number | null;
-  atlLoad?: number | null;
-  hrv?: number | null;
-  restingHR?: number | null;
-  sleepSecs?: number | null;
 }
 
 interface InsightsEnginePayload {
@@ -195,21 +223,23 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
 }
 
 /**
- * Compute insights from engine data + wellness data.
+ * Compute insights from the engine's bundle.
  *
  * Pure function - no React hooks, no context, no side effects.
  * Can be called from:
  *   - useInsights() hook (React context)
  *   - backgroundInsightTask (TaskManager context, no React)
  *
+ * Form rides the bundle, so neither caller reads a month of wellness rows to
+ * hand back three numbers: the window it is read from is a parameter of the
+ * bundle (`buildInsightsParams`).
+ *
  * @param ffiData - Pre-computed FFI data from engine.getInsightsData() or getStartupData()
- * @param wellnessData - Wellness entries (from TanStack Query or direct API fetch)
  * @param t - Translation function (from useTranslation() or i18n.t directly)
  * @returns Ranked array of insights
  */
 export function computeInsightsFromData(
   ffiData: InsightsData | null,
-  wellnessData: WellnessInput[] | null,
   t: TFunc,
   summaryCardData?: SummaryCardData | null
 ): Insight[] {
@@ -224,21 +254,15 @@ export function computeInsightsFromData(
       totalTss: p.totalTss,
     });
 
-    // Average chronic period per week (raw total / 4 weeks)
-    const chronicPeriod = {
-      count: Math.round(ffiData.chronicPeriod.count / 4),
-      totalDuration: Number(ffiData.chronicPeriod.totalDuration) / 4,
-      totalDistance: ffiData.chronicPeriod.totalDistance / 4,
-      totalTss: ffiData.chronicPeriod.totalTss / 4,
-    };
+    // The chronic window as one week of it, divided by the engine.
+    const chronicPeriod = toPeriod(ffiData.chronicWeekAverage);
 
-    // Compute CTL/ATL/TSB from wellness
-    const sortedWellness = (wellnessData ?? []).sort((a, b) => a.id.localeCompare(b.id));
-    const latestWellness =
-      sortedWellness.length > 0 ? sortedWellness[sortedWellness.length - 1] : null;
-    const ctl = latestWellness?.ctl ?? latestWellness?.ctlLoad ?? 0;
-    const atl = latestWellness?.atl ?? latestWellness?.atlLoad ?? 0;
-    const tsb = ctl - atl;
+    // Form as the engine read it off the newest day in the window the params
+    // asked for. Absent when that window holds no day at all, which is a
+    // library synced a month ago rather than an athlete at zero.
+    const form = ffiData.form ?? null;
+    const ctl = form?.ctl ?? 0;
+    const atl = form?.atl ?? 0;
 
     // Section readiness check - skip when route matching is disabled
     const routeMatchingOn = isRouteMatchingEnabled();
@@ -259,6 +283,7 @@ export function computeInsightsFromData(
         daysSinceLast?: number;
         latestIsPr?: boolean;
         ranking?: SectionRankingScores;
+        recentEfforts?: SeriesPoint[];
       }
     >();
 
@@ -288,6 +313,10 @@ export function computeInsightsFromData(
                 anomaly: rs.anomalyScore,
                 engagement: rs.engagementScore,
               },
+              // Straight across. The ranker holds every traversal to take its
+              // medians from and sends the tail of them, so the card draws a
+              // line without the sheet reading the engine again per open.
+              recentEfforts: rs.recentEfforts,
             });
           }
         }
@@ -297,7 +326,9 @@ export function computeInsightsFromData(
     const sectionTrends = Array.from(sectionTrendMap.values());
 
     // Visible changes the ledger recorded in the last fortnight, named.
-    const sectionChanges = sectionsReady ? recentSectionChanges() : [];
+    const sectionChanges = sectionsReady
+      ? namedSectionChanges(ffiData.recentSectionChanges ?? [])
+      : [];
 
     // Aerobic efficiency trends arrive already filtered and capped by Rust.
     const efficiencyTrends = sectionsReady ? (ffiData.efficiencyTrends ?? []) : [];
@@ -309,7 +340,15 @@ export function computeInsightsFromData(
           sectionName: pr.sectionName,
           bestTime: pr.bestTime,
           daysAgo: pr.daysAgo,
+          sportType: pr.sportType,
           traversalCount: pr.traversalCount,
+          recentEfforts: pr.recentEfforts,
+          // Thinned by the engine to what a thumbnail draws, so this decodes
+          // tens of points per card rather than a consensus line.
+          previewPoints: decodeCoords(pr.encodedPolyline).map((p) => ({
+            lat: p.latitude,
+            lng: p.longitude,
+          })),
         }))
       : [];
 
@@ -325,17 +364,23 @@ export function computeInsightsFromData(
         swimPaceTrend: summaryCardData?.swimPaceTrend ?? null,
         recentPRs,
         sectionTrends,
-        formTsb: latestWellness ? tsb : null,
+        formTsb: form ? form.tsb : null,
         formCtl: ctl > 0 ? ctl : null,
         formAtl: atl > 0 ? atl : null,
         peakCtl: null,
         currentCtl: ctl > 0 ? ctl : null,
         chronicPeriod,
+        chronicWeeks: (ffiData.chronicWeeks ?? []).map(toPeriod),
+        weekOverWeek: toComparison(ffiData.weekOverWeek),
+        weekAgainstChronic: toComparison(ffiData.weekAgainstChronic),
         allSectionTrends: sectionTrends,
         efficiencyTrends,
         sectionChanges,
+        hrvTrend: ffiData.hrvTrend ?? null,
+        stalePrOpportunities: ffiData.stalePrOpportunities ?? [],
         strengthMonthly: strengthSeries ? normalizeStrengthSummary(strengthSeries.monthly) : null,
         strengthWeekly: strengthSeries?.weekly.map(normalizeStrengthSummary) ?? [],
+        strengthProgressions: strengthSeries?.progressions.map(normalizeStrengthProgression) ?? [],
       },
       t
     );

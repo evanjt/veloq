@@ -14,85 +14,15 @@ import {
   insightCategoryColors,
   layout,
   typography,
+  insightToneColor,
 } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { Insight } from '@/types';
+import { getInlineMetric } from '../lib/inlineMetric';
 
 interface InsightListCardProps {
   insight: Insight;
   onPress: (insight: Insight) => void;
-}
-
-/** Extract the primary metric value + unit from an insight for inline display */
-function getInlineMetric(insight: Insight): { value: string; context?: string } | null {
-  const dp = insight.supportingData?.dataPoints;
-  const comp = insight.supportingData?.comparisonData;
-
-  switch (insight.category) {
-    case 'fitness_milestone': {
-      if (dp && dp.length >= 1) {
-        const cur = dp[0];
-        const change = dp[2];
-        return {
-          value: `${cur.value}${cur.unit ? ` ${cur.unit}` : ''}`,
-          context: change ? String(change.value) : undefined,
-        };
-      }
-      return null;
-    }
-    case 'hrv_trend': {
-      if (dp && dp.length >= 1) {
-        return {
-          value: `${dp[0].value}${dp[0].unit ? ` ${dp[0].unit}` : ''}`,
-        };
-      }
-      return null;
-    }
-    case 'period_comparison': {
-      if (comp) {
-        return {
-          value: String(comp.change.value),
-        };
-      }
-      return null;
-    }
-    case 'strength_progression': {
-      if (comp) {
-        return {
-          value: String(comp.change.value),
-        };
-      }
-      return null;
-    }
-    case 'strength_balance': {
-      const ratioPoint = dp?.find((d) => d.label === 'Ratio');
-      if (ratioPoint) {
-        return {
-          value: String(ratioPoint.value),
-        };
-      }
-      return null;
-    }
-    case 'section_pr': {
-      const sections = insight.supportingData?.sections;
-      if (sections && sections.length > 0 && sections[0].bestTime != null) {
-        const secs = sections[0].bestTime;
-        const m = Math.floor(secs / 60);
-        const s = Math.round(secs % 60);
-        return { value: `${m}:${s.toString().padStart(2, '0')}` };
-      }
-      return null;
-    }
-    case 'efficiency_trend': {
-      const hrPoint = dp?.find((d) => d.unit === 'bpm');
-      if (hrPoint) {
-        return { value: `${hrPoint.value} bpm`, context: undefined };
-      }
-      return null;
-    }
-    default:
-      return null;
-  }
 }
 
 /** Build a tiny sparkline path from sparkline data or data points */
@@ -190,7 +120,7 @@ export const InsightListCard = React.memo(function InsightListCard({
         <MaterialCommunityIcons
           name={insight.icon as keyof typeof MaterialCommunityIcons.glyphMap}
           size={15}
-          color={insight.iconColor}
+          color={insightToneColor(insight.iconTone, isDark)}
         />
       </View>
       <View style={styles.textContainer}>
@@ -241,7 +171,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadiusSm,
     marginHorizontal: spacing.md,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
     overflow: 'hidden',
     ...shadows.card,
   },
@@ -262,11 +192,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.sm,
-    marginVertical: 5,
+    marginVertical: spacing.xs,
   },
   textContainer: {
     flex: 1,
-    marginLeft: 6,
+    marginLeft: spacing.xsPlus,
     marginRight: spacing.xs,
     justifyContent: 'center',
   },
@@ -293,7 +223,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   subtitleDark: {
     color: darkColors.textSecondary,
@@ -319,7 +249,7 @@ const styles = StyleSheet.create({
   metricContext: {
     fontSize: typography.micro.fontSize,
     fontWeight: '600',
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   chevron: {
     marginRight: spacing.sm,

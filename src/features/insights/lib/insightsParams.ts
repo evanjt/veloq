@@ -9,7 +9,8 @@ import type { InsightsParams } from 'veloqrs';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 
-import { INSIGHTS_CONFIG, maxPerCategoryFor } from './config';
+import { INSIGHTS_CONFIG, maxPerCategoryFor, minAgeDaysFor } from './config';
+import { wellnessWindow } from './wellnessWindow';
 
 /** Ranked sections requested per sport. */
 const RANKED_LIMIT = 50;
@@ -17,14 +18,40 @@ const RANKED_LIMIT = 50;
 /** Efficiency candidates taken from each sport's ranked list. */
 const EFFICIENCY_PER_SPORT = 5;
 
-const toTs = (d: Date) => BigInt(localWallClockToEpochSeconds(d));
+/**
+ * The trailing window form is read from.
+ *
+ * Thirty days is what both callers asked for before the engine did the reading:
+ * the tab through `useWellness('1m')` and the headless task through its own
+ * `getWellnessDays`. Only the newest day in it is the reading, so the window is
+ * what decides whether there is one at all.
+ */
+/**
+ * History points a card carries at most, per section and per trend.
+ *
+ * The graphic is a strip a few dozen pixels wide, so more than this crosses
+ * the bridge for pixels nobody can tell apart. The engine caps its own series
+ * too, in `persistence/screens.rs` and `sections/ranking.rs`, so a caller
+ * asking for more gets what the read holds rather than a library of laps.
+ */
+const HISTORY_LIMIT = 20;
+
+const WELLNESS_WINDOW_DAYS = 30;
+
+/** The trailing window the HRV verdict is read over. */
+const HRV_WINDOW_DAYS = 7;
+
+/** The trailing window the section-change list covers. */
+const SECTION_CHANGE_WINDOW_DAYS = 14;
+
+const toTs = (d: Date) => localWallClockToEpochSeconds(d);
 
 /** The four trailing weeks the strength insights compare. */
-function trailingStrengthWeeks(): { startTs: bigint; endTs: bigint }[] {
+function trailingStrengthWeeks(): { startTs: number; endTs: number }[] {
   const end = new Date();
   end.setHours(23, 59, 59, 0);
 
-  const ranges: { startTs: bigint; endTs: bigint }[] = [];
+  const ranges: { startTs: number; endTs: number }[] = [];
   for (let index = 3; index >= 0; index -= 1) {
     const rangeEnd = new Date(end);
     rangeEnd.setDate(rangeEnd.getDate() - index * 7);
@@ -40,7 +67,7 @@ function trailingStrengthWeeks(): { startTs: bigint; endTs: bigint }[] {
 }
 
 /** The trailing 28 days the monthly strength summary covers. */
-function trailingStrengthMonth(): { startTs: bigint; endTs: bigint } {
+function trailingStrengthMonth(): { startTs: number; endTs: number } {
   const end = new Date();
   end.setHours(23, 59, 59, 0);
   const start = new Date(end);
@@ -65,18 +92,24 @@ export function buildInsightsParams(): InsightsParams {
   const startOfLastWeek = new Date(startOfWeek);
   startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
 
-  const fourWeeksAgo = new Date(startOfWeek);
-  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+  // The four weeks before last week. The engine reads the chronic window as
+  // `chronic_start .. prev_start` and divides by a fixed four, so it starts
+  // four weeks before the previous week and not before the current one.
+  const chronicStart = new Date(startOfLastWeek);
+  chronicStart.setDate(chronicStart.getDate() - 28);
 
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
 
+  const wellness = wellnessWindow(now, WELLNESS_WINDOW_DAYS);
+
   return {
+    historyLimit: HISTORY_LIMIT,
     currentStart: toTs(startOfWeek),
     currentEnd: toTs(now),
     prevStart: toTs(startOfLastWeek),
-    prevEnd: toTs(startOfWeek) - 1n,
-    chronicStart: toTs(fourWeeksAgo),
+    prevEnd: toTs(startOfWeek) - 1,
+    chronicStart: toTs(chronicStart),
     todayStart: toTs(todayStart),
     includeSections: isRouteMatchingEnabled(),
     rankedLimit: RANKED_LIMIT,
@@ -86,5 +119,12 @@ export function buildInsightsParams(): InsightsParams {
     efficiencyMinEfforts: INSIGHTS_CONFIG.repetition.efficiency_trend_min,
     strengthMonth: trailingStrengthMonth(),
     strengthWeeks: trailingStrengthWeeks(),
+    wellnessOldest: wellness.oldest,
+    wellnessNewest: wellness.newest,
+    hrvWindowDays: HRV_WINDOW_DAYS,
+    sectionChangeWindowDays: SECTION_CHANGE_WINDOW_DAYS,
+    staleThresholdDays: minAgeDaysFor('stale_pr'),
+    staleMinGainPercent: INSIGHTS_CONFIG.thresholds.minFtpGainPercent,
+    staleMaxOpportunities: maxPerCategoryFor('stale_pr'),
   };
 }

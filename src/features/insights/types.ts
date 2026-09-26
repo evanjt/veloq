@@ -1,3 +1,5 @@
+import type { InsightTone } from '@/theme';
+
 export type InsightCategory =
   | 'section_pr'
   | 'section_trend'
@@ -57,6 +59,8 @@ export interface SupportingSection {
   hasRecentPR?: boolean;
   daysSinceLast?: number;
   ranking?: SectionRankingScores;
+  /** The section's line, thinned by the engine for the card's thumbnail. */
+  previewPoints?: { lat: number; lng: number }[];
 }
 
 export interface SupportingActivity {
@@ -123,7 +127,7 @@ export interface Insight {
   title: string;
   subtitle?: string;
   icon: string;
-  iconColor: string;
+  iconTone: InsightTone;
   body?: string;
   navigationTarget?: string;
   timestamp: number;
@@ -149,13 +153,46 @@ export interface PeriodStats {
   totalTss: number;
 }
 
+/**
+ * One period against an earlier one, as the engine took it. The ratio and the
+ * metric it is under are `insights_data`'s; whether the gap is worth a card is
+ * the generator's.
+ */
+export interface PeriodComparison {
+  /** Which total both values are under. */
+  metric: 'tss' | 'duration';
+  /** The later period's total, in TSS or in seconds. */
+  current: number;
+  /** The earlier period's total, on the same metric. */
+  previous: number;
+  /** `current / previous - 1`, so 0.28 is 28% more than the period before. */
+  ratio: number;
+}
+
+/**
+ * One point of a history series, as the engine sends it.
+ *
+ * Every card draws a graphic of its own history. The points come from the read
+ * that already holds them rather than from a second read per open sheet, and
+ * nothing here derives them: the card draws what the engine sent.
+ */
+export interface SeriesPoint {
+  value: number;
+  /** Epoch seconds. */
+  date: number;
+}
+
 export interface FtpTrend {
   latestFtp?: number;
   latestDate?: bigint | number;
   previousFtp?: number;
   previousDate?: bigint | number;
+  /** The step in watts, with its sign, as the engine derived it. */
+  deltaWatts?: number;
   /** Days of estimate from the one compared against to the newest. */
   sampleCount?: number;
+  /** Those days, oldest first, for the card's graphic. */
+  history?: SeriesPoint[];
 }
 
 export interface PaceTrend {
@@ -163,8 +200,14 @@ export interface PaceTrend {
   latestDate?: bigint | number;
   previousPace?: number;
   previousDate?: bigint | number;
+  /** The move as a percent of the earlier speed, positive for faster. */
+  gainPercent?: number;
+  /** The same move in the unit the sport is paced in, seconds saved. */
+  deltaSeconds?: number;
   /** Snapshots the trend was read from. */
   sampleCount?: number;
+  /** Those snapshots, oldest first, for the card's graphic. */
+  history?: SeriesPoint[];
 }
 
 export interface SectionPR {
@@ -172,8 +215,14 @@ export interface SectionPR {
   sectionName: string;
   bestTime: number;
   daysAgo: number;
-  /** Lifetime traversals, the population the record stands on. */
+  /** The sport the record was set in, which is not always the section's own. */
+  sportType?: string;
+  /** Traversals in that sport, the population the record stands on. */
   traversalCount: number;
+  /** The last efforts on the section, oldest first, for the card's graphic. */
+  recentEfforts?: SeriesPoint[];
+  /** The section's line, thinned by the engine for the card's thumbnail. */
+  previewPoints?: { lat: number; lng: number }[];
 }
 
 export interface SectionTrendData {
@@ -188,6 +237,8 @@ export interface SectionTrendData {
   daysSinceLast?: number;
   latestIsPr?: boolean;
   ranking?: SectionRankingScores;
+  /** The last efforts on the section, oldest first, for the card's graphic. */
+  recentEfforts?: SeriesPoint[];
 }
 
 /** Translation function signature (react-i18next-compatible). */

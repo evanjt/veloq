@@ -1,5 +1,5 @@
-import type { EfficiencyTrend } from 'veloqrs';
-import type { StrengthSummary } from '@/features/strength/types';
+import type { EfficiencyTrend, HrvTrend, StalePrOpportunity } from 'veloqrs';
+import type { StrengthProgressionRecord, StrengthSummary } from '@/features/strength/types';
 
 import { generateStalePRInsights } from '../generators/stalePr';
 import { generateEfficiencyTrendInsights } from '../generators/efficiencyTrend';
@@ -15,6 +15,7 @@ import {
 } from '../generators/sectionChanged';
 import type {
   Insight,
+  PeriodComparison,
   PeriodStats,
   FtpTrend,
   PaceTrend,
@@ -56,12 +57,26 @@ export interface InsightInputData {
   recentPRs: SectionPR[];
   sectionTrends: SectionTrendData[];
   sectionChanges?: SectionChangeInput[];
+  /** The HRV verdict, as the engine read it over the bundle's window. */
+  hrvTrend?: HrvTrend | null;
+  /** Stale-PR opportunities, already excluding the sections `recentPRs` covers. */
+  stalePrOpportunities?: StalePrOpportunity[];
   formTsb: number | null;
   formCtl: number | null;
   formAtl: number | null;
   peakCtl: number | null;
   currentCtl: number | null;
   chronicPeriod?: PeriodStats | null;
+  /**
+   * The chronic window one week at a time, oldest first, as the engine cut it.
+   * The comparison card's claim is about the last four weeks, and a total plus
+   * an average cannot draw it.
+   */
+  chronicWeeks?: PeriodStats[];
+  /** This week against last, as the engine took it. */
+  weekOverWeek?: PeriodComparison | null;
+  /** Last week against the chronic weekly average, as the engine took it. */
+  weekAgainstChronic?: PeriodComparison | null;
   allSectionTrends?: SectionTrendData[];
   /** Efficiency trends from the engine, already filtered and capped. */
   efficiencyTrends?: EfficiencyTrend[];
@@ -74,6 +89,8 @@ export interface InsightInputData {
   strengthMonthly?: StrengthSummary | null;
   /** Per-week strength rollups backing the progression candidates. */
   strengthWeekly?: StrengthSummary[];
+  /** The engine's per-muscle ranking over those weeks. */
+  strengthProgressions?: StrengthProgressionRecord[];
 }
 
 // ---------------------------------------------------------------------------
@@ -177,13 +194,16 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   //    from one yields zero insights for that category but does not kill
   //    the rest.
   candidates.push(...safeRun('sectionPR', () => generateSectionPRInsights(data.recentPRs, now, t)));
-  candidates.push(...safeRun('hrvTrend', () => generateHrvTrendInsight(now, t)));
+  candidates.push(...safeRun('hrvTrend', () => generateHrvTrendInsight(data.hrvTrend, now, t)));
   candidates.push(
     ...safeRun('periodComparison', () =>
       generatePeriodComparisonInsights(
         data.currentPeriod,
         data.previousPeriod,
         data.chronicPeriod,
+        data.chronicWeeks,
+        data.weekOverWeek,
+        data.weekAgainstChronic,
         now,
         t
       )
@@ -195,32 +215,13 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
     )
   );
 
-  if ((data.ftpTrend || data.paceTrend) && data.sectionTrends && data.sectionTrends.length > 0) {
-    const sections = data.sectionTrends.map((s) => ({
-      sectionId: s.sectionId,
-      sectionName: s.sectionName,
-      bestTimeSecs: s.bestTimeSecs,
-      traversalCount: s.traversalCount,
-      daysSinceLast: s.daysSinceLast,
-      sportType: s.sportType,
-    }));
-    const existingStalePrIds = new Set(candidates.map((i) => i.id));
-    candidates.push(
-      ...safeRun('stalePR', () =>
-        generateStalePRInsights(
-          {
-            sections,
-            ftpTrend: data.ftpTrend,
-            runPaceTrend: data.paceTrend,
-            swimPaceTrend: data.swimPaceTrend ?? null,
-            existingInsightIds: existingStalePrIds,
-          },
-          t,
-          now
-        )
-      )
-    );
-  }
+  // Unguarded, where it used to run only with a TypeScript trend and a
+  // non-empty section list to hand. The engine decides from its own trends and
+  // its own ranking and answers an empty list when nothing qualifies, so a
+  // second gate here could only hide a card it had already decided to show.
+  candidates.push(
+    ...safeRun('stalePR', () => generateStalePRInsights(data.stalePrOpportunities, t, now))
+  );
 
   const existingIds = new Set(
     candidates.flatMap((i) => {
@@ -250,7 +251,13 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   if (data.strengthMonthly && (data.strengthWeekly?.length ?? 0) > 0) {
     candidates.push(
       ...safeRun('strength', () =>
-        generateStrengthInsights(data.strengthMonthly ?? null, data.strengthWeekly ?? [], now, t)
+        generateStrengthInsights(
+          data.strengthMonthly ?? null,
+          data.strengthWeekly ?? [],
+          data.strengthProgressions ?? [],
+          now,
+          t
+        )
       )
     );
   }
