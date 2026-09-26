@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { SyncState } from 'veloqrs';
+import { SyncState, SyncStep } from 'veloqrs';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { ActivitySyncRow } from '@/features/settings/components/ActivitySyncRow';
@@ -26,8 +26,18 @@ jest.mock('react-i18next', () => ({
 }));
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+// The library figure is its own suite. Here it reports nothing, which is what
+// an engine that has never synced answers anyway.
+jest.mock('@/shared/native/useLibraryCoverage', () => ({
+  useLibraryCoverage: () => null,
+}));
 
-let mockStatus: { state: SyncState; completed: number; total: number } | null = null;
+let mockStatus: {
+  state: SyncState;
+  completed: number;
+  total: number;
+  step?: SyncStep;
+} | null = null;
 jest.mock('@/shared/native/useSyncStatus', () => ({
   useSyncStatus: () => mockStatus,
 }));
@@ -60,15 +70,15 @@ describe('ActivitySyncRow', () => {
   );
 
   it('offers a stop control while the sync runs', () => {
-    mockStatus = { state: SyncState.Syncing, completed: 3, total: 40 };
+    mockStatus = { state: SyncState.Syncing, completed: 3, total: 8, step: SyncStep.Census };
     const { getByTestId } = render(<ActivitySyncRow />);
     expect(getByTestId('sync-stop-button')).toBeTruthy();
     expect(getByTestId('sync-progress-label').props.children).toContain(
-      'settings.syncActivitiesProgress:{"completed":3,"total":40}'
+      'settings.syncStepProgress:{"label":"settings.syncStep.census","completed":3,"total":8}'
     );
   });
 
-  it('names the sync without counts before the total is known', () => {
+  it('names the sync without a step before the engine reports one', () => {
     mockStatus = { state: SyncState.Syncing, completed: 0, total: 0 };
     const { getByTestId } = render(<ActivitySyncRow />);
     expect(getByTestId('sync-progress-label').props.children).toContain('settings.syncActivities');

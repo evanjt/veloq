@@ -53,6 +53,10 @@ describe('the distance captions', () => {
     for (const caption of captions()) {
       if (!caption.startsWith('settings.section')) continue;
       const value = caption.split(':')[1];
+      // The panel's other `settings.section*` strings are the preset labels,
+      // which carry no interpolated value at all. The three distance captions
+      // are asserted by name above, so skipping them here loses nothing.
+      if (value === undefined) continue;
       if (!/[a-z]+$/.test(value)) continue;
       expect(value).toMatch(/^[\d.]+ (m|km)$/);
     }

@@ -6,6 +6,7 @@
 
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { getEngine } from '@/shared/native/engine';
+import { PACE_SNAPSHOT_WINDOW_DAYS } from '@/shared/app/constants';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
@@ -23,6 +24,7 @@ const engine = {
   replaceCalendarEvents: jest.fn(),
   savePaceSnapshot: jest.fn(),
   triggerRefresh: jest.fn(),
+  announceBodyStored: jest.fn(),
 };
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
@@ -55,6 +57,18 @@ describe('seedDemoEngine', () => {
     const rows = engine.upsertWellness.mock.calls[0][0];
     expect(rows.length).toBeGreaterThan(0);
     expect(rows[0].date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  /**
+   * Wellness no longer follows the `activities` channel, since Rust announces
+   * it by kind now. A demo seed that only triggers `activities` would leave the
+   * wellness screens on whatever they read before the fixtures landed, which is
+   * nothing.
+   */
+  it('announces the wellness it seeded, the way a live sync does', () => {
+    seedDemoEngine();
+
+    expect(engine.announceBodyStored).toHaveBeenCalledWith('wellness');
   });
 
   it('upserts activity metrics for every fixture activity', () => {
@@ -110,6 +124,9 @@ describe('seedDemoEngine', () => {
     expect(engine.savePaceSnapshot).toHaveBeenCalledWith(
       'Run',
       expect.any(Number),
+      // Under the window the sync writes, so the demo library's pace milestone
+      // reads the snapshot rather than skipping it as an unknown range.
+      PACE_SNAPSHOT_WINDOW_DAYS,
       expect.any(Number),
       expect.any(Number),
       expect.any(Number)

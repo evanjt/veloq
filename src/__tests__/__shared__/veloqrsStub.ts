@@ -38,12 +38,55 @@ export enum SyncErrorReason {
   Storage = 5,
   NotConfigured = 6,
   Internal = 7,
+  EngineClosed = 8,
+}
+
+/** `FfiSyncStep` as generated, held to the source by the same test. */
+export enum SyncStep {
+  Athlete = 1,
+  SportSettings = 2,
+  Wellness = 3,
+  Census = 4,
+  Activities = 5,
+  Curves = 6,
+  IntervalBodies = 7,
+  RemainingActivities = 8,
+  FirstActivities = 9,
+}
+
+/** `FfiGroupSort` as generated, held to the source by the same test. */
+export enum GroupSort {
+  Nearby = 0,
+  Activities = 1,
+  Distance = 2,
+  Name = 3,
+}
+
+/** `FfiLoadMetric` as generated, the metric a period comparison was taken on. */
+export enum LoadMetric {
+  Tss = 0,
+  Duration = 1,
+}
+
+/** `FfiSectionSort` as generated, held to the source by the same test. */
+export enum SectionSort {
+  Nearby = 0,
+  Signature = 1,
+  Visits = 2,
+  Distance = 3,
+  Name = 4,
 }
 
 /** `BulkExportFormat` as generated, held to the source by the same test. */
 export enum BulkExportFormat {
   Gpx = 1,
   GeoJson = 2,
+}
+
+/** `DownloadPriority` as generated, held to the source by the same test. */
+export enum DownloadPriority {
+  Interactive = 0,
+  Bulk = 1,
 }
 
 /** `SyncState` as generated, held to the source by the same test. */
@@ -76,6 +119,13 @@ export enum StartOutcome {
   Offline = 8,
 }
 
+/** `RangeCoverage` as generated, held to the source by the same test. */
+export enum RangeCoverage {
+  Empty = 1,
+  NotFetched = 2,
+  Loaded = 3,
+}
+
 export const isRetryableStart = (outcome: StartOutcome): boolean =>
   outcome === StartOutcome.Busy ||
   outcome === StartOutcome.Held ||
@@ -97,7 +147,7 @@ export const createPreviewClientStub = () => ({
   subscribe: jest.fn(() => () => {}),
   getPreviewCentres: jest.fn(() => []),
   getPreviewCurrentSections: jest.fn(() => []),
-  startPreviewDetect: jest.fn(() => false),
+  startPreviewDetect: jest.fn(() => StartOutcome.NotReady),
   pollPreviewDetect: jest.fn(() => 'idle'),
   getPreviewProgress: jest.fn(() => null),
   takePreviewResult: jest.fn(() => null),
@@ -118,6 +168,10 @@ export const getDownloadProgress = jest.fn(() => null);
  */
 export const engine = {
   ready: false,
+  // The sync status reader subscribes on the first mount that wants it, so a
+  // closed engine still has to hand back an unsubscribe rather than throw.
+  subscribe: jest.fn(() => () => {}),
+  getSyncStatus: jest.fn(() => null),
   getSetting: jest.fn(() => undefined),
   setSetting: jest.fn(),
   setSettings: jest.fn(() => 0),
@@ -134,6 +188,8 @@ export const basemap = {
   setSourceTemplate: jest.fn(),
   getTile: jest.fn(() => undefined),
   getOrFetchTile: jest.fn(() => undefined),
+  getCacheSize: jest.fn(() => 0n),
+  flush: jest.fn(),
 };
 
 export const basemapStore = jest.fn(() => basemap);
@@ -148,9 +204,15 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     CallKind,
     SyncState,
     SyncErrorReason,
+    SyncStep,
+    DownloadPriority,
     BulkExportFormat,
+    GroupSort,
+    SectionSort,
+    LoadMetric,
     StartOutcome,
     InitOutcome,
+    RangeCoverage,
     isRetryableInit,
     hasOpened,
     isRetryableStart,

@@ -15,6 +15,9 @@ import { render } from '@testing-library/react-native';
 
 import { StorageStatsPanel } from '@/features/settings/components/StorageStatsPanel';
 
+// The maps barrel reaches the engine binding, which registers a TurboModule at
+// import time, so the graph this renders cannot load without the stub.
+jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => `t(${key})` }),
 }));
@@ -35,8 +38,6 @@ const LOCALES_DIR = path.join(__dirname, '../../../i18n/locales');
 const SEGMENT_KEYS = [
   'storageDatabase',
   'storageHeatmap',
-  'storageSatellite',
-  'storageTerrain',
   'storageVector',
   'storageGround',
   'storagePreviews',
@@ -59,10 +60,8 @@ function fullPanel() {
       terrainCacheSize={2_000_000}
       heatmapCacheSize={3_000_000}
       tileCacheStats={{
-        tileCount: 40,
-        totalBytes: 10_000_000,
-        terrain: { tileCount: 10, totalBytes: 1_000_000 },
-        satellite: { tileCount: 10, totalBytes: 4_000_000 },
+        tileCount: 20,
+        totalBytes: 5_000_000,
         vector: { tileCount: 10, totalBytes: 3_000_000 },
         ground: { tileCount: 10, totalBytes: 2_000_000 },
       }}

@@ -22,10 +22,12 @@ jest.mock('veloqrs', () =>
   })
 );
 
-jest.mock('@/features/maps/components', () => {
+jest.mock('@/features/maps', () => {
   const { View } = require('react-native');
   return {
-    ...require('@/features/maps/components/AttributionOverlay'),
+    // The real feature, so the coordinate helpers and the credit line under
+    // test are the shipped ones. Only the surface is stood in for.
+    ...jest.requireActual('@/features/maps'),
     MapSurface: ({ sources }: { sources: Record<string, { data: GeoJSON.FeatureCollection }> }) => {
       capturedSources.push(sources);
       return <View testID="map-surface" />;
@@ -49,7 +51,7 @@ function section(id: string, over: Partial<PreviewSection> = {}): PreviewSection
     status: 'unchanged',
     name: `Section ${id}`,
     sport: 'Ride',
-    polylineBase64: 'AAAA',
+    polyline: new ArrayBuffer(0),
     visits: 7,
     distanceM: 4200,
     elevationGainM: 88,

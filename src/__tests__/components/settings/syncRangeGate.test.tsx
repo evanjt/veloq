@@ -12,6 +12,9 @@ import { Alert } from 'react-native';
 
 import { SyncRangePanel } from '@/features/settings/components/SyncRangePanel';
 
+// The maps barrel reaches the engine binding, which registers a TurboModule at
+// import time, so the graph this renders cannot load without the stub.
+jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 const mockSyncDateRange = jest.fn();
 let mockSliderRangeChange: ((start: Date, end: Date) => void) | null = null;
 let mockYearCounts: Record<string, number> = {};
@@ -20,7 +23,7 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
-jest.mock('@/features/maps/components', () => {
+jest.mock('@/features/maps', () => {
   const { View } = require('react-native');
   return {
     TimelineSlider: (props: { onRangeChange: (start: Date, end: Date) => void }) => {
@@ -55,7 +58,7 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
   useSyncDateRange: (selector: (s: unknown) => unknown) =>
     selector({
       oldest: '2026-06-03',
-      isFetchingExtended: false,
+      extendedFetch: { phase: 'idle', since: 0 },
       isGpsSyncing: false,
       gpsSyncProgress: { percent: 0, message: '', completed: 0, total: 0 },
       isExpansionLocked: false,
@@ -126,6 +129,24 @@ describe('the history slider gate', () => {
 
     expect(alert).not.toHaveBeenCalled();
     expect(mockSyncDateRange).toHaveBeenCalledTimes(1);
+  });
+
+  it('says why when the expansion latch refuses the drag', () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockSyncDateRange.mockReturnValue('locked');
+    mockYearCounts = { '2025': 40, '2026': 60 };
+    dragTo(2025);
+
+    expect(alert).toHaveBeenCalledWith('settings.rangeLockedTitle', 'settings.rangeLockedMessage');
+  });
+
+  it('stays quiet when the expansion goes through', () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockSyncDateRange.mockReturnValue('expanded');
+    mockYearCounts = { '2025': 40, '2026': 60 };
+    dragTo(2025);
+
+    expect(alert).not.toHaveBeenCalled();
   });
 
   it('ignores a drag that does not widen the range', () => {

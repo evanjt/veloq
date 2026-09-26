@@ -103,14 +103,17 @@ describe('the record gate is one flag', () => {
     expect(button.slice(0, button.indexOf('/>'))).toContain('android:visibility="gone"');
   });
 
-  it('puts the record widget in both iOS bundles, which is what the flag being on means', () => {
+  it('puts a record widget in both iOS bundles, which is what the flag being on means', () => {
     const swift = runIosBundles();
     expect(swift).toContain('struct VeloqWidgets: WidgetBundle');
     expect(swift).toContain('struct VeloqWidgetsConfigurable: WidgetBundle');
     expect(swift).toContain('VeloqLatestActivityWidget()');
+    // Each bundle takes the record widget its floor can build: the static one
+    // on iOS 15 and 16, the sport-configurable one on 17 and up, at the same
+    // kind. `iosRecordWidgetSport.test.ts` holds that split.
     const configurable = swift.indexOf('struct VeloqWidgetsConfigurable');
-    expect(swift.indexOf('VeloqRecordWidget()')).toBeGreaterThan(-1);
-    expect(swift.indexOf('VeloqRecordWidget()', configurable)).toBeGreaterThan(configurable);
+    expect(swift.slice(0, configurable)).toContain('VeloqRecordWidget()');
+    expect(swift.slice(configurable)).toContain('VeloqConfigurableRecordWidget()');
   });
 
   it('takes it back out of both bundles when the flag is off, so the gate still works', () => {
@@ -118,6 +121,7 @@ describe('the record gate is one flag', () => {
     iosPlugin.writeWidgetBundles(dest, false);
     const swift = fs.readFileSync(path.join(dest, 'WidgetBundles.swift'), 'utf8');
     expect(swift).not.toContain('VeloqRecordWidget()');
+    expect(swift).not.toContain('VeloqConfigurableRecordWidget()');
     expect(swift).toContain('VeloqLatestActivityWidget()');
   });
 

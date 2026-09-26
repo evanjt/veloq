@@ -15,8 +15,7 @@ import {
 const mockEngine = {
   setSetting: jest.fn(),
   getSetting: jest.fn(() => undefined),
-  startClearRoutesAndSections: jest.fn(),
-  pollClearRoutesAndSections: jest.fn(() => 'complete'),
+  runClearRoutesAndSections: jest.fn(() => Promise.resolve()),
   triggerRefresh: jest.fn(),
 };
 
@@ -56,13 +55,13 @@ describe('the detection switch reaches the engine', () => {
   it('still clears the catalogue when it is turned off', async () => {
     await useRouteSettings.getState().setEnabled(false);
 
-    expect(mockEngine.startClearRoutesAndSections).toHaveBeenCalledTimes(1);
+    expect(mockEngine.runClearRoutesAndSections).toHaveBeenCalledTimes(1);
   });
 
   it('leaves the catalogue alone when it is turned on', async () => {
     await useRouteSettings.getState().setEnabled(true);
 
-    expect(mockEngine.startClearRoutesAndSections).not.toHaveBeenCalled();
+    expect(mockEngine.runClearRoutesAndSections).not.toHaveBeenCalled();
   });
 
   it('tells the engine before it asks for a refresh, so no detect slips through', async () => {

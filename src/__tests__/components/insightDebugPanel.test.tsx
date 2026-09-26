@@ -33,7 +33,7 @@ function insight(id: string, category: Insight['category']): Insight {
     priority: 2,
     title: id,
     icon: 'star',
-    iconColor: '#000',
+    iconTone: 'neutral',
     timestamp: 0,
     isNew: false,
   };

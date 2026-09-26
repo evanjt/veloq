@@ -46,7 +46,6 @@ const COORDINATES: LatLng[] = [
 
 // A real encoded track through Bern, so the polyline path is exercised for
 // real rather than through a hand-built coordinate array.
-const ENCODED_POLYLINE = 'oewzHkvhc@_@_@_@_@_@_@';
 
 function renderActivityMap(props: Partial<React.ComponentProps<typeof ActivityMapView>> = {}) {
   return render(
@@ -62,12 +61,6 @@ describe('ActivityMapView', () => {
 
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
     expect(screen.getByTestId('activity-map-style-toggle')).toBeTruthy();
-  });
-
-  it('mounts a map from an encoded polyline', () => {
-    renderActivityMap({ coordinates: undefined, polyline: ENCODED_POLYLINE });
-
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
 
   it('hides the control stack when the caller turns it off', () => {
@@ -158,14 +151,8 @@ describe('ActivityMapView', () => {
       expect(screen.queryByTestId('maplibre-map')).toBeNull();
     });
 
-    it('tolerates a malformed polyline', () => {
-      expect(() =>
-        renderActivityMap({ coordinates: undefined, polyline: 'not-a-polyline!!!' })
-      ).not.toThrow();
-    });
-
-    it('tolerates an empty polyline string', () => {
-      renderActivityMap({ coordinates: undefined, polyline: '' });
+    it('falls back to a placeholder with no coordinates at all', () => {
+      renderActivityMap({ coordinates: undefined });
 
       expect(screen.queryByTestId('maplibre-map')).toBeNull();
     });
@@ -229,15 +216,69 @@ describe('ActivityMapView', () => {
     });
 
     it('falls back to the 2D map when the terrain page reports failure', () => {
-      const on3DModeChange = jest.fn();
-      renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
+      renderActivityMap({ initial3DCamera: CAMERA_3D });
 
       post({ type: 'mapFailed', reason: 'load timeout' });
 
       expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
       expect(screen.queryByTestId('webview')).toBeNull();
       expect(screen.getByTestId('maplibre-map')).toBeTruthy();
-      expect(on3DModeChange).toHaveBeenCalledWith(false);
+    });
+
+    /**
+     * The caller persists what it is told, ahead of every other preference and
+     * with nothing to clear it, so a page that failed once turned 3D off for
+     * that activity for ever on a device where nobody touched the toggle.
+     */
+    it('does not report a failure as the athlete turning 3D off', () => {
+      const on3DModeChange = jest.fn();
+      renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
+
+      post({ type: 'mapFailed', reason: 'load timeout' });
+
+      expect(on3DModeChange).not.toHaveBeenCalled();
+    });
+
+    it('does not report a terrain page with nothing to drape as a choice either', () => {
+      const on3DModeChange = jest.fn();
+      renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
+      post({ type: 'mapReady' });
+
+      post({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
+
+      expect(on3DModeChange).not.toHaveBeenCalled();
+    });
+
+    it('does not report a WebView that could not load as a choice either', () => {
+      const on3DModeChange = jest.fn();
+      renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
+
+      fireEvent(screen.getByTestId('webview'), 'error', {
+        nativeEvent: { description: 'net::ERR_NAME_NOT_RESOLVED' },
+      });
+
+      expect(on3DModeChange).not.toHaveBeenCalled();
+    });
+
+    it('reports the toggle, which is the athlete choosing', () => {
+      const on3DModeChange = jest.fn();
+      renderActivityMap({ on3DModeChange });
+
+      fireEvent(screen.getByTestId('activity-map-3d-toggle'), 'pressIn');
+      expect(on3DModeChange).toHaveBeenLastCalledWith(true);
+
+      fireEvent(screen.getByTestId('activity-map-3d-toggle'), 'pressIn');
+      expect(on3DModeChange).toHaveBeenLastCalledWith(false);
+    });
+
+    it('reports a toggle that follows a failure, so a retry is still a choice', () => {
+      const on3DModeChange = jest.fn();
+      renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
+
+      post({ type: 'mapFailed', reason: 'load timeout' });
+      fireEvent(screen.getByTestId('activity-map-3d-toggle'), 'pressIn');
+
+      expect(on3DModeChange).toHaveBeenCalledWith(true);
     });
 
     it('falls back to the 2D map when the WebView itself fails to load', () => {

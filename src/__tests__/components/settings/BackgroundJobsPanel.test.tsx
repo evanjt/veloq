@@ -36,12 +36,7 @@ function job(id: BackgroundJob['id'], over: Partial<BackgroundJob> = {}): Backgr
   };
 }
 
-const RESTING: BackgroundJob[] = [
-  job('sync'),
-  job('detection'),
-  job('elevationBackfill'),
-  job('cutover'),
-];
+const RESTING: BackgroundJob[] = [job('detection'), job('elevationBackfill'), job('cutover')];
 
 function panel(jobs: BackgroundJob[] = RESTING) {
   mockUseBackgroundJobs.mockReturnValue(jobs);
@@ -65,7 +60,7 @@ describe('BackgroundJobsPanel', () => {
   it('renders a row for every job when none of them is running', () => {
     const tree = panel();
 
-    for (const id of ['sync', 'detection', 'elevationBackfill', 'cutover']) {
+    for (const id of ['detection', 'elevationBackfill', 'cutover']) {
       expect(tree.getByTestId(`background-job-${id}`)).toBeTruthy();
       expect(detail(tree, id)).toBe('Not running');
     }
@@ -73,20 +68,18 @@ describe('BackgroundJobsPanel', () => {
 
   it('spins only for the job that is running', () => {
     const tree = panel([
-      job('sync', { state: 'running', completed: 4, total: 12 }),
-      job('detection'),
+      job('detection', { state: 'running', completed: 4, total: 12 }),
       job('elevationBackfill'),
       job('cutover'),
     ]);
 
-    expect(tree.getByTestId('background-job-sync-spinner')).toBeTruthy();
-    expect(tree.queryByTestId('background-job-detection-spinner')).toBeNull();
-    expect(detail(tree, 'sync')).toBe('4 of 12');
+    expect(tree.getByTestId('background-job-detection-spinner')).toBeTruthy();
+    expect(tree.queryByTestId('background-job-cutover-spinner')).toBeNull();
+    expect(detail(tree, 'detection')).toBe('4 of 12');
   });
 
   it('says what a resting backfill still has to fetch', () => {
     const tree = panel([
-      job('sync'),
       job('detection'),
       job('elevationBackfill', { remaining: 37 }),
       job('cutover'),
@@ -102,7 +95,6 @@ describe('BackgroundJobsPanel', () => {
    */
   it('says a resting cutover is waiting to rebuild, not waiting to fetch', () => {
     const tree = panel([
-      job('sync'),
       job('detection'),
       job('elevationBackfill'),
       job('cutover', { remaining: 1 }),
@@ -113,7 +105,6 @@ describe('BackgroundJobsPanel', () => {
 
   it('counts what a resting detection has never seen, in its own words', () => {
     const tree = panel([
-      job('sync'),
       job('detection', { remaining: 12 }),
       job('elevationBackfill'),
       job('cutover'),
@@ -124,7 +115,6 @@ describe('BackgroundJobsPanel', () => {
 
   it('reads as not running when detection owes nothing', () => {
     const tree = panel([
-      job('sync'),
       job('detection', { remaining: 0 }),
       job('elevationBackfill'),
       job('cutover'),
@@ -135,7 +125,6 @@ describe('BackgroundJobsPanel', () => {
 
   it('reads as not running when the cutover token is clear', () => {
     const tree = panel([
-      job('sync'),
       job('detection'),
       job('elevationBackfill'),
       job('cutover', { remaining: 0 }),
@@ -146,7 +135,6 @@ describe('BackgroundJobsPanel', () => {
 
   it('reads as not running when the queue length is unknown', () => {
     const tree = panel([
-      job('sync'),
       job('detection'),
       job('elevationBackfill', { remaining: null }),
       job('cutover'),
@@ -157,7 +145,6 @@ describe('BackgroundJobsPanel', () => {
 
   it('does not offer a count for an empty queue', () => {
     const tree = panel([
-      job('sync'),
       job('detection'),
       job('elevationBackfill', { remaining: 0 }),
       job('cutover'),
@@ -168,7 +155,6 @@ describe('BackgroundJobsPanel', () => {
 
   it('keeps a partial backfill distinct from a finished one', () => {
     const tree = panel([
-      job('sync'),
       job('detection'),
       job('elevationBackfill', { state: 'partial' }),
       job('cutover', { state: 'complete' }),
@@ -180,7 +166,6 @@ describe('BackgroundJobsPanel', () => {
 
   it('names the phase a detection run is in, with its percent', () => {
     const tree = panel([
-      job('sync'),
       job('detection', { state: 'running', phase: 'clustering', percent: 62 }),
       job('elevationBackfill'),
       job('cutover'),
@@ -191,23 +176,23 @@ describe('BackgroundJobsPanel', () => {
 
   it('falls back to a plain running line when the job counts nothing', () => {
     const tree = panel([
-      job('sync', { state: 'running' }),
       job('detection'),
       job('elevationBackfill'),
-      job('cutover'),
+      job('cutover', {
+        state: 'running',
+      }),
     ]);
 
-    expect(detail(tree, 'sync')).toBe('Running');
+    expect(detail(tree, 'cutover')).toBe('Running');
   });
 
   it('reads a stopped job differently from an idle one', () => {
     const tree = panel([
-      job('sync', { state: 'failed' }),
-      job('detection'),
+      job('detection', { state: 'failed' }),
       job('elevationBackfill'),
       job('cutover'),
     ]);
 
-    expect(detail(tree, 'sync')).toBe('Stopped early');
+    expect(detail(tree, 'detection')).toBe('Stopped early');
   });
 });

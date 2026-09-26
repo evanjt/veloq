@@ -37,7 +37,7 @@ jest.mock('@/features/routes/hooks/useSectionEfficiencyTrend', () => ({
 
 function point(ratio: number) {
   return {
-    date: BigInt(1),
+    date: 1,
     paceSecsPerKm: 240,
     avgHr: 150,
     hrPaceRatio: ratio,

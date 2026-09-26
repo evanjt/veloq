@@ -69,6 +69,9 @@ function makeRaw(overrides: Partial<RawWidgetData> = {}): RawWidgetData {
     locale: 'en-AU',
     isMetric: true,
     nowSeconds: NOW,
+    // The two clocks agree at offset zero, which is the case this fixture was
+    // written for. `widgetSnapshotClock.test.ts` covers the ones that differ.
+    nowWallSeconds: NOW,
     translate,
     ...overrides,
   };
@@ -243,6 +246,7 @@ describe('composeSnapshot', () => {
       locale: 'en-US',
       isMetric: true,
       nowSeconds: NOW,
+      nowWallSeconds: NOW,
     });
     expect(s.metrics.form).toEqual({ value: 0, trendDir: 'flat', zone: 'greyZone' });
     expect(s.metrics.rampRate.value).toBe(0);
@@ -368,8 +372,6 @@ describe('composeRoutePreview', () => {
     // Fitness is falling and form is rising across this week.
     expect(s.metrics.fitness.trendDir).toBe('down');
     expect(s.metrics.form.trendDir).toBe('up');
-    // CTL ramp looks back 6 days: 32 today against 36 then.
-    expect(s.metrics.rampRate.value).toBe(-4);
   });
 
   it('returns null for missing, short, or degenerate tracks', () => {
@@ -418,13 +420,6 @@ describe('the widget reads the series by day', () => {
     expect(snapshot.metrics.fitness.deltaVsYesterday).toBe(1);
   });
 
-  it('spans seven calendar days for the ramp rate', () => {
-    const snapshot = snapshotOf(THIRTY_DAYS);
-
-    // Today is 60 and the entry seven back is 54, one per day.
-    expect(snapshot.metrics.rampRate.value).toBe(6);
-  });
-
   it('reads a flat stretch as flat rather than as missing days', () => {
     const flatEnd = [...THIRTY_DAYS.slice(0, 27), 58, 58, 58];
 
@@ -438,6 +433,52 @@ describe('the widget reads the series by day', () => {
     const snapshot = snapshotOf([40, 42, 44]);
 
     expect(snapshot.metrics.fitness.value).toBe(44);
-    expect(snapshot.metrics.rampRate.value).toBe(4);
+  });
+});
+
+/**
+ * Scenario: intervals.icu computes a ramp rate and the wellness row stores it.
+ * The widget used to take the change across the trailing seven entries of the
+ * fitness sparkline instead.
+ *
+ * Expected behaviour: the widget shows the stored figure. Two derivations of
+ * one number from the same data is how the widget and the fitness tab came to
+ * disagree.
+ */
+describe('the widget ramp rate', () => {
+  /** Thirty days climbing by one a day, so a derived ramp would read 6. */
+  const CLIMBING = Array.from({ length: 30 }, (_, i) => 31 + i);
+
+  function snapshotOf(rampRate: number | null | undefined) {
+    return composeSnapshot(
+      makeRaw({
+        rampRate,
+        sparklines: {
+          fitness: CLIMBING,
+          fatigue: CLIMBING.map(() => 20),
+          form: CLIMBING.map(() => 5),
+          hrv: CLIMBING.map(() => 60),
+          rhr: CLIMBING.map(() => 50),
+        },
+      })
+    );
+  }
+
+  it('takes the stored figure rather than the sparkline it sits beside', () => {
+    // The sparkline climbs one a day, so deriving would answer 6.
+    expect(snapshotOf(2.3).metrics.rampRate.value).toBe(2.3);
+  });
+
+  it('carries a negative ramp through', () => {
+    expect(snapshotOf(-4.6).metrics.rampRate.value).toBe(-4.6);
+  });
+
+  it('rounds to the one decimal the widget has always shown', () => {
+    expect(snapshotOf(2.34567).metrics.rampRate.value).toBe(2.3);
+  });
+
+  it('reads zero before wellness has synced, never NaN', () => {
+    expect(snapshotOf(null).metrics.rampRate.value).toBe(0);
+    expect(snapshotOf(undefined).metrics.rampRate.value).toBe(0);
   });
 });
