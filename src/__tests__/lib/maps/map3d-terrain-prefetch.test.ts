@@ -1,11 +1,12 @@
 /**
- * Scenario: after a 3D page settles it prefetches the DEM tiles for the
- * adjacent zoom levels, so zooming in or out has terrain to hand.
+ * Scenario: after a 3D page settles it used to prefetch the DEM tiles for the
+ * adjacent zoom levels into a Cache API bucket of its own, `veloq-terrain-dem-v1`,
+ * which the `cached-terrain` protocol read. The DEM now comes through the
+ * intercept and the Rust store is the one tier that keeps it, so that bucket
+ * would be a second DEM cache Rust cannot see, size or evict from.
  *
- * Expected behaviour: those bytes land in `veloq-terrain-dem-v1`, the cache the
- * `cached-terrain` protocol reads and the eviction budget bounds. A prefetch
- * that only warms the WebView HTTP cache buys nothing: it is not surveyable,
- * not bounded, and gone whenever the platform decides.
+ * Expected behaviour: once the page has settled it has fetched no DEM tile of
+ * its own and written nothing into any page cache, and it still reports ready.
  */
 
 import vm from 'vm';
@@ -60,6 +61,7 @@ interface PageRun {
   map: FakeMap;
   posted: { type: string }[];
   recorder: Recorder;
+  sandbox: Record<string, unknown>;
 }
 
 /**
@@ -82,7 +84,16 @@ function runPage(
     cacheContents: new Map(),
   };
   const seeded = new Map<string, object>();
-  seed.forEach((url) => seeded.set(url, { seeded: true }));
+  // A real Cache entry carries headers, and the page's own eviction pass reads
+  // content-length off them on load, so a bare marker object is not a stand-in
+  // for one.
+  seed.forEach((url) =>
+    seeded.set(url, {
+      seeded: true,
+      headers: { get: () => '1024' },
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(1024)),
+    })
+  );
   recorder.cacheContents.set(TERRAIN_CACHE, seeded);
 
   const posted: { type: string }[] = [];
@@ -191,7 +202,7 @@ function runPage(
   };
 
   vm.runInNewContext(extractPageScript(buildMap3DHtml(buildConfig())), sandbox);
-  return { map: map!, posted, recorder };
+  return { map: map!, posted, recorder, sandbox };
 }
 
 /** Fires the events the prefetch waits on, then drains its one second delay. */
@@ -202,9 +213,8 @@ async function settle(map: FakeMap): Promise<void> {
 }
 
 const demTilesOf = (urls: string[]) => urls.filter((u) => u.startsWith(DEM_PREFIX));
-const zoomOf = (url: string) => Number(url.slice(DEM_PREFIX.length).split('/')[0]);
 
-describe('3D terrain prefetch', () => {
+describe('3D terrain after the page settles', () => {
   beforeEach(() => {
     jest.useFakeTimers();
   });
@@ -213,61 +223,26 @@ describe('3D terrain prefetch', () => {
     jest.useRealTimers();
   });
 
-  it('writes every prefetched DEM tile into the cache the terrain protocol reads', async () => {
+  it('fetches no DEM tile itself and writes none into a page cache', async () => {
     const { map, recorder } = runPage();
     await settle(map);
 
-    const fetchedTiles = demTilesOf(recorder.fetched);
-    expect(fetchedTiles.length).toBeGreaterThan(0);
-
-    const stored = recorder.cachePuts.filter((p) => p.cache === TERRAIN_CACHE).map((p) => p.url);
-    expect(new Set(stored)).toEqual(new Set(fetchedTiles));
-  });
-
-  it('keys the stored tile by the URL the cached-terrain protocol resolves to', async () => {
-    const { map, recorder } = runPage();
-    await settle(map);
-
-    // `cached-terrain://s3.amazonaws.com/...` resolves by swapping the scheme,
-    // so a prefetch keyed any other way is a permanent miss.
-    expect(recorder.cachePuts.length).toBeGreaterThan(0);
-    recorder.cachePuts.forEach((put) => expect(put.url.startsWith(DEM_PREFIX)).toBe(true));
-  });
-
-  it('does not request DEM tiles outside the cache', async () => {
-    const { map, recorder } = runPage();
-    await settle(map);
-
+    expect(demTilesOf(recorder.fetched)).toEqual([]);
     expect(demTilesOf(recorder.imageSrcs)).toEqual([]);
+    expect(recorder.cachePuts.filter((p) => p.cache === TERRAIN_CACHE)).toEqual([]);
   });
 
-  it('prefetches the zoom levels either side, and none past the DEM maximum', async () => {
-    const { map, recorder } = runPage({ zoom: 15 });
+  it('has no prefetch hook for a caller to reach', async () => {
+    const { map, sandbox } = runPage();
     await settle(map);
 
-    const zooms = new Set(demTilesOf(recorder.fetched).map(zoomOf));
-    expect(zooms).toEqual(new Set([14]));
+    expect(sandbox._prefetchTerrainTile).toBeUndefined();
   });
 
-  it('skips a tile the cache already holds', async () => {
-    const first = runPage();
-    await settle(first.map);
-    const alreadyCached = demTilesOf(first.recorder.fetched);
-    expect(alreadyCached.length).toBeGreaterThan(0);
-
-    const second = runPage({ seed: alreadyCached });
-    await settle(second.map);
-
-    expect(demTilesOf(second.recorder.fetched)).toEqual([]);
-    expect(second.recorder.cachePuts).toEqual([]);
-  });
-
-  it('survives a prefetch that cannot reach the network', async () => {
-    const { map, posted, recorder } = runPage({ fetchFails: true });
+  it('still reports ready with the network down', async () => {
+    const { map, posted } = runPage({ fetchFails: true });
     await settle(map);
 
-    expect(demTilesOf(recorder.fetched).length).toBeGreaterThan(0);
-    expect(recorder.cachePuts).toEqual([]);
     expect(posted.map((m) => m.type)).toContain('mapReady');
     expect(posted.map((m) => m.type)).not.toContain('mapFailed');
   });

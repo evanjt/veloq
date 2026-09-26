@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { isRetryableStart, StartOutcome } from 'veloqrs';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
-import { DETECTION_FOLLOW_MS, DETECTION_FOREGROUND_MS } from '@/features/routes/lib/detectionRun';
+import { DETECTION_FOREGROUND_MS } from '@/features/routes/lib/detectionRun';
 import { getEngine } from '@/shared/native/engine';
 
 /**
@@ -38,7 +38,7 @@ function engineWith(overrides: Record<string, unknown> = {}) {
       total: 10,
       percent: 30,
     })),
-    getFilteredSectionSummaries: jest.fn(() => ({ totalCount: 7 })),
+    getSectionCount: jest.fn(() => 7),
     startSectionDetection: jest.fn(() => StartOutcome.Started),
     forceRedetectSections: jest.fn(() => StartOutcome.Started),
     ...overrides,
@@ -330,9 +330,9 @@ describe('a refusal the screen can show', () => {
  * on a build whose library is out of step with its bindings this path has no
  * event at all.
  *
- * Expected behaviour: the follow carries the three budgets `followDetection`
- * already offers. A long run says so and keeps going; a run past the budget the
- * engine itself caps at is a distinguishable failure rather than a spinner.
+ * Expected behaviour: the follow stops at the one foreground budget and says
+ * the run is still going. Only an outcome the engine itself reported reads as
+ * a failure.
  */
 describe('a rescan that is never told it ended', () => {
   beforeEach(() => {
@@ -356,55 +356,60 @@ describe('a rescan that is never told it ended', () => {
     return hook;
   }
 
-  it('says a run is taking a while, and keeps following it', () => {
+  it('stops following at the foreground budget and says the run is still going', async () => {
     const { result } = scanning();
-    expect(result.current.lapsed).toBe(false);
+    expect(result.current.stillRunning).toBe(false);
 
-    act(() => {
+    await act(async () => {
       jest.advanceTimersByTime(DETECTION_FOREGROUND_MS);
     });
 
-    expect(result.current.lapsed).toBe(true);
-    expect(result.current.isScanning).toBe(true);
-  });
-
-  it('gives up at the budget the engine itself caps the wait at', async () => {
-    const { result } = scanning();
-
-    await act(async () => {
-      jest.advanceTimersByTime(DETECTION_FOLLOW_MS);
-    });
-
+    expect(result.current.stillRunning).toBe(true);
+    expect(result.current.failed).toBe(false);
     expect(result.current.isScanning).toBe(false);
-    expect(result.current.failed).toBe(true);
     expect(result.current.progress).toBeNull();
   });
 
-  it('does not report a timeout as a rescan that changed nothing', async () => {
+  it('calls a run failed only when the engine said so', async () => {
+    const engine = engineWith({ pollSectionDetection: jest.fn(() => 'running') });
+    mockedGetEngine.mockReturnValue(engine as never);
+    const hook = renderHook(() => useSectionRescan());
+    act(() => {
+      hook.result.current.rescan();
+    });
+
+    engine.pollSectionDetection.mockReturnValue('error');
+    await act(async () => {
+      listeners.detectionApplied?.();
+    });
+
+    expect(hook.result.current.failed).toBe(true);
+    expect(hook.result.current.stillRunning).toBe(false);
+  });
+
+  it('does not report the cap as a rescan that changed nothing', async () => {
     const { result } = scanning();
 
     await act(async () => {
-      jest.advanceTimersByTime(DETECTION_FOLLOW_MS);
+      jest.advanceTimersByTime(DETECTION_FOREGROUND_MS);
     });
 
     expect(result.current.result).toBeNull();
   });
 
-  it('clears the lapse when the next run starts', async () => {
+  it('clears the still-running notice when the next run starts', async () => {
     const { result } = scanning();
-    act(() => {
-      jest.advanceTimersByTime(DETECTION_FOREGROUND_MS);
-    });
-    expect(result.current.lapsed).toBe(true);
 
     await act(async () => {
-      jest.advanceTimersByTime(DETECTION_FOLLOW_MS);
+      jest.advanceTimersByTime(DETECTION_FOREGROUND_MS);
     });
+    expect(result.current.stillRunning).toBe(true);
+
     act(() => {
       result.current.rescan();
     });
 
-    expect(result.current.lapsed).toBe(false);
+    expect(result.current.stillRunning).toBe(false);
   });
 
   it('stops following once the hook goes away', () => {
@@ -418,9 +423,61 @@ describe('a rescan that is never told it ended', () => {
     const readsAtUnmount = engine.getSectionDetectionProgress.mock.calls.length;
     unmount();
     act(() => {
-      jest.advanceTimersByTime(DETECTION_FOLLOW_MS);
+      jest.advanceTimersByTime(DETECTION_FOREGROUND_MS);
     });
 
     expect(engine.getSectionDetectionProgress.mock.calls.length).toBe(readsAtUnmount);
+  });
+});
+
+/**
+ * Scenario: the before and after counts around a rescan are read from the
+ * engine on every tap.
+ *
+ * Expected behaviour: they come from the SQL count, not from loading every
+ * section summary to read a total off the result.
+ */
+describe('counting sections around a rescan', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    for (const key of Object.keys(listeners)) delete listeners[key];
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('reads the count without loading any summaries', () => {
+    const getSectionCount = jest.fn(() => 7);
+    const getFilteredSectionSummaries = jest.fn(() => ({ totalCount: 7 }));
+    const engine = engineWith({ getSectionCount, getFilteredSectionSummaries });
+    mockedGetEngine.mockReturnValue(engine as never);
+
+    const { result } = renderHook(() => useSectionRescan());
+
+    act(() => {
+      result.current.rescan();
+    });
+
+    expect(getSectionCount).toHaveBeenCalled();
+    expect(getFilteredSectionSummaries).not.toHaveBeenCalled();
+  });
+
+  it('reports zero rather than throwing when the count fails', () => {
+    const engine = engineWith({
+      getSectionCount: jest.fn(() => {
+        throw new Error('engine is gone');
+      }),
+    });
+    mockedGetEngine.mockReturnValue(engine as never);
+
+    const { result } = renderHook(() => useSectionRescan());
+
+    expect(() =>
+      act(() => {
+        result.current.rescan();
+      })
+    ).not.toThrow();
   });
 });

@@ -23,7 +23,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 
 type Listener = (payload?: { kind?: string; activityId?: string }) => void;
 
-function fakeEngine(stored: Record<string, string> = {}) {
+function fakeEngine(stored: Record<string, string> = {}, outcome = StartOutcome.Started) {
   const listeners = new Map<string, Set<Listener>>();
   const reads: number[] = [];
   const windowReads: number[] = [];
@@ -40,7 +40,7 @@ function fakeEngine(stored: Record<string, string> = {}) {
     },
     syncActivityDetail(activityId: string) {
       engine.detailRequests.push(activityId);
-      return StartOutcome.Started;
+      return outcome;
     },
     subscribe(event: string, callback: Listener) {
       const set = listeners.get(event) ?? new Set<Listener>();
@@ -149,6 +149,25 @@ describe('awaiting an activity body', () => {
     await expect(pending).resolves.toEqual({ id: 'i-2', name: 'Later' });
 
     expect(engine.windowReads()).toBe(0);
+  });
+
+  it('settles at once on a refusal no waiting can change', async () => {
+    const engine = fakeEngine({}, StartOutcome.NotConfigured);
+
+    const body = await awaitActivityBody(engine, 'a1', 15_000);
+
+    expect(body).toBeNull();
+    expect(engine.listenerCount('bodyStored')).toBe(0);
+  });
+
+  it('waits out a refusal that asking again could change', async () => {
+    const engine = fakeEngine({}, StartOutcome.Busy);
+    const pending = awaitActivityBody(engine, 'a1', 15_000);
+
+    expect(engine.listenerCount('bodyStored')).toBe(1);
+    engine.land('a1', { name: 'Landed anyway' });
+
+    expect(await pending).toMatchObject({ name: 'Landed anyway' });
   });
 
   it('reads null for an activity the engine has not got, without scanning', () => {

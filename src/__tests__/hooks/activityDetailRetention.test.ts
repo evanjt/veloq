@@ -24,7 +24,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 const engine = {
-  getActivityBodies: jest.fn(() => [JSON.stringify({ id: 'a1', name: 'Morning ride' })]),
+  getActivityBody: jest.fn(() => JSON.stringify({ id: 'a1', name: 'Morning ride' })),
   getIntervalBody: jest.fn(() => JSON.stringify({ icu_intervals: [], icu_groups: [] })),
   getStreamBody: jest.fn(() => JSON.stringify({ time: [0, 1, 2] })),
   syncActivityDetail: jest.fn(),
@@ -67,34 +67,34 @@ async function openDetail() {
 describe('activity detail retention', () => {
   it('keeps the body an open detail is showing', async () => {
     const view = await openDetail();
-    const readsAtOpen = engine.getActivityBodies.mock.calls.length;
+    const readsAtOpen = engine.getActivityBody.mock.calls.length;
 
     jest.advanceTimersByTime(PAST_THE_WINDOW_MS);
 
     expect(view.result.current.data).toMatchObject({ id: 'a1' });
-    expect(engine.getActivityBodies).toHaveBeenCalledTimes(readsAtOpen);
+    expect(engine.getActivityBody).toHaveBeenCalledTimes(readsAtOpen);
   });
 
   it('lets a closed detail go and reads the engine again on reopen', async () => {
     const view = await openDetail();
-    const readsAtOpen = engine.getActivityBodies.mock.calls.length;
+    const readsAtOpen = engine.getActivityBody.mock.calls.length;
     view.unmount();
 
     jest.advanceTimersByTime(PAST_THE_WINDOW_MS);
     await openDetail();
 
-    expect(engine.getActivityBodies.mock.calls.length).toBeGreaterThan(readsAtOpen);
+    expect(engine.getActivityBody.mock.calls.length).toBeGreaterThan(readsAtOpen);
   });
 
   it('still has the body for a step to a neighbour and back', async () => {
     const view = await openDetail();
-    const readsAtOpen = engine.getActivityBodies.mock.calls.length;
+    const readsAtOpen = engine.getActivityBody.mock.calls.length;
     view.unmount();
 
     jest.advanceTimersByTime(WITHIN_THE_WINDOW_MS);
     await openDetail();
 
-    expect(engine.getActivityBodies).toHaveBeenCalledTimes(readsAtOpen);
+    expect(engine.getActivityBody).toHaveBeenCalledTimes(readsAtOpen);
   });
 
   const detailQueries: [string, () => { data: unknown }, readonly unknown[]][] = [

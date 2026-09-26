@@ -22,6 +22,7 @@ jest.mock('@/shared/native/engine', () => ({
 
 jest.mock('@/features/wellness', () => ({
   useWellness: () => ({ data: [] }),
+  useWellnessLatestDate: () => ({ data: null }),
 }));
 
 jest.mock('@/features/insights/lib/computeInsightsData', () => ({

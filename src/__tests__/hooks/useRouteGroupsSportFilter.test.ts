@@ -41,7 +41,7 @@ it('offers a loop that has been walked to a walk, not only to a ride', () => {
   expect(result.current.groups.map((g) => g.id)).toEqual(['g1']);
 });
 
-it('still offers it to the sport its representative carries', () => {
+it('still offers it to the sport most of its members carry', () => {
   const { result } = renderHook(() => useRouteGroups({ type: 'Ride' }));
 
   expect(result.current.groups.map((g) => g.id)).toEqual(['g1']);
@@ -51,4 +51,31 @@ it('does not offer it to a sport nothing traversed it in', () => {
   const { result } = renderHook(() => useRouteGroups({ type: 'Swim' }));
 
   expect(result.current.groups).toEqual([]);
+});
+
+describe('a group the engine gave no label', () => {
+  it('does not read as a ride, which is a sport nothing said', () => {
+    (useGroupSummaries as jest.Mock).mockReturnValue({
+      summaries: [{ ...mixedLoop, sportType: '', sportTypes: ['Run'] }],
+      totalCount: 1,
+      refresh: jest.fn(),
+    });
+
+    const { result } = renderHook(() => useRouteGroups({}));
+
+    expect(result.current.groups[0].type).toBe('Run');
+    expect(result.current.groups[0].sportTypes).toEqual(['Run']);
+  });
+
+  it('reads as Other when the set is empty too, rather than inventing one', () => {
+    (useGroupSummaries as jest.Mock).mockReturnValue({
+      summaries: [{ ...mixedLoop, sportType: '', sportTypes: [] }],
+      totalCount: 1,
+      refresh: jest.fn(),
+    });
+
+    const { result } = renderHook(() => useRouteGroups({}));
+
+    expect(result.current.groups[0].type).toBe('Other');
+  });
 });

@@ -35,7 +35,7 @@ jest.mock('expo-notifications', () => ({
 }));
 
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), navigate: jest.fn() },
+  router: { push: jest.fn(), navigate: jest.fn(), replace: jest.fn() },
 }));
 
 jest.mock('@/theme', () => ({
@@ -58,8 +58,10 @@ const SHAPES: [string, Record<string, unknown>][] = [
 ];
 
 describe('tapTargetFromPushData', () => {
-  it.each(SHAPES)('routes the %s shape to the activity', (_name, data) => {
-    expect(tapTargetFromPushData(data)).toEqual({ path: '/activity/i999', mode: 'push' });
+  it.each(SHAPES)('routes the %s shape to the activity summary', (_name, data) => {
+    // The summary, not the detail: the push's claim is what the athlete is
+    // being sent to check, and the detail screen never repeats it.
+    expect(tapTargetFromPushData(data)).toEqual({ path: '/summary/i999', mode: 'push' });
   });
 
   it('routes a section payload to the section', () => {
@@ -87,7 +89,7 @@ describe('tapTargetFromPushData', () => {
 
   it('reads the worker snake_case id as well as the tap camelCase one', () => {
     expect(tapTargetFromPushData({ activity_id: 'i7' })).toEqual({
-      path: '/activity/i7',
+      path: '/summary/i7',
       mode: 'push',
     });
   });
@@ -108,7 +110,18 @@ describe('routeFromNotificationData', () => {
 
   it.each(SHAPES)('navigates on the %s shape', (_name, data) => {
     routeFromNotificationData(data);
-    expect(router.push).toHaveBeenCalledWith('/activity/i999');
+    expect(router.push).toHaveBeenCalledWith('/summary/i999');
+  });
+
+  it('leaves a warm tap on the stack it already has', () => {
+    routeFromNotificationData({ ...TAP });
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('seats the feed under a cold-start tap, so back does not leave the app', () => {
+    routeFromNotificationData({ ...TAP }, true);
+    expect(router.replace).toHaveBeenCalledWith('/(tabs)');
+    expect(router.push).toHaveBeenCalledWith('/summary/i999');
   });
 
   it('does not throw or navigate on a payload it cannot read', () => {
@@ -134,7 +147,7 @@ describe('the two tap entry points', () => {
     );
     await handleInitialNotificationResponse();
 
-    expect(router.push).toHaveBeenCalledWith('/activity/i999');
+    expect(router.push).toHaveBeenCalledWith('/summary/i999');
   });
 
   it('routes once when the same tap reaches both paths', async () => {

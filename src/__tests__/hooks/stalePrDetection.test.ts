@@ -33,7 +33,7 @@ describe('stalePROpportunityToInsight', () => {
     expect(insight.category).toBe('stale_pr');
     expect(insight.priority).toBe(2);
     expect(insight.icon).toBe('lightning-bolt');
-    expect(insight.iconColor).toBe('#FF9800');
+    expect(insight.iconTone).toBe('opportunity');
     expect(insight.navigationTarget).toBe('/section/s1');
     expect(insight.isNew).toBe(true);
     expect(insight.timestamp).toBe(1700000000000);

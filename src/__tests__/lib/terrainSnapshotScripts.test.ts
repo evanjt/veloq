@@ -12,6 +12,7 @@ import {
   SNAPSHOT_JPEG_QUALITY,
   QUALITY_CACHE_VERSION,
 } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
+import { SNAPSHOT_PHASES } from '@/features/maps/lib/snapshotTiming';
 import { TERRAIN_CACHE_VERSION } from '@/features/maps/lib/storage/terrainPreviewCache';
 import type { SnapshotRequest } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
 
@@ -110,3 +111,147 @@ describe('the snapshot encode', () => {
     expect(TERRAIN_CACHE_VERSION).toBeGreaterThanOrEqual(QUALITY_CACHE_VERSION);
   });
 });
+
+/**
+ * Scenario: the page's own elapsed says the render is the whole of a preview's
+ * wait, and nothing says which part of the render that is.
+ *
+ * Expected behaviour: the script stamps the four stages the host knows how to
+ * record, and stamps no fifth. The names are the join between a string this
+ * module builds and a table a reader reads, so a rename on either side has to
+ * fail here.
+ */
+describe('the stages a render stamps', () => {
+  const stamped = (script: string) =>
+    new Set(Array.from(script.matchAll(/\bphase\('([a-z]+)'\)/g), (m) => m[1]));
+
+  it('stamps exactly the stages the pool records', () => {
+    expect([...stamped(buildRenderSnapshotScript(makeRequest(), 0, 1))].sort()).toEqual(
+      [...SNAPSHOT_PHASES].sort()
+    );
+  });
+
+  it('stamps them on a flat render too', () => {
+    expect(
+      [...stamped(buildRenderSnapshotScript(makeRequest({ flat: true }), 0, 1))].sort()
+    ).toEqual([...SNAPSHOT_PHASES].sort());
+  });
+
+  it('carries them back on the message that carries the image', () => {
+    const script = buildRenderSnapshotScript(makeRequest(), 0, 1);
+    expect(script).toContain('phases: window._phases');
+  });
+
+  it('closes the style stage on both the fast path and the full one', () => {
+    // The fast path mounts no style, so its style stage is the camera jump
+    // alone. A stamp only on the full path would read as the fast path
+    // spending its whole elapsed settling.
+    const script = buildRenderSnapshotScript(makeRequest(), 0, 1);
+    expect(script.match(/phase\('style'\)/g)).toHaveLength(2);
+  });
+});
+
+describe('tile counts belong to one render', () => {
+  it.each(['fast', 'setStyle'] as const)(
+    'starts successive %s renders before counting map events',
+    (path) => {
+      const starts: Record<string, { loaded: number; total: number }>[] = [];
+      const postMessage = jest.fn();
+      const page = {
+        _tileStats: { old: { loaded: 9, total: 10 } } as Record<
+          string,
+          { loaded: number; total: number }
+        >,
+        _currentBaseStyle: path === 'fast' ? 'dark' : null,
+        _currentBaseMode: 'flat',
+        _rn_log: jest.fn(),
+        _heartbeat: { start: jest.fn() },
+        ReactNativeWebView: { postMessage },
+        map: {
+          setStyle: jest.fn(() => {
+            starts.push({ ...page._tileStats });
+            // MapLibre can report a source synchronously while mounting a style.
+            page._tileStats.vector = { loaded: 1, total: 2 };
+          }),
+          jumpTo: jest.fn(() => {
+            if (path === 'fast') starts.push({ ...page._tileStats });
+            page._tileStats.camera = { loaded: 1, total: 1 };
+          }),
+          on: jest.fn(),
+        },
+      };
+      for (const generation of [1, 2]) {
+        const script = buildRenderSnapshotScript(
+          makeRequest({ mapStyle: 'dark', flat: true }),
+          0,
+          generation
+        );
+        new Function('window', 'setInterval', 'setTimeout', 'requestAnimationFrame', script)(
+          page,
+          jest.fn(),
+          jest.fn(),
+          jest.fn()
+        );
+        expect(postMessage).not.toHaveBeenCalled();
+        expect(page._tileStats).toEqual(
+          path === 'fast'
+            ? { camera: { loaded: 1, total: 1 } }
+            : { vector: { loaded: 1, total: 2 }, camera: { loaded: 1, total: 1 } }
+        );
+      }
+      expect(starts).toEqual([{}, {}]);
+      expect(page.map.setStyle).toHaveBeenCalledTimes(path === 'fast' ? 0 : 2);
+    }
+  );
+});
+
+it.each([false, true])(
+  'posts tile counts after capture, including encode failure=%s',
+  (failEncode) => {
+    jest.useFakeTimers();
+    try {
+      const postMessage = jest.fn();
+      const page = {
+        _tileStats: {} as Record<string, { loaded: number; total: number }>,
+        _rn_log: jest.fn(),
+        _heartbeat: { start: jest.fn() },
+        ReactNativeWebView: { postMessage },
+        map: {
+          setStyle: () => {
+            page._tileStats.terrain = { loaded: 3, total: 4 };
+          },
+          jumpTo: jest.fn(),
+          isStyleLoaded: () => true,
+          getCanvas: () => ({
+            width: 1080,
+            height: 720,
+            getContext: () => null,
+            toDataURL: () => {
+              if (failEncode) throw new Error('encode failed');
+              return 'data:image/jpeg;base64,AAAA';
+            },
+          }),
+        },
+      };
+      const script = buildRenderSnapshotScript(makeRequest({ mapStyle: 'dark', flat: true }), 0, 1);
+      new Function(
+        'window',
+        'setInterval',
+        'clearInterval',
+        'setTimeout',
+        'requestAnimationFrame',
+        script
+      )(page, setInterval, clearInterval, setTimeout, (callback: () => void) => callback());
+      jest.advanceTimersByTime(250);
+      expect(postMessage).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(postMessage.mock.calls[0][0])).toMatchObject({
+        type: failEncode ? 'snapshotError' : 'snapshot',
+        tileStats: { terrain: { loaded: 3, total: 4 } },
+        phases: { style: 0, settle: 250 },
+      });
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  }
+);

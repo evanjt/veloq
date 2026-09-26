@@ -41,7 +41,7 @@ function counts(over: Partial<Counts> = {}): Counts {
 interface FakeEngine {
   announce: (event: string) => void;
   liveListeners: () => number;
-  getCutoverProgress: jest.Mock<Progress | null, []>;
+  getRoutesStatusData: jest.Mock<{ cutover: Progress } | null, []>;
   getCutoverDiff: jest.Mock<Diff | null, []>;
 }
 
@@ -89,7 +89,21 @@ function engine(progress: () => Progress | null, diff: () => Diff | null) {
         listeners.get(event)?.forEach((cb) => cb());
       }),
     liveListeners: () => [...listeners.values()].reduce((n, set) => n + set.size, 0),
-    getCutoverProgress: jest.fn(progress),
+    // One status read carries the phase now, so the mock counts ticks the
+    // same way: one call a tick, whoever is following.
+    getRoutesStatusData: jest.fn(() => {
+      const cutover = progress();
+      return cutover
+        ? {
+            detection: null,
+            elevation: { phase: 'idle', completed: 0, total: 0, failed: 0, percent: 0 },
+            elevationRemaining: 0,
+            elevationPaused: false,
+            cutover,
+            heatmapTiles: [0, 0],
+          }
+        : null;
+    }),
     getCutoverDiff: jest.fn(diff),
     subscribe: jest.fn((event: string, cb: () => void) => {
       const set = listeners.get(event) ?? new Set<() => void>();
@@ -271,12 +285,12 @@ describe('useCutoverSummary', () => {
       () => ({ counts: counts({ current: 4, proposed: 6 }) })
     );
     mount(fake);
-    const progressAtMount = fake.getCutoverProgress.mock.calls.length;
+    const progressAtMount = fake.getRoutesStatusData.mock.calls.length;
     const diffAtMount = fake.getCutoverDiff.mock.calls.length;
 
     advance();
 
-    expect(fake.getCutoverProgress.mock.calls.length).toBe(progressAtMount);
+    expect(fake.getRoutesStatusData.mock.calls.length).toBe(progressAtMount);
     expect(fake.getCutoverDiff.mock.calls.length).toBe(diffAtMount);
   });
 
@@ -307,10 +321,10 @@ describe('useCutoverSummary', () => {
 
     running = false;
     advance(1);
-    const afterSettle = fake.getCutoverProgress.mock.calls.length;
+    const afterSettle = fake.getRoutesStatusData.mock.calls.length;
 
     advance();
-    expect(fake.getCutoverProgress.mock.calls.length).toBe(afterSettle);
+    expect(fake.getRoutesStatusData.mock.calls.length).toBe(afterSettle);
   });
 
   it('counts the announced settle as a run it saw, even mounting after the start', () => {
@@ -337,14 +351,14 @@ describe('useCutoverSummary', () => {
       () => null
     );
     const { unmount } = mount(fake);
-    const whileMounted = fake.getCutoverProgress.mock.calls.length;
+    const whileMounted = fake.getRoutesStatusData.mock.calls.length;
 
     unmount();
     fake.announce('cutoverSettled');
     advance();
 
     expect(fake.liveListeners()).toBe(0);
-    expect(fake.getCutoverProgress.mock.calls.length).toBe(whileMounted);
+    expect(fake.getRoutesStatusData.mock.calls.length).toBe(whileMounted);
   });
 });
 
@@ -406,10 +420,10 @@ describe('when the engine stops answering', () => {
     mount(fake);
 
     advance();
-    const asked = fake.getCutoverProgress.mock.calls.length;
+    const asked = fake.getRoutesStatusData.mock.calls.length;
     advance();
 
-    expect(fake.getCutoverProgress.mock.calls.length).toBe(asked);
+    expect(fake.getRoutesStatusData.mock.calls.length).toBe(asked);
   });
 
   /** An engine that answers `null` is the same as one that throws. */

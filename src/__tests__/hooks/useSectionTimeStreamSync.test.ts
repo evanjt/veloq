@@ -137,3 +137,68 @@ describe('useSectionTimeStreamSync', () => {
     expect(mockListeners.get('timeStreamsStored')?.size ?? 0).toBe(0);
   });
 });
+
+describe('a wait the caller has moved on from', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockListeners.clear();
+    missing.mockReturnValue([]);
+  });
+
+  /// Scenario: switching sections quickly leaves the previous wait running.
+  /// Nothing aborted it, so the older one settled against the new section's
+  /// half-populated cache and flipped `ready` true early, and it lived on for
+  /// the full thirty-second timeout past unmount.
+  ///
+  /// Expected behaviour: starting a new wait ends the one before it.
+  it('does not flip the new wait ready when the old one settles', async () => {
+    missing.mockReturnValue(['old']);
+    const { result, rerender } = renderHook(
+      ({ ids }: { ids: string[] }) => useSectionTimeStreamSync(ids),
+      { initialProps: { ids: ['old'] } }
+    );
+    await act(async () => {});
+    expect(syncTimeStreams).toHaveBeenCalledWith(['old']);
+
+    missing.mockReturnValue(['new']);
+    rerender({ ids: ['new'] });
+    await act(async () => {});
+    expect(result.current.ready).toBe(false);
+
+    // The stream the first section was waiting on lands late.
+    announce(['old']);
+    await act(async () => {});
+
+    expect(result.current.ready).toBe(false);
+  });
+
+  it('is ready once the stream the current wait asked for lands', async () => {
+    missing.mockReturnValue(['old']);
+    const { result, rerender } = renderHook(
+      ({ ids }: { ids: string[] }) => useSectionTimeStreamSync(ids),
+      { initialProps: { ids: ['old'] } }
+    );
+    await act(async () => {});
+
+    missing.mockReturnValue(['new']);
+    rerender({ ids: ['new'] });
+    await act(async () => {});
+
+    announce(['new']);
+    await waitFor(() => expect(result.current.ready).toBe(true));
+  });
+
+  /// A wait that outlives its component keeps a subscription and a thirty
+  /// second timer for nothing.
+  it('drops its subscription when the component goes away', async () => {
+    missing.mockReturnValue(['a1']);
+    const { unmount } = renderSync(['a1']);
+    await act(async () => {});
+    expect(mockListeners.get('timeStreamsStored')?.size).toBe(1);
+
+    unmount();
+    await act(async () => {});
+
+    expect(mockListeners.get('timeStreamsStored')?.size ?? 0).toBe(0);
+  });
+});

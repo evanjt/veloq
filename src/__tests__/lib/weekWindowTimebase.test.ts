@@ -22,7 +22,7 @@ const withTz = <T>(tz: string, run: () => T): T => {
   }
 };
 
-const utcMidnight = (ts: bigint) => new Date(Number(ts) * 1000).toISOString();
+const utcMidnight = (ts: number) => new Date(Number(ts) * 1000).toISOString();
 
 describe('week window timebase', () => {
   it('stamps local midnight as UTC midnight', () => {
@@ -54,7 +54,7 @@ describe('week window timebase', () => {
 
   it('does not let the previous week touch the current one', () => {
     const params = withTz('Australia/Sydney', () => buildInsightsParams());
-    expect(params.prevEnd).toBe(params.currentStart - 1n);
+    expect(params.prevEnd).toBe(params.currentStart - 1);
     expect(Number(params.currentStart) - Number(params.prevStart)).toBe(7 * 86400);
   });
 });

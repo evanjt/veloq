@@ -14,7 +14,6 @@ import {
   getRecording,
   readRecordingFit,
   readRecordingStreams,
-  discardRecordingStreams,
   markRecordingUploaded,
   markRecordingUploadFailed,
   markRecordingRejected,
@@ -25,11 +24,10 @@ import {
   nextPendingUpload,
   deleteRecording,
   getUnuploadedCount,
-  getPermissionBlockedCount,
-  isRetryEligible,
   migrateLegacyUploadQueue,
   adoptAsyncStorageIndex,
   bufferToBase64,
+  base64ToBuffer,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import type { RecordingStreams } from '@/features/recording/types';
 
@@ -81,6 +79,10 @@ jest.mock('expo-file-system/legacy', () => ({
     mockFileStore.delete(path);
     mockDirStore.delete(path);
   }),
+  copyAsync: jest.fn(async ({ from, to }: { from: string; to: string }) => {
+    if (!mockFileStore.has(from)) throw new Error('ENOENT');
+    mockFileStore.set(to, mockFileStore.get(from)!);
+  }),
   moveAsync: jest.fn(async ({ from, to }: { from: string; to: string }) => {
     if (!mockFileStore.has(from)) throw new Error('ENOENT');
     mockFileStore.set(to, mockFileStore.get(from)!);
@@ -123,8 +125,9 @@ function due(row: Row, now: number): boolean {
 }
 
 const mockEngine = {
+  ready: true,
   addRecording: (entry: Row) => {
-    if (rows.has(entry.id)) return false;
+    if (!mockEngine.ready || rows.has(entry.id)) return false;
     rows.set(entry.id, { ...entry });
     return true;
   },
@@ -137,10 +140,6 @@ const mockEngine = {
   markRecordingReconciled: (id: string) => {
     const row = rows.get(id);
     if (row) row.engineReconciled = true;
-  },
-  clearRecordingStreamsPath: (id: string) => {
-    const row = rows.get(id);
-    if (row) row.streamsPath = undefined;
   },
   markRecordingUploading: (id: string) => {
     const row = rows.get(id);
@@ -207,8 +206,6 @@ const mockEngine = {
   },
   unuploadedRecordingCount: () =>
     [...rows.values()].filter((r) => r.uploadStatus !== 'uploaded').length,
-  permissionBlockedRecordingCount: () =>
-    [...rows.values()].filter((r) => r.uploadStatus === 'permissionBlocked').length,
   clearRecordings: () => rows.clear(),
 };
 
@@ -266,6 +263,7 @@ async function saveOne(
 }
 
 beforeEach(() => {
+  mockEngine.ready = true;
   mockStorage.clear();
   mockFileStore.clear();
   mockDirStore.clear();
@@ -293,32 +291,6 @@ describe('saveRecording', () => {
 
     const streams = await readRecordingStreams(entry);
     expect(streams?.latlng).toHaveLength(2);
-  });
-
-  it('drops the streams sidecar and the path that named it', async () => {
-    const entry = await saveOne();
-    await discardRecordingStreams(entry.id);
-
-    const after = await getRecording(entry.id);
-    expect(after).not.toBeNull();
-    expect(after?.streamsPath).toBeUndefined();
-    expect(await readRecordingStreams({ ...entry, streamsPath: undefined })).toBeNull();
-  });
-
-  it('leaves the FIT and the entry standing when the sidecar goes', async () => {
-    const entry = await saveOne();
-    await discardRecordingStreams(entry.id);
-
-    const after = await getRecording(entry.id);
-    expect(after).not.toBeNull();
-    expect(await readRecordingFit(entry)).not.toBeNull();
-  });
-
-  it('is a no-op for a recording that has no sidecar', async () => {
-    const entry = await saveOne();
-    await discardRecordingStreams(entry.id);
-    await expect(discardRecordingStreams(entry.id)).resolves.toBeUndefined();
-    await expect(discardRecordingStreams('never-saved')).resolves.toBeUndefined();
   });
 
   it('stamps the athlete who recorded it', async () => {
@@ -393,31 +365,14 @@ describe('status transitions', () => {
     const b = await saveOne({ name: 'Second' });
     await markRecordingPermissionBlocked(a.id);
     await markRecordingPermissionBlocked(b.id);
-    expect(await getPermissionBlockedCount()).toBe(2);
     expect(await nextPendingUpload()).toBeNull();
 
     await clearPermissionBlocked();
-    expect(await getPermissionBlockedCount()).toBe(0);
     expect((await nextPendingUpload())?.uploadStatus).toBe('pending');
   });
 });
 
 describe('backoff', () => {
-  it('is immediately eligible before any attempt', async () => {
-    const entry = await saveOne();
-    expect(isRetryEligible(entry, Date.now())).toBe(true);
-  });
-
-  it('waits exponentially after failures', async () => {
-    const entry = await saveOne();
-    await markRecordingUploadFailed(entry.id, 'net down');
-    const failedOnce = (await getRecording(entry.id))!;
-    const attemptAt = failedOnce.lastAttemptAt!;
-    // retryCount 1 → 60s delay
-    expect(isRetryEligible(failedOnce, attemptAt + 30_000)).toBe(false);
-    expect(isRetryEligible(failedOnce, attemptAt + 61_000)).toBe(true);
-  });
-
   it('nextPendingUpload skips entries inside their backoff window', async () => {
     const entry = await saveOne();
     await markRecordingUploadFailed(entry.id, 'net down');
@@ -614,4 +569,152 @@ describe('adopting the AsyncStorage index', () => {
     expect(listed.map((e) => e.id)).toEqual(['q1']);
     expect(listed[0].uploadStatus).toBe('pending');
   });
+});
+
+/**
+ * Scenario: a five-hour ride's FIT file is encoded for the upload queue.
+ *
+ * Expected behaviour: the same bytes come back out, whatever the length, and
+ * a chunk boundary is not a place where a byte can go missing.
+ */
+describe('bufferToBase64', () => {
+  const roundTrip = (bytes: Uint8Array) =>
+    new Uint8Array(base64ToBuffer(bufferToBase64(bytes.buffer as ArrayBuffer)));
+
+  it('round-trips every byte value', () => {
+    const bytes = Uint8Array.from({ length: 256 }, (_, i) => i);
+
+    expect(roundTrip(bytes)).toEqual(bytes);
+  });
+
+  it('round-trips nothing at all', () => {
+    expect(bufferToBase64(new ArrayBuffer(0))).toBe('');
+    expect(roundTrip(new Uint8Array(0))).toEqual(new Uint8Array(0));
+  });
+
+  it.each([8191, 8192, 8193, 16_384, 16_385])(
+    'round-trips %i bytes, which crosses a chunk boundary',
+    (length) => {
+      const bytes = Uint8Array.from({ length }, (_, i) => (i * 31 + 7) & 0xff);
+
+      expect(roundTrip(bytes)).toEqual(bytes);
+    }
+  );
+
+  it('encodes a length that is not a multiple of three the same way', () => {
+    // Base64 pads in threes, so the tail is where a chunked encoder goes wrong.
+    for (const length of [1, 2, 3, 4, 5]) {
+      const bytes = Uint8Array.from({ length }, (_, i) => i + 1);
+      expect(roundTrip(bytes)).toEqual(bytes);
+    }
+  });
+});
+
+describe('closed engine persistence', () => {
+  it('refuses a saved recording while the engine is closed', async () => {
+    mockEngine.ready = false;
+    expect(
+      await saveRecording({
+        fitBuffer: makeBuffer(),
+        activityType: 'Ride',
+        name: 'Closed',
+        startTime: 1,
+        durationSeconds: 1,
+        distanceMeters: 1,
+        uploadStatus: 'pending',
+      })
+    ).toBeNull();
+    expect(rows.size).toBe(0);
+  });
+
+  it('retains the index until a ready pass inserts or finds every entry', async () => {
+    const entry = await saveOne();
+    const second = { ...entry, id: 'second' };
+    mockStorage.set('veloq-recording-library', JSON.stringify([entry, second]));
+    mockEngine.ready = false;
+    expect(await adoptAsyncStorageIndex()).toBe(0);
+    expect(mockStorage.has('veloq-recording-library')).toBe(true);
+    mockEngine.ready = true;
+    expect(await adoptAsyncStorageIndex()).toBe(1);
+    expect(rows.size).toBe(2);
+    expect(mockStorage.has('veloq-recording-library')).toBe(false);
+    expect(await adoptAsyncStorageIndex()).toBe(0);
+  });
+
+  it('retains the queue and files while closed and retries once ready', async () => {
+    const filePath = '/mock/docs/pending_uploads/closed.fit';
+    mockFileStore.set(filePath, 'RklU');
+    mockDirStore.add('/mock/docs/pending_uploads/');
+    mockStorage.set(
+      'veloq-upload-queue',
+      JSON.stringify([
+        {
+          id: 'closed',
+          filePath,
+          activityType: 'Ride',
+          name: 'Closed',
+          createdAt: 1,
+          retryCount: 0,
+        },
+      ])
+    );
+    mockEngine.ready = false;
+    await migrateLegacyUploadQueue();
+    expect(mockStorage.has('veloq-upload-queue')).toBe(true);
+    expect(mockFileStore.has(filePath)).toBe(true);
+    expect(mockDirStore.has('/mock/docs/pending_uploads/')).toBe(true);
+    mockEngine.ready = true;
+    await migrateLegacyUploadQueue();
+    expect(rows.has('closed')).toBe(true);
+    expect(mockStorage.has('veloq-upload-queue')).toBe(false);
+    await migrateLegacyUploadQueue();
+    expect(rows.size).toBe(1);
+  });
+});
+
+it('round trips missing altitude through the streams sidecar as NaN', async () => {
+  const streams = { ...makeStreams(), altitude: [400, NaN, 410] };
+  const entry = await saveOne({ streams });
+  const restored = await readRecordingStreams(entry);
+  expect(restored?.altitude).toEqual([400, NaN, 410]);
+});
+
+it('retains a failed queue entry and adopts it on a second pass without losing FIT bytes', async () => {
+  const filePath = '/mock/docs/pending_uploads/retry.fit';
+  mockFileStore.set(filePath, 'RklU');
+  mockStorage.set(
+    'veloq-upload-queue',
+    JSON.stringify([
+      { id: 'retry', filePath, activityType: 'Ride', name: 'Retry', createdAt: 1, retryCount: 0 },
+    ])
+  );
+  const insert = jest.spyOn(mockEngine, 'addRecording').mockImplementationOnce(() => {
+    throw new Error('write failed');
+  });
+  await migrateLegacyUploadQueue();
+  expect(mockStorage.has('veloq-upload-queue')).toBe(true);
+  expect(mockFileStore.get(filePath)).toBe('RklU');
+  expect(mockFileStore.get('/mock/docs/recordings/retry.fit')).toBe('RklU');
+  await migrateLegacyUploadQueue();
+  expect(rows.has('retry')).toBe(true);
+  expect(mockStorage.has('veloq-upload-queue')).toBe(false);
+  expect(mockFileStore.get('/mock/docs/recordings/retry.fit')).toBe('RklU');
+  insert.mockRestore();
+});
+
+it('retains the index after a failed insert and finds the successful entries on retry', async () => {
+  const entry = await saveOne();
+  mockStorage.set('veloq-recording-library', JSON.stringify([entry, { ...entry, id: 'retry' }]));
+  const insert = jest
+    .spyOn(mockEngine, 'addRecording')
+    .mockImplementationOnce(() => false)
+    .mockImplementationOnce(() => {
+      throw new Error('write failed');
+    });
+  expect(await adoptAsyncStorageIndex()).toBe(0);
+  expect(mockStorage.has('veloq-recording-library')).toBe(true);
+  expect(await adoptAsyncStorageIndex()).toBe(1);
+  expect(rows.size).toBe(2);
+  expect(mockStorage.has('veloq-recording-library')).toBe(false);
+  insert.mockRestore();
 });

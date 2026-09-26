@@ -18,16 +18,11 @@ const mockEngine = {
   destroyEngine: jest.fn(),
   initWithPath: jest.fn(() => true),
   enableHeatmapTiles: jest.fn(),
-  startClearDerived: jest.fn(),
-  pollClearDerived: jest.fn(() => ({
-    state: 'complete',
-    sectionsRemoved: 0,
-    activitiesRemoved: 0,
-    activitiesKept: 0,
-  })),
+  runClearDerived: jest.fn(() =>
+    Promise.resolve({ sectionsRemoved: 0, activitiesRemoved: 0, activitiesKept: 0 })
+  ),
   forceRedetectSections: jest.fn(() => true),
-  startBackup: jest.fn(),
-  pollBackup: jest.fn(() => 'complete'),
+  runBackup: jest.fn(() => Promise.resolve()),
 };
 
 jest.mock('expo-file-system/legacy', () => ({
@@ -69,7 +64,7 @@ describe('the cache panel count after a clear', () => {
     jest.clearAllMocks();
     mockEngine.subscribe.mockReturnValue(() => {});
     mockEngine.initWithPath.mockReturnValue(true);
-    mockEngine.pollBackup.mockReturnValue('complete');
+    mockEngine.runBackup.mockResolvedValue(undefined);
   });
 
   it('reports what the engine says once the clear has emptied it', async () => {

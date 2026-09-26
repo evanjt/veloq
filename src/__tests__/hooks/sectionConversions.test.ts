@@ -8,7 +8,6 @@
  */
 import {
   convertNativeSectionToApp,
-  convertSectionSummaryToApp,
   convertSectionWithPolylineToApp,
 } from '@/features/routes/lib/sectionConversions';
 import type { Section as NativeSection } from 'veloqrs';
@@ -339,10 +338,9 @@ describe('convertNativeSectionToApp', () => {
 
 // ---------------------------------------------------------------------------
 // One builder per engine record, each spreading rather than listing, so an
-// enrichment column reaches every screen the day it lands. `straightness` is
-// the case in point: it has been on the engine's records with no app field
-// at all, which is what a listed builder does to the fourth column nobody
-// remembered to add.
+// enrichment column reaches every screen the day it lands. `isLift` is the case
+// in point: a listed builder had it on the detail screen and not on the list,
+// which is what listing does to the column nobody remembered to add.
 // ---------------------------------------------------------------------------
 
 describe('every builder carries the enrichment columns', () => {
@@ -351,7 +349,6 @@ describe('every builder carries the enrichment columns', () => {
     elevationLossM: 60.25,
     avgGradePercent: 4.2,
     maxGradePercent: 11.7,
-    straightness: 0.83,
     klass: 'climb',
     isLift: true,
     rankScore: 0.91,
@@ -380,29 +377,6 @@ describe('every builder carries the enrichment columns', () => {
     } as unknown as Parameters<typeof convertSectionWithPolylineToApp>[0]);
 
     expect(section).toMatchObject(ENRICHMENT);
-  });
-
-  it('off the summary record, for the columns a summary carries', () => {
-    const section = convertSectionSummaryToApp({
-      id: 'section-4',
-      sectionType: 'auto',
-      sportType: 'Run',
-      distanceMeters: 400,
-      visitCount: 2,
-      activityCount: 2,
-      createdAt: '2026-01-01T00:00:00Z',
-      elevationGainM: ENRICHMENT.elevationGainM,
-      avgGradePercent: ENRICHMENT.avgGradePercent,
-      klass: ENRICHMENT.klass,
-      rankScore: ENRICHMENT.rankScore,
-    } as unknown as Parameters<typeof convertSectionSummaryToApp>[0]);
-
-    expect(section).toMatchObject({
-      elevationGainM: ENRICHMENT.elevationGainM,
-      avgGradePercent: ENRICHMENT.avgGradePercent,
-      klass: ENRICHMENT.klass,
-      rankScore: ENRICHMENT.rankScore,
-    });
   });
 });
 

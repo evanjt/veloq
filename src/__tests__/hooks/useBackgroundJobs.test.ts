@@ -7,6 +7,8 @@
  */
 
 import { act, renderHook } from '@testing-library/react-native';
+
+import { routesStatus } from '../__shared__/routesStatusStub';
 import { SyncState } from 'veloqrs';
 
 import { getEngine } from '@/shared/native/engine';
@@ -69,6 +71,14 @@ function engine() {
     getElevationBackfillProgress: () => state.backfill,
     getElevationBackfillRemaining: () => state.remaining,
     getCutoverProgress: () => state.cutover,
+    getRoutesStatusData: () =>
+      routesStatus({
+        detection: state.detectionProgress,
+        detectionOutcome: state.lastOutcome,
+        elevation: state.backfill,
+        elevationRemaining: state.remaining,
+        cutover: state.cutover,
+      }),
     isCutoverPending: () => state.cutoverPending,
     sectionDetectionAwaiting: () => state.detectionAwaiting,
     getCutoverDiff: () => null,
@@ -109,8 +119,9 @@ describe('useBackgroundJobs', () => {
   it('lists every job on an engine where nothing has ever run', () => {
     const { result } = jobs();
 
+    // No sync row. Every other row rests on a count of what it still owes, and
+    // sync is scheduled rather than owed, so it had none to rest on.
     expect(result.current.map((job) => job.id)).toEqual([
-      'sync',
       'detection',
       'elevationBackfill',
       'cutover',
@@ -118,12 +129,12 @@ describe('useBackgroundJobs', () => {
     expect(result.current.every((job) => job.state === 'idle')).toBe(true);
   });
 
-  it('keeps all four rows when there is no engine at all', () => {
+  it('keeps all three rows when there is no engine at all', () => {
     mockGetEngine.mockReturnValue(null);
 
     const { result } = jobs();
 
-    expect(result.current).toHaveLength(4);
+    expect(result.current).toHaveLength(3);
     expect(result.current.every((job) => job.state === 'idle')).toBe(true);
     expect(result.current.every((job) => job.remaining === null)).toBe(true);
   });
@@ -206,9 +217,15 @@ describe('useBackgroundJobs', () => {
       const real = engine() as unknown as Record<string, unknown>;
       return {
         ...real,
-        getSectionDetectionProgress: () => {
+        getRoutesStatusData: () => {
           reads += 1;
-          return state.detectionProgress;
+          return routesStatus({
+            detection: state.detectionProgress,
+            detectionOutcome: state.lastOutcome,
+            elevation: state.backfill,
+            elevationRemaining: state.remaining,
+            cutover: state.cutover,
+          });
         },
       } as unknown as ReturnType<typeof getEngine>;
     });
@@ -223,37 +240,14 @@ describe('useBackgroundJobs', () => {
     expect(reads).toBe(whileMounted);
   });
 
-  it('reads an expired credential as a failed sync', () => {
-    state.sync = { state: SyncState.AuthExpired, inFlight: 0, completed: 0, total: 0 };
-
-    const { result } = jobs();
-
-    expect(result.current.find((job) => job.id === 'sync')?.state).toBe('failed');
-  });
-
-  it('reads a settled sync that left an error as failed', () => {
-    state.sync = {
-      state: SyncState.Idle,
-      inFlight: 0,
-      completed: 3,
-      total: 3,
-      lastError: 'timeout',
-    };
-
-    const { result } = jobs();
-
-    expect(result.current.find((job) => job.id === 'sync')?.state).toBe('failed');
-  });
-
-  it('carries a running sync count', () => {
+  it('carries no sync row at all, whatever the sync service says', () => {
     state.sync = { state: SyncState.Syncing, inFlight: 2, completed: 5, total: 20 };
 
     const { result } = jobs();
 
-    const sync = result.current.find((job) => job.id === 'sync');
-    expect(sync?.state).toBe('running');
-    expect(sync?.completed).toBe(5);
-    expect(sync?.total).toBe(20);
+    // A running sync is reported by the sync notification and the feed's own
+    // banner. This screen lists what is owed, and sync owes nothing countable.
+    expect(result.current.find((job) => (job.id as string) === 'sync')).toBeUndefined();
   });
 
   it('keeps a partial backfill distinct from a complete one', () => {
@@ -304,7 +298,7 @@ describe('useBackgroundJobs', () => {
 
     const { result } = jobs();
 
-    expect(result.current).toHaveLength(4);
+    expect(result.current).toHaveLength(3);
     expect(result.current.find((job) => job.id === 'detection')?.state).toBe('idle');
   });
 
@@ -364,7 +358,7 @@ describe('useBackgroundJobs', () => {
 
     const { result } = jobs();
 
-    expect(result.current).toHaveLength(4);
+    expect(result.current).toHaveLength(3);
     expect(result.current.find((job) => job.id === 'cutover')?.remaining).toBeNull();
   });
 

@@ -14,7 +14,11 @@ import type { RecordingLibraryEntry } from '@/types';
 
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
-    engine: { ready: true, getGpsTrack: jest.fn(() => []) },
+    engine: { ready: true, getGpsTrack: jest.fn(() => ({ points: [] })) },
+    // The track crosses coordinate-encoded. What stands in for the blob here is
+    // an object carrying the points, which this reads back out.
+    decodeCoords: (buf: ArrayBuffer) =>
+      (buf as unknown as { points?: { latitude: number; longitude: number }[] }).points ?? [],
   })
 );
 
@@ -27,6 +31,7 @@ const mockReadStreams = readRecordingStreams as jest.Mock;
 
 const ENTRY: RecordingLibraryEntry = {
   id: 'rec-1',
+  kind: 'fit',
   fitPath: 'file:///recordings/rec-1.fit',
   streamsPath: 'file:///recordings/rec-1.streams.json',
   activityType: 'Ride',
@@ -43,16 +48,18 @@ const ENTRY: RecordingLibraryEntry = {
 beforeEach(() => {
   jest.clearAllMocks();
   (engine as unknown as { ready: boolean }).ready = true;
-  mockGetTrack.mockReturnValue([]);
+  mockGetTrack.mockReturnValue({ points: [] });
   mockReadStreams.mockResolvedValue(null);
 });
 
 describe('readRecordingTrack', () => {
   it('reads the track the engine holds', async () => {
-    mockGetTrack.mockReturnValue([
-      { latitude: -33.86, longitude: 151.2 },
-      { latitude: -33.87, longitude: 151.21 },
-    ]);
+    mockGetTrack.mockReturnValue({
+      points: [
+        { latitude: -33.86, longitude: 151.2 },
+        { latitude: -33.87, longitude: 151.21 },
+      ],
+    });
 
     await expect(readRecordingTrack(ENTRY)).resolves.toEqual([
       [-33.86, 151.2],

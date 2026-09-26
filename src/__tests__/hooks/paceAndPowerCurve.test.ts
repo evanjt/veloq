@@ -4,7 +4,6 @@
  */
 
 import {
-  paceToMinPer100m,
   getPaceAtDistance,
   getIndexAtDistance,
   getTimeAtDistance,
@@ -20,25 +19,6 @@ import {
 } from '@/features/stats/hooks/usePowerCurve';
 
 import type { PaceCurve, PowerCurve } from '@/types';
-
-describe('paceToMinPer100m', () => {
-  it('converts a typical swim pace (1:40/100m = 1.0 m/s)', () => {
-    const result = paceToMinPer100m(1.0);
-    expect(result.minutes).toBe(1);
-    expect(result.seconds).toBe(40);
-  });
-
-  it('rolls over seconds=60 to next minute', () => {
-    // secondsPer100m = 100 / speed; we need secondsPer100m % 60 >= 59.5
-    // e.g. secondsPer100m = 119.5 → 100/119.5 m/s
-    const secondsPer100m = 119.5;
-    const metersPerSecond = 100 / secondsPer100m;
-    const result = paceToMinPer100m(metersPerSecond);
-    expect(result.seconds).toBeLessThan(60);
-    expect(result.minutes).toBe(2);
-    expect(result.seconds).toBe(0);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // getPaceAtDistance
@@ -194,13 +174,14 @@ describe('formatPowerCurveForChart', () => {
     expect(formatPowerCurveForChart(undefined)).toEqual([]);
   });
 
-  it('returns entries with undefined power for curve with empty arrays', () => {
-    // When secs/watts are empty arrays (truthy), getPowerAtDuration falls through
-    // to closest-match logic which returns undefined (not null), so filter(d !== null)
-    // doesn't remove them. This is actual behavior - entries have power: undefined.
+  it('has nothing to plot for a curve with empty arrays', () => {
+    // This asserted eleven entries carrying `power: undefined`, on the grounds
+    // that it was the actual behaviour: the hand-rolled closest-match walk fell
+    // through to `watts[0]` on an empty `secs` and returned undefined, which
+    // `filter(d !== null)` then kept. A curve with no samples has no points.
     const emptyCurve: PowerCurve = { type: 'power', sport: 'Ride', secs: [], watts: [] };
-    const result = formatPowerCurveForChart(emptyCurve);
-    expect(result).toHaveLength(POWER_CURVE_DURATIONS.length);
+
+    expect(formatPowerCurveForChart(emptyCurve)).toEqual([]);
   });
 
   it('maps POWER_CURVE_DURATIONS to chart data', () => {

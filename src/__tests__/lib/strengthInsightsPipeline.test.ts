@@ -8,7 +8,7 @@
 import { generateInsights } from '@/features/insights/lib/generateInsights';
 import { INSIGHTS_CONFIG } from '@/features/insights/lib/config';
 import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
-import type { StrengthSummary } from '@/types';
+import type { StrengthProgressionRecord, StrengthSummary } from '@/features/strength/types';
 
 const t = (key: string, params?: Record<string, string | number>) => {
   if (!params) return key;
@@ -17,7 +17,8 @@ const t = (key: string, params?: Record<string, string | number>) => {
 
 function makeSummary(
   muscles: { slug: string; weightedSets: number }[],
-  activityCount = 4
+  activityCount = 4,
+  balance: StrengthSummary['balance'] = []
 ): StrengthSummary {
   return {
     muscleVolumes: muscles.map((muscle) => ({
@@ -31,6 +32,7 @@ function makeSummary(
     })),
     activityCount,
     totalSets: muscles.reduce((sum, muscle) => sum + Math.round(muscle.weightedSets), 0),
+    balance,
   };
 }
 
@@ -47,6 +49,18 @@ function growingWeekly(): StrengthSummary[] {
       1
     )
   );
+}
+
+function growingProgressions(): StrengthProgressionRecord[] {
+  return GROWING.map((slug) => ({
+    muscleSlug: slug,
+    weeklyWeightedSets: [2, 3, 6, 7],
+    recentAverage: 6.5,
+    baselineAverage: 2.5,
+    peakWeightedSets: 7,
+    changePct: 160,
+    trend: 'up' as const,
+  }));
 }
 
 function emptyInput() {
@@ -72,6 +86,7 @@ describe('strength insights inside the shared pipeline', () => {
         ...emptyInput(),
         strengthMonthly: growingMonthly(),
         strengthWeekly: growingWeekly(),
+        strengthProgressions: growingProgressions(),
       },
       t
     );
@@ -85,6 +100,7 @@ describe('strength insights inside the shared pipeline', () => {
         ...emptyInput(),
         strengthMonthly: growingMonthly(),
         strengthWeekly: growingWeekly(),
+        strengthProgressions: growingProgressions(),
       },
       t
     );
@@ -99,6 +115,7 @@ describe('strength insights inside the shared pipeline', () => {
         ...emptyInput(),
         strengthMonthly: growingMonthly(),
         strengthWeekly: growingWeekly(),
+        strengthProgressions: growingProgressions(),
       },
       t
     );
@@ -107,7 +124,13 @@ describe('strength insights inside the shared pipeline', () => {
   });
 
   it('returns every qualifying progression rather than one private pick', () => {
-    const result = generateStrengthInsights(growingMonthly(), growingWeekly(), Date.now(), t);
+    const result = generateStrengthInsights(
+      growingMonthly(),
+      growingWeekly(),
+      growingProgressions(),
+      Date.now(),
+      t
+    );
 
     const perMuscle = result.filter((insight) => insight.id.startsWith('strength_progression-'));
     expect(perMuscle.map((insight) => insight.id).sort()).toEqual(
@@ -117,7 +140,7 @@ describe('strength insights inside the shared pipeline', () => {
 
   it('yields no strength candidates when there is no strength data', () => {
     const result = generateInsights(
-      { ...emptyInput(), strengthMonthly: null, strengthWeekly: [] },
+      { ...emptyInput(), strengthMonthly: null, strengthWeekly: [], strengthProgressions: [] },
       t
     );
 

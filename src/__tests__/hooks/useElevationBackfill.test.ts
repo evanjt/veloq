@@ -30,8 +30,20 @@ function engineReporting(
   remaining: () => number | null = () => 0
 ) {
   return {
-    getElevationBackfillProgress: () => progress(),
-    getElevationBackfillRemaining: () => remaining(),
+    // The hook reads one bundle now, and Rust withholds the count while a pass
+    // is running, which is what the two calls this replaced did between them.
+    getRoutesStatusData: () => {
+      const p = progress();
+      if (!p) return null;
+      return {
+        detection: null,
+        elevation: p,
+        elevationRemaining: p.phase === 'fetching' ? null : remaining(),
+        elevationPaused: false,
+        cutover: { phase: 'idle', running: false },
+        heatmapTiles: [0, 0],
+      };
+    },
     subscribe: (event: string, callback: () => void) => {
       const forEvent = listeners.get(event) ?? new Set<() => void>();
       forEvent.add(callback);

@@ -16,6 +16,8 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
+import { routesStatus } from '../__shared__/routesStatusStub';
+
 import { isElevationHold, useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import { getEngine } from '@/shared/native/engine';
 
@@ -42,6 +44,14 @@ function engineWith({
       percent: 0,
     })),
     getElevationBackfillRemaining: jest.fn(() => remaining),
+    getRoutesStatusData: jest.fn(() =>
+      routesStatus({
+        elevation: { phase },
+        elevationRemaining: remaining,
+        elevationPaused: paused,
+        cutover: { phase: cutoverRunning ? 'detecting' : 'idle', running: cutoverRunning },
+      })
+    ),
     subscribe: jest.fn((event: string, cb: () => void) => {
       const set = listeners.get(event) ?? new Set<() => void>();
       set.add(cb);

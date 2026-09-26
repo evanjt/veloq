@@ -1,19 +1,20 @@
 /**
- * Scenario: the renderer now ships in the app, so a 3D view opened with no
- * radio boots and draws. The DEM tiles still come off the network, so the
+ * Scenario: the renderer ships in the app, so a 3D view opened with no radio
+ * boots and draws. The DEM tiles come through the intercept, and with the
+ * radio off and nothing in the store the intercept answers none, so the
  * terrain is flat and nothing says why.
  *
  * Expected behaviour: the page reports that it has no terrain, so the caller
  * can drop back to 2D with a reason rather than leaving a flat map that looks
- * like 3D is broken. A page whose terrain loads never reports it, and a page
- * that has already reported does not report twice.
+ * like 3D is broken. The page has no handler of its own on the DEM path any
+ * more, so it reads deliveries and failures off MapLibre's own source events.
+ * A page whose terrain loads never reports it, and a page that has already
+ * reported does not report twice.
  */
 
 import vm from 'vm';
 
 import { buildMap3DHtml, type Map3DHtmlConfig } from '@/features/maps/lib/htmlBuilders';
-
-const DEM_TILE = 'cached-terrain://s3.amazonaws.com/elevation-tiles-prod/terrarium/12/1/1.png';
 
 function buildConfig(): Map3DHtmlConfig {
   return {
@@ -51,6 +52,7 @@ interface PageRun {
   fire: (event: string, payload?: unknown) => void;
   posted: Posted[];
   protocols: Record<string, Protocol>;
+  offline: boolean;
 }
 
 /** `offline` makes every network fetch reject, which is the case under test. */
@@ -151,11 +153,26 @@ function runPage(options: { offline: boolean }): PageRun {
     fire: (event, payload) => (handlers[event] ?? []).forEach((fn) => fn(payload)),
     posted,
     protocols,
+    offline: options.offline,
   };
 }
 
+/** One DEM tile the intercept answered, or refused, as MapLibre reports it. */
 async function requestTerrain(run: PageRun): Promise<void> {
-  await run.protocols['cached-terrain']({ url: DEM_TILE, type: 'image' }).catch(() => {});
+  if (run.offline) {
+    run.fire('error', {
+      sourceId: 'terrain',
+      tile: { tileID: { canonical: { z: 12, x: 1, y: 1 } } },
+      error: { message: 'HTTP 404' },
+    });
+  } else {
+    run.fire('sourcedata', {
+      sourceId: 'terrain',
+      dataType: 'source',
+      tile: { tileID: { canonical: { z: 12, x: 1, y: 1 } } },
+    });
+  }
+  await Promise.resolve();
 }
 
 const typesOf = (posted: Posted[]) => posted.map((m) => m.type);

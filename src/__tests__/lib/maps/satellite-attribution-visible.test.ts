@@ -32,12 +32,15 @@ describe('satellite attribution names only what is drawn', () => {
   });
 
   it('follows the layer minzoom, not the region minzoom', () => {
-    // The swisstopo layer declares minzoom 8 while REGIONS.switzerland says 6,
+    // The swisstopo layers declare minzoom 8 while REGIONS.switzerland says 6,
     // so between the two nothing swiss is drawn and nothing swiss is credited.
-    const layer = getCombinedSatelliteStyle().layers.find(
-      (l) => l.id === 'satellite-layer-swisstopo'
+    const layers = getCombinedSatelliteStyle().layers.filter((l) =>
+      /^satellite-layer-swisstopo-\d+$/.test(l.id)
     );
-    expect(layer && 'minzoom' in layer ? layer.minzoom : null).toBe(8);
+    expect(layers.length).toBeGreaterThan(0);
+    for (const layer of layers) {
+      expect('minzoom' in layer ? layer.minzoom : null).toBe(8);
+    }
 
     expect(getCombinedSatelliteAttribution(46.23, 7.36, 7)).not.toContain('swisstopo');
     expect(getCombinedSatelliteAttribution(46.23, 7.36, 8)).toContain('swisstopo');

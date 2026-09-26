@@ -6,7 +6,7 @@ import {
   isCyclingActivity,
   isSwimmingActivity,
   measuresPower,
-} from '@/features/activity/lib/activityUtils';
+} from '@/shared/activity/activityUtils';
 import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
 import { activityTypeColors } from '@/theme/colors';
 import type { ActivityType } from '@/types';

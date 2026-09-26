@@ -3,9 +3,10 @@
  * with a connection of its own, and the row above it is meant to show what it
  * has got through.
  *
- * Expected behaviour: the export is started once, polled until it reports
- * complete, and every poll is reported as a count. The JavaScript thread is
- * never inside the write, so the row paints while it runs.
+ * Expected behaviour: the export is started once and awaited, the counters are
+ * read on a timer while it runs and reported as counts, and the final report is
+ * the bytes it shared. The JavaScript thread is never inside the write, so the
+ * row paints while it runs.
  */
 
 import {
@@ -14,15 +15,15 @@ import {
   type BulkExportProgress,
 } from '@/features/settings/lib/bulkExport';
 
-const mockStartBulkExport = jest.fn();
-const mockPollBulkExport = jest.fn();
+const mockRunBulkExport = jest.fn();
+const mockBulkExportProgress = jest.fn();
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
-    startBulkExport: mockStartBulkExport,
-    pollBulkExport: mockPollBulkExport,
+    runBulkExport: mockRunBulkExport,
+    bulkExportProgress: mockBulkExportProgress,
   }),
 }));
 
@@ -35,58 +36,53 @@ jest.mock('@/features/settings/lib/shareFile', () => ({
   shareExistingFile: jest.fn().mockResolvedValue(undefined),
 }));
 
-const running = (exported: number) => ({
-  state: 'running',
-  exported,
-  total: 402,
-  skipped: 0,
-  totalBytes: 0,
-});
+const written = { exported: 402, skipped: 6, totalBytes: 8_400_000 };
 
-const complete = {
-  state: 'complete',
-  exported: 402,
-  total: 402,
-  skipped: 6,
-  totalBytes: 8_400_000,
-};
+/** The counters climbing, the way the writing thread moves them. */
+const climbing = (exported: number) => ({ running: true, exported, total: 402 });
 
 beforeEach(() => {
   jest.useFakeTimers();
-  mockStartBulkExport.mockClear();
-  mockPollBulkExport.mockReset();
-  mockPollBulkExport.mockReturnValueOnce(running(0)).mockReturnValueOnce(running(200));
-  mockPollBulkExport.mockReturnValue(complete);
+  mockRunBulkExport.mockReset();
+  mockBulkExportProgress.mockReset();
+  mockBulkExportProgress
+    .mockReturnValueOnce(climbing(0))
+    .mockReturnValueOnce(climbing(200))
+    .mockReturnValue({ running: false, exported: 0, total: 0 });
 });
 
 afterEach(() => {
   jest.useRealTimers();
 });
 
-/** Drive the poll loop's timers while the export promise is in flight. */
-async function settle<T>(promise: Promise<T>): Promise<T> {
-  for (let i = 0; i < 20; i++) {
-    await Promise.resolve();
-    jest.advanceTimersByTime(250);
-  }
-  return promise;
+/** Let the progress ticker fire twice while the write is in flight. */
+function landsAfterTwoTicks() {
+  mockRunBulkExport.mockImplementation(
+    () => new Promise((resolve) => setTimeout(() => resolve(written), 600))
+  );
 }
 
 describe.each([
   ['gpx', bulkExportActivities] as const,
   ['geojson', bulkExportActivitiesGeoJson] as const,
 ])('%s bulk export', (_format, run) => {
-  it('starts the export once and polls it to completion', async () => {
-    const result = await settle(run());
+  it('starts the export once and waits for it', async () => {
+    landsAfterTwoTicks();
 
-    expect(mockStartBulkExport).toHaveBeenCalledTimes(1);
-    expect(mockPollBulkExport.mock.calls.length).toBeGreaterThan(1);
-    expect(result).toEqual({ exported: 402, skipped: 6 });
+    const exporting = run();
+    await jest.advanceTimersByTimeAsync(1_000);
+
+    expect(mockRunBulkExport).toHaveBeenCalledTimes(1);
+    await expect(exporting).resolves.toEqual({ state: 'complete', exported: 402, skipped: 6 });
   });
 
   it('reports the count as it climbs, then the bytes it shared', async () => {
+    landsAfterTwoTicks();
     const seen: BulkExportProgress[] = [];
-    await settle(run((progress) => seen.push(progress)));
+
+    const exporting = run((progress) => seen.push(progress));
+    await jest.advanceTimersByTimeAsync(1_000);
+    await exporting;
 
     expect(seen.map((p) => p.phase)).toEqual(['generating', 'generating', 'generating', 'sharing']);
     expect(seen.map((p) => p.current)).toEqual([0, 0, 200, 402]);

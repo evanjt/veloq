@@ -138,6 +138,31 @@ function onlyMessage(buffer: ArrayBuffer, globalMesgNum: number): DecodedMessage
 describe('generateFitFile', () => {
   const startTime = new Date('2026-01-15T10:00:00Z');
 
+  it.each([
+    [[NaN, 450, 452], 2],
+    [[450, NaN, 452], 2],
+    [[450, 452, NaN], 2],
+    [[NaN, NaN], 0],
+    [[0, 2, 0, 3], 5],
+  ])('encodes altitude validity and valid-sample ascent: %j', async (altitude, gain) => {
+    const buffer = await generateFitFile({
+      activityType: 'Ride',
+      startTime,
+      laps: [],
+      streams: makeStreams({ altitude, time: altitude.map((_, i) => i) }),
+    });
+    const records = messagesOfType(buffer, MESG_RECORD);
+    altitude.forEach((alt, i) => {
+      expect(records[i].fields.get(RECORD_ALTITUDE)).toBe(
+        Number.isFinite(alt) ? (alt + 500) * 5 : 0xffff
+      );
+      expect(records[i].fields.get(RECORD_ENHANCED_ALTITUDE)).toBe(
+        Number.isFinite(alt) ? (alt + 500) * 5 : 0xffffffff
+      );
+    });
+    expect(onlyMessage(buffer, MESG_SESSION).fields.get(22)).toBe(gain);
+  });
+
   describe('FIT header', () => {
     it('generates valid 14-byte header with .FIT signature and protocol 2.0', async () => {
       const buffer = await generateFitFile({
@@ -697,7 +722,7 @@ describe('generateFitFile', () => {
       distance: [0, 8.0, 16.2],
     };
 
-    it('writes a zeroed altitude rather than NaN bytes', async () => {
+    it('writes invalid altitude sentinels for NaN', async () => {
       const buffer = await generateFitFile({
         activityType: 'Ride',
         startTime,
@@ -706,8 +731,14 @@ describe('generateFitFile', () => {
       });
 
       const records = messagesOfType(buffer, MESG_RECORD);
-      expect(records.map((r) => r.fields.get(RECORD_ALTITUDE))).toEqual([3000, 0, 3500]);
-      expect(records.map((r) => r.fields.get(RECORD_ENHANCED_ALTITUDE))).toEqual([3000, 0, 3500]);
+      expect(records.map((r) => r.fields.get(RECORD_ALTITUDE))).toEqual([
+        3000,
+        INVALID_UINT16,
+        3500,
+      ]);
+      expect(records.map((r) => r.fields.get(RECORD_ENHANCED_ALTITUDE))).toEqual([
+        3000, 0xffffffff, 3500,
+      ]);
       expect(records.map((r) => r.fields.get(RECORD_HEART_RATE))).toEqual([130, 140, 150]);
     });
 
@@ -720,7 +751,11 @@ describe('generateFitFile', () => {
       });
 
       const records = messagesOfType(buffer, MESG_RECORD);
-      expect(records.map((r) => r.fields.get(RECORD_ALTITUDE))).toEqual([0, 0, 0]);
+      expect(records.map((r) => r.fields.get(RECORD_ALTITUDE))).toEqual([
+        INVALID_UINT16,
+        INVALID_UINT16,
+        INVALID_UINT16,
+      ]);
     });
 
     it('treats a NaN heart rate as no reading', async () => {
@@ -750,7 +785,7 @@ describe('generateFitFile', () => {
   });
 
   describe('missing sensor streams', () => {
-    it('falls back to zero altitude when the stream is undefined', async () => {
+    it('writes invalid altitude when the stream is undefined', async () => {
       const streams = makeStreams({
         time: [0, 1],
         latlng: [
@@ -774,8 +809,10 @@ describe('generateFitFile', () => {
 
       const records = messagesOfType(buffer, MESG_RECORD);
       expect(records).toHaveLength(2);
-      // 0m altitude still carries the +500 offset and ×5 scale.
-      expect(records.map((r) => r.fields.get(RECORD_ALTITUDE))).toEqual([2500, 2500]);
+      expect(records.map((r) => r.fields.get(RECORD_ALTITUDE))).toEqual([
+        INVALID_UINT16,
+        INVALID_UINT16,
+      ]);
     });
   });
 

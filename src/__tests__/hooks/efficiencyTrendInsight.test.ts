@@ -13,7 +13,7 @@ const t = (key: string) => key;
 
 function point(ratio: number) {
   return {
-    date: BigInt(1),
+    date: 1,
     paceSecsPerKm: 240,
     avgHr: 150,
     hrPaceRatio: ratio,

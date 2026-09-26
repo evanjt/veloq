@@ -3,11 +3,11 @@
  *
  * Covers: toActivityMetrics
  * Bug fixes validated:
- * - BigInt(NaN) throws when start_date_local is invalid
+ * - an invalid start_date_local falls back to zero rather than NaN
  * - Documents inconsistent zone time serialization (powerZoneTimes vs hrZoneTimes)
  */
 
-import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
+import { toActivityMetrics } from '@/shared/activity/activityMetrics';
 import type { Activity } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -57,11 +57,11 @@ describe('toActivityMetrics', () => {
     expect(metrics.ftp).toBe(260);
   });
 
-  it('converts date to BigInt unix timestamp', () => {
+  it('converts date to a unix timestamp in seconds', () => {
     const activity = makeActivity({ start_date_local: '2026-01-15T08:00:00' });
     const metrics = toActivityMetrics(activity);
-    expect(typeof metrics.date).toBe('bigint');
-    expect(metrics.date).toBe(BigInt(Date.UTC(2026, 0, 15, 8, 0, 0) / 1000));
+    expect(typeof metrics.date).toBe('number');
+    expect(metrics.date).toBe(Date.UTC(2026, 0, 15, 8, 0, 0) / 1000);
   });
 
   it('handles partial activity with missing optional fields', () => {
@@ -96,7 +96,7 @@ describe('toActivityMetrics', () => {
     });
     expect(() => toActivityMetrics(activity)).not.toThrow();
     const metrics = toActivityMetrics(activity);
-    expect(metrics.date).toBe(BigInt(0));
+    expect(metrics.date).toBe(0);
   });
 
   it('handles zone times being undefined', () => {
@@ -140,11 +140,11 @@ describe('date edge cases', () => {
     for (const bad of ['not-a-date', undefined as unknown as string]) {
       const activity = makeActivity({ start_date_local: bad });
       expect(() => toActivityMetrics(activity)).not.toThrow();
-      expect(toActivityMetrics(activity).date).toBe(BigInt(0));
+      expect(toActivityMetrics(activity).date).toBe(0);
     }
     // Empty string parses to epoch in some environments - only assert bigint.
     const emptyActivity = makeActivity({ start_date_local: '' });
     expect(() => toActivityMetrics(emptyActivity)).not.toThrow();
-    expect(typeof toActivityMetrics(emptyActivity).date).toBe('bigint');
+    expect(typeof toActivityMetrics(emptyActivity).date).toBe('number');
   });
 });

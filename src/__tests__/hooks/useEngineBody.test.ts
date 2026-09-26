@@ -231,7 +231,7 @@ describe('the deadline', () => {
   it('reports waiting while the request is outstanding', () => {
     const { result } = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
 
-    expect(result.current).toBe('waiting');
+    expect(result.current.status).toBe('waiting');
   });
 
   it('gives up at the deadline and says so', () => {
@@ -240,12 +240,12 @@ describe('the deadline', () => {
     act(() => {
       jest.advanceTimersByTime(BODY_WAIT_MS - 1);
     });
-    expect(result.current).toBe('waiting');
+    expect(result.current.status).toBe('waiting');
 
     act(() => {
       jest.advanceTimersByTime(1);
     });
-    expect(result.current).toBe('timedOut');
+    expect(result.current.status).toBe('timedOut');
   });
 
   it('reads nothing and asks for nothing when it expires', () => {
@@ -277,15 +277,15 @@ describe('the deadline', () => {
     act(() => {
       engine.announce('activities');
     });
-    expect(result.current).toBe('waiting');
+    expect(result.current.status).toBe('waiting');
 
     rerender({ present: true });
-    expect(result.current).toBe('idle');
+    expect(result.current.status).toBe('idle');
 
     act(() => {
       jest.advanceTimersByTime(BODY_WAIT_MS * 2);
     });
-    expect(result.current).toBe('idle');
+    expect(result.current.status).toBe('idle');
   });
 
   it('is idle from the start for a body that is already present', () => {
@@ -295,7 +295,7 @@ describe('the deadline', () => {
       jest.advanceTimersByTime(BODY_WAIT_MS * 2);
     });
 
-    expect(result.current).toBe('idle');
+    expect(result.current.status).toBe('idle');
   });
 
   it('is idle when it is disabled, so a screen that asked for nothing never times out', () => {
@@ -305,7 +305,7 @@ describe('the deadline', () => {
       jest.advanceTimersByTime(BODY_WAIT_MS * 2);
     });
 
-    expect(result.current).toBe('idle');
+    expect(result.current.status).toBe('idle');
   });
 
   it('starts a fresh deadline when the parameters change', () => {
@@ -317,10 +317,40 @@ describe('the deadline', () => {
     act(() => {
       jest.advanceTimersByTime(BODY_WAIT_MS);
     });
-    expect(result.current).toBe('timedOut');
+    expect(result.current.status).toBe('timedOut');
 
     rerender({ key: ['body', 'a2'] });
-    expect(result.current).toBe('waiting');
+    expect(result.current.status).toBe('waiting');
+  });
+
+  it('asks again on a retry, and waits again', () => {
+    const request = jest.fn();
+    const { result } = renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS);
+    });
+    expect(result.current.status).toBe('timedOut');
+    expect(request).toHaveBeenCalledTimes(1);
+
+    act(() => result.current.retry());
+
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(result.current.status).toBe('waiting');
+  });
+
+  it('runs the second deadline out too, rather than waiting for ever', () => {
+    const { result } = renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS);
+    });
+    act(() => result.current.retry());
+
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS);
+    });
+    expect(result.current.status).toBe('timedOut');
   });
 
   it('drops its timer on unmount', () => {

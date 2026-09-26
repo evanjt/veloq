@@ -1,31 +1,30 @@
 /**
  * Scenario: a bulk export of a whole library. Rust writes the file on a thread
- * of its own, so the export is started and then polled.
+ * of its own and answers with a promise, and the row above it shows what it has
+ * got through.
  *
- * Expected behaviour: the JS thread never waits on the write, every poll
- * reports what has been exported so far, and the share only happens once the
- * export reads complete.
+ * Expected behaviour: the JS thread never waits on the write, the progress read
+ * reports what has been exported so far, the share only happens once the write
+ * has finished, and a write that outlives the foreground budget is reported as
+ * still going rather than failed.
  */
 
-import { bulkExportActivities, runExport } from '@/features/settings/lib/bulkExport';
+import {
+  bulkExportActivities,
+  resumePendingBulkExport,
+  runExport,
+} from '@/features/settings/lib/bulkExport';
 import { BulkExportFormat } from '../__shared__/veloqrsStub';
 
-const mockStartBulkExport = jest.fn();
+const mockRunBulkExport = jest.fn();
 const mockShareAsync = jest.fn();
 const mockDeleteAsync = jest.fn();
-let mockPolls: {
-  state: string;
-  exported: number;
-  total: number;
-  skipped: number;
-  totalBytes: number;
-}[] = [];
+let mockProgress = { running: false, exported: 0, total: 0 };
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
-    startBulkExport: (format: unknown, path: string) => mockStartBulkExport(format, path),
-    pollBulkExport: () =>
-      mockPolls.shift() ?? { state: 'idle', exported: 0, total: 0, skipped: 0, totalBytes: 0 },
+    runBulkExport: (format: unknown, path: string) => mockRunBulkExport(format, path),
+    bulkExportProgress: () => mockProgress,
   }),
 }));
 
@@ -38,115 +37,176 @@ jest.mock('expo-sharing', () => ({
   shareAsync: (...args: unknown[]) => mockShareAsync(...args),
 }));
 
+// The share sheet is loaded with a dynamic import, which the test VM cannot
+// run, and it is the OS's half of the export rather than this module's.
+jest.mock('@/features/settings/lib/shareFile', () => ({
+  shareExistingFile: (...args: unknown[]) => mockShareAsync(...args),
+}));
+
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
-const running = (exported: number, total: number) => ({
-  state: 'running',
-  exported,
-  total,
-  skipped: 0,
-  totalBytes: 0,
-});
+/** A write nobody resolves, which is what a ceiling is for. */
+const neverFinishes = () => new Promise(() => {});
 
 beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers();
-  mockPolls = [];
+  mockProgress = { running: false, exported: 0, total: 0 };
 });
 
 afterEach(() => {
   jest.useRealTimers();
 });
 
-/** Let the poll loop's timers run while the export promise is in flight. */
-async function settle(promise: Promise<unknown>) {
-  for (let i = 0; i < 40; i++) {
-    await Promise.resolve();
-    jest.advanceTimersByTime(250);
-  }
-  return promise;
-}
-
-test('the export is polled to completion and reports progress as it goes', async () => {
-  mockPolls = [
-    running(0, 3),
-    running(2, 3),
-    { state: 'complete', exported: 3, total: 3, skipped: 1, totalBytes: 4096 },
-  ];
+test('the export is awaited and reports progress as it goes', async () => {
+  mockProgress = { running: true, exported: 2, total: 3 };
+  mockRunBulkExport.mockImplementation(
+    () =>
+      new Promise((resolve) =>
+        setTimeout(() => resolve({ exported: 3, skipped: 1, totalBytes: 4096 }), 600)
+      )
+  );
   const progress: { current: number; total: number }[] = [];
 
-  const result = await settle(
-    runExport(BulkExportFormat.Gpx, '/cache/all.zip', (p) =>
-      progress.push({ current: p.current, total: p.total })
-    )
+  const exporting = runExport(BulkExportFormat.Gpx, '/cache/all.zip', (p) =>
+    progress.push({ current: p.current, total: p.total })
   );
+  await jest.advanceTimersByTimeAsync(1_000);
 
-  expect(result).toEqual({ exported: 3, skipped: 1, totalBytes: 4096 });
-  expect(mockStartBulkExport).toHaveBeenCalledWith(BulkExportFormat.Gpx, '/cache/all.zip');
+  await expect(exporting).resolves.toEqual({
+    state: 'complete',
+    exported: 3,
+    skipped: 1,
+    totalBytes: 4096,
+  });
+  expect(mockRunBulkExport).toHaveBeenCalledWith(BulkExportFormat.Gpx, '/cache/all.zip');
   expect(progress).toContainEqual({ current: 2, total: 3 });
 });
 
-test('a slot that never leaves idle fails rather than spinning forever', async () => {
-  mockPolls = [];
-  await expect(settle(bulkExportActivities())).rejects.toThrow('Export did not start');
-  expect(mockShareAsync).not.toHaveBeenCalled();
-});
+test('a failing write propagates and nothing is shared', async () => {
+  mockRunBulkExport.mockRejectedValue(new Error('Database error: disk full'));
 
-test('a failing poll propagates and nothing is shared', async () => {
-  mockPolls = [running(0, 2)];
-  const engine = jest.requireMock('@/shared/native/engine');
-  const original = engine.getEngine;
-  engine.getEngine = () => ({
-    startBulkExport: mockStartBulkExport,
-    pollBulkExport: () => {
-      throw new Error('Database error: disk full');
-    },
-  });
-
-  await expect(settle(bulkExportActivities())).rejects.toThrow('disk full');
+  await expect(bulkExportActivities()).rejects.toThrow('disk full');
   expect(mockShareAsync).not.toHaveBeenCalled();
-  engine.getEngine = original;
 });
 
 /**
- * Scenario: the Rust export worker neither finishes nor gives its slot back.
- * The poll loop had no deadline, so it asked at 4 Hz for the life of the
- * screen and the spinner never stopped.
+ * Scenario: the Rust export worker neither finishes nor fails. The wait had no
+ * budget, so the spinner never stopped.
  *
- * Expected behaviour: the wait has a budget, the two failures stay
- * distinguishable, and the budget is a parameter so a test can shorten it.
+ * Expected behaviour: the wait has a budget, and the budget is a parameter so a
+ * test can shorten it.
  */
 describe('an export that never ends', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    jest.useFakeTimers();
-    mockPolls = [];
-  });
+  it('stops watching a run that is still writing past its budget', async () => {
+    mockRunBulkExport.mockImplementation(neverFinishes);
 
-  afterEach(() => {
+    const exporting = runExport(BulkExportFormat.Gpx, '/cache/all.zip', undefined, 1_000);
+    await jest.advanceTimersByTimeAsync(2_000);
+
+    await expect(exporting).resolves.toMatchObject({ state: 'running' });
+  });
+});
+
+/**
+ * Scenario: iOS suspends the app while an export runs. No timer fires while it
+ * is away, so a budget read off the wall clock is spent by a resume nobody was
+ * watching.
+ *
+ * Expected behaviour: the budget counts the time the app was awake, so a
+ * suspension costs the export nothing.
+ */
+describe('an export the app was suspended during', () => {
+  it('is not failed by the clock the resume brings back', async () => {
     jest.useRealTimers();
+    const realNow = Date.now;
+    let at = realNow();
+    Date.now = () => at;
+
+    let settle: (written: unknown) => void = () => {};
+    mockRunBulkExport.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          settle = resolve;
+        })
+    );
+
+    const exporting = runExport(BulkExportFormat.Gpx, '/cache/all.zip', undefined, 60_000);
+
+    at += 180_000;
+    for (let tick = 0; tick < 4; tick += 1) {
+      at += 500;
+      await Promise.resolve();
+    }
+    settle({ exported: 3, skipped: 0, totalBytes: 512 });
+
+    await expect(exporting).resolves.toEqual({
+      state: 'complete',
+      exported: 3,
+      skipped: 0,
+      totalBytes: 512,
+    });
+    Date.now = realNow;
+  });
+});
+
+/**
+ * Scenario: an export of a whole library outlives the minute a foreground wait
+ * is given. Rust keeps writing on its own thread either way.
+ *
+ * Expected behaviour: the wait ends saying the export is still running, not
+ * that it failed, and the write and its destination survive the screen so the
+ * share can be offered when the athlete comes back.
+ */
+describe('an export that outlives the foreground budget', () => {
+  it('shares nothing at the cap and offers the file once the write finishes', async () => {
+    let settle: (written: unknown) => void = () => {};
+    mockRunBulkExport.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          settle = resolve;
+        })
+    );
+
+    const exporting = bulkExportActivities(undefined, 1_000);
+    await jest.advanceTimersByTimeAsync(2_000);
+    await expect(exporting).resolves.toEqual({ state: 'still-running' });
+    expect(mockShareAsync).not.toHaveBeenCalled();
+
+    settle({ exported: 3, skipped: 0, totalBytes: 2048 });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    await expect(resumePendingBulkExport()).resolves.toEqual({
+      state: 'complete',
+      exported: 3,
+      skipped: 0,
+    });
+    expect(mockShareAsync).toHaveBeenCalledTimes(1);
+    // The same file the lapsed run was writing, not a second export.
+    expect(mockRunBulkExport).toHaveBeenCalledTimes(1);
   });
 
-  it('gives up on a run that stays running past its budget', async () => {
-    const engine = jest.requireMock('@/shared/native/engine');
-    const original = engine.getEngine;
-    engine.getEngine = () => ({
-      startBulkExport: mockStartBulkExport,
-      pollBulkExport: () => running(1, 3),
+  it('keeps the file owed while the write is still going', async () => {
+    mockRunBulkExport.mockImplementation(neverFinishes);
+
+    const exporting = bulkExportActivities(undefined, 1_000);
+    await jest.advanceTimersByTimeAsync(2_000);
+    await exporting;
+
+    await expect(resumePendingBulkExport()).resolves.toEqual({ state: 'still-running' });
+    expect(mockShareAsync).not.toHaveBeenCalled();
+  });
+
+  it('owes nothing after an export the screen waited out', async () => {
+    mockRunBulkExport.mockResolvedValue({ exported: 1, skipped: 0, totalBytes: 32 });
+
+    await expect(bulkExportActivities()).resolves.toEqual({
+      state: 'complete',
+      exported: 1,
+      skipped: 0,
     });
 
-    const promise = runExport(1 as never, '/cache/all.zip', undefined, 1000);
-    const settled = expect(settle(promise)).rejects.toThrow('did not finish in time');
-    await settled;
-
-    engine.getEngine = original;
-  });
-
-  it('says a slot that emptied is not the same failure as a slow one', async () => {
-    mockPolls = [running(0, 3)];
-
-    await expect(settle(runExport(1 as never, '/cache/all.zip'))).rejects.toThrow(
-      'Export did not start'
-    );
+    await expect(resumePendingBulkExport()).resolves.toEqual({ state: 'nothing-pending' });
   });
 });

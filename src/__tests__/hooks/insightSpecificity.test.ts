@@ -21,7 +21,7 @@ function insight(fields: Partial<Insight>): Insight {
     priority: 2,
     title: '',
     icon: 'x',
-    iconColor: '#000',
+    iconTone: 'neutral',
     timestamp: 0,
     isNew: false,
     confidence: null,

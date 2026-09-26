@@ -46,10 +46,13 @@ describe('the snapshot worker serves bundled basemap assets', () => {
     }
   });
 
-  it('leaves the tile caches it already had alone', () => {
-    for (const protocol of ['cached-terrain', 'cached-satellite', 'cached-vector']) {
-      expect(HTML.split(`addProtocol('${protocol}'`)).toHaveLength(2);
-    }
+  it('leaves the imagery protocol it already had alone', () => {
+    expect(HTML.split("addProtocol('cached-satellite'")).toHaveLength(2);
+    // Not the vector one: no style this page is ever given names it, so it was
+    // a handler and a cache bucket nothing could reach. Nor the terrain one:
+    // the DEM comes through the intercept and the Rust store holds it.
+    expect(HTML).not.toContain("addProtocol('cached-vector'");
+    expect(HTML).not.toContain("addProtocol('cached-terrain'");
     expect(HTML).not.toContain("addProtocol('heatmap-file'");
   });
 

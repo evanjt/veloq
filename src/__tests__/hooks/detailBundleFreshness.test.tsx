@@ -15,10 +15,6 @@ import { useSectionDetailData } from '@/features/routes/hooks/useSectionDetailDa
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-jest.mock('@/shared/native/useEngineSubscription', () => ({
-  useEngineSubscription: () => 0,
-}));
-
 const mockGetEngine = jest.fn();
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockGetEngine(),
@@ -30,7 +26,6 @@ function activityDetail(activityCount: number) {
     activityCount,
     sectionCount: 0,
     routeGroups: [],
-    totalRouteGroupCount: 0,
     matchedSections: [],
     customSections: [],
     encounters: [],
@@ -62,6 +57,7 @@ describe('detail bundle freshness', () => {
   it('never commits the superseded activity bundle', () => {
     const counts: Record<string, number> = { a: 1, b: 2 };
     mockGetEngine.mockReturnValue({
+      subscribe: () => () => {},
       getActivityDetailData: (id: string) => activityDetail(counts[id]),
     });
 
@@ -78,6 +74,7 @@ describe('detail bundle freshness', () => {
   it('never commits the superseded section bundle', () => {
     const counts: Record<string, number> = { a: 1, b: 2 };
     mockGetEngine.mockReturnValue({
+      subscribe: () => () => {},
       getSectionDetailData: (id: string) => sectionDetail(counts[id]),
     });
 
@@ -93,6 +90,7 @@ describe('detail bundle freshness', () => {
 
   it('keeps the bundle it has when the read goes quiet', () => {
     mockGetEngine.mockReturnValue({
+      subscribe: () => () => {},
       getActivityDetailData: () => activityDetail(3),
     });
 

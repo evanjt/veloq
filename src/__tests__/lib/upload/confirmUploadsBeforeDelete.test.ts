@@ -16,8 +16,6 @@ import {
 } from '@/features/recording/lib/upload/confirmUploads';
 import {
   recordingFitExists,
-  discardRecordingFit,
-  discardRecordingStreams,
   deleteRecording,
   listRecordings,
 } from '@/features/recording/lib/storage/recordingLibrary';
@@ -36,8 +34,6 @@ jest.mock('@/features/recording/lib/storage/provisionalActivity', () => ({
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   recordingFitExists: jest.fn(),
   readRecordingFit: jest.fn(),
-  discardRecordingFit: jest.fn().mockResolvedValue(undefined),
-  discardRecordingStreams: jest.fn().mockResolvedValue(undefined),
   deleteRecording: jest.fn().mockResolvedValue(undefined),
   listRecordings: jest.fn().mockResolvedValue([]),
   markRecordingUploading: jest.fn().mockResolvedValue(undefined),
@@ -62,8 +58,6 @@ jest.mock('veloqrs', () =>
 
 const mockUpload = uploadActivityFile as jest.Mock;
 const mockExists = recordingFitExists as jest.Mock;
-const mockDiscardFit = discardRecordingFit as jest.Mock;
-const mockDiscardStreams = discardRecordingStreams as jest.Mock;
 const mockDelete = deleteRecording as jest.Mock;
 const mockList = listRecordings as jest.Mock;
 const mockConfirm = engine.confirmActivityUploaded as jest.Mock;
@@ -71,6 +65,7 @@ const mockAuth = useAuthStore.getState as jest.Mock;
 
 const ENTRY: RecordingLibraryEntry = {
   id: 'rec-1',
+  kind: 'fit',
   fitPath: 'file:///recordings/rec-1.fit',
   streamsPath: 'file:///recordings/rec-1.streams.json',
   engineActivityId: 'local-1',
@@ -104,15 +99,13 @@ describe('the upload itself deletes nothing', () => {
     const result = await uploadRecording(ENTRY);
 
     expect(result.outcome).toBe('uploaded');
-    expect(mockDiscardFit).not.toHaveBeenCalled();
   });
 
   it('keeps the streams sidecar too, even with the engine holding the track', async () => {
     mockUpload.mockResolvedValue('i12345');
 
     await uploadRecording(ENTRY);
-
-    expect(mockDiscardStreams).not.toHaveBeenCalled();
+    expect(mockDelete).not.toHaveBeenCalled();
   });
 });
 
@@ -211,7 +204,6 @@ describe('the confirmation pass', () => {
     mockConfirm.mockResolvedValue({ kind: CallKind.Http, status: 404, message: 'not found' });
     await confirmAndDeleteUploaded();
 
-    expect(mockDiscardFit).not.toHaveBeenCalled();
     expect(mockDelete).not.toHaveBeenCalled();
   });
 });

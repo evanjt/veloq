@@ -8,7 +8,7 @@
 import {
   getTimestampRange,
   getTrailingWeekRanges,
-} from '@/features/strength/hooks/useStrengthVolume';
+} from '@/features/strength/hooks/useStrengthScreenData';
 
 const withTz = <T>(tz: string, run: () => T): T => {
   const original = process.env.TZ;

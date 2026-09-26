@@ -14,6 +14,9 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { restoreDatabaseBackup } from '@/features/settings/lib/backup';
 
+// The maps barrel reaches the engine binding, which registers a TurboModule at
+// import time, so the graph this renders cannot load without the stub.
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 const mockEngine = {
   destroyEngine: jest.fn(),
   getActivityCount: jest.fn().mockReturnValue(120),
@@ -29,6 +32,12 @@ const mockNativeModule = {
   engine: { initWithPath: jest.fn().mockReturnValue(true) },
 };
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    decodeCoords: (buf: ArrayBuffer) =>
+      (buf as unknown as { points?: { latitude: number; longitude: number }[] }).points ?? [],
+  })
+);
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockEngine,
   getRouteDbPath: () => '/data/veloq.db',
@@ -76,18 +85,21 @@ jest.mock('@/i18n', () => ({
   },
 }));
 
-const BACKUP_META = JSON.stringify({
-  schema_version: '12',
-  athlete_id: 'athlete-1',
-  activity_count: 40,
-  newest_activity: 1_700_000_000,
-});
+const BACKUP_META = {
+  schemaVersion: '12',
+  athleteId: 'athlete-1',
+  activityCount: 40,
+  newestActivity: 1_700_000_000n,
+  supportedSchemaVersion: 32,
+};
 
-const LIVE_META = JSON.stringify({
-  schema_version: '12',
-  athlete_id: 'athlete-1',
-  activity_count: 120,
-});
+const LIVE_META = {
+  schemaVersion: '12',
+  athleteId: 'athlete-1',
+  activityCount: 120,
+  newestActivity: undefined,
+  supportedSchemaVersion: 32,
+};
 
 function press(label: 'cancel' | 'destructive') {
   (Alert.alert as jest.Mock).mockImplementation((_title, _body, buttons) => {
@@ -152,9 +164,7 @@ describe('a restore over a library that holds activities', () => {
   it('asks before a backup that is refused is ever opened', async () => {
     press('cancel');
     mockNativeModule.validateBackupDatabase.mockImplementation((path: string) =>
-      path.includes('veloq.db')
-        ? LIVE_META
-        : JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 0 })
+      path.includes('veloq.db') ? LIVE_META : { ...BACKUP_META, activityCount: 0 }
     );
 
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');

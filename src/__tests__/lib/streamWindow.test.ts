@@ -13,7 +13,7 @@ import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 describe('activityStartEpoch', () => {
   it('converts a local start date to epoch seconds', () => {
     const parsed = activityStartEpoch('2026-08-30T07:15:00');
-    expect(parsed).toBe(BigInt(Math.floor(Date.parse('2026-08-30T07:15:00') / 1000)));
+    expect(parsed).toBe(Math.floor(Date.parse('2026-08-30T07:15:00') / 1000));
   });
 
   it('reads a date that will not parse as unknown, not as the epoch', () => {

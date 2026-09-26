@@ -9,9 +9,6 @@ import { useSectionEfficiencyTrend } from '@/features/routes/hooks/useSectionEff
 import { getEngine } from '@/shared/native/engine';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
-jest.mock('@/features/routes/hooks/useEngine', () => ({
-  useEngineSubscription: () => 0,
-}));
 
 function point(date: number, ratio: number) {
   return {
@@ -38,7 +35,12 @@ const getSectionEfficiencyTrend = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (getEngine as jest.Mock).mockReturnValue({ getSectionEfficiencyTrend });
+  // The real `useEngineRead` subscribes, so the stub answers that too and the
+  // hook is exercised through the reader rather than around it.
+  (getEngine as jest.Mock).mockReturnValue({
+    getSectionEfficiencyTrend,
+    subscribe: () => () => {},
+  });
 });
 
 it('returns the engine trend for a section', () => {

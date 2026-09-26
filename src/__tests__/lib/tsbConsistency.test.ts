@@ -37,10 +37,11 @@ describe('TSB 3-site consistency', () => {
     expect(fromCalc).toBe(fromLoads);
   });
 
-  it('reads the ctlLoad/atlLoad field variant identically', () => {
-    const row: WellnessData[] = [{ id: '2026-01-15', ctlLoad: 70, atlLoad: 45 }];
-    expect(calculateTSB(row)[0].tsb).toBe(tsbFromLoads(70, 45));
-    expect(calculateTSB(row)[0].tsb).toBe(25);
+  // The day's own load is not the fitness curve under another name, so it is
+  // not a fallback for it.
+  it('reads no form from a day that carries only its daily load', () => {
+    const row = [{ id: '2026-01-15', ctlLoad: 70, atlLoad: 45 }] as unknown as WellnessData[];
+    expect(calculateTSB(row)[0].tsb).toBe(0);
   });
 
   describe('documented null-fallback divergence', () => {

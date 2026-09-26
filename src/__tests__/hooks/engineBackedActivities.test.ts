@@ -10,12 +10,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
-import {
-  useActivities,
-  useInfiniteActivities,
-  resetActivityWindowRequests,
-} from '@/features/activity/hooks/useActivities';
+import { useActivities, useInfiniteActivities } from '@/features/activity/hooks/useActivities';
 import { emitSyncSettled } from '@/shared/app/useRetryTriggers';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { getEngine } from '@/shared/native/engine';
 
@@ -47,7 +44,6 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  resetActivityWindowRequests();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   engine.getActivityBodies.mockReturnValue([]);
@@ -155,6 +151,17 @@ describe('useActivities', () => {
     expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
   });
 
+  it('asks again for the same window after the athlete changes', async () => {
+    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
+    const { rerender } = renderHook(() => useActivities(opts), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+
+    act(() => useAuthStore.setState({ athleteId: 'i2' }));
+    act(() => rerender({}));
+
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
+  });
+
   it('asks again when the launch sync releases the exclusive slot', async () => {
     // The ordinary refusal is the launch sync holding the slot, not an offline
     // failure, and that ends without the user touching anything.
@@ -170,15 +177,30 @@ describe('useActivities', () => {
     expect(engine.syncActivitiesWindow).toHaveBeenLastCalledWith('2024-01-01', '2024-06-01');
   });
 
-  it('does not re-ask a window the engine already accepted', async () => {
+  it('asks the engine again after a sync settles, because the engine owns the memory', async () => {
+    // The census answers whether a window is already local, so a hook that
+    // remembered an accepted window kept a second copy of that answer, and one
+    // a relaunch emptied.
     const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
     renderHook(() => useActivities(opts), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
-    act(() => emitSyncSettled());
+    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.NotOwed);
     act(() => emitSyncSettled());
 
-    expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
+  });
+
+  it('names no running download for a window the engine says is not owed', async () => {
+    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.NotOwed);
+    const accepted = jest.spyOn(useSyncDateRange.getState(), 'windowAccepted');
+
+    renderHook(() => useActivities({ oldest: '2024-01-01', newest: '2024-06-01' }), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+    expect(accepted).not.toHaveBeenCalled();
   });
 
   it('stops asking once the hook is gone', async () => {
@@ -248,6 +270,16 @@ describe('useInfiniteActivities', () => {
 
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
     act(() => emitSyncSettled());
+
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
+  });
+
+  it('asks again for a feed page after the athlete changes', async () => {
+    const { rerender } = renderHook(() => useInfiniteActivities(), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+
+    act(() => useAuthStore.setState({ athleteId: 'i2' }));
+    act(() => rerender({}));
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });

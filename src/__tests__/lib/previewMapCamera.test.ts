@@ -16,6 +16,9 @@ import {
 } from '@/features/routes/lib/previewMapCamera';
 import type { LngLat } from '@/features/maps/lib/coordinates';
 
+// The maps barrel reaches the engine binding, which registers a TurboModule at
+// import time, so the graph this renders cannot load without the stub.
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 // floor(46.948 / 0.045) = 1043, floor(7.447 / 0.045) = 165.
 const CENTRE = { binKey: '1043:165', lat: 46.948, lng: 7.447 };
 const BIN_SW: LngLat = [165 * PREVIEW_BIN_DEG, 1043 * PREVIEW_BIN_DEG];

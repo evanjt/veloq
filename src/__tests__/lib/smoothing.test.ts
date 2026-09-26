@@ -80,6 +80,33 @@ describe('smoothDataPoints', () => {
   });
 });
 
+describe('smoothDataPoints window span', () => {
+  const spikeAt = (spikeX: number, rows: number, height: number) =>
+    Array.from({ length: rows }, (_, x) => {
+      const v = x === spikeX ? height : 0;
+      return { x, value: v, rawValue: v };
+    });
+
+  it.each([3, 7, 14, 21, 28])('a window of %i averages exactly that many interior rows', (n) => {
+    const result = smoothDataPoints(spikeAt(50, 101, n), n);
+    expect(result[50].value).toBe(1);
+    expect(result.filter((p) => p.value > 0)).toHaveLength(n);
+  });
+
+  it('an even window leans one row forward', () => {
+    const result = smoothDataPoints(spikeAt(50, 101, 14), 14);
+    const touched = result.filter((p) => p.value > 0).map((p) => p.x);
+    expect(touched[0]).toBe(43);
+    expect(touched[touched.length - 1]).toBe(56);
+  });
+
+  it('averages only the rows that exist when fewer than the window are present', () => {
+    const data = [0, 1, 2, 3, 4].map((x) => ({ x, value: x * 10, rawValue: x * 10 }));
+    const result = smoothDataPoints(data, 14);
+    expect(result.map((p) => p.value)).toEqual([20, 20, 20, 20, 20]);
+  });
+});
+
 describe('getSmoothingDescription', () => {
   it('"none" returns "Raw data"', () => {
     expect(getSmoothingDescription('none', '3m')).toBe('Raw data');

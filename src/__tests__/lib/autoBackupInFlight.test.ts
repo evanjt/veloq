@@ -6,7 +6,7 @@
  * throttle.
  *
  * Expected behaviour: the second one joins the first rather than starting a
- * second snapshot. Rust refuses a concurrent `startBackup` outright, throwing
+ * second snapshot. Rust refuses a concurrent `runBackup` outright, rejecting
  * "A backup is already running", and all three triggers swallow their errors,
  * so without a guard the collision is a wasted database copy nobody sees.
  */
@@ -27,15 +27,15 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key),
     setSetting: (key: string, value: string) => mockSettings.set(key, value),
-    // Rust holds one backup handle and refuses a second, the shape
-    // `objects/engine.rs` gives `start_backup`.
-    startBackup: (path: string) => {
+    // Rust holds one backup slot and refuses a second, the shape
+    // `objects/engine.rs` gives `run_backup`.
+    runBackup: (path: string) => {
       mockStartBackup(path);
       if (mockStartBackup.mock.calls.length > 1 && !mockSettled) {
-        throw new Error('A backup is already running');
+        return Promise.reject(new Error('A backup is already running'));
       }
+      return Promise.resolve();
     },
-    pollBackup: () => 'complete',
     getBackupMetadata: () => ({ schema_version: '14', activity_count: '1', athlete_id: 'i1' }),
   }),
 }));
@@ -61,6 +61,7 @@ const upload = jest.fn(
 const testBackend: BackupBackend = {
   id: 'test-inflight',
   name: 'Test In Flight',
+  isRemote: false,
   isAvailable: async () => true,
   listBackups: async () => [],
   upload: () => upload(),

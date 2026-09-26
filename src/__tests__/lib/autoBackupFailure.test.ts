@@ -23,8 +23,7 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key),
     setSetting: (key: string, value: string) => mockSettings.set(key, value),
-    startBackup: jest.fn(),
-    pollBackup: () => 'complete',
+    runBackup: jest.fn(() => Promise.resolve()),
     getBackupMetadata: () => ({
       schema_version: '14',
       activity_count: '312',
@@ -44,6 +43,7 @@ const upload = jest.fn();
 const testBackend: BackupBackend = {
   id: 'test-remote',
   name: 'Test Remote',
+  isRemote: false,
   isAvailable: async () => true,
   listBackups: async () => [],
   upload: (localPath, metadata) => upload(localPath, metadata),
