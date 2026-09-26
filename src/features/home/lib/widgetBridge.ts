@@ -10,6 +10,7 @@
 import { requireOptionalNativeModule } from 'expo-modules-core';
 
 import { i18n } from '@/i18n';
+import { formAsPercent } from '@/shared/app/FormPreferenceStore';
 import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
 import { debug } from '@/shared/debug/debug';
 
@@ -46,7 +47,8 @@ export function writeWidgetSnapshot(snapshot: WidgetSnapshot): void {
 /**
  * Gather fresh engine data and push it to the widget. Safe to call from anywhere
  * (app background, post-sync, post-save, the silent-push task). No-op when the native
- * module or the engine isn't ready, so callers don't need to guard.
+ * module is absent or the database is not open, so callers don't need to guard and a
+ * refresh that cannot read anything leaves the last good snapshot standing.
  */
 export function updateWidgetSnapshot(now?: Date): void {
   if (!VeloqWidget) return;
@@ -56,6 +58,7 @@ export function updateWidgetSnapshot(now?: Date): void {
     const snapshot = gatherWidgetSnapshot({
       locale: i18n.language,
       isMetric: getIsMetric(),
+      formAsPercent: formAsPercent(),
       now,
       translate: (key) => t(key),
     });

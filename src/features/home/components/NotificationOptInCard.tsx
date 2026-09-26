@@ -9,7 +9,9 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
 import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
+import { NotificationPrivacyDialog } from '@/features/settings';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
+import { pressable } from '@/shared/ui';
 
 export function NotificationOptInCard() {
   const { isDark } = useTheme();
@@ -17,18 +19,21 @@ export function NotificationOptInCard() {
   const authMethod = useAuthStore((s) => s.authMethod);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const notificationsEnabled = useNotificationPreferences((s) => s.enabled);
+  const privacyAccepted = useNotificationPreferences((s) => s.privacyAccepted);
   const setNotificationsEnabled = useNotificationPreferences((s) => s.setEnabled);
+  const acceptPrivacy = useNotificationPreferences((s) => s.acceptPrivacy);
   const isPromptLoaded = useNotificationPrompt((s) => s.isLoaded);
   const dismissed = useNotificationPrompt((s) => s.dismissed);
   const showingSettingsHint = useNotificationPrompt((s) => s.showingSettingsHint);
   const dismiss = useNotificationPrompt((s) => s.dismiss);
   const [enabling, setEnabling] = useState(false);
+  const [showPrivacyDialog, setShowPrivacyDialog] = useState(false);
 
   const isOAuth = authMethod === 'oauth';
   const shouldShow =
     isOAuth && !isDemoMode && !notificationsEnabled && !dismissed && isPromptLoaded;
 
-  const handleEnable = useCallback(async () => {
+  const enable = useCallback(async () => {
     setEnabling(true);
     const granted = await requestNotificationPermission();
     if (granted) {
@@ -36,6 +41,23 @@ export function NotificationOptInCard() {
     }
     setEnabling(false);
   }, [setNotificationsEnabled]);
+
+  // This card's own copy says nothing about the athlete id and the push token
+  // going to a server, so the notice that does has to be read here too. The
+  // settings toggle asks the same way.
+  const handleEnable = useCallback(() => {
+    if (!privacyAccepted) {
+      setShowPrivacyDialog(true);
+      return;
+    }
+    void enable();
+  }, [privacyAccepted, enable]);
+
+  const handlePrivacyAccept = useCallback(() => {
+    setShowPrivacyDialog(false);
+    acceptPrivacy();
+    void enable();
+  }, [acceptPrivacy, enable]);
 
   // Show settings hint after dismissal
   if (showingSettingsHint) {
@@ -60,44 +82,52 @@ export function NotificationOptInCard() {
   if (!shouldShow) return null;
 
   return (
-    <Animated.View
-      entering={FadeIn.duration(300)}
-      exiting={FadeOut.duration(200)}
-      style={[styles.card, isDark && styles.cardDark]}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <MaterialCommunityIcons
-          name="bell-ring-outline"
-          size={22}
-          color={isDark ? darkColors.textPrimary : colors.textPrimary}
-        />
-        <Text style={[styles.title, isDark && styles.titleDark]}>
-          {t('notifications.prompt.title')}
-        </Text>
-      </View>
-
-      {/* Description */}
-      <Text style={[styles.description, isDark && styles.descriptionDark]}>
-        {t('notifications.prompt.description')}
-      </Text>
-
-      {/* Actions */}
-      <View style={styles.actions}>
-        <Pressable onPress={dismiss} hitSlop={8}>
-          <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
-            {t('notifications.prompt.dismiss')}
+    <>
+      <Animated.View
+        entering={FadeIn.duration(300)}
+        exiting={FadeOut.duration(200)}
+        style={[styles.card, isDark && styles.cardDark]}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <MaterialCommunityIcons
+            name="bell-ring-outline"
+            size={22}
+            color={isDark ? darkColors.textPrimary : colors.textPrimary}
+          />
+          <Text style={[styles.title, isDark && styles.titleDark]}>
+            {t('notifications.prompt.title')}
           </Text>
-        </Pressable>
-        <Pressable
-          onPress={handleEnable}
-          disabled={enabling}
-          style={[styles.enableButton, enabling && styles.enableButtonDisabled]}
-        >
-          <Text style={styles.enableText}>{t('notifications.prompt.enable')}</Text>
-        </Pressable>
-      </View>
-    </Animated.View>
+        </View>
+
+        {/* Description */}
+        <Text style={[styles.description, isDark && styles.descriptionDark]}>
+          {t('notifications.prompt.description')}
+        </Text>
+
+        {/* Actions */}
+        <View style={styles.actions}>
+          <Pressable onPress={dismiss} hitSlop={8} style={pressable()}>
+            <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
+              {t('notifications.prompt.dismiss')}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={handleEnable}
+            disabled={enabling}
+            style={pressable([styles.enableButton, enabling && styles.enableButtonDisabled])}
+          >
+            <Text style={styles.enableText}>{t('notifications.prompt.enable')}</Text>
+          </Pressable>
+        </View>
+      </Animated.View>
+
+      <NotificationPrivacyDialog
+        visible={showPrivacyDialog}
+        onCancel={() => setShowPrivacyDialog(false)}
+        onAccept={handlePrivacyAccept}
+      />
+    </>
   );
 }
 
@@ -162,7 +192,7 @@ const styles = StyleSheet.create({
   enableText: {
     ...typography.bodySmall,
     fontWeight: '600',
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
   },
   hintContainer: {
     flexDirection: 'row',

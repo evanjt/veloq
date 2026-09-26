@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import { getEngine } from '@/shared/native/engine';
-import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 
 export interface WorkoutSection {
   id: string;
@@ -26,25 +25,26 @@ export interface WorkoutSection {
 export function useWorkoutSections(sportType: string | undefined): {
   sections: WorkoutSection[];
 } {
-  const trigger = useEngineSubscription(['sections']);
+  const readSections = useEngineRead(['sections']);
 
   const sections = useMemo<WorkoutSection[]>(() => {
     if (!sportType) return [];
-    const engine = getEngine();
-    if (!engine) return [];
 
-    return engine.getWorkoutSections(sportType, 5).map((row) => ({
-      id: row.id,
-      name: row.name,
-      prTimeSecs: row.prTimeSecs ?? null,
-      previousBestTimeSecs: row.previousBestTimeSecs ?? null,
-      lastTimeSecs: row.lastTimeSecs ?? null,
-      daysSinceLast: row.daysSinceLast ?? null,
-      prDaysAgo: row.prDaysAgo ?? null,
-      trend: trendLabel(row.trend),
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sportType, trigger]);
+    return (
+      readSections((engine) =>
+        engine.getWorkoutSections(sportType, 5).map((row) => ({
+          id: row.id,
+          name: row.name,
+          prTimeSecs: row.prTimeSecs ?? null,
+          previousBestTimeSecs: row.previousBestTimeSecs ?? null,
+          lastTimeSecs: row.lastTimeSecs ?? null,
+          daysSinceLast: row.daysSinceLast ?? null,
+          prDaysAgo: row.prDaysAgo ?? null,
+          trend: trendLabel(row.trend),
+        }))
+      ) ?? []
+    );
+  }, [sportType, readSections]);
 
   return { sections };
 }
