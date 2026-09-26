@@ -6,9 +6,8 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { useTheme } from '@/shared/app';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
-import { getActivityIcon } from '@/features/activity/lib/activityUtils';
-import { isLikelyInterestingTerrain } from '@/features/maps/lib/cameraAngle';
+import { isLikelyInterestingTerrain, type MapStyleType, useMapPreferences } from '@/features/maps';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
 import {
   colors,
   darkColors,
@@ -19,9 +18,11 @@ import {
   mapStyleSwatchIcon,
   layout,
   typography,
+  ink,
+  colorWithOpacity,
 } from '@/theme';
 import type { Activity } from '@/types';
-import type { MapStyleType } from '@/features/maps/components/mapStyles';
+import { pressable } from '@/shared/ui';
 
 interface ActivityCardContextMenuProps {
   visible: boolean;
@@ -117,11 +118,13 @@ export function ActivityCardContextMenu({
   const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const dividerColor = isDark ? darkColors.border : 'rgba(0,0,0,0.08)';
+  const dividerColor = isDark ? darkColors.border : colorWithOpacity(ink.black, 0.08);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
+      {/* press-feedback: none, the scrim is the way out and not a control */}
       <Pressable style={styles.overlay} onPress={onDismiss}>
+        {/* press-feedback: none, this only stops the scrim taking the tap */}
         <Pressable style={[styles.card, { backgroundColor: bgColor }]} onPress={() => {}}>
           {/* Header */}
           <View style={styles.header}>
@@ -134,6 +137,7 @@ export function ActivityCardContextMenu({
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={t('common.close')}
+              style={pressable()}
             >
               <MaterialCommunityIcons name="close" size={20} color={mutedColor} />
             </Pressable>
@@ -151,7 +155,7 @@ export function ActivityCardContextMenu({
                   <Pressable
                     key={key}
                     onPress={() => handleStyleSelect(key)}
-                    style={styles.styleOption}
+                    style={pressable(styles.styleOption)}
                   >
                     <View
                       style={[
@@ -233,21 +237,21 @@ export function ActivityCardContextMenu({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
   },
   card: {
     width: 300,
     borderRadius: layout.borderRadius,
-    paddingVertical: 16,
+    paddingVertical: spacing.md,
     ...shadows.modal,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 14,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.sm,
   },
   title: {
@@ -257,24 +261,24 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   styleSection: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.smPlus,
   },
   sectionLabel: {
     fontSize: typography.caption.fontSize,
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
   styleRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 20,
+    gap: spacing.lg,
   },
   styleOption: {
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   styleCircle: {
     width: 48,
@@ -299,8 +303,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   toggleLabel: {
     fontSize: typography.bodyMedium.fontSize,
@@ -308,15 +312,15 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    marginHorizontal: 16,
-    marginVertical: 4,
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.xs,
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-    gap: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.smPlus,
+    gap: spacing.smPlus,
   },
   actionRowPressed: {
     opacity: 0.6,

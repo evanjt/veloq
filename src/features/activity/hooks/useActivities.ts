@@ -1,5 +1,6 @@
 import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo } from 'react';
+import { hasDetailBody, readActivityBody } from '@/features/activity/lib/engineActivityBody';
 import {
   DETAIL_STREAM_TYPES,
   readStreams,
@@ -13,8 +14,9 @@ import { hasStarted } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
-import type { Activity, ActivityDetail, IntervalsDTO } from '@/types';
+import type { Activity, ActivityDetail, ActivityStreams, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useReconnect, useSyncSettled } from '@/shared/app/useRetryTriggers';
 
 /**
@@ -43,41 +45,29 @@ function readActivities(oldest: string, newest: string): Activity[] {
  * Ask Rust to fill a window the default sync may not cover.
  *
  * The sync pulls a year on launch. The timeline slider and the infinite feed
- * both reach further back than that, so a window they open is requested once
- * and the engine event wakes the read when it lands.
+ * both reach further back than that, so a window they open is asked for and
+ * the engine event wakes the read when it lands.
  *
- * Only an accepted job is remembered. `syncActivitiesWindow` refuses whenever
- * the exclusive sync slot is held, which the launch sync holds for minutes, and
- * a key recorded for a job that never ran leaves that window blank for the life
- * of the process.
+ * The ask carries no memory of its own. The engine answers `NotOwed` for a
+ * window its census says is already local and current, which survives a
+ * relaunch, where the `Set` of `oldest:newest` keys that used to sit here did
+ * not: every launch re-downloaded the pages the feed had already scrolled to,
+ * and the key carried no athlete, so a second sign-in read the first one's
+ * coverage.
  */
-const requestedWindows = new Set<string>();
-
-function windowKey(oldest: string, newest: string): string {
-  return `${oldest}:${newest}`;
-}
-
 function requestActivityWindow(oldest: string, newest: string): void {
-  if (requestedWindows.has(windowKey(oldest, newest))) return;
   const engine = getEngine();
   if (!engine?.syncActivitiesWindow) return;
   try {
     if (hasStarted(engine.syncActivitiesWindow(oldest, newest))) {
-      requestedWindows.add(windowKey(oldest, newest));
+      // The download the surfaces name starts here and nowhere else, so this
+      // is where they are told it is running. A refusal, `NotOwed` included,
+      // names nothing.
+      useSyncDateRange.getState().windowAccepted();
     }
   } catch {
-    // A throw is a settled failure, so the key stays free for the next ask.
+    // A throw is a settled failure, and the next ask reaches the engine again.
   }
-}
-
-/** Forget requested windows so a new session re-fetches them. */
-export function resetActivityWindowRequests(): void {
-  requestedWindows.clear();
-}
-
-/** Forget one window, so the next ask reaches the engine again. */
-function forgetActivityWindow(oldest: string, newest: string): void {
-  requestedWindows.delete(windowKey(oldest, newest));
 }
 
 interface UseActivitiesOptions {
@@ -119,17 +109,12 @@ export function useActivities(options: UseActivitiesOptions = {}) {
 
   // A window accepted while the connection was dropping may have fetched
   // nothing, and the mount effect never re-runs for an unchanged window.
-  useReconnect(() => {
-    if (!enabled || !athleteId) return;
-    forgetActivityWindow(queryOldest, queryNewest);
-    askForWindow();
-  });
+  useReconnect(askForWindow);
 
   // The launch sync holds the exclusive slot for minutes and refuses every
   // window opened while it runs. Nothing else observes it letting go, so a
   // window asked for at launch would otherwise stay blank until the user went
-  // offline and back. An accepted window is already recorded, so this is a
-  // no-op for it.
+  // offline and back. A window that landed meanwhile answers `NotOwed`.
   useSyncSettled(askForWindow);
 
   return useQuery<Activity[]>({
@@ -200,16 +185,16 @@ export function useInfiniteActivities() {
     enabled: isAuthenticated && !!athleteId,
   });
 
-  // The pages already loaded asked for their windows once. A reconnect is the
-  // point where a window that came back empty is worth asking for again.
+  // A reconnect is the point where a window that came back empty is worth
+  // asking for again. The refetch replays every loaded page through the
+  // `queryFn`, and the engine decides which of them still owe a download.
   useReconnect(() => {
-    resetActivityWindowRequests();
     void query.refetch();
   });
 
   // The launch sync refuses any page opened while it runs. Refetching replays
-  // every loaded page through the queryFn, which re-asks only the windows that
-  // were refused, so no reset is wanted here.
+  // every loaded page through the queryFn, and the engine answers `NotOwed`
+  // for the ones that landed, so only the refused windows are asked again.
   useSyncSettled(() => {
     void query.refetch();
   });
@@ -229,11 +214,7 @@ export function useInfiniteActivities() {
 export function useActivity(id: string) {
   const queryKey = queryKeys.activities.detail(id);
 
-  // The list sync stores a lighter body for every activity. Opening one asks
-  // for the full detail, which replaces that row in place.
-  useEngineBody(false, () => getEngine()?.syncActivityDetail(id), queryKey, !!id);
-
-  return useQuery<ActivityDetail | null>({
+  const query = useQuery<ActivityDetail | null>({
     queryKey,
     queryFn: () => {
       const stored = readActivityBody(id);
@@ -247,34 +228,41 @@ export function useActivity(id: string) {
     gcTime: CACHE.SHORT,
     enabled: !!id,
   });
-}
 
-/** The stored body for one activity, from the window that contains its day. */
-function readActivityBody(id: string): Activity | null {
-  const engine = getEngine();
-  if (!engine?.getActivityBodies || !id) return null;
-  // The store is keyed by id but queried by window, so scan the widest range
-  // the app ever shows. The table holds one row per activity, not per day.
-  for (const body of engine.getActivityBodies(0, Math.floor(Date.now() / 1000) + 86400)) {
-    try {
-      const parsed = JSON.parse(body) as Activity;
-      if (parsed.id === id) return parsed;
-    } catch {
-      // Skip a corrupt row rather than failing the lookup.
-    }
-  }
-  return null;
+  // The list sync stores a lighter body for every activity. Opening one asks
+  // for the full detail, which replaces that row in place. Presence comes from
+  // the query's own result rather than a second read: the row existing is not
+  // proof the detail landed, so it is read for the one field only the detail
+  // endpoint returns.
+  // A push can name an activity the library has never held, so this is not
+  // only the "replace the light row with the full detail" case: the fetch is
+  // the only thing that puts the activity on screen at all. The wait is
+  // returned with it, because a screen opened from a notification has to be
+  // able to say the download failed rather than spin on an announcement that
+  // is never coming.
+  const wait = useEngineBody(
+    hasDetailBody(query.data),
+    () => getEngine()?.syncActivityDetail(id),
+    queryKey,
+    // `undefined` is the query not having run, which is not the same as
+    // nothing being stored, and asking then would fire before the read.
+    !!id && query.data !== undefined
+  );
+
+  return { ...query, bodyStatus: wait.status, retryBody: wait.retry };
 }
 
 export function useActivityStreams(id: string) {
   const queryKey = queryKeys.activities.streams(id);
 
-  const stored = id ? readStreams(id, DETAIL_STREAM_TYPES) : null;
-  useEngineBody(stored !== null, () => requestStreams(id, DETAIL_STREAM_TYPES), queryKey, !!id);
-
-  return useQuery({
+  // The query is the only reader of the stored body, the shape
+  // `useActivityIntervals` uses below. A probe in the render body ran the
+  // whole read again on every re-render, which during a chart scrub is a
+  // `JSON.parse` of 100-500 KB and a SQLite write per frame, for a boolean
+  // the query's own result already carries.
+  const query = useQuery<ActivityStreams | null>({
     queryKey,
-    queryFn: () => readStreams(id, DETAIL_STREAM_TYPES) ?? {},
+    queryFn: () => readStreams(id, DETAIL_STREAM_TYPES),
     // Streams NEVER change - infinite staleTime prevents refetching
     staleTime: Infinity,
     // Streams are the largest payloads (100-500KB each), so they go on the
@@ -283,7 +271,33 @@ export function useActivityStreams(id: string) {
     gcTime: CACHE.SHORT,
     enabled: !!id,
   });
+  const wait = useEngineBody(
+    query.data != null,
+    () => requestStreams(id, DETAIL_STREAM_TYPES),
+    queryKey,
+    // `undefined` is the query not having run, which is not the same as
+    // nothing being stored, and asking then would fire before the read.
+    !!id && query.data !== undefined
+  );
+
+  return {
+    ...query,
+    data: query.data ?? EMPTY_STREAMS,
+    isDownloaded: query.data != null,
+    bodyStatus: wait.status,
+    retryBody: wait.retry,
+  };
 }
+
+/** Stable series value while the separately reported download is pending. */
+const EMPTY_STREAMS = {} as ActivityStreams;
+
+/**
+ * What an empty lap list means. `pending` is every kind of ignorance: the read
+ * has not run, the body was never fetched, and a stored body that will not
+ * parse, which re-asking is what fixes.
+ */
+export type IntervalsOutcome = 'loaded' | 'empty' | 'pending';
 
 export function useActivityIntervals(id: string) {
   const queryKey = queryKeys.activities.intervals(id);
@@ -298,7 +312,9 @@ export function useActivityIntervals(id: string) {
       try {
         return JSON.parse(stored) as IntervalsDTO;
       } catch {
-        return EMPTY_INTERVALS;
+        // A row that will not parse is corrupt, not a ride with no laps, and
+        // `null` is what asks Rust for it again.
+        return null;
       }
     },
     // Intervals never change
@@ -314,7 +330,19 @@ export function useActivityIntervals(id: string) {
     !!id && query.data !== undefined
   );
 
-  return { ...query, data: query.data ?? EMPTY_INTERVALS };
+  // A body never fetched and a ride with no laps both handed back an empty
+  // list, so the section drew the same nothing for a lapless steady ride and
+  // for one the sync has not reached.
+  return {
+    ...query,
+    data: query.data ?? EMPTY_INTERVALS,
+    outcome: outcomeOf(query.data),
+  };
+}
+
+function outcomeOf(stored: IntervalsDTO | null | undefined): IntervalsOutcome {
+  if (!stored) return 'pending';
+  return (stored.icu_intervals?.length ?? 0) > 0 ? 'loaded' : 'empty';
 }
 
 /** Rendered as "no intervals" rather than an error while the fetch is in flight. */

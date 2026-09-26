@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useCallback } from 'react';
+import React, { useMemo, useRef, useCallback } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import {
@@ -18,7 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import { colors, typography, layout, chartStyles } from '@/theme';
+import { colors, typography, layout, chartStyles, ink, colorWithOpacity } from '@/theme';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
@@ -33,7 +33,11 @@ import {
 } from '@/features/stats';
 import { ChartXAxisLabel } from './ChartXAxisLabel';
 import { ChartYAxisLabel } from './ChartYAxisLabel';
-import { ChartDistanceIndicator } from './ChartDistanceIndicator';
+import {
+  ChartDistanceIndicator,
+  type ChartDistanceIndicatorHandle,
+} from './ChartDistanceIndicator';
+import { useSeriesAccessors } from './useSeriesAccessors';
 
 export type { ChartMetricValue };
 
@@ -58,14 +62,6 @@ interface CombinedPlotProps {
   activityType?: ActivityType;
   /** Called with per-series values when scrubbing or averages when idle */
   onMetricsChange?: (metrics: ChartMetricValue[], isScrubbing: boolean) => void;
-}
-
-interface MetricValue {
-  id: ChartTypeId;
-  label: string;
-  value: string;
-  unit: string;
-  color: string;
 }
 
 const CHART_PADDING = { top: 2, bottom: 20 } as const;
@@ -95,13 +91,10 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   const touchX = useSharedValue(-1); // -1 means not touching
   const xValuesShared = useSharedValue<number[]>([]);
   const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
-  // Store Victory Native's actual rendered x-coordinates for smooth crosshair
-  const pointXCoordsShared = useSharedValue<number[]>([]);
 
-  // React state for metrics panel (bridges to JS only for text updates)
-  const [, setMetricValues] = useState<MetricValue[]>([]);
-  const [currentX, setCurrentX] = useState<number | null>(null);
-  const [isActive, setIsActive] = useState(false);
+  // The scrub position lives in the pill that draws it. Held here it rendered
+  // the chart root per index, and the root is what rebuilds every Skia path.
+  const indicator = useRef<ChartDistanceIndicatorHandle>(null);
 
   const onPointSelectRef = useRef(onPointSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
@@ -120,6 +113,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       buildChartData(streams, selectedCharts, chartConfigs, isMetric, previewMetricId, xAxisMode),
     [streams, selectedCharts, chartConfigs, isMetric, previewMetricId, xAxisMode]
   );
+
+  const series = useSeriesAccessors(seriesInfo);
 
   // Sync x-values to shared value for UI thread access
   React.useEffect(() => {
@@ -171,9 +166,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     (idx: number) => {
       if (idx < 0 || chartData.length === 0 || seriesInfo.length === 0) {
         if (lastNotifiedIdx.current !== null) {
-          setIsActive(false);
           isActiveRef.current = false;
-          setCurrentX(null);
+          indicator.current?.setScrub(null);
           lastNotifiedIdx.current = null;
           if (onPointSelectRef.current) onPointSelectRef.current(null);
           if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
@@ -190,7 +184,6 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       lastNotifiedIdx.current = idx;
 
       if (!isActiveRef.current) {
-        setIsActive(true);
         isActiveRef.current = true;
         if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
         // Haptic feedback on interaction start
@@ -224,8 +217,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         };
       });
 
-      setMetricValues(values);
-      setCurrentX(chartData[idx]?.x ?? 0);
+      indicator.current?.setScrub(chartData[idx]?.x ?? 0);
 
       // Emit scrub values for selected series + averages for unselected
       if (onMetricsChangeRef.current) {
@@ -365,10 +357,6 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     );
   }
 
-  const series = Object.fromEntries(
-    seriesInfo.map((s) => [s.id, (d: Record<string, number>) => d[s.id]])
-  ) as Record<string, (d: Record<string, number>) => number>;
-
   return (
     <ChartErrorBoundary height={height} label="Activity Chart">
       <View style={[styles.container, { height }]}>
@@ -393,19 +381,6 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                     left: bounds.left,
                     right: bounds.right,
                   };
-                }
-                // Sync actual point x-coordinates for accurate crosshair positioning
-                if (seriesInfo.length > 0) {
-                  const firstSeriesPoints = points[seriesInfo[0].id];
-                  if (firstSeriesPoints) {
-                    const newCoords = firstSeriesPoints.map((p) => p.x);
-                    if (
-                      newCoords.length !== pointXCoordsShared.value.length ||
-                      newCoords[0] !== pointXCoordsShared.value[0]
-                    ) {
-                      pointXCoordsShared.value = newCoords;
-                    }
-                  }
                 }
 
                 const chartH = bounds.bottom - bounds.top;
@@ -477,7 +452,11 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                         <React.Fragment key={`line-${series.id}`}>
                           <CurveLine
                             points={points[series.id] ?? []}
-                            color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                            color={
+                              isDark
+                                ? colorWithOpacity(ink.black, 0.5)
+                                : colorWithOpacity(ink.black, 0.15)
+                            }
                             strokeWidth={width + 0.75}
                           />
                           <CurveLine
@@ -569,9 +548,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
 
             {/* X-axis indicator - overlaid on bottom right of chart */}
             <ChartDistanceIndicator
+              ref={indicator}
               xAxisMode={xAxisMode}
-              currentX={currentX}
-              isActive={isActive}
               maxX={maxX}
               xUnit={xUnit}
               isDark={isDark}
@@ -592,11 +570,11 @@ const styles = StyleSheet.create({
     top: 8,
     bottom: 20,
     width: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: colorWithOpacity(ink.black, 0.4),
     borderRadius: layout.borderRadiusFull,
   },
   crosshairDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: colorWithOpacity(ink.white, 0.5),
   },
   placeholder: {
     backgroundColor: colors.background,

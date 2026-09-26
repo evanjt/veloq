@@ -1,4 +1,5 @@
 export { ActivityCard } from './ActivityCard';
+export { FeedFilterChips } from './FeedFilterChips';
 export { ActivityCardContextMenu } from './ActivityCardContextMenu';
 export { ActivityMapPreview } from './ActivityMapPreview';
 export { ChartTypeSelector } from './ChartTypeSelector';

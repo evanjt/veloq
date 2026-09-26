@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, FlatList, Text } from 'react-native';
-import { isPaceSport, measuresPower } from '@/features/activity/lib/activityUtils';
+import { isPaceSport, measuresPower } from '@/shared/activity/activityUtils';
 import { intervalTypeLabel } from '@/features/activity/lib/intervalTypeLabel';
 import {
   formatDistance,
@@ -11,7 +11,7 @@ import {
   formatPower,
 } from '@/shared/format/format';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography, ink, colorWithOpacity } from '@/theme';
 import type { ActivityInterval, ActivityType } from '@/types';
 
 interface IntervalsTableProps {
@@ -63,7 +63,7 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
             styles.typeText,
             isWork && !zoneColor && { color: colors.primary },
             isWork && zoneColor != null && { color: zoneColor },
-            isRecovery && { color: colors.success },
+            isRecovery && { color: isDark ? darkColors.successDeep : colors.successDeep },
           ]}
           numberOfLines={1}
         >
@@ -87,7 +87,9 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
             <Text
               style={[
                 styles.colStat,
-                item.average_heartrate != null && { color: colors.chartPink },
+                item.average_heartrate != null && {
+                  color: isDark ? darkColors.chartPinkText : colors.chartPinkText,
+                },
               ]}
             >
               {item.average_heartrate != null ? formatHeartRate(item.average_heartrate) : ''}
@@ -95,7 +97,12 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
           )}
           {hasPower && (
             <Text
-              style={[styles.colStat, item.average_watts != null && { color: colors.chartPurple }]}
+              style={[
+                styles.colStat,
+                item.average_watts != null && {
+                  color: isDark ? darkColors.chartPurpleText : colors.chartPurpleText,
+                },
+              ]}
             >
               {item.average_watts != null ? formatPower(item.average_watts) : ''}
             </Text>
@@ -125,17 +132,17 @@ const styles = StyleSheet.create({
   intervalRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 7,
-    paddingHorizontal: 2,
-    gap: 6,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xxs,
+    gap: spacing.xsPlus,
   },
   intervalRowRecovery: {},
   intervalRowBorder: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.08)',
+    borderTopColor: colorWithOpacity(ink.black, 0.08),
   },
   intervalRowBorderDark: {
-    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopColor: colorWithOpacity(ink.white, 0.08),
   },
   indexText: {
     fontSize: typography.caption.fontSize,
@@ -155,7 +162,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 4,
+    gap: spacing.xs,
   },
   colStat: {
     fontSize: typography.caption.fontSize,

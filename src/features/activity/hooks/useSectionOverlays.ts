@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from 'react';
-import type { SectionOverlay } from '@/features/maps/components/ActivityMapView';
+import { type SectionOverlay } from '@/features/maps';
 import type { SectionMatch } from '@/features/routes/hooks/useSectionMatches';
 import type { Section } from '@/types';
 import type { SectionEncounter } from 'veloqrs';

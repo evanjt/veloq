@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import type { ExpandRangeResult } from '@/shared/app/SyncDateRangeStore';
 import { clearAllGpsTracks, clearBoundsCache } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
@@ -31,9 +32,12 @@ interface UseActivityBoundsCacheReturn {
   /** Whether engine data is available */
   isReady: boolean;
   /** Expand sync date range (triggers GlobalDataSync to fetch more data) */
-  syncDateRange: (oldest: string, newest: string) => void;
-  /** Clear the cache */
-  clearCache: () => Promise<void>;
+  syncDateRange: (oldest: string, newest: string) => ExpandRangeResult;
+  /**
+   * Clear the cache. Answers false when the engine's wipe outlived the wait:
+   * it is still going on its own thread, and the re-cut it owes runs once it lands.
+   */
+  clearCache: () => Promise<boolean>;
   /** Cache statistics */
   cacheStats: CacheStats;
   /** Trigger sync for specified number of days or all history */
@@ -110,8 +114,11 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
         setEngineDateRange({ oldest: null, newest: null });
         return;
       }
-      setActivityCount(eng.getActivityCount());
+      // One read, not two. `getStats` already carries the activity count
+      // beside the date range, and both waits are on the engine's write lock,
+      // which a sync write holds when the event that woke this fires.
       const stats = eng.getStats();
+      setActivityCount(stats?.activityCount ?? 0);
       if (stats?.oldestDate && stats?.newestDate) {
         setEngineDateRange({
           oldest: formatLocalDate(new Date(Number(stats.oldestDate) * 1000)),
@@ -151,9 +158,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const expandRange = useSyncDateRange((s) => s.expandRange);
 
   const syncDateRange = useCallback(
-    (oldest: string, newest: string) => {
-      expandRange(oldest, newest);
-    },
+    (oldest: string, newest: string) => expandRange(oldest, newest),
     [expandRange]
   );
 
@@ -164,14 +169,27 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     // follows rebuilds the catalogue the clear removed.
     const engine = getEngine();
     const dbPath = getRouteDbPath();
+    let cleared = true;
     if (engine && dbPath) {
       await withDatabaseSnapshot(engine, dbPath, async () => {
         // 734 ms on a full library, the worst of the three wipes. It runs on a
         // Rust thread and this waits for it, so the re-detect below still
         // follows the wipe and the spinner this button already shows covers
         // the wait instead of the frame being dropped.
-        await runDerivedClear(engine);
-        engine.forceRedetectSections();
+        const outcome = await runDerivedClear(engine);
+        cleared = outcome.state === 'complete';
+        if (outcome.state === 'complete') {
+          engine.forceRedetectSections();
+        } else {
+          // Past the wait the wipe still holds the write lock, so the re-cut
+          // follows it whenever it lands rather than now, and the caller says
+          // it is still running rather than reporting a cleared cache. A wipe
+          // that fails late rolled back, so there is nothing to re-cut.
+          void outcome.landing.then(
+            () => engine.forceRedetectSections(),
+            () => {}
+          );
+        }
       });
     }
 
@@ -184,6 +202,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     // re-reads both, so the display follows the database rather than leading it.
     // Force engine re-subscription since destroy+reinit breaks the old subscription
     setEngineGeneration((g) => g + 1);
+    return cleared;
   }, []);
 
   const sync = useCallback(

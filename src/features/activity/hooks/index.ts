@@ -7,6 +7,7 @@ export {
 } from './useActivities';
 export { useActivityBoundsCache } from './useActivityBoundsCache';
 export { useEFTPHistory, getLatestFTP, getLatestEFTP } from './useEFTPHistory';
+export { useDetailCoordinates } from './useDetailCoordinates';
 export { useMapPreviewCoordinates } from './useMapPreviewCoordinates';
 export { useSectionOverlays } from './useSectionOverlays';
 export { useActivitySectionHighlights } from './useActivitySectionHighlights';

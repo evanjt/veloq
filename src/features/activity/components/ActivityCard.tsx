@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Platform, Text as RNText } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useMetricSystem } from '@/shared/app';
@@ -7,7 +7,7 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import type { Activity } from '@/types';
-import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
+import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import {
   formatDistance,
   formatDuration,
@@ -19,19 +19,31 @@ import {
   formatTSS,
   formatCalories,
 } from '@/shared/format/format';
-import { colors, darkColors, typography, spacing, shadows, layout, brand, ink } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  shadows,
+  layout,
+  brand,
+  ink,
+  verdict,
+  colorWithOpacity,
+} from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import { type TerrainSnapshotWebViewRef, useMapPreferences } from '@/features/maps';
 import { ActivityMapPreview } from './ActivityMapPreview';
-import { ATTRIBUTION_CLEARANCE } from '@/features/maps/components/AttributionOverlay';
 import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
 import { StrengthActivityCard, type StrengthCardData } from '@/features/strength';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useExerciseSets, useMuscleGroups } from '@/features/strength';
-import type { TerrainSnapshotWebViewRef } from '@/features/maps/components/TerrainSnapshotWebView';
 import { debug } from '@/shared/debug/debug';
+import { rowIsUnchanged } from '@/shared/ui/rowMemo';
+import { prefetchActivityDetailData } from '../hooks/useActivityDetailData';
+import { pressable } from '@/shared/ui';
 
 const log = debug.create('ActivityCard');
 
@@ -74,19 +86,19 @@ interface ActivityCardProps {
 // White text theme (used on any dark/satellite map, or dark theme + light map)
 const WHITE_TEXT = {
   text: ink.white,
-  textMuted: 'rgba(255,255,255,0.85)',
-  dot: 'rgba(255,255,255,0.5)',
-  divider: 'rgba(255,255,255,0.15)',
-  secondaryText: 'rgba(255,255,255,0.9)',
-  shadow: 'rgba(0,0,0,0.8)',
+  textMuted: colorWithOpacity(ink.white, 0.85),
+  dot: colorWithOpacity(ink.white, 0.5),
+  divider: colorWithOpacity(ink.white, 0.15),
+  secondaryText: colorWithOpacity(ink.white, 0.9),
+  shadow: colorWithOpacity(ink.black, 0.8),
 };
 
 // Dark text theme (only for light theme + light map)
 const DARK_TEXT = {
   text: colors.textPrimary,
   textMuted: colors.textSecondary,
-  dot: 'rgba(0,0,0,0.25)',
-  divider: 'rgba(0,0,0,0.1)',
+  dot: colorWithOpacity(ink.black, 0.25),
+  divider: colorWithOpacity(ink.black, 0.1),
   secondaryText: colors.textSecondary,
   shadow: 'transparent',
 };
@@ -95,26 +107,58 @@ const DARK_TEXT = {
 const GRADIENT = {
   // Light theme + light map: white wash blends into light UI
   lightLight: {
-    top: ['rgba(255,255,255,0.92)', 'rgba(255,255,255,0.5)', 'transparent'] as const,
-    bottom: ['transparent', 'rgba(255,255,255,0.6)', 'rgba(255,255,255,0.95)'] as const,
+    top: [
+      colorWithOpacity(ink.white, 0.92),
+      colorWithOpacity(ink.white, 0.5),
+      'transparent',
+    ] as const,
+    bottom: [
+      'transparent',
+      colorWithOpacity(ink.white, 0.6),
+      colorWithOpacity(ink.white, 0.95),
+    ] as const,
     ...DARK_TEXT,
   },
   // Light theme + dark map: subtle scrim, map already provides contrast
   lightDark: {
-    top: ['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.2)', 'transparent'] as const,
-    bottom: ['transparent', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.55)'] as const,
+    top: [
+      colorWithOpacity(ink.black, 0.5),
+      colorWithOpacity(ink.black, 0.2),
+      'transparent',
+    ] as const,
+    bottom: [
+      'transparent',
+      colorWithOpacity(ink.black, 0.25),
+      colorWithOpacity(ink.black, 0.55),
+    ] as const,
     ...WHITE_TEXT,
   },
   // Dark theme + light map: strong dark scrim to blend into dark UI
   darkLight: {
-    top: ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.3)', 'transparent'] as const,
-    bottom: ['transparent', 'rgba(0,0,0,0.35)', 'rgba(0,0,0,0.72)'] as const,
+    top: [
+      colorWithOpacity(ink.black, 0.7),
+      colorWithOpacity(ink.black, 0.3),
+      'transparent',
+    ] as const,
+    bottom: [
+      'transparent',
+      colorWithOpacity(ink.black, 0.35),
+      colorWithOpacity(ink.black, 0.72),
+    ] as const,
     ...WHITE_TEXT,
   },
   // Dark theme + dark map: subtle scrim, everything already dark
   darkDark: {
-    top: ['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.2)', 'transparent'] as const,
-    bottom: ['transparent', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.6)'] as const,
+    top: [
+      colorWithOpacity(ink.black, 0.5),
+      colorWithOpacity(ink.black, 0.2),
+      'transparent',
+    ] as const,
+    bottom: [
+      'transparent',
+      colorWithOpacity(ink.black, 0.25),
+      colorWithOpacity(ink.black, 0.6),
+    ] as const,
     ...WHITE_TEXT,
   },
 };
@@ -149,9 +193,17 @@ export const ActivityCard = React.memo(
     const handlePressIn = useCallback(() => setIsPressed(true), []);
     const handlePressOut = useCallback(() => setIsPressed(false), []);
 
-    const handlePress = () => {
-      router.push(`/activity/${activity.id}`);
-    };
+    // The detail bundle is read here rather than after the push animation, so
+    // the screen paints with it on its first render.
+    const openActivity = useCallback(
+      (tab?: 'routes' | 'sections') => {
+        prefetchActivityDetailData(activity.id);
+        router.push(`/activity/${activity.id}${tab ? `?tab=${tab}` : ''}`);
+      },
+      [activity.id]
+    );
+
+    const handlePress = useCallback(() => openActivity(), [openActivity]);
 
     const handleLongPress = useCallback(() => {
       if (Platform.OS === 'ios') {
@@ -177,24 +229,13 @@ export const ActivityCard = React.memo(
     const mapStyle = getStyleForActivity(activity.type, activity.id, activity.country);
     const theme = getGradientTheme(isDark, mapStyle);
     const hasGpsData = activity.stream_types?.includes('latlng');
-    // The preview draws the map credit in the same corner as the stat rows.
-    // Start from the single-line estimate so the first paint is already clear,
-    // then take the measured height once the pill has laid out.
-    const [attributionClearance, setAttributionClearance] = useState(ATTRIBUTION_CLEARANCE);
-
-    // Extract PR section GPS track indices for gold highlighting on map preview
-    const prSectionIndices = useMemo(() => {
-      if (!sectionHighlights) return undefined;
-      const prs = sectionHighlights.filter((h) => h.isPr && h.startIndex < h.endIndex);
-      return prs.length > 0
-        ? prs.map((h) => ({ startIndex: h.startIndex, endIndex: h.endIndex }))
-        : undefined;
-    }, [sectionHighlights]);
 
     const compactTextColor = isDark ? darkColors.textPrimary : colors.textPrimary;
     const compactMutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-    const compactDotColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)';
-    const compactDividerColor = isDark ? darkColors.border : 'rgba(0,0,0,0.1)';
+    const compactDotColor = isDark
+      ? colorWithOpacity(ink.white, 0.3)
+      : colorWithOpacity(ink.black, 0.25);
+    const compactDividerColor = isDark ? darkColors.border : colorWithOpacity(ink.black, 0.1);
 
     // Shared secondary stats row used by both compact and full card
     const secondaryStatsRow = (textColor: string) => (
@@ -205,7 +246,7 @@ export const ActivityCard = React.memo(
         onContentSizeChange={handleContentSizeChange}
         style={styles.secondaryScroll}
       >
-        <Pressable onPress={handlePress} style={styles.secondaryStats}>
+        <Pressable onPress={handlePress} style={pressable(styles.secondaryStats)}>
           {!!activity.icu_training_load && (
             <View
               style={styles.secondaryStat}
@@ -233,7 +274,11 @@ export const ActivityCard = React.memo(
               style={styles.secondaryStat}
               accessibilityLabel={`${t('activity.power')}: ${formatPower(averagePower)} ${t('units.watts')}`}
             >
-              <MaterialCommunityIcons name="lightning-bolt" size={14} color={colors.warning} />
+              <MaterialCommunityIcons
+                name="lightning-bolt"
+                size={14}
+                color={isDark ? darkColors.warningAmber : colors.warningAmber}
+              />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatPower(averagePower)}
               </RNText>
@@ -244,7 +289,11 @@ export const ActivityCard = React.memo(
               style={styles.secondaryStat}
               accessibilityLabel={`${t('activity.calories')}: ${formatCalories(activity.calories)} ${t('units.kcal')}`}
             >
-              <MaterialCommunityIcons name="food-apple" size={14} color={colors.success} />
+              <MaterialCommunityIcons
+                name="food-apple"
+                size={14}
+                color={isDark ? darkColors.successDeep : colors.successDeep}
+              />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatCalories(activity.calories)}
               </RNText>
@@ -319,6 +368,7 @@ export const ActivityCard = React.memo(
             onPressOut={handlePressOut}
             accessibilityRole="button"
             accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
+            style={pressable()}
           >
             <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
               <View style={styles.compactContent}>
@@ -418,8 +468,6 @@ export const ActivityCard = React.memo(
               snapshotRef={snapshotRef}
               snapshotReady={snapshotReady}
               startupTrack={startupTrack}
-              prSectionIndices={prSectionIndices}
-              onAttributionClearanceChange={setAttributionClearance}
             />
 
             {/* Pressable overlay for tap/long-press */}
@@ -430,7 +478,7 @@ export const ActivityCard = React.memo(
               delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
               onPressIn={handlePressIn}
               onPressOut={handlePressOut}
-              style={styles.pressableOverlay}
+              style={pressable(styles.pressableOverlay)}
               accessibilityRole="button"
               accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
             />
@@ -471,14 +519,14 @@ export const ActivityCard = React.memo(
                       routeHighlight.timeDeltaSeconds > 0)) && (
                     <Pressable
                       testID={`activity-card-${activity.id}-route-chip`}
-                      onPress={() => router.push(`/activity/${activity.id}?tab=routes`)}
+                      onPress={() => openActivity('routes')}
                       hitSlop={8}
-                      style={[
+                      style={pressable([
                         styles.routeTrendBadge,
                         routeHighlight.isPr
                           ? styles.routeTrendBadgePr
                           : styles.routeTrendBadgeDelta,
-                      ]}
+                      ])}
                     >
                       {routeHighlight.isPr ? (
                         <MaterialCommunityIcons
@@ -500,17 +548,14 @@ export const ActivityCard = React.memo(
             </LinearGradient>
 
             {/* Bottom: all stats unified */}
-            <View
-              testID="activity-card-bottom"
-              style={[styles.bottomSection, { paddingBottom: attributionClearance }]}
-            >
+            <View testID="activity-card-bottom" style={styles.bottomSection}>
               <LinearGradient
                 colors={theme.bottom as [string, string, string]}
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
               />
               {/* Primary stats + location */}
-              <Pressable onPress={handlePress} style={styles.primaryRow}>
+              <Pressable onPress={handlePress} style={pressable(styles.primaryRow)}>
                 <View style={styles.primaryStats}>
                   <RNText
                     testID={`activity-card-${activity.id}-distance`}
@@ -549,9 +594,9 @@ export const ActivityCard = React.memo(
                     {sectionHighlights && sectionHighlights.length > 0 && (
                       <Pressable
                         testID={`activity-card-${activity.id}-section-chip`}
-                        onPress={() => router.push(`/activity/${activity.id}?tab=sections`)}
+                        onPress={() => openActivity('sections')}
                         hitSlop={8}
-                        style={styles.trendBadge}
+                        style={pressable(styles.trendBadge)}
                       >
                         {(() => {
                           const improving = sectionHighlights.filter(
@@ -654,37 +699,37 @@ export const ActivityCard = React.memo(
       </View>
     );
   },
-  (prev, next) => {
-    // Custom comparator: skip re-render when activity content hasn't changed.
-    const equal =
-      prev.activity.id === next.activity.id &&
-      prev.activity.name === next.activity.name &&
-      prev.index === next.index &&
-      prev.startupTrack === next.startupTrack &&
-      prev.colorScheme === next.colorScheme &&
-      prev.snapshotReady === next.snapshotReady &&
-      prev.sectionHighlights === next.sectionHighlights &&
-      prev.routeHighlight === next.routeHighlight;
-    if (__DEV__ && !equal && (prev.index ?? 0) < 3) {
-      const diffs: string[] = [];
-      if (prev.activity.id !== next.activity.id) diffs.push('id');
-      if (prev.activity.name !== next.activity.name) diffs.push('name');
-      if (prev.index !== next.index) diffs.push('index');
-      if (prev.startupTrack !== next.startupTrack) diffs.push('startupTrack');
-      if (prev.colorScheme !== next.colorScheme) diffs.push('colorScheme');
-      if (prev.snapshotReady !== next.snapshotReady) diffs.push('snapshotReady');
-      if (prev.sectionHighlights !== next.sectionHighlights) diffs.push('sectionHighlights');
-      if (prev.routeHighlight !== next.routeHighlight) diffs.push('routeHighlight');
-      log.log(`    🔍 ActivityCard[${prev.index}] memo: re-render because: ${diffs.join(', ')}`);
-    }
-    return equal;
-  }
+  (prev, next) =>
+    rowIsUnchanged(
+      {
+        record: prev.activity,
+        extras: [
+          prev.index,
+          prev.startupTrack,
+          prev.colorScheme,
+          prev.snapshotReady,
+          prev.sectionHighlights,
+          prev.routeHighlight,
+        ],
+      },
+      {
+        record: next.activity,
+        extras: [
+          next.index,
+          next.startupTrack,
+          next.colorScheme,
+          next.snapshotReady,
+          next.sectionHighlights,
+          next.routeHighlight,
+        ],
+      }
+    )
 );
 
 const styles = StyleSheet.create({
   cardWrapper: {
-    marginHorizontal: 12,
-    marginBottom: 12,
+    marginHorizontal: spacing.smPlus,
+    marginBottom: spacing.smPlus,
   },
   cardPressed: {
     transform: [{ scale: 0.98 }],
@@ -715,9 +760,9 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    paddingTop: 10,
-    paddingHorizontal: 12,
-    paddingBottom: 28,
+    paddingTop: spacing.smPlus,
+    paddingHorizontal: spacing.smPlus,
+    paddingBottom: spacing.lg,
     zIndex: 2,
   },
   overlayHeader: {
@@ -738,11 +783,11 @@ const styles = StyleSheet.create({
   routeTrendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
     marginLeft: spacing.sm,
     borderRadius: layout.borderRadiusMd,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xs,
     shadowColor: colors.shadowBlack,
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 2,
@@ -752,9 +797,9 @@ const styles = StyleSheet.create({
     backgroundColor: brand.gold,
   },
   routeTrendBadgeDelta: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: colorWithOpacity(ink.black, 0.55),
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: colorWithOpacity(ink.white, 0.2),
   },
   routeTrendBadgeText: {
     color: ink.white,
@@ -771,7 +816,7 @@ const styles = StyleSheet.create({
   overlayDateSubtitle: {
     fontSize: typography.caption.fontSize,
     fontWeight: '500',
-    marginTop: 1,
+    marginTop: spacing.xxs,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
@@ -786,29 +831,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingTop: 20,
-    paddingBottom: 2,
+    paddingHorizontal: spacing.smPlus,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxs,
   },
   rightColumn: {
     flexDirection: 'column',
     alignItems: 'flex-end',
-    gap: 2,
+    gap: spacing.xxs,
     marginLeft: spacing.sm,
     flexShrink: 1,
   },
   trendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   trendPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
     borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: spacing.xsPlus,
+    paddingVertical: spacing.xxs,
     borderWidth: 1,
   },
   // PR pill - solid gold, high contrast
@@ -829,14 +874,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
     borderColor: colors.successLight,
   },
-  // Declining pill - solid muted
+  // Declining pill - the negative rung, the same verdict the section trend and
+  // the insight card draw. It was disabled-grey, so the same decline read as
+  // "off" here and as a judgement one card away. The light tone carries the
+  // pill in both themes, the way the improving pill carries one green in both:
+  // the ladder's dark rungs are sized for text on a surface, not for white
+  // text on a solid.
   decliningPillLight: {
-    backgroundColor: colors.textDisabled,
-    borderColor: colors.textMuted,
+    backgroundColor: verdict.negative.light,
+    borderColor: verdict.negative.dark,
   },
   decliningPillDark: {
-    backgroundColor: colors.gray600,
-    borderColor: colors.textMuted,
+    backgroundColor: verdict.negative.light,
+    borderColor: verdict.negative.dark,
   },
   trendCount: {
     fontSize: typography.bodyCompact.fontSize,
@@ -857,7 +907,7 @@ const styles = StyleSheet.create({
   statDot: {
     fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
-    marginHorizontal: 6,
+    marginHorizontal: spacing.xsPlus,
   },
   overlayLocation: {
     fontSize: typography.caption.fontSize,
@@ -868,29 +918,29 @@ const styles = StyleSheet.create({
   },
   dividerLine: {
     height: 1,
-    marginHorizontal: 12,
+    marginHorizontal: spacing.smPlus,
   },
   secondaryScroll: {
-    paddingTop: 2,
-    paddingBottom: 8,
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.sm,
   },
   secondaryStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 12,
+    paddingHorizontal: spacing.smPlus,
+    gap: spacing.smPlus,
   },
   secondaryStat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing.xs,
   },
   secondaryStatValue: {
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
   },
   compactContent: {
-    padding: 12,
+    padding: spacing.smPlus,
   },
   compactHeader: {
     flexDirection: 'row',
@@ -911,20 +961,20 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   compactNoMapIcon: {
-    marginLeft: 6,
+    marginLeft: spacing.xsPlus,
     opacity: 0.5,
   },
   compactDateSubtitle: {
     fontSize: typography.caption.fontSize,
     fontWeight: '500',
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   compactPrimaryRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingTop: 6,
-    paddingBottom: 2,
+    paddingTop: spacing.xsPlus,
+    paddingBottom: spacing.xxs,
   },
   compactStatValue: {
     fontSize: typography.body.fontSize,

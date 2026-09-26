@@ -98,7 +98,6 @@ export interface Activity {
   pacing_index?: number; // Aerobic decoupling metric
   start_latlng?: [number, number];
   end_latlng?: [number, number];
-  polyline?: string;
   // Location info
   locality?: string; // City/town name from intervals.icu
   country?: string; // Country name
@@ -478,45 +477,31 @@ export interface Athlete {
   wPrime?: number;
 }
 
+/**
+ * One stored wellness day, as the screens read it.
+ *
+ * Exactly what `toWellnessData` writes out of the engine's typed day, and so
+ * exactly what a screen can find on one. The intervals.icu body carries far
+ * more (`ApiWellness` in `demo/types.ts` is its shape), and a field wanted here
+ * later arrives with a column and an `FfiWellnessDay` field rather than as an
+ * `undefined` a reader has to discover.
+ */
 export interface WellnessData {
   id: string; // ISO-8601 date (YYYY-MM-DD)
   ctl?: number; // Chronic Training Load (Fitness) - 42 day avg
   atl?: number; // Acute Training Load (Fatigue) - 7 day avg
   rampRate?: number; // Rate of fitness change
-  ctlLoad?: number; // Alternative field name for CTL
-  atlLoad?: number; // Alternative field name for ATL
   sportInfo?: SportLoadInfo[]; // Per-sport breakdown
-  // Wellness metrics
   weight?: number;
   restingHR?: number;
-  max_hr?: number; // Maximum heart rate
   hrv?: number;
-  hrvSDNN?: number;
-  hrr?: number; // Heart rate recovery
   sleepSecs?: number;
   sleepScore?: number;
-  sleepQuality?: number;
-  avgSleepingHR?: number;
   soreness?: number;
   fatigue?: number;
   stress?: number;
   mood?: number;
   motivation?: number;
-  injury?: number;
-  spO2?: number;
-  systolic?: number;
-  diastolic?: number;
-  hydration?: number;
-  hydrationVolume?: number;
-  readiness?: number;
-  ftp?: number; // Functional Threshold Power
-  baevskySI?: number;
-  bloodGlucose?: number;
-  lactate?: number;
-  bodyFat?: number;
-  abdomen?: number;
-  vo2max?: number;
-  updated?: string;
 }
 
 export interface SportLoadInfo {
@@ -653,6 +638,14 @@ export interface ActivityBoundsItem {
   duration: number; // seconds
   /** Full GPS track - stored during sync for instant route matching */
   latlngs?: [number, number][];
+  /**
+   * Where the ride began, from the engine's own signature record. The map
+   * marker belongs here rather than at the centre of the bounding box, and
+   * having it on the first read is what stops every marker being uploaded once
+   * on its bounds centre and again once the signatures finish loading.
+   * Absent for an activity the engine holds no signature for.
+   */
+  startPoint?: [number, number];
 }
 
 export interface ActivityMapData {

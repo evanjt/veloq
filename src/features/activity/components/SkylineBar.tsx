@@ -47,7 +47,7 @@ export const SkylineBar = React.memo(function SkylineBar({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    marginHorizontal: 12,
+    marginHorizontal: spacing.smPlus,
     borderRadius: spacing.xxs,
     overflow: 'hidden',
   },
