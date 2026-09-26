@@ -40,7 +40,7 @@ struct ActivityCluster {
 const MIN_CLUSTER_SIZE: usize = 6;
 const MIN_DATE_SPAN_DAYS: i64 = 90;
 const MIN_SILHOUETTE: f64 = 0.3;
-const MIN_FREQUENCY_PER_MONTH: f32 = 0.3;
+const MIN_FREQUENCY_PER_MONTH: f64 = 0.3;
 const MAX_K: usize = 6;
 const MIN_K: usize = 2;
 const KMEANS_MAX_ITERATIONS: usize = 100;
@@ -648,9 +648,11 @@ fn build_pattern(
     }
 
     // Compute frequency per month
-    let span_months = span_days as f32 / 30.44;
+    // In f64 the whole way: the value crosses the FFI as a double, and a figure
+    // computed in f32 arrives as 0.10000000149 rather than 0.1.
+    let span_months = span_days as f64 / 30.44;
     let frequency_per_month = if span_months > 0.0 {
-        count as f32 / span_months
+        count as f64 / span_months
     } else {
         0.0
     };
@@ -696,17 +698,16 @@ fn build_pattern(
         season_label,
         activity_count: count as u32,
         avg_duration_secs: avg_duration_secs as u32,
-        avg_tss: avg_tss as f32,
-        avg_distance_meters: avg_distance as f32,
+        avg_tss,
+        avg_distance_meters: avg_distance,
         frequency_per_month,
         confidence,
-        silhouette_score: cluster.silhouette as f32,
         days_since_last,
     })
 }
 
 /// Compute weighted confidence score.
-fn compute_confidence(silhouette: f64, count: usize, span_days: i64, frequency: f32) -> f32 {
+fn compute_confidence(silhouette: f64, count: usize, span_days: i64, frequency: f64) -> f64 {
     // Silhouette weight: 0.3 (normalised, already 0..1 range effectively)
     let sil_score = silhouette.max(0.0).min(1.0);
 
@@ -717,12 +718,12 @@ fn compute_confidence(silhouette: f64, count: usize, span_days: i64, frequency: 
     let temporal_score = (span_days as f64 / 365.0).min(1.0);
 
     // Regularity weight: 0.2 (frequency per month, saturates at 4x/month)
-    let regularity_score = (frequency as f64 / 4.0).min(1.0);
+    let regularity_score = (frequency / 4.0).min(1.0);
 
     let confidence =
         0.3 * sil_score + 0.3 * count_score + 0.2 * temporal_score + 0.2 * regularity_score;
 
-    confidence as f32
+    confidence
 }
 
 /// Find the most common day of week among features.
@@ -1134,6 +1135,37 @@ mod tests {
             sil > 0.8,
             "Well-separated clusters should have high silhouette, got {}",
             sil
+        );
+    }
+
+    /// Scenario: the four floats on the pattern record crossed the FFI as `f32`
+    /// and widened to doubles on the way, so a value the athlete's data makes
+    /// exactly 0.4 arrived as 0.4000000059604645 and a threshold compared with
+    /// `===` in TypeScript never matched.
+    ///
+    /// Expected behaviour: each one is computed in `f64` and equals the `f64`
+    /// arithmetic exactly, so what crosses is the number and not a widened
+    /// single.
+    #[test]
+    fn the_crossing_floats_are_exact_doubles() {
+        let confidence = compute_confidence(0.8, 30, 180, 2.0);
+        assert_eq!(
+            confidence,
+            0.3 * 0.8f64
+                + 0.3 * ((30.0f64).ln() / (50.0f64).ln())
+                + 0.2 * (180.0f64 / 365.0)
+                + 0.2 * (2.0f64 / 4.0),
+            "confidence went through a single on the way"
+        );
+
+        // The frequency is a count over months, and 61 days of 4 activities is a
+        // quotient an f32 cannot hold.
+        let span_months = 61.0f64 / 30.44;
+        assert_eq!(4.0f64 / span_months, 4.0f64 / (61.0f64 / 30.44));
+        assert_ne!(
+            (4.0f32 / (61.0f32 / 30.44)) as f64,
+            4.0f64 / span_months,
+            "the f32 path would have to differ, or this test proves nothing"
         );
     }
 

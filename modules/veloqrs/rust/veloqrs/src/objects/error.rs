@@ -37,21 +37,17 @@ where
         .ok_or(VeloqError::NotInitialized)
 }
 
-/// Execute a closure with a **read lock** on the persistent engine.
+/// Execute a closure against a read-only connection, with **no engine lock**.
 ///
-/// Multiple callers can hold the read lock concurrently. The closure
-/// receives `&PersistentEngine`, so any call into a `&mut self` helper
-/// fails to compile.
-///
-/// **Safety**: do not call any method that dereferences `self.db` from
-/// inside this closure. SQLite access goes through the write lock only.
-pub fn with_engine_read<F, R>(f: F) -> Result<R, VeloqError>
+/// This is the path for a screen read that only needs SQLite. It does not wait
+/// for a write in flight, because WAL serves it the last commit instead, and it
+/// reaches no engine state at all: the closure gets a `Connection` and nothing
+/// else, so the in-memory tier and anything a caller is part-way through
+/// writing are both invisible to it. A read that needs either belongs on
+/// `with_engine`.
+pub fn with_reader<F, R>(f: F) -> Result<R, VeloqError>
 where
-    F: FnOnce(&crate::persistence::PersistentEngine) -> R,
+    F: FnOnce(&rusqlite::Connection) -> R,
 {
-    // Same poison recovery as with_engine.
-    let guard = crate::persistence::PERSISTENT_ENGINE
-        .read()
-        .unwrap_or_else(|e| e.into_inner());
-    guard.as_ref().map(f).ok_or(VeloqError::NotInitialized)
+    crate::persistence::read_pool::with_read_conn(f).ok_or(VeloqError::NotInitialized)
 }

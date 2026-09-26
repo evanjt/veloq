@@ -1,4 +1,4 @@
-use super::error::{VeloqError, with_engine};
+use super::error::{VeloqError, with_engine, with_reader};
 use std::sync::Arc;
 
 /// One key and the value to store under it.
@@ -6,6 +6,19 @@ use std::sync::Arc;
 pub struct SettingPair {
     pub key: String,
     pub value: String,
+}
+
+/// The notification templates for one locale, as they cross the binding.
+///
+/// A record rather than a JSON string, so a renamed key is a binding change
+/// the generated tests catch rather than a sentence that renders as its own
+/// key on a handset.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiNotificationTemplates {
+    /// The locale tag JavaScript resolved these for, e.g. `ja` or `en-AU`.
+    pub locale: String,
+    /// Every template, ordered by key.
+    pub templates: Vec<SettingPair>,
 }
 
 #[derive(uniffi::Object)]
@@ -26,8 +39,11 @@ impl SettingsManager {
 
     fn set_athlete_profile(&self, json: String) -> Result<(), VeloqError> {
         with_engine(|e| {
-            e.set_athlete_profile(&json);
-        })
+            e.set_athlete_profile(&json)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
     }
 
     fn get_sport_settings(&self) -> Result<Option<String>, VeloqError> {
@@ -36,17 +52,11 @@ impl SettingsManager {
 
     fn set_sport_settings(&self, json: String) -> Result<(), VeloqError> {
         with_engine(|e| {
-            e.set_sport_settings(&json);
-        })
-    }
-
-    /// Clear the cached athlete profile and sport settings blobs without
-    /// touching activity / GPS / section data. Used by the lightweight
-    /// "Sign out" path.
-    fn clear_user_profile_caches(&self) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.clear_user_profile_caches();
-        })
+            e.set_sport_settings(&json)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
     }
 
     /// Where the athlete's rides start and finish most often, for the export
@@ -101,6 +111,58 @@ impl SettingsManager {
                 pairs.into_iter().map(|p| (p.key, p.value)).collect();
             e.set_settings(&owned)
                 .map(|written| written as u32)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
+    }
+
+    /// Hand the engine the notification templates for the locale the app is
+    /// running in. Answers whether anything was written, which is false for
+    /// the ordinary launch that re-pushes the bundle it pushed last time.
+    ///
+    /// This is what lets a push handler build a sentence with no JavaScript
+    /// alive to resolve one. `set_name_translations` is the same gesture and
+    /// keeps its two words in a process global, which a handler woken with the
+    /// app killed cannot read; these land in the settings table.
+    ///
+    /// Call it once the bundle is in i18next's store and not before: a key
+    /// resolves as itself until then, and a bundle of keys is what the handler
+    /// would render.
+    fn set_notification_templates(
+        &self,
+        locale: String,
+        templates: Vec<SettingPair>,
+    ) -> Result<bool, VeloqError> {
+        with_engine(|e| {
+            let owned: Vec<(String, String)> =
+                templates.into_iter().map(|p| (p.key, p.value)).collect();
+            e.set_notification_templates(&locale, &owned)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
+    }
+
+    /// The templates the last push left, or none on an install whose app has
+    /// never started.
+    ///
+    /// Read through the pool rather than the engine's write lock: it is one
+    /// row of SQLite and it reaches no engine state, and the caller is a push
+    /// handler that must not wait behind whatever is writing.
+    fn notification_templates(&self) -> Result<Option<FfiNotificationTemplates>, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::settings::notification_templates_from(conn)
+                .map(|held| {
+                    held.map(|held| FfiNotificationTemplates {
+                        locale: held.locale,
+                        templates: held
+                            .templates
+                            .into_iter()
+                            .map(|(key, value)| SettingPair { key, value })
+                            .collect(),
+                    })
+                })
                 .map_err(|e| VeloqError::Database {
                     msg: format!("{}", e),
                 })
@@ -203,8 +265,12 @@ mod tests {
         );
     }
 
+    /// The two blobs are stored apart from the settings rows, and nothing
+    /// short of a wipe empties them: the export that used to is gone with the
+    /// sign-out that called it, so a re-login on the same account is instant
+    /// and offline.
     #[test]
-    fn profile_blobs_are_stored_apart_and_cleared_together() {
+    fn profile_blobs_are_stored_apart_from_the_settings_rows() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("settings.db");
         let settings = SettingsManager::new();
@@ -225,22 +291,22 @@ mod tests {
             Some("{\"ftp\":200}")
         );
 
-        settings.clear_user_profile_caches().unwrap();
-        assert_eq!(settings.get_athlete_profile().unwrap(), None);
-        assert_eq!(settings.get_sport_settings().unwrap(), None);
         assert_eq!(
             settings.get_setting("kept".into()).unwrap().as_deref(),
-            Some("yes")
+            Some("yes"),
+            "a settings row is not a profile blob"
         );
     }
 
     #[test]
-    fn stream_retention_defaults_to_ninety_days_and_zero_keeps_everything() {
+    fn stream_retention_defaults_to_keeping_everything_and_zero_says_so() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("settings.db");
         let settings = SettingsManager::new();
 
-        assert_eq!(settings.stream_retention_days().unwrap(), 90);
+        // The FFI carries "keep everything" as zero, which is also what the
+        // athlete sets to ask for it.
+        assert_eq!(settings.stream_retention_days().unwrap(), 0);
         assert_eq!(settings.stream_store_bytes().unwrap(), 0);
         settings.set_stream_retention_days(30).unwrap();
         assert_eq!(settings.stream_retention_days().unwrap(), 30);
@@ -266,7 +332,7 @@ mod tests {
     fn every_call_reports_not_initialised_without_an_engine() {
         let _guard = serial_global_state();
         *crate::persistence::PERSISTENT_ENGINE
-            .write()
+            .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
         let settings = SettingsManager::new();
         assert!(matches!(
