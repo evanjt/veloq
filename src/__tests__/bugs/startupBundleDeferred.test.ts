@@ -145,7 +145,7 @@ describe('useStartupData', () => {
     expect(result.current.data).toBe(first);
   });
 
-  it('carries only the summary card and the preview tracks', () => {
+  it('carries only the summary card, the preview tracks and the sparklines', () => {
     const { result } = renderHook(() => useStartupData([]));
     flushInteractions();
 
@@ -153,6 +153,7 @@ describe('useStartupData', () => {
     expect(result.current.data?.previewTracks.size).toBe(0);
     expect(Object.keys(result.current.data ?? {}).sort()).toEqual([
       'previewTracks',
+      'sparklines',
       'summaryCardData',
     ]);
   });

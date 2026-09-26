@@ -29,8 +29,8 @@ jest.mock('@/shared/app/NetworkContext', () => ({
 }));
 
 const engine = {
-  getPowerCurveBody: jest.fn(),
-  getPaceCurveBody: jest.fn(),
+  getPowerCurve: jest.fn(),
+  getPaceCurve: jest.fn(),
   getIntervalBody: jest.fn(),
   syncPowerCurve: jest.fn(),
   syncPaceCurve: jest.fn(),
@@ -49,16 +49,31 @@ function wrapper({ children }: { children: React.ReactNode }) {
   return React.createElement(QueryClientProvider, { client }, children);
 }
 
-const POWER = JSON.stringify({ list: [{ secs: [1], values: [9] }] });
-const PACE = JSON.stringify({ list: [{ distance: [100], values: [20] }] });
+/** What the engine hands back, which carries the sport it was asked for. */
+const POWER = (sport: string) => ({
+  sport,
+  secs: [1],
+  watts: [9],
+  models: [],
+  activities: {},
+  fetchedAt: Date.UTC(2026, 7, 8),
+});
+const PACE = (sport: string) => ({
+  sport,
+  distances: [100],
+  times: [20],
+  pace: [5],
+  activities: {},
+  fetchedAt: Date.UTC(2026, 7, 8),
+});
 const INTERVALS = JSON.stringify({ icu_intervals: [{ id: 1 }] });
 
 beforeEach(() => {
   jest.clearAllMocks();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  engine.getPowerCurveBody.mockReturnValue(null);
-  engine.getPaceCurveBody.mockReturnValue(null);
+  engine.getPowerCurve.mockReturnValue(null);
+  engine.getPaceCurve.mockReturnValue(null);
   engine.getIntervalBody.mockReturnValue(null);
   useAuthStore.setState({ isAuthenticated: true });
 });
@@ -69,7 +84,7 @@ afterEach(() => {
 
 describe('usePowerCurve', () => {
   it('reads the stored body once across re-renders', async () => {
-    engine.getPowerCurveBody.mockReturnValue(POWER);
+    engine.getPowerCurve.mockImplementation((sport: string) => POWER(sport));
 
     const { result, rerender } = renderHook(() => usePowerCurve({ sport: 'Ride', days: 90 }), {
       wrapper,
@@ -78,7 +93,7 @@ describe('usePowerCurve', () => {
     rerender({});
     rerender({});
 
-    expect(engine.getPowerCurveBody).toHaveBeenCalledTimes(1);
+    expect(engine.getPowerCurve).toHaveBeenCalledTimes(1);
     expect(engine.syncPowerCurve).not.toHaveBeenCalled();
   });
 
@@ -91,11 +106,11 @@ describe('usePowerCurve', () => {
     rerender({});
 
     expect(engine.syncPowerCurve).toHaveBeenCalledTimes(1);
-    expect(engine.getPowerCurveBody).toHaveBeenCalledTimes(1);
+    expect(engine.getPowerCurve).toHaveBeenCalledTimes(1);
   });
 
   it('reads once more when the sport changes, not once per render', async () => {
-    engine.getPowerCurveBody.mockReturnValue(POWER);
+    engine.getPowerCurve.mockImplementation((sport: string) => POWER(sport));
 
     const { result, rerender } = renderHook(
       ({ sport }: { sport: string }) => usePowerCurve({ sport, days: 90 }),
@@ -106,13 +121,13 @@ describe('usePowerCurve', () => {
     await waitFor(() => expect(result.current.data?.sport).toBe('MountainBikeRide'));
     rerender({ sport: 'MountainBikeRide' });
 
-    expect(engine.getPowerCurveBody).toHaveBeenCalledTimes(2);
+    expect(engine.getPowerCurve).toHaveBeenCalledTimes(2);
   });
 });
 
 describe('usePaceCurve', () => {
   it('reads the stored body once across re-renders', async () => {
-    engine.getPaceCurveBody.mockReturnValue(PACE);
+    engine.getPaceCurve.mockImplementation((sport: string) => PACE(sport));
 
     const { result, rerender } = renderHook(() => usePaceCurve({ sport: 'Run', days: 42 }), {
       wrapper,
@@ -121,7 +136,7 @@ describe('usePaceCurve', () => {
     rerender({});
     rerender({});
 
-    expect(engine.getPaceCurveBody).toHaveBeenCalledTimes(1);
+    expect(engine.getPaceCurve).toHaveBeenCalledTimes(1);
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();
   });
 

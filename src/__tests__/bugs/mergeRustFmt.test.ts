@@ -17,15 +17,18 @@ import { describeWithTracematch } from '../support/tracematch';
 
 const ROOT = join(__dirname, '../../..');
 const hook = (name: string) => readFileSync(join(ROOT, '.husky', name), 'utf8');
+/** What a merge runs, whichever hook git gives it: the caller and its battery. */
+const merge = () =>
+  hook('pre-merge-commit') + readFileSync(join(ROOT, 'scripts/merge-gates.sh'), 'utf8');
 
 describe('a merge cannot carry unformatted Rust', () => {
   it('checks the crate, not the staged set, which a merge leaves empty', () => {
-    expect(hook('pre-merge-commit')).toMatch(/cargo fmt\b/);
-    expect(hook('pre-merge-commit')).not.toMatch(/lint:rust-fmt/);
+    expect(merge()).toMatch(/cargo fmt\b/);
+    expect(merge()).not.toMatch(/lint:rust-fmt/);
   });
 
   it('checks rather than rewrites, so the merge fails instead of moving files', () => {
-    expect(hook('pre-merge-commit')).toMatch(/cargo fmt[^\n]*--check/);
+    expect(merge()).toMatch(/cargo fmt[^\n]*--check/);
   });
 
   it('still gates the staged set on a commit, where that is the right question', () => {

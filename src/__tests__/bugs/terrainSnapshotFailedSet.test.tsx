@@ -11,6 +11,7 @@ import { View } from 'react-native';
 import { render } from '@testing-library/react-native';
 import {
   TerrainSnapshotWebView,
+  requestKey,
   type TerrainSnapshotWebViewRef,
 } from '@/features/maps/components/TerrainSnapshotWebView';
 import type { SnapshotRequest } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
@@ -81,7 +82,7 @@ const request = (activityId: string, flat = true): SnapshotRequest => ({
 /** Every request the pool has handed to a worker so far, oldest first. */
 const rendered = () =>
   injected
-    .map((script) => /var activityId = '([^']+)'/.exec(script)?.[1])
+    .map((script) => /var activityId = "([^"]+)"/.exec(script)?.[1])
     .filter((id): id is string => !!id);
 
 /** Every render the pool has asked for, which is what a drain adds to. */
@@ -110,8 +111,8 @@ describe('the failed set holds one entry per request', () => {
   const holdAWorkerBusy = () => pool().requestSnapshot(exhausted('held'));
 
   /** Fail `activityId` on the free worker without moving the clock. */
-  const fail = (activityId: string, flat = true) => {
-    pool().requestSnapshot(exhausted(activityId, flat));
+  const fail = (activityId: string, flat = true, mapStyle: 'light' | 'satellite' = 'light') => {
+    pool().requestSnapshot({ ...exhausted(activityId, flat), mapStyle });
     onMessage?.({
       nativeEvent: {
         data: JSON.stringify({ type: 'snapshotError', workerId: 1, activityId, error: 'tiles' }),
@@ -146,15 +147,66 @@ describe('the failed set holds one entry per request', () => {
     expect(rendered().length - renders).toBe(1);
   });
 
-  it('keeps the drape and the flat basemap as separate entries', () => {
+  // A drape no longer reaches this set at all: one that runs out of retries
+  // falls back to a flat stand-in instead of being filed as a failure, so the
+  // set only ever holds flat renders. The keying this case was written to
+  // protect is unchanged and is asserted directly below, where it cannot go
+  // stale behind a scenario that no longer produces it.
+  it('keeps two styles as separate entries', () => {
     holdAWorkerBusy();
     fail('a1', true);
-    fail('a1', false);
+    fail('a1', true, 'satellite');
     const before = queued();
 
     pool().retryFailed();
 
     expect(queued() - before).toBe(2);
+  });
+
+  it.each([true, false])(
+    'keeps a stand-in and a selected flat when the stand-in is first: %s',
+    (standInFirst) => {
+      const standIn = { ...request('switch'), standIn: true };
+      const flat = request('switch');
+      const requests = standInFirst ? [standIn, flat] : [flat, standIn];
+      requests.forEach((r) => pool().requestSnapshot(r));
+      expect(rendered().filter((id) => id === 'switch')).toHaveLength(2);
+      pool().requestSnapshot(requests[1]);
+      expect(rendered().filter((id) => id === 'switch')).toHaveLength(2);
+    }
+  );
+
+  it.each([true, false])(
+    'keeps both modes queued when the stand-in is first: %s',
+    (standInFirst) => {
+      pool().requestSnapshot(request('busy-0'));
+      pool().requestSnapshot(request('busy-1'));
+      const before = queued();
+      const standIn = { ...request('switch'), standIn: true };
+      const flat = request('switch');
+      const requests = standInFirst ? [standIn, flat] : [flat, standIn];
+      requests.forEach((r) => pool().requestSnapshot(r));
+      pool().requestSnapshot(requests[1]);
+      expect(queued() - before).toBe(2);
+    }
+  );
+
+  it('gives the stand-in, selected flat and drape separate identities', () => {
+    const flat = request('switch');
+    expect(
+      new Set([
+        requestKey(flat),
+        requestKey({ ...flat, standIn: true }),
+        requestKey({ ...flat, flat: false }),
+      ]).size
+    ).toBe(3);
+  });
+
+  it('keys the drape and the flat basemap apart, so neither drops the other', () => {
+    const flat = request('a1', true);
+    const drape = request('a1', false);
+
+    expect(requestKey(flat)).not.toBe(requestKey(drape));
   });
 
   it('caps the set rather than growing with every distinct activity', () => {

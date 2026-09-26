@@ -13,7 +13,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { initFixtureRepo, runGit } from '../__shared__/gitFixture';
+import { initFixtureRepo, runGit, gitFreeEnv } from '../__shared__/gitFixture';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -25,6 +25,7 @@ const LOCALES = 'src/i18n/locales';
 function runGuard(root?: string): { status: number; output: string } {
   try {
     const output = execFileSync('node', root ? [SCRIPT, '--root', root] : [SCRIPT], {
+      env: gitFreeEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });

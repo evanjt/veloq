@@ -49,7 +49,8 @@ function runGate(root: string): { status: number; output: string } {
   };
 }
 
-const rustfmtPresent = spawnSync('rustfmt', ['--version'], { encoding: 'utf-8' }).status === 0;
+const rustfmtPresent =
+  spawnSync('rustfmt', ['--version'], { encoding: 'utf-8', env: gitFreeEnv() }).status === 0;
 
 afterAll(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
@@ -117,7 +118,9 @@ describe('the gate itself', () => {
     // which is exactly what defeats `cargo fmt` in a fresh worktree.
     const root = repoWith({ [`${CRATE}/untidy.rs`]: UNFORMATTED });
 
-    expect(() => execFileSync('ls', [join(root, 'modules/veloqrs/rust/tracematch')])).toThrow();
+    expect(() =>
+      execFileSync('ls', [join(root, 'modules/veloqrs/rust/tracematch')], { env: gitFreeEnv() })
+    ).toThrow();
     expect(runGate(root).status).toBe(1);
   });
 });

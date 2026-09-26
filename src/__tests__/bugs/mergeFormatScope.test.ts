@@ -15,6 +15,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { gitFreeEnv } from '../__shared__/gitFixture';
 
 const REPO = join(__dirname, '../../..');
 const SCRIPT = join(REPO, 'scripts/check-merge-format.sh');
@@ -25,7 +26,7 @@ const UNTIDY = 'export  const   a="1"\n';
 const roots: string[] = [];
 
 function git(cwd: string, ...args: string[]): void {
-  execFileSync('git', args, { cwd, encoding: 'utf8', stdio: 'pipe' });
+  execFileSync('git', args, { cwd, encoding: 'utf8', stdio: 'pipe', env: gitFreeEnv() });
 }
 
 /** A repository with one commit, then `staged` staged on top of it. */
@@ -56,7 +57,7 @@ function run(cwd: string): { status: number; output: string } {
     const output = execFileSync('sh', [SCRIPT], {
       cwd,
       encoding: 'utf8',
-      env: { ...process.env, VELOQ_MERGE_FORMAT_REPO: REPO },
+      env: { ...gitFreeEnv(), VELOQ_MERGE_FORMAT_REPO: REPO },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     return { status: 0, output };
@@ -109,7 +110,9 @@ it('passes when the merge stages nothing under src', () => {
 });
 
 describe('the merge hook is the caller', () => {
-  const hook = readFileSync(join(REPO, '.husky/pre-merge-commit'), 'utf8');
+  const hook =
+    readFileSync(join(REPO, '.husky/pre-merge-commit'), 'utf8') +
+    readFileSync(join(REPO, 'scripts/merge-gates.sh'), 'utf8');
 
   const commands = hook
     .split('\n')

@@ -9,7 +9,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -94,5 +94,31 @@ describe('reachability audit', () => {
 
     expect(status).toBe(0);
     expect(output).toContain('Test-only modules');
+  });
+
+  it('does not walk into the cargo target directory, whose files vanish mid-build', () => {
+    const root = withFixture({
+      'src/app/index.tsx': 'export default 1;\n',
+    });
+    const deps = join(root, 'modules/veloqrs/rust/target/debug/deps');
+    mkdirSync(deps, { recursive: true });
+    symlinkSync(join(deps, 'gone'), join(deps, 'rmetaBDBupo'));
+
+    const { status, output } = runAudit(root);
+
+    expect(output).not.toContain('ENOENT');
+    expect(status).toBe(0);
+  });
+
+  it('survives a file that disappears between the listing and the read', () => {
+    const root = withFixture({
+      'src/app/index.tsx': 'export default 1;\n',
+    });
+    symlinkSync(join(root, 'src/app/gone.tsx'), join(root, 'src/app/vanishing.tsx'));
+
+    const { status, output } = runAudit(root);
+
+    expect(output).not.toContain('ENOENT');
+    expect(status).toBe(0);
   });
 });

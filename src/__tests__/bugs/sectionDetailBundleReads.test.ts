@@ -27,6 +27,8 @@ const engine = {
   getSectionGeometryVersions: jest.fn(() => []),
   getPinnedSectionVersion: jest.fn(() => null),
   getSectionEfficiencyTrend: jest.fn(() => null),
+  // The real `useEngineRead` subscribes, so the stub answers that too.
+  subscribe: () => () => {},
 };
 
 beforeEach(() => {
@@ -35,7 +37,7 @@ beforeEach(() => {
 });
 
 function point(date: number, ratio: number) {
-  return { date: BigInt(date), paceSecsPerKm: 300, avgHr: 150, hrPaceRatio: ratio };
+  return { date: date, paceSecsPerKm: 300, avgHr: 150, hrPaceRatio: ratio };
 }
 
 const trend: EfficiencyTrend = {
@@ -74,12 +76,12 @@ describe('the excluded laps come from the bundle', () => {
 
 describe('the ledger comes from the bundle', () => {
   const bundled = {
-    history: [{ id: 1n, at: '2026-01-01', kind: 'trim', details: null, geometryVersion: 2n }],
+    history: [{ id: 1, at: '2026-01-01', kind: 'trim', details: null, geometryVersion: 2 }],
     geometryVersions: [
-      { version: 1n, createdAt: '2026-01-01', milestone: false, pinned: false },
-      { version: 2n, createdAt: '2026-02-01', milestone: true, pinned: true },
+      { version: 1, createdAt: '2026-01-01', milestone: false, pinned: false },
+      { version: 2, createdAt: '2026-02-01', milestone: true, pinned: true },
     ],
-    pinnedVersion: 2n,
+    pinnedVersion: 2,
   };
 
   it('uses the bundled ledger and reads nothing', () => {

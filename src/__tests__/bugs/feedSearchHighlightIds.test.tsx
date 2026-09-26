@@ -80,6 +80,7 @@ jest.mock('@/features/home/components', () => ({
   SummaryCard: () => null,
   NotificationOptInCard: () => null,
   SupportCard: () => null,
+  FeedSyncLine: () => null,
 }));
 jest.mock('@/features/recording', () => ({
   RecordFAB: () => null,
@@ -125,6 +126,9 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockGetEngine.mockReturnValue({
     getActivityHighlightsBundle,
+    // The feed reads the sync state to decide whether an empty library is a
+    // first launch standing by or a library with nothing in it.
+    getSyncStatus: jest.fn(() => ({ state: 0, inFlight: 0, completed: 0, total: 0 })),
     subscribe: jest.fn(() => () => {}),
   } as unknown as ReturnType<typeof getEngine>);
   useRouteSettings.setState((s) => ({ settings: { ...s.settings, enabled: true } }));
