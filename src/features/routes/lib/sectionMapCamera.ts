@@ -5,8 +5,7 @@
  * fit it exactly zooms past street level where the tiles turn grainy. The map
  * therefore fits the bounds but refuses to go beyond `SECTION_MAP_MAX_ZOOM`.
  */
-import type { MapCameraSpec } from '@/features/maps/lib/htmlBuilders';
-import type { LngLatBounds } from '@/features/maps/lib/coordinates';
+import { type LngLatBounds, type MapCameraSpec } from '@/features/maps';
 
 /** Street level. Past this the basemap has no more detail to show. */
 export const SECTION_MAP_MAX_ZOOM = 16;

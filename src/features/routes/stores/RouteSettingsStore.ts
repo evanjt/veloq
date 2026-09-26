@@ -8,6 +8,7 @@ import { getSetting, setSetting } from '@/shared/storage';
 import { debug } from '@/shared/debug/debug';
 import { safeJsonParseWithSchema } from '@/shared/validation/validation';
 import { runCatalogueClear } from '@/shared/native/engineClears';
+import { engineErrorKey, type EngineFailureKey } from '@/shared/native/engineError';
 
 const log = debug.create('RouteSettings');
 
@@ -19,6 +20,9 @@ const ROUTE_SETTINGS_KEY = 'veloq-route-settings';
  * (`settings_keys::DETECTION_ENABLED`) and absent means on.
  */
 const DETECTION_ENABLED_KEY = '__detection_enabled';
+
+/** What the switch can say about the wipe it started. */
+export type ClearNoticeKey = EngineFailureKey | 'settings.stillRunning' | 'alerts.failedToClear';
 
 interface RouteSettings {
   /** Whether route matching feature is enabled */
@@ -59,6 +63,15 @@ function pickSettings(parsed: Partial<RouteSettings>): RouteSettings {
 interface RouteSettingsState {
   settings: RouteSettings;
   isLoaded: boolean;
+  /**
+   * What the switch has to say about the catalogue wipe, as an i18n key, or
+   * null when there is nothing to say.
+   *
+   * One field and not a boolean because the wipe has three endings the athlete
+   * would act on differently: it landed, it is still running past the wait, or
+   * the engine refused and named which failure it was.
+   */
+  clearNotice: ClearNoticeKey | null;
 
   // Actions
   initialize: () => Promise<void>;
@@ -69,6 +82,7 @@ interface RouteSettingsState {
 export const useRouteSettings = create<RouteSettingsState>((set) => ({
   settings: DEFAULT_SETTINGS,
   isLoaded: false,
+  clearNotice: null,
 
   initialize: async () => {
     try {
@@ -88,6 +102,7 @@ export const useRouteSettings = create<RouteSettingsState>((set) => ({
   },
 
   setEnabled: async (enabled: boolean) => {
+    set({ clearNotice: null });
     set((state) => {
       const newSettings = { ...state.settings, enabled };
       setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
@@ -113,9 +128,19 @@ export const useRouteSettings = create<RouteSettingsState>((set) => ({
           // for it so the screens never read a catalogue still draining. A
           // wipe that fails is logged and the refresh still runs: a stuck
           // switch is worse than a stale list.
-          await runCatalogueClear(engine).catch((error) => {
-            log.error('Failed to clear routes and sections:', error);
-          });
+          // The refresh runs whatever the wipe did: a stuck switch is worse
+          // than a stale list. What changed is that the failure is named. The
+          // engine refusing and this side giving up on the wait were one catch
+          // with one outcome, and the athlete was told neither.
+          const notice: ClearNoticeKey | null = await runCatalogueClear(engine).then(
+            (outcome) =>
+              outcome.state === 'stillRunning' ? ('settings.stillRunning' as const) : null,
+            (error) => {
+              log.error('Failed to clear routes and sections:', error);
+              return engineErrorKey(error, 'alerts.failedToClear');
+            }
+          );
+          set({ clearNotice: notice });
         }
         // Notify UI to update sections/routes visibility
         engine.triggerRefresh('sections');

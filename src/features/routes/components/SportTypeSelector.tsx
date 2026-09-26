@@ -8,7 +8,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { getActivityColor, getActivityIcon } from '@/shared/activity/activityUtils';
 import { colors, colorWithOpacity, darkColors, spacing, typography, layout } from '@/theme';
 import { toActivityType } from '../types';
 
@@ -79,8 +79,8 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
     borderWidth: 1,
     borderColor: colors.border,

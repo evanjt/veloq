@@ -2,7 +2,8 @@
  * Route matching types for identifying activities on similar routes.
  */
 
-import type { ActivityType } from '@/features/activity/types';
+import type { ActivityType } from '@/features/activity';
+import type { LatLngShort } from '@/shared/geo/distance';
 
 /**
  * Valid activity types for type checking.
@@ -94,11 +95,8 @@ export function toActivityType(value: string | undefined | null): ActivityType {
   return 'Other';
 }
 
-/** GPS point for route representation */
-export interface RoutePoint {
-  lat: number;
-  lng: number;
-}
+/** GPS point for route representation. The one short shape, under its own name. */
+export type RoutePoint = LatLngShort;
 
 /**
  * Compact route representation for efficient storage and comparison.
@@ -248,8 +246,6 @@ export interface Section {
   avgGradePercent?: number;
   /** Steepest grade percent held over 300 m of the slice, absent when unknown */
   maxGradePercent?: number;
-  /** How near a straight line the slice runs, 0 to 1, absent when unknown */
-  straightness?: number;
   /** climb, descent, rolling, flat or loop, absent when nothing says */
   klass?: string;
   /** The detector read most of this ground as a lift rather than a ride */
@@ -291,6 +287,12 @@ export interface Section {
   disabled?: boolean;
   /** If superseded by a custom section, stores its ID */
   supersededBy?: string | null;
+  /**
+   * The section's record was set on its most recent outing, as the routes
+   * screen read says. Absent on any record that read did not build, which is
+   * every conversion that does not come from the sections page.
+   */
+  latestIsRecord?: boolean;
 }
 
 /** Backward compatibility aliases */

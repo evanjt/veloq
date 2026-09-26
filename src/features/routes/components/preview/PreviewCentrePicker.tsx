@@ -27,6 +27,7 @@ import { colors, darkColors, brand, spacing, layout, typography } from '@/theme'
 import { fallbackLetter } from '@/features/routes/lib/labelPreviewCentres';
 import type { CentreLabel } from '@/features/routes/lib/labelPreviewCentres';
 import type { PreviewCentre } from '../../../../../modules/veloqrs/src/delegates/preview';
+import { pressable } from '@/shared/ui';
 
 interface PreviewCentrePickerProps {
   centres: PreviewCentre[];
@@ -90,11 +91,11 @@ export function PreviewCentrePicker({
           return (
             <Pressable
               key={centre.binKey}
-              style={[
+              style={pressable([
                 styles.chip,
                 { backgroundColor: surface, borderColor: border },
                 active && styles.chipActive,
-              ]}
+              ])}
               onPress={() => onSelect(centre)}
               testID={`preview-centre-${centre.binKey}`}
             >
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
   },
   chipDetail: {
     ...typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   tail: { width: spacing.xs },
   fade: {

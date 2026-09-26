@@ -4,9 +4,10 @@
  * goes dormant rather than disappearing when the detector re-cuts.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { decodeCoords, type LatLng } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 
 export interface NamedCorridor {
   intentId: string;
@@ -30,42 +31,34 @@ export interface UseNamedCorridorsResult {
 }
 
 export function useNamedCorridors(): UseNamedCorridorsResult {
-  const [tick, setTick] = useState(0);
-  const reload = useCallback(() => setTick((k) => k + 1), []);
-
-  useEffect(() => {
-    const engine = getEngine();
-    if (!engine) return undefined;
-    return engine.subscribe('sections', reload);
-  }, [reload]);
+  const readCorridors = useEngineRead(['sections']);
 
   const corridors = useMemo(() => {
-    const engine = getEngine();
-    if (!engine) return [];
     // Engine order is the persisted order. Sorting here would fight it.
-    return engine.getNamedCorridors().map((c) => ({
-      intentId: c.intentId,
-      name: c.name,
-      footprint: decodeCoords(c.encodedFootprint),
-      sportType: c.sportType ?? undefined,
-      createdAt: c.createdAt,
-      sectionId: c.sectionId ?? undefined,
-      coverage: c.coverage,
-      primary: c.primary,
-      dormant: c.sectionId == null,
-    }));
-  }, [tick]);
+    return (
+      readCorridors((engine) =>
+        engine.getNamedCorridors().map((c) => ({
+          intentId: c.intentId,
+          name: c.name,
+          footprint: decodeCoords(c.encodedFootprint),
+          sportType: c.sportType ?? undefined,
+          createdAt: c.createdAt,
+          sectionId: c.sectionId ?? undefined,
+          coverage: c.coverage,
+          primary: c.primary,
+          dormant: c.sectionId == null,
+        }))
+      ) ?? []
+    );
+  }, [readCorridors]);
 
-  const remove = useCallback(
-    (intentId: string): boolean => {
-      const engine = getEngine();
-      if (!engine) return false;
-      const ok = engine.removeNamedCorridor(intentId);
-      if (ok) reload();
-      return ok;
-    },
-    [reload]
-  );
+  // The removal announces `sections` from the client
+  // (`delegates/sections/mutations.ts`), which is what brings the read back.
+  const remove = useCallback((intentId: string): boolean => {
+    const engine = getEngine();
+    if (!engine) return false;
+    return engine.removeNamedCorridor(intentId);
+  }, []);
 
   return { corridors, remove };
 }

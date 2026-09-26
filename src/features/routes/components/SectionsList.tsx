@@ -30,7 +30,8 @@ import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useSections, generateSectionName } from '@/features/routes/hooks/useSections';
-import { sortSections, type SectionsSortOption } from '@/features/routes/lib/sectionRanking';
+import { type SectionsSortOption } from '@/features/routes/lib/sectionRanking';
+import type { SectionHideFlags } from '@/features/routes/lib/routesScreenQuery';
 import { Shimmer } from '@/shared/ui';
 import { SectionRow } from './SectionRow';
 import { DataRangeFooter } from './DataRangeFooter';
@@ -43,7 +44,8 @@ import { getEngine } from '@/shared/native/engine';
 import type { FrequentSection } from '@/types';
 import { type SectionWithPolyline } from 'veloqrs';
 import { convertSectionWithPolylineToApp } from '@/features/routes/lib/sectionConversions';
-import { computeCenter, haversineDistance, type LatLng } from '@/shared/geo/distance';
+import { computeCenter, haversineDistance, type LatLngShort } from '@/shared/geo/distance';
+import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 
 const log = debug.create('SectionsList');
 
@@ -55,8 +57,6 @@ interface SectionsListProps {
     sections: FrequentSection[];
     count: number;
     autoCount: number;
-    customCount: number;
-    disabledCount: number;
     isLoading: boolean;
     error: Error | null;
   };
@@ -69,19 +69,28 @@ interface SectionsListProps {
   /** Total section count from engine (for accurate filter badge counts) */
   totalSectionCount?: number;
   /** User's current location for "Nearby" sort */
-  userLocation?: LatLng | null;
+  userLocation?: LatLngShort | null;
   /** Active sort option */
   sortOption: SectionsSortOption;
   /** Called when sort changes */
   onSortChange: (next: SectionsSortOption) => void;
+  /** The search term the engine filtered on */
+  searchQuery: string;
+  /** Called when the search term changes */
+  onSearchChange: (next: string) => void;
+  /** Which kinds the engine is hiding */
+  hiddenFilters: SectionHideFlags;
+  /** Called when a filter chip is pressed */
+  onHiddenFiltersChange: (next: SectionHideFlags) => void;
+  /** Auto sections awaiting review, over the catalogue rather than the page */
+  unacceptedAutoCount: number;
+  /** Auto sections already accepted, over the catalogue rather than the page */
+  acceptedAutoCount: number;
+  /** Custom sections over the catalogue rather than the page */
+  customSectionCount: number;
+  /** Retired auto sections over the catalogue rather than the page */
+  retiredSectionCount: number;
 }
-
-type HiddenFilters = {
-  custom: boolean;
-  auto: boolean;
-  disabled: boolean;
-  unaccepted: boolean;
-};
 
 export type { SectionsSortOption };
 
@@ -205,25 +214,17 @@ const SectionListItem = memo(
       </Swipeable>
     );
   },
-  (prev, next) => {
-    // Custom comparator: skip re-render if actual data hasn't changed
-    if (prev.item !== next.item) {
-      if (
-        prev.item.id !== next.item.id ||
-        prev.item.visitCount !== next.item.visitCount ||
-        prev.item.distanceMeters !== next.item.distanceMeters ||
-        prev.item.name !== next.item.name ||
-        prev.item.sectionType !== next.item.sectionType ||
-        prev.item.isUserDefined !== next.item.isUserDefined
-      )
-        return false;
-    }
-    return (
-      prev.isDisabled === next.isDisabled &&
-      prev.isDark === next.isDark &&
-      prev.distanceFromUser === next.distanceFromUser
-    );
-  }
+  (prev, next) =>
+    rowIsUnchanged(
+      {
+        record: prev.item,
+        extras: [prev.isDisabled, prev.isDark, prev.distanceFromUser],
+      },
+      {
+        record: next.item,
+        extras: [next.isDisabled, next.isDark, next.distanceFromUser],
+      }
+    )
 );
 
 export const SectionsList = memo(function SectionsList({
@@ -236,16 +237,17 @@ export const SectionsList = memo(function SectionsList({
   userLocation,
   sortOption,
   onSortChange,
+  searchQuery,
+  onSearchChange,
+  hiddenFilters,
+  onHiddenFiltersChange,
+  unacceptedAutoCount,
+  acceptedAutoCount,
+  customSectionCount,
+  retiredSectionCount,
 }: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const [hiddenFilters, setHiddenFilters] = useState<HiddenFilters>({
-    custom: false,
-    auto: false,
-    disabled: true, // Hidden sections are hidden by default
-    unaccepted: false,
-  });
-  const [searchQuery, setSearchQuery] = useState('');
 
   // The list record already carries its polyline, so a row needs no call of
   // its own. The centre is the list's proximity sort and the name fallback is
@@ -278,20 +280,12 @@ export const SectionsList = memo(function SectionsList({
 
   // Use pre-fetched data if provided, otherwise use hook data
   const data = prefetchedData ?? hookData;
-  const {
-    sections: unifiedSections,
-    count: totalCount,
-    customCount,
-    disabledCount,
-    isLoading,
-  } = data;
+  const { sections: unifiedSections, count: totalCount, isLoading } = data;
 
   const { removeSection } = useCustomSections();
   const { rescan, isScanning, refusal: rescanRefusal } = useSectionRescan();
   const detectionHold = useDetectionHold();
   const elevationBackfill = useElevationBackfill();
-
-  const trueDisabledCount = disabledCount;
 
   // Track open swipeable refs to close them when another opens
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
@@ -300,49 +294,11 @@ export const SectionsList = memo(function SectionsList({
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays();
 
-  // Apply filter, search, and sort
-  const { regularSections, unacceptedAutoCount, acceptedAutoCount } = useMemo(() => {
-    const regular: FrequentSection[] = [];
-    let unaccepted = 0;
-    let accepted = 0;
-    const query = searchQuery.toLowerCase();
-
-    for (const section of unifiedSections) {
-      {
-        const isVisibleAuto =
-          section.sectionType === 'auto' && !section.disabled && !section.supersededBy;
-        if (isVisibleAuto && !section.isUserDefined) unaccepted++;
-        if (isVisibleAuto && section.isUserDefined) accepted++;
-
-        // Apply hide filters
-        const isCustom = section.sectionType === 'custom';
-        const isDisabledAuto =
-          section.sectionType === 'auto' && !!(section.disabled || section.supersededBy);
-        const isUnacceptedAuto = isVisibleAuto && !section.isUserDefined;
-
-        if (
-          (isCustom && hiddenFilters.custom) ||
-          (isVisibleAuto && hiddenFilters.auto) ||
-          (isDisabledAuto && hiddenFilters.disabled) ||
-          (isUnacceptedAuto && hiddenFilters.unaccepted)
-        ) {
-          continue;
-        }
-
-        if (query && !section.name?.toLowerCase().includes(query)) {
-          continue;
-        }
-
-        regular.push(section);
-      }
-    }
-
-    return {
-      regularSections: sortSections(regular, sortOption, !!sportType),
-      unacceptedAutoCount: unaccepted,
-      acceptedAutoCount: accepted,
-    };
-  }, [unifiedSections, hiddenFilters, searchQuery, sortOption, sportType]); // userLocation excluded: nearby sorting is Rust-side
+  // The engine ordered, searched, filtered and counted the catalogue before it
+  // paged it, so the rows arrive ready to render and the two review counts come
+  // with them. Doing any of it again here would read one page and call it the
+  // library.
+  const regularSections = unifiedSections;
 
   // Pre-compute distance from user for each section (used for display on every row)
   const distanceMap = useMemo(() => {
@@ -357,12 +313,12 @@ export const SectionsList = memo(function SectionsList({
   }, [regularSections, userLocation]);
 
   // Toggle filter - pressing hides/shows that type
-  const handleFilterPress = useCallback((filterType: keyof HiddenFilters) => {
-    setHiddenFilters((current) => ({
-      ...current,
-      [filterType]: !current[filterType],
-    }));
-  }, []);
+  const handleFilterPress = useCallback(
+    (filterType: keyof SectionHideFlags) => {
+      onHiddenFiltersChange({ ...hiddenFilters, [filterType]: !hiddenFilters[filterType] });
+    },
+    [hiddenFilters, onHiddenFiltersChange]
+  );
 
   const isReady = !isLoading;
 
@@ -606,7 +562,7 @@ export const SectionsList = memo(function SectionsList({
       <View style={styles.header}>
         <SectionsListHeader
           searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
+          onSearchChange={onSearchChange}
           displaySectionCount={displaySectionCount}
           unacceptedAutoCount={unacceptedAutoCount}
           acceptAllResult={acceptAllResult}
@@ -622,10 +578,10 @@ export const SectionsList = memo(function SectionsList({
           sortOption={sortOption}
           onSortChange={onSortChange}
           sortChips={sortChips}
-          customCount={customCount}
+          customCount={customSectionCount}
           hiddenFilters={hiddenFilters}
           onFilterPress={handleFilterPress}
-          trueDisabledCount={trueDisabledCount}
+          trueDisabledCount={retiredSectionCount}
           unacceptedAutoCount={unacceptedAutoCount}
           acceptedAutoCount={acceptedAutoCount}
         />
@@ -732,14 +688,14 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   sportFilterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
     borderWidth: 1,
     borderColor: colors.border,
@@ -755,14 +711,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   countBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadius / 2,
   },
   customBadge: {
@@ -831,7 +787,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   rescanButton: {
     width: 24,

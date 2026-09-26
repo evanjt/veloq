@@ -3,6 +3,18 @@ export * from './components';
 export * from './hooks';
 export * from './constants';
 export { rescanRefusalKey, type RescanRefusalKey } from './lib/rescanRefusal';
+export { loadTrackFetchNotice } from './lib/trackFetchNotice';
+export {
+  GROUPING_DEFAULTS,
+  groupingParamsOf,
+  GROUPING_PARAM_RANGES,
+  paintPreview,
+  parseGroupingInput,
+  type GroupingParamKey,
+  type GroupingParams,
+  type GroupingPreviewDiff,
+  type PaintedRoute,
+} from './lib/groupingParams';
 export * from './types';
 
 // types.ts and the route-engine hook both declare RouteSignature (full record vs
@@ -10,3 +22,5 @@ export * from './types';
 // the full record; map consumers that need the minimal shape import it from
 // './hooks' directly.
 export type { RouteSignature } from './types';
+
+export { useEngineStatus } from './stores/EngineStatusStore';

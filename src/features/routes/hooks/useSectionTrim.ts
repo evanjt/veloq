@@ -14,27 +14,8 @@ import { useTranslation } from 'react-i18next';
 import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { haversineDistance, polylineDistance } from '@/shared/geo/distance';
 import type { FrequentSection, RoutePoint } from '@/types';
-
-/** Haversine distance between two points in meters. */
-function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6_371_000;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.asin(Math.sqrt(a));
-}
-
-/** Calculate polyline distance in meters from an array of RoutePoints. */
-function polylineDistance(points: RoutePoint[]): number {
-  let d = 0;
-  for (let i = 1; i < points.length; i++) {
-    d += haversine(points[i - 1].lat, points[i - 1].lng, points[i].lat, points[i].lng);
-  }
-  return d;
-}
 
 /** Padded window context for expand mode */
 interface ExpandContext {
@@ -64,12 +45,7 @@ function computePaddedWindow(
   let windowStartIdx = sectionStartIdx;
   let accDist = 0;
   for (let i = sectionStartIdx; i > 0; i--) {
-    accDist += haversine(
-      fullPoints[i].lat,
-      fullPoints[i].lng,
-      fullPoints[i - 1].lat,
-      fullPoints[i - 1].lng
-    );
+    accDist += haversineDistance(fullPoints[i], fullPoints[i - 1]);
     if (accDist >= padding) {
       windowStartIdx = i - 1;
       break;
@@ -81,12 +57,7 @@ function computePaddedWindow(
   let windowEndIdx = sectionEndIdx;
   accDist = 0;
   for (let i = sectionEndIdx; i < fullPoints.length - 1; i++) {
-    accDist += haversine(
-      fullPoints[i].lat,
-      fullPoints[i].lng,
-      fullPoints[i + 1].lat,
-      fullPoints[i + 1].lng
-    );
+    accDist += haversineDistance(fullPoints[i], fullPoints[i + 1]);
     if (accDist >= padding) {
       windowEndIdx = i + 1;
       break;

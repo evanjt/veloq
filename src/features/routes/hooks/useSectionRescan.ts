@@ -3,7 +3,6 @@ import { hasStarted, StartOutcome } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { getPhaseDisplayName } from '@/features/routes/lib/detectionProgress';
 import {
-  DETECTION_FOLLOW_MS,
   DETECTION_FOREGROUND_MS,
   followDetection,
   type DetectionEngine,
@@ -43,20 +42,27 @@ interface SectionRescanState {
    */
   cancelScan: () => boolean;
   isScanning: boolean;
-  /** True once a run still going has outlived its foreground budget. */
-  lapsed: boolean;
+  /**
+   * True once the follow has hit its budget with the run still going. Not a
+   * failure: Rust is still detecting and the athlete can leave the screen.
+   */
+  stillRunning: boolean;
   progress: RescanProgress | null;
   result: RescanResult | null;
   failed: boolean;
   clearResult: () => void;
 }
 
+/**
+ * The before and after of a rescan. A SQL count, not a summary load: the
+ * totals are read on every tap and the summaries were only ever a way of
+ * reaching the number beside them.
+ */
 function getSectionCount(): number {
   const engine = getEngine();
   if (!engine) return 0;
   try {
-    const { totalCount } = engine.getFilteredSectionSummaries(undefined, 1, 'visits');
-    return totalCount;
+    return engine.getSectionCount();
   } catch {
     return 0;
   }
@@ -67,7 +73,7 @@ export function useSectionRescan(): SectionRescanState {
   const [progress, setProgress] = useState<SectionRescanState['progress']>(null);
   const [result, setResult] = useState<RescanResult | null>(null);
   const [failed, setFailed] = useState(false);
-  const [lapsed, setLapsed] = useState(false);
+  const [stillRunning, setStillRunning] = useState(false);
   const isMountedRef = useRef(true);
   const [refusal, setRefusal] = useState<StartOutcome | null>(null);
   const followRef = useRef<(() => void) | null>(null);
@@ -85,16 +91,13 @@ export function useSectionRescan(): SectionRescanState {
     setIsScanning(true);
     setResult(null);
     setFailed(false);
-
-    setLapsed(false);
+    setStillRunning(false);
     const follow = followDetection(engine as unknown as DetectionEngine, {
       // The run's end comes from an announcement, and an announcement can be
       // withheld: the observer is not registered when the binding checksum
       // check throws, which is what a library out of step with its bindings
       // does. Without a budget that build scans for ever.
-      timeoutMs: DETECTION_FOLLOW_MS,
-      lapseAfterMs: DETECTION_FOREGROUND_MS,
-      onLapse: () => setLapsed(true),
+      timeoutMs: DETECTION_FOREGROUND_MS,
       isActive: () => isMountedRef.current,
       onProgress: (p) =>
         setProgress({
@@ -118,7 +121,13 @@ export function useSectionRescan(): SectionRescanState {
       // A run this hook stopped following did not finish for it, whatever it
       // went on to do. Reporting a before and after it never measured would be
       // worse than saying so.
-      if (outcome === 'error' || outcome === 'timeout') {
+      // The budget running out says nothing about the run: only an outcome the
+      // engine itself reported is a failure.
+      if (outcome === 'timeout') {
+        setStillRunning(true);
+        return;
+      }
+      if (outcome === 'error') {
         setFailed(true);
         return;
       }
@@ -164,6 +173,7 @@ export function useSectionRescan(): SectionRescanState {
   const clearResult = useCallback(() => {
     setResult(null);
     setFailed(false);
+    setStillRunning(false);
     setRefusal(null);
   }, []);
 
@@ -202,7 +212,7 @@ export function useSectionRescan(): SectionRescanState {
     cancelScan,
     refusal,
     isScanning,
-    lapsed,
+    stillRunning,
     progress,
     result,
     failed,

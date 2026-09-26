@@ -9,7 +9,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { brand, colors, darkColors, spacing, typography, layout } from '@/theme';
+import { colors, darkColors, spacing, typography, layout } from '@/theme';
 
 export interface ScatterLegendProps {
   isDark: boolean;
@@ -23,7 +23,7 @@ export function ScatterLegend({ isDark, showReverse, showThisActivity }: Scatter
   return (
     <View style={styles.legend}>
       <View style={styles.legendItem}>
-        <View style={[styles.legendSwatch, styles.prSwatch]} />
+        <View style={[styles.legendSwatch, styles.prSwatch, isDark && styles.prSwatchDark]} />
         <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
           {t('sections.legendPr')}
         </Text>
@@ -38,7 +38,13 @@ export function ScatterLegend({ isDark, showReverse, showThisActivity }: Scatter
       )}
       {showThisActivity && (
         <View style={styles.legendItem}>
-          <View style={[styles.legendSwatch, styles.thisActivitySwatch]} />
+          <View
+            style={[
+              styles.legendSwatch,
+              styles.thisActivitySwatch,
+              isDark && styles.thisActivitySwatchDark,
+            ]}
+          />
           <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
             {t('sections.legendThisActivity')}
           </Text>
@@ -60,7 +66,7 @@ const styles = StyleSheet.create({
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xsPlus,
   },
   legendSwatch: {
     width: 10,
@@ -68,15 +74,21 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   prSwatch: {
-    borderColor: brand.gold,
+    borderColor: colors.chartGoldMark,
     borderWidth: 2,
+  },
+  prSwatchDark: {
+    borderColor: darkColors.chartGoldMark,
   },
   reverseSwatch: {
     backgroundColor: colors.reverseDirection,
   },
   thisActivitySwatch: {
-    borderColor: colors.chartGreen,
+    borderColor: colors.chartGreenMark,
     borderWidth: 2,
+  },
+  thisActivitySwatchDark: {
+    borderColor: darkColors.chartGreenMark,
   },
   legendText: {
     fontSize: typography.label.fontSize,

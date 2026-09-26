@@ -15,9 +15,9 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { getEngine } from '@/shared/native/engine';
-import type { ElevationBackfillPhase } from 'veloqrs';
+import type { ElevationBackfillPhase, RoutesStatus } from 'veloqrs';
 
-const POLL_INTERVAL_MS = 500;
+import { followRoutesStatus, readRoutesStatus } from '@/shared/native/routesStatusPoll';
 
 /** The channel `EngineObserver.backfill_phase` lands on. */
 const PHASE_CHANNEL = 'backfillPhase';
@@ -72,30 +72,30 @@ function narrowPhase(phase: string): ElevationBackfillPhase {
     : 'idle';
 }
 
-function read(): ElevationBackfillState {
-  const engine = getEngine();
-  if (!engine) return IDLE;
-  // Defensive like every other FFI read here: a host that cannot answer reads
-  // as idle, never as work owed.
-  let progress;
-  try {
-    progress = engine.getElevationBackfillProgress?.();
-  } catch {
-    return IDLE;
-  }
-  if (!progress) return IDLE;
-  const phase = narrowPhase(progress.phase);
-  const isRunning = phase === 'fetching';
+/**
+ * The state one status read carries. Null is the engine being unable to
+ * answer, which reads as idle here, never as work owed.
+ *
+ * The count comes with the progress rather than from a second call: Rust skips
+ * it while a pass is running, where the progress figures say more, which is
+ * what the two calls this replaces did between them.
+ */
+function stateOf(status: RoutesStatus | null): ElevationBackfillState {
+  if (!status) return IDLE;
+  const phase = narrowPhase(status.elevation.phase);
   return {
     phase,
-    completed: progress.completed,
-    total: progress.total,
-    failed: progress.failed,
-    // One COUNT, and only when there is no pass to report instead.
-    remaining: isRunning ? null : (engine.getElevationBackfillRemaining?.() ?? null),
-    isRunning,
-    isPaused: engine.isElevationBackfillPaused?.() ?? false,
+    completed: status.elevation.completed,
+    total: status.elevation.total,
+    failed: status.elevation.failed,
+    remaining: status.elevationRemaining,
+    isRunning: phase === 'fetching',
+    isPaused: status.elevationPaused,
   };
+}
+
+function read(): ElevationBackfillState {
+  return stateOf(readRoutesStatus());
 }
 
 function same(a: ElevationBackfillState, b: ElevationBackfillState): boolean {
@@ -115,26 +115,26 @@ export function useElevationBackfill(): ElevationBackfillState {
   stateRef.current = state;
 
   useEffect(() => {
-    const tick = () => {
-      const next = read();
+    const adopt = (next: ElevationBackfillState) => {
       if (!same(stateRef.current, next)) {
         stateRef.current = next;
         setState(next);
       }
       return next;
     };
+    const tick = () => adopt(read());
 
-    let timer: ReturnType<typeof setInterval> | undefined;
+    let unfollow: (() => void) | undefined;
     const follow = (running: boolean) => {
-      if (running && timer === undefined) {
+      if (running && unfollow === undefined) {
         // The tick disarms itself, so a pass that ends without an
         // announcement, and an engine that stops answering and so reads as
         // idle, both stop the poll rather than leaving it running against a
         // state that has already settled.
-        timer = setInterval(() => follow(tick().isRunning), POLL_INTERVAL_MS);
-      } else if (!running && timer !== undefined) {
-        clearInterval(timer);
-        timer = undefined;
+        unfollow = followRoutesStatus((status) => follow(adopt(stateOf(status)).isRunning));
+      } else if (!running && unfollow !== undefined) {
+        unfollow();
+        unfollow = undefined;
       }
     };
     follow(stateRef.current.isRunning);

@@ -8,8 +8,8 @@
  */
 
 /** Epoch seconds for an activity's local start, or undefined if unparseable. */
-export function activityStartEpoch(startDateLocal: string | undefined | null): bigint | undefined {
+export function activityStartEpoch(startDateLocal: string | undefined | null): number | undefined {
   if (!startDateLocal) return undefined;
   const ms = Date.parse(startDateLocal);
-  return Number.isFinite(ms) ? BigInt(Math.floor(ms / 1000)) : undefined;
+  return Number.isFinite(ms) ? Math.floor(ms / 1000) : undefined;
 }

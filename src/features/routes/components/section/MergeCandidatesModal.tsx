@@ -10,9 +10,18 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList } from 'react
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
 import type { MergeCandidate } from 'veloqrs';
-import { colors, darkColors, spacing, typography, layout, shadows } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  typography,
+  layout,
+  shadows,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 
 interface MergeCandidatesModalProps {
   visible: boolean;
@@ -93,7 +102,7 @@ export const MergeCandidatesModal = memo(function MergeCandidatesModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
@@ -135,7 +144,7 @@ const styles = StyleSheet.create({
   rowName: {
     fontSize: typography.body.fontSize,
     fontWeight: '500',
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   rowMeta: {
     fontSize: typography.caption.fontSize,

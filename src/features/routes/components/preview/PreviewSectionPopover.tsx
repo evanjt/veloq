@@ -15,6 +15,7 @@ import type {
   PreviewSection,
   PreviewSectionStatus,
 } from '../../../../../modules/veloqrs/src/delegates/preview';
+import { pressable } from '@/shared/ui';
 
 const STATUS_KEYS: Record<PreviewSectionStatus, string> = {
   unchanged: 'settings.previewStatusUnchanged',
@@ -61,6 +62,7 @@ export function PreviewSectionPopover({ section, onClose }: PreviewSectionPopove
           accessibilityRole="button"
           accessibilityLabel={t('common.close')}
           testID="preview-popover-close"
+          style={pressable()}
         >
           <MaterialCommunityIcons name="close" size={20} color={textSecondary} />
         </Pressable>
@@ -128,9 +130,9 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusSm,
     borderWidth: 1,
   },

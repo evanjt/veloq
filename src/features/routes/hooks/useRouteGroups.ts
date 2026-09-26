@@ -98,7 +98,11 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
     // Names are stored persistently in Rust and available via customName
 
     const extended: RouteGroupExtended[] = summaries.map((g) => {
-      const sportType = g.sportType || 'Ride';
+      // The engine's own label, which is the sport most of the group's members
+      // carry. The set beside it is what membership reads; this is the one
+      // sport a row that can only draw one has to draw. It used to fall back
+      // to a literal `Ride`, which minted a sport the engine never said.
+      const sportType = g.sportType || g.sportTypes?.[0] || '';
 
       return {
         id: g.groupId,
@@ -110,7 +114,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
         name: g.customName ?? g.groupId,
         activityCount: g.activityCount,
         type: toActivityType(sportType),
-        sportTypes: g.sportTypes ?? [sportType],
+        sportTypes: g.sportTypes?.length ? g.sportTypes : [sportType],
         // Signature loaded lazily via useConsensusRoute to avoid blocking render
         signature: undefined,
         // Performance stats not in summaries - use useGroupDetail for full data

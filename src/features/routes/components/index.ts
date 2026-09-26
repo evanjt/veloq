@@ -21,6 +21,8 @@ export { RouteDetailDebugPanel } from './RouteDetailDebugPanel';
 export { styles as routeDetailScreenStyles } from './RouteDetailScreen.styles';
 export { PreviewCentrePicker } from './preview/PreviewCentrePicker';
 export { PreviewParamPanel } from './preview/PreviewParamPanel';
+export { GroupingParamPanel } from './preview/GroupingParamPanel';
+export { GroupingPreviewMap, type GroupingRoute } from './preview/GroupingPreviewMap';
 export { PreviewMapView } from './preview/PreviewMapView';
 export { PreviewDiffStrip } from './preview/PreviewDiffStrip';
 export { PreviewRunCost } from './preview/PreviewRunCost';

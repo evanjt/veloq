@@ -10,16 +10,12 @@
 import { useEffect, useState } from 'react';
 
 import { getEngine } from '@/shared/native/engine';
-import type { CutoverCounts, CutoverPhase, CutoverSettingsReset } from 'veloqrs';
+import type { CutoverCounts, CutoverPhase, CutoverSettingsReset, RoutesStatus } from 'veloqrs';
+
+import { followRoutesStatus, readRoutesStatus } from '@/shared/native/routesStatusPoll';
 
 /** Rust announces the commit here, and the diff is read on that alone. */
 const CHANNEL = 'cutoverSettled';
-
-/**
- * The phases inside a run carry no event, so a run in flight is followed on a
- * timer. Nothing in flight means nothing to follow and no call is made.
- */
-const PHASE_POLL_MS = 500;
 
 /**
  * Failed reads in a row before the run is settled.
@@ -78,7 +74,7 @@ function read(sawRun: boolean): CutoverSummary {
   const engine = getEngine();
   if (!engine) return { ...IDLE, sawRun };
   try {
-    const progress = engine.getCutoverProgress?.();
+    const progress = readRoutesStatus()?.cutover;
     if (!progress) return { ...IDLE, sawRun };
     const phase = narrowPhase(progress.phase);
     if (progress.running) {
@@ -106,7 +102,11 @@ function read(sawRun: boolean): CutoverSummary {
  * that does. Once it reaches the cap the run is settled: the interval disarms
  * on `isRunning` and the surfaces that report a live run stop reporting one.
  */
-function phaseOnly(previous: CutoverSummary, failures: { count: number }): CutoverSummary {
+function phaseOnly(
+  previous: CutoverSummary,
+  failures: { count: number },
+  status: RoutesStatus | null
+): CutoverSummary {
   const unreadable = (): CutoverSummary => {
     failures.count += 1;
     if (failures.count < MAX_FAILED_READS) return previous;
@@ -114,14 +114,7 @@ function phaseOnly(previous: CutoverSummary, failures: { count: number }): Cutov
     return { ...previous, phase: 'idle', isRunning: false };
   };
 
-  const engine = getEngine();
-  if (!engine) return unreadable();
-  let progress;
-  try {
-    progress = engine.getCutoverProgress?.();
-  } catch {
-    return unreadable();
-  }
+  const progress = status?.cutover;
   if (!progress) return unreadable();
 
   failures.count = 0;
@@ -151,11 +144,12 @@ export function useCutoverSummary(): CutoverSummary {
     if (!running) return undefined;
     // Per run, so the next one starts on a clean count.
     const failures = { count: 0 };
-    const timer = setInterval(
-      () => setState((previous) => phaseOnly(previous, failures)),
-      PHASE_POLL_MS
+    // The phases inside a run carry no event, so a run in flight is followed
+    // on the shared tick. Nothing in flight means nothing to follow, and the
+    // tick is not armed at all while no job is being watched.
+    return followRoutesStatus((status) =>
+      setState((previous) => phaseOnly(previous, failures, status))
     );
-    return () => clearInterval(timer);
   }, [running]);
 
   return state;

@@ -8,18 +8,21 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { getActivityColor } from '@/features/activity/lib/activityUtils';
-import { colors, mapLayerColors, spacing, layout } from '@/theme';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
-import { BaseMapView, isDarkStyle, MapSurface } from '@/features/maps/components';
+import { getActivityColor } from '@/shared/activity/activityUtils';
+import { colors, mapLayerColors, spacing, layout, colorWithOpacity, ink } from '@/theme';
 import {
+  BaseMapView,
   boundsOfLngLat,
   featureCollection,
+  isDarkStyle,
   lineFeature,
   lngLatFromShort,
+  type MapLayerSpec,
+  type MapSourceSpec,
+  MapSurface,
   pointFeature,
-} from '@/features/maps/lib/coordinates';
-import type { MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
+  useMapPreferences,
+} from '@/features/maps';
 import type { RouteGroup, RoutePoint } from '@/types';
 
 /** Minimal route group type for map display - only needs points and distance for signature */
@@ -61,7 +64,10 @@ export function RouteMapView({
   const mapStyle = getStyleForActivity(routeGroup.type);
   const activityColor = getActivityColor(routeGroup.type);
 
-  const displayPoints = routeGroup.signature?.points ?? [];
+  // Memoised so the empty fallback is one array rather than a fresh one each
+  // render, which recomputed every projection below it.
+  const points = routeGroup.signature?.points;
+  const displayPoints = useMemo(() => points ?? [], [points]);
   const routeCoords = useMemo(() => lngLatFromShort(displayPoints), [displayPoints]);
 
   // 10% padding leaves room for traces that stray outside the consensus line.
@@ -328,7 +334,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: spacing.sm,
     right: spacing.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colorWithOpacity(ink.black, 0.5),
     borderRadius: spacing.xsPlus,
     padding: spacing.xs,
   },

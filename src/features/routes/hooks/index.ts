@@ -1,9 +1,16 @@
 export { useRouteGroups } from './useRouteGroups';
+export { useRouteGroupingPreview, type RouteGroupingPreviewState } from './useRouteGroupingPreview';
 export { useRouteMatch } from './useRouteMatch';
 export { useRoutePerformances } from './useRoutePerformances';
 export { useRouteProcessing } from './useRouteProcessing';
-export { useRouteSignatures, type RouteSignature } from './useRouteSignatures';
-export { useEngineSections, useEngineSectionCount } from './useEngine';
+export { pointCount, type RouteSignature } from './routeSignature';
+export {
+  useEngineSections,
+  useEngineSectionCount,
+  useMapSections,
+  useSectionDetail,
+  type MapSection,
+} from './useEngine';
 export { useSectionMatches } from './useSectionMatches';
 export {
   useSectionPerformances,
@@ -29,3 +36,4 @@ export { useRouteReference } from './useRouteReference';
 export { useExcludedActivities } from './useExcludedActivities';
 export { useRouteRenaming } from './useRouteRenaming';
 export { useDetectionHold } from './useDetectionHold';
+export { useLedgerActivityNames } from './useLedgerActivityNames';

@@ -12,6 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { pressable } from '@/shared/ui';
 
 interface DataRangeFooterProps {
   /** Number of days of data being shown */
@@ -40,7 +41,7 @@ export function DataRangeFooter({ days, isDark = false }: DataRangeFooterProps) 
       <Text style={[styles.text, isDark && styles.textMuted]}>
         {t('routes.dataRangeHint', { duration: formatDuration(days) })}
       </Text>
-      <Pressable style={styles.button} onPress={handleExpandPress} hitSlop={8}>
+      <Pressable style={pressable(styles.button)} onPress={handleExpandPress} hitSlop={8}>
         <Text style={styles.buttonText}>{t('routes.expandInSettings')}</Text>
         <MaterialCommunityIcons name="chevron-right" size={14} color={colors.primary} />
       </Pressable>

@@ -16,6 +16,7 @@ import { useRef, useEffect, useCallback } from 'react';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNetwork } from '@/shared/app/NetworkContext';
 import { debug } from '@/shared/debug/debug';
+import { clearDeferredSyncRun } from '@/features/routes/lib/deferredSyncRun';
 
 const log = debug.create('RouteSyncContext');
 
@@ -30,6 +31,7 @@ let globalAbortController: AbortController | null = null;
  */
 export function resetGlobalSyncState(): void {
   globalIsSyncing = false;
+  clearDeferredSyncRun();
   if (globalAbortController) {
     globalAbortController.abort();
     globalAbortController = null;

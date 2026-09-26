@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { decodeCoords } from 'veloqrs';
 
 import type { FrequentSection, RoutePoint } from '@/types';
-import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
+import { EMPTY_FEATURE_COLLECTION } from '@/features/maps';
 
 type FeatureOrCollection = GeoJSON.FeatureCollection | GeoJSON.Feature;
 

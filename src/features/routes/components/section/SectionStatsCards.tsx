@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { pressable } from '@/shared/ui';
 
 const REVERSE_COLOR = colors.reverseDirection;
 
@@ -124,7 +125,7 @@ export function SectionStatsCards({
           return (
             <View key={yearData.year}>
               <Pressable
-                style={[styles.calendarYearRow, isDark && styles.calendarYearRowDark]}
+                style={pressable([styles.calendarYearRow, isDark && styles.calendarYearRowDark])}
                 onPress={() => toggleYear(yearData.year)}
               >
                 <MaterialCommunityIcons
@@ -190,7 +191,7 @@ export function SectionStatsCards({
                         {fwd && (
                           <View style={styles.calendarMonthEntryRow}>
                             <Pressable
-                              style={styles.calendarMonthEntry}
+                              style={pressable(styles.calendarMonthEntry)}
                               onPress={() => router.push(`/activity/${fwd.bestActivityId}`)}
                             >
                               <View
@@ -213,15 +214,26 @@ export function SectionStatsCards({
                                 <MaterialCommunityIcons
                                   name="trophy"
                                   size={12}
-                                  color={isMonthFwdOverallPr ? colors.chartGold : activityColor}
+                                  color={
+                                    isMonthFwdOverallPr
+                                      ? isDark
+                                        ? darkColors.chartGoldMark
+                                        : colors.chartGoldMark
+                                      : activityColor
+                                  }
                                 />
+                              )}
+                              {isMonthFwdOverallPr && (
+                                <Text style={[styles.prTag, isDark && styles.prTagDark]}>
+                                  {t('sections.legendPr')}
+                                </Text>
                               )}
                             </Pressable>
                             {onSetAsReference && (
                               <Pressable
                                 onPress={() => onSetAsReference(fwd.bestActivityId)}
                                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                style={styles.referenceButton}
+                                style={pressable(styles.referenceButton)}
                               >
                                 <MaterialCommunityIcons
                                   name={
@@ -245,7 +257,7 @@ export function SectionStatsCards({
                         {rev && (
                           <View style={styles.calendarMonthEntryRow}>
                             <Pressable
-                              style={styles.calendarMonthEntry}
+                              style={pressable(styles.calendarMonthEntry)}
                               onPress={() => router.push(`/activity/${rev.bestActivityId}`)}
                             >
                               <View
@@ -268,15 +280,26 @@ export function SectionStatsCards({
                                 <MaterialCommunityIcons
                                   name="trophy"
                                   size={12}
-                                  color={isMonthRevOverallPr ? colors.chartGold : REVERSE_COLOR}
+                                  color={
+                                    isMonthRevOverallPr
+                                      ? isDark
+                                        ? darkColors.chartGoldMark
+                                        : colors.chartGoldMark
+                                      : REVERSE_COLOR
+                                  }
                                 />
+                              )}
+                              {isMonthRevOverallPr && (
+                                <Text style={[styles.prTag, isDark && styles.prTagDark]}>
+                                  {t('sections.legendPr')}
+                                </Text>
                               )}
                             </Pressable>
                             {onSetAsReference && (
                               <Pressable
                                 onPress={() => onSetAsReference(rev.bestActivityId)}
                                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                style={styles.referenceButton}
+                                style={pressable(styles.referenceButton)}
                               >
                                 <MaterialCommunityIcons
                                   name={
@@ -369,7 +392,7 @@ const styles = StyleSheet.create({
   },
   calendarMonthEntries: {
     flex: 1,
-    gap: 2,
+    gap: spacing.xxs,
   },
   calendarMonthEntryRow: {
     flexDirection: 'row',
@@ -397,5 +420,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.textPrimary,
     flex: 1,
+  },
+  // The word beside the trophy. The trophy alone told an overall best from a
+  // year's best by hue, which is the one thing a mark may not do on its own.
+  prTag: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '700',
+    color: colors.chartGoldMark,
+    marginLeft: spacing.xs,
+  },
+  prTagDark: {
+    color: darkColors.chartGoldMark,
   },
 });

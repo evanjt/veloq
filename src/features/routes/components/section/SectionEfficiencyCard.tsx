@@ -1,5 +1,5 @@
 /**
- * Aerobic efficiency on one section: the HR/pace ratio across every matched
+ * Aerobic efficiency on one section: heart rate per unit of speed across every matched
  * effort that carried both signals, oldest to newest. The engine computes
  * the series and the regression, this only plots them.
  */

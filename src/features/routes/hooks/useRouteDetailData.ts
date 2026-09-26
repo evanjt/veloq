@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import { getEngine } from '@/shared/native/engine';
-import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type { RouteDetailData } from 'veloqrs';
 
 /** Route groups on the detail screen need at least this many attempts. */
@@ -18,16 +17,18 @@ export function useRouteDetailData(
   groupId: string | undefined,
   currentActivityId: string | undefined
 ): RouteDetailData | null {
-  const trigger = useEngineSubscription(['groups']);
+  const readGroups = useEngineRead(['groups']);
 
   return useMemo(() => {
     if (!groupId) return null;
-    const engine = getEngine();
-    if (!engine) return null;
     try {
-      return engine.getRouteDetailData(groupId, currentActivityId, MIN_GROUP_ACTIVITIES) ?? null;
+      return (
+        readGroups((engine) =>
+          engine.getRouteDetailData(groupId, currentActivityId, MIN_GROUP_ACTIVITIES)
+        ) ?? null
+      );
     } catch {
       return null;
     }
-  }, [groupId, currentActivityId, trigger]);
+  }, [groupId, currentActivityId, readGroups]);
 }

@@ -43,3 +43,26 @@ export function parseEventDetails(details: string | undefined): EventDetails {
     return empty;
   }
 }
+
+/** A change, as much of one as the chip ids need. */
+interface ChipSource {
+  details?: string;
+}
+
+/**
+ * Every activity id the history panel will draw a chip for, once each and in
+ * the order they appear.
+ *
+ * Capped per list, the way the panel caps its own rows, so a section with
+ * hundreds of traversals does not ask the engine for names nothing will draw.
+ */
+export function ledgerChipIds(history: ChipSource[], maxPerList: number): string[] {
+  const seen = new Set<string>();
+  for (const event of history) {
+    const details = parseEventDetails(event.details);
+    for (const list of [details.around, details.forkAround]) {
+      for (const id of list.slice(0, maxPerList)) seen.add(id);
+    }
+  }
+  return [...seen];
+}

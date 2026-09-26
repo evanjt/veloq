@@ -7,7 +7,7 @@
  * held to that centre's ~5 km bin and only tightens onto the geometry inside
  * it.
  */
-import { boundsOfLngLat, type LngLat, type LngLatBounds } from '@/features/maps/lib/coordinates';
+import { boundsOfLngLat, type LngLat, type LngLatBounds } from '@/features/maps';
 
 /** Bin edge of the centre grid, in degrees. Mirrors `BIN_DEG` in the engine. */
 export const PREVIEW_BIN_DEG = 0.045;

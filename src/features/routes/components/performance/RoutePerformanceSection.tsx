@@ -12,7 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
-import { getActivityColor } from '@/features/activity/lib/activityUtils';
+import { getActivityColor } from '@/shared/activity/activityUtils';
 import { formatDuration } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
@@ -118,7 +118,7 @@ export function RoutePerformanceSection({
                     name="trophy"
                     size={11}
                     color={colors.chartGold}
-                    style={{ marginLeft: 2 }}
+                    style={{ marginLeft: spacing.xxs }}
                   />
                 )}
               </>
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   metaRow: {
     flexDirection: 'row',

@@ -2,11 +2,13 @@ import { useEffect, useState, useCallback } from 'react';
 import { InteractionManager } from 'react-native';
 import { useRouteSyncProgress } from './useRouteSyncProgress';
 import { useRouteSyncContext, resetGlobalSyncState } from './useRouteSyncContext';
+import { feedHeadIds } from '@/shared/activity/feedHead';
+import { headFirst } from '@/features/routes/lib/gpsFetchOrder';
+
 import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/engine';
 import { engine, hasStarted } from 'veloqrs';
-import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 import type { Activity } from '@/types';
@@ -14,6 +16,8 @@ import type { SyncProgress } from './useRouteSyncProgress';
 import { backfillTimeStreams } from '@/features/routes/lib/timeStreamBackfill';
 import { awaitTilePass } from '@/features/routes/lib/tilePass';
 import { followDetection, type DetectionEngine } from '@/features/routes/lib/detectionRun';
+import { routeSyncPlan } from '@/features/routes/lib/routeSyncPlan';
+import { deferSyncRun, takeDeferredSyncRun } from '@/features/routes/lib/deferredSyncRun';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('RouteDataSync');
@@ -47,6 +51,7 @@ export function useRouteDataSync(
   // Extracted hooks
   const { progress, isSyncing, updateProgress, isMountedRef } = useRouteSyncProgress();
   const setGpsSyncProgress = useSyncDateRange((s) => s.setGpsSyncProgress);
+  const setGpsSyncPendingIds = useSyncDateRange((s) => s.setGpsSyncPendingIds);
 
   // Sync progress to shared store whenever it changes
   // This allows other screens to read progress without calling useRouteDataSync themselves
@@ -63,6 +68,10 @@ export function useRouteDataSync(
     markSyncComplete,
   } = useRouteSyncContext();
   const { fetchDemoGps, fetchApiGps } = useGpsDataFetcher();
+
+  // Counter to force a re-sync after an engine reset, a reconnection, or a
+  // run this one refused.
+  const [syncTrigger, setSyncTrigger] = useState(0);
 
   /**
    * Main sync orchestration function.
@@ -84,29 +93,15 @@ export function useRouteDataSync(
         return;
       }
 
-      // Skip sync when offline - GPS fetch requires network
-      // Existing synced activities will still work from the engine cache
-      if (!online) {
-        if (__DEV__) {
-          log.log('[RouteDataSync] Blocked: offline');
-        }
-        if (isMountedRef.current) {
-          updateProgress({
-            status: 'idle',
-            completed: 0,
-            total: 0,
-            percent: 0,
-            message: i18n.t('cache.offlineUsingCached'),
-          });
-        }
-        return;
-      }
-
-      // Prevent concurrent syncs
+      // Prevent concurrent syncs. The activities that arrived while one was
+      // running are owed a pass: the effect keys on the array and nothing
+      // brings that identity back, so a refusal used to lose them until a
+      // reconnect or a wipe asked again.
       if (!canStartSync()) {
         if (__DEV__) {
           log.log('[RouteDataSync] Blocked: sync already in progress');
         }
+        deferSyncRun();
         return;
       }
 
@@ -137,9 +132,18 @@ export function useRouteDataSync(
         const engineActivityIds = new Set(nativeModule.engine.getActivityIds());
 
         // Filter to activities with GPS that aren't already in the engine
-        const withGps = activitiesToSync.filter(
-          (a) => a.stream_types?.includes('latlng') && !engineActivityIds.has(a.id)
+        const withGps = headFirst(
+          activitiesToSync.filter(
+            (a) => a.stream_types?.includes('latlng') && !engineActivityIds.has(a.id)
+          ),
+          feedHeadIds()
         );
+
+        // Published before the first fetch goes out, so a card already on
+        // screen stops asking for its own copy of a track this run is about
+        // to bring. Cleared by the store when the run reaches a terminal
+        // status, which every exit below passes through.
+        setGpsSyncPendingIds(withGps.map((a) => a.id));
 
         if (__DEV__) {
           const totalGps = activitiesToSync.filter((a) =>
@@ -152,64 +156,49 @@ export function useRouteDataSync(
           );
         }
 
-        // Sync metrics only for activities not already in the engine.
-        // Uses metric IDs (all activities) not GPS activity IDs (GPS-only) to avoid
-        // re-writing indoor/non-GPS activities on every startup.
-        const cachedMetricIds = new Set(nativeModule.engine.getActivityMetricIds());
-        const newActivities = activitiesToSync.filter((a) => !cachedMetricIds.has(a.id));
-        if (__DEV__) {
-          log.log(
-            `[RouteDataSync] Metrics: ${cachedMetricIds.size} cached, ${newActivities.length} new`
-          );
-        }
-        if (newActivities.length > 0) {
-          const newMetrics = newActivities
-            .filter((a) => a.start_date_local && a.moving_time)
-            .map(toActivityMetrics);
-          if (newMetrics.length > 0) {
-            nativeModule.engine.setActivityMetrics(newMetrics);
-            engine.triggerRefresh('activities');
-          }
-        }
+        // Offline only the fetching half has nothing to do. The seeding, the
+        // drain and a dirty detection are local compute over stored tracks.
+        const plan = routeSyncPlan({ online, isDemo, newGpsCount: withGps.length });
 
-        // Batch-fetch FIT files for WeightTraining activities not yet processed
-        if (!isDemoModeRef.current) {
-          const strengthIds = activitiesToSync
-            .filter((a) => a.type === 'WeightTraining')
-            .map((a) => a.id);
-
-          if (
-            strengthIds.length > 0 &&
-            typeof nativeModule.engine.getUnprocessedStrengthIds === 'function'
-          ) {
-            const unprocessed = nativeModule.engine.getUnprocessedStrengthIds(strengthIds);
-            if (unprocessed.length > 0) {
+        // Batch-fetch FIT files for WeightTraining activities not yet processed.
+        // The empty list asks the engine for its own queue: the sport is a
+        // column there, so filtering a whole-library parsed array here for
+        // `WeightTraining` only sent the engine ids it can select itself.
+        if (
+          plan.fetchStrength &&
+          typeof nativeModule.engine.getUnprocessedStrengthIds === 'function'
+        ) {
+          const unprocessed = nativeModule.engine.getUnprocessedStrengthIds([]);
+          if (unprocessed.length > 0) {
+            if (__DEV__) {
+              log.log(
+                `[RouteDataSync] Fetching FIT files for ${unprocessed.length} strength activities`
+              );
+            }
+            try {
+              // Fire and forget: the downloads run on a Rust thread and the
+              // sets are read back from SQLite when a strength screen asks.
+              const outcome = nativeModule.engine.batchFetchExerciseSets(unprocessed);
               if (__DEV__) {
                 log.log(
-                  `[RouteDataSync] Fetching FIT files for ${unprocessed.length} strength activities`
+                  `[RouteDataSync] FIT batch for ${unprocessed.length} activities: ${
+                    hasStarted(outcome) ? 'started' : `refused (${outcome})`
+                  }`
                 );
               }
-              try {
-                // Fire and forget: the downloads run on a Rust thread and the
-                // sets are read back from SQLite when a strength screen asks.
-                const outcome = nativeModule.engine.batchFetchExerciseSets(unprocessed);
-                if (__DEV__) {
-                  log.log(
-                    `[RouteDataSync] FIT batch for ${unprocessed.length} activities: ${
-                      hasStarted(outcome) ? 'started' : `refused (${outcome})`
-                    }`
-                  );
-                }
-              } catch (err) {
-                if (__DEV__) {
-                  console.error('[RouteDataSync] FIT batch fetch error:', err);
-                }
+            } catch (err) {
+              if (__DEV__) {
+                console.error('[RouteDataSync] FIT batch fetch error:', err);
               }
             }
           }
         }
 
-        if (withGps.length === 0) {
+        // Set when a detection follow gives up on a run Rust is still doing,
+        // so the settled banner does not claim work that has not landed.
+        let stillAnalysing = false;
+
+        if (plan.recoverDetection) {
           // Drain any completed-but-uncollected detection results. If a prior
           // detection finished after the TS poll loop timed out, the result
           // sits in the global handle and blocks all future start() calls.
@@ -235,7 +224,7 @@ export function useRouteDataSync(
               completed: 0,
               total: 0,
               percent: 0,
-              message: 'Analyzing routes...',
+              message: i18n.t('cache.analyzingRoutes'),
             });
 
             // The engine starts detection when the batch lands; follow it.
@@ -244,10 +233,17 @@ export function useRouteDataSync(
             // whichever screen is also following the same run.
             const started = nativeModule.engine.pollSectionDetection() === 'running';
             if (started) {
-              await followDetection(nativeModule.engine as unknown as DetectionEngine, {
-                isActive: () => isMountedRef.current && !abortController.signal.aborted,
-                timeoutMs: 60000,
-              }).settled;
+              const outcome = await followDetection(
+                nativeModule.engine as unknown as DetectionEngine,
+                {
+                  isActive: () => isMountedRef.current && !abortController.signal.aborted,
+                  timeoutMs: 60000,
+                }
+              ).settled;
+              // A minute is the follow's budget, not the run's. Rust keeps
+              // going and the sections land when it does, so the banner says
+              // that rather than that everything is synced.
+              stillAnalysing = outcome === 'timeout';
               // Skip side effects if a newer sync took over (cache clear race)
               if (!abortController.signal.aborted) {
                 engine.triggerRefresh('groups');
@@ -277,7 +273,7 @@ export function useRouteDataSync(
           // Backfill: time streams for activities with NULL lap_time (upgrade
           // path). Rust fetches and persists them behind the shared governor
           // and announces each one, so this only reports progress.
-          if (isMountedRef.current && !isDemo && !abortController.signal.aborted) {
+          if (plan.backfillStreams && isMountedRef.current && !abortController.signal.aborted) {
             try {
               const { total, remaining } = await backfillTimeStreams((completed, streams) => {
                 if (!isMountedRef.current) return;
@@ -309,7 +305,11 @@ export function useRouteDataSync(
               completed: engineActivityIds.size,
               total: engineActivityIds.size,
               percent: 100,
-              message: i18n.t('cache.allActivitiesSynced'),
+              message: stillAnalysing
+                ? i18n.t('cache.syncedStillAnalysing', { count: engineActivityIds.size })
+                : online
+                  ? i18n.t('cache.allActivitiesSynced')
+                  : i18n.t('cache.offlineUsingCached'),
             });
           }
           markSyncComplete(abortController);
@@ -356,6 +356,21 @@ export function useRouteDataSync(
         // Always mark sync complete. Ownership check inside markSyncComplete
         // ensures a stale run won't clear the globals a newer sync now owns.
         markSyncComplete(abortController);
+        // And always release the cards this run was covering. The store clears
+        // them on a terminal progress too, but an aborted run publishes none:
+        // the catch above skips the update so a stale failure cannot overwrite
+        // a newer run's progress, and a gate left standing there is a feed of
+        // cards that never ask for a map again. Unconditional, without the
+        // ownership check above, because the worst this costs a newer run is
+        // one card asking for a track early, which is what it did before this
+        // gate existed.
+        setGpsSyncPendingIds([]);
+        // The mutex is free again, so whatever was refused while this run held
+        // it gets the pass it was owed, against the activities as they stand
+        // now rather than as they stood when it was refused.
+        if (takeDeferredSyncRun()) {
+          setSyncTrigger((prev) => prev + 1);
+        }
       }
     },
     [
@@ -367,13 +382,11 @@ export function useRouteDataSync(
       canStartSync,
       createAbortController,
       markSyncComplete,
+      setGpsSyncPendingIds,
       fetchDemoGps,
       fetchApiGps,
     ]
   );
-
-  // Counter to force re-sync after engine reset or reconnection
-  const [syncTrigger, setSyncTrigger] = useState(0);
 
   // Trigger resync when coming back online. This has to key on the network
   // value: an effect keyed on `isOnlineRef` ran at mount and never again,
