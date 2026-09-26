@@ -5,7 +5,7 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
 import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
 import { resetAutoPause } from '@/features/recording/lib/recordingSession';
-import type { ActivityType } from '@/features/activity/types';
+import type { ActivityType } from '@/features/activity';
 
 export function useRecordingHandlers({
   setShowTypePicker,

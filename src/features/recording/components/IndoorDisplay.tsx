@@ -2,7 +2,7 @@ import { View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
+import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import type { ActivityType } from '@/types';
 import { styles } from '../RecordingScreen.styles';
 

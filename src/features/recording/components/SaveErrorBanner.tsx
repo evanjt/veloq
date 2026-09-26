@@ -4,7 +4,8 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { brand, colors, colorWithOpacity, spacing, layout, typography } from '@/theme';
+import { brand, colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
+import { useTheme } from '@/shared/app';
 import { GrantAccessButton } from './GrantAccessButton';
 
 export interface SaveErrorBannerProps {
@@ -42,12 +43,15 @@ export function SaveErrorBanner({
   isRetrying = false,
 }: SaveErrorBannerProps) {
   const { t } = useTranslation();
+  const { isDark } = useTheme();
 
   if (!errorMessage) return null;
 
   return (
     <View style={styles.errorBanner}>
-      <Text style={styles.errorBannerText}>{errorMessage}</Text>
+      <Text style={[styles.errorBannerText, isDark && styles.errorBannerTextDark]}>
+        {errorMessage}
+      </Text>
       {showPermissionFix && (
         <GrantAccessButton onPress={onUpgradePermissions} loading={isOAuthLoading} />
       )}
@@ -84,8 +88,11 @@ const styles = StyleSheet.create({
   },
   errorBannerText: {
     ...typography.caption,
-    color: colors.error,
+    color: colors.errorDeep,
     textAlign: 'center',
+  },
+  errorBannerTextDark: {
+    color: darkColors.errorDeep,
   },
   oauthUpgradeBtn: {
     flexDirection: 'row',

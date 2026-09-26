@@ -1,12 +1,6 @@
 import type { RecordingLibraryEntry } from '@/types';
 
-/**
- * Which actions the library detail screen offers for one recording. Sharing is
- * tied to the FIT file still being there, and a successful upload discards it
- * (`discardRecordingFit`), so an uploaded recording has nothing left to share.
- * Leaving the button up would hand `Sharing.shareAsync` a path that no longer
- * resolves, and it fails without saying so.
- */
+// Available actions while the recording is retained until upload confirmation.
 export interface RecordingActions {
   isUploading: boolean;
   canUpload: boolean;

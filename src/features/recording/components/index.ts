@@ -25,3 +25,4 @@ export { GrantAccessButton } from './GrantAccessButton';
 export { FieldPickerModal } from './FieldPickerModal';
 export { TimerHeader } from './TimerHeader';
 export { TrimSlider } from './TrimSlider';
+export { ArmedCountdownOverlay } from './ArmedCountdownOverlay';

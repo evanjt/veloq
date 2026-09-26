@@ -13,7 +13,7 @@ import { View } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { getRecording } from '@/features/recording/lib/storage/recordingLibrary';
-import { getActivityIcon, getActivityColor } from '@/features/activity';
+import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import type { RecordingLibraryEntry } from '@/types';
 
 export function RecordingTitle() {

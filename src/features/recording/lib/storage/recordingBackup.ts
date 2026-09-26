@@ -99,6 +99,7 @@ export async function loadRecordingBackup(): Promise<RecordingBackup | null> {
       log.warn('Invalid or incompatible recording backup, discarding');
       return null;
     }
+    parsed.streams.altitude = parsed.streams.altitude.map((alt: number | null) => alt ?? NaN);
     return parsed;
   } catch {
     log.warn('Failed to load recording backup');

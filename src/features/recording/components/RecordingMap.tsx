@@ -2,18 +2,24 @@ import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
-import { MapSurface, type MapSurfaceRef } from '@/features/maps/components/MapSurface';
+import { useTheme } from '@/shared/app';
+import { useIsOnline } from '@/shared/app/NetworkContext';
 import {
   boundsOfLngLat,
   featureCollection,
+  getNextStyle,
   lineFeature,
+  type LngLat,
   lngLatFromLatLngTuples,
   lngLatFromShort,
+  type MapLayerSpec,
+  type MapSourceSpec,
+  type MapStyleType,
+  MapSurface,
+  type MapSurfaceRef,
+  offlineMapStyle,
   pointFeature,
-  type LngLat,
-} from '@/features/maps/lib/coordinates';
-import type { MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
+} from '@/features/maps';
 import { colors, darkColors, brand, spacing, layout } from '@/theme';
 
 const BRAND_COLOR = brand.tealLight;
@@ -24,6 +30,27 @@ const OVERLAY_COLOR = brand.blue;
 
 /** Zoom held while the camera follows the current position. */
 const FOLLOW_ZOOM = 15;
+
+/**
+ * The basemap the athlete cycled to while riding, or null for the theme's.
+ *
+ * Module-scoped rather than component state, because a recording is not a
+ * screen visit: it runs for hours and the athlete leaves the tab and comes
+ * back. A choice that died with the component would have to be made again with
+ * gloves on, mid-ride. It is still not a preference: nothing is persisted, so a
+ * fresh launch opens on the theme's style again. Recording deliberately has no
+ * settings row of its own.
+ *
+ * The recording map does NOT read `preferences.defaultStyle`. That is the style
+ * chosen for browsing a finished ride, and satellite has no street names, no
+ * path casing and low contrast against a bright track in sunlight.
+ */
+let chosenStyle: MapStyleType | null = null;
+
+/** Forget the ride's basemap choice. For tests; nothing in the app calls it. */
+export function __resetRecordingMapStyle(): void {
+  chosenStyle = null;
+}
 
 /** Room around the finished track in review mode, in pixels. */
 const REVIEW_FIT_PADDING = { top: 40, right: 40, bottom: 60, left: 40 } as const;
@@ -51,7 +78,17 @@ function RecordingMapInner({
   onOpenRoutePicker,
   style,
 }: RecordingMapProps) {
-  const { preferences } = useMapPreferences();
+  const { isDark } = useTheme();
+  const isOnline = useIsOnline();
+  // Re-render on a cycle: the choice itself lives above the component so it
+  // survives the athlete leaving the tab, and this is only what redraws.
+  const [, bumpStyle] = useState(0);
+  const themeStyle: MapStyleType = isDark ? 'dark' : 'light';
+  const mapStyle: MapStyleType = offlineMapStyle(chosenStyle ?? themeStyle, isOnline, themeStyle);
+  const cycleStyle = useCallback(() => {
+    chosenStyle = getNextStyle(mapStyle);
+    bumpStyle((n) => n + 1);
+  }, [mapStyle]);
   const surfaceRef = useRef<MapSurfaceRef>(null);
   // Camera follows the current position until the user pans; the recenter
   // button restores following.
@@ -103,12 +140,17 @@ function RecordingMapInner({
     return featureCollection([pointFeature([longitude, latitude])]);
   }, [currentLocation]);
 
-  const followTarget: LngLat | null =
-    currentLocation &&
-    Number.isFinite(currentLocation.latitude) &&
-    Number.isFinite(currentLocation.longitude)
-      ? [currentLocation.longitude, currentLocation.latitude]
-      : null;
+  // Memoised so a fix at the same coordinates is the same array, which the
+  // camera effect below depends on.
+  const followTarget: LngLat | null = useMemo(
+    () =>
+      currentLocation &&
+      Number.isFinite(currentLocation.latitude) &&
+      Number.isFinite(currentLocation.longitude)
+        ? [currentLocation.longitude, currentLocation.latitude]
+        : null,
+    [currentLocation]
+  );
 
   const reviewBounds = useMemo(
     () => (fitBounds ? boundsOfLngLat(validCoords) : null),
@@ -131,7 +173,10 @@ function RecordingMapInner({
     () => ({
       'route-overlay': { kind: 'geojson', data: overlayRoute },
       'excluded-route': { kind: 'geojson', data: excludedRoute },
-      'recording-route': { kind: 'geojson', data: activeRoute },
+      // The live line only ever gains points at its end, so the surface ships
+      // the fix rather than the ride. A trim moves the ends and falls back to
+      // the whole line on its own.
+      'recording-route': { kind: 'geojson', data: activeRoute, growing: true },
       'current-position': { kind: 'geojson', data: position },
     }),
     [overlayRoute, excludedRoute, activeRoute, position]
@@ -199,7 +244,7 @@ function RecordingMapInner({
     <View style={[styles.container, style]}>
       <MapSurface
         ref={surfaceRef}
-        mapStyle={preferences.defaultStyle}
+        mapStyle={mapStyle}
         initialCamera={initialCamera}
         sources={sources}
         layers={layers}
@@ -224,6 +269,15 @@ function RecordingMapInner({
               />
             </TouchableOpacity>
           )}
+          <TouchableOpacity
+            testID="recording-map-style"
+            style={styles.controlButton}
+            onPress={cycleStyle}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+          >
+            <MaterialCommunityIcons name="layers" size={20} color={darkColors.textPrimary} />
+          </TouchableOpacity>
           {!isFollowing && (
             <TouchableOpacity
               testID="recording-map-recenter"

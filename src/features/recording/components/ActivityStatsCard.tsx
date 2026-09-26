@@ -75,6 +75,6 @@ const styles = StyleSheet.create({
   },
   compactStatLabel: {
     ...typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
 });

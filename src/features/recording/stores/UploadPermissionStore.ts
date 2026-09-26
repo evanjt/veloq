@@ -27,12 +27,24 @@ interface UploadPermissionState {
   bannerDismissed: boolean;
   /** Raw OAuth scope string, e.g. "ACTIVITY:WRITE,WELLNESS:READ" */
   grantedScopes: string | null;
+  /**
+   * The athlete took the ride in front of them past the missing-scope warning.
+   *
+   * Session only, never persisted: it belongs to one ride, and the save clears
+   * it. A ride recorded this way stays on the device whatever auto-upload says,
+   * because the upload it would be queued for cannot succeed.
+   */
+  recordingWithoutScope: boolean;
   initialize: () => Promise<void>;
   /** Parse OAuth scope string and persist write permission state */
   setFromOAuthScope: (scope: string) => void;
   setNeedsUpgrade: (v: boolean) => void;
   setHasWritePermission: (v: boolean) => void;
   dismissBanner: () => void;
+  /** Record the ride anyway, keeping it on the device. */
+  continueWithoutScope: () => void;
+  /** Forget that, once the ride it belonged to is saved. */
+  clearWithoutScope: () => void;
   reset: () => void;
 }
 
@@ -53,6 +65,7 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
   isLoaded: false,
   bannerDismissed: false,
   grantedScopes: null,
+  recordingWithoutScope: false,
 
   initialize: async () => {
     try {
@@ -111,10 +124,20 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
     );
   },
 
+  continueWithoutScope: () => set({ recordingWithoutScope: true }),
+
+  clearWithoutScope: () => set({ recordingWithoutScope: false }),
+
   reset: () => {
     // Unloaded again, not loaded-with-no-answer: a sign-out leaves the next
     // account's scope unknown until it says so.
-    set({ needsUpgrade: false, hasWritePermission: null, isLoaded: false, bannerDismissed: false });
+    set({
+      needsUpgrade: false,
+      hasWritePermission: null,
+      isLoaded: false,
+      bannerDismissed: false,
+      recordingWithoutScope: false,
+    });
     removeSetting(STORAGE_KEY).catch(() => {});
   },
 }));

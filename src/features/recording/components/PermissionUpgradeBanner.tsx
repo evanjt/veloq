@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { useUploadPermissionStore } from '@/features/recording/stores/UploadPerm
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
 import { spacing, colors, colorWithOpacity, layout, typography } from '@/theme';
 import { GrantAccessButton } from './GrantAccessButton';
+import { pressable } from '@/shared/ui';
 
 const AMBER_BG = colorWithOpacity(colors.warning, 0.12);
 const AMBER_BG_DARK = colorWithOpacity(colors.warning, 0.18);
@@ -40,13 +41,14 @@ function PermissionUpgradeBannerInner() {
             {t('recording.permissionNeeded', 'Permission needed to upload activities')}
           </Text>
           <GrantAccessButton onPress={upgradePermissions} loading={isUpgrading} small />
-          <TouchableOpacity
+          <Pressable
             testID="permission-banner-dismiss"
             onPress={dismissBanner}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={pressable()}
           >
             <MaterialCommunityIcons name="close" size={18} color={AMBER_TEXT} />
-          </TouchableOpacity>
+          </Pressable>
         </View>
         {error ? (
           <Text style={styles.errorText} numberOfLines={2}>
@@ -69,7 +71,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   content: {
-    gap: 4,
+    gap: spacing.xs,
   },
   row: {
     flexDirection: 'row',
@@ -83,7 +85,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typography.caption.fontSize,
-    color: colors.errorDark,
+    color: colors.errorDeep,
     marginLeft: 18 + spacing.sm,
   },
 });

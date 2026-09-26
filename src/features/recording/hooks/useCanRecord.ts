@@ -13,9 +13,10 @@ type CanRecordResult = {
  *   scope one. The two need different gates and used to share a reason.
  * - API key users: always allowed (personal API keys have all permissions)
  * - Demo users: always allowed
- * - OAuth users: allowed only if their token includes ACTIVITY:WRITE scope.
- *   If the scope is known to be missing, recording is blocked - better to ask
- *   for permission upfront than let the user record and fail on upload.
+ * - OAuth users: `ok` only if their token includes ACTIVITY:WRITE scope. A scope
+ *   known to be missing answers `no_permission`, which the screens read as a
+ *   warning rather than a refusal: the ride goes ahead and stays on the device,
+ *   because a missing upload scope stops the upload and not the riding.
  * - OAuth users whose store has not loaded yet: `checking`, not blocked. A cold
  *   start into a one-tap record surface can arrive first, and gating on an
  *   answer that has not come back reads as a refusal the athlete never earned.

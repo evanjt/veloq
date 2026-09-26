@@ -1,4 +1,4 @@
-import type { ActivityType } from '@/features/activity/types';
+import type { ActivityType } from '@/features/activity';
 
 /** Recording mode determines the UI and data collection approach */
 export type RecordingMode = 'gps' | 'indoor' | 'manual';
@@ -21,7 +21,7 @@ export interface RecordingGpsPoint {
 export interface RecordingStreams {
   time: number[]; // seconds since start
   latlng: [number, number][]; // [lat, lng]
-  altitude: number[]; // meters
+  altitude: number[]; // metres; NaN when the fix has no altitude
   heartrate: number[]; // bpm
   power: number[]; // watts
   cadence: number[]; // rpm
@@ -67,9 +67,18 @@ export type RecordingUploadStatus =
   | 'failed'
   | 'permissionBlocked';
 
+/** What a recording holds: a FIT this device wrote, or a body the athlete typed. */
+export type RecordingKind = 'fit' | 'manual';
+
 /** A recording saved permanently on device (FIT file + metadata + streams sidecar) */
 export interface RecordingLibraryEntry {
   id: string;
+  /**
+   * `fit` for a recorded ride, `manual` for an indoor entry typed into the app.
+   * A manual entry has no file: `fitPath` is empty and the request body sits
+   * where the streams sidecar would.
+   */
+  kind: RecordingKind;
   fitPath: string;
   streamsPath?: string;
   activityType: ActivityType;

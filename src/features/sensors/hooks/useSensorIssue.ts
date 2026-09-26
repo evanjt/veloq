@@ -12,9 +12,15 @@ export function useSensorIssue(): string | null {
   const connections = useSensorStore((s) => s.connections);
 
   const entries = Object.values(connections);
+  const silent = entries.find((c) => c.status === 'noData');
   const reconnecting = entries.find((c) => c.status === 'reconnecting');
   const connecting = entries.find((c) => c.status === 'connecting');
 
+  // A link that carries nothing outranks a reconnect: the reconnect is only
+  // how it is being fixed, and a ride recorded against it has no heart rate.
+  if (silent) {
+    return `${t('sensors.title', 'Sensors')}: ${t('sensors.status.noData')}`;
+  }
   if (reconnecting) {
     return `${t('sensors.title', 'Sensors')}: ${t('sensors.status.reconnecting')}`;
   }

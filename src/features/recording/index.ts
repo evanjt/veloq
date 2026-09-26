@@ -1,7 +1,10 @@
 export * from './components';
 export { useRecordingPreferences } from './stores/RecordingPreferencesStore';
+export { useUploadPermissionStore } from './stores/UploadPermissionStore';
 export { useAlwaysLocationPrompt } from './hooks/useAlwaysLocationPrompt';
 export { useCanRecord } from './hooks/useCanRecord';
 export { usePermissionUpgrade } from './hooks/usePermissionUpgrade';
 export { readRecordingTrack } from './lib/storage/recordingTrack';
+export { recordingActions } from './lib/recordingActions';
 export * from './types';
+export { restoreRecordingBackup } from './lib/restoreRecordingBackup';

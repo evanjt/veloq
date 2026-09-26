@@ -1,4 +1,5 @@
 import { haversineDistance } from '@/shared/geo/distance';
+import { elevationGain } from '@/shared/math/kinematics';
 import { create } from 'zustand';
 
 import { getMaxPlausibleSpeed } from '@/features/recording/lib/sportCategoryDetector';
@@ -22,9 +23,62 @@ interface SensorSampleLite {
 
 type SensorStreamKind = 'heartrate' | 'power' | 'cadence';
 
-function freshValue(sample: SensorSampleLite | null, now: number): number {
+export function freshValue(sample: SensorSampleLite | null, now: number): number {
   if (!sample) return 0;
   return now - sample.at <= SENSOR_STALE_MS ? sample.value : 0;
+}
+
+/**
+ * What the live metrics need that a single sample cannot answer.
+ *
+ * The metrics hook used to rescan the whole altitude and heart-rate arrays on
+ * every fix, so a five-hour ride at 1 Hz walked 18,000 entries three times a
+ * second and the work over the ride was quadratic. These are kept per appended
+ * sample instead, which is O(1) each, and the hook reads them.
+ */
+export interface RecordingTotals {
+  /** Sum of the positive altitude deltas, in metres. */
+  elevationGain: number;
+  /** Last finite altitude, retained across samples with no reading. */
+  lastAltitude: number | null;
+  /** Sum of the heart-rate samples that carried a reading. */
+  heartrateSum: number;
+  /** How many of them did. */
+  heartrateCount: number;
+}
+
+const EMPTY_TOTALS: RecordingTotals = {
+  elevationGain: 0,
+  lastAltitude: null,
+  heartrateSum: 0,
+  heartrateCount: 0,
+};
+
+/**
+ * Scan a whole stream back into its totals.
+ *
+ * The crash restore sets the streams wholesale rather than appending them, so
+ * that one path pays the scan once instead of accumulating.
+ */
+export function streamTotals(streams: RecordingStreams): RecordingTotals {
+  let lastAltitude: number | null = null;
+  for (const altitude of streams.altitude) {
+    if (Number.isFinite(altitude)) lastAltitude = altitude;
+  }
+  let heartrateSum = 0;
+  let heartrateCount = 0;
+  for (const hr of streams.heartrate) {
+    if (hr > 0) {
+      heartrateSum += hr;
+      heartrateCount += 1;
+    }
+  }
+  return {
+    elevationGain: elevationGain(streams.altitude),
+    lastAltitude,
+    heartrateSum,
+    heartrateCount,
+  };
 }
 
 const EMPTY_STREAMS: RecordingStreams = {
@@ -48,6 +102,8 @@ interface RecordingState {
   /** Each pause as elapsed seconds since startTime, so any stream window can subtract its own. */
   pauseIntervals: PauseInterval[];
   streams: RecordingStreams;
+  /** Kept per appended sample; `streamTotals` rebuilds them for a restore. */
+  totals: RecordingTotals;
   laps: RecordingLap[];
   pairedEventId: number | null;
   /** Sample-and-hold of the latest sensor values, written by the sensors feature. */
@@ -87,6 +143,19 @@ function closePause(
   return [...intervals, { start: (pauseStart - startTime) / 1000, end: (now - startTime) / 1000 }];
 }
 
+/** One appended sample's contribution, the same arithmetic `streamTotals` does. */
+function accumulate(totals: RecordingTotals, altitude: number, heartrate: number): RecordingTotals {
+  const valid = Number.isFinite(altitude);
+  const previous = totals.lastAltitude;
+  const climb = valid && previous !== null && altitude > previous ? altitude - previous : 0;
+  return {
+    elevationGain: totals.elevationGain + climb,
+    lastAltitude: valid ? altitude : previous,
+    heartrateSum: heartrate > 0 ? totals.heartrateSum + heartrate : totals.heartrateSum,
+    heartrateCount: heartrate > 0 ? totals.heartrateCount + 1 : totals.heartrateCount,
+  };
+}
+
 export const useRecordingStore = create<RecordingState>((set, get) => ({
   status: 'idle',
   activityType: null,
@@ -96,6 +165,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   pausedDuration: 0,
   pauseIntervals: [],
   streams: { ...EMPTY_STREAMS },
+  totals: { ...EMPTY_TOTALS },
   laps: [],
   pairedEventId: null,
   latestSensor: { heartrate: null, power: null, cadence: null },
@@ -121,6 +191,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
         speed: [],
         distance: [],
       },
+      totals: { ...EMPTY_TOTALS },
       laps: [],
       pairedEventId: pairedEventId ?? null,
       latestSensor: { heartrate: null, power: null, cadence: null },
@@ -163,9 +234,11 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     });
   },
 
+  // Idle is every moment before a start, including a one-tap entry sitting on
+  // its arm countdown. A finished recording is `stopped`, not idle, so the
+  // guard that used to sit here never protected one: it only refused the sport
+  // change the athlete most needs, the one that fixes a wrong tap.
   changeActivityType: (type) => {
-    const { status } = get();
-    if (status === 'idle') return;
     set({ activityType: type });
   },
 
@@ -209,19 +282,21 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     // subscribers and downstream useMemo deps recompute; effects keyed on
     // `streams.x.length` fire because the length changes. Rebuilding all
     // arrays on every point was O(n) per call, O(n^2) per session.
-    const { latestSensor } = get();
+    const { latestSensor, totals } = get();
     const nowMs = Date.now();
+    const altitude = point.altitude ?? NaN;
+    const heartrate = freshValue(latestSensor.heartrate, nowMs);
     streams.time.push(elapsedSec);
     streams.latlng.push([point.latitude, point.longitude]);
-    streams.altitude.push(point.altitude ?? 0);
+    streams.altitude.push(altitude);
     streams.speed.push(speed);
     streams.distance.push(dist);
     // Sensor streams stay index-aligned with time[] - sample-and-hold the
     // latest value per point, 0 (FIT no-data) when absent or stale.
-    streams.heartrate.push(freshValue(latestSensor.heartrate, nowMs));
+    streams.heartrate.push(heartrate);
     streams.power.push(freshValue(latestSensor.power, nowMs));
     streams.cadence.push(freshValue(latestSensor.cadence, nowMs));
-    set({ streams: { ...streams } });
+    set({ streams: { ...streams }, totals: accumulate(totals, altitude, heartrate) });
   },
 
   setRawLocationFix: (fix) => {
@@ -266,14 +341,18 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
 
     // No position for indoor samples - latlng stays shorter and the FIT
     // writer emits invalid-position sentinels for the missing indices.
+    const heartrate = freshValue(latestSensor.heartrate, nowMs);
     streams.time.push(elapsedSec);
-    streams.altitude.push(0);
+    streams.altitude.push(NaN);
     streams.speed.push(0);
     streams.distance.push(streams.distance[streams.distance.length - 1] ?? 0);
-    streams.heartrate.push(freshValue(latestSensor.heartrate, nowMs));
+    streams.heartrate.push(heartrate);
     streams.power.push(freshValue(latestSensor.power, nowMs));
     streams.cadence.push(freshValue(latestSensor.cadence, nowMs));
-    set({ streams: { ...streams } });
+    set({
+      streams: { ...streams },
+      totals: accumulate(get().totals, NaN, heartrate),
+    });
   },
 
   addLap: () => {
@@ -343,6 +422,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
         speed: [],
         distance: [],
       },
+      totals: { ...EMPTY_TOTALS },
       laps: [],
       pairedEventId: null,
       latestSensor: { heartrate: null, power: null, cadence: null },
@@ -352,8 +432,3 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     });
   },
 }));
-
-/** Synchronous helper to get current recording status */
-export function getRecordingStatus(): RecordingStatus {
-  return useRecordingStore.getState().status;
-}
