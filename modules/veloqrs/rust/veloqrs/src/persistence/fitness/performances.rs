@@ -36,11 +36,415 @@ fn attempt_standing(
     (count, percentile)
 }
 
+/// The section performance computation, over borrowed rows rather than over the
+/// engine's memory tier, so the write lock is not part of answering it.
+///
+/// Everything it needs is in SQLite: the portions, the activity's name and
+/// date, and the time stream a row with no cached `lap_time` falls back to.
+/// The engine passes lookups that read its caches first, a pooled reader passes
+/// lookups that read the connection, and `pooled_section_performances_match_the
+/// _ones_a_lock_holder_gets` holds the two together.
+pub(crate) mod laps {
+    use rusqlite::{Connection, params};
+
+    use crate::{DirectionStats, SectionLap, SectionPerformanceRecord, SectionPerformanceResult};
+
+    /// One stored traversal of a section, as the computation needs it.
+    pub(crate) struct Portion {
+        pub activity_id: String,
+        pub direction: String,
+        pub start_index: u32,
+        pub end_index: u32,
+        pub distance_meters: f64,
+        pub lap_time: Option<f64>,
+        pub lap_pace: Option<f64>,
+        pub avg_hr: Option<f64>,
+        pub coverage: Option<f64>,
+    }
+
+    /// What a section with no traversals answers, and what every failed read
+    /// answers, rather than a shape with zeroes a caller would read as a
+    /// section nobody has ridden.
+    pub(crate) fn empty() -> SectionPerformanceResult {
+        SectionPerformanceResult {
+            records: vec![],
+            best_record: None,
+            best_forward_record: None,
+            best_reverse_record: None,
+            forward_stats: None,
+            reverse_stats: None,
+        }
+    }
+
+    /// The section's canonical distance, which is what decides whether a lap
+    /// covered enough of it to be a record.
+    pub(crate) fn section_distance(conn: &Connection, section_id: &str) -> Option<f64> {
+        conn.query_row(
+            "SELECT distance_meters FROM sections WHERE id = ?",
+            params![section_id],
+            |row| row.get::<_, f64>(0),
+        )
+        .ok()
+    }
+
+    /// Every traversal of a section, optionally narrowed to one sport, in the
+    /// order the records are built from.
+    pub(crate) fn portions(
+        conn: &Connection,
+        section_id: &str,
+        sport_type_filter: Option<&str>,
+    ) -> Vec<Portion> {
+        let read = |sql: &str, params: &[&dyn rusqlite::types::ToSql]| -> Vec<Portion> {
+            let mut stmt = match conn.prepare(sql) {
+                Ok(stmt) => stmt,
+                Err(e) => {
+                    log::warn!("Failed to prepare portion query: {}", e);
+                    return Vec::new();
+                }
+            };
+            let rows = stmt.query_map(params, |row| {
+                Ok(Portion {
+                    activity_id: row.get(0)?,
+                    direction: row.get(1)?,
+                    start_index: row.get(2)?,
+                    end_index: row.get(3)?,
+                    distance_meters: row.get(4)?,
+                    lap_time: row.get(5)?,
+                    lap_pace: row.get(6)?,
+                    avg_hr: row.get(7)?,
+                    coverage: row.get(8)?,
+                })
+            });
+            match rows {
+                Ok(rows) => rows
+                    .filter_map(|row| match row {
+                        Ok(portion) => Some(portion),
+                        Err(e) => {
+                            log::warn!("Failed to deserialize portion row: {}", e);
+                            None
+                        }
+                    })
+                    .collect(),
+                Err(e) => {
+                    log::warn!("Failed to query portions: {}", e);
+                    Vec::new()
+                }
+            }
+        };
+
+        match sport_type_filter {
+            Some(sport) => read(
+                "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
+                        sa.distance_meters, sa.lap_time, sa.lap_pace, sa.avg_hr, sa.coverage
+                 FROM section_activities sa
+                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
+                 WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 0
+                 ORDER BY sa.activity_id, sa.start_index",
+                &[&section_id, &sport],
+            ),
+            None => read(
+                "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
+                        sa.distance_meters, sa.lap_time, sa.lap_pace, sa.avg_hr, sa.coverage
+                 FROM section_activities sa
+                 WHERE sa.section_id = ? AND sa.excluded = 0
+                 ORDER BY sa.activity_id, sa.start_index",
+                &[&section_id],
+            ),
+        }
+    }
+
+    /// The name and date the record carries, for an activity the portions name.
+    pub(crate) fn activity_meta(conn: &Connection, activity_id: &str) -> Option<(String, i64)> {
+        conn.query_row(
+            "SELECT name, date FROM activity_metrics WHERE activity_id = ?",
+            params![activity_id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+        )
+        .ok()
+    }
+
+    /// The stored time stream and track length a portion with no cached lap
+    /// time falls back to. Cloned rather than borrowed because the two callers
+    /// hold it in different places, and it is only ever reached for a row the
+    /// lap backfill has not written.
+    pub(crate) fn time_stream(
+        conn: &Connection,
+        activity_id: &str,
+    ) -> Option<(Vec<u32>, Option<usize>)> {
+        let blob: Vec<u8> = conn
+            .query_row(
+                "SELECT times FROM time_streams WHERE activity_id = ?",
+                params![activity_id],
+                |row| row.get(0),
+            )
+            .ok()?;
+        let times: Vec<u32> = crate::persistence::codec::deserialize(&blob).ok()?;
+        let points = conn
+            .query_row(
+                "SELECT point_count FROM gps_tracks WHERE activity_id = ?",
+                params![activity_id],
+                |row| row.get::<_, i64>(0),
+            )
+            .ok()
+            .map(|n| n as usize);
+        Some((times, points))
+    }
+
+    /// Build the records, the per-direction bests and the direction stats from
+    /// the portions. The rules are the ones the screen depends on: a partial
+    /// traversal is never a record, and neither is a lap that covers too little
+    /// of the section.
+    pub(crate) fn performances<M, S>(
+        section_distance: f64,
+        portions: Vec<Portion>,
+        meta_of: M,
+        stream_of: S,
+    ) -> SectionPerformanceResult
+    where
+        M: Fn(&str) -> Option<(String, i64)>,
+        S: Fn(&str) -> Option<(Vec<u32>, Option<usize>)>,
+    {
+        use std::collections::HashMap;
+
+        let mut by_activity: HashMap<String, Vec<Portion>> = HashMap::new();
+        for portion in portions {
+            by_activity
+                .entry(portion.activity_id.clone())
+                .or_default()
+                .push(portion);
+        }
+
+        let mut records: Vec<SectionPerformanceRecord> = by_activity
+            .iter()
+            .filter_map(|(activity_id, portions)| {
+                let (activity_name, activity_date) = meta_of(activity_id)?;
+                let needs_stream = portions
+                    .iter()
+                    .any(|p| p.lap_time.is_none() || p.lap_pace.is_none());
+                let stream = if needs_stream {
+                    stream_of(activity_id)
+                } else {
+                    None
+                };
+
+                let laps: Vec<SectionLap> = portions
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, portion)| {
+                        let (lap_time, lap_pace) = match (portion.lap_time, portion.lap_pace) {
+                            (Some(t), Some(p)) => (t, p),
+                            _ => {
+                                // A row the lap backfill has not written, or a
+                                // corrupt one. The stream is what it is derived
+                                // from, and without it there is no lap.
+                                let (times, points) = stream.as_ref()?;
+                                match crate::persistence::sections::compute_lap_time_from_stream(
+                                    Some(times.as_slice()),
+                                    *points,
+                                    portion.start_index,
+                                    portion.end_index,
+                                    portion.distance_meters,
+                                ) {
+                                    (Some(t), Some(p)) => (t, p),
+                                    _ => return None,
+                                }
+                            }
+                        };
+                        if lap_time <= 0.0 {
+                            return None;
+                        }
+                        Some(SectionLap {
+                            id: format!("{}_lap{}", activity_id, i),
+                            activity_id: activity_id.to_string(),
+                            time: lap_time,
+                            pace: lap_pace,
+                            distance: portion.distance_meters,
+                            direction: portion.direction.clone(),
+                            start_index: portion.start_index,
+                            end_index: portion.end_index,
+                            avg_hr: portion.avg_hr,
+                            coverage: portion.coverage,
+                        })
+                    })
+                    .collect();
+
+                if laps.is_empty() {
+                    return None;
+                }
+
+                let lap_count = laps.len() as u32;
+                let best_lap = laps
+                    .iter()
+                    .filter(|lap| {
+                        lap.direction != "partial"
+                            && crate::persistence::records::covers_enough_for_record(
+                                lap.coverage,
+                                lap.distance,
+                                section_distance,
+                            )
+                    })
+                    .max_by(|a, b| {
+                        a.pace
+                            .partial_cmp(&b.pace)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
+                let (best_time, best_pace) = best_lap
+                    .map(|lap| (lap.time, lap.pace))
+                    .unwrap_or((0.0, 0.0));
+                let avg_time = laps.iter().map(|l| l.time).sum::<f64>() / lap_count as f64;
+                let avg_pace = laps.iter().map(|l| l.pace).sum::<f64>() / lap_count as f64;
+                let direction = laps
+                    .first()
+                    .map(|l| l.direction.clone())
+                    .unwrap_or_else(|| "same".to_string());
+
+                Some(SectionPerformanceRecord {
+                    activity_id: activity_id.to_string(),
+                    activity_name,
+                    activity_date,
+                    laps,
+                    lap_count,
+                    best_time,
+                    best_pace,
+                    avg_time,
+                    avg_pace,
+                    direction,
+                    section_distance,
+                })
+            })
+            .collect();
+
+        records.sort_by_key(|r| r.activity_date);
+
+        let best_record = records
+            .iter()
+            .max_by(|a, b| {
+                a.best_pace
+                    .partial_cmp(&b.best_pace)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .cloned();
+
+        let mut best_fwd: Option<(usize, f64, f64)> = None;
+        let mut best_rev: Option<(usize, f64, f64)> = None;
+        let mut fwd_times: Vec<f64> = Vec::new();
+        let mut fwd_last_date: Option<i64> = None;
+        let mut rev_times: Vec<f64> = Vec::new();
+        let mut rev_last_date: Option<i64> = None;
+
+        for (i, record) in records.iter().enumerate() {
+            for lap in &record.laps {
+                if lap.direction == "partial" {
+                    continue;
+                }
+                if !crate::persistence::records::covers_enough_for_record(
+                    lap.coverage,
+                    lap.distance,
+                    section_distance,
+                ) {
+                    continue;
+                }
+                let (times, last_date, best) = if lap.direction == "reverse" {
+                    (&mut rev_times, &mut rev_last_date, &mut best_rev)
+                } else {
+                    (&mut fwd_times, &mut fwd_last_date, &mut best_fwd)
+                };
+                times.push(lap.time);
+                *last_date = Some(
+                    last_date.map_or(record.activity_date, |d: i64| d.max(record.activity_date)),
+                );
+                if best.is_none_or(|(_, speed, _)| lap.pace > speed) {
+                    *best = Some((i, lap.pace, lap.time));
+                }
+            }
+        }
+
+        let best_in = |best: Option<(usize, f64, f64)>, direction: &str| {
+            best.map(|(idx, pace, time)| {
+                let mut r = records[idx].clone();
+                r.best_time = time;
+                r.best_pace = pace;
+                r.direction = direction.to_string();
+                r
+            })
+        };
+        let stats_of = |times: &[f64], last: Option<i64>| {
+            if times.is_empty() {
+                return None;
+            }
+            let count = times.len() as u32;
+            Some(DirectionStats {
+                avg_time: Some(times.iter().sum::<f64>() / count as f64),
+                last_activity: last,
+                count,
+                avg_speed: None,
+            })
+        };
+
+        SectionPerformanceResult {
+            best_record,
+            best_forward_record: best_in(best_fwd, "same"),
+            best_reverse_record: best_in(best_rev, "reverse"),
+            forward_stats: stats_of(&fwd_times, fwd_last_date),
+            reverse_stats: stats_of(&rev_times, rev_last_date),
+            records,
+        }
+    }
+}
+
+/// The section performance read on a pooled connection, with no engine lock.
+pub(crate) mod pooled {
+    use rusqlite::Connection;
+
+    use crate::SectionPerformanceResult;
+
+    /// The same answer [`PersistentEngine::get_section_performances_filtered`]
+    /// gives, read from SQLite alone.
+    pub(crate) fn section_performances(
+        conn: &Connection,
+        section_id: &str,
+        sport_type_filter: Option<&str>,
+    ) -> SectionPerformanceResult {
+        use super::laps;
+        let Some(distance) = laps::section_distance(conn, section_id) else {
+            return laps::empty();
+        };
+        laps::performances(
+            distance,
+            laps::portions(conn, section_id, sport_type_filter),
+            |id| laps::activity_meta(conn, id),
+            |id| laps::time_stream(conn, id),
+        )
+    }
+}
+
 impl PersistentEngine {
     /// Set time streams for activities from flat buffer.
     /// Time streams are cumulative seconds at each GPS point, used for section performance calculations.
     /// Persists to SQLite for offline access.
     pub fn set_time_streams_flat(
+        &mut self,
+        activity_ids: &[String],
+        all_times: &[u32],
+        offsets: &[u32],
+    ) {
+        self.store_time_streams_flat(activity_ids, all_times, offsets);
+        // Backfill NULL lap_time/lap_pace rows that newly-arrived streams can now resolve.
+        // Without this, the in-DB junction stays NULL until the next engine init / load_sections call.
+        self.backfill_section_performance_cache();
+    }
+
+    /// `set_time_streams_flat` without the backfill, for a caller that runs
+    /// one for the whole batch.
+    ///
+    /// The ingest path stores a stream per activity inside the write-lock
+    /// hold and attaches the activity immediately after, which fills
+    /// `lap_time` at insert. The backfill's scan of `section_activities` is
+    /// whole-table, so a 490-activity sync ran 490 of them under the lock and
+    /// every one found nothing. The caller owes one
+    /// `backfill_section_performance_cache` after the batch, which is what
+    /// `attach_finalize` now runs.
+    pub fn store_time_streams_flat(
         &mut self,
         activity_ids: &[String],
         all_times: &[u32],
@@ -92,9 +496,31 @@ impl PersistentEngine {
         );
         self.evict_processed_activity_ids(&moved);
         self.invalidate_perf_cache();
-        // Backfill NULL lap_time/lap_pace rows that newly-arrived streams can now resolve.
-        // Without this, the in-DB junction stays NULL until the next engine init / load_sections call.
-        self.backfill_section_performance_cache();
+        // A stream that moved takes its activity's lap times with it. The
+        // backfill below only fills `NULL`, so without this the values the old
+        // stream produced would stand. That is the whole point of refetching a
+        // stream whose length disagrees with its track: the wrong lap times
+        // must not survive the replacement.
+        self.clear_lap_times_for(&moved);
+    }
+
+    /// Empty the lap columns for these activities, so the backfill recomputes
+    /// them from whatever stream now stands.
+    ///
+    /// Exclusions are user decisions and are not touched: an excluded traversal
+    /// is not timed either way.
+    fn clear_lap_times_for(&self, activity_ids: &[String]) {
+        if activity_ids.is_empty() {
+            return;
+        }
+        let placeholders = vec!["?"; activity_ids.len()].join(",");
+        let sql = format!(
+            "UPDATE section_activities SET lap_time = NULL, lap_pace = NULL
+             WHERE activity_id IN ({placeholders}) AND excluded = 0"
+        );
+        let _ = self
+            .db
+            .execute(&sql, rusqlite::params_from_iter(activity_ids.iter()));
     }
 
     /// Get activity IDs that have section_activities with NULL lap_time but no time_stream.
@@ -180,6 +606,13 @@ impl PersistentEngine {
             }
         }
 
+        // The track length each stream has to match, or it is not in the
+        // track's index space and cannot time anything.
+        let track_points = {
+            let ids: Vec<String> = db_time_streams.keys().cloned().collect();
+            self.track_point_counts(&ids)
+        };
+
         // One commit for the pass, not one per lap.
         let Ok(tx) = self.db.unchecked_transaction() else {
             return 0;
@@ -188,7 +621,11 @@ impl PersistentEngine {
         for (section_id, activity_id, start_idx, end_idx, distance) in &null_portions {
             let times = db_time_streams.get(activity_id).map(|v| v.as_slice());
             let (lap_time, lap_pace) = super::super::sections::compute_lap_time_from_stream(
-                times, *start_idx, *end_idx, *distance,
+                times,
+                track_points.get(activity_id).copied(),
+                *start_idx,
+                *end_idx,
+                *distance,
             );
             if let (Some(lap_time), Some(lap_pace)) = (lap_time, lap_pace) {
                 let _ = tx.execute(
@@ -318,6 +755,10 @@ impl PersistentEngine {
     /// Get section performances filtered by sport type.
     /// When `sport_type_filter` is None, returns all activities.
     /// When set, only returns activities matching that sport type.
+    ///
+    /// The arithmetic is [`laps::performances`], shared with the pooled reader,
+    /// so this side is the caches: the result LRU, the metrics the memory tier
+    /// already holds, and the time streams it loads once and keeps.
     pub fn get_section_performances_filtered(
         &mut self,
         section_id: &str,
@@ -325,7 +766,6 @@ impl PersistentEngine {
     ) -> SectionPerformanceResult {
         let start = std::time::Instant::now();
 
-        // Return cached result if same section + filter
         let cache_key = match sport_type_filter {
             Some(st) => format!("{}:{}", section_id, st),
             None => section_id.to_string(),
@@ -341,431 +781,58 @@ impl PersistentEngine {
         }
         self.note_performance_computation();
 
-        // Find the section (in-memory for auto, fallback to DB for custom)
-        let section = match self.sections.iter().find(|s| s.id == section_id) {
-            Some(s) => s.clone(),
-            None => match self.get_section_by_id(section_id) {
-                Some(s) => s,
-                None => {
-                    log::debug!("Section not found: {}", section_id);
-                    return SectionPerformanceResult {
-                        records: vec![],
-                        best_record: None,
-                        best_forward_record: None,
-                        best_reverse_record: None,
-                        forward_stats: None,
-                        reverse_stats: None,
-                    };
-                }
-            },
+        // The section is in memory for a detected one and in SQLite for a
+        // custom one, and only its canonical distance is wanted here: that is
+        // what decides whether a lap covered enough of it to be a record.
+        let section_distance = match self.sections.iter().find(|s| s.id == section_id) {
+            Some(s) => Some(s.distance_meters),
+            None => self
+                .get_section_by_id(section_id)
+                .map(|s| s.distance_meters),
+        };
+        let Some(section_distance) = section_distance else {
+            log::debug!("Section not found: {}", section_id);
+            return laps::empty();
         };
 
-        log::trace!(
-            "Section found. activity_portions count: {}",
-            section.activity_portions.len()
-        );
+        let portions = laps::portions(&self.db, section_id, sport_type_filter);
 
-        // Load portions WITH cached performance metrics from database
-        // Optional sport type filter for cross-sport merged sections
-        let (query, query_params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) =
-            match sport_type_filter {
-                Some(st) => (
-                    "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
-                        sa.distance_meters, sa.lap_time, sa.lap_pace, sa.avg_hr, sa.coverage
-                 FROM section_activities sa
-                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                 WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 0
-                 ORDER BY sa.activity_id, sa.start_index"
-                        .to_string(),
-                    vec![
-                        Box::new(section_id.to_string()) as Box<dyn rusqlite::types::ToSql>,
-                        Box::new(st.to_string()),
-                    ],
-                ),
-                None => (
-                    "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
-                        sa.distance_meters, sa.lap_time, sa.lap_pace, sa.avg_hr, sa.coverage
-                 FROM section_activities sa
-                 WHERE sa.section_id = ? AND sa.excluded = 0
-                 ORDER BY sa.activity_id, sa.start_index"
-                        .to_string(),
-                    vec![Box::new(section_id.to_string()) as Box<dyn rusqlite::types::ToSql>],
-                ),
-            };
-        let mut stmt = match self.db.prepare(&query) {
-            Ok(s) => s,
-            Err(e) => {
-                log::warn!("Failed to prepare portion query: {}", e);
-                return SectionPerformanceResult {
-                    records: vec![],
-                    best_record: None,
-                    best_forward_record: None,
-                    best_reverse_record: None,
-                    forward_stats: None,
-                    reverse_stats: None,
-                };
-            }
+        // The stream a portion with no cached lap time falls back to is loaded
+        // into the LRU first, so the lookup below is a peek and the borrow of
+        // `self` it takes is a shared one.
+        let owed: Vec<String> = {
+            let mut owed: Vec<String> = portions
+                .iter()
+                .filter(|p| p.lap_time.is_none() || p.lap_pace.is_none())
+                .map(|p| p.activity_id.clone())
+                .collect();
+            owed.sort();
+            owed.dedup();
+            owed
         };
-
-        struct CachedPortion {
-            activity_id: String,
-            direction: String,
-            start_index: u32,
-            end_index: u32,
-            distance_meters: f64,
-            lap_time: Option<f64>,
-            lap_pace: Option<f64>,
-            avg_hr: Option<f64>,
-            coverage: Option<f64>,
-        }
-
-        let params_refs: Vec<&dyn rusqlite::types::ToSql> =
-            query_params.iter().map(|p| p.as_ref()).collect();
-        let portions: Vec<CachedPortion> = match stmt.query_map(params_refs.as_slice(), |row| {
-            Ok(CachedPortion {
-                activity_id: row.get(0)?,
-                direction: row.get(1)?,
-                start_index: row.get(2)?,
-                end_index: row.get(3)?,
-                distance_meters: row.get(4)?,
-                lap_time: row.get(5)?,
-                lap_pace: row.get(6)?,
-                avg_hr: row.get(7)?,
-                coverage: row.get(8)?,
-            })
-        }) {
-            Ok(iter) => match iter.collect::<Result<Vec<_>, _>>() {
-                Ok(v) => v,
-                Err(e) => {
-                    log::warn!("Failed to deserialize portion row: {}", e);
-                    return SectionPerformanceResult {
-                        records: vec![],
-                        best_record: None,
-                        best_forward_record: None,
-                        best_reverse_record: None,
-                        forward_stats: None,
-                        reverse_stats: None,
-                    };
-                }
-            },
-            Err(e) => {
-                log::warn!("Failed to query portions: {}", e);
-                return SectionPerformanceResult {
-                    records: vec![],
-                    best_record: None,
-                    best_forward_record: None,
-                    best_reverse_record: None,
-                    forward_stats: None,
-                    reverse_stats: None,
-                };
-            }
-        };
-
-        // Drop the statement to release the borrow on self.db
-        drop(stmt);
-
-        // Group portions by activity
-        let mut portions_by_activity: HashMap<String, Vec<CachedPortion>> = HashMap::new();
-        for portion in portions {
-            portions_by_activity
-                .entry(portion.activity_id.clone())
-                .or_default()
-                .push(portion);
-        }
-
-        // Pre-load time streams for any activities with cache misses
-        // This avoids borrow checker issues when processing records
-        let activity_ids_needing_streams: Vec<String> = portions_by_activity
-            .iter()
-            .filter(|(_, portions)| {
-                portions
-                    .iter()
-                    .any(|p| p.lap_time.is_none() || p.lap_pace.is_none())
-            })
-            .map(|(id, _)| id.clone())
-            .collect();
-
-        for activity_id in activity_ids_needing_streams {
+        for activity_id in owed {
             if !self.time_streams.contains(&activity_id) {
                 self.ensure_time_stream_loaded(&activity_id);
             }
         }
 
-        // Pre-load activity metadata from DB for activities not in memory
-        // This handles activities outside the current sync range that still have section_activities rows
-        let mut db_metrics: HashMap<String, (String, i64)> = HashMap::new();
-        for activity_id in portions_by_activity.keys() {
-            if !self.activity_metrics.contains_key(activity_id) {
-                if let Ok((name, date)) = self.db.query_row(
-                    "SELECT name, date FROM activity_metrics WHERE activity_id = ?",
-                    params![activity_id],
-                    |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
-                ) {
-                    db_metrics.insert(activity_id.clone(), (name, date));
-                }
-            }
-        }
-
-        // Build performance records
-        let mut records: Vec<SectionPerformanceRecord> = portions_by_activity
-            .iter()
-            .filter_map(|(activity_id, portions)| {
-                // Get activity name and date from in-memory cache or DB fallback
-                let (activity_name, activity_date) =
-                    if let Some(m) = self.activity_metrics.get(activity_id) {
-                        (m.name.clone(), m.date)
-                    } else if let Some((name, date)) = db_metrics.get(activity_id) {
-                        (name.clone(), *date)
-                    } else {
-                        return None;
-                    };
-
-                let laps: Vec<SectionLap> = portions
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, portion)| {
-                        // Use cached values if available, otherwise fall back to calculation
-                        let (lap_time, lap_pace) = match (portion.lap_time, portion.lap_pace) {
-                            (Some(t), Some(p)) => (t, p),
-                            _ => {
-                                // Cache miss: a row a migration or a corrupt write left
-                                // unpopulated. The pre-loading step above has the stream.
-                                let Some(times) = self.time_streams.peek(activity_id) else {
-                                    log::debug!(
-                                        "No time stream available for {}, lap {} - skipping",
-                                        activity_id,
-                                        i
-                                    );
-                                    return None;
-                                };
-                                match super::super::sections::compute_lap_time_from_stream(
-                                    Some(times.as_slice()),
-                                    portion.start_index,
-                                    portion.end_index,
-                                    portion.distance_meters,
-                                ) {
-                                    (Some(t), Some(p)) => (t, p),
-                                    _ => return None,
-                                }
-                            }
-                        };
-
-                        if lap_time <= 0.0 {
-                            return None;
-                        }
-
-                        Some(SectionLap {
-                            id: format!("{}_lap{}", activity_id, i),
-                            activity_id: activity_id.to_string(),
-                            time: lap_time,
-                            pace: lap_pace,
-                            distance: portion.distance_meters,
-                            direction: portion.direction.clone(),
-                            start_index: portion.start_index,
-                            end_index: portion.end_index,
-                            avg_hr: portion.avg_hr,
-                            coverage: portion.coverage,
-                        })
-                    })
-                    .collect();
-
-                if laps.is_empty() {
-                    return None;
-                }
-
-                let lap_count = laps.len() as u32;
-                // Only a complete traversal can be the best. A partial-direction
-                // lap covers a fragment by definition, and a lap that spans too
-                // little of the section is a fragment whatever its own length
-                // says: `covers_enough_for_record` is that one rule.
-                let canonical_distance_for_record = section.distance_meters;
-                let best_lap = laps
-                    .iter()
-                    .filter(|lap| {
-                        if lap.direction == "partial" {
-                            return false;
-                        }
-                        crate::persistence::records::covers_enough_for_record(
-                            lap.coverage,
-                            lap.distance,
-                            canonical_distance_for_record,
-                        )
-                    })
-                    .max_by(|a, b| {
-                        a.pace
-                            .partial_cmp(&b.pace)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                    });
-                let (best_time, best_pace) = best_lap
-                    .map(|lap| (lap.time, lap.pace))
-                    .unwrap_or((0.0, 0.0));
-                let avg_time = laps.iter().map(|l| l.time).sum::<f64>() / lap_count as f64;
-                let avg_pace = laps.iter().map(|l| l.pace).sum::<f64>() / lap_count as f64;
-                let direction = laps
-                    .first()
-                    .map(|l| l.direction.clone())
-                    .unwrap_or_else(|| "same".to_string());
-                let section_distance = section.distance_meters;
-
-                Some(SectionPerformanceRecord {
-                    activity_id: activity_id.to_string(),
-                    activity_name: activity_name.clone(),
-                    activity_date,
-                    laps,
-                    lap_count,
-                    best_time,
-                    best_pace,
-                    avg_time,
-                    avg_pace,
-                    direction,
-                    section_distance,
-                })
-            })
-            .collect();
-
-        log::trace!("Built {} performance records", records.len());
-
-        // Sort by date
-        records.sort_by_key(|r| r.activity_date);
-
-        // Find best record (fastest pace/speed) - overall
-        let best_record = records
-            .iter()
-            .max_by(|a, b| {
-                a.best_pace
-                    .partial_cmp(&b.best_pace)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .cloned();
-
-        // Scan all laps across all records to find per-direction bests.
-        // This fixes the bug where record-level direction (first lap) and
-        // cross-direction best_time gave wrong per-direction PRs.
-        //
-        // PR completeness rules (apply to BOTH per-direction best and stats):
-        //  1. Skip "partial" direction laps - by definition a partial overlap
-        //     only covers some of the section, so its lap_time is for that
-        //     fragment, not a full traversal. Including it produces
-        //     impossibly fast PR times like "1:24" on a section that takes
-        //     6 minutes.
-        //  2. Skip laps that span too little of the section, which
-        //     `covers_enough_for_record` decides: measured coverage where the
-        //     backfill has reached the row, the old length ratio where it has
-        //     not. A lap labelled "same" that joins a third of the way along is
-        //     still an incomplete traversal.
-        let canonical_distance = section.distance_meters;
-
-        let mut best_fwd_speed = 0.0f64;
-        let mut best_fwd_record_idx: Option<usize> = None;
-        let mut best_fwd_time = 0.0f64;
-        let mut best_fwd_pace = 0.0f64;
-        let mut best_rev_speed = 0.0f64;
-        let mut best_rev_record_idx: Option<usize> = None;
-        let mut best_rev_time = 0.0f64;
-        let mut best_rev_pace = 0.0f64;
-
-        let mut fwd_times: Vec<f64> = Vec::new();
-        let mut fwd_last_date: Option<i64> = None;
-        let mut rev_times: Vec<f64> = Vec::new();
-        let mut rev_last_date: Option<i64> = None;
-
-        for (i, record) in records.iter().enumerate() {
-            for lap in &record.laps {
-                // Rule 1: partial direction = incomplete traversal, skip.
-                if lap.direction == "partial" {
-                    continue;
-                }
-                // Rule 2: too little of the section covered.
-                if !crate::persistence::records::covers_enough_for_record(
-                    lap.coverage,
-                    lap.distance,
-                    canonical_distance,
-                ) {
-                    continue;
-                }
-
-                let is_rev = lap.direction == "reverse";
-                if is_rev {
-                    rev_times.push(lap.time);
-                    rev_last_date = Some(
-                        rev_last_date
-                            .map_or(record.activity_date, |d: i64| d.max(record.activity_date)),
-                    );
-                    if lap.pace > best_rev_speed {
-                        best_rev_speed = lap.pace;
-                        best_rev_time = lap.time;
-                        best_rev_pace = lap.pace;
-                        best_rev_record_idx = Some(i);
-                    }
-                } else {
-                    fwd_times.push(lap.time);
-                    fwd_last_date = Some(
-                        fwd_last_date
-                            .map_or(record.activity_date, |d: i64| d.max(record.activity_date)),
-                    );
-                    if lap.pace > best_fwd_speed {
-                        best_fwd_speed = lap.pace;
-                        best_fwd_time = lap.time;
-                        best_fwd_pace = lap.pace;
-                        best_fwd_record_idx = Some(i);
-                    }
-                }
-            }
-        }
-
-        // Construct per-direction best records with direction-correct times
-        let best_forward_record = best_fwd_record_idx.map(|idx| {
-            let mut r = records[idx].clone();
-            r.best_time = best_fwd_time;
-            r.best_pace = best_fwd_pace;
-            r.direction = "same".to_string();
-            r
-        });
-
-        let best_reverse_record = best_rev_record_idx.map(|idx| {
-            let mut r = records[idx].clone();
-            r.best_time = best_rev_time;
-            r.best_pace = best_rev_pace;
-            r.direction = "reverse".to_string();
-            r
-        });
-
-        // Compute forward direction stats from lap-level data
-        let forward_stats = if fwd_times.is_empty() {
-            None
-        } else {
-            let count = fwd_times.len() as u32;
-            let avg_time = fwd_times.iter().sum::<f64>() / count as f64;
-            Some(DirectionStats {
-                avg_time: Some(avg_time),
-                last_activity: fwd_last_date,
-                count,
-                avg_speed: None,
-            })
-        };
-
-        // Compute reverse direction stats from lap-level data
-        let reverse_stats = if rev_times.is_empty() {
-            None
-        } else {
-            let count = rev_times.len() as u32;
-            let avg_time = rev_times.iter().sum::<f64>() / count as f64;
-            Some(DirectionStats {
-                avg_time: Some(avg_time),
-                last_activity: rev_last_date,
-                count,
-                avg_speed: None,
-            })
-        };
-
-        let result = SectionPerformanceResult {
-            records,
-            best_record,
-            best_forward_record,
-            best_reverse_record,
-            forward_stats,
-            reverse_stats,
-        };
+        let result = laps::performances(
+            section_distance,
+            portions,
+            |id| {
+                self.activity_metrics
+                    .get(id)
+                    .map(|m| (m.name.clone(), m.date))
+                    // An activity outside the synced window still has section
+                    // rows, and its name and date are in SQLite.
+                    .or_else(|| laps::activity_meta(&self.db, id))
+            },
+            |id| {
+                self.time_streams
+                    .peek(id)
+                    .map(|times| (times.clone(), self.track_point_count(id)))
+            },
+        );
 
         log::trace!(
             "[PERF] get_section_performances({}) -> {} records in {:?}",
@@ -972,207 +1039,23 @@ impl PersistentEngine {
         current_activity_id: Option<&str>,
         sport_type_filter: Option<&str>,
     ) -> RoutePerformanceResult {
-        // Find the group
-        let group = match self.groups.iter().find(|g| g.group_id == route_group_id) {
-            Some(g) => g,
-            None => {
-                log::debug!(
-                    "veloqrs: get_route_performances: group {} not found",
-                    route_group_id
-                );
-                return RoutePerformanceResult {
-                    performances: vec![],
-                    activity_metrics: vec![],
-                    best: None,
-                    best_forward: None,
-                    best_reverse: None,
-                    forward_stats: None,
-                    reverse_stats: None,
-                    current_rank: None,
-                    attempt_count: 0,
-                    percentile_rank: None,
-                };
-            }
+        let Some(group) = self.groups.iter().find(|g| g.group_id == route_group_id) else {
+            log::debug!(
+                "veloqrs: get_route_performances: group {} not found",
+                route_group_id
+            );
+            return empty_route_performances();
         };
-
-        // Get match info for this route
-        let match_info = self.activity_matches.get(route_group_id);
-        log::debug!(
-            "veloqrs: get_route_performances: group {} has {} activities, match_info: {}",
-            route_group_id,
-            group.activity_ids.len(),
-            match_info.map(|m| m.len()).unwrap_or(0)
-        );
-
-        // Get excluded activity IDs for this route
-        let excluded_ids = self.get_excluded_route_activity_ids(route_group_id);
-
-        // Build performances from metrics + collect metrics for inline return
-        let mut performances: Vec<RoutePerformance> = Vec::new();
-        let mut metrics_list: Vec<ActivityMetrics> = Vec::new();
-
-        for id in &group.activity_ids {
-            // Skip excluded activities
-            if excluded_ids.contains(id) {
-                continue;
-            }
-            if let Some(metrics) = self.activity_metrics.get(id) {
-                // Filter by sport type if specified
-                if let Some(filter) = sport_type_filter {
-                    if metrics.sport_type != filter {
-                        continue;
-                    }
-                }
-
-                let speed = if metrics.moving_time > 0 {
-                    metrics.distance / metrics.moving_time as f64
-                } else {
-                    0.0
-                };
-
-                // Look up match info for this activity (optional - may not exist for old data)
-                let match_data =
-                    match_info.and_then(|matches| matches.iter().find(|m| m.activity_id == *id));
-                let match_percentage = match_data.map(|m| m.match_percentage);
-                let direction = match_data
-                    .map(|m| m.direction.clone())
-                    .unwrap_or(Direction::Same);
-
-                performances.push(RoutePerformance {
-                    activity_id: id.clone(),
-                    name: metrics.name.clone(),
-                    date: metrics.date,
-                    speed,
-                    duration: metrics.moving_time,
-                    moving_time: metrics.moving_time,
-                    distance: metrics.distance,
-                    elevation_gain: metrics.elevation_gain,
-                    avg_hr: metrics.avg_hr,
-                    avg_power: metrics.avg_power,
-                    is_current: current_activity_id == Some(id.as_str()),
-                    direction: direction.to_string(),
-                    match_percentage,
-                });
-
-                // Collect metrics for inline return
-                metrics_list.push(metrics.clone());
-            }
-        }
-
-        // Sort by date (oldest first for charting)
-        performances.sort_by_key(|p| p.date);
-
-        // Find best (shortest moving time) - overall
-        let best = performances
-            .iter()
-            .filter(|p| p.moving_time > 0)
-            .min_by_key(|p| p.moving_time)
-            .cloned();
-
-        // Find best forward
-        let best_forward = performances
-            .iter()
-            .filter(|p| p.direction == "same" && p.moving_time > 0)
-            .min_by_key(|p| p.moving_time)
-            .cloned();
-
-        // Find best reverse
-        let best_reverse = performances
-            .iter()
-            .filter(|p| p.direction == "reverse" && p.moving_time > 0)
-            .min_by_key(|p| p.moving_time)
-            .cloned();
-
-        // Calculate current rank (1 = shortest time)
-        let current_rank = current_activity_id.and_then(|current_id| {
-            let mut by_time = performances.clone();
-            by_time.sort_by_key(|p| p.moving_time);
-            by_time
-                .iter()
-                .position(|p| p.activity_id == current_id)
-                .map(|idx| (idx + 1) as u32)
-        });
-
-        // Compute forward direction stats
-        let forward_perfs: Vec<_> = performances
-            .iter()
-            .filter(|p| p.direction == "same")
-            .collect();
-        let forward_stats = if forward_perfs.is_empty() {
-            None
-        } else {
-            let count = forward_perfs.len() as u32;
-            let avg_time = forward_perfs
-                .iter()
-                .map(|p| p.moving_time as f64)
-                .sum::<f64>()
-                / count as f64;
-            let valid_speeds: Vec<f64> = forward_perfs
-                .iter()
-                .map(|p| p.speed)
-                .filter(|s| s.is_finite() && *s > 0.0)
-                .collect();
-            let avg_speed = if valid_speeds.is_empty() {
-                None
-            } else {
-                Some(valid_speeds.iter().sum::<f64>() / valid_speeds.len() as f64)
-            };
-            let last_activity = forward_perfs.iter().max_by_key(|p| p.date).map(|p| p.date);
-            Some(DirectionStats {
-                avg_time: Some(avg_time),
-                last_activity,
-                count,
-                avg_speed,
-            })
-        };
-
-        // Compute reverse direction stats
-        let reverse_perfs: Vec<_> = performances
-            .iter()
-            .filter(|p| p.direction == "reverse")
-            .collect();
-        let reverse_stats = if reverse_perfs.is_empty() {
-            None
-        } else {
-            let count = reverse_perfs.len() as u32;
-            let avg_time = reverse_perfs
-                .iter()
-                .map(|p| p.moving_time as f64)
-                .sum::<f64>()
-                / count as f64;
-            let valid_speeds: Vec<f64> = reverse_perfs
-                .iter()
-                .map(|p| p.speed)
-                .filter(|s| s.is_finite() && *s > 0.0)
-                .collect();
-            let avg_speed = if valid_speeds.is_empty() {
-                None
-            } else {
-                Some(valid_speeds.iter().sum::<f64>() / valid_speeds.len() as f64)
-            };
-            let last_activity = reverse_perfs.iter().max_by_key(|p| p.date).map(|p| p.date);
-            Some(DirectionStats {
-                avg_time: Some(avg_time),
-                last_activity,
-                count,
-                avg_speed,
-            })
-        };
-
-        let (attempt_count, percentile_rank) = attempt_standing(&performances, current_activity_id);
-
-        RoutePerformanceResult {
-            performances,
-            activity_metrics: metrics_list,
-            best,
-            best_forward,
-            best_reverse,
-            forward_stats,
-            reverse_stats,
-            current_rank,
-            attempt_count,
-            percentile_rank,
-        }
+        route_performances(
+            &group.activity_ids,
+            self.activity_matches
+                .get(route_group_id)
+                .map(|m| m.as_slice()),
+            &self.get_excluded_route_activity_ids(route_group_id),
+            |id| self.activity_metrics.get(id).cloned(),
+            current_activity_id,
+            sport_type_filter,
+        )
     }
 
     /// Get route performances for excluded activities only.
@@ -1286,6 +1169,144 @@ impl PersistentEngine {
 mod tests {
     use rusqlite::params;
 
+    /// Scenario: the section detail screen's performance read is behind the
+    /// engine write lock, and the pooled reader has to answer it from SQLite
+    /// alone, with no memory tier and no LRU.
+    ///
+    /// Expected behaviour: the two paths agree, row for row, including the
+    /// lap a NULL `lap_time` forces to be computed from the stored time
+    /// stream, which the engine reads out of its LRU and the pool reads out
+    /// of `time_streams`.
+    #[test]
+    fn pooled_section_performances_match_the_ones_a_lock_holder_gets() {
+        let mut engine = engine_with_null_laps(1);
+        seed_metrics(&mut engine, "a1");
+        engine
+            .db
+            .execute(
+                "INSERT INTO section_activities (section_id, activity_id, direction,
+                    start_index, end_index, distance_meters, lap_time, lap_pace, coverage)
+                 VALUES ('s0', 'a1', 'reverse', 2, 6, 400.0, 220.0, 1.82, 1.0)",
+                [],
+            )
+            .unwrap();
+
+        let through_the_lock = engine.get_section_performances_filtered("s0", None);
+        let through_the_pool = super::pooled::section_performances(&engine.db, "s0", None);
+
+        assert_same_performances(&through_the_pool, &through_the_lock);
+        assert!(
+            !through_the_lock.records.is_empty(),
+            "the section has a traversal, so there is something to compare"
+        );
+    }
+
+    /// A section nobody has ridden, and one that is not there at all, answer
+    /// the same emptiness on both paths rather than a shape with zeroes in it.
+    #[test]
+    fn pooled_section_performances_are_empty_for_a_section_with_no_laps() {
+        let mut engine = engine_with_null_laps(0);
+
+        for id in ["s0", "missing"] {
+            let through_the_lock = engine.get_section_performances_filtered(id, None);
+            let through_the_pool = super::pooled::section_performances(&engine.db, id, None);
+            assert!(through_the_lock.records.is_empty());
+            assert_same_performances(&through_the_pool, &through_the_lock);
+        }
+    }
+
+    /// The sport filter is part of the question, so a filter that excludes the
+    /// only activity empties both answers.
+    #[test]
+    fn pooled_section_performances_honour_the_sport_filter() {
+        let mut engine = engine_with_null_laps(1);
+        seed_metrics(&mut engine, "a1");
+
+        let ride = engine.get_section_performances_filtered("s0", Some("Ride"));
+        let run = engine.get_section_performances_filtered("s0", Some("Run"));
+
+        assert_same_performances(
+            &super::pooled::section_performances(&engine.db, "s0", Some("Ride")),
+            &ride,
+        );
+        assert_same_performances(
+            &super::pooled::section_performances(&engine.db, "s0", Some("Run")),
+            &run,
+        );
+        assert!(run.records.is_empty(), "the only activity is a ride");
+    }
+
+    /// An activity the section rows name, with the name and date a record
+    /// carries. `add_activity` stores a track, not a metrics row.
+    fn seed_metrics(engine: &mut PersistentEngine, id: &str) {
+        engine
+            .set_activity_metrics(vec![crate::ActivityMetrics {
+                activity_id: id.to_string(),
+                name: format!("{id} ride"),
+                date: 1_700_000_000,
+                distance: 40_000.0,
+                moving_time: 3_600,
+                elapsed_time: 3_700,
+                elevation_gain: 400.0,
+                avg_hr: None,
+                avg_power: None,
+                sport_type: "Ride".to_string(),
+                training_load: None,
+                ftp: None,
+                power_zone_times: None,
+                hr_zone_times: None,
+            }])
+            .unwrap();
+    }
+
+    fn assert_same_performances(
+        pooled: &super::SectionPerformanceResult,
+        locked: &super::SectionPerformanceResult,
+    ) {
+        let key = |r: &super::SectionPerformanceResult| {
+            (
+                r.records
+                    .iter()
+                    .map(|p| {
+                        (
+                            p.activity_id.clone(),
+                            p.activity_name.clone(),
+                            p.activity_date,
+                            p.lap_count,
+                            format!("{:.6}", p.best_time),
+                            format!("{:.6}", p.best_pace),
+                            format!("{:.6}", p.avg_time),
+                            p.direction.clone(),
+                            p.laps
+                                .iter()
+                                .map(|l| {
+                                    (
+                                        l.id.clone(),
+                                        format!("{:.6}", l.time),
+                                        format!("{:.6}", l.pace),
+                                        l.direction.clone(),
+                                        l.start_index,
+                                        l.end_index,
+                                    )
+                                })
+                                .collect::<Vec<_>>(),
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                r.best_record.as_ref().map(|b| b.activity_id.clone()),
+                r.best_forward_record
+                    .as_ref()
+                    .map(|b| (b.activity_id.clone(), format!("{:.6}", b.best_time))),
+                r.best_reverse_record
+                    .as_ref()
+                    .map(|b| (b.activity_id.clone(), format!("{:.6}", b.best_time))),
+                r.forward_stats.as_ref().map(|s| (s.count, s.last_activity)),
+                r.reverse_stats.as_ref().map(|s| (s.count, s.last_activity)),
+            )
+        };
+        assert_eq!(key(pooled), key(locked));
+    }
+
     use super::super::super::PersistentEngine;
     use super::super::super::commit_counter;
     use super::attempt_standing;
@@ -1331,6 +1352,59 @@ mod tests {
                 .unwrap();
         }
         engine
+    }
+
+    /// Statements SQLite ran, for counting the whole-table scan the backfill
+    /// makes. `Connection::trace` takes a plain function pointer, so the sink
+    /// is a static rather than a captured counter.
+    mod traced {
+        use std::sync::Mutex;
+
+        static SQL: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+        pub fn record(sql: &str) {
+            SQL.lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .push(sql.to_string());
+        }
+
+        pub fn reset() {
+            SQL.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        }
+
+        /// How many statements ran the backfill's own scan. Its predicate,
+        /// rather than any mention of the column: the lap sensor enrichment
+        /// pass reads the same table on `lap_time IS NULL OR avg_hr IS NULL`.
+        pub fn lap_scans() -> usize {
+            SQL.lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .iter()
+                .filter(|sql| sql.contains("WHERE sa.lap_time IS NULL AND sa.excluded = 0"))
+                .count()
+        }
+    }
+
+    /// Scenario: a GPS sync stores one activity's stream, then finalises the
+    /// batch.
+    ///
+    /// Expected behaviour: the per-activity store runs no lap scan. The
+    /// backfill's query has no index leading on `lap_time`, so a 490-activity
+    /// sync paid 490 whole-table scans under the write lock, each finding
+    /// nothing, because the attach fills `lap_time` at insert anyway.
+    #[test]
+    fn storing_a_stream_leaves_the_lap_scan_to_the_batch_tail() {
+        let mut engine = engine_with_null_laps(1);
+        engine.db.trace(Some(traced::record));
+
+        traced::reset();
+        engine.store_time_streams_flat(&["a1".to_string()], &[0, 10, 20, 30, 40, 50, 60, 70], &[0]);
+        assert_eq!(traced::lap_scans(), 0, "the ingest path scans nothing");
+
+        traced::reset();
+        engine.attach_finalize(0);
+        assert_eq!(traced::lap_scans(), 1, "the batch tail scans once");
+
+        engine.db.trace(None);
     }
 
     /// The lazy populate the section screen triggers had the same one-commit-
@@ -1500,4 +1574,206 @@ pub(crate) fn portion_coverage(
     let first = progress_along(line, &cumulative, &track[start]);
     let last = progress_along(line, &cumulative, &track[end - 1]);
     Some((last - first).abs().clamp(0.0, 1.0))
+}
+
+/// The route performance result, from a group's membership and its members'
+/// metrics, whichever side loaded them.
+///
+/// The engine hands it its in-memory tier and a pooled reader hands it rows
+/// read from `route_groups`, `activity_matches` and `activity_metrics`, so the
+/// arithmetic lives here once rather than twice.
+pub(crate) fn route_performances<F>(
+    activity_ids: &[String],
+    match_info: Option<&[crate::ActivityMatchInfo]>,
+    excluded_ids: &[String],
+    metrics_of: F,
+    current_activity_id: Option<&str>,
+    sport_type_filter: Option<&str>,
+) -> RoutePerformanceResult
+where
+    F: Fn(&str) -> Option<ActivityMetrics>,
+{
+    // Build performances from metrics + collect metrics for inline return
+    let mut performances: Vec<RoutePerformance> = Vec::new();
+    let mut metrics_list: Vec<ActivityMetrics> = Vec::new();
+
+    for id in activity_ids {
+        // Skip excluded activities
+        if excluded_ids.contains(id) {
+            continue;
+        }
+        if let Some(metrics) = metrics_of(id) {
+            // Filter by sport type if specified
+            if let Some(filter) = sport_type_filter {
+                if metrics.sport_type != filter {
+                    continue;
+                }
+            }
+
+            let speed = if metrics.moving_time > 0 {
+                metrics.distance / metrics.moving_time as f64
+            } else {
+                0.0
+            };
+
+            // Look up match info for this activity (optional - may not exist for old data)
+            let match_data =
+                match_info.and_then(|matches| matches.iter().find(|m| m.activity_id == *id));
+            let match_percentage = match_data.map(|m| m.match_percentage);
+            let direction = match_data
+                .map(|m| m.direction.clone())
+                .unwrap_or(Direction::Same);
+
+            performances.push(RoutePerformance {
+                activity_id: id.clone(),
+                name: metrics.name.clone(),
+                date: metrics.date,
+                speed,
+                duration: metrics.moving_time,
+                moving_time: metrics.moving_time,
+                distance: metrics.distance,
+                elevation_gain: metrics.elevation_gain,
+                avg_hr: metrics.avg_hr,
+                avg_power: metrics.avg_power,
+                is_current: current_activity_id == Some(id.as_str()),
+                direction: direction.to_string(),
+                match_percentage,
+            });
+
+            // Collect metrics for inline return
+            metrics_list.push(metrics);
+        }
+    }
+
+    // Sort by date (oldest first for charting)
+    performances.sort_by_key(|p| p.date);
+
+    // Find best (shortest moving time) - overall
+    let best = performances
+        .iter()
+        .filter(|p| p.moving_time > 0)
+        .min_by_key(|p| p.moving_time)
+        .cloned();
+
+    // Find best forward
+    let best_forward = performances
+        .iter()
+        .filter(|p| p.direction == "same" && p.moving_time > 0)
+        .min_by_key(|p| p.moving_time)
+        .cloned();
+
+    // Find best reverse
+    let best_reverse = performances
+        .iter()
+        .filter(|p| p.direction == "reverse" && p.moving_time > 0)
+        .min_by_key(|p| p.moving_time)
+        .cloned();
+
+    // Calculate current rank (1 = shortest time)
+    let current_rank = current_activity_id.and_then(|current_id| {
+        let mut by_time = performances.clone();
+        by_time.sort_by_key(|p| p.moving_time);
+        by_time
+            .iter()
+            .position(|p| p.activity_id == current_id)
+            .map(|idx| (idx + 1) as u32)
+    });
+
+    // Compute forward direction stats
+    let forward_perfs: Vec<_> = performances
+        .iter()
+        .filter(|p| p.direction == "same")
+        .collect();
+    let forward_stats = if forward_perfs.is_empty() {
+        None
+    } else {
+        let count = forward_perfs.len() as u32;
+        let avg_time = forward_perfs
+            .iter()
+            .map(|p| p.moving_time as f64)
+            .sum::<f64>()
+            / count as f64;
+        let valid_speeds: Vec<f64> = forward_perfs
+            .iter()
+            .map(|p| p.speed)
+            .filter(|s| s.is_finite() && *s > 0.0)
+            .collect();
+        let avg_speed = if valid_speeds.is_empty() {
+            None
+        } else {
+            Some(valid_speeds.iter().sum::<f64>() / valid_speeds.len() as f64)
+        };
+        let last_activity = forward_perfs.iter().max_by_key(|p| p.date).map(|p| p.date);
+        Some(DirectionStats {
+            avg_time: Some(avg_time),
+            last_activity,
+            count,
+            avg_speed,
+        })
+    };
+
+    // Compute reverse direction stats
+    let reverse_perfs: Vec<_> = performances
+        .iter()
+        .filter(|p| p.direction == "reverse")
+        .collect();
+    let reverse_stats = if reverse_perfs.is_empty() {
+        None
+    } else {
+        let count = reverse_perfs.len() as u32;
+        let avg_time = reverse_perfs
+            .iter()
+            .map(|p| p.moving_time as f64)
+            .sum::<f64>()
+            / count as f64;
+        let valid_speeds: Vec<f64> = reverse_perfs
+            .iter()
+            .map(|p| p.speed)
+            .filter(|s| s.is_finite() && *s > 0.0)
+            .collect();
+        let avg_speed = if valid_speeds.is_empty() {
+            None
+        } else {
+            Some(valid_speeds.iter().sum::<f64>() / valid_speeds.len() as f64)
+        };
+        let last_activity = reverse_perfs.iter().max_by_key(|p| p.date).map(|p| p.date);
+        Some(DirectionStats {
+            avg_time: Some(avg_time),
+            last_activity,
+            count,
+            avg_speed,
+        })
+    };
+
+    let (attempt_count, percentile_rank) = attempt_standing(&performances, current_activity_id);
+
+    RoutePerformanceResult {
+        performances,
+        activity_metrics: metrics_list,
+        best,
+        best_forward,
+        best_reverse,
+        forward_stats,
+        reverse_stats,
+        current_rank,
+        attempt_count,
+        percentile_rank,
+    }
+}
+
+/// What a route with no group answers: nothing, rather than a shape with
+/// zeroes in it that a caller would read as a route nobody has ridden.
+fn empty_route_performances() -> RoutePerformanceResult {
+    RoutePerformanceResult {
+        performances: vec![],
+        activity_metrics: vec![],
+        best: None,
+        best_forward: None,
+        best_reverse: None,
+        forward_stats: None,
+        reverse_stats: None,
+        current_rank: None,
+        attempt_count: 0,
+        percentile_rank: None,
+    }
 }

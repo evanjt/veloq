@@ -113,6 +113,21 @@ pub struct SectionGeometryVersion {
     pub milestone: bool,
 }
 
+/// Open a quarantined database to read what can still be salvaged out of it.
+///
+/// Read-only first, which is what a file that may be corrupt deserves. But
+/// SQLite cannot open a WAL database read-only unless the `-shm` sidecar is
+/// already there, and a cleanly closed one has none: the mode is in the
+/// header and the sidecars are gone. Every database here is WAL, so
+/// read-only alone would have made salvage return nothing on exactly the
+/// files it exists for. The fallback opens read-write, which lets SQLite
+/// create the sidecar; nothing here writes to the file.
+fn open_quarantined(path: &str) -> Option<rusqlite::Connection> {
+    rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .or_else(|_| rusqlite::Connection::open(path))
+        .ok()
+}
+
 /// What one quarantine salvage carried into the fresh database, per table.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct SalvageCounts {
@@ -907,25 +922,7 @@ impl PersistentEngine {
     /// the re-cuts, splits, restores and reverts a feed can point at. A
     /// section's birth and its record re-basing are not changes to it.
     pub fn recent_section_changes(&self, days: u32) -> Vec<SectionChange> {
-        let Ok(mut stmt) = self.db.prepare(
-            "SELECT h.section_id, h.kind, h.at FROM section_history h
-             JOIN sections s ON s.id = h.section_id
-             WHERE h.kind IN ('recut', 'split', 'restored', 'reverted')
-               AND h.at >= datetime('now', ?)
-             ORDER BY h.id DESC",
-        ) else {
-            return Vec::new();
-        };
-        let window = format!("-{days} days");
-        let rows = stmt.query_map(params![window], |row| {
-            Ok(SectionChange {
-                section_id: row.get(0)?,
-                kind: row.get(1)?,
-                at: row.get(2)?,
-            })
-        });
-        rows.map(|iter| iter.flatten().collect())
-            .unwrap_or_default()
+        pooled::recent_section_changes(&self.db, days)
     }
 
     /// Every live section born as a split sibling, with its parent and
@@ -971,21 +968,7 @@ impl PersistentEngine {
     /// The surviving versions of one section, oldest first, polylines
     /// excluded.
     pub fn section_geometry_versions(&self, section_id: &str) -> Vec<SectionGeometryVersion> {
-        let Ok(mut stmt) = self.db.prepare(
-            "SELECT version, created_at, milestone FROM section_geometry
-             WHERE section_id = ? ORDER BY version",
-        ) else {
-            return Vec::new();
-        };
-        let rows = stmt.query_map(params![section_id], |row| {
-            Ok(SectionGeometryVersion {
-                version: row.get(0)?,
-                created_at: row.get(1)?,
-                milestone: row.get::<_, i64>(2)? != 0,
-            })
-        });
-        rows.map(|iter| iter.flatten().collect())
-            .unwrap_or_default()
+        pooled::section_geometry_versions(&self.db, section_id)
     }
 
     /// Append one lifecycle event at the current time. Returns the event row id.
@@ -1021,23 +1004,7 @@ impl PersistentEngine {
 
     /// Every event of one section, oldest first.
     pub fn section_history(&self, section_id: &str) -> Vec<SectionHistoryEvent> {
-        let Ok(mut stmt) = self.db.prepare(
-            "SELECT id, at, kind, details, geometry_version FROM section_history
-             WHERE section_id = ? ORDER BY id",
-        ) else {
-            return Vec::new();
-        };
-        let rows = stmt.query_map(params![section_id], |row| {
-            Ok(SectionHistoryEvent {
-                id: row.get(0)?,
-                at: row.get(1)?,
-                kind: row.get(2)?,
-                details: row.get(3)?,
-                geometry_version: row.get(4)?,
-            })
-        });
-        rows.map(|iter| iter.flatten().collect())
-            .unwrap_or_default()
+        pooled::section_history(&self.db, section_id)
     }
 
     /// Pin `section_id` at a stored geometry version. Returns false without
@@ -1103,10 +1070,7 @@ impl PersistentEngine {
     /// re-synced activity against the whole catalogue, custom sections
     /// included, so the members come back as the library does.
     pub fn salvage_ledger_from(&self, corrupt_path: &str) -> SalvageCounts {
-        let Ok(src) = rusqlite::Connection::open_with_flags(
-            corrupt_path,
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-        ) else {
+        let Some(src) = open_quarantined(corrupt_path) else {
             return SalvageCounts::default();
         };
         let history = salvage_rows(
@@ -1178,15 +1142,97 @@ impl PersistentEngine {
 
     /// The pinned version of one section, if any.
     pub fn pinned_section_version(&self, section_id: &str) -> Option<i64> {
-        self.db
-            .query_row(
-                "SELECT version FROM section_pins WHERE section_id = ?",
-                params![section_id],
-                |row| row.get(0),
-            )
-            .optional()
-            .ok()
-            .flatten()
+        pooled::pinned_section_version(&self.db, section_id)
+    }
+}
+
+/// The lifecycle reads a screen makes, over a pooled connection rather than
+/// the engine's own. Each one is a plain query on committed rows, so the
+/// engine methods above delegate here rather than carrying a second copy.
+pub(crate) mod pooled {
+    /// Visible changes on live sections in the last `days`, newest first.
+    ///
+    /// Read through the pool as well as through the engine, because the
+    /// insights bundle carries them and is served from the pool's connection.
+    pub(crate) fn recent_section_changes(
+        conn: &rusqlite::Connection,
+        days: u32,
+    ) -> Vec<super::SectionChange> {
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT h.section_id, h.kind, h.at FROM section_history h
+             JOIN sections s ON s.id = h.section_id
+             WHERE h.kind IN ('recut', 'split', 'restored', 'reverted')
+               AND h.at >= datetime('now', ?)
+             ORDER BY h.id DESC",
+        ) else {
+            return Vec::new();
+        };
+        let window = format!("-{days} days");
+        let rows = stmt.query_map(rusqlite::params![window], |row| {
+            Ok(super::SectionChange {
+                section_id: row.get(0)?,
+                kind: row.get(1)?,
+                at: row.get(2)?,
+            })
+        });
+        rows.map(|iter| iter.flatten().collect())
+            .unwrap_or_default()
+    }
+
+    use rusqlite::{Connection, OptionalExtension, params};
+
+    use super::{SectionGeometryVersion, SectionHistoryEvent};
+
+    pub(crate) fn section_geometry_versions(
+        conn: &Connection,
+        section_id: &str,
+    ) -> Vec<SectionGeometryVersion> {
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT version, created_at, milestone FROM section_geometry
+             WHERE section_id = ? ORDER BY version",
+        ) else {
+            return Vec::new();
+        };
+        let rows = stmt.query_map(params![section_id], |row| {
+            Ok(SectionGeometryVersion {
+                version: row.get(0)?,
+                created_at: row.get(1)?,
+                milestone: row.get::<_, i64>(2)? != 0,
+            })
+        });
+        rows.map(|iter| iter.flatten().collect())
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn section_history(conn: &Connection, section_id: &str) -> Vec<SectionHistoryEvent> {
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT id, at, kind, details, geometry_version FROM section_history
+             WHERE section_id = ? ORDER BY id",
+        ) else {
+            return Vec::new();
+        };
+        let rows = stmt.query_map(params![section_id], |row| {
+            Ok(SectionHistoryEvent {
+                id: row.get(0)?,
+                at: row.get(1)?,
+                kind: row.get(2)?,
+                details: row.get(3)?,
+                geometry_version: row.get(4)?,
+            })
+        });
+        rows.map(|iter| iter.flatten().collect())
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn pinned_section_version(conn: &Connection, section_id: &str) -> Option<i64> {
+        conn.query_row(
+            "SELECT version FROM section_pins WHERE section_id = ?",
+            params![section_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .ok()
+        .flatten()
     }
 }
 

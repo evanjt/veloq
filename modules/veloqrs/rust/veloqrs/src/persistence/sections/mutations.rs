@@ -9,7 +9,7 @@ use crate::persistence::PersistentEngine;
 use crate::sections::assign_carried_exclusions;
 use crate::sections::{BatchAttachSummary, CreateSectionParams, IndexActivitySummary, SectionType};
 use rusqlite::{OptionalExtension, params};
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracematch::matching::calculate_route_distance;
 use tracematch::{GpsPoint, SectionPortion};
@@ -238,7 +238,7 @@ impl PersistentEngine {
         // Refresh the materialised activity_indicators table so feed cards
         // pick up section_pr / section_trend chips for the new section without
         // requiring an app restart.
-        if let Err(e) = self.recompute_activity_indicators() {
+        if let Err(e) = self.recompute_indicators_for_section(&id) {
             log::warn!(
                 "veloqrs: [create_section] indicator recompute failed: {}",
                 e
@@ -351,6 +351,16 @@ impl PersistentEngine {
     /// For **custom sections**: Updates both the representative and reloads the polyline from
     /// the new activity using the stored start/end indices.
     pub fn set_section_reference(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+    ) -> Result<(), String> {
+        let done = self.in_write_txn(|e| e.write_set_section_reference(section_id, activity_id));
+        self.resync_section_after_edit(section_id, done.is_err());
+        done
+    }
+
+    fn write_set_section_reference(
         &mut self,
         section_id: &str,
         activity_id: &str,
@@ -620,12 +630,12 @@ impl PersistentEngine {
             .map_err(|e| format!("Failed to clear section activities: {}", e))?;
 
         // Re-add only activities that still match, with full portion details (all laps)
-        for aid in &activity_ids {
-            if let Some(track) = self.get_gps_track(aid) {
-                for portion in
-                    compute_section_portions(aid, &track, new_polyline, &self.section_config)
-                {
-                    self.add_section_activity_with_portion(section_id, &portion)?;
+        if let Some(line) = tracematch::PreparedLine::new(new_polyline, &self.section_config) {
+            for aid in &activity_ids {
+                if let Some(track) = self.get_gps_track(aid) {
+                    for portion in line.portions(aid, &track) {
+                        self.add_section_activity_with_portion(section_id, &portion)?;
+                    }
                 }
             }
         }
@@ -809,6 +819,9 @@ impl PersistentEngine {
         activity_id: &str,
     ) -> Result<IndexActivitySummary, String> {
         let mut summary = IndexActivitySummary::default();
+        // The push path stores its stream through `store_time_streams_flat`,
+        // which leaves the backfill owed. One activity, so one scan.
+        self.backfill_section_performance_cache();
         let (matched, portions) = self.attach_activity_junctions(activity_id)?;
         summary.matched_sections = matched;
         summary.inserted_portions = portions;
@@ -880,41 +893,56 @@ impl PersistentEngine {
             .filter(|(_, portions)| !portions.is_empty())
             .collect();
 
-        let mut matched_sections = 0;
-        let mut inserted_portions = 0;
-        for (section_id, portions) in &matched {
-            matched_sections += 1;
-
-            // Replace any rows a previous run (or a later full detection) left
-            // for this pair, so near-duplicate start_index rows can't stack up.
-            // The exclusion state is a user decision and rides across the
-            // rewrite (whole snapshot: reapplying untouched pairs is a no-op).
-            let exclusions = self.capture_exclusions(section_id);
-            self.db
-                .execute(
-                    "DELETE FROM section_activities WHERE section_id = ? AND activity_id = ?",
-                    params![section_id, activity_id],
-                )
-                .map_err(|e| format!("Failed to clear section_activities: {}", e))?;
-
-            for portion in portions {
-                self.insert_section_activity(
-                    section_id,
-                    activity_id,
-                    &portion.direction,
-                    portion.start_index,
-                    portion.end_index,
-                    portion.distance_meters,
-                )?;
-                inserted_portions += 1;
-            }
-            self.reapply_exclusions(section_id, &exclusions)?;
-            self.refresh_section_in_memory(section_id);
-            self.invalidate_section_cache(section_id);
-            self.invalidate_perf_cache();
+        if matched.is_empty() {
+            return Ok((0, 0));
         }
 
-        Ok((matched_sections, inserted_portions))
+        // Every portion of this activity reads the same series, so it is read
+        // once here rather than once per row inside the insert.
+        let heartrate = self.load_heartrate_series(activity_id);
+
+        // One transaction for the whole activity. Each statement below used to
+        // autocommit with its own fsync, under the write lock every reader
+        // waits on, and a sync pays that once per stored activity.
+        self.in_write_txn(|engine| {
+            let mut matched_sections = 0;
+            let mut inserted_portions = 0;
+            for (section_id, portions) in &matched {
+                matched_sections += 1;
+
+                // Replace any rows a previous run (or a later full detection) left
+                // for this pair, so near-duplicate start_index rows can't stack up.
+                // The exclusion state is a user decision and rides across the
+                // rewrite (whole snapshot: reapplying untouched pairs is a no-op).
+                let exclusions = engine.capture_exclusions(section_id);
+                engine
+                    .db
+                    .prepare_cached(
+                        "DELETE FROM section_activities WHERE section_id = ? AND activity_id = ?",
+                    )
+                    .and_then(|mut stmt| stmt.execute(params![section_id, activity_id]))
+                    .map_err(|e| format!("Failed to clear section_activities: {}", e))?;
+
+                for portion in portions {
+                    engine.insert_section_activity_with_heartrate(
+                        section_id,
+                        activity_id,
+                        &portion.direction,
+                        portion.start_index,
+                        portion.end_index,
+                        portion.distance_meters,
+                        heartrate.as_deref(),
+                    )?;
+                    inserted_portions += 1;
+                }
+                engine.reapply_exclusions(section_id, &exclusions)?;
+                engine.refresh_section_in_memory(section_id);
+                engine.invalidate_section_cache(section_id);
+                engine.invalidate_perf_cache();
+            }
+
+            Ok((matched_sections, inserted_portions))
+        })
     }
 
     /// Per-add half of the attach tier: junction rows for one just-stored
@@ -933,7 +961,12 @@ impl PersistentEngine {
     /// Batch tail of the attach tier: one regroup (ingest marks groups
     /// dirty) or, failing that, one indicator recompute when any junction
     /// rows landed. Returns (regrouped, indicators_recomputed).
+    ///
+    /// The lap backfill runs here, once, for whatever streams the batch
+    /// landed. `store_time_streams_flat` leaves it owed rather than paying a
+    /// whole-table scan per activity under the write lock.
     pub fn attach_finalize(&mut self, inserted_portions: u32) -> (bool, bool) {
+        self.backfill_section_performance_cache();
         if self.groups_dirty {
             self.get_groups();
             (true, true)
@@ -991,11 +1024,20 @@ impl PersistentEngine {
             return Ok(0);
         }
 
-        let activity_ids = if self.section_config.pool_sports {
+        let mut activity_ids = if self.section_config.pool_sports {
             self.get_activity_ids()
         } else {
             self.get_activity_ids_by_sport(sport_type)
         };
+
+        // Anything whose bounds cannot reach the line produces no portion, so
+        // it is dropped before it costs a read. On a library spread across a
+        // country that is nearly all of it.
+        let near: HashSet<String> = self
+            .activities_near_polyline(polyline, self.section_config.proximity_threshold)
+            .into_iter()
+            .collect();
+        activity_ids.retain(|id| near.contains(id));
 
         if activity_ids.is_empty() {
             return Ok(0);
@@ -1008,25 +1050,25 @@ impl PersistentEngine {
             sport_type
         );
 
-        let mut track_map: HashMap<String, Vec<GpsPoint>> = HashMap::new();
-        for aid in &activity_ids {
-            if let Some(track) = self.get_gps_track(aid) {
-                track_map.insert(aid.to_string(), track);
-            }
-        }
-
         let mut match_count: u32 = 0;
 
-        // Compute full portion details for each matching activity (all laps)
+        // One track at a time. Holding every candidate's points at once is a
+        // whole second copy of the library in memory for no gain: each is read
+        // once and used once.
+        let line = tracematch::PreparedLine::new(polyline, &self.section_config);
         for aid in &activity_ids {
-            if let Some(track) = track_map.get(aid) {
-                let portions = compute_section_portions(aid, track, polyline, &self.section_config);
-                if !portions.is_empty() {
-                    for portion in &portions {
-                        self.add_section_activity_with_portion(section_id, portion)?;
-                    }
-                    match_count += 1;
+            let Some(track) = self.get_gps_track(aid) else {
+                continue;
+            };
+            let portions = line
+                .as_ref()
+                .map(|l| l.portions(aid, &track))
+                .unwrap_or_default();
+            if !portions.is_empty() {
+                for portion in &portions {
+                    self.add_section_activity_with_portion(section_id, portion)?;
                 }
+                match_count += 1;
             }
         }
 
@@ -1098,7 +1140,7 @@ impl PersistentEngine {
         // Drop the now-orphaned section_pr / section_trend rows from the
         // materialised indicators table so feed cards stop showing chips
         // for a section the user just removed.
-        if let Err(e) = self.recompute_activity_indicators() {
+        if let Err(e) = self.recompute_indicators_for_section(section_id) {
             log::warn!(
                 "veloqrs: [delete_section] indicator recompute failed: {}",
                 e
@@ -1106,5 +1148,160 @@ impl PersistentEngine {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use super::*;
+    use crate::net::types::StreamDto;
+    use crate::persistence::commit_counter;
+
+    /// A straight run of points, long enough that the matcher takes it for a
+    /// traversal of a section cut from the same ground.
+    fn track() -> Vec<GpsPoint> {
+        (0..200)
+            .map(|i| GpsPoint {
+                latitude: 46.2 + f64::from(i) * 0.0001,
+                longitude: 7.3,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    /// One activity over ground that `sections` sections already cover.
+    fn engine_over_sections(sections: usize) -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let points = track();
+        engine
+            .add_activity("a1".to_string(), points.clone(), "Ride".to_string())
+            .unwrap();
+        let json = serde_json::to_string(&points).unwrap();
+        for s in 0..sections {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                        distance_meters, is_user_defined, version, created_at,
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                     VALUES (?, 'auto', ?, 'Ride', ?, 2200.0, 0, 1, '2026-01-01T00:00:00Z',
+                        46.2, 46.22, 7.3, 7.3)",
+                    params![format!("s{s}"), format!("Section {s}"), json],
+                )
+                .unwrap();
+        }
+        engine.load_sections().unwrap();
+        engine
+    }
+
+    /// Scenario: attach ran a DELETE, an INSERT per portion and an UPDATE per
+    /// exclusion with no transaction, so each statement autocommitted with its
+    /// own fsync, under the write lock, once per activity a sync stored.
+    ///
+    /// Expected behaviour: one commit for the whole attach.
+    #[test]
+    fn attaching_an_activity_across_many_sections_commits_once() {
+        let mut engine = engine_over_sections(12);
+        let commits = commit_counter::watch(&engine);
+
+        let (matched, portions) = engine.attach_activity_junctions("a1").unwrap();
+
+        assert_eq!(matched, 12, "every section covers the same ground");
+        assert!(portions >= 12, "each match writes at least one portion");
+        assert_eq!(commit_counter::count(&commits), 1);
+    }
+
+    /// An activity the matcher finds nothing for writes nothing, so it takes
+    /// no transaction either.
+    #[test]
+    fn an_activity_that_matches_nothing_commits_nothing() {
+        let mut engine = engine_over_sections(0);
+        let commits = commit_counter::watch(&engine);
+
+        let (matched, portions) = engine.attach_activity_junctions("a1").unwrap();
+
+        assert_eq!((matched, portions), (0, 0));
+        assert_eq!(commit_counter::count(&commits), 0);
+    }
+
+    /// A straight line the activity runs up and down, so one pass of the
+    /// section is one leg and the track carries several.
+    fn leg(up: bool) -> Vec<GpsPoint> {
+        (0..40)
+            .map(|i| {
+                let step = if up { i } else { 39 - i };
+                GpsPoint {
+                    latitude: 46.0 + f64::from(step) * 0.0002,
+                    longitude: 7.0,
+                    elevation: None,
+                }
+            })
+            .collect()
+    }
+
+    /// Counts every statement the traced connection runs against
+    /// `activity_streams`. A `trace` callback is a plain function pointer and
+    /// cannot capture, so the count is a static.
+    static STREAM_READS: AtomicUsize = AtomicUsize::new(0);
+
+    fn count_stream_reads(sql: &str) {
+        if sql.contains("FROM activity_streams") {
+            STREAM_READS.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    /// Scenario: an activity that passes the same section several times. Each
+    /// junction row's `avg_hr` came from its own read and decode of the whole
+    /// heart-rate blob, under the write lock.
+    ///
+    /// Expected behaviour: the series is read once for the activity, whatever
+    /// the portion count.
+    #[test]
+    fn the_attach_reads_the_heart_rate_series_once_for_the_whole_activity() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let points: Vec<GpsPoint> = (0..6).flat_map(|i| leg(i % 2 == 0)).collect();
+        let samples = points.len();
+        engine
+            .add_activity("a1".to_string(), points, "Ride".to_string())
+            .unwrap();
+        engine
+            .store_activity_streams(
+                "a1",
+                &[StreamDto {
+                    kind: "heartrate".to_string(),
+                    data: (0..samples).map(|i| Some(100.0 + i as f64)).collect(),
+                    data2: None,
+                }],
+            )
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                    distance_meters, is_user_defined, version, created_at,
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                 VALUES ('s1', 'auto', 'Section 1', 'Ride', ?, 800.0, 0, 1,
+                    '2026-01-01T00:00:00Z', 46.0, 46.008, 7.0, 7.0)",
+                params![serde_json::to_string(&leg(true)).unwrap()],
+            )
+            .unwrap();
+        engine.load_sections().unwrap();
+
+        STREAM_READS.store(0, Ordering::Relaxed);
+        engine.db.trace(Some(count_stream_reads));
+        let (_, portions) = engine.attach_activity_junctions("a1").unwrap();
+        engine.db.trace(None);
+
+        let reads = STREAM_READS.load(Ordering::Relaxed);
+        assert!(
+            portions >= 2,
+            "the track has to pass the section more than once for the count to mean anything, got {portions}"
+        );
+        assert_eq!(
+            reads, 1,
+            "{portions} portions decoded the same blob {reads} times"
+        );
     }
 }

@@ -1,5 +1,6 @@
 //! Background section detection and application.
 
+use crate::objects::observer::Announcement;
 use crate::persistence::codec;
 use crate::persistence::codec::TrackRead;
 use crate::{FrequentSection, GpsPoint, SectionEvidenceCache};
@@ -7,26 +8,42 @@ use crate::{FrequentSection, GpsPoint, SectionEvidenceCache};
 /// How often a running fold checkpoints its progress at most; the last
 /// cluster always does.
 const CHECKPOINT_EVERY: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Whether this fold step has earned a checkpoint.
+///
+/// A checkpoint costs about 5 KB and 0.07 ms per activity to encode, so a
+/// 1,000-activity library pays about 75 ms a write. What it records is the
+/// clusters that are cut, so between two of them the bytes are the same and the
+/// clock alone earns nothing: `done` has to have advanced. The last cluster
+/// always earns one, whatever the clock says, because it is the one a killed
+/// run most wants to resume from.
+fn checkpoint_due(
+    done: usize,
+    total: usize,
+    last_done: usize,
+    since_last: std::time::Duration,
+) -> bool {
+    if done <= last_done {
+        return false;
+    }
+    if done >= total {
+        return true;
+    }
+    since_last >= CHECKPOINT_EVERY
+}
 use rusqlite::{Connection, Result as SqlResult, params};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
-use std::thread;
 use tracematch::{Bounds, MatchConfig, RouteGroup, RouteSignature};
 
 use super::super::route_identity::{RouteIdentity, load_identity, write_identity};
 use super::super::{
-    CacheUpdate, PersistentEngine, SectionDetectionHandle, SectionDetectionProgress,
-    load_groups_from_db,
+    CacheUpdate, CheckpointSlot, PersistentEngine, SectionDetectionHandle,
+    SectionDetectionProgress, load_groups_from_db,
 };
-
-/// A stored track that did not decode, named so it can be excluded from a
-/// detection pool by id rather than counted anonymously.
-pub(crate) struct CorruptTrack {
-    pub activity_id: String,
-    pub reason: String,
-}
+use super::track_pool::CorruptTrack;
 
 /// Share of unreadable rows above which a pool is treated as a read-path
 /// failure rather than isolated row rot. Above the ceiling the detect is
@@ -105,6 +122,72 @@ fn pool_digest(activity_ids: &[String]) -> u64 {
         mix(0xff, &mut hash);
     }
     hash
+}
+
+/// The tracks the fold has to be given, or None to load the whole library.
+///
+/// None is the honest answer in three cases, and each of them is the safe one:
+/// a cold cache, where every id is new and the plan is the pool anyway; a new
+/// id whose metadata carries no bounds, where nothing can be routed for it; and
+/// a plan that saves nothing, where narrowing costs a branch and buys a track.
+///
+/// The bucket key mirrors the fold's own: one pooled bucket under
+/// `pool_sports`, which is the default, and the activity's own sport otherwise.
+/// A sport the cache has never seen answers with no clusters, which is right:
+/// its first activity routes into a cluster that does not exist yet.
+fn plan_pool(
+    activity_ids: &[String],
+    folded: &HashSet<String>,
+    cache: &SectionEvidenceCache,
+    metadata: &HashMap<String, super::super::ActivityMetadata>,
+    config: &tracematch::SectionConfig,
+) -> Option<Vec<String>> {
+    let new_ids: Vec<&String> = activity_ids
+        .iter()
+        .filter(|id| !folded.contains(*id))
+        .collect();
+    if new_ids.is_empty() || new_ids.len() == activity_ids.len() {
+        return None;
+    }
+
+    // Grouped by bucket so each bucket's footprints are read once.
+    let mut by_bucket: HashMap<String, Vec<(String, (f64, f64, f64, f64))>> = HashMap::new();
+    for id in new_ids {
+        let m = metadata.get(id)?;
+        let bucket = if config.pool_sports {
+            tracematch::sections::POOLED_SPORT.to_string()
+        } else {
+            m.sport_type.clone()
+        };
+        by_bucket.entry(bucket).or_default().push((
+            id.clone(),
+            (
+                m.bounds.min_lat,
+                m.bounds.max_lat,
+                m.bounds.min_lng,
+                m.bounds.max_lng,
+            ),
+        ));
+    }
+
+    let mut wanted: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for (bucket, new) in &by_bucket {
+        wanted.extend(tracematch::sections::pool_for_fold(
+            &cache.cluster_footprints(bucket),
+            new,
+        ));
+    }
+
+    // The plan can name an id the pool does not carry, from a cluster whose
+    // member was deleted since it was folded. The load is keyed on the pool, so
+    // the intersection is what can actually be read, and the order is the
+    // pool's own, which the detector is given deterministically.
+    let planned: Vec<String> = activity_ids
+        .iter()
+        .filter(|id| wanted.contains(*id))
+        .cloned()
+        .collect();
+    (planned.len() < activity_ids.len()).then_some(planned)
 }
 
 /// True when this exact pool was abandoned recently enough that loading it
@@ -536,17 +619,25 @@ pub(crate) enum ApplyOn {
 /// behind the hot save sees the new sections while the indicator recompute
 /// runs on the second take.
 ///
-/// False means the run is lost, because there is no engine to apply into or
-/// the save failed. The result went into the attempt, so the poll behind this
+/// False means the run is lost, because there is no engine to apply into, the
+/// engine open is not the one the run started against, or the save failed. The result went into the attempt, so the poll behind this
 /// reports the failure rather than saving the empty message that follows.
 fn apply_on_worker(
+    install: u64,
     sections: Vec<FrequentSection>,
     update: Option<CacheUpdate>,
     activity_ids: &[String],
     progress: &SectionDetectionProgress,
 ) -> bool {
-    let saved = super::super::with_persistent_engine(|e| {
-        if let Err(err) = e.apply_sections_save_with_cache(sections, update) {
+    // Off the lock: a 1,000-activity cache is about 13 MB to encode and every
+    // reader used to wait it out inside the apply.
+    let encoded = encode_cache_for_apply(update.as_ref());
+    // Stamped with the install the run started against. A cancel is
+    // cooperative, so a worker past its last check still arrives here after a
+    // restore, and the catalogue it computed from the old library would
+    // otherwise be written into the new one.
+    let saved = super::super::with_persistent_engine_for(install, |e| {
+        if let Err(err) = e.apply_sections_save_with_cache_row(sections, update, encoded) {
             log::error!(
                 "veloqrs: [SectionDetection] apply_sections_save failed on the worker: {}",
                 err
@@ -570,14 +661,17 @@ fn apply_on_worker(
 
     if saved != Some(true) {
         if saved.is_none() {
-            log::error!("veloqrs: [SectionDetection] No engine to apply into, the run is lost");
+            log::error!(
+                "veloqrs: [SectionDetection] No engine of this run's own to apply into, \
+                 the run is lost"
+            );
         }
         return false;
     }
 
     // The write lock is released above before the finalize tail so any queued
     // reads see the saved sections during the indicator recompute.
-    super::super::with_persistent_engine(|e| {
+    super::super::with_persistent_engine_for(install, |e| {
         e.apply_sections_finalize_with_progress(Some(progress));
         // Reload groups from DB in case this thread recomputed and saved them.
         e.reload_groups_from_db();
@@ -586,16 +680,41 @@ fn apply_on_worker(
 }
 
 /// Announces the end of a detection run to the observer, whatever the run's
-/// outcome. Held by the worker and dropped last, so the sender is already
-/// gone when the notice lands and the poll behind it reads a result or a dead
-/// worker rather than "running". A run that ends without announcing leaves
-/// the bar frozen where it stood: `Died` is only ever visible to a drain, and
-/// the screens no longer tick one.
-struct DetectionEnded;
+/// outcome, once the senders it holds are gone. The poll behind the notice
+/// then reads a result or a dead worker rather than "running". A run that
+/// ends without announcing leaves the bar frozen where it stood: `Died` is
+/// only ever visible to a drain, and the screens no longer tick one.
+///
+/// It holds the senders rather than relying on being declared before them.
+/// A sender the worker closure captures belongs to the closure environment,
+/// and the environment drops after every body local, so a guard written as
+/// the first local drops *first*, not last: the notice went out with the
+/// channel still connected, the follower's one poll read `Running`, and the
+/// handle stayed installed until relaunch. Holding them makes the order
+/// structural, so no later edit can put it back.
+struct DetectionEnded<S> {
+    senders: Option<S>,
+}
 
-impl Drop for DetectionEnded {
+impl<S> DetectionEnded<S> {
+    fn holding(senders: S) -> Self {
+        Self {
+            senders: Some(senders),
+        }
+    }
+
+    /// The senders, for as long as the run is still going.
+    fn senders(&self) -> &S {
+        self.senders
+            .as_ref()
+            .expect("senders are taken only by drop")
+    }
+}
+
+impl<S> Drop for DetectionEnded<S> {
     fn drop(&mut self) {
-        crate::objects::observer::notify(|o| o.detection_applied());
+        drop(self.senders.take());
+        crate::objects::observer::notify(Announcement::DetectionApplied);
     }
 }
 
@@ -616,6 +735,7 @@ impl PersistentEngine {
             receiver: rx,
             final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
+            checkpoint: Arc::new(CheckpointSlot::default()),
             progress,
             worker_applied: None,
             // No worker to ask, so the flag is here to satisfy the shape.
@@ -715,6 +835,11 @@ impl PersistentEngine {
         // the short-circuit, so the caller's `take_cache` returns None and the
         // engine cache is untouched.
         let (cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
+        // Mid-fold checkpoints go here rather than down the channel, so a run
+        // nobody polls holds one copy of the catalogue and not one per two
+        // seconds of fold.
+        let checkpoint_slot = Arc::new(CheckpointSlot::default());
+        let worker_checkpoint = Arc::clone(&checkpoint_slot);
         // Present only for a self-applying run, and set once its own apply
         // has landed. The poll reads it to tell a result it must save from a
         // run that has already saved itself.
@@ -723,6 +848,11 @@ impl PersistentEngine {
             ApplyOn::Caller => None,
         };
         let db_path = self.db_path.clone();
+        // Which library this run belongs to. Captured here, on the thread that
+        // holds the engine, so a restore installing another database under the
+        // worker cannot be mistaken for this one: the path is the same file
+        // name either way.
+        let install_at_spawn = super::super::engine_install();
         let section_config = self.section_config.clone();
 
         // The incremental folds new activities into a per-cluster evidence
@@ -837,15 +967,21 @@ impl PersistentEngine {
                 Some(flag) => {
                     let flag = Arc::clone(flag);
                     let echo_progress = progress.clone();
-                    thread::spawn(move || {
-                        // First local, so it drops after `tx`: the notice
-                        // lands once the outcome is readable.
-                        let _ended = DetectionEnded;
+                    crate::threads::spawn_named("veloq-save", move || {
+                        // The guard holds the sender, so the notice lands
+                        // once the outcome is readable.
+                        let ended = DetectionEnded::holding(tx);
                         echo_progress.set_phase("saving", 1);
-                        if apply_on_worker(sections_copy, None, &all_ids, &echo_progress) {
+                        if apply_on_worker(
+                            install_at_spawn,
+                            sections_copy,
+                            None,
+                            &all_ids,
+                            &echo_progress,
+                        ) {
                             flag.store(true, Ordering::SeqCst);
                         }
-                        tx.send((Vec::new(), Vec::new())).ok();
+                        ended.senders().send((Vec::new(), Vec::new())).ok();
                     });
                 }
                 None => {
@@ -856,6 +992,7 @@ impl PersistentEngine {
                 receiver: rx,
                 final_update: std::sync::Mutex::new(None),
                 cache_receiver: cache_rx,
+                checkpoint: Arc::new(CheckpointSlot::default()),
                 progress,
                 worker_applied,
                 // The echo is one write and already under way; there is no
@@ -864,12 +1001,33 @@ impl PersistentEngine {
             };
         }
 
-        // Load every activity's track. Both detection paths need the full pool:
-        // the Unified incremental re-batches it (converging to the batch), and
-        // the legacy detectors run full detection each sync. The old bbox
-        // pre-filter only made sense for the deleted threshold-incremental path,
-        // which loaded just the new + geographically-nearby subset.
-        let ids_to_load = activity_ids.clone();
+        // What the fold will actually read, asked before anything is read.
+        //
+        // Phase one routes on the new ids, phase two recomputes only a dirty
+        // cluster and reads only its own members, and phase three tolerates a
+        // missing id. So a track outside every touched cluster is loaded and
+        // decoded for nothing, which at a real library's size is most of them
+        // on a sync that stores one activity.
+        //
+        // The plan is a superset by construction and the bbox comes from the
+        // metadata rather than the track, so it can never be short: that would
+        // panic a recompute rather than answer worse. An empty plan, a cold
+        // cache or a non-Unified path all fall back to the whole pool.
+        let ids_to_load = plan_pool(
+            &activity_ids,
+            &folded_at_spawn,
+            &cache_at_spawn,
+            &self.activity_metadata,
+            &section_config,
+        )
+        .unwrap_or_else(|| activity_ids.clone());
+        if ids_to_load.len() < activity_ids.len() {
+            log::info!(
+                "veloqrs: [SectionDetection] pool narrowed to {} of {} tracks by the clusters the new ids touch",
+                ids_to_load.len(),
+                activity_ids.len()
+            );
+        }
         progress.set_phase("loading", ids_to_load.len() as u32);
 
         // Clone activity_ids for the background thread (to persist as processed after detection)
@@ -881,11 +1039,11 @@ impl PersistentEngine {
         let cancel_worker = Arc::clone(&cancel);
 
         DETECTION_WORKERS_STARTED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        thread::spawn(move || {
-            // First local, so it drops after `tx` and `cache_tx`: whether the
-            // run applied, aborted or panicked, the notice lands after the
-            // outcome the poll behind it will read.
-            let _ended = DetectionEnded;
+        crate::threads::spawn_named("veloq-detect", move || {
+            // The guard holds both senders, so whether the run applied,
+            // aborted or panicked the notice lands after the outcome the poll
+            // behind it will read.
+            let ended = DetectionEnded::holding((tx, cache_tx));
             log::info!(
                 "veloqrs: [SectionDetection] Background thread started with {} activity IDs",
                 ids_to_load.len()
@@ -894,11 +1052,12 @@ impl PersistentEngine {
             let conn = match Connection::open(&db_path) {
                 Ok(c) => {
                     let _ = c.busy_timeout(std::time::Duration::from_secs(5));
+                    let _ = crate::persistence::apply_write_pragmas(&c);
                     c
                 }
                 Err(e) => {
                     log::info!("veloqrs: [SectionDetection] Failed to open DB: {:?}", e);
-                    tx.send((Vec::new(), Vec::new())).ok();
+                    ended.senders().0.send((Vec::new(), Vec::new())).ok();
                     return;
                 }
             };
@@ -949,26 +1108,14 @@ impl PersistentEngine {
 
             progress_clone.set_phase("loading", ids_to_load.len() as u32);
 
-            // #21: chunk the track load to bound the transient SQL/parse
-            // spike. The detector consumes full-resolution tracks and borrows
-            // each one directly, so all tracks must still be resident
-            // simultaneously when detection runs. We can NOT downsample on
-            // load without changing detection output.
-            // What chunking DOES fix: instead of binding every id into one
-            // giant IN(...) statement and materialising the whole result set
-            // at once, we load in CHUNK_SIZE batches and move each row into
-            // the resident `loaded` map as it arrives. This caps the peak of
-            // (resident tracks + in-flight query buffers) to roughly
-            // (all tracks) + (one chunk) rather than (all tracks) + (full
-            // result set). The final order-preserving pass over `ids_to_load`
-            // is byte-identical to before, so the detection input is unchanged.
-            //
-            // PARTIAL: this only trims the transient spike. The dominant
-            // resident cost - every full-resolution track held at once - is
-            // inherent to the all-pairs algorithm and can only be removed by
-            // a streaming/downsampling change inside the tracematch submodule
-            // (out of scope here).
-            const CHUNK_SIZE: usize = 150;
+            // The detector consumes full-resolution tracks and borrows each
+            // one directly, so every track must be resident at once. Chunking
+            // caps the transient spike, the resident set is inherent to the
+            // all-pairs algorithm, and downsampling on load would change
+            // detection output. `track_pool::load_tracks_chunked` is the one
+            // loader; the preview cuts over a pool built the same way, and it
+            // used to be a second copy of this loop that had already diverged
+            // on what it reported about a corrupt row.
             const MEMORY_WARN_THRESHOLD: usize = 800;
 
             if ids_to_load.len() > MEMORY_WARN_THRESHOLD {
@@ -980,85 +1127,25 @@ impl PersistentEngine {
                 );
             }
 
-            let mut tracks_loaded = 0;
-            let mut tracks_empty = 0;
-            let mut rows_readable = 0usize;
-            let mut corrupt_tracks: Vec<CorruptTrack> = Vec::new();
-            let tracks: Vec<(String, Vec<GpsPoint>)> = if ids_to_load.is_empty() {
-                Vec::new()
-            } else {
-                let mut loaded: HashMap<String, Vec<GpsPoint>> =
-                    HashMap::with_capacity(ids_to_load.len());
-
-                for chunk in ids_to_load.chunks(CHUNK_SIZE) {
-                    let placeholders: String = std::iter::repeat("?")
-                        .take(chunk.len())
-                        .collect::<Vec<_>>()
-                        .join(",");
-                    let sql = format!(
-                        "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
-                        placeholders
-                    );
-                    match conn.prepare(&sql) {
-                        Ok(mut stmt) => {
-                            let params_slice: Vec<&dyn rusqlite::ToSql> =
-                                chunk.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
-                            let rows = stmt.query_map(params_slice.as_slice(), |row| {
-                                Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
-                            });
-                            if let Ok(iter) = rows {
-                                for (id, blob) in iter.flatten() {
-                                    match TrackRead::from_blob(&blob) {
-                                        TrackRead::Present(track) => {
-                                            rows_readable += 1;
-                                            loaded.insert(id, track);
-                                        }
-                                        TrackRead::Missing => {}
-                                        TrackRead::Corrupt(reason) => {
-                                            corrupt_tracks.push(CorruptTrack {
-                                                activity_id: id,
-                                                reason,
-                                            })
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            log::warn!(
-                                "veloqrs: [SectionDetection] Batch prepare failed for chunk of {}: {:?}; skipping chunk",
-                                chunk.len(),
-                                e
-                            );
-                        }
-                    }
-                }
-
-                // Preserve the original `ids_to_load` order + emit per-track
-                // progress ticks + classify empty vs loaded. Tracks missing
-                // from the result (unknown ids, rows not found) count as empty.
-                ids_to_load
-                    .iter()
-                    .filter_map(|id| {
-                        progress_clone.increment();
-                        match loaded.remove(id) {
-                            Some(track) if !track.is_empty() => {
-                                tracks_loaded += 1;
-                                Some((id.clone(), track))
-                            }
-                            _ => {
-                                tracks_empty += 1;
-                                None
-                            }
-                        }
-                    })
-                    .collect()
+            let Some(pool) = super::track_pool::load_tracks_chunked(
+                &conn,
+                &ids_to_load,
+                &progress_clone,
+                &cancel_worker,
+            ) else {
+                log::info!("veloqrs: [SectionDetection] Cancelled during the track load");
+                progress_clone.set_phase(PHASE_CANCELLED, 0);
+                return;
             };
+
+            let rows_readable = pool.readable;
+            let corrupt_tracks = pool.corrupt;
+            let tracks = pool.tracks;
 
             log::info!(
                 "veloqrs: [SectionDetection] Loaded {} tracks ({} empty/missing, {} unreadable) from {} activity IDs",
-                tracks_loaded,
-                tracks_empty,
+                tracks.len(),
+                pool.empty,
                 corrupt_tracks.len(),
                 ids_to_load.len()
             );
@@ -1091,7 +1178,7 @@ impl PersistentEngine {
             if tracks.is_empty() {
                 log::info!("veloqrs: [SectionDetection] No tracks loaded, skipping detection");
                 progress_clone.set_phase("complete", 0);
-                tx.send((Vec::new(), all_activity_ids)).ok();
+                ended.senders().0.send((Vec::new(), all_activity_ids)).ok();
                 return;
             }
 
@@ -1165,19 +1252,19 @@ impl PersistentEngine {
                 // persists the newest one, so a killed run resumes from
                 // there instead of from the last completed detect.
                 let mut last_checkpoint = std::time::Instant::now();
+                let mut last_done = 0usize;
                 let mut observe = |done: usize, total: usize, cache: &SectionEvidenceCache| {
-                    if done < total && last_checkpoint.elapsed() < CHECKPOINT_EVERY {
+                    if !checkpoint_due(done, total, last_done, last_checkpoint.elapsed()) {
                         return;
                     }
                     last_checkpoint = std::time::Instant::now();
-                    cache_tx
-                        .send(CacheUpdate {
-                            cache: cache.checkpoint(),
-                            folded_ids: folded_after.clone(),
-                            checkpoint: true,
-                            boundaries: Vec::new(),
-                        })
-                        .ok();
+                    last_done = done;
+                    worker_checkpoint.put(CacheUpdate {
+                        cache: cache.checkpoint(),
+                        folded_ids: folded_after.clone(),
+                        checkpoint: true,
+                        boundaries: Vec::new(),
+                    });
                 };
                 let fold = tracematch::detect_sections_incremental_observed(
                     &mut cache,
@@ -1201,6 +1288,14 @@ impl PersistentEngine {
                     sections_to_send.len()
                 );
 
+                // The fold is the last reader of the pool and its time
+                // streams. Held across the apply below they sit resident
+                // beside everything the apply loads for itself, so the run
+                // peaks at two full passes of the library rather than one.
+                drop(seconds_view);
+                drop(seconds);
+                drop(tracks);
+
                 let update = CacheUpdate {
                     cache,
                     folded_ids: folded_after,
@@ -1222,6 +1317,7 @@ impl PersistentEngine {
                     // has nothing left to adopt.
                     Some(flag) => {
                         if apply_on_worker(
+                            install_at_spawn,
                             sections_to_send,
                             Some(update),
                             &all_activity_ids,
@@ -1229,14 +1325,18 @@ impl PersistentEngine {
                         ) {
                             flag.store(true, Ordering::SeqCst);
                         }
-                        tx.send((Vec::new(), Vec::new())).ok();
+                        ended.senders().0.send((Vec::new(), Vec::new())).ok();
                     }
                     // Ship the cache update BEFORE the main result. `recv`/`poll_state`
                     // on the main channel is the caller's signal to `take_cache`, so
                     // sending the cache first guarantees it is present by then.
                     None => {
-                        cache_tx.send(update).ok();
-                        tx.send((sections_to_send, all_activity_ids)).ok();
+                        ended.senders().1.send(update).ok();
+                        ended
+                            .senders()
+                            .0
+                            .send((sections_to_send, all_activity_ids))
+                            .ok();
                     }
                 }
             }
@@ -1246,6 +1346,7 @@ impl PersistentEngine {
             receiver: rx,
             final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
+            checkpoint: checkpoint_slot,
             progress,
             worker_applied,
             cancel,
@@ -1371,6 +1472,28 @@ impl PersistentEngine {
         sections: Vec<FrequentSection>,
         update: Option<CacheUpdate>,
     ) -> SqlResult<()> {
+        self.apply_sections_save_with_cache_row(sections, update, None)
+    }
+
+    /// The same save, with the cache blob already encoded.
+    ///
+    /// The encode is the expensive half, about 13 KB and 60 ms per 1,000
+    /// activities, and it ran here under the write lock while every reader
+    /// waited it out. `encode_cache_for_apply` pays it on the worker before the
+    /// lock is taken and hands the row in, so what is left under the lock is the
+    /// save, the in-memory adoption and one `INSERT`. That is the shape the
+    /// checkpoint path has used since it was measured.
+    ///
+    /// `encoded` is `None` for the harness path, which has no worker to encode
+    /// on, and for a run with no cache to persist. A `None` beside a `Some`
+    /// update falls back to encoding here, so the contract is unchanged and only
+    /// the cost moves.
+    pub fn apply_sections_save_with_cache_row(
+        &mut self,
+        sections: Vec<FrequentSection>,
+        update: Option<CacheUpdate>,
+        encoded: Option<EvidenceRow>,
+    ) -> SqlResult<()> {
         // A checkpoint is a mid-fold snapshot, never the record of what was
         // persisted: adopting one as the final cache silently poisons the next
         // detect. The callers drain to the real update, so reaching here with
@@ -1390,7 +1513,15 @@ impl PersistentEngine {
                 if let Some(u) = update {
                     self.section_evidence_cache = u.cache;
                     self.cache_folded_ids = u.folded_ids;
-                    self.persist_evidence_cache();
+                    match encoded {
+                        // An empty fold has nothing to file, and the row that
+                        // is there describes a cache this apply just replaced.
+                        _ if self.cache_folded_ids.is_empty() => {
+                            self.clear_persisted_evidence_cache()
+                        }
+                        Some(row) => self.write_evidence_row(&row),
+                        None => self.persist_evidence_cache(),
+                    }
                 }
                 Ok(())
             }
@@ -1465,6 +1596,82 @@ impl PersistentEngine {
 /// what it says.
 const EVIDENCE_CACHE_BLOB_VERSION: u8 = 1;
 
+/// Encode a finished run's evidence cache on the calling thread, ready to hand
+/// to the apply.
+///
+/// The digest is read under a lock of its own and the encode runs with that
+/// lock released, which is what `persist_checkpoint` does every two seconds for
+/// the length of a detect. The final apply did it under the write lock instead,
+/// so a 1,000-activity library held every reader out for the 60 ms the encode
+/// took, on top of the save.
+///
+/// `None` when there is no cache to file, no engine to read a digest from, or
+/// nothing encodable. Each leaves the apply to its own path, which is a cold
+/// rebatch on the next open at worst.
+///
+/// Call this before the apply takes its lock, never inside it: the digest read
+/// takes the write lock itself, and `PERSISTENT_ENGINE` is a plain `RwLock`, so
+/// a re-entrant take on one thread deadlocks rather than warns. That is what
+/// keeps the encode off the lock, and it is why this is a free function and not
+/// a method on the engine.
+pub(crate) fn encode_cache_for_apply(update: Option<&CacheUpdate>) -> Option<EvidenceRow> {
+    let update = update?;
+    if update.folded_ids.is_empty() {
+        return None;
+    }
+    let digest = super::super::with_persistent_engine(|e| e.evidence_config_digest())?;
+    encode_evidence_row(&update.cache, &update.folded_ids, digest)
+}
+
+/// One encoded `evidence_cache` row, ready to write.
+pub struct EvidenceRow {
+    pub digest: String,
+    pub folded_blob: Vec<u8>,
+    pub cache_blob: Vec<u8>,
+}
+
+/// Encode the cache and its folded-id shadow. No engine, so a caller holding
+/// the checkpoint can pay the encode on its own thread.
+///
+/// This is the expensive half: roughly 5 KB and 0.07 ms per activity, so about
+/// 75 ms at 1,000 activities and 375 ms at 5,000. Run inside the engine lock it
+/// was that long a hold every two seconds for the length of a detect, and every
+/// screen read arriving during one waited it out.
+pub fn encode_evidence_row(
+    cache: &SectionEvidenceCache,
+    folded_ids: &HashSet<String>,
+    digest: String,
+) -> Option<EvidenceRow> {
+    let folded: Vec<String> = {
+        let mut ids: Vec<String> = folded_ids.iter().cloned().collect();
+        ids.sort();
+        ids
+    };
+
+    // Named fields: the cache carries `GpsPoint`s, whose skipped elevation
+    // would shorten a positional encoding and misalign everything after it.
+    let cache_blob = match codec::serialize_named(cache) {
+        Ok(bytes) => codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, bytes),
+        Err(e) => {
+            log::warn!("veloqrs: evidence cache not encodable, staying cold: {e}");
+            return None;
+        }
+    };
+    let folded_blob = match codec::serialize_gps_composite(&folded) {
+        Ok(bytes) => codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, bytes),
+        Err(e) => {
+            log::warn!("veloqrs: folded ids not encodable, staying cold: {e}");
+            return None;
+        }
+    };
+
+    Some(EvidenceRow {
+        digest,
+        folded_blob,
+        cache_blob,
+    })
+}
+
 impl PersistentEngine {
     /// Write the evidence cache and its folded-id shadow beside the config
     /// digest they were folded under.
@@ -1473,10 +1680,18 @@ impl PersistentEngine {
     /// fails costs one cold rebatch on the next open and nothing else. It is
     /// never allowed to fail an apply that already saved its catalogue.
     ///
-    /// Cost scales with the pool: measured on the lifecycle corpus at roughly
-    /// 5 KB and 0.07 ms per activity, so a 1,000-activity library pays about
-    /// 5 MB and 75 ms per apply. The apply already runs off the main thread,
-    /// and the alternative it buys back is a whole cold rebatch.
+    /// Cost scales worse than the pool, so it is quoted at a size rather than
+    /// per activity. Measured on the lifecycle corpus in release, desktop:
+    /// 271 KB at 24 activities, 1.4 MB at 120 and 6.3 MB at 480, which is 11.3,
+    /// 11.6 and 13.2 KB each. The write itself is 0.7 to 0.9 ms at 24, 5.3 to
+    /// 8.6 at 120 and 25.7 to 28.8 at 480. A 1,000-activity library pays about
+    /// 13 MB and 60 ms per apply on this hardware. The apply already runs off
+    /// the main thread, and the alternative it buys back is a whole cold
+    /// rebatch.
+    ///
+    /// `tests/evidence_cache_write_cost.rs` takes the write figures and
+    /// `tests/evidence_cache_decode_cost.rs` the sizes and what the launch
+    /// pays to read them back.
     pub(crate) fn persist_evidence_cache(&mut self) {
         if self.cache_folded_ids.is_empty() {
             self.clear_persisted_evidence_cache();
@@ -1514,29 +1729,21 @@ impl PersistentEngine {
         folded_ids: &HashSet<String>,
     ) {
         let digest = super::section_config_digest(&self.section_config);
-        let folded: Vec<String> = {
-            let mut ids: Vec<String> = folded_ids.iter().cloned().collect();
-            ids.sort();
-            ids
-        };
+        if let Some(row) = encode_evidence_row(cache, folded_ids, digest) {
+            self.write_evidence_row(&row);
+        }
+    }
 
-        // Named fields: the cache carries `GpsPoint`s, whose skipped elevation
-        // would shorten a positional encoding and misalign everything after it.
-        let cache_blob = match codec::serialize_named(cache) {
-            Ok(bytes) => codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, bytes),
-            Err(e) => {
-                log::warn!("veloqrs: evidence cache not encodable, staying cold: {e}");
-                return;
-            }
-        };
-        let folded_blob = match codec::serialize_gps_composite(&folded) {
-            Ok(bytes) => codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, bytes),
-            Err(e) => {
-                log::warn!("veloqrs: folded ids not encodable, staying cold: {e}");
-                return;
-            }
-        };
+    /// The digest the cache would be filed under right now.
+    ///
+    /// Exposed so a caller can read it under a short lock, encode the blob off
+    /// the lock, and come back only for the write.
+    pub fn evidence_config_digest(&self) -> String {
+        super::section_config_digest(&self.section_config)
+    }
 
+    /// Write an already-encoded row. The lock is held for the `INSERT` alone.
+    pub fn write_evidence_row(&mut self, row: &EvidenceRow) {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
@@ -1550,7 +1757,7 @@ impl PersistentEngine {
                  folded_ids = excluded.folded_ids,
                  cache = excluded.cache,
                  updated_at = excluded.updated_at",
-            params![digest, folded_blob, cache_blob, now],
+            params![row.digest, row.folded_blob, row.cache_blob, now],
         ) {
             log::warn!("veloqrs: evidence cache not written, staying cold: {e}");
         }
@@ -1646,6 +1853,143 @@ fn drop_reason(is_user_defined: bool, portions: usize, any_pooled: bool) -> Opti
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::thread;
+
+    /// Scenario: a detection is running when the athlete restores a backup.
+    /// `destroy` cancels cooperatively, so a worker already past its last
+    /// check reaches its apply anyway, and `with_persistent_engine` hands it
+    /// whichever database is open by then. The restored file sits at the same
+    /// path, so nothing in the worker could tell the two libraries apart.
+    ///
+    /// Expected behaviour: the apply is stamped with the install it started
+    /// against and writes nothing into a later one.
+    mod stale_applies {
+        use super::*;
+        use crate::persistence::{engine_install, with_persistent_engine};
+        use crate::test_globals::{init_global_engine, serial_global_state};
+
+        fn processed() -> Vec<String> {
+            with_persistent_engine(|e| {
+                e.processed_activity_ids
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<String>>()
+            })
+            .expect("an engine")
+        }
+
+        #[test]
+        fn an_apply_from_the_library_before_a_restore_writes_nothing() {
+            let _serial = serial_global_state();
+            let _first = init_global_engine("detection_apply_first.db");
+            let started_against = engine_install();
+
+            // The restore: the old engine goes, another database opens.
+            let _second = init_global_engine("detection_apply_second.db");
+            assert_ne!(engine_install(), started_against);
+
+            let applied = apply_on_worker(
+                started_against,
+                Vec::new(),
+                None,
+                &["a1".to_string()],
+                &SectionDetectionProgress::new(),
+            );
+
+            assert!(
+                !applied,
+                "the run is lost, not applied into the new library"
+            );
+            assert!(
+                processed().is_empty(),
+                "a catalogue computed from the old library reached the restored one"
+            );
+        }
+
+        #[test]
+        fn an_apply_into_the_library_it_started_against_still_lands() {
+            let _serial = serial_global_state();
+            let _dir = init_global_engine("detection_apply_same.db");
+
+            let applied = apply_on_worker(
+                engine_install(),
+                Vec::new(),
+                None,
+                &["a1".to_string()],
+                &SectionDetectionProgress::new(),
+            );
+
+            assert!(applied, "the stamp must not refuse the run it belongs to");
+            assert_eq!(processed(), vec!["a1".to_string()]);
+        }
+    }
+
+    /// Scenario: a rescan started from TypeScript sends a checkpoint every two
+    /// seconds and nothing drains it, so the catalogue and the whole folded-id
+    /// set pile up in an unbounded channel for the length of the run. A cold
+    /// `force_redetect` at 550 activities takes 8.5 minutes, which is 250 of
+    /// them.
+    ///
+    /// Expected behaviour: the worker keeps the newest checkpoint and nothing
+    /// else, whether or not anyone is polling.
+    #[test]
+    fn an_undrained_run_holds_one_checkpoint_not_a_run_of_them() {
+        let slot = CheckpointSlot::default();
+
+        for i in 0..50 {
+            slot.put(CacheUpdate {
+                cache: SectionEvidenceCache::new(),
+                folded_ids: HashSet::from([format!("a{i}")]),
+                checkpoint: true,
+                boundaries: Vec::new(),
+            });
+        }
+
+        let held = slot.take().expect("the newest checkpoint is still there");
+        assert_eq!(
+            held.folded_ids,
+            HashSet::from(["a49".to_string()]),
+            "the newest wins: an older one describes less of the fold"
+        );
+        assert!(
+            slot.take().is_none(),
+            "and it is the only one, so memory does not grow with the run"
+        );
+    }
+
+    /// A checkpoint costs about 5 KB and 0.07 ms per activity to encode, so a
+    /// 1,000-activity library pays 75 ms a write. The content only moves when a
+    /// cluster finishes, so a clock that fires between two of them re-encodes
+    /// bytes nobody needs.
+    #[test]
+    fn the_clock_alone_does_not_earn_a_checkpoint() {
+        let elapsed = CHECKPOINT_EVERY;
+        let none = std::time::Duration::ZERO;
+
+        assert!(
+            checkpoint_due(3, 10, 2, elapsed),
+            "a cluster finished and the throttle has passed"
+        );
+        assert!(
+            !checkpoint_due(3, 10, 3, elapsed),
+            "the clock fired between two clusters, so the bytes are the same"
+        );
+        assert!(
+            !checkpoint_due(3, 10, 2, none),
+            "a cluster finished but the throttle has not passed"
+        );
+    }
+
+    /// The last cluster always checkpoints, whatever the clock says: it is the
+    /// one a killed run most wants to resume from.
+    #[test]
+    fn the_last_cluster_checkpoints_whatever_the_clock_says() {
+        assert!(checkpoint_due(10, 10, 9, std::time::Duration::ZERO));
+        assert!(
+            !checkpoint_due(10, 10, 10, std::time::Duration::ZERO),
+            "unless it has already been sent, which would be the same bytes twice"
+        );
+    }
 
     /// Both causes leave a section with no junction rows, and one message for
     /// both sent an empty-portion detector bug to whoever was looking at pool
@@ -1688,11 +2032,19 @@ mod tests {
         let recorder = Recorder::new();
         set_observer(Some(recorder.clone()));
 
-        let worker = thread::spawn(|| {
-            let _ended = DetectionEnded;
+        let (tx, _rx) = std::sync::mpsc::channel::<()>();
+        let worker = thread::spawn(move || {
+            let _ended = DetectionEnded::holding(tx);
             panic!("the detector fell over");
         });
         assert!(worker.join().is_err(), "the worker panicked");
+        // The notice is queued and delivered on the announce thread, so the
+        // join says the run ended and nothing yet says the observer heard.
+        // Without this the assertion races the delivery and loses it under
+        // load, which fails a merge battery for a branch that touched nothing
+        // near here. It still fails when the notice never lands: the drain
+        // returns as soon as the queue is empty either way.
+        crate::objects::observer::flush();
 
         assert_eq!(
             recorder.events(),
@@ -1704,6 +2056,12 @@ mod tests {
 
     /// The notice must not outrun the outcome: a subscriber that only polls
     /// on the event has one chance to read it.
+    ///
+    /// Written in the shape the workers actually have. A sender the closure
+    /// captures is part of the environment, and an environment drops after
+    /// every body local, so a guard declared first drops *before* it. Binding
+    /// `tx` to a local of its own was what made this pass while the workers it
+    /// stands for were the other way round.
     #[test]
     fn the_notice_lands_after_the_sender_is_gone() {
         let _guard = serial_global_state();
@@ -1712,11 +2070,13 @@ mod tests {
 
         let (tx, rx) = std::sync::mpsc::channel::<()>();
         thread::spawn(move || {
-            let _ended = DetectionEnded;
-            let _tx = tx;
+            let _ended = DetectionEnded::holding(tx);
         })
         .join()
         .expect("worker");
+        // Delivery is queued on the announce thread; the join only says the
+        // run ended. See the flush above.
+        crate::objects::observer::flush();
 
         assert_eq!(recorder.events(), vec!["detection_applied"]);
         assert!(
@@ -1727,6 +2087,124 @@ mod tests {
             "the sender is already gone when the notice lands"
         );
         set_observer(None);
+    }
+
+    /// Scenario: a run that returns early, which a cancel and a panic both
+    /// do, announced `detection_applied` with the channel still connected.
+    /// The follower polls once on that event, read `Running`, and nothing
+    /// polled again: the spinner ran to its 420 s deadline and the handle
+    /// stayed installed, so every later start answered Busy until relaunch.
+    ///
+    /// Expected behaviour: the channel is already disconnected at the moment
+    /// the notice lands, whichever way the body left. The observer is what
+    /// reads it, because the end state after the thread joins is the same
+    /// either way and says nothing about the order.
+    #[test]
+    fn a_run_that_returns_early_closes_its_channel_before_it_announces() {
+        for early in [true, false] {
+            let _guard = serial_global_state();
+            let (tx, rx) = std::sync::mpsc::channel::<()>();
+            let (cache_tx, cache_rx) = std::sync::mpsc::channel::<()>();
+            let seen = ChannelAtNotice::new(rx, cache_rx);
+            set_observer(Some(seen.clone()));
+
+            thread::spawn(move || {
+                let ended = DetectionEnded::holding((tx, cache_tx));
+                if early {
+                    return;
+                }
+                ended.senders().0.send(()).ok();
+                ended.senders().1.send(()).ok();
+            })
+            .join()
+            .expect("worker");
+            // The observer is what reads the channels, and it reads them on
+            // the announce thread. Taking it away before the delivery leaves
+            // both answers `None`.
+            crate::objects::observer::flush();
+
+            set_observer(None);
+            assert_eq!(
+                seen.result_disconnected(),
+                Some(true),
+                "the result sender is gone when the notice lands, early={early}"
+            );
+            assert_eq!(
+                seen.cache_disconnected(),
+                Some(true),
+                "the cache sender is gone when the notice lands, early={early}"
+            );
+        }
+    }
+
+    /// An observer that reads both channels the instant the run announces its
+    /// end, which is the only moment the order is visible. A result already
+    /// sent is drained first: what must never happen is a poll that reads
+    /// neither a result nor a dead worker, which is what `Empty` means.
+    use std::sync::Mutex;
+
+    struct ChannelAtNotice {
+        results: Mutex<std::sync::mpsc::Receiver<()>>,
+        cache: Mutex<std::sync::mpsc::Receiver<()>>,
+        result_gone: Mutex<Option<bool>>,
+        cache_gone: Mutex<Option<bool>>,
+    }
+
+    impl ChannelAtNotice {
+        fn new(
+            results: std::sync::mpsc::Receiver<()>,
+            cache: std::sync::mpsc::Receiver<()>,
+        ) -> Arc<Self> {
+            Arc::new(Self {
+                results: Mutex::new(results),
+                cache: Mutex::new(cache),
+                result_gone: Mutex::new(None),
+                cache_gone: Mutex::new(None),
+            })
+        }
+
+        fn result_disconnected(&self) -> Option<bool> {
+            *self.result_gone.lock().unwrap_or_else(|e| e.into_inner())
+        }
+
+        fn cache_disconnected(&self) -> Option<bool> {
+            *self.cache_gone.lock().unwrap_or_else(|e| e.into_inner())
+        }
+    }
+
+    fn drained_to_disconnected(rx: &std::sync::mpsc::Receiver<()>) -> bool {
+        loop {
+            match rx.try_recv() {
+                Ok(()) => continue,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => return true,
+                Err(std::sync::mpsc::TryRecvError::Empty) => return false,
+            }
+        }
+    }
+
+    impl crate::objects::observer::EngineObserver for ChannelAtNotice {
+        fn sync_progress(&self) {}
+        fn sync_settled(&self) {}
+        fn activities_stored(&self) {}
+        fn body_stored(&self, _kind: String, _activity_id: String) {}
+        fn time_streams_stored(&self, _activity_ids: Vec<String>) {}
+        fn gps_track_stored(&self, _activity_id: String) {}
+        fn gps_tracks_mutated(&self, _activity_ids: Vec<String>) {}
+        fn fit_parsed(&self, _activity_id: String) {}
+        fn tiles_generated(&self) {}
+        fn backfill_phase(&self, _phase: String) {}
+        fn cutover_settled(&self) {}
+        fn preview_phase(&self, _phase: String) {}
+        fn preview_finished(&self) {}
+
+        fn detection_applied(&self) {
+            *self.result_gone.lock().unwrap_or_else(|e| e.into_inner()) = Some(
+                drained_to_disconnected(&self.results.lock().unwrap_or_else(|e| e.into_inner())),
+            );
+            *self.cache_gone.lock().unwrap_or_else(|e| e.into_inner()) = Some(
+                drained_to_disconnected(&self.cache.lock().unwrap_or_else(|e| e.into_inner())),
+            );
+        }
     }
 
     fn group(id: &str, members: &[&str]) -> RouteGroup {

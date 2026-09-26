@@ -19,6 +19,7 @@
 //! same catalogue from the durable pool.
 
 use crate::objects::detection::{SlotWait, wait_on_slot};
+use crate::persistence::attempts::Release;
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::with_persistent_engine;
 use std::sync::Mutex;
@@ -185,10 +186,19 @@ pub fn try_start_conditioning() -> bool {
     // Held across check, spawn and install. Releasing it to spawn lets a
     // loser start a second worker that rewrites `route_groups` on its own
     // connection beside the winner, with both track pools resident.
+    // The same key the FFI start claims, so a run that failed holds the
+    // conditioner back too: the pending count keeps standing and the next due
+    // batch used to start another run at once, with nothing between a failing
+    // detect and the next scan of the whole pool.
+    if crate::objects::detection::claim_detect().is_err() {
+        return false;
+    }
+
     let mut guard = SECTION_DETECTION_HANDLE
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     if guard.is_some() {
+        crate::objects::detection::settle_detect(Release::Done);
         return false;
     }
 
@@ -197,13 +207,15 @@ pub fn try_start_conditioning() -> bool {
     });
 
     let Some(handle) = handle else {
+        crate::objects::detection::settle_detect(Release::Done);
         return false;
     };
 
     // A suspension or an owed cutover taken while the engine lock was held
     // gives back a dead handle. Installing it would occupy the slot with a run
-    // that never ran.
+    // that never ran, and nothing failed, so the key goes back clean.
     if crate::persistence::sections::detection_was_refused(&handle) {
+        crate::objects::detection::settle_detect(Release::Done);
         return false;
     }
 

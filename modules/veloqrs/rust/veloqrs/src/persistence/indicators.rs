@@ -31,57 +31,193 @@ impl PersistentEngine {
     /// 3. For each route group: find PR + compute per-activity trends
     /// 4. Bulk-insert all indicators
     pub fn recompute_activity_indicators(&self) -> SqlResult<()> {
+        self.rewrite_indicators(None)
+    }
+
+    /// Rewrite one section's badges and nothing else.
+    ///
+    /// A record and a trend are earned inside one `(section, direction, sport)`
+    /// group, so editing one section cannot move another's. The editors each
+    /// touch one section, and the whole-table pass was measured at 31 to 39 ms
+    /// of each of them on a 589-activity library.
+    ///
+    /// The lap-time backfill is skipped here: it is a library-wide read of the
+    /// time streams and its result does not depend on which section is being
+    /// edited, so it belongs to the passes that run off the UI thread.
+    pub fn recompute_indicators_for_section(&self, section_id: &str) -> SqlResult<()> {
+        self.rewrite_indicators(Some(section_id))
+    }
+
+    fn rewrite_indicators(&self, only_section: Option<&str>) -> SqlResult<()> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
 
-        // Step 0: Backfill any NULL lap_time values from time_streams.
-        // This ensures section_activities has real recorded times wherever possible,
-        // so the indicator computation uses actual data instead of estimates.
-        let backfilled = self.backfill_null_lap_times()?;
-        if backfilled > 0 {
-            log::info!(
-                "veloqrs: [indicators] Backfilled lap_time for {} section portions from time streams",
-                backfilled
-            );
+        if only_section.is_none() {
+            // Step 0: Backfill any NULL lap_time values from time_streams.
+            // This ensures section_activities has real recorded times wherever possible,
+            // so the indicator computation uses actual data instead of estimates.
+            let backfilled = self.backfill_null_lap_times()?;
+            if backfilled > 0 {
+                log::info!(
+                    "veloqrs: [indicators] Backfilled lap_time for {} section portions from time streams",
+                    backfilled
+                );
+            }
         }
 
         let tx = self.db.unchecked_transaction()?;
-        tx.execute("DELETE FROM activity_indicators", [])?;
+        match only_section {
+            Some(id) => tx.execute(
+                "DELETE FROM activity_indicators WHERE target_id = ?",
+                params![id],
+            )?,
+            None => tx.execute("DELETE FROM activity_indicators", [])?,
+        };
 
         // Section indicators only - route highlights are computed inline
         // from in-memory groups + activity_metrics (no table needed).
-        let section_count = self.compute_section_indicators(&tx, now)?;
+        let section_count = self.compute_section_indicators(&tx, now, only_section)?;
 
-        // Stamp the algorithm version so we don't recompute until it changes
-        tx.execute(
-            "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('indicator_version', ?)",
-            params![INDICATOR_ALGORITHM_VERSION.to_string()],
-        )?;
+        // Stamp the algorithm version so we don't recompute until it changes.
+        // A scoped pass covers one section, so it cannot claim the table is
+        // current: only the whole-table pass earns the stamp.
+        //
+        // Zero rows is two different things and only one of them is done. A
+        // library where nothing qualifies, one outing per section, has been
+        // computed correctly and re-running it every open is waste. A library
+        // where groups qualify on coverage but no traversal has a time has not
+        // been computed at all: on the S22, 2478 junction rows and 50 sections
+        // produced nothing because every `lap_time` and every
+        // `activities.distance_meters` was NULL, and the stamp is what stopped
+        // the next open retrying once those arrived.
+        let mut stamp = only_section.is_none();
+        if stamp && section_count == 0 {
+            let owed = self.untimed_repeat_groups(&tx)?;
+            if owed > 0 {
+                log::warn!(
+                    "veloqrs: [indicators] Wrote no indicators while {} section group(s) have \
+                     repeat traversals with no time; not stamping v{} so the next open retries",
+                    owed,
+                    INDICATOR_ALGORITHM_VERSION
+                );
+                stamp = false;
+            }
+        }
+        if stamp {
+            tx.execute(
+                "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('indicator_version', ?)",
+                params![INDICATOR_ALGORITHM_VERSION.to_string()],
+            )?;
+        }
 
         tx.commit()?;
 
         log::info!(
-            "veloqrs: [indicators] Recomputed {} section indicators (v{})",
+            "veloqrs: [indicators] Recomputed {} section indicators for {} (v{})",
             section_count,
+            only_section.unwrap_or("every section"),
             INDICATOR_ALGORITHM_VERSION
         );
 
         Ok(())
     }
 
+    /// Bring the indicator table up to the current algorithm, if it is behind.
+    ///
+    /// Once per open, not once per read. The pass rewrites every row under the
+    /// write lock, and the feed reached it from inside a render memo, so the
+    /// first paint after any build that bumps the version paid for the whole
+    /// library on the JS thread. The version is a build constant: it cannot
+    /// move while the process is running, so there is nothing for a read to
+    /// re-check.
+    ///
+    /// Failure is logged, not propagated. Stale indicators are a wrong badge,
+    /// and refusing to open the database over one would cost the athlete
+    /// everything else.
+    pub(super) fn recompute_indicators_if_stale(&self) {
+        let stored_version: i32 = self
+            .db
+            .query_row(
+                "SELECT CAST(value AS INTEGER) FROM schema_info WHERE key = 'indicator_version'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+
+        if stored_version >= INDICATOR_ALGORITHM_VERSION {
+            return;
+        }
+
+        log::info!(
+            "veloqrs: [indicators] Version mismatch (stored={}, current={}) - recomputing",
+            stored_version,
+            INDICATOR_ALGORITHM_VERSION
+        );
+        if let Err(e) = self.recompute_activity_indicators() {
+            log::warn!("veloqrs: [indicators] Recomputation failed: {}", e);
+        }
+    }
+
+    /// Groups that would earn badges but for a missing time.
+    ///
+    /// The pair query in `compute_section_indicators` without its
+    /// `effective_time IS NOT NULL` clause, so a non-zero answer beside a
+    /// zero-row pass means the input was missing rather than absent: the same
+    /// sections, directions and sports, qualifying on coverage and on having
+    /// two distinct activities, whose times the pass could neither read nor
+    /// estimate. Run only on the zero path, so an ordinary pass pays nothing.
+    fn untimed_repeat_groups(&self, tx: &rusqlite::Transaction) -> SqlResult<i64> {
+        let complete = crate::persistence::records::complete_traversal_sql();
+        tx.query_row(
+            &format!(
+                "SELECT COUNT(*) FROM (
+                   SELECT sa.section_id
+                   FROM section_activities sa
+                   JOIN sections s ON s.id = sa.section_id
+                   JOIN activities a ON a.id = sa.activity_id
+                   WHERE sa.excluded = 0
+                     AND s.disabled = 0
+                     AND s.superseded_by IS NULL
+                     AND sa.direction != 'partial'
+                     AND ({complete})
+                   GROUP BY sa.section_id, sa.direction, a.sport_type
+                   HAVING COUNT(DISTINCT sa.activity_id) >= 2
+                 )",
+                complete = complete
+            ),
+            [],
+            |r| r.get(0),
+        )
+    }
+
     /// Compute section PRs and trends, insert into activity_indicators.
     /// Returns total number of indicators inserted.
-    fn compute_section_indicators(&self, tx: &rusqlite::Transaction, now: i64) -> SqlResult<usize> {
+    fn compute_section_indicators(
+        &self,
+        tx: &rusqlite::Transaction,
+        now: i64,
+        only_section: Option<&str>,
+    ) -> SqlResult<usize> {
         // Effective time: use lap_time if available, otherwise estimate from
         // activity duration proportional to section distance.
         // This handles the common case where lap_time is NULL (not yet populated
         // from time streams) while still producing useful indicators.
-        let effective_time_expr = "COALESCE(sa.lap_time,
-                      CASE WHEN a.distance_meters > 0 AND sa.distance_meters > 0
-                           THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
-                           ELSE NULL END)";
+        //
+        // The denominator falls back to `activity_metrics.distance`, because
+        // `activities.distance_meters` is written by the fitness path alone and
+        // is NULL on every synced row: 316 of 316 on the library pulled from the
+        // S22 on 2026-09-18, which divided the estimate by NULL and left the
+        // whole pass with nothing to insert.
+        let activity_distance = "COALESCE(NULLIF(a.distance_meters, 0), am.distance)";
+        let effective_time_expr = format!(
+            "COALESCE(sa.lap_time,
+                      CASE WHEN {activity_distance} > 0 AND sa.distance_meters > 0
+                           THEN a.duration_secs * (sa.distance_meters / {activity_distance})
+                           ELSE NULL END)"
+        );
+        let effective_time_expr = effective_time_expr.as_str();
 
         // Pairs with 2+ non-excluded activities. Counting rows would let one
         // lapped session qualify against itself.
@@ -94,7 +230,7 @@ impl PersistentEngine {
         //    can show up as a "PR" of 1:24 in feed badges.
         //  - Skip rows that span too little of the section, the same rule
         //    `covers_enough_for_record` applies in Rust, written once here as
-        //    `COMPLETE_TRAVERSAL_SQL` so the two cannot drift.
+        //    `complete_traversal_sql()` so the two cannot drift.
         //  - Group by sport. A record and a trend are earned against the same
         //    sport's efforts, so shared ground carries one of each per sport.
         let complete = crate::persistence::records::complete_traversal_sql();
@@ -103,12 +239,14 @@ impl PersistentEngine {
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              JOIN activities a ON a.id = sa.activity_id
+             LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
              WHERE sa.excluded = 0
                AND {} IS NOT NULL
                AND s.disabled = 0
                AND s.superseded_by IS NULL
                AND sa.direction != 'partial'
                AND ({complete})
+               AND (? IS NULL OR sa.section_id = ?)
              GROUP BY sa.section_id, sa.direction, a.sport_type
              HAVING cnt >= 2",
             effective_time_expr,
@@ -118,7 +256,7 @@ impl PersistentEngine {
         let mut pair_stmt = tx.prepare(&pair_sql)?;
 
         let pairs: Vec<(String, String, String)> = pair_stmt
-            .query_map([], |row| {
+            .query_map(params![only_section, only_section], |row| {
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
@@ -151,6 +289,7 @@ impl PersistentEngine {
              FROM section_activities sa
              JOIN activities a ON a.id = sa.activity_id
              JOIN sections s ON s.id = sa.section_id
+             LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
              WHERE sa.section_id = ?
                AND sa.direction = ?
                AND a.sport_type = ?
@@ -260,8 +399,6 @@ impl PersistentEngine {
         Ok(total)
     }
 
-    /// Compute route PRs and trends, insert into activity_indicators.
-    /// Returns total number of indicators inserted.
     /// Load section names from the sections table.
     fn load_section_names(
         &self,
@@ -293,79 +430,15 @@ impl PersistentEngine {
     }
 
     /// Read pre-computed indicators for a batch of activity IDs.
-    /// Version check: if the stored algorithm version doesn't match the current
-    /// constant, triggers a full clean recompute before returning results.
+    ///
+    /// A read only reads. The version cannot change while the process runs, so
+    /// `recompute_indicators_if_stale` settles it once at the open and this
+    /// serves whatever is stored.
     pub fn get_activity_indicators(
         &self,
         activity_ids: &[String],
     ) -> Vec<crate::FfiActivityIndicator> {
-        if activity_ids.is_empty() {
-            return vec![];
-        }
-
-        // Version-based invalidation: recompute if algorithm changed
-        let stored_version: i32 = self
-            .db
-            .query_row(
-                "SELECT CAST(value AS INTEGER) FROM schema_info WHERE key = 'indicator_version'",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap_or(0);
-
-        if stored_version < INDICATOR_ALGORITHM_VERSION {
-            log::info!(
-                "veloqrs: [indicators] Version mismatch (stored={}, current={}) - recomputing",
-                stored_version,
-                INDICATOR_ALGORITHM_VERSION
-            );
-            if let Err(e) = self.recompute_activity_indicators() {
-                log::warn!("veloqrs: [indicators] Recomputation failed: {}", e);
-            }
-        }
-
-        let placeholders: String = activity_ids
-            .iter()
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(",");
-        let sql = format!(
-            "SELECT activity_id, indicator_type, target_id, target_name, direction, lap_time, trend
-             FROM activity_indicators
-             WHERE activity_id IN ({})",
-            placeholders
-        );
-
-        let mut stmt = match self.db.prepare(&sql) {
-            Ok(s) => s,
-            Err(e) => {
-                log::warn!("veloqrs: [indicators] read failed: {}", e);
-                return vec![];
-            }
-        };
-
-        let params: Vec<&dyn rusqlite::types::ToSql> = activity_ids
-            .iter()
-            .map(|id| id as &dyn rusqlite::types::ToSql)
-            .collect();
-
-        match stmt.query_map(params.as_slice(), |row| {
-            Ok(crate::FfiActivityIndicator {
-                activity_id: row.get(0)?,
-                indicator_type: row.get(1)?,
-                target_id: row.get(2)?,
-                target_name: row.get(3)?,
-                direction: row.get(4)?,
-                lap_time: row.get::<_, Option<f64>>(5)?.unwrap_or(0.0),
-                trend: row.get(6)?,
-            })
-        }) {
-            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
-            Err(e) => {
-                log::warn!("veloqrs: [indicators] query failed: {}", e);
-                vec![]
-            }
-        }
+        pooled::activity_indicators(&self.db, activity_ids)
     }
 
     /// Backfill the per-lap columns a pass could not fill when it was written.
@@ -445,6 +518,13 @@ impl PersistentEngine {
             }
         }
 
+        // The track length each stream has to match, or it is not in the
+        // track's index space and cannot time anything.
+        let track_points = {
+            let ids: Vec<String> = time_streams.keys().cloned().collect();
+            self.track_point_counts(&ids)
+        };
+
         if time_streams.is_empty() && heart_rates.is_empty() {
             return Ok(0);
         }
@@ -471,6 +551,7 @@ impl PersistentEngine {
                 } else {
                     super::sections::compute_lap_time_from_stream(
                         time_streams.get(activity_id).map(Vec::as_slice),
+                        track_points.get(activity_id).copied(),
                         *start_idx,
                         *end_idx,
                         *distance,
@@ -502,6 +583,67 @@ impl PersistentEngine {
         tx.commit()?;
 
         Ok(updated)
+    }
+}
+
+/// Indicator reads that need no engine, only its database.
+///
+/// The engine method above is this same read on the write connection, so a
+/// pooled reader and a lock holder cannot answer differently.
+pub(crate) mod pooled {
+    use rusqlite::Connection;
+
+    /// The indicators recorded against each of `activity_ids`.
+    pub(crate) fn activity_indicators(
+        conn: &Connection,
+        activity_ids: &[String],
+    ) -> Vec<crate::FfiActivityIndicator> {
+        if activity_ids.is_empty() {
+            return vec![];
+        }
+
+        let placeholders: String = activity_ids
+            .iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT activity_id, indicator_type, target_id, target_name, direction, lap_time, trend
+             FROM activity_indicators
+             WHERE activity_id IN ({})",
+            placeholders
+        );
+
+        let mut stmt = match conn.prepare(&sql) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("veloqrs: [indicators] read failed: {}", e);
+                return vec![];
+            }
+        };
+
+        let params: Vec<&dyn rusqlite::types::ToSql> = activity_ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::types::ToSql)
+            .collect();
+
+        match stmt.query_map(params.as_slice(), |row| {
+            Ok(crate::FfiActivityIndicator {
+                activity_id: row.get(0)?,
+                indicator_type: row.get(1)?,
+                target_id: row.get(2)?,
+                target_name: row.get(3)?,
+                direction: row.get(4)?,
+                lap_time: row.get::<_, Option<f64>>(5)?.unwrap_or(0.0),
+                trend: row.get(6)?,
+            })
+        }) {
+            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+            Err(e) => {
+                log::warn!("veloqrs: [indicators] query failed: {}", e);
+                vec![]
+            }
+        }
     }
 }
 

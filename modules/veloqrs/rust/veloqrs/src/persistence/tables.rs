@@ -85,6 +85,11 @@ use TableClass::{Derived, Device, Meta, Mirror, Record};
 /// Every table in the schema, in the order `sqlite_master` lists them.
 static TABLES: &[Table] = &[
     t(
+        "activity_census",
+        Mirror,
+        "what intervals.icu says the account holds; a sync pulls it whole",
+    ),
+    t(
         "activities",
         Mirror,
         "the activity list as intervals.icu holds it",
@@ -121,6 +126,11 @@ static TABLES: &[Table] = &[
         "the server's series, quantised; a fetch refills it",
     ),
     t(
+        "activity_stream_backfill",
+        Derived,
+        "how many times the backfill asked upstream and got nothing storable",
+    ),
+    t(
         "athlete_profile",
         Mirror,
         "the athlete record intervals.icu holds",
@@ -145,6 +155,11 @@ static TABLES: &[Table] = &[
         "fit_file_status",
         Derived,
         "bookkeeping for the local FIT parse",
+    ),
+    t(
+        "eftp_changes",
+        Mirror,
+        "the activities the server says moved the accepted eFTP",
     ),
     t("ftp_history", Mirror, "dated FTP readings from the server"),
     t(
@@ -181,6 +196,11 @@ static TABLES: &[Table] = &[
         "processed_activities",
         Derived,
         "which activities a detect has already seen",
+    ),
+    t(
+        "push_runs",
+        Derived,
+        "the last twenty native push runs and why each posted what it did",
     ),
     t(
         "route_groups",

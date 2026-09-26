@@ -3,7 +3,10 @@
 //! Consolidates AsyncStorage preferences into SQLite so a single database
 //! backup captures the complete app state.
 
+use std::collections::BTreeMap;
+
 use rusqlite::{OptionalExtension, Result as SqlResult, params};
+use serde::{Deserialize, Serialize};
 
 use super::PersistentEngine;
 
@@ -43,6 +46,80 @@ pub mod settings_keys {
     pub const EXPORT_HOME_LAT: &str = "__export_home_lat";
     pub const EXPORT_HOME_LNG: &str = "__export_home_lng";
     pub const EXPORT_PRIVACY_RADIUS_M: &str = "__export_privacy_radius_m";
+
+    /// The notification templates for the locale JavaScript last resolved,
+    /// with the locale tag beside them, as one JSON blob. A push handler
+    /// woken with the app killed formats from this: the crate holds no
+    /// bundles of its own and there is no i18next in that process.
+    ///
+    /// One key rather than fifteen so a locale change is one write and can
+    /// never leave half of one bundle beside half of another.
+    pub const NOTIFICATION_TEMPLATES: &str = "__notification_templates";
+
+    /// Bumped by a push handler that wrote to the database, and read by the
+    /// foreground to tell whether its in-memory tiers still speak for the
+    /// file.
+    ///
+    /// A counter rather than a flag: the foreground has to tell "nothing has
+    /// happened" from "something happened and I have already taken it", and a
+    /// flag someone has to clear races a second push arriving between the read
+    /// and the clear. The bump is one `UPDATE`, so two processes cannot lose
+    /// one another's.
+    pub const EXTERNAL_WRITE_TOKEN: &str = "__external_write_token";
+
+    /// The notification switch and its category flags, as JavaScript's
+    /// preferences store persists them: one JSON row, `{enabled, categories:
+    /// {sectionPr, fitnessMilestone}, ...}`. The key is the store's, at
+    /// `src/features/settings/stores/NotificationPreferencesStore.ts`, since
+    /// `setSetting` writes it here as well as to AsyncStorage. A push handler
+    /// with no JavaScript reads the switch from this row.
+    pub const NOTIFICATION_PREFERENCES: &str = "veloq-notification-preferences";
+}
+
+/// What a push handler needs to write a sentence: the resolved templates for
+/// one locale, keyed by their i18next path, and the tag they were resolved
+/// for.
+///
+/// The templates interpolate `{{name}}`, `{{delta}}` and `{{count}}` and
+/// nothing else, and no locale carries a plural variant of any of them, so
+/// formatting one is a substitution rather than a locale rule.
+///
+/// Ordered, so the stored JSON is byte-stable for one bundle and the launch
+/// that re-pushes what it pushed last time compares equal and writes nothing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotificationTemplates {
+    pub locale: String,
+    pub templates: BTreeMap<String, String>,
+}
+
+/// The templates the last push left, read from whatever connection the caller
+/// holds, so a screen or a push handler can take this off the engine's write
+/// lock and through the read pool.
+///
+/// A stored blob that no longer parses reads as none, so a handler falls back
+/// to its own wording rather than failing.
+pub fn notification_templates_from(
+    conn: &rusqlite::Connection,
+) -> SqlResult<Option<NotificationTemplates>> {
+    let json: Option<String> = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?",
+            params![settings_keys::NOTIFICATION_TEMPLATES],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(json.and_then(|json| serde_json::from_str(&json).ok()))
+}
+
+/// One setting from a connection that holds no engine lock, or `None` when
+/// the row is absent.
+pub fn setting_from(conn: &rusqlite::Connection, key: &str) -> SqlResult<Option<String>> {
+    conn.query_row(
+        "SELECT value FROM settings WHERE key = ?",
+        params![key],
+        |row| row.get(0),
+    )
+    .optional()
 }
 
 impl PersistentEngine {
@@ -63,11 +140,15 @@ impl PersistentEngine {
 
     /// Set a single setting (upsert).
     ///
-    /// An unchanged value is not written. The journal is kept in rollback mode
-    /// and `synchronous` is SQLite's default, so a commit is two fsyncs and
-    /// costs about 20 ms on a mid-range phone, paid on the thread that asked.
-    /// Most writes come from a store persisting on launch what it just read,
-    /// and the read that proves it is under a millisecond.
+    /// An unchanged value is not written, which is most calls: they come from a
+    /// store persisting on launch what it just read.
+    ///
+    /// The commit is no longer what it costs. Measured on the S22 in release on
+    /// a quiet machine, median of forty, three runs: a write that changes the
+    /// value is 0.021 to 0.048 ms and the unchanged early return 0.005 to
+    /// 0.012 ms. The same write against a rollback journal at `synchronous`
+    /// FULL, on the same handset, is 2.9 to 9.5 ms with a p95 of 13.5, which is
+    /// the two fsyncs this used to pay on the thread that asked.
     pub fn set_setting(&self, key: &str, value: &str) -> SqlResult<()> {
         if self.get_setting(key)?.as_deref() == Some(value) {
             return Ok(());
@@ -138,6 +219,44 @@ impl PersistentEngine {
             settings_keys::DETECTION_ENABLED,
             if enabled { "1" } else { "0" },
         )
+    }
+
+    /// Store the notification templates JavaScript resolved for the locale it
+    /// is running in, replacing whatever was held. Answers whether anything
+    /// was written, which is false for the ordinary launch that re-pushes the
+    /// bundle it pushed last time.
+    ///
+    /// An empty bundle is refused rather than stored: it would leave a handler
+    /// holding a locale tag and no sentence to put an activity in, which is
+    /// worse than holding the previous locale's.
+    pub fn set_notification_templates(
+        &self,
+        locale: &str,
+        templates: &[(String, String)],
+    ) -> SqlResult<bool> {
+        if templates.is_empty() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "notification templates: an empty bundle".to_string(),
+            ));
+        }
+        let held = NotificationTemplates {
+            locale: locale.to_string(),
+            templates: templates.iter().cloned().collect(),
+        };
+        let json = serde_json::to_string(&held)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        let before = self.get_setting(settings_keys::NOTIFICATION_TEMPLATES)?;
+        if before.as_deref() == Some(json.as_str()) {
+            return Ok(false);
+        }
+        self.set_setting(settings_keys::NOTIFICATION_TEMPLATES, &json)?;
+        Ok(true)
+    }
+
+    /// The templates the last push left, or none on an install whose app has
+    /// never started.
+    pub fn notification_templates(&self) -> SqlResult<Option<NotificationTemplates>> {
+        notification_templates_from(&self.db)
     }
 
     /// Delete a single setting.

@@ -10,7 +10,7 @@ use super::{PersistentEngine, codec, sections};
 /// App-level schema version for post-migration Rust hooks.
 /// Independent of rusqlite_migration's PRAGMA user_version (currently 17).
 /// Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 28;
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 39;
 
 /// Marks the refusal to open a database a later build wrote, so the init
 /// failover can tell it apart from corruption and leave the file alone.
@@ -58,6 +58,10 @@ fn trigger_has_guard(conn: &Connection, name: &str) -> bool {
     .map(|sql| sql.contains(SECTION_SUMMARY_BULK_KEY))
     .unwrap_or(false)
 }
+
+/// Names the refusal of a file whose pragma claims migrations that left no
+/// tables, so a caller can tell it from an ordinary migration failure.
+pub(crate) const OVERSTATED_SCHEMA_MARKER: &str = "schema version overstated";
 
 /// Whether an open failed because the file is ahead of this build.
 pub(crate) fn is_forward_schema_error(e: &rusqlite::Error) -> bool {
@@ -123,7 +127,107 @@ impl PersistentEngine {
             include_str!("../migrations/026_recording_reconciled.sql"),
             include_str!("../migrations/027_recording_athlete.sql"),
             include_str!("../migrations/028_attempt_store.sql"),
+            include_str!("../migrations/029_stream_backfill.sql"),
+            include_str!("../migrations/030_activity_metrics_date_index.sql"),
+            include_str!("../migrations/031_activity_start_date_index.sql"),
+            include_str!("../migrations/032_section_lift_intent.sql"),
+            include_str!("../migrations/033_activity_rolling_ftp.sql"),
+            include_str!("../migrations/034_activity_census.sql"),
+            include_str!("../migrations/035_activity_census_fetched.sql"),
+            include_str!("../migrations/036_activity_census_has_latlng.sql"),
+            include_str!("../migrations/037_recording_kind.sql"),
+            include_str!("../migrations/038_pace_history_window.sql"),
+            include_str!("../migrations/039_push_runs.sql"),
         ]
+    }
+
+    /// The tables migrations `1..=n` leave behind, read from the migration SQL
+    /// itself rather than from a list beside it: a hand-kept map drifts, and
+    /// what this has to describe is exactly what those files do.
+    ///
+    /// Creates add, drops remove and a rename moves the name, in file order,
+    /// so a table a later migration rebuilt under a temporary name is not
+    /// claimed. Index and trigger DDL is not a table and is passed over.
+    pub(super) fn tables_after(n: usize) -> std::collections::BTreeSet<String> {
+        let mut tables: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+        for script in Self::migration_scripts().iter().take(n) {
+            // Comments first: a statement here nearly always opens with a
+            // `--` line, and its words would otherwise be the ones matched.
+            let stripped: String = script
+                .lines()
+                .map(|line| line.split("--").next().unwrap_or(""))
+                .collect::<Vec<&str>>()
+                .join("\n");
+            for statement in stripped.split(';') {
+                let words: Vec<String> = statement
+                    .split_whitespace()
+                    .map(|w| w.trim_matches(['"', '`', '\'', '(']).to_lowercase())
+                    .collect();
+                let w: Vec<&str> = words.iter().map(String::as_str).collect();
+                match w.as_slice() {
+                    ["create", "table", "if", "not", "exists", name, ..]
+                    | ["create", "table", name, ..] => {
+                        tables.insert((*name).to_string());
+                    }
+                    ["drop", "table", "if", "exists", name, ..] | ["drop", "table", name, ..] => {
+                        tables.remove(*name);
+                    }
+                    ["alter", "table", from, "rename", "to", to, ..] => {
+                        tables.remove(*from);
+                        tables.insert((*to).to_string());
+                    }
+                    _ => {}
+                }
+            }
+        }
+        tables
+    }
+
+    /// Refuse a file whose `PRAGMA user_version` claims migrations that did not
+    /// leave their tables behind.
+    ///
+    /// Diagnosis only. The message names both version records and the tables
+    /// the pragma implies but the file does not hold, because the failure it
+    /// replaces named whichever table the pass reached first and nothing about
+    /// why it was reached.
+    fn refuse_an_overstated_version(conn: &Connection, app_version: i32) -> SqlResult<()> {
+        let pragma: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        if pragma <= 0 {
+            return Ok(());
+        }
+        let expected = Self::tables_after(pragma as usize);
+        if expected.is_empty() {
+            return Ok(());
+        }
+        let mut present: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+        {
+            let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type = 'table'")?;
+            for row in stmt.query_map([], |row| row.get::<_, String>(0))? {
+                present.insert(row?);
+            }
+        }
+        // A file that has not been migrated at all is not this: the pragma is
+        // zero there, and this only fires when it names work that left nothing.
+        let missing: Vec<&str> = expected
+            .iter()
+            .filter(|t| !present.contains(*t))
+            .map(String::as_str)
+            .collect();
+        if missing.is_empty() {
+            return Ok(());
+        }
+        Err(rusqlite::Error::ToSqlConversionFailure(Box::new(
+            std::io::Error::other(format!(
+                "{}: user_version {} implies {} tables, schema_info {}, and these are absent: {}. \
+                 The migration pass would skip the files that create them and fail on the first \
+                 one it assumes. Nothing here repairs it.",
+                OVERSTATED_SCHEMA_MARKER,
+                pragma,
+                expected.len(),
+                app_version,
+                missing.join(", "),
+            )),
+        )))
     }
 
     /// Initialise the database schema using migrations.
@@ -167,6 +271,14 @@ impl PersistentEngine {
             )));
         }
 
+        // A pragma that overstates what ran makes the pass skip the file that
+        // creates a table and reach the one that alters it, and the failure
+        // names that table rather than the version records behind it. Diagnose
+        // it here, before the pass: the repair is not this build's to make,
+        // and the migration bytes are checksummed so no numbered file can be
+        // rewritten to cover for it.
+        Self::refuse_an_overstated_version(conn, current_version)?;
+
         // Run all pending migrations
         let migrations_started = std::time::Instant::now();
         Self::migrations().to_latest(conn).map_err(|e| {
@@ -209,6 +321,7 @@ impl PersistentEngine {
         Self::backfill_custom_section_reference(conn)?;
         Self::ensure_wellness_raw_column(conn)?;
         Self::ensure_gps_track_elevation_state(conn)?;
+        Self::ensure_gps_track_elevation_attempts(conn)?;
         Self::ensure_section_elevation_columns(conn)?;
         Self::ensure_sections_polyline_nullable(conn)?;
         Self::ensure_section_geometry_baseline(conn, current_version);
@@ -372,6 +485,31 @@ impl PersistentEngine {
         {
             conn.execute(
                 "ALTER TABLE gps_tracks ADD COLUMN elevation_state INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Add `gps_tracks.elevation_attempts`, how many asks have settled nothing
+    /// for this track. Default 0, so a row stored before the column existed
+    /// starts its count from the next ask rather than from a number nobody
+    /// recorded.
+    ///
+    /// The count has to survive the process: the backfill runs about once per
+    /// launch, so a counter held in memory would never reach the limit that
+    /// retires a track, and the queue would stay above zero for ever.
+    ///
+    /// Lives in a hook rather than in a numbered migration for the same reason
+    /// [`Self::ensure_gps_track_elevation_state`] does: `ALTER TABLE ADD
+    /// COLUMN` is not idempotent and 017 reruns.
+    fn ensure_gps_track_elevation_attempts(conn: &Connection) -> SqlResult<()> {
+        if conn
+            .prepare("SELECT elevation_attempts FROM gps_tracks LIMIT 0")
+            .is_err()
+        {
+            conn.execute(
+                "ALTER TABLE gps_tracks ADD COLUMN elevation_attempts INTEGER NOT NULL DEFAULT 0",
                 [],
             )?;
         }

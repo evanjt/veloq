@@ -1,10 +1,12 @@
 //! Fitness core: activity-metric storage and cached athlete/sport settings.
 //!
 //! Derived fitness data (trends, aggregates, calendars, highlights) lives in
-//! [`derivations`]. Route and section performance queries live in [`performances`].
+//! [`derivations`]. Route and section performance queries live in
+//! [`performances`], and the stale-PR selection in [`stale_pr`].
 
-mod derivations;
-mod performances;
+pub(crate) mod derivations;
+pub(crate) mod performances;
+pub(crate) mod stale_pr;
 
 use crate::ActivityMetrics;
 use rusqlite::{Result as SqlResult, params};
@@ -133,7 +135,9 @@ impl PersistentEngine {
         let new_metrics: Vec<&crate::FfiActivityMetrics> = metrics
             .iter()
             .filter(|m| match self.activity_metrics.get(&m.activity_id) {
-                Some(existing) => existing.date != m.date || existing.moving_time != m.moving_time,
+                Some(existing) => {
+                    existing.date != m.date as i64 || existing.moving_time != m.moving_time
+                }
                 None => true,
             })
             .collect();
@@ -144,7 +148,43 @@ impl PersistentEngine {
 
         self.db.execute_batch("BEGIN IMMEDIATE")?;
 
-        let result = (|| -> SqlResult<()> {
+        let result = self.write_activity_metrics(&new_metrics, false);
+        let unplaced = match result {
+            Ok(unplaced) => {
+                self.db.execute_batch("COMMIT")?;
+                unplaced
+            }
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                return Err(e);
+            }
+        };
+
+        if unplaced > 0 {
+            log::info!(
+                "veloqrs: [fitness] {unplaced} of {} metrics rows had no activity row to write \
+                 distance and duration onto; the next open backfills them",
+                new_metrics.len()
+            );
+        }
+
+        for m in metrics {
+            let core: ActivityMetrics = m.into();
+            self.activity_metrics.insert(core.activity_id.clone(), core);
+        }
+        self.invalidate_perf_cache();
+
+        Ok(())
+    }
+
+    /// Write metrics within the caller-owned transaction.
+    pub(super) fn write_activity_metrics(
+        &self,
+        metrics: &[&crate::FfiActivityMetrics],
+        strict: bool,
+    ) -> SqlResult<usize> {
+        let mut unplaced = 0usize;
+        (|| -> SqlResult<()> {
             let mut stmt = self.db.prepare(
                 "INSERT OR REPLACE INTO activity_metrics
                  (activity_id, name, date, distance, moving_time, elapsed_time,
@@ -155,7 +195,7 @@ impl PersistentEngine {
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )?;
 
-            for m in &new_metrics {
+            for m in metrics {
                 let power_zones: Vec<f64> = m
                     .power_zone_times
                     .as_ref()
@@ -221,12 +261,27 @@ impl PersistentEngine {
                     )?;
                 }
 
-                let _ = self.db.execute(
+                // Counted rather than discarded. A metrics row that updates no
+                // activity means the two tables disagree about which ids exist,
+                // which is the ordinary case on a first sync, where the fitness
+                // endpoint answers before the activity rows land. The open
+                // backfills those; what is worth saying is how many.
+                match self.db.execute(
                     "UPDATE activities SET start_date = COALESCE(start_date, ?), name = ?, distance_meters = ?, duration_secs = ? WHERE id = ?",
                     params![m.date, &m.name, m.distance, m.moving_time as i64, &m.activity_id],
-                );
+                ) {
+                    Ok(0) => unplaced += 1,
+                    Ok(_) => {}
+                    Err(e) => {
+                        if strict { return Err(e); }
+                        log::warn!(
+                            "veloqrs: [fitness] metrics for {} could not reach its activity row: {e}",
+                            m.activity_id
+                        );
+                    }
+                }
 
-                let date_str = chrono::DateTime::from_timestamp(m.date, 0)
+                let date_str = chrono::DateTime::from_timestamp(m.date as i64, 0)
                     .map(|dt| dt.format("%Y-%m-%d").to_string())
                     .unwrap_or_default();
                 let intensity = match m.moving_time {
@@ -249,23 +304,8 @@ impl PersistentEngine {
             }
 
             Ok(())
-        })();
-
-        match result {
-            Ok(()) => self.db.execute_batch("COMMIT")?,
-            Err(e) => {
-                let _ = self.db.execute_batch("ROLLBACK");
-                return Err(e);
-            }
-        }
-
-        for m in metrics {
-            let core: ActivityMetrics = m.into();
-            self.activity_metrics.insert(core.activity_id.clone(), core);
-        }
-        self.invalidate_perf_cache();
-
-        Ok(())
+        })()?;
+        Ok(unplaced)
     }
 
     // =========================================================================
@@ -273,15 +313,20 @@ impl PersistentEngine {
     // =========================================================================
 
     /// Store athlete profile JSON blob for instant startup rendering.
-    pub fn set_athlete_profile(&self, json: &str) {
+    ///
+    /// The error is the caller's: a dropped write leaves every reader of the
+    /// profile, FTP and zones on the previous athlete's values, and the sync
+    /// step above this has to fail rather than stamp a success over them.
+    pub fn set_athlete_profile(&self, json: &str) -> SqlResult<()> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
-        let _ = self.db.execute(
+        self.db.execute(
             "INSERT OR REPLACE INTO athlete_profile (id, data, updated_at) VALUES ('current', ?1, ?2)",
             rusqlite::params![json, now],
-        );
+        )?;
+        Ok(())
     }
 
     /// Get cached athlete profile JSON blob. Returns None if not cached.
@@ -296,15 +341,16 @@ impl PersistentEngine {
     }
 
     /// Store sport settings JSON blob for instant startup rendering.
-    pub fn set_sport_settings(&self, json: &str) {
+    pub fn set_sport_settings(&self, json: &str) -> SqlResult<()> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
-        let _ = self.db.execute(
+        self.db.execute(
             "INSERT OR REPLACE INTO sport_settings (id, data, updated_at) VALUES ('current', ?1, ?2)",
             rusqlite::params![json, now],
-        );
+        )?;
+        Ok(())
     }
 
     /// Get cached sport settings JSON blob. Returns None if not cached.
@@ -316,17 +362,6 @@ impl PersistentEngine {
                 |row| row.get(0),
             )
             .ok()
-    }
-
-    /// Clear cached athlete profile and sport settings blobs without touching
-    /// activity / GPS / section data. Used by the lightweight "Sign out" path
-    /// where we want to drop the previous user's identity but keep their
-    /// synced data so a re-login on the same account is instant.
-    pub fn clear_user_profile_caches(&self) {
-        let _ = self.db.execute_batch(
-            "DELETE FROM athlete_profile;
-             DELETE FROM sport_settings;",
-        );
     }
 }
 
@@ -465,6 +500,37 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM ftp_history", [], |r| r.get(0))
             .unwrap();
         assert_eq!(rows, 0);
+    }
+
+    /// Scenario: the profile write hits a broken table, the shape a busy
+    /// connection or a constraint takes.
+    ///
+    /// Expected behaviour: the writer says so, so the sync step above it can
+    /// fail rather than stamp a success over the previous athlete's values.
+    #[test]
+    fn a_failed_profile_write_is_reported() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine.set_athlete_profile("{\"id\":\"i1\"}").unwrap();
+
+        engine
+            .db
+            .execute_batch("DROP TABLE athlete_profile")
+            .unwrap();
+
+        assert!(engine.set_athlete_profile("{\"id\":\"i2\"}").is_err());
+    }
+
+    #[test]
+    fn a_failed_sport_settings_write_is_reported() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine.set_sport_settings("{\"ftp\":200}").unwrap();
+
+        engine
+            .db
+            .execute_batch("DROP TABLE sport_settings")
+            .unwrap();
+
+        assert!(engine.set_sport_settings("{\"ftp\":210}").is_err());
     }
 
     #[test]

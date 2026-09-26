@@ -20,10 +20,11 @@
 //!    - Detected sections
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, RwLock};
 
+use crate::objects::error::VeloqError;
 use crate::sections::SectionSummary;
 use crate::{
     ActivityMatchInfo, ActivityMetrics, Bounds, FrequentSection, GpsPoint, MatchConfig, RouteGroup,
@@ -34,11 +35,28 @@ use rstar::{AABB, RTree, RTreeObject};
 use rusqlite::{Connection, Result as SqlResult};
 use std::sync::LazyLock;
 
-mod activities;
+/// How many section performance results the engine keeps warm.
+///
+/// The insights bundle asks about every section travelled in the recent window,
+/// once for the record loop and again through the per-sport ranked lists. On the
+/// athlete's own library, 152 sections, that working set is 23 and the whole
+/// bundle computes each of them exactly once. At eight entries nothing of it
+/// survives to the next call, so reopening the tab recomputed all 23; the cache
+/// was sized for hopping between a few section screens, not for a bundle.
+///
+/// Sixty-four covers the measured working set nearly threefold. A result
+/// serialises to about 8 KB, so a full cache is around 500 KB, against 1.2 MB
+/// for the whole library's worth.
+const PERF_CACHE_ENTRIES: std::num::NonZeroUsize = match std::num::NonZeroUsize::new(64) {
+    Some(n) => n,
+    None => unreachable!(),
+};
+
+pub(crate) mod activities;
 pub mod attempts;
 pub use activities::{
     DerivedClear, ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE, ELEVATION_STATE_UNKNOWN,
-    ElevationStateCounts, mint_local_activity_id,
+    ELEVATION_STATE_UNREACHABLE, ElevationStateCounts, mint_local_activity_id,
 };
 /// On-disk blob format. Public so diagnostics that open a database file
 /// directly decode it the same way the engine wrote it.
@@ -46,10 +64,12 @@ pub mod codec;
 pub mod cutover;
 pub(crate) mod export;
 pub use export::{ExportPrivacyPreview, SuggestedHome};
-mod fitness;
+pub(crate) mod fitness;
 mod indicators;
 #[cfg(feature = "lock-trace")]
 pub mod lock_trace;
+pub mod read_cache;
+pub mod read_pool;
 pub mod recordings;
 pub(crate) mod records;
 pub use recordings::{FfiRecordingEntry, MAX_AUTO_RETRIES};
@@ -58,17 +78,19 @@ mod route_identity;
 mod routes;
 mod schema;
 pub use schema::SUPPORTED_SCHEMA_VERSION;
-mod screens;
+pub(crate) mod screens;
 pub mod sections;
 pub use sections::conditioning::{DetectionSuspendGuard, detection_suspended, suspend_detection};
 pub mod settings;
 pub mod streams;
+pub use streams::StreamGap;
 pub mod tables;
 pub use settings::settings_keys;
 pub mod bodies;
+pub mod curves;
 mod strength;
 pub use strength::FitOutcome;
-mod tiles;
+pub mod tiles;
 pub mod wellness;
 
 // ============================================================================
@@ -143,6 +165,15 @@ pub struct ActivityMetadata {
     pub id: String,
     pub sport_type: String,
     pub bounds: Bounds,
+    /// Where the ride began, from the signature's own stored start point.
+    ///
+    /// The map draws a marker per activity and wants the start, not the middle
+    /// of the bounding box. Holding it here is what lets the map screen answer
+    /// with it: the page used to place every marker on its bounds centre, then
+    /// move all of them once the signatures finished loading, which is two
+    /// uploads and two cluster indexes per mount. `None` for an activity with
+    /// no signature yet, where the bounds centre is still the best guess.
+    pub start_point: Option<(f64, f64)>,
 }
 
 /// Bounds wrapper for R-tree spatial indexing.
@@ -195,8 +226,13 @@ pub struct MapActivityComplete {
     pub sport_type: String,
     /// Bounding box for map display
     pub bounds: crate::FfiBounds,
+    /// Where the ride began, for the marker. `None` leaves the caller the
+    /// bounds centre, which is where every marker used to start out before the
+    /// signatures finished loading and moved it.
+    pub start_lat: Option<f64>,
+    pub start_lng: Option<f64>,
     /// Start date as Unix timestamp (seconds since epoch)
-    pub date: i64,
+    pub date: f64,
     /// Activity name
     pub name: String,
     /// Total distance in meters
@@ -324,6 +360,30 @@ pub struct CacheUpdate {
     pub boundaries: Vec<tracematch::BoundaryRecord>,
 }
 
+/// The newest mid-fold checkpoint, and only the newest.
+///
+/// A checkpoint is a clone of the whole catalogue plus the folded-id set of the
+/// entire pool. Sent down the result channel they queued one every two seconds
+/// for the length of a run nobody polls, which on a cold `force_redetect` is
+/// hundreds of copies held until the apply frees the lot. Only the newest is
+/// ever wanted: an older one describes less of the same fold. So the worker
+/// overwrites rather than appends, and the memory is one checkpoint whether or
+/// not anything is polling.
+#[derive(Default)]
+pub struct CheckpointSlot(std::sync::Mutex<Option<CacheUpdate>>);
+
+impl CheckpointSlot {
+    /// Replace whatever is held. Never blocks the fold for a reader.
+    pub fn put(&self, update: CacheUpdate) {
+        *self.0.lock().unwrap_or_else(|e| e.into_inner()) = Some(update);
+    }
+
+    /// Take the held checkpoint, leaving the slot empty.
+    pub fn take(&self) -> Option<CacheUpdate> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner()).take()
+    }
+}
+
 /// Handle for background section detection.
 
 pub struct SectionDetectionHandle {
@@ -337,6 +397,9 @@ pub struct SectionDetectionHandle {
     /// short-circuit never send here, so `take_cache` returns None and the
     /// caller leaves the engine cache untouched.
     cache_receiver: mpsc::Receiver<CacheUpdate>,
+    /// The newest mid-fold checkpoint. Off the channel on purpose: a run the
+    /// follower never polls would otherwise queue one every two seconds.
+    checkpoint: Arc<CheckpointSlot>,
     /// Shared progress state
     pub progress: SectionDetectionProgress,
     /// Set by a self-applying worker once its own apply has landed. Present
@@ -418,9 +481,17 @@ impl SectionDetectionHandle {
         )
     }
 
-    /// Wait for detection to complete (blocking).
-    pub fn recv(self) -> Option<(Vec<FrequentSection>, Vec<String>)> {
-        self.receiver.recv().ok()
+    /// Wait for detection to complete, or for the phase it ended in.
+    ///
+    /// A run sends nothing when it was refused before it started, when the
+    /// worker could not open its database, and when it died. None of those is
+    /// a catalogue, and a caller that read the absence as an empty one
+    /// reported a run that never happened as a verdict about the library. So
+    /// the phase travels in the `Err`, rather than being left on `progress`
+    /// for a caller to have cloned before this consumed the handle.
+    pub fn recv(self) -> Result<(Vec<FrequentSection>, Vec<String>), String> {
+        let progress = self.progress.clone();
+        self.receiver.recv().map_err(|_| progress.get_phase())
     }
 
     /// Take the Unified detector's evidence-cache update, if any. Only the
@@ -445,19 +516,19 @@ impl SectionDetectionHandle {
         None
     }
 
-    /// The newest checkpoint the worker has sent since the last drain, or
-    /// None. A final update met on the way is kept for [`take_cache`].
+    /// The newest checkpoint the worker has left, or None. The slot holds one,
+    /// so this is a take rather than a drain and the channel is untouched.
     pub fn take_checkpoint(&self) -> Option<CacheUpdate> {
-        let mut latest = None;
-        while let Ok(u) = self.cache_receiver.try_recv() {
-            if u.checkpoint {
-                latest = Some(u);
-            } else {
-                *self.final_update.lock().unwrap_or_else(|e| e.into_inner()) = Some(u);
-                break;
-            }
-        }
-        latest
+        self.checkpoint.take()
+    }
+
+    /// The slot this run writes its checkpoints into.
+    ///
+    /// Handed out so a follower can hold on to the one run it started and tell
+    /// it from whatever occupies the slot later, which no id on the handle
+    /// would do any better.
+    pub fn checkpoint_slot(&self) -> Arc<CheckpointSlot> {
+        Arc::clone(&self.checkpoint)
     }
 
     /// Block for the section result AND collect the evidence-cache update in one
@@ -473,7 +544,7 @@ impl SectionDetectionHandle {
     /// makes the next detect compute `pool - folded = {}` and reload the whole
     /// pool anyway, and loses every fork attribution, since a checkpoint
     /// carries no `boundaries`. So drain to the first non-checkpoint update,
-    /// and fall back to the newest checkpoint only when the run ended without
+    /// and fall back to the checkpoint slot only when the run ended without
     /// one.
     pub fn recv_with_cache(
         self,
@@ -481,22 +552,78 @@ impl SectionDetectionHandle {
         Option<(Vec<FrequentSection>, Vec<String>)>,
         Option<CacheUpdate>,
     ) {
-        let main = self.receiver.recv().ok();
+        let (state, cache) = self.recv_state_with_cache();
+        match state {
+            WorkerPoll::Ready(v) => (Some(v), cache),
+            _ => (None, cache),
+        }
+    }
+
+    /// The same read, keeping the one distinction `recv_with_cache` throws
+    /// away: a worker that died without sending against a run with nothing to
+    /// report.
+    ///
+    /// A panic inside the fold drops the sender, and `recv().ok()` then answers
+    /// `None`, which every caller treats as an empty catalogue and applies. The
+    /// previous catalogue stands and nothing says the detect never happened.
+    /// `poll_state` has reported `Died` since the failover work; this is the
+    /// blocking read catching up with it.
+    ///
+    /// `Running` is never returned: the read blocks until the channel answers
+    /// one way or the other.
+    pub fn recv_state_with_cache(
+        self,
+    ) -> (
+        WorkerPoll<(Vec<FrequentSection>, Vec<String>)>,
+        Option<CacheUpdate>,
+    ) {
+        self.recv_state_with_cache_within(None)
+    }
+
+    /// The same read, giving up after `limit` and answering `Running`.
+    ///
+    /// A worker that hangs rather than dies never closes its channel, so the
+    /// unbounded read above waits for the life of the process and whatever the
+    /// caller holds is held with it. `None` is the unbounded read, for callers
+    /// that are the worker's only reader and have nothing to release.
+    ///
+    /// `Running` is the honest answer for an expiry: the run may still be going,
+    /// and its checkpoints are on disk for the next launch to resume from.
+    pub fn recv_state_with_cache_within(
+        self,
+        limit: Option<std::time::Duration>,
+    ) -> (
+        WorkerPoll<(Vec<FrequentSection>, Vec<String>)>,
+        Option<CacheUpdate>,
+    ) {
+        let received = match limit {
+            Some(limit) => self
+                .receiver
+                .recv_timeout(limit)
+                .map_err(|e| matches!(e, std::sync::mpsc::RecvTimeoutError::Timeout)),
+            None => self.receiver.recv().map_err(|_| false),
+        };
+        let main = match received {
+            Ok(v) => WorkerPoll::Ready(v),
+            Err(true) => WorkerPoll::Running,
+            Err(false) => WorkerPoll::Died,
+        };
         let stashed = self
             .final_update
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .take();
-        let cache = stashed.or_else(|| {
-            let mut newest_checkpoint = None;
-            loop {
-                match self.cache_receiver.try_recv() {
-                    Ok(u) if u.checkpoint => newest_checkpoint = Some(u),
-                    Ok(u) => return Some(u),
-                    Err(_) => return newest_checkpoint,
+        let cache = stashed
+            .or_else(|| {
+                loop {
+                    match self.cache_receiver.try_recv() {
+                        Ok(u) if u.checkpoint => continue,
+                        Ok(u) => return Some(u),
+                        Err(_) => return None,
+                    }
                 }
-            }
-        });
+            })
+            .or_else(|| self.checkpoint.take());
         (main, cache)
     }
 }
@@ -517,6 +644,17 @@ impl ClearHandle {
             Err(mpsc::TryRecvError::Empty) => WorkerPoll::Running,
             Err(mpsc::TryRecvError::Disconnected) => WorkerPoll::Died,
         }
+    }
+
+    /// Block until the wipe reports, or until its thread dies without doing so.
+    ///
+    /// For a caller that is already off the JS thread and has nothing to do
+    /// until the answer arrives. A poll loop in its place is the same wait plus
+    /// an interval nobody chose.
+    pub fn wait(self) -> Result<(), String> {
+        self.receiver
+            .recv()
+            .unwrap_or_else(|_| Err("Clear thread died without a result".to_string()))
     }
 }
 
@@ -561,6 +699,14 @@ impl DerivedClearHandle {
             Err(mpsc::TryRecvError::Disconnected) => WorkerPoll::Died,
         }
     }
+
+    /// Block until the wipe reports what it removed, or until its thread dies
+    /// without doing so.
+    pub fn wait(self) -> Result<activities::DerivedClear, String> {
+        self.receiver
+            .recv()
+            .unwrap_or_else(|_| Err("Clear thread died without a result".to_string()))
+    }
 }
 
 /// Empty what the engine can re-derive, on a background thread.
@@ -579,16 +725,40 @@ pub fn clear_derived_background() -> DerivedClearHandle {
     DerivedClearHandle { receiver: rx }
 }
 
-/// Wipe every table on a background thread.
+/// Wipe every table on a background thread, then the heatmap tiles.
 ///
 /// 401 ms on a 750-activity library. The caller re-opens the engine after
 /// this, and that re-open must stay ordered against the wipe rather than
 /// racing it, which is what the poll gives it.
-pub fn clear_all_background() -> ClearHandle {
+///
+/// `heatmap_tiles_dir` is where the app keeps the tiles whether or not the
+/// heatmap is on. The engine knows the path only once the heatmap is turned on
+/// in this process, and the login screen wipes before that, so the caller
+/// names it. The path in force is wiped too, when it is somewhere else.
+pub fn clear_all_background(heatmap_tiles_dir: Option<String>) -> ClearHandle {
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
-        let result = with_persistent_engine(|engine| engine.clear().map_err(|e| format!("{}", e)))
-            .unwrap_or_else(|| Err("Engine is not initialised".to_string()));
+        let result = with_persistent_engine(|engine| {
+            let in_force = engine.heatmap_tiles_path().map(std::path::PathBuf::from);
+            engine
+                .clear()
+                .map(|()| in_force)
+                .map_err(|e| format!("{}", e))
+        })
+        .unwrap_or_else(|| Err("Engine is not initialised".to_string()));
+        // Out here because the lock is released: a full set is tens of
+        // thousands of files, and every reader would otherwise wait out the
+        // walk. A wipe that failed keeps the library, so it keeps its tiles.
+        let result = result.map(|in_force| {
+            let mut dirs: Vec<std::path::PathBuf> = heatmap_tiles_dir
+                .map(std::path::PathBuf::from)
+                .into_iter()
+                .collect();
+            dirs.extend(in_force.filter(|dir| !dirs.contains(dir)));
+            for dir in &dirs {
+                tiles::wipe_tile_set(dir);
+            }
+        });
         tx.send(result).ok();
     });
     ClearHandle { receiver: rx }
@@ -600,6 +770,13 @@ pub struct BackupHandle {
 }
 
 impl BackupHandle {
+    /// A handle around a channel the caller already owns. Test path: it is
+    /// how a worker that died without sending is staged.
+    #[cfg(test)]
+    pub fn from_receiver(receiver: mpsc::Receiver<Result<(), String>>) -> Self {
+        Self { receiver }
+    }
+
     /// Non-blocking poll that also reports a dead worker thread.
     pub fn poll_state(&self) -> WorkerPoll<Result<(), String>> {
         match self.receiver.try_recv() {
@@ -614,6 +791,41 @@ impl BackupHandle {
     pub fn recv_blocking(&self) -> Option<Result<(), String>> {
         self.receiver.recv().ok()
     }
+}
+
+/// Handle for a background heatmap cache-size walk.
+///
+/// The walk is linear in cached tiles and reads nothing but the filesystem,
+/// so it takes no engine lock and no connection. What it does take is time:
+/// 40,061 tiles measured 170 ms on the CPH2653, and the mount that asks for
+/// it has 100 ms for the whole screen.
+pub struct CacheSizeHandle {
+    receiver: mpsc::Receiver<u64>,
+}
+
+impl CacheSizeHandle {
+    /// Non-blocking poll that also reports a dead worker thread.
+    pub fn poll_state(&self) -> WorkerPoll<u64> {
+        match self.receiver.try_recv() {
+            Ok(v) => WorkerPoll::Ready(v),
+            Err(mpsc::TryRecvError::Empty) => WorkerPoll::Running,
+            Err(mpsc::TryRecvError::Disconnected) => WorkerPoll::Died,
+        }
+    }
+
+    /// Block until the walk finishes. Test and bench path; production polls.
+    pub fn recv_blocking(&self) -> Option<u64> {
+        self.receiver.recv().ok()
+    }
+}
+
+/// Start a cache-size walk on its own thread.
+pub fn walk_cache_size_background(base_path: String, walk: fn(&str) -> u64) -> CacheSizeHandle {
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        tx.send(walk(&base_path)).ok();
+    });
+    CacheSizeHandle { receiver: rx }
 }
 
 /// Handle for a background bulk export.
@@ -635,6 +847,12 @@ impl BulkExportHandle {
     /// Activities written so far, and how many the export expects to visit.
     pub fn progress(&self) -> (u32, u32) {
         self.progress.read()
+    }
+
+    /// The counters themselves, for a progress read that outlives this handle
+    /// being moved onto the thread that awaits it.
+    pub fn progress_handle(&self) -> std::sync::Arc<export::BulkExportProgress> {
+        std::sync::Arc::clone(&self.progress)
     }
 
     /// Block until the export finishes, returning its outcome.
@@ -659,10 +877,33 @@ impl SectionDetectionHandle {
             receiver: rx,
             final_update: Mutex::new(None),
             cache_receiver: cache_rx,
+            checkpoint: Arc::new(CheckpointSlot::default()),
             progress: SectionDetectionProgress::new(),
             worker_applied: Some(Arc::new(AtomicBool::new(false))),
             cancel: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// A worker that hangs rather than dies: it holds its sender, so the
+    /// channel neither answers nor closes. The sender is returned so the test
+    /// keeps it alive; dropping it would make this a dead worker instead.
+    pub(crate) fn worker_that_never_answers() -> (
+        Self,
+        mpsc::Sender<(Vec<FrequentSection>, Vec<String>)>,
+        mpsc::Sender<CacheUpdate>,
+    ) {
+        let (tx, rx) = mpsc::channel();
+        let (cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
+        let handle = SectionDetectionHandle {
+            receiver: rx,
+            final_update: Mutex::new(None),
+            cache_receiver: cache_rx,
+            checkpoint: Arc::new(CheckpointSlot::default()),
+            progress: SectionDetectionProgress::new(),
+            worker_applied: None,
+            cancel: Arc::new(AtomicBool::new(false)),
+        };
+        (handle, tx, cache_tx)
     }
 }
 
@@ -694,6 +935,74 @@ impl CancelToken {
     pub fn is_cancelled(&self) -> bool {
         self.0.load(Ordering::SeqCst)
     }
+}
+
+/// Every tile sweep that is running, so a cancel reaches all of them.
+///
+/// A sweep is detached and returns no handle, so unlike the tile pass it has
+/// nowhere of its own to keep its token. One slot held one, and two sweeps are
+/// reachable at once: `add_activities_batch` spawns one for new and mutated
+/// activities, the removal path spawns another, and the elevation backfill
+/// stores through the same batch while a GPS sync stores its own. The second
+/// spawn overwrote the first, so the first swept its whole bounds list with
+/// nobody able to stop it, and whichever thread ended first cleared the slot.
+///
+/// A set rather than a guard refusing the second sweep. Refusing it would drop
+/// the invalidation that sweep was spawned to do, and the tiles it would have
+/// taken stay on disk claiming ground that has changed.
+static TILE_SWEEPS: LazyLock<Mutex<Vec<(u64, CancelToken)>>> =
+    LazyLock::new(|| Mutex::new(Vec::new()));
+
+static NEXT_TILE_SWEEP_ID: AtomicU64 = AtomicU64::new(0);
+
+/// One sweep's place in [`TILE_SWEEPS`]. Dropping it takes that sweep's
+/// registration and leaves every sibling's, so a sweep that ends cannot make
+/// another unstoppable.
+pub struct TileSweepRegistration {
+    id: u64,
+    token: CancelToken,
+}
+
+impl TileSweepRegistration {
+    /// The token the sweep checks at its safe points.
+    pub fn token(&self) -> CancelToken {
+        self.token.clone()
+    }
+}
+
+impl Drop for TileSweepRegistration {
+    fn drop(&mut self) {
+        if let Ok(mut sweeps) = TILE_SWEEPS.lock() {
+            sweeps.retain(|(id, _)| *id != self.id);
+        }
+    }
+}
+
+/// Register a sweep about to start. Hold the registration for as long as the
+/// sweep runs.
+pub fn register_tile_sweep() -> TileSweepRegistration {
+    let id = NEXT_TILE_SWEEP_ID.fetch_add(1, Ordering::SeqCst);
+    let token = CancelToken::new();
+    if let Ok(mut sweeps) = TILE_SWEEPS.lock() {
+        sweeps.push((id, token.clone()));
+    }
+    TileSweepRegistration { id, token }
+}
+
+/// Stop every sweep that is running. Answers whether there was one, so the
+/// caller can tell a cancel that reached something from one that did not.
+///
+/// The registrations stay: each sweep takes its own when it winds down, and
+/// taking them here would leave a still-running sweep unreachable by a second
+/// cancel, which is the bug this replaced.
+pub fn cancel_tile_sweeps() -> bool {
+    let Ok(sweeps) = TILE_SWEEPS.lock() else {
+        return false;
+    };
+    for (_, token) in sweeps.iter() {
+        token.cancel();
+    }
+    !sweeps.is_empty()
 }
 
 /// Handle for background heatmap tile generation with progress tracking.
@@ -760,6 +1069,7 @@ mod worker_poll_tests {
             receiver: rx,
             final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
+            checkpoint: Arc::new(CheckpointSlot::default()),
             progress: SectionDetectionProgress::new(),
             worker_applied: None,
             cancel: Arc::new(AtomicBool::new(false)),
@@ -778,6 +1088,7 @@ mod worker_poll_tests {
             receiver: rx,
             final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
+            checkpoint: Arc::new(CheckpointSlot::default()),
             progress: SectionDetectionProgress::new(),
             worker_applied: None,
             cancel: Arc::new(AtomicBool::new(false)),
@@ -938,10 +1249,10 @@ pub struct PersistentEngine {
     /// full corridor listing. A pure function of DB state, refreshed lazily
     /// behind `named_overlay_stamp`, the connection's `total_changes()`
     /// counter at last compute, so any write through this connection
-    /// invalidates it and no mutation site needs remembering. Sync-honest
-    /// under the engine's `unsafe impl Sync`: the refresh queries `self.db`
-    /// and so belongs to the write-lock class like every other db method;
-    /// read-lock paths may only read the cached map through the inner lock.
+    /// invalidates it and no mutation site needs remembering. The refresh
+    /// queries `self.db` and so runs under the engine lock like every other db
+    /// method. The `RwLock` here is the engine's own, over the map and not
+    /// over the engine, and it stays.
     pub(crate) named_overlay: std::sync::RwLock<sections::NamedOverlay>,
     pub(crate) named_overlay_stamp: std::sync::atomic::AtomicI64,
 
@@ -1003,10 +1314,13 @@ pub struct PersistentEngine {
     /// Path for heatmap tile output (set from JS at init)
     pub(crate) heatmap_tiles_path: Option<String>,
 
-    /// Small LRU cache for get_section_performances, keyed by section id (+ sport
+    /// LRU cache for get_section_performances, keyed by section id (+ sport
     /// filter). A section detail load calls it twice for the same section (buckets
     /// + calendar); navigating between a handful of sections keeps them all warm
     /// where the old single entry evicted on every hop.
+    ///
+    /// Sized for a whole insights bundle rather than a handful of screens, so
+    /// reopening the tab is free. See [`PERF_CACHE_ENTRIES`].
     perf_cache: LruCache<String, SectionPerformanceResult>,
 
     /// Full computations of `get_section_performances_filtered`, cache hits
@@ -1025,6 +1339,13 @@ pub struct PersistentEngine {
     /// Full computations of `activity_patterns`, memo hits excluded. Exposed
     /// for the same reason as `perf_computations`.
     pattern_computations: u64,
+
+    /// The external-write token this engine's tiers already speak for.
+    ///
+    /// Zero until the first `load`, which is correct: an engine that has just
+    /// read the file speaks for whatever the file said, and a handler that
+    /// wrote before the app launched has its rows in that read already.
+    seen_external_write_token: u64,
 }
 
 /// What the memoised patterns were computed from. A pattern carries
@@ -1036,10 +1357,67 @@ struct PatternCacheKey {
     day: i64,
 }
 
+/// The pragmas a connection that writes has to set for itself.
+///
+/// `journal_mode` is a property of the database file, so one connection
+/// converts it for every other. `synchronous` is a property of the connection,
+/// and a background writer that skips it goes on paying the full fsync pair
+/// WAL was taken to avoid, on its own thread, invisibly. NORMAL under WAL
+/// risks losing the last commits to a power cut, never a corrupt file, which
+/// is the trade this database makes.
+pub(crate) fn apply_write_pragmas(conn: &Connection) -> SqlResult<()> {
+    conn.pragma_update(None, "synchronous", "NORMAL")
+}
+
 impl PersistentEngine {
     /// Invalidate the performance cache.
     /// Call after any mutation that affects sections, time streams, or activity metrics.
+    /// Run one editor's whole write inside a transaction, rolling back if any
+    /// step of it fails.
+    ///
+    /// The section editors took no transaction at all: `trim_section` updated
+    /// `sections`, deleted the junction rows, then re-matched, and an error in
+    /// the re-match left the section holding its new polyline with zero
+    /// traversals. A `Transaction` cannot be used here because it borrows the
+    /// connection for as long as it lives and every editor needs `&mut self`
+    /// while it runs, so the statements are issued directly and this holds the
+    /// arms.
+    pub(crate) fn in_write_txn<T>(
+        &mut self,
+        work: impl FnOnce(&mut Self) -> Result<T, String>,
+    ) -> Result<T, String> {
+        self.db
+            .execute_batch("BEGIN IMMEDIATE")
+            .map_err(|e| format!("Failed to open the write transaction: {}", e))?;
+        match work(self) {
+            Ok(value) => {
+                self.db
+                    .execute_batch("COMMIT")
+                    .map_err(|e| format!("Failed to commit: {}", e))?;
+                Ok(value)
+            }
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                Err(e)
+            }
+        }
+    }
+
     pub(crate) fn invalidate_perf_cache(&mut self) {
+        self.perf_cache.clear();
+    }
+
+    /// Empty every LRU on the engine.
+    ///
+    /// Each is keyed by an id and filled on a miss, so emptying one costs the
+    /// next read its recompute and nothing else. Used where the tiers behind
+    /// them have been reloaded and an entry may describe rows that are gone.
+    pub(crate) fn clear_memory_caches(&mut self) {
+        self.signature_cache.clear();
+        self.consensus_cache.clear();
+        self.section_cache.clear();
+        self.group_cache.clear();
+        self.time_streams.clear();
         self.perf_cache.clear();
     }
 
@@ -1057,15 +1435,6 @@ impl PersistentEngine {
     #[doc(hidden)]
     pub fn pattern_computations(&self) -> u64 {
         self.pattern_computations
-    }
-
-    /// Activity patterns for the whole library, as of now.
-    pub fn activity_patterns(&mut self) -> Vec<crate::FfiActivityPattern> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64;
-        self.activity_patterns_as_of(now)
     }
 
     /// Activity patterns for the whole library, memoised on the metric row
@@ -1125,15 +1494,25 @@ impl PersistentEngine {
 
     /// Create a new persistent engine with the given database path.
     pub fn new(db_path: &str) -> SqlResult<Self> {
+        // Before any FFI call can reach a `par_iter`, since the pool takes its
+        // names when it is built and cannot be renamed after.
+        crate::threads::name_cpu_pool();
+
         let mut db = Connection::open(db_path)?;
         // Background threads (detection, backfill, tiles) open their own
         // connections. Without a busy timeout their writes make this
         // connection's queries fail SQLITE_BUSY immediately, which surfaces
         // as intermittent empty reads in the app during sync.
         db.busy_timeout(std::time::Duration::from_secs(5))?;
+        // The mode belongs to the file, so converting it here converts it for
+        // every connection that opens it afterwards, this launch or any later
+        // one. An existing rollback database is converted in place on the open
+        // that follows the upgrade.
+        db.pragma_update_and_check(None, "journal_mode", "WAL", |_| Ok(()))?;
+        apply_write_pragmas(&db)?;
         Self::init_schema(&mut db)?;
 
-        Ok(Self {
+        let engine = Self {
             db,
             db_path: db_path.to_string(),
             activity_metadata: HashMap::new(),
@@ -1163,11 +1542,28 @@ impl PersistentEngine {
             match_config: MatchConfig::default(),
             section_config: SectionConfig::default(),
             heatmap_tiles_path: None,
-            perf_cache: LruCache::new(std::num::NonZeroUsize::new(8).unwrap()),
+            perf_cache: LruCache::new(PERF_CACHE_ENTRIES),
             perf_computations: 0,
             pattern_cache: None,
             pattern_computations: 0,
-        })
+            seen_external_write_token: 0,
+        };
+
+        // A ride is marked `uploading` before its request goes out, so a kill
+        // strands the row where neither retry path looks. This is the one
+        // moment per launch where nothing can be in flight.
+        if let Err(e) = engine.release_stranded_uploads(attempts::now_ms()) {
+            log::warn!(
+                "veloqrs: [PersistentEngine] could not release stranded uploads: {}",
+                e
+            );
+        }
+
+        // Before anything can read a badge, and once. The version is a build
+        // constant, so the open is the only moment it can have moved.
+        engine.recompute_indicators_if_stale();
+
+        Ok(engine)
     }
 
     /// Create an in-memory database (for testing).
@@ -1181,6 +1577,144 @@ impl PersistentEngine {
     /// SQLITE_BUSY) must not abort the rest, or the engine comes up with an
     /// arbitrarily truncated view of the data. Corruption errors propagate
     /// so the caller can quarantine the file.
+    /// The token the file carries, or zero when no handler has written one.
+    ///
+    /// Read off the engine's own connection, so it sees whatever another
+    /// process has already committed.
+    pub fn external_write_token(&self) -> u64 {
+        self.get_setting(crate::persistence::settings::settings_keys::EXTERNAL_WRITE_TOKEN)
+            .ok()
+            .flatten()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(0)
+    }
+
+    /// Say that this process wrote rows another engine may be holding stale
+    /// copies of.
+    ///
+    /// One statement, so two handlers cannot lose each other's bump. The
+    /// `INSERT` seeds the row at one on an install that has never had a push,
+    /// which is every install before this ships.
+    pub fn note_external_write(&mut self) -> SqlResult<()> {
+        self.db.execute(
+            "INSERT INTO settings (key, value, updated_at) VALUES (?, '1', strftime('%s', 'now'))
+             ON CONFLICT(key) DO UPDATE SET
+                value = CAST(CAST(value AS INTEGER) + 1 AS TEXT),
+                updated_at = excluded.updated_at",
+            rusqlite::params![crate::persistence::settings::settings_keys::EXTERNAL_WRITE_TOKEN],
+        )?;
+        // This engine's own write, so its tiers already carry the rows and it
+        // owes itself no reload. On Android the handler runs in the app's
+        // process against this very engine, and without this every push would
+        // cost the foreground a reload for rows it had already taken.
+        self.seen_external_write_token = self.external_write_token();
+        Ok(())
+    }
+
+    /// Record one native push run, and trim the table to the newest `kept`.
+    ///
+    /// The insert and the trim are one statement pair rather than a trigger:
+    /// a trigger on insert fires again on its own delete, and the table is
+    /// written by a push handler whose whole budget is a few seconds.
+    pub fn record_push_run(
+        &mut self,
+        activity_id: &str,
+        outcome: &str,
+        detail: Option<&str>,
+        kept: i64,
+    ) -> SqlResult<()> {
+        let tx = self.db.transaction()?;
+        tx.execute(
+            "INSERT INTO push_runs (ts, activity_id, outcome, detail)
+             VALUES (strftime('%s', 'now'), ?, ?, ?)",
+            rusqlite::params![activity_id, outcome, detail],
+        )?;
+        tx.execute(
+            "DELETE FROM push_runs WHERE id NOT IN
+                 (SELECT id FROM push_runs ORDER BY ts DESC, id DESC LIMIT ?)",
+            rusqlite::params![kept],
+        )?;
+        tx.commit()
+    }
+
+    /// Take whatever another process wrote since this engine last looked, and
+    /// say whether there was anything to take.
+    ///
+    /// The comparison is the whole point: a foreground that reloaded on every
+    /// resume would pay `load_sections` for nothing on the common resume, and
+    /// one that reloaded on a flag would lose a push that landed between the
+    /// read and the clear.
+    pub fn take_external_writes(&mut self) -> bool {
+        let token = self.external_write_token();
+        if token == self.seen_external_write_token {
+            return false;
+        }
+        if let Err(e) = self.reload_external_writes() {
+            log::warn!("veloqrs: [PersistentEngine] reload after an external write: {e}");
+        }
+        // Advanced whether or not every loader succeeded: a failed loader is
+        // logged and retried on the next push rather than on every resume from
+        // here to the end of the process.
+        self.seen_external_write_token = token;
+        true
+    }
+
+    /// Re-read the tiers another process can have changed, and nothing else.
+    ///
+    /// A push handler fetches a body, stores a track, writes the metrics row
+    /// and indexes the activity against the catalogue. On Android it does that
+    /// through this same engine and the tiers are consistent; on iOS the
+    /// notification service extension is a second process against the same
+    /// file, so a foreground engine that was alive throughout holds tiers that
+    /// predate every one of those rows and nothing says so.
+    ///
+    /// Deliberately not `load`. Measured on the S22's own 29.2 MB library: the
+    /// five loaders here are 23.9 ms of `load`'s 39.8 ms, of which
+    /// `load_sections` alone is 22.3 ms, and the memory saving is 0.7 MB of
+    /// 7.7, which is not the reason. The reason is that `load` is not a
+    /// read: after the loaders it checks the cutover token, reseeds and
+    /// persists two identity registries, and runs an `UPDATE` over the whole
+    /// activities table. Doing that on every push would reseed identity and
+    /// write under the engine lock for rows that did not move.
+    ///
+    /// The three settings loaders are left out for the same reason they cost
+    /// nothing: a handler writes no config, so re-reading it would only risk
+    /// overwriting a slider the athlete moved while the push was in flight.
+    ///
+    /// A loader that fails is logged and the rest still run, the way `load`
+    /// treats them, because a half-refreshed tier is nearer the truth than a
+    /// stale one. The evidence cache is restored last and only when all five
+    /// succeeded, since it is keyed on the catalogue they just replaced.
+    pub fn reload_external_writes(&mut self) -> SqlResult<()> {
+        let outcomes = [
+            ("metadata", self.load_metadata()),
+            ("groups", self.load_groups()),
+            ("sections", self.load_sections()),
+            ("processed_activity_ids", self.load_processed_activity_ids()),
+            ("activity_metrics", self.load_activity_metrics()),
+        ];
+        let mut first_error: Option<rusqlite::Error> = None;
+        for (name, result) in outcomes {
+            if let Err(e) = result {
+                log::error!("veloqrs: [PersistentEngine] reload: {} failed: {}", name, e);
+                if first_error.is_none() {
+                    first_error = Some(e);
+                }
+            }
+        }
+        // Every read behind the ladder and the screens is computed from the
+        // tiers just replaced, so a cache kept across them answers for rows
+        // that are gone.
+        self.invalidate_perf_cache();
+        if first_error.is_none() {
+            self.restore_evidence_cache();
+        }
+        match first_error {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
+    }
+
     pub fn load(&mut self) -> SqlResult<()> {
         let outcomes = [
             ("metadata", self.load_metadata()),
@@ -1204,6 +1738,9 @@ impl PersistentEngine {
             }
         }
         let loaded_whole = first_error.is_none();
+        // The tiers now speak for the file as it stands, handler writes and
+        // all, so nothing read here is owed a reload.
+        self.seen_external_write_token = self.external_write_token();
         if let Some(e) = first_error {
             if is_corruption_error(&e) {
                 return Err(e);
@@ -1246,17 +1783,29 @@ impl PersistentEngine {
             self.route_identity_reseed();
         }
 
-        // Backfill activities.duration_secs from activity_metrics.moving_time.
-        // Route highlights need duration_secs to compute trends/PRs, but it was
-        // historically not populated. This ensures it's always available at startup.
+        // Backfill activities.duration_secs and .distance_meters from the
+        // metrics row. Both are written by one UPDATE in the fitness import,
+        // and that UPDATE matches nothing when the metrics arrive before the
+        // activity row, which is the order a first sync uses. Only
+        // `duration_secs` was carried across here, so a real library read
+        // `duration_secs` on every row and `distance_meters` on none: 316 of
+        // 316 on the S22, 2026-09-18.
+        //
+        // `COALESCE` rather than an overwrite: the import is the authority
+        // wherever it could write, and this only fills a hole.
         let backfilled = self
             .db
             .execute(
-                "UPDATE activities SET duration_secs = (
-                SELECT moving_time FROM activity_metrics
-                WHERE activity_metrics.activity_id = activities.id
-            )
-            WHERE duration_secs IS NULL
+                "UPDATE activities SET
+                duration_secs = COALESCE(duration_secs, (
+                    SELECT moving_time FROM activity_metrics
+                    WHERE activity_metrics.activity_id = activities.id
+                )),
+                distance_meters = COALESCE(distance_meters, (
+                    SELECT distance FROM activity_metrics
+                    WHERE activity_metrics.activity_id = activities.id
+                ))
+            WHERE (duration_secs IS NULL OR distance_meters IS NULL)
               AND EXISTS (
                 SELECT 1 FROM activity_metrics
                 WHERE activity_metrics.activity_id = activities.id
@@ -1266,7 +1815,7 @@ impl PersistentEngine {
             .unwrap_or(0);
         if backfilled > 0 {
             log::info!(
-                "veloqrs: [PersistentEngine] Backfilled duration_secs for {} activities",
+                "veloqrs: [PersistentEngine] Backfilled duration_secs and distance_meters for {} activities",
                 backfilled
             );
         }
@@ -1546,6 +2095,7 @@ impl PersistentEngine {
                     id: clone_id,
                     sport_type: source_meta.sport_type.clone(),
                     bounds: source_meta.bounds,
+                    start_point: source_meta.start_point,
                 },
             );
 
@@ -1599,8 +2149,8 @@ impl PersistentEngine {
             groups_dirty: self.groups_dirty,
             sections_dirty: self.sections_dirty,
             gps_track_count,
-            oldest_date,
-            newest_date,
+            oldest_date: oldest_date.map(|v| v as f64),
+            newest_date: newest_date.map(|v| v as f64),
         }
     }
 
@@ -1610,17 +2160,27 @@ impl PersistentEngine {
     /// Supports pagination via limit/offset for both groups and sections.
     pub fn get_routes_screen_data(
         &mut self,
-        group_limit: u32,
-        group_offset: u32,
-        section_limit: u32,
-        section_offset: u32,
-        min_group_activity_count: u32,
-        prioritize_nearest_groups: bool,
-        prioritize_nearest_sections: bool,
-        user_lat: f64,
-        user_lng: f64,
+        query: crate::FfiRoutesScreenQuery,
     ) -> crate::FfiRoutesScreenData {
+        let crate::FfiRoutesScreenQuery {
+            group_limit,
+            group_offset,
+            section_limit,
+            section_offset,
+            min_group_activity_count,
+            group_sort,
+            group_search,
+            section_sort,
+            section_search,
+            section_filters,
+            section_sport_type,
+            user_lat,
+            user_lng,
+        } = query;
         let has_user_location = user_lat.is_finite() && user_lng.is_finite();
+        let group_needle = group_search.trim().to_lowercase();
+        let section_needle = section_search.trim().to_lowercase();
+        let within_sport = section_sport_type.is_some();
 
         // Get date range from activity_metrics
         let (oldest_date, newest_date): (Option<i64>, Option<i64>) = self
@@ -1632,30 +2192,69 @@ impl PersistentEngine {
             )
             .unwrap_or((None, None));
 
-        // Get group summaries, filter by min activity count, sort by activity_count DESC, apply limit/offset
+        // Every group the catalogue holds, then the search and the minimum
+        // activity count, then the order, and only then the page. Doing any of
+        // it after the page would order fifty rows and call it the library.
         let mut raw_summaries = self.get_group_summaries();
+        let total_groups = raw_summaries.len();
         if min_group_activity_count > 0 {
             raw_summaries.retain(|g| g.activity_count >= min_group_activity_count);
         }
-        if prioritize_nearest_groups && has_user_location {
-            raw_summaries.sort_by(|a, b| {
-                let dist_a = bounds_center_distance_meters(a.bounds.as_ref(), user_lat, user_lng);
-                let dist_b = bounds_center_distance_meters(b.bounds.as_ref(), user_lat, user_lng);
-                dist_a
-                    .partial_cmp(&dist_b)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-                    .then_with(|| b.activity_count.cmp(&a.activity_count))
+        if !group_needle.is_empty() {
+            raw_summaries.retain(|g| {
+                g.custom_name
+                    .as_deref()
+                    .is_some_and(|n| n.to_lowercase().contains(&group_needle))
             });
-        } else {
-            raw_summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count));
         }
-        let total_groups = raw_summaries.len();
+        // The representative's distance is what the list shows, so it is what
+        // the distance order has to read.
+        let group_distance = |id: &str| -> f64 {
+            self.activity_metrics
+                .get(id)
+                .map(|m| m.distance)
+                .unwrap_or(0.0)
+        };
+        match group_sort {
+            crate::FfiGroupSort::Nearby if has_user_location => {
+                raw_summaries.sort_by(|a, b| {
+                    let dist_a =
+                        bounds_center_distance_meters(a.bounds.as_ref(), user_lat, user_lng);
+                    let dist_b =
+                        bounds_center_distance_meters(b.bounds.as_ref(), user_lat, user_lng);
+                    dist_a
+                        .partial_cmp(&dist_b)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| b.activity_count.cmp(&a.activity_count))
+                });
+            }
+            crate::FfiGroupSort::Distance => {
+                raw_summaries.sort_by(|a, b| {
+                    group_distance(&b.representative_id)
+                        .partial_cmp(&group_distance(&a.representative_id))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| a.group_id.cmp(&b.group_id))
+                });
+            }
+            crate::FfiGroupSort::Name => {
+                raw_summaries.sort_by(|a, b| {
+                    a.custom_name
+                        .as_deref()
+                        .unwrap_or("")
+                        .cmp(b.custom_name.as_deref().unwrap_or(""))
+                        .then_with(|| a.group_id.cmp(&b.group_id))
+                });
+            }
+            _ => raw_summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count)),
+        }
+        let filtered_group_count = raw_summaries.len();
         let paged_summaries: Vec<_> = raw_summaries
             .into_iter()
             .skip(group_offset as usize)
             .take(group_limit as usize)
             .collect();
-        let has_more_groups = total_groups > (group_offset as usize + paged_summaries.len());
+        let has_more_groups =
+            filtered_group_count > (group_offset as usize + paged_summaries.len());
 
         // Batch-load representative polylines from signatures table (1 query instead of N)
         let rep_ids: Vec<&str> = paged_summaries
@@ -1690,36 +2289,111 @@ impl PersistentEngine {
             })
             .collect();
 
-        // Get section summaries, sort by visit_count DESC, apply limit/offset
         let mut raw_sections = self.get_section_summaries();
-        if prioritize_nearest_sections && has_user_location {
-            raw_sections.sort_by(|a, b| {
-                let dist_a = bounds_center_distance_meters(a.bounds.as_ref(), user_lat, user_lng);
-                let dist_b = bounds_center_distance_meters(b.bounds.as_ref(), user_lat, user_lng);
-                dist_a
-                    .partial_cmp(&dist_b)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-                    .then_with(|| b.visit_count.cmp(&a.visit_count))
-            });
-        } else {
-            raw_sections.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
-        }
         let total_sections = raw_sections.len();
+
+        // The four counters are the catalogue's, not the page's, so they are
+        // taken before anything is hidden or paged.
+        let mut unaccepted_auto_count: u32 = 0;
+        let mut accepted_auto_count: u32 = 0;
+        let mut custom_count: u32 = 0;
+        // A retired section fails `VISIBLE_FILTER`, so `raw_sections` never
+        // holds one and only its own count can find them.
+        let retired_count = self.get_retired_section_count();
+        for s in &raw_sections {
+            if is_visible_auto(s) {
+                if s.is_user_defined {
+                    accepted_auto_count += 1;
+                } else {
+                    unaccepted_auto_count += 1;
+                }
+            }
+            if s.section_type == "custom" {
+                custom_count += 1;
+            }
+        }
+
+        raw_sections.retain(|s| !section_filters_hide(&section_filters, s));
+        if !section_needle.is_empty() {
+            raw_sections.retain(|s| {
+                s.name
+                    .as_deref()
+                    .is_some_and(|n| n.to_lowercase().contains(&section_needle))
+            });
+        }
+        match section_sort {
+            crate::FfiSectionSort::Nearby if has_user_location => {
+                raw_sections.sort_by(|a, b| {
+                    let dist_a =
+                        bounds_center_distance_meters(a.bounds.as_ref(), user_lat, user_lng);
+                    let dist_b =
+                        bounds_center_distance_meters(b.bounds.as_ref(), user_lat, user_lng);
+                    dist_a
+                        .partial_cmp(&dist_b)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| b.visit_count.cmp(&a.visit_count))
+                });
+            }
+            crate::FfiSectionSort::Signature => {
+                // A section the engine has not ranked sorts last, which is what
+                // the list did with -1.
+                let score = |s: &SectionSummary| -> f64 {
+                    let pooled = s.rank_score;
+                    if within_sport {
+                        s.sport_rank_score.or(pooled).unwrap_or(-1.0)
+                    } else {
+                        pooled.unwrap_or(-1.0)
+                    }
+                };
+                raw_sections.sort_by(|a, b| {
+                    score(b)
+                        .partial_cmp(&score(a))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| a.id.cmp(&b.id))
+                });
+            }
+            crate::FfiSectionSort::Distance => {
+                raw_sections.sort_by(|a, b| {
+                    b.distance_meters
+                        .partial_cmp(&a.distance_meters)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| a.id.cmp(&b.id))
+                });
+            }
+            crate::FfiSectionSort::Name => {
+                raw_sections.sort_by(|a, b| {
+                    a.name
+                        .as_deref()
+                        .unwrap_or("")
+                        .cmp(b.name.as_deref().unwrap_or(""))
+                        .then_with(|| a.id.cmp(&b.id))
+                });
+            }
+            _ => raw_sections.sort_by(|a, b| {
+                b.visit_count
+                    .cmp(&a.visit_count)
+                    .then_with(|| a.id.cmp(&b.id))
+            }),
+        }
+        let filtered_section_count = raw_sections.len();
         let paged_sections: Vec<_> = raw_sections
             .into_iter()
             .skip(section_offset as usize)
             .take(section_limit as usize)
             .collect();
-        let has_more_sections = total_sections > (section_offset as usize + paged_sections.len());
+        let has_more_sections =
+            filtered_section_count > (section_offset as usize + paged_sections.len());
 
         // Batch-load section polylines (1 query instead of N)
         let section_ids: Vec<&str> = paged_sections.iter().map(|s| s.id.as_str()).collect();
         let section_polylines = self.get_section_polylines_batch(&section_ids);
+        let latest_is_record = self.sections_where_latest_is_record(&section_ids);
 
         let sections: Vec<crate::FfiSectionWithPolyline> = paged_sections
             .into_iter()
             .map(|s| {
                 let encoded_polyline = section_polylines.get(&s.id).cloned().unwrap_or_default();
+                let latest_is_record = latest_is_record.contains(&s.id);
                 crate::FfiSectionWithPolyline {
                     id: s.id,
                     name: s.name,
@@ -1743,6 +2417,7 @@ impl PersistentEngine {
                     is_lift: s.is_lift,
                     rank_score: s.rank_score,
                     sport_rank_score: s.sport_rank_score,
+                    latest_is_record,
                 }
             })
             .collect();
@@ -1753,13 +2428,19 @@ impl PersistentEngine {
             activity_count,
             group_count: total_groups as u32,
             section_count: total_sections as u32,
-            oldest_date,
-            newest_date,
+            oldest_date: oldest_date.map(|v| v as f64),
+            newest_date: newest_date.map(|v| v as f64),
             groups,
             sections,
             has_more_groups,
             has_more_sections,
             groups_dirty: self.groups_dirty,
+            filtered_group_count: filtered_group_count as u32,
+            filtered_section_count: filtered_section_count as u32,
+            unaccepted_auto_count,
+            accepted_auto_count,
+            custom_count,
+            retired_count,
         }
     }
 }
@@ -1777,9 +2458,9 @@ pub struct PersistentEngineStats {
     pub sections_dirty: bool,
     pub gps_track_count: u32,
     /// Oldest activity date (Unix timestamp in seconds), or None if no activities
-    pub oldest_date: Option<i64>,
+    pub oldest_date: Option<f64>,
     /// Newest activity date (Unix timestamp in seconds), or None if no activities
-    pub newest_date: Option<i64>,
+    pub newest_date: Option<f64>,
 }
 
 // ============================================================================
@@ -1791,35 +2472,87 @@ pub struct PersistentEngineStats {
 /// This singleton allows FFI calls to access a shared persistent engine
 /// without passing state back and forth across the FFI boundary.
 ///
-/// Uses `RwLock` so the common case - read-only queries against in-memory
-/// state - can run concurrently across threads. Mutations acquire the write
-/// lock and therefore serialise.
+/// A `Mutex`, not an `RwLock`: nothing holds a shared `&PersistentEngine` any
+/// more. Every caller that reaches the engine gets `&mut` under this lock, and
+/// a read that only needs SQLite goes to `read_pool::with_read_conn`, which
+/// opens against the same database, takes no engine lock at all, and so
+/// neither waits on the writer nor shares a connection with it. That path sees
+/// committed rows only, never the engine's in-memory tier and never a write
+/// still in flight.
 ///
-/// # Safety invariant
+/// That is also why `PersistentEngine` needs no `unsafe impl Sync`. It holds a
+/// `rusqlite::Connection`, which is `Send + !Sync`, and the impl existed only
+/// so a read guard could hand out `&PersistentEngine` across threads. With no
+/// such guard the compiler carries the invariant a hand-written lint used to:
+/// a shared borrow of the engine will not compile.
+pub static PERSISTENT_ENGINE: LazyLock<Mutex<Option<PersistentEngine>>> =
+    LazyLock::new(|| Mutex::new(None));
+
+/// Which install of the process-wide engine is open, counted from one.
 ///
-/// `PersistentEngine` contains a `rusqlite::Connection`, which is
-/// `Send + !Sync`. We `unsafe impl Sync` (below) because callers are
-/// required to access the connection only through the **write** lock:
-/// every FFI method that touches SQLite goes through `with_persistent_engine`
-/// / `with_engine` (write), which guarantees exclusive access. The read
-/// lock (`with_persistent_engine_read` / `with_engine_read`) is only valid
-/// for closures that do not dereference `self.db`; those closures take
-/// `&PersistentEngine` but must stay on pure-memory `&self` methods.
+/// A cancel is cooperative, so a worker already past its last check reaches
+/// its write whatever `destroy` did, and `with_persistent_engine` hands it
+/// whichever database is open by then. A restore is the case that hurts: the
+/// file at the same path is a different library, so the path cannot tell them
+/// apart, and the lease generation cannot either because it lives in the file
+/// and a restored backup carries its own.
+///
+/// This counter lives in the process. It is bumped every time a database is
+/// installed below, so a worker that captured it at spawn and hands it back
+/// through [`with_persistent_engine_for`] is refused the moment the engine it
+/// started against is no longer the one open.
+static ENGINE_INSTALL: AtomicU64 = AtomicU64::new(0);
 
-pub static PERSISTENT_ENGINE: LazyLock<RwLock<Option<PersistentEngine>>> =
-    LazyLock::new(|| RwLock::new(None));
+/// The install a worker starting now belongs to. Zero before the first open,
+/// which no install ever equals, so a stamp taken before one is refused.
+pub fn engine_install() -> u64 {
+    ENGINE_INSTALL.load(Ordering::Acquire)
+}
 
-// SAFETY: see invariant above. All SQLite operations go through the write
-// lock, which provides exclusive `&mut` access; read-lock callers only touch
-// `&self` methods that don't dereference `self.db`.
-unsafe impl Sync for PersistentEngine {}
+/// Whether the memory tiers have already been put back in step after a panic.
+///
+/// A `std::sync::Mutex` stays poisoned for good once one closure has unwound
+/// through it: `into_inner` recovers the data, it does not clear the flag, so
+/// every later take answers `Err` too. Keying the reload off that `Err` would
+/// put a whole-library pass on every engine call for the rest of the session,
+/// which is why it is keyed off this instead. Cleared under the same lock as
+/// [`ENGINE_INSTALL`] where an engine is installed, because a fresh engine has
+/// nothing to recover and the next panic is its own.
+static POISON_RELOADED: AtomicBool = AtomicBool::new(false);
+
+/// Put the memory tiers back in step with SQLite after a panic under the write
+/// lock.
+///
+/// SQLite rolls a dropped transaction back. `activity_metadata`, the spatial
+/// index, `groups`, `sections`, the identity registries and the six LRUs do not
+/// go with it, so a panic between a memory write and its row write leaves the
+/// two disagreeing and every later read through the recovered lock serves a
+/// catalogue the database does not hold.
+///
+/// This is the load `initWithPath` runs, about 130 ms on a 490-activity
+/// library, paid once by whoever takes the lock next rather than by the call
+/// that panicked. Chosen over reordering the memory and row writes at every
+/// mutation site, which is many more places to keep right.
+fn reload_after_poison(engine: &mut PersistentEngine) {
+    log::warn!("veloqrs: [Engine] write lock was poisoned; reloading the memory tiers from SQLite");
+    if let Err(e) = engine.load() {
+        log::error!(
+            "veloqrs: [Engine] could not reload the memory tiers after a poison: {:?}",
+            e
+        );
+    }
+    // The loaders refill what they own; nothing refills a cache, so each is
+    // emptied and warms again from the reloaded tiers.
+    engine.clear_memory_caches();
+}
 
 /// Close the process-wide engine, so a test can exercise the path a caller
 /// takes before init has run. Every fixture that opens one takes
 /// `serial_global_state` first, so this cannot land under another test.
 #[cfg(test)]
 pub(crate) fn clear_persistent_engine() {
-    *PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner()) = None;
+    *PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    read_pool::close();
 }
 
 /// Acquire the **write** lock on the global persistent engine.
@@ -1855,11 +2588,53 @@ where
     #[cfg(feature = "lock-trace")]
     let mut timing = lock_trace::Timing::begin(caller);
     // Poison recovery: builds unwind on panic, and refusing a poisoned lock
-    // here would disable the engine for the rest of the session.
-    let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
+    // here would disable the engine for the rest of the session. The data is
+    // taken back, and the tiers the panic left ahead of SQLite are reloaded
+    // once, by the first caller through.
+    let mut guard = match PERSISTENT_ENGINE.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            let mut guard = poisoned.into_inner();
+            if !POISON_RELOADED.swap(true, Ordering::AcqRel)
+                && let Some(engine) = guard.as_mut()
+            {
+                reload_after_poison(engine);
+            }
+            guard
+        }
+    };
     #[cfg(feature = "lock-trace")]
     timing.acquired();
     guard.as_mut().map(f)
+}
+
+/// `with_persistent_engine` for a job that started against one install.
+///
+/// `install` is what [`engine_install`] answered when the job began. A run
+/// that outlived its library, which is what a restore or a Clear and Sync
+/// mid-detection leaves, is refused here rather than writing a catalogue
+/// computed from the old database into the new one. `None` is the same answer
+/// a closed engine gives, so a caller already handling that handles this.
+pub fn with_persistent_engine_for<F, R>(install: u64, f: F) -> Option<R>
+where
+    F: FnOnce(&mut PersistentEngine) -> R,
+{
+    let caller = std::panic::Location::caller();
+    with_persistent_engine_at(caller, |engine| {
+        // Read under the lock the install is written under, so the answer
+        // belongs to the engine this closure was handed.
+        let open = ENGINE_INSTALL.load(Ordering::Acquire);
+        if open != install {
+            log::warn!(
+                "veloqrs: [Engine] discarding work from install {} against install {}",
+                install,
+                open
+            );
+            return None;
+        }
+        Some(f(engine))
+    })
+    .flatten()
 }
 
 /// `with_persistent_engine` for async callers, off the async workers.
@@ -1897,21 +2672,49 @@ where
     }
 }
 
-/// Acquire the **read** lock on the global persistent engine.
+/// `with_persistent_engine_blocking` for a worker that belongs to one install.
 ///
-/// Multiple callers can hold the read lock concurrently. The closure
-/// receives `&PersistentEngine`, so any call to a `&mut self` helper
-/// fails to compile - that is the point.
-///
-/// **Safety**: do not call any method that dereferences `self.db` from
-/// inside this closure. SQLite access goes through the write lock only.
-pub fn with_persistent_engine_read<F, R>(f: F) -> Option<R>
+/// The async sync passes are the same hazard as the detection apply: a page
+/// fetched against one library must not be written into the database a restore
+/// installed while the request was in flight. `None` is the same answer a
+/// closed engine gives, so a caller already handling that handles this.
+#[track_caller]
+pub fn with_persistent_engine_blocking_for<F, R>(
+    install: u64,
+    f: F,
+) -> impl std::future::Future<Output = Option<R>>
 where
-    F: FnOnce(&PersistentEngine) -> R,
+    F: FnOnce(&mut PersistentEngine) -> R + Send + 'static,
+    R: Send + 'static,
 {
-    // Same poison recovery as with_persistent_engine.
-    let guard = PERSISTENT_ENGINE.read().unwrap_or_else(|e| e.into_inner());
-    guard.as_ref().map(f)
+    let caller = std::panic::Location::caller();
+    async move {
+        match tokio::task::spawn_blocking(move || {
+            with_persistent_engine_at(caller, |engine| {
+                // Read under the lock the install is written under, so the
+                // answer belongs to the engine this closure was handed.
+                let open = ENGINE_INSTALL.load(Ordering::Acquire);
+                if open != install {
+                    log::warn!(
+                        "veloqrs: [Engine] discarding work from install {} against install {}",
+                        install,
+                        open
+                    );
+                    return None;
+                }
+                Some(f(engine))
+            })
+            .flatten()
+        })
+        .await
+        {
+            Ok(result) => result,
+            Err(e) => {
+                log::warn!("[Engine] blocking engine call failed: {e}");
+                None
+            }
+        }
+    }
 }
 
 /// SQLite error codes that mean the file itself is unusable, as opposed
@@ -1921,6 +2724,44 @@ pub(crate) fn is_corruption_error(e: &rusqlite::Error) -> bool {
         e.sqlite_error_code(),
         Some(rusqlite::ErrorCode::DatabaseCorrupt) | Some(rusqlite::ErrorCode::NotADatabase)
     )
+}
+
+/// Whether the file at this path can be a SQLite database at all.
+///
+/// Every SQLite database opens with the 16 bytes `SQLite format 3\0`. Absent
+/// and zero-length are both new rather than broken: SQLite creates the file on
+/// open and writes the header on the first write, so a fresh install passes
+/// through here. Anything else with bytes in it and the wrong header is not a
+/// database, whatever a log beside it could rebuild.
+///
+/// The check exists because inferring corruption from a failed open stops
+/// working under WAL: SQLite rebuilds the schema out of a healthy log beside a
+/// ruined main file, the open succeeds, the load returns cleanly, and the
+/// athlete's library reads as zero activities with nothing said. Sixteen bytes
+/// cost nothing against a launch budget of 200 ms, and an unreadable file is
+/// treated as new rather than corrupt so a permissions failure still takes the
+/// open path that reports it.
+pub(crate) fn file_can_be_a_database(path: &str) -> bool {
+    use std::io::Read;
+    const HEADER: &[u8; 16] = b"SQLite format 3\0";
+
+    let mut file = match std::fs::File::open(path) {
+        Ok(f) => f,
+        Err(_) => return true,
+    };
+    let mut head = [0u8; 16];
+    let mut read = 0;
+    while read < head.len() {
+        match file.read(&mut head[read..]) {
+            Ok(0) => break,
+            Ok(n) => read += n,
+            Err(_) => return true,
+        }
+    }
+    if read == 0 {
+        return true;
+    }
+    read == head.len() && &head == HEADER
 }
 
 /// SQLite error codes for failures a later launch can plausibly succeed on
@@ -2019,6 +2860,27 @@ pub mod persistent_engine_ffi {
             }
         }
 
+        // Read the file before opening it. Under WAL a ruined main file beside
+        // an intact log opens cleanly and loads cleanly, and the library reads
+        // as zero activities, so the open cannot be the only thing that decides
+        // whether the file is a database.
+        if !file_can_be_a_database(&db_path) {
+            log::error!(
+                "veloqrs: [PersistentEngine] '{}' carries no SQLite header; quarantining it",
+                db_path
+            );
+            let engine = match reopen_after_quarantine(&db_path) {
+                Some(engine) => engine,
+                None => return record_init_outcome(FfiInitOutcome::StorageUnavailable),
+            };
+            let mut guard = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+            *guard = Some(engine);
+            ENGINE_INSTALL.fetch_add(1, Ordering::AcqRel);
+            POISON_RELOADED.store(false, Ordering::Release);
+            read_pool::bind(&db_path);
+            return record_init_outcome(FfiInitOutcome::Opened);
+        }
+
         let mut engine = match PersistentEngine::new(&db_path) {
             Ok(engine) => engine,
             Err(e) => {
@@ -2100,8 +2962,17 @@ pub mod persistent_engine_ffi {
             ),
         }
 
-        let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
+        let mut guard = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
         *guard = Some(engine);
+        // Under the same lock as the install, so a worker taking the lock next
+        // reads the counter that belongs to the engine it was handed.
+        ENGINE_INSTALL.fetch_add(1, Ordering::AcqRel);
+        // A fresh engine's tiers came out of SQLite a moment ago, so the next
+        // panic is the one this owes a reload for, not the last one.
+        POISON_RELOADED.store(false, Ordering::Release);
+        // After the engine, so the pool never points at a database no engine
+        // has opened, and after the quarantine rename for the same reason.
+        read_pool::bind(&db_path);
         info!("veloqrs: [PersistentEngine] Initialised successfully");
 
         record_init_outcome(FfiInitOutcome::Opened)
@@ -2209,15 +3080,6 @@ pub mod persistent_engine_ffi {
     pub static SECTION_DETECTION_HANDLE: LazyLock<Mutex<Option<SectionDetectionHandle>>> =
         LazyLock::new(|| Mutex::new(None));
 
-    /// Handle for tracking background tile generation.
-    /// The stop the running tile invalidation sweep checks, if one is running.
-    ///
-    /// The sweep is detached and returns no handle, so unlike the tile pass it
-    /// has nowhere of its own to keep this. Set when it spawns, cleared when
-    /// it ends.
-    pub static TILE_SWEEP_CANCEL: LazyLock<Mutex<Option<CancelToken>>> =
-        LazyLock::new(|| Mutex::new(None));
-
     pub static TILE_GENERATION_HANDLE: LazyLock<Mutex<Option<TileGenerationHandle>>> =
         LazyLock::new(|| Mutex::new(None));
 
@@ -2228,6 +3090,16 @@ pub mod persistent_engine_ffi {
     /// Handle for the running bulk export, if any.
     pub static BULK_EXPORT_HANDLE: LazyLock<Mutex<Option<BulkExportHandle>>> =
         LazyLock::new(|| Mutex::new(None));
+
+    /// Handle for the running heatmap cache-size walk, if any.
+    pub static CACHE_SIZE_HANDLE: LazyLock<Mutex<Option<CacheSizeHandle>>> =
+        LazyLock::new(|| Mutex::new(None));
+
+    /// The figure the last walk produced. Three mount effects poll for one
+    /// walk, and only the first poll to observe completion gets the message
+    /// off the channel, so the other two read the figure from here or read
+    /// nothing at all. Cleared by `clear_tiles`, which makes it wrong.
+    pub static CACHE_SIZE_LAST: LazyLock<Mutex<Option<u64>>> = LazyLock::new(|| Mutex::new(None));
 
     /// Handle for the running derived-catalogue wipe, if any.
     pub static CLEAR_HANDLE: LazyLock<Mutex<Option<ClearHandle>>> =
@@ -2366,16 +3238,37 @@ fn pad_lng_degrees(lat: f64, threshold_meters: f64) -> f64 {
 /// Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...].
 /// Uses an R-tree on polylineB for O(n log m) instead of O(n*m).
 /// Returns 0.0-1.0.
+///
+/// An odd length is refused rather than trimmed. The pairing below is
+/// `chunks_exact(2)`, which drops a trailing value without a word, so a caller
+/// that flattened one point short got an answer over a line it did not send.
+/// Latitude-first order cannot be checked here at all: only an encoded input
+/// carries its own order.
 #[uniffi::export]
 pub fn compute_polyline_overlap(
     coords_a: Vec<f64>,
     coords_b: Vec<f64>,
     threshold_meters: f64,
-) -> f64 {
-    match OverlapIndex::new(&coords_b) {
+) -> Result<f64, VeloqError> {
+    whole_points("coords_a", &coords_a)?;
+    whole_points("coords_b", &coords_b)?;
+    Ok(match OverlapIndex::new(&coords_b) {
         Some(index) => index.fraction_within(&coords_a, threshold_meters),
         None => 0.0,
+    })
+}
+
+/// Refuse a flat coordinate array that is not a whole number of points.
+fn whole_points(name: &str, coords: &[f64]) -> Result<(), VeloqError> {
+    if coords.len() % 2 != 0 {
+        return Err(VeloqError::ParseError {
+            msg: format!(
+                "{name} length {} is not an even count of lat/lng values",
+                coords.len()
+            ),
+        });
     }
+    Ok(())
 }
 
 // ============================================================================
@@ -2387,10 +3280,148 @@ mod tests {
     use super::*;
     use crate::Direction;
 
+    /// A handle whose worker sent nothing and then died, the shape a panic
+    /// inside the fold leaves behind.
+    fn handle_with_a_dead_worker() -> SectionDetectionHandle {
+        let (tx, rx) = mpsc::channel();
+        let (cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
+        drop(tx);
+        drop(cache_tx);
+        SectionDetectionHandle {
+            receiver: rx,
+            final_update: std::sync::Mutex::new(None),
+            cache_receiver: cache_rx,
+            checkpoint: Arc::new(CheckpointSlot::default()),
+            progress: SectionDetectionProgress::new(),
+            worker_applied: None,
+            cancel: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    /// A worker that panics inside the fold drops its sender without sending,
+    /// which reads on the main channel exactly like a run with nothing to
+    /// report. The catalogue from the previous detect then stands, and on a
+    /// device that is a sync that looks finished and leaves the section list
+    /// silently stale.
+    #[test]
+    fn a_dead_detection_worker_is_not_a_run_that_found_nothing() {
+        let (state, cache) = handle_with_a_dead_worker().recv_state_with_cache();
+
+        assert!(
+            matches!(state, WorkerPoll::Died),
+            "a dead worker must not read as a detect that found nothing"
+        );
+        assert!(cache.is_none());
+    }
+
+    /// `poll_state` has reported a dead worker since the failover work, and the
+    /// blocking read is the one that did not.
+    #[test]
+    fn the_blocking_read_agrees_with_the_poll_about_a_dead_worker() {
+        let handle = handle_with_a_dead_worker();
+
+        assert!(matches!(handle.poll_state(), WorkerPoll::Died));
+        assert!(matches!(handle.recv_state_with_cache().0, WorkerPoll::Died));
+    }
+
+    /// A worker that hangs rather than dies never closes its channel, so the
+    /// unbounded read waits for the life of the process. The cutover reads this
+    /// holding `CUTOVER_RUNNING`, so every later launch was refused its cutover
+    /// until the app was killed.
+    #[test]
+    fn a_hung_worker_gives_the_read_back_instead_of_keeping_it() {
+        let (handle, _tx, _cache_tx) = SectionDetectionHandle::worker_that_never_answers();
+
+        let started = std::time::Instant::now();
+        let (state, cache) =
+            handle.recv_state_with_cache_within(Some(std::time::Duration::from_millis(50)));
+
+        assert!(
+            matches!(state, WorkerPoll::Running),
+            "a worker still holding its sender is running, not dead"
+        );
+        assert!(cache.is_none());
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(5),
+            "the read did not give up: {:?}",
+            started.elapsed()
+        );
+    }
+
+    /// A bounded read must still tell a hang from a death, because the cutover
+    /// treats them the same way but the log should not.
+    #[test]
+    fn a_bounded_read_still_calls_a_dead_worker_dead() {
+        let (state, _) = handle_with_a_dead_worker()
+            .recv_state_with_cache_within(Some(std::time::Duration::from_secs(30)));
+
+        assert!(
+            matches!(state, WorkerPoll::Died),
+            "a closed channel is a death, however long the ceiling is"
+        );
+    }
+
+    /// And a worker that answers inside the ceiling is read normally, without
+    /// waiting the ceiling out.
+    #[test]
+    fn a_bounded_read_takes_an_answer_that_arrives_in_time() {
+        let (handle, tx, _cache_tx) = SectionDetectionHandle::worker_that_never_answers();
+        tx.send((Vec::new(), vec!["a1".to_string()])).expect("send");
+
+        let started = std::time::Instant::now();
+        let (state, _) =
+            handle.recv_state_with_cache_within(Some(std::time::Duration::from_secs(30)));
+
+        match state {
+            WorkerPoll::Ready((_, processed)) => assert_eq!(processed, vec!["a1".to_string()]),
+            _ => panic!("the answer that was sent was not read back"),
+        }
+        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+    }
+
     fn sample_coords() -> Vec<GpsPoint> {
         (0..50)
             .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278 + i as f64 * 0.0005))
             .collect()
+    }
+
+    /// Every SQLite database opens with `SQLite format 3\0`. Absent and empty
+    /// are both a fresh install, and a file with bytes and the wrong header is
+    /// not a database whatever a log beside it could rebuild from.
+    #[test]
+    fn a_file_with_no_sqlite_header_is_not_a_database() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("routes.db");
+        let as_str = path.to_string_lossy().into_owned();
+
+        assert!(file_can_be_a_database(&as_str), "absent is new, not broken");
+
+        std::fs::write(&path, b"").unwrap();
+        assert!(file_can_be_a_database(&as_str), "empty is new, not broken");
+
+        std::fs::write(&path, b"this is not a database").unwrap();
+        assert!(!file_can_be_a_database(&as_str));
+
+        std::fs::write(&path, b"SQLite").unwrap();
+        assert!(
+            !file_can_be_a_database(&as_str),
+            "a truncated header is not a header"
+        );
+
+        std::fs::write(&path, b"SQLite format 3\0and then some pages").unwrap();
+        assert!(file_can_be_a_database(&as_str));
+    }
+
+    #[test]
+    fn a_real_database_carries_the_header() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("routes.db");
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute_batch("CREATE TABLE t (id INTEGER PRIMARY KEY)")
+            .unwrap();
+        drop(conn);
+
+        assert!(file_can_be_a_database(&path.to_string_lossy()));
     }
 
     #[test]
@@ -3146,6 +4177,55 @@ mod tests {
         }
     }
 
+    /// Scenario: `fetch_time_stream` has reduced `time` through the `latlng`
+    /// mask since 2026-08-16, so a stream stored since then is positional to
+    /// the stored track. Every released 0.3.x stored the raw series, which
+    /// keeps the samples the coordinate mask drops and is longer than the
+    /// track by the number of unfixed ones. On the July export that is 587 of
+    /// 733 activities, and the lap times read off them are wrong: 728 laps off
+    /// by more than 2 s, p95 22 s, worst 1,043 s.
+    ///
+    /// Expected behaviour: the same length rule the detector's stream loader
+    /// and the scrubber's body builder already apply. A stream whose length
+    /// disagrees with its track is not in the track's index space, so it
+    /// cannot time a traversal at all.
+    #[test]
+    fn a_stream_that_is_not_the_track_length_times_nothing() {
+        use super::sections::compute_lap_time_from_stream;
+
+        let times: Vec<u32> = vec![0, 10, 20, 30, 40];
+
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), Some(5), 0, 3, 90.0).0,
+            Some(20.0),
+            "a stream the length of its track times the traversal"
+        );
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), Some(4), 0, 3, 90.0),
+            (None, None),
+            "one sample longer than the track is the pre-mask shape"
+        );
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), Some(6), 0, 3, 90.0),
+            (None, None),
+            "and shorter is no better"
+        );
+    }
+
+    /// The track length is not always knowable: an activity whose track row is
+    /// gone has none. That is not evidence the stream is misaligned, so the
+    /// bounds checks alone stand for it.
+    #[test]
+    fn an_unknown_track_length_still_times_the_traversal() {
+        use super::sections::compute_lap_time_from_stream;
+
+        let times: Vec<u32> = vec![0, 10, 20];
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), None, 0, 3, 90.0).0,
+            Some(20.0)
+        );
+    }
+
     /// Regression: `compute_lap_time_from_stream` handles the zero-span and
     /// missing-stream edge cases by returning `(None, None)` - never panics
     /// on out-of-bounds indices.
@@ -3155,25 +4235,25 @@ mod tests {
 
         // No stream available.
         assert_eq!(
-            compute_lap_time_from_stream(None, 0, 5, 100.0),
+            compute_lap_time_from_stream(None, None, 0, 5, 100.0),
             (None, None)
         );
 
         // Zero-duration traversal: `1..1` holds no points at all.
         let times: Vec<u32> = vec![10, 20, 30];
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 1, 1, 100.0),
+            compute_lap_time_from_stream(Some(&times), None, 1, 1, 100.0),
             (None, None)
         );
 
         // Out of bounds end_index.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 0, 99, 100.0),
+            compute_lap_time_from_stream(Some(&times), None, 0, 99, 100.0),
             (None, None)
         );
 
         // `0..2` is the points at 0 and 1, so 10s; 100m/10s = 10 m/s.
-        let (lap_time, lap_pace) = compute_lap_time_from_stream(Some(&times), 0, 2, 100.0);
+        let (lap_time, lap_pace) = compute_lap_time_from_stream(Some(&times), None, 0, 2, 100.0);
         assert_eq!(lap_time, Some(10.0));
         assert_eq!(lap_pace, Some(10.0));
     }
@@ -3189,37 +4269,37 @@ mod tests {
 
         // Ends on the last point: `0..10` on a ten-point track.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 0, times.len() as u32, 90.0),
+            compute_lap_time_from_stream(Some(&times), None, 0, times.len() as u32, 90.0),
             (Some(9.0), Some(10.0))
         );
 
         // Ends one short of it, and is a second shorter for it.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 0, times.len() as u32 - 1, 90.0).0,
+            compute_lap_time_from_stream(Some(&times), None, 0, times.len() as u32 - 1, 90.0).0,
             Some(8.0)
         );
 
         // A single-point portion spans no time.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 4, 5, 90.0),
+            compute_lap_time_from_stream(Some(&times), None, 4, 5, 90.0),
             (None, None)
         );
 
         // The placeholder row `create_section` writes, before a rescan fills it.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 0, 0, 0.0),
+            compute_lap_time_from_stream(Some(&times), None, 0, 0, 0.0),
             (None, None)
         );
 
         // One past the end of the track is not a lap, however long the stream is.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 0, times.len() as u32 + 1, 90.0),
+            compute_lap_time_from_stream(Some(&times), None, 0, times.len() as u32 + 1, 90.0),
             (None, None)
         );
 
         // A start beyond the stream is not a lap either.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), 20, 25, 90.0),
+            compute_lap_time_from_stream(Some(&times), None, 20, 25, 90.0),
             (None, None)
         );
     }
@@ -3313,7 +4393,7 @@ mod polyline_overlap_latitude_tests {
             .flat_map(|i| vec![lat + i as f64 * 0.0005, 12.5 + offset_deg])
             .collect();
 
-        let overlap = compute_polyline_overlap(a, b, 50.0);
+        let overlap = compute_polyline_overlap(a, b, 50.0).unwrap();
         assert!(
             overlap > 0.9,
             "expected the lines to overlap at latitude {lat}, got {overlap}"
@@ -3329,7 +4409,7 @@ mod polyline_overlap_latitude_tests {
             .flat_map(|i| vec![i as f64 * 0.0005, offset_deg])
             .collect();
 
-        assert!(compute_polyline_overlap(a, b, 50.0) > 0.9);
+        assert!(compute_polyline_overlap(a, b, 50.0).unwrap() > 0.9);
     }
 
     #[test]
@@ -3341,7 +4421,59 @@ mod polyline_overlap_latitude_tests {
             .flat_map(|i| vec![55.9, 12.5 + i as f64 * 0.0005])
             .collect();
 
-        assert_eq!(compute_polyline_overlap(a, b, 50.0), 0.0);
+        assert_eq!(compute_polyline_overlap(a, b, 50.0).unwrap(), 0.0);
+    }
+}
+
+/// Scenario: a caller hands the engine a flat coordinate array that is not a
+/// whole number of points.
+///
+/// Expected behaviour: the call is refused. `chunks_exact(2)` drops an odd
+/// trailing value without a word, so the overlap was computed over one point
+/// fewer than the caller sent and the answer looked like a real one.
+#[cfg(test)]
+mod polyline_overlap_input_tests {
+    use super::compute_polyline_overlap;
+
+    fn line(points: usize) -> Vec<f64> {
+        (0..points)
+            .flat_map(|i| vec![55.7 + i as f64 * 0.0005, 12.5])
+            .collect()
+    }
+
+    #[test]
+    fn an_odd_first_line_is_refused() {
+        let mut a = line(20);
+        a.push(55.8);
+        let err = compute_polyline_overlap(a, line(20), 50.0).unwrap_err();
+        assert!(err.to_string().contains("coords_a"), "got {err}");
+        assert!(err.to_string().contains("41"), "got {err}");
+    }
+
+    #[test]
+    fn an_odd_second_line_is_refused() {
+        let mut b = line(20);
+        b.push(55.8);
+        let err = compute_polyline_overlap(line(20), b, 50.0).unwrap_err();
+        assert!(err.to_string().contains("coords_b"), "got {err}");
+    }
+
+    #[test]
+    fn an_empty_line_is_no_overlap_rather_than_an_error() {
+        assert_eq!(
+            compute_polyline_overlap(Vec::new(), line(20), 50.0).unwrap(),
+            0.0
+        );
+        assert_eq!(
+            compute_polyline_overlap(line(20), Vec::new(), 50.0).unwrap(),
+            0.0
+        );
+    }
+
+    #[test]
+    fn a_single_stray_value_is_refused_rather_than_read_as_empty() {
+        let err = compute_polyline_overlap(vec![55.7], line(20), 50.0).unwrap_err();
+        assert!(err.to_string().contains("coords_a"), "got {err}");
     }
 }
 
@@ -3419,6 +4551,232 @@ mod detection_progress_percent {
         for phase in ["suspended", "cutover_owed", "aborted"] {
             progress.set_phase(phase, 0);
             assert_eq!(progress.get_percent(), 50, "'{phase}' is not a run phase");
+        }
+    }
+}
+
+#[cfg(test)]
+mod write_pragma_tests {
+    /// `PRAGMA synchronous` reads back as an integer: 0 OFF, 1 NORMAL, 2 FULL.
+    /// The default is FULL, so a writer that never sets it pays two fsyncs a
+    /// commit on whichever thread asked.
+    #[test]
+    fn write_pragmas_put_a_connection_on_normal_synchronous() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        assert_eq!(
+            conn.query_row("PRAGMA synchronous", [], |r| r.get::<_, i32>(0))
+                .unwrap(),
+            2
+        );
+
+        super::apply_write_pragmas(&conn).unwrap();
+
+        assert_eq!(
+            conn.query_row("PRAGMA synchronous", [], |r| r.get::<_, i32>(0))
+                .unwrap(),
+            1
+        );
+    }
+}
+
+/// An auto section the athlete can see: not disabled and not superseded. The
+/// two review counters and the hide filters both turn on this.
+fn is_visible_auto(s: &SectionSummary) -> bool {
+    s.section_type == "auto" && !s.disabled && s.superseded_by.is_none()
+}
+
+/// Whether the sections list hides this section. The four kinds are the ones
+/// the filter bar offers and they are mutually exclusive by construction.
+fn section_filters_hide(filters: &crate::FfiSectionFilters, s: &SectionSummary) -> bool {
+    let visible_auto = is_visible_auto(s);
+    let custom = s.section_type == "custom";
+    let disabled_auto = s.section_type == "auto" && (s.disabled || s.superseded_by.is_some());
+    let unaccepted_auto = visible_auto && !s.is_user_defined;
+
+    (custom && filters.hide_custom)
+        || (visible_auto && filters.hide_auto)
+        || (disabled_auto && filters.hide_disabled)
+        || (unaccepted_auto && filters.hide_unaccepted)
+}
+
+/// What a reload would cost, measured rather than argued.
+///
+/// A reload has to pick up what another process wrote, and the choice is
+/// between a full `load()` and a targeted reload of the tiers a push actually
+/// invalidates. `load()` is the only loader there has ever been, and it pulls
+/// every section's whole polyline, which is the notification extension's
+/// memory risk and which on a resume is a launch-sized cost paid on every
+/// push.
+///
+/// The loaders are `pub(super)`, so this lives in the crate rather than in a
+/// bench. Nothing asserts, it prints a table, and it is `#[ignore]`d because
+/// it needs a real library:
+///
+///     VELOQ_DEVICE_DB=/tmp/routes.db \
+///       cargo test -p veloqrs --lib --release -- --ignored --nocapture reload_cost
+///
+/// **Memory needs one process per shape.** Within one process the allocator
+/// grows for the first shape and every later one reuses what it freed, so the
+/// deltas read as zero and the comparison is a lie. `VELOQ_RELOAD_SHAPE` runs
+/// a single shape and reports the process's own peak, `VmHWM`:
+///
+///     for s in full groups metrics metadata evidence; do
+///       VELOQ_RELOAD_SHAPE=$s VELOQ_DEVICE_DB=/tmp/routes.db \
+///         cargo test -p veloqrs --lib --release -- --ignored --nocapture reload_cost
+///     done
+///
+/// On the S22, which is where the numbers belong, because the engine budgets
+/// are that handset's frame:
+///
+///     cargo test -p veloqrs --lib --release --no-run --target aarch64-linux-android
+///     adb push <the binary> /data/local/tmp/
+///     adb shell "cd /data/local/tmp && TMPDIR=/data/local/tmp \
+///       VELOQ_DEVICE_DB=/data/local/tmp/routes.db VELOQ_RELOAD_SHAPE=full \
+///       ./veloqrs-<hash> --ignored --nocapture reload_cost"
+#[cfg(test)]
+mod reload_cost {
+    use super::*;
+    use std::path::PathBuf;
+    use std::time::Instant;
+
+    /// This process's peak resident bytes, or 0 where `/proc` is not there.
+    ///
+    /// The high-water mark rather than the current size, because an allocator
+    /// that has already grown hides what a load cost. It is a whole-process
+    /// figure, so it is only a measure of one shape when the process ran one.
+    fn peak_resident_bytes() -> u64 {
+        let Ok(status) = std::fs::read_to_string("/proc/self/status") else {
+            return 0;
+        };
+        for line in status.lines() {
+            let Some(rest) = line.strip_prefix("VmHWM:") else {
+                continue;
+            };
+            let kb: u64 = rest
+                .split_whitespace()
+                .next()
+                .and_then(|f| f.parse().ok())
+                .unwrap_or(0);
+            return kb * 1024;
+        }
+        0
+    }
+
+    /// A copy of the athlete's library, sidecars included, so it is never
+    /// migrated or written in place. The library runs under WAL, so the main
+    /// file alone leaves out every commit since the last checkpoint and reads
+    /// as a smaller library rather than a broken copy.
+    fn corpus() -> Option<(tempfile::TempDir, PathBuf)> {
+        let Ok(named) = std::env::var("VELOQ_DEVICE_DB") else {
+            eprintln!("skipped: no VELOQ_DEVICE_DB, so there is no library to measure");
+            return None;
+        };
+        let src = PathBuf::from(&named);
+        if !src.exists() {
+            eprintln!("skipped: VELOQ_DEVICE_DB={named} does not exist");
+            return None;
+        }
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let dst = dir.path().join("routes.db");
+        std::fs::copy(&src, &dst).expect("copy the library");
+        for suffix in ["-wal", "-shm"] {
+            let from = PathBuf::from(format!("{}{suffix}", src.display()));
+            if from.exists() {
+                std::fs::copy(&from, dir.path().join(format!("routes.db{suffix}")))
+                    .expect("copy the sidecar");
+            }
+        }
+        Some((dir, dst))
+    }
+
+    fn open(path: &PathBuf) -> PersistentEngine {
+        PersistentEngine::new(path.to_str().expect("utf-8")).expect("open")
+    }
+
+    fn ms(at: Instant) -> f64 {
+        at.elapsed().as_secs_f64() * 1000.0
+    }
+
+    /// One shape, one process, so `VmHWM` speaks for it.
+    fn run_one_shape(path: &PathBuf, shape: &str) {
+        let at = Instant::now();
+        let mut engine = open(path);
+        let open_ms = ms(at);
+        let at = Instant::now();
+        match shape {
+            "full" => engine.load().expect("load"),
+            "groups" => {
+                engine.load_groups().expect("groups");
+                engine.load_sections().expect("sections");
+            }
+            "metrics" => {
+                engine.load_groups().expect("groups");
+                engine.load_sections().expect("sections");
+                engine.load_activity_metrics().expect("metrics");
+            }
+            "metadata" => engine.load_metadata().expect("metadata"),
+            "evidence" => {
+                engine.load().expect("load");
+                let restored = engine.restore_evidence_cache();
+                println!("[reload]   evidence cache restored={restored}");
+            }
+            other => panic!("unknown VELOQ_RELOAD_SHAPE={other}"),
+        }
+        let load_ms = ms(at);
+        println!(
+            "[reload] shape={shape:<9} open={open_ms:7.1}ms load={load_ms:7.1}ms peak_rss={:6.1}MB",
+            peak_resident_bytes() as f64 / (1024.0 * 1024.0)
+        );
+    }
+
+    /// Every loader `load()` runs, in its order, timed on one engine.
+    ///
+    /// Timing is not confounded the way memory is, so this stays one process:
+    /// each loader runs once against a cold tier, which is what a reload would
+    /// meet.
+    fn run_breakdown(path: &PathBuf) {
+        let mut engine = open(path);
+        let loaders: [(&str, fn(&mut PersistentEngine) -> SqlResult<()>); 7] = [
+            ("metadata", |e| e.load_metadata()),
+            ("groups", |e| e.load_groups()),
+            ("sections", |e| e.load_sections()),
+            ("processed_activity_ids", |e| {
+                e.load_processed_activity_ids()
+            }),
+            ("activity_metrics", |e| e.load_activity_metrics()),
+            ("match_strictness", |e| {
+                e.load_match_strictness_from_settings()
+            }),
+            ("section_config", |e| e.load_section_config_from_settings()),
+        ];
+        let mut total = 0.0;
+        for (name, loader) in loaders {
+            let at = Instant::now();
+            loader(&mut engine).unwrap_or_else(|e| panic!("{name}: {e}"));
+            let each = ms(at);
+            total += each;
+            println!("[reload]   {name:<24} {each:7.1}ms");
+        }
+        let at = Instant::now();
+        let restored = engine.restore_evidence_cache();
+        println!(
+            "[reload]   {:<24} {:7.1}ms restored={restored}",
+            "restore_evidence_cache",
+            ms(at)
+        );
+        println!("[reload]   {:<24} {total:7.1}ms", "seven loaders");
+    }
+
+    #[test]
+    #[ignore]
+    fn reload_cost_against_a_real_library() {
+        let Some((_dir, path)) = corpus() else { return };
+        let bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        println!("[reload] library {:.1}MB", bytes as f64 / (1024.0 * 1024.0));
+
+        match std::env::var("VELOQ_RELOAD_SHAPE") {
+            Ok(shape) => run_one_shape(&path, &shape),
+            Err(_) => run_breakdown(&path),
         }
     }
 }

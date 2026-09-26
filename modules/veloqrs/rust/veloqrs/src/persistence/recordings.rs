@@ -25,22 +25,26 @@ const BACKOFF_CAP_MS: i64 = 60 * 60 * 1000;
 #[serde(rename_all = "camelCase")]
 pub struct FfiRecordingEntry {
     pub id: String,
+    /// `fit` for a ride this device recorded, `manual` for an entry the athlete
+    /// typed. A manual row has no FIT and an empty `fit_path`, so the upload path
+    /// branches on this rather than on whether a file happens to be there.
+    pub kind: String,
     pub fit_path: String,
     pub streams_path: Option<String>,
     pub activity_type: String,
     pub name: String,
     /// Milliseconds since the epoch, when the ride started.
-    pub start_time: i64,
-    pub duration_seconds: i64,
+    pub start_time: f64,
+    pub duration_seconds: f64,
     pub distance_meters: f64,
     pub elevation_gain: Option<f64>,
     pub avg_heartrate: Option<f64>,
-    pub paired_event_id: Option<i64>,
+    pub paired_event_id: Option<f64>,
     /// Milliseconds since the epoch, when the recording was saved.
-    pub created_at: i64,
+    pub created_at: f64,
     pub upload_status: String,
     pub retry_count: u32,
-    pub last_attempt_at: Option<i64>,
+    pub last_attempt_at: Option<f64>,
     pub last_error: Option<String>,
     pub intervals_activity_id: Option<String>,
     /// The engine key the recording was written under at save time.
@@ -55,7 +59,7 @@ pub struct FfiRecordingEntry {
     pub athlete_id: Option<String>,
 }
 
-const COLUMNS: &str = "id, fit_path, streams_path, activity_type, name, start_time, \
+const COLUMNS: &str = "id, kind, fit_path, streams_path, activity_type, name, start_time, \
      duration_seconds, distance_meters, elevation_gain, avg_heartrate, paired_event_id, \
      created_at, upload_status, retry_count, last_attempt_at, last_error, \
      intervals_activity_id, engine_activity_id, engine_reconciled, athlete_id";
@@ -63,25 +67,26 @@ const COLUMNS: &str = "id, fit_path, streams_path, activity_type, name, start_ti
 fn row_to_entry(row: &Row) -> SqlResult<FfiRecordingEntry> {
     Ok(FfiRecordingEntry {
         id: row.get(0)?,
-        fit_path: row.get(1)?,
-        streams_path: row.get(2)?,
-        activity_type: row.get(3)?,
-        name: row.get(4)?,
-        start_time: row.get(5)?,
-        duration_seconds: row.get(6)?,
-        distance_meters: row.get(7)?,
-        elevation_gain: row.get(8)?,
-        avg_heartrate: row.get(9)?,
-        paired_event_id: row.get(10)?,
-        created_at: row.get(11)?,
-        upload_status: row.get(12)?,
-        retry_count: row.get::<_, i64>(13)? as u32,
-        last_attempt_at: row.get(14)?,
-        last_error: row.get(15)?,
-        intervals_activity_id: row.get(16)?,
-        engine_activity_id: row.get(17)?,
-        engine_reconciled: row.get::<_, i64>(18)? != 0,
-        athlete_id: row.get(19)?,
+        kind: row.get(1)?,
+        fit_path: row.get(2)?,
+        streams_path: row.get(3)?,
+        activity_type: row.get(4)?,
+        name: row.get(5)?,
+        start_time: row.get(6)?,
+        duration_seconds: row.get(7)?,
+        distance_meters: row.get(8)?,
+        elevation_gain: row.get(9)?,
+        avg_heartrate: row.get(10)?,
+        paired_event_id: row.get(11)?,
+        created_at: row.get(12)?,
+        upload_status: row.get(13)?,
+        retry_count: row.get::<_, i64>(14)? as u32,
+        last_attempt_at: row.get(15)?,
+        last_error: row.get(16)?,
+        intervals_activity_id: row.get(17)?,
+        engine_activity_id: row.get(18)?,
+        engine_reconciled: row.get::<_, i64>(19)? != 0,
+        athlete_id: row.get(20)?,
     })
 }
 
@@ -97,7 +102,7 @@ fn retry_eligible(entry: &FfiRecordingEntry, now: i64) -> bool {
     let delay = BACKOFF_BASE_MS
         .saturating_mul(1i64 << entry.retry_count.min(32))
         .min(BACKOFF_CAP_MS);
-    now - last >= delay
+    now - last as i64 >= delay
 }
 
 impl PersistentEngine {
@@ -108,10 +113,11 @@ impl PersistentEngine {
         let changed = self.db.execute(
             &format!(
                 "INSERT OR IGNORE INTO recordings ({COLUMNS}) \
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             ),
             params![
                 entry.id,
+                entry.kind,
                 entry.fit_path,
                 entry.streams_path,
                 entry.activity_type,
@@ -160,19 +166,6 @@ impl PersistentEngine {
     pub fn set_recording_reconciled(&self, id: &str) -> SqlResult<()> {
         self.db.execute(
             "UPDATE recordings SET engine_reconciled = 1 WHERE id = ?",
-            params![id],
-        )?;
-        Ok(())
-    }
-
-    /// Forget the streams sidecar, once the engine holds the ride's track and
-    /// the file is going. The path is cleared so nothing looks for a file that
-    /// is gone; the FIT is a separate path and stays. Idempotent, and a no-op
-    /// on an id nothing claims, because the caller deletes best effort and a
-    /// failure there must not turn a finished upload into a retry.
-    pub fn clear_recording_streams_path(&self, id: &str) -> SqlResult<()> {
-        self.db.execute(
-            "UPDATE recordings SET streams_path = NULL WHERE id = ?",
             params![id],
         )?;
         Ok(())
@@ -251,6 +244,34 @@ impl PersistentEngine {
         Ok(())
     }
 
+    /// Release every ride the last launch left mid-upload, and answer how many.
+    ///
+    /// `set_recording_uploading` is written before the request goes out and
+    /// only a returned outcome moves it on, so an app kill leaves the row at
+    /// `uploading`, where the manual affordance is hidden and the automatic
+    /// retry does not look. The attempt is counted, the same as any other that
+    /// did not report back: a kill that keeps happening would otherwise retry
+    /// the same ride forever. After the last attempt it parks as `failed`,
+    /// which is still manually retriable, and the FIT is never deleted.
+    pub fn release_stranded_uploads(&self, now: i64) -> SqlResult<u32> {
+        let changed = self.db.execute(
+            "UPDATE recordings \
+             SET retry_count = retry_count + 1, \
+                 last_attempt_at = ?, \
+                 last_error = 'The app closed while this ride was uploading', \
+                 upload_status = CASE WHEN retry_count + 1 >= ? THEN 'failed' ELSE 'pending' END \
+             WHERE upload_status = 'uploading'",
+            params![now, MAX_AUTO_RETRIES as i64],
+        )?;
+        if changed > 0 {
+            log::info!(
+                "veloqrs: [recordings] Released {} ride(s) stranded mid-upload",
+                changed
+            );
+        }
+        Ok(changed as u32)
+    }
+
     /// A manual retry, or a requeue after an upgrade: back to `pending` with a
     /// clean slate.
     pub fn requeue_recording(&self, id: &str) -> SqlResult<()> {
@@ -271,6 +292,23 @@ impl PersistentEngine {
             [],
         )?;
         Ok(changed as u32)
+    }
+
+    /// The transport failed before intervals.icu was reached.
+    ///
+    /// The ride stays in the queue with its attempt counter untouched, for the
+    /// same reason a 401 does: a request that never arrived says nothing about
+    /// the ride, and a device that spends a week out of signal would otherwise
+    /// spend all five attempts on cold launches and park a ride the server has
+    /// never seen. `last_attempt_at` *is* stamped, so the ordinary backoff
+    /// still applies and a failing transport cannot become a hot loop.
+    pub fn hold_recording_for_network(&self, id: &str, error: &str, now: i64) -> SqlResult<()> {
+        self.db.execute(
+            "UPDATE recordings SET upload_status = 'pending', last_error = ?, \
+             last_attempt_at = ? WHERE id = ?",
+            params![error, now, id],
+        )?;
+        Ok(())
     }
 
     /// A credential was refused while this ride was uploading.
@@ -358,14 +396,6 @@ impl PersistentEngine {
         )
     }
 
-    pub fn permission_blocked_recording_count(&self) -> SqlResult<u32> {
-        self.db.query_row(
-            "SELECT COUNT(*) FROM recordings WHERE upload_status = 'permissionBlocked'",
-            [],
-            |row| row.get::<_, i64>(0).map(|n| n as u32),
-        )
-    }
-
     /// Drop every row. A `.veloqdb` restore carries this table like any other,
     /// but not the FIT files it points at, so the rows are stale the moment
     /// they land on another install.
@@ -383,17 +413,18 @@ mod tests {
     fn entry(id: &str, created_at: i64, status: &str) -> FfiRecordingEntry {
         FfiRecordingEntry {
             id: id.to_string(),
+            kind: "fit".to_string(),
             fit_path: format!("/recordings/{id}.fit"),
             streams_path: None,
             activity_type: "Ride".to_string(),
             name: format!("Ride {id}"),
-            start_time: created_at,
-            duration_seconds: 3600,
+            start_time: created_at as f64,
+            duration_seconds: 3600.0,
             distance_meters: 20_000.0,
             elevation_gain: Some(120.0),
             avg_heartrate: Some(148.0),
             paired_event_id: None,
-            created_at,
+            created_at: created_at as f64,
             upload_status: status.to_string(),
             retry_count: 0,
             last_attempt_at: None,
@@ -431,30 +462,6 @@ mod tests {
         );
     }
 
-    /// Scenario: the streams sidecar is dropped once the engine holds the
-    /// ride's track, and the path is cleared with it so nothing looks for a
-    /// file that is gone. The move to a table left no way to clear it.
-    /// Expected behaviour: the path clears and nothing else on the row moves.
-    #[test]
-    fn clearing_the_streams_path_leaves_the_rest_of_the_row() {
-        let (_dir, e) = engine();
-        let mut row = entry("r1", 1_000, "uploaded");
-        row.streams_path = Some("/recordings/r1.streams.json".to_string());
-        e.insert_recording(&row).unwrap();
-
-        e.clear_recording_streams_path("r1").unwrap();
-        let read = e.get_recording("r1").unwrap().unwrap();
-        assert_eq!(read.streams_path, None);
-        assert_eq!(read.fit_path, row.fit_path, "the FIT is not the sidecar");
-        assert_eq!(read.upload_status, "uploaded");
-        assert_eq!(read.distance_meters, row.distance_meters);
-
-        // Idempotent: the upload path calls it best-effort and a second call
-        // must not read as a failure.
-        e.clear_recording_streams_path("r1").unwrap();
-        e.clear_recording_streams_path("gone").unwrap();
-    }
-
     fn engine() -> (TempDir, PersistentEngine) {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("routes.db");
@@ -467,7 +474,7 @@ mod tests {
         let (_dir, e) = engine();
         let mut row = entry("r1", 1_000, "pending");
         row.streams_path = Some("/recordings/r1.streams.json".to_string());
-        row.paired_event_id = Some(42);
+        row.paired_event_id = Some(42.0);
         row.engine_activity_id = Some("local-r1".to_string());
         assert!(e.insert_recording(&row).unwrap());
 
@@ -476,7 +483,7 @@ mod tests {
             read.streams_path.as_deref(),
             Some("/recordings/r1.streams.json")
         );
-        assert_eq!(read.paired_event_id, Some(42));
+        assert_eq!(read.paired_event_id, Some(42.0));
         assert_eq!(read.engine_activity_id.as_deref(), Some("local-r1"));
         assert_eq!(read.distance_meters, 20_000.0);
     }
@@ -614,7 +621,7 @@ mod tests {
         let (_dir, e) = engine();
         let mut held = entry("held", 1_000, "uploading");
         held.retry_count = 3;
-        held.last_attempt_at = Some(900);
+        held.last_attempt_at = Some(900.0);
         e.insert_recording(&held).unwrap();
 
         e.hold_recording_for_auth("held", "unauthorized").unwrap();
@@ -622,8 +629,78 @@ mod tests {
         let row = e.get_recording("held").unwrap().unwrap();
         assert_eq!(row.upload_status, "pending");
         assert_eq!(row.retry_count, 3, "a 401 is not an attempt the ride spent");
-        assert_eq!(row.last_attempt_at, Some(900));
+        assert_eq!(row.last_attempt_at, Some(900.0));
         assert_eq!(row.last_error.as_deref(), Some("unauthorized"));
+    }
+
+    /// Scenario: the athlete records a ride, then the phone spends a week with
+    /// no usable network. Every cold launch tries the upload and the transport
+    /// fails before the server is ever reached.
+    ///
+    /// Expected behaviour: the ride stays in the queue however many times the
+    /// transport fails. A failure that never reached intervals.icu says nothing
+    /// about the ride, so it must not spend one of the five attempts that park
+    /// it as `failed`.
+    #[test]
+    fn an_unreachable_network_never_parks_the_ride() {
+        let (_dir, e) = engine();
+        e.insert_recording(&entry("ride", 1_000, "uploading"))
+            .unwrap();
+
+        for i in 0..(MAX_AUTO_RETRIES + 3) {
+            let now = 100_000 + i as i64 * BACKOFF_BASE_MS * 64;
+            e.hold_recording_for_network("ride", "Network request failed", now)
+                .unwrap();
+
+            let row = e.get_recording("ride").unwrap().unwrap();
+            assert_eq!(
+                row.upload_status,
+                "pending",
+                "transport failure {} parked the ride",
+                i + 1
+            );
+            assert_eq!(
+                row.retry_count,
+                0,
+                "transport failure {} spent an attempt",
+                i + 1
+            );
+            assert_eq!(row.last_attempt_at, Some(now as f64));
+        }
+
+        assert_eq!(
+            e.get_recording("ride")
+                .unwrap()
+                .unwrap()
+                .last_error
+                .as_deref(),
+            Some("Network request failed")
+        );
+    }
+
+    /// The stamp is what stops a hot loop: an entry held for the network is
+    /// eligible again on the ordinary backoff, not immediately.
+    #[test]
+    fn a_network_held_ride_waits_out_its_backoff_before_the_next_attempt() {
+        let (_dir, e) = engine();
+        e.insert_recording(&entry("ride", 1_000, "uploading"))
+            .unwrap();
+
+        e.hold_recording_for_network("ride", "offline", 100_000)
+            .unwrap();
+
+        assert!(
+            e.next_pending_recording(100_000 + BACKOFF_BASE_MS - 1)
+                .unwrap()
+                .is_none(),
+            "a ride held for the network retried before its backoff elapsed"
+        );
+        assert!(
+            e.next_pending_recording(100_000 + BACKOFF_BASE_MS)
+                .unwrap()
+                .is_some(),
+            "a ride held for the network never became eligible again"
+        );
     }
 
     /// Scenario: the phone is signed out by a 401 and someone else signs in.
@@ -706,7 +783,6 @@ mod tests {
         e.insert_recording(&entry("c", 3_000, "uploaded")).unwrap();
 
         assert_eq!(e.unuploaded_recording_count().unwrap(), 2);
-        assert_eq!(e.permission_blocked_recording_count().unwrap(), 1);
     }
 
     #[test]
@@ -736,6 +812,78 @@ mod tests {
         assert_eq!(read.upload_status, "uploaded");
         assert_eq!(read.intervals_activity_id.as_deref(), Some("i12345"));
         assert_eq!(read.last_error, None);
+    }
+
+    /// Scenario: the app is killed while a ride is uploading. The row is left
+    /// at `uploading`, which hides the manual retry and is skipped by the
+    /// automatic one, so the ride is stuck with no way out.
+    #[test]
+    fn a_launch_releases_a_ride_the_last_one_was_still_uploading() {
+        let (_dir, e) = engine();
+        e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
+        e.set_recording_uploading("r1").unwrap();
+
+        assert_eq!(e.release_stranded_uploads(200_000).unwrap(), 1);
+        let read = e.get_recording("r1").unwrap().unwrap();
+        assert_eq!(read.upload_status, "pending");
+        assert_eq!(read.retry_count, 1);
+        assert_eq!(read.last_attempt_at, Some(200_000.0));
+    }
+
+    /// A kill that keeps happening has to stop costing attempts forever, so it
+    /// is counted the same as any other attempt that did not report back.
+    #[test]
+    fn a_ride_killed_on_every_launch_parks_for_a_manual_retry() {
+        let (_dir, e) = engine();
+        e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
+
+        for launch in 0..MAX_AUTO_RETRIES {
+            e.set_recording_uploading("r1").unwrap();
+            e.release_stranded_uploads(200_000 + launch as i64).unwrap();
+        }
+
+        let read = e.get_recording("r1").unwrap().unwrap();
+        assert_eq!(read.upload_status, "failed");
+        assert_eq!(read.retry_count, MAX_AUTO_RETRIES);
+    }
+
+    #[test]
+    fn a_launch_leaves_every_other_status_alone() {
+        let (_dir, e) = engine();
+        e.insert_recording(&entry("a", 1_000, "pending")).unwrap();
+        e.insert_recording(&entry("b", 2_000, "uploaded")).unwrap();
+        e.insert_recording(&entry("c", 3_000, "localOnly")).unwrap();
+        e.insert_recording(&entry("d", 4_000, "permissionBlocked"))
+            .unwrap();
+
+        assert_eq!(e.release_stranded_uploads(200_000).unwrap(), 0);
+        for (id, status) in [
+            ("a", "pending"),
+            ("b", "uploaded"),
+            ("c", "localOnly"),
+            ("d", "permissionBlocked"),
+        ] {
+            assert_eq!(e.get_recording(id).unwrap().unwrap().upload_status, status);
+        }
+    }
+
+    /// The sweep runs at construction, so a database opened after a kill comes
+    /// up with nothing stranded.
+    #[test]
+    fn opening_the_database_releases_what_the_last_launch_stranded() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("routes.db");
+        {
+            let e = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+            e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
+            e.set_recording_uploading("r1").unwrap();
+        }
+
+        let e = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+        assert_eq!(
+            e.get_recording("r1").unwrap().unwrap().upload_status,
+            "pending"
+        );
     }
 
     #[test]

@@ -9,126 +9,9 @@ impl PersistentEngine {
     /// Find merge candidates for a section.
     /// Returns sections with >30% polyline overlap or close centers with similar distances.
     pub fn get_merge_candidates(&self, section_id: &str) -> Vec<crate::FfiMergeCandidate> {
-        // Get the query section's data
-        let query_data: Option<(f64, f64, f64, String)> = self
-            .db
-            .query_row(
-                "SELECT (COALESCE(bounds_min_lat, 0) + COALESCE(bounds_max_lat, 0)) / 2.0,
-                        (COALESCE(bounds_min_lng, 0) + COALESCE(bounds_max_lng, 0)) / 2.0,
-                        distance_meters, sport_type
-                 FROM sections WHERE id = ? AND bounds_min_lat IS NOT NULL",
-                rusqlite::params![section_id],
-                |row| {
-                    Ok((
-                        row.get::<_, f64>(0)?,
-                        row.get::<_, f64>(1)?,
-                        row.get::<_, f64>(2)?,
-                        row.get::<_, String>(3)?,
-                    ))
-                },
-            )
-            .ok();
-
-        let (center_lat, center_lng, query_dist, _query_sport) = match query_data {
-            Some(d) => d,
-            None => return vec![],
-        };
-
-        let query_polyline = self.get_section_polyline(section_id);
-        if query_polyline.len() < 4 {
-            return vec![];
-        }
-
-        // Find nearby sections (within 300m center distance)
-        let mut stmt = match self.db.prepare(
-            "SELECT s.id, s.name, s.sport_type, s.distance_meters,
-                    s.visit_count,
-                    (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0,
-                    (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0
-             FROM sections s
-             WHERE s.id != ? AND s.disabled = 0 AND s.superseded_by IS NULL
-               AND s.bounds_min_lat IS NOT NULL
-             ORDER BY s.id",
-        ) {
-            Ok(s) => s,
-            Err(_) => return vec![],
-        };
-
-        let rows = stmt
-            .query_map(rusqlite::params![section_id], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,         // id
-                    row.get::<_, Option<String>>(1)?, // name
-                    row.get::<_, String>(2)?,         // sport_type
-                    row.get::<_, f64>(3)?,            // distance_meters
-                    row.get::<_, u32>(4)?,            // visit_count
-                    row.get::<_, f64>(5)?,            // center_lat
-                    row.get::<_, f64>(6)?,            // center_lng
-                ))
-            })
-            .ok();
-
-        let mut candidates: Vec<crate::FfiMergeCandidate> = Vec::new();
-
         self.ensure_named_overlay();
-        let corridor_names = self.named_overlay_cached_names();
-        if let Some(rows) = rows {
-            for row in rows.flatten() {
-                let (id, name, sport_type, distance_meters, visit_count, lat, lng) = row;
-                // Corridor names outrank generated row names on auto sections.
-                let name = corridor_names.get(&id).cloned().or(name);
-
-                let center_dist = haversine_distance(center_lat, center_lng, lat, lng);
-                if center_dist > 300.0 {
-                    continue;
-                }
-
-                // Check distance similarity (within 30%)
-                let max_dist = query_dist.max(distance_meters);
-                let min_dist = query_dist.min(distance_meters);
-                let dist_ratio = if max_dist > 0.0 {
-                    (max_dist - min_dist) / max_dist
-                } else {
-                    1.0
-                };
-                if dist_ratio > 0.3 {
-                    continue;
-                }
-
-                // Compute polyline overlap
-                let candidate_polyline = self.get_section_polyline(&id);
-                let overlap = if candidate_polyline.len() >= 4 {
-                    super::super::compute_polyline_overlap(
-                        query_polyline.clone(),
-                        candidate_polyline,
-                        tracematch::sections::GROUND_TOL_M,
-                    )
-                } else {
-                    0.0
-                };
-
-                if overlap >= 0.3 {
-                    candidates.push(crate::FfiMergeCandidate {
-                        section_id: id,
-                        name,
-                        sport_type,
-                        distance_meters,
-                        visit_count,
-                        overlap_pct: overlap,
-                        center_distance_meters: center_dist,
-                    });
-                }
-            }
-        }
-
-        candidates.sort_by(|a, b| {
-            b.overlap_pct
-                .partial_cmp(&a.overlap_pct)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| a.section_id.cmp(&b.section_id))
-        });
-        candidates.truncate(10);
-        candidates
+        let names = self.named_overlay_cached_names();
+        pooled::merge_candidates(&self.db, section_id, &names)
     }
 
     /// Merge two sections: moves all traversals from secondary into primary,
@@ -312,5 +195,154 @@ impl PersistentEngine {
              WHERE id = ?",
             rusqlite::params![distance, min_lat, max_lat, min_lng, max_lng, section_id],
         );
+    }
+}
+
+/// The merge-candidate read over a pooled connection. The engine method above
+/// delegates here rather than carrying a second copy, so the two cannot drift.
+pub(crate) mod pooled {
+    use std::collections::BTreeMap;
+
+    use rusqlite::Connection;
+
+    /// One section's stored line, flattened the way the overlap takes it.
+    fn stored_line_flat(conn: &Connection, section_id: &str) -> Vec<f64> {
+        match super::super::geometry::stored_line(conn, section_id) {
+            Ok(points) => points
+                .iter()
+                .flat_map(|p| [p.latitude, p.longitude])
+                .collect(),
+            Err(e) => {
+                log::error!("veloqrs: pooled section polyline decode error for {section_id}: {e}");
+                Vec::new()
+            }
+        }
+    }
+
+    pub(crate) fn merge_candidates(
+        conn: &Connection,
+        section_id: &str,
+        corridor_names: &BTreeMap<String, String>,
+    ) -> Vec<crate::FfiMergeCandidate> {
+        // Get the query section's data
+        let query_data: Option<(f64, f64, f64, String)> = conn
+            .query_row(
+                "SELECT (COALESCE(bounds_min_lat, 0) + COALESCE(bounds_max_lat, 0)) / 2.0,
+                        (COALESCE(bounds_min_lng, 0) + COALESCE(bounds_max_lng, 0)) / 2.0,
+                        distance_meters, sport_type
+                 FROM sections WHERE id = ? AND bounds_min_lat IS NOT NULL",
+                rusqlite::params![section_id],
+                |row| {
+                    Ok((
+                        row.get::<_, f64>(0)?,
+                        row.get::<_, f64>(1)?,
+                        row.get::<_, f64>(2)?,
+                        row.get::<_, String>(3)?,
+                    ))
+                },
+            )
+            .ok();
+
+        let (center_lat, center_lng, query_dist, _query_sport) = match query_data {
+            Some(d) => d,
+            None => return vec![],
+        };
+
+        let query_polyline = stored_line_flat(conn, section_id);
+        if query_polyline.len() < 4 {
+            return vec![];
+        }
+
+        // Find nearby sections (within 300m center distance)
+        let mut stmt = match conn.prepare(
+            "SELECT s.id, s.name, s.sport_type, s.distance_meters,
+                    s.visit_count,
+                    (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0,
+                    (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0
+             FROM sections s
+             WHERE s.id != ? AND s.disabled = 0 AND s.superseded_by IS NULL
+               AND s.bounds_min_lat IS NOT NULL
+             ORDER BY s.id",
+        ) {
+            Ok(s) => s,
+            Err(_) => return vec![],
+        };
+
+        let rows = stmt
+            .query_map(rusqlite::params![section_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,         // id
+                    row.get::<_, Option<String>>(1)?, // name
+                    row.get::<_, String>(2)?,         // sport_type
+                    row.get::<_, f64>(3)?,            // distance_meters
+                    row.get::<_, u32>(4)?,            // visit_count
+                    row.get::<_, f64>(5)?,            // center_lat
+                    row.get::<_, f64>(6)?,            // center_lng
+                ))
+            })
+            .ok();
+
+        let mut candidates: Vec<crate::FfiMergeCandidate> = Vec::new();
+
+        if let Some(rows) = rows {
+            for row in rows.flatten() {
+                let (id, name, sport_type, distance_meters, visit_count, lat, lng) = row;
+                // Corridor names outrank generated row names on auto sections.
+                let name = corridor_names.get(&id).cloned().or(name);
+
+                let center_dist = super::haversine_distance(center_lat, center_lng, lat, lng);
+                if center_dist > 300.0 {
+                    continue;
+                }
+
+                // Check distance similarity (within 30%)
+                let max_dist = query_dist.max(distance_meters);
+                let min_dist = query_dist.min(distance_meters);
+                let dist_ratio = if max_dist > 0.0 {
+                    (max_dist - min_dist) / max_dist
+                } else {
+                    1.0
+                };
+                if dist_ratio > 0.3 {
+                    continue;
+                }
+
+                // Compute polyline overlap
+                let candidate_polyline = stored_line_flat(conn, &id);
+                let overlap = if candidate_polyline.len() >= 4 {
+                    // Both lines come off disk already paired, so the
+                    // even-length refusal on the FFI entry cannot fire here.
+                    crate::persistence::compute_polyline_overlap(
+                        query_polyline.clone(),
+                        candidate_polyline,
+                        tracematch::sections::GROUND_TOL_M,
+                    )
+                    .unwrap_or(0.0)
+                } else {
+                    0.0
+                };
+
+                if overlap >= 0.3 {
+                    candidates.push(crate::FfiMergeCandidate {
+                        section_id: id,
+                        name,
+                        sport_type,
+                        distance_meters,
+                        visit_count,
+                        overlap_pct: overlap,
+                        center_distance_meters: center_dist,
+                    });
+                }
+            }
+        }
+
+        candidates.sort_by(|a, b| {
+            b.overlap_pct
+                .partial_cmp(&a.overlap_pct)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.section_id.cmp(&b.section_id))
+        });
+        candidates.truncate(10);
+        candidates
     }
 }

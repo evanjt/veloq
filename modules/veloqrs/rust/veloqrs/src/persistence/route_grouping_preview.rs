@@ -14,10 +14,13 @@ use std::thread;
 
 use super::PersistentEngine;
 
-/// The one grouping-preview slot. Occupied from start until the result is
-/// taken or the run ends cancelled or dead, so two runs can never hold two
-/// copies of the library's signatures at once.
-pub static ROUTE_GROUPING_PREVIEW_HANDLE: LazyLock<Mutex<Option<RouteGroupingPreviewHandle>>> =
+/// The one grouping-preview slot, holding the running run's cancel latch.
+///
+/// Occupied from the start of a run until the run ends, however it ends, so two
+/// runs can never hold two copies of the library's signatures at once, and the
+/// latch is what a cancel from the screen reaches while the handle itself is on
+/// the thread awaiting it.
+pub static ROUTE_GROUPING_PREVIEW_HANDLE: LazyLock<Mutex<Option<Arc<AtomicBool>>>> =
     LazyLock::new(|| Mutex::new(None));
 
 /// One proposed group, before any identity remap.
@@ -106,6 +109,12 @@ impl RouteGroupingPreviewHandle {
         }
     }
 
+    /// The latch itself, for a caller that has handed the handle to the thread
+    /// awaiting it and still has to be able to cancel the run.
+    pub fn cancel_handle(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.cancel)
+    }
+
     /// Request cooperative cancellation. The worker checks once before the
     /// grouping and once after: the grouping itself is one tracematch call
     /// and cannot be interrupted, so a cancel that arrives inside it discards
@@ -131,17 +140,29 @@ impl PersistentEngine {
     /// that is off-lock. `None` when the library has no signatures to group,
     /// which is the empty-library case and not a failure.
     ///
-    /// Measured on a desktop at 117 ms over 550 activities and 307 to 348 ms
-    /// over 1,198, which is what makes grouping the whole library affordable
-    /// rather than a subset of it. The device is unmeasured.
+    /// Measured on an S22 over a real 585-activity library: the signature
+    /// collection this does on the calling thread is 1.4 to 1.9 ms, and the
+    /// grouping it spawns is 198 ms at the strictest setting, 386 at the
+    /// default and 442 at the loosest. So the frame the athlete loses is the
+    /// walk, and what the debounce trades is how many of those 200-to-450 ms
+    /// runs a drag starts. The desktop figures it used to carry, 117 ms over
+    /// 550 and 307 to 348 over 1,198, are three to four times faster than the
+    /// handset and should not be used to set the knob.
     pub fn grouping_preview_background(
         &mut self,
         strictness: PreviewStrictness,
     ) -> Option<RouteGroupingPreviewHandle> {
-        let activity_ids: Vec<String> = self.activity_metadata.keys().cloned().collect();
-        let signatures: Vec<Arc<RouteSignature>> = activity_ids
-            .iter()
-            .filter_map(|id| self.get_signature(id))
+        // One statement, not one per activity. Walking these through
+        // `get_signature` reads every blob back a row at a time past the LRU's
+        // 200 entries and leaves the cache holding the ids just walked instead
+        // of the ground the route list and the map warmed, which is the reason
+        // `load_all_signatures` exists and says so. The ids and their order are
+        // the caller's as before; only where the signatures come from changed.
+        let stored = self.load_all_signatures();
+        let signatures: Vec<Arc<RouteSignature>> = self
+            .activity_metadata
+            .keys()
+            .filter_map(|id| stored.get(id).map(Arc::clone))
             .collect();
         if signatures.is_empty() {
             return None;

@@ -1,6 +1,8 @@
 //! Activity management: CRUD, GPS tracks, signatures, spatial queries, time streams.
 
+use crate::net::types::ActivityCensusEntry;
 use crate::{ActivityMatchInfo, ActivityMetrics, Bounds, GpsPoint, RouteSignature};
+use crate::{LibraryCoverage, RangeCoverage};
 use rstar::{AABB, RTree};
 use rusqlite::{OptionalExtension, Result as SqlResult, params, types::Type};
 use std::collections::{BTreeMap, HashMap};
@@ -90,6 +92,13 @@ pub const ELEVATION_STATE_UNKNOWN: u8 = 0;
 pub const ELEVATION_STATE_FETCHED: u8 = 1;
 /// Elevation provenance a stored track can be in: `elevation_state` 2.
 pub const ELEVATION_STATE_UNAVAILABLE: u8 = 2;
+/// Elevation provenance a stored track can be in: `elevation_state` 3.
+///
+/// Distinct from `UNAVAILABLE` on purpose. That value is upstream answering
+/// that it holds no altitude for the ride, which the lift rescue reads as
+/// fact. This one is nobody ever getting an answer at all, so it makes no
+/// claim about the ground.
+pub const ELEVATION_STATE_UNREACHABLE: u8 = 3;
 
 /// How many stored tracks sit in each elevation provenance state.
 ///
@@ -104,13 +113,15 @@ pub struct ElevationStateCounts {
     pub fetched: u64,
     /// Asked, and upstream had no usable altitude series.
     pub unavailable: u64,
+    /// Asked until the backfill gave up, and upstream never answered.
+    pub unreachable: u64,
 }
 
 impl ElevationStateCounts {
     /// Tracks in a state other than `fetched`, ie. the size of the remaining
     /// backfill plus the activities that can never be filled.
     pub fn not_fetched(&self) -> u64 {
-        self.unknown + self.unavailable
+        self.unknown + self.unavailable + self.unreachable
     }
 }
 
@@ -133,6 +144,9 @@ pub struct DerivedClear {
 /// section the athlete touched. Returns how many sections went.
 fn wipe_derived_catalogue(db: &rusqlite::Connection) -> SqlResult<usize> {
     use super::sections::DERIVED_SECTION_PREDICATE;
+    // An excluded junction row is the athlete taking a lap out of a section,
+    // and the re-detect re-mints these sections under the same ids.
+    super::sections::hold_auto_exclusions_through_wipe(db)?;
     db.execute(
         &format!(
             "DELETE FROM section_activities
@@ -142,6 +156,15 @@ fn wipe_derived_catalogue(db: &rusqlite::Connection) -> SqlResult<usize> {
     )?;
     let sections = db.execute(
         &format!("DELETE FROM sections WHERE {DERIVED_SECTION_PREDICATE}"),
+        [],
+    )?;
+    // Nothing cascades from `sections` into the indicators, and with route
+    // matching off no detect runs to rewrite them, so a record on a deleted
+    // section went on marking the ride a PR. Every row the engine writes
+    // targets a section; the legacy route kinds target route groups, which
+    // this wipe empties whole, so they go too.
+    db.execute(
+        "DELETE FROM activity_indicators WHERE target_id NOT IN (SELECT id FROM sections)",
         [],
     )?;
     // An excluded match row is the athlete taking one attempt out of a route,
@@ -165,6 +188,73 @@ fn wipe_derived_catalogue(db: &rusqlite::Connection) -> SqlResult<usize> {
     Ok(sections)
 }
 
+/// Delete the heatmap tiles covering `bounds`, on a thread of its own.
+///
+/// Tile invalidation is PNG deletes on disk, and a 40 km bounding box at z17 is
+/// about 10,000 tiles with two `path.exists()` each. Run where the caller
+/// stands it holds the engine write lock, or the JS thread, for the whole walk
+/// and convoys every foreground read behind it. The sweep needs the path and
+/// the bounds and never the engine, so it takes neither.
+///
+/// The whole set is handed over at once rather than one call per activity: a
+/// census reconcile removes as many activities as the athlete deleted, and a
+/// thread apiece is worse than the hold it replaces.
+fn spawn_tile_sweep(tiles_path: String, bounds: Vec<Bounds>, reason: &'static str) {
+    let count = bounds.len();
+    let registration = crate::persistence::register_tile_sweep();
+    let cancel = registration.token();
+    std::thread::spawn(move || {
+        // Held for the life of the sweep. Dropping it takes this sweep's
+        // registration and leaves every sibling's, so a sweep that ends cannot
+        // make another one unstoppable.
+        let _registration = registration;
+        let config = crate::tiles::HeatmapConfig::default();
+        let path = std::path::Path::new(&tiles_path);
+        let margin = 0.001; // ~111m at equator, for points that bled into a neighbour
+        let mut total_deleted = 0;
+        let mut stopped = false;
+        for bound in &bounds {
+            // Per bound, which is the sweep's only boundary: one bound is a
+            // bounded walk of one activity's tiles, and there are as many of
+            // them as the caller handed over.
+            if cancel.is_cancelled() {
+                stopped = true;
+                break;
+            }
+            total_deleted += crate::tiles::invalidate_tiles_in_bounds(
+                path,
+                bound.min_lat - margin,
+                bound.max_lat + margin,
+                bound.min_lng - margin,
+                bound.max_lng + margin,
+                config.min_zoom,
+                config.max_zoom,
+            );
+        }
+        // Marked after the sweep, never before. A mark set first can be cleared
+        // by a generation run that finishes between the mark and the delete, and
+        // nothing then redraws the ground the sweep took.
+        //
+        // A cancelled sweep marks too, and must: it deleted tiles for the bounds
+        // it reached, and the bounds it never reached still hold ground that
+        // changed. Either way the set is owed a redraw.
+        crate::persistence::tiles::mark_tiles_dirty(&tiles_path);
+        if stopped {
+            log::info!(
+                "[heatmap] Sweep cancelled after {} tiles, the set stays dirty",
+                total_deleted
+            );
+        } else if total_deleted > 0 {
+            log::info!(
+                "[heatmap] Invalidated {} tiles for {} {}",
+                total_deleted,
+                count,
+                reason
+            );
+        }
+    });
+}
+
 /// The tables keyed on an activity id that carry no foreign key to it, so a
 /// removal has to clear them by hand. `ftp_history` holds the activity only as
 /// provenance on a dated FTP reading, and that reading came from the activity,
@@ -181,12 +271,433 @@ const ACTIVITY_KEYED_TABLES: &[&str] = &[
     "activity_indicators",
     "activity_matches",
     "activity_streams",
+    "activity_stream_backfill",
     "stream_bodies",
     "interval_bodies",
     "exercise_sets",
     "fit_file_status",
     "ftp_history",
+    "eftp_changes",
 ];
+
+/// Delete the rows keyed on a removed activity that the foreign key cascade
+/// does not reach. Every path that removes an activity calls this, so the
+/// list is read in one place.
+///
+/// Only four tables carry the foreign key, so the cascade reaches
+/// `gps_tracks`, `signatures`, `time_streams` and `section_activities` and no
+/// further. The rest were stranded, and `activity_bodies` is the feed, so a
+/// removed activity went on rendering on the home screen with its metrics
+/// intact. Deleted here rather than given foreign keys of their own: this runs
+/// inside the caller's transaction, and eleven new keys on live tables is a
+/// migration on every install.
+fn delete_activity_keyed_rows(db: &rusqlite::Connection, id: &str) -> SqlResult<()> {
+    for table in ACTIVITY_KEYED_TABLES {
+        db.prepare_cached(&format!("DELETE FROM {table} WHERE activity_id = ?1"))?
+            .execute(params![id])?;
+    }
+    // The overlap cache holds a pair, so the activity is either side of it.
+    db.prepare_cached("DELETE FROM overlap_cache WHERE activity_a = ?1 OR activity_b = ?1")?
+        .execute(params![id])?;
+    Ok(())
+}
+
+/// The bounds a heatmap tile sweep is owed for: the activities new to the
+/// catalogue and the ones whose track changed.
+///
+/// The batch already draws this line for the processed set, where a verbatim
+/// re-ingest is not a mutation and has to stay idempotent. The tile sweep did
+/// not ask, so an unchanged activity had the full rectangle of its bounds
+/// walked at every zoom, tiles that were still correct deleted, and the whole
+/// set marked dirty for a redraw nothing needed. A routine sync is mostly
+/// unchanged activities.
+fn bounds_needing_tile_sweep(
+    stored: &[(String, Bounds)],
+    known_before: &std::collections::HashSet<String>,
+    mutated_ids: &[String],
+) -> Vec<Bounds> {
+    let mutated: std::collections::HashSet<&str> = mutated_ids.iter().map(String::as_str).collect();
+    stored
+        .iter()
+        .filter(|(id, _)| !known_before.contains(id.as_str()) || mutated.contains(id.as_str()))
+        .map(|(_, bounds)| *bounds)
+        .collect()
+}
+
+/// One signature from the columns its row carries. A corrupt points blob names
+/// itself in the log before the read gives up, so route grouping never drops an
+/// activity in silence.
+fn signature_from_parts(
+    id: &str,
+    points_blob: &[u8],
+    start_point: GpsPoint,
+    end_point: GpsPoint,
+    total_distance: f64,
+) -> Option<RouteSignature> {
+    let points = TrackRead::from_blob(points_blob).into_option("load_signature_from_db", id)?;
+    let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
+        min_lat: 0.0,
+        max_lat: 0.0,
+        min_lng: 0.0,
+        max_lng: 0.0,
+    });
+    let center = bounds.center();
+    Some(RouteSignature {
+        activity_id: id.to_string(),
+        points,
+        total_distance,
+        start_point,
+        end_point,
+        bounds,
+        center,
+    })
+}
+
+/// Signature reads over a connection rather than the engine.
+///
+/// The query touches nothing the engine holds in memory, which is what lets a
+/// feed card's preview line come from a pooled read-only connection while a
+/// write is in flight. The method above is the same function on the write
+/// connection.
+pub(crate) mod pooled {
+    use super::{Bounds, RouteSignature, signature_from_parts};
+    use rusqlite::{Connection, OptionalExtension, params};
+    use tracematch::GpsPoint;
+
+    /// Whether a period's activity inputs are complete for the saved athlete.
+    /// These timestamps encode local wall time, like `activity_metrics.date`.
+    pub(crate) fn period_is_covered(conn: &Connection, start: i64, end: i64) -> bool {
+        conn.query_row(
+            &format!(
+                "SELECT EXISTS(SELECT 1 FROM activity_census WHERE athlete_id = s.value)
+                    AND NOT EXISTS (
+                        SELECT 1 FROM activity_census c
+                        WHERE c.athlete_id = s.value
+                          AND unixepoch(c.start_date_local) BETWEEN ?1 AND ?2
+                          AND ({owed}))
+                 FROM settings s WHERE s.key = '__athlete_id' AND s.value <> ''",
+                owed = super::CENSUS_ROW_OWED,
+            ),
+            params![start, end],
+            |row| row.get(0),
+        )
+        .unwrap_or(false)
+    }
+
+    /// The activities and moving seconds stored in an inclusive date range,
+    /// which is everything the offline estimate scales on.
+    pub(crate) fn offline_range_totals(
+        conn: &Connection,
+        oldest: i64,
+        newest: i64,
+    ) -> rusqlite::Result<(u32, u64)> {
+        conn.query_row(
+            "SELECT COUNT(*), COALESCE(SUM(moving_time), 0)
+             FROM activity_metrics
+             WHERE date >= ? AND date <= ?",
+            params![oldest, newest],
+            |r| Ok((r.get::<_, i64>(0)? as u32, r.get::<_, i64>(1)? as u64)),
+        )
+    }
+
+    /// The stored signature line for each of `ids`, for the route detail map.
+    pub(crate) fn map_signatures_for_ids(
+        conn: &Connection,
+        ids: &[String],
+    ) -> Vec<crate::ffi_types::FfiMapSignature> {
+        if ids.is_empty() {
+            return Vec::new();
+        }
+
+        let placeholders = std::iter::repeat("?")
+            .take(ids.len())
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT activity_id, points FROM signatures WHERE activity_id IN ({})",
+            placeholders
+        );
+        let mut stmt = match conn.prepare(&sql) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        let params_vec: Vec<&dyn rusqlite::ToSql> =
+            ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+        let rows = match stmt.query_map(params_vec.as_slice(), |row| {
+            let activity_id: String = row.get(0)?;
+            let points_blob: Vec<u8> = row.get(1)?;
+            Ok((activity_id, points_blob))
+        }) {
+            Ok(r) => r,
+            Err(_) => return Vec::new(),
+        };
+
+        let mut result = Vec::new();
+        for row in rows {
+            let (activity_id, points_blob) = match row {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            let Some(points) = super::TrackRead::from_blob(&points_blob)
+                .into_option("map_signatures", &activity_id)
+            else {
+                continue;
+            };
+            if points.is_empty() {
+                continue;
+            }
+
+            // Compute center from bounds
+            let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
+                min_lat: 0.0,
+                max_lat: 0.0,
+                min_lng: 0.0,
+                max_lng: 0.0,
+            });
+            let center = bounds.center();
+
+            result.push(crate::ffi_types::FfiMapSignature {
+                activity_id,
+                encoded_coords: crate::coords::encode(&points),
+                center_lat: center.latitude,
+                center_lng: center.longitude,
+            });
+        }
+        result
+    }
+
+    /// One activity's stored GPS track.
+    ///
+    /// The same read as [`super::PersistentEngine::get_gps_track`], on a
+    /// connection rather than the engine, and it classifies a bad blob the
+    /// same way: a corrupt row is a warning and a `None`, never a track that
+    /// was never synced.
+    pub(crate) fn gps_track(conn: &Connection, activity_id: &str) -> Option<Vec<GpsPoint>> {
+        let blob: Option<Vec<u8>> = match conn
+            .prepare_cached("SELECT track_data FROM gps_tracks WHERE activity_id = ?")
+            .and_then(|mut stmt| {
+                stmt.query_row(params![activity_id], |row| row.get::<_, Vec<u8>>(0))
+                    .optional()
+            }) {
+            Ok(blob) => blob,
+            Err(e) => {
+                log::warn!("[gps_track] activity {activity_id}: query failed: {e}");
+                return None;
+            }
+        };
+        super::TrackRead::from_blob(&blob?).into_option("gps_track", activity_id)
+    }
+
+    /// One `activity_metrics` row, in the shape the engine's own tier holds.
+    fn metrics_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<crate::ActivityMetrics> {
+        Ok(crate::ActivityMetrics {
+            activity_id: row.get(0)?,
+            name: row.get(1)?,
+            date: row.get(2)?,
+            distance: row.get(3)?,
+            moving_time: row.get(4)?,
+            elapsed_time: row.get(5)?,
+            elevation_gain: row.get(6)?,
+            avg_hr: row.get::<_, Option<i32>>(7)?.map(|v| v as u16),
+            avg_power: row.get::<_, Option<i32>>(8)?.map(|v| v as u16),
+            sport_type: row.get(9)?,
+            training_load: row.get(10)?,
+            ftp: row.get::<_, Option<i32>>(11)?.map(|v| v as u16),
+            power_zone_times: super::zone_times(row.get::<_, Option<String>>(12)?),
+            hr_zone_times: super::zone_times(row.get::<_, Option<String>>(13)?),
+        })
+    }
+
+    /// One activity's metrics row.
+    pub(crate) fn metrics_of(
+        conn: &Connection,
+        activity_id: &str,
+    ) -> Option<crate::ActivityMetrics> {
+        conn.query_row(
+            "SELECT activity_id, name, date, distance, moving_time, elapsed_time,
+                    elevation_gain, avg_hr, avg_power, sport_type,
+                    training_load, ftp, power_zone_times, hr_zone_times
+             FROM activity_metrics WHERE activity_id = ?",
+            params![activity_id],
+            metrics_from_row,
+        )
+        .optional()
+        .ok()
+        .flatten()
+    }
+
+    /// Which of these activities has no usable stored time stream.
+    ///
+    /// The engine method short-circuits on its own LRU first. This does not,
+    /// and the two can disagree in exactly one case: an LRU entry held from
+    /// before its track changed length reads as present there and as missing
+    /// here. The SQL answer is the honest one, because a stream whose
+    /// `point_count` disagrees with its track's is not in the track's index
+    /// space and no lap time can be read off it.
+    pub(crate) fn activities_missing_time_streams(
+        conn: &Connection,
+        activity_ids: &[String],
+    ) -> Vec<String> {
+        if activity_ids.is_empty() {
+            return Vec::new();
+        }
+        let placeholders: Vec<&str> = activity_ids.iter().map(|_| "?").collect();
+        let query = format!(
+            "SELECT ts.activity_id FROM time_streams ts
+             LEFT JOIN gps_tracks g ON g.activity_id = ts.activity_id
+             WHERE ts.activity_id IN ({})
+               AND (ts.point_count = 0
+                    OR g.activity_id IS NULL
+                    OR g.point_count = ts.point_count)",
+            placeholders.join(",")
+        );
+        let mut stmt = match conn.prepare(&query) {
+            Ok(s) => s,
+            // Offering every id again is the safe failure: a refetch is
+            // wasted work, a missed one is a blank lap chart.
+            Err(_) => return activity_ids.to_vec(),
+        };
+        let bound: Vec<&dyn rusqlite::ToSql> = activity_ids
+            .iter()
+            .map(|s| s as &dyn rusqlite::ToSql)
+            .collect();
+        let stored: std::collections::HashSet<String> = stmt
+            .query_map(bound.as_slice(), |row| row.get::<_, String>(0))
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default();
+        activity_ids
+            .iter()
+            .filter(|id| !stored.contains(*id))
+            .cloned()
+            .collect()
+    }
+
+    /// Every metrics row, as the memory tier holds them.
+    ///
+    /// The engine answers the activity patterns off `activity_metrics` in
+    /// memory; a pooled caller has no memory tier and loads them here. Measured
+    /// 2026-09-14 on a 1,598-activity library, the size the field reports:
+    /// 2.52 ms and 2.57 ms on two runs, against a 100 ms mount budget and the
+    /// 27.8 ms the rest of the read was timed at on a real library.
+    /// `tests/insights_pool_cost.rs` keeps that figure honest.
+    pub(crate) fn all_metrics(
+        conn: &Connection,
+    ) -> std::collections::HashMap<String, crate::ActivityMetrics> {
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT activity_id, name, date, distance, moving_time, elapsed_time,
+                    elevation_gain, avg_hr, avg_power, sport_type,
+                    training_load, ftp, power_zone_times, hr_zone_times
+             FROM activity_metrics",
+        ) else {
+            return std::collections::HashMap::new();
+        };
+        stmt.query_map([], metrics_from_row)
+            .map(|rows| rows.flatten().map(|m| (m.activity_id.clone(), m)).collect())
+            .unwrap_or_default()
+    }
+
+    /// The newest activity by date, with the fields the widget snapshot draws.
+    ///
+    /// Ties keep the first id in ascending order, which is the scan the engine
+    /// tier does: it walks `get_activity_ids` and takes strictly-greater dates
+    /// only, so the first of any tie survives.
+    pub(crate) fn latest_metrics(conn: &Connection) -> Option<crate::ActivityMetrics> {
+        conn.query_row(
+            "SELECT activity_id, name, date, distance, moving_time, elapsed_time,
+                    elevation_gain, avg_hr, avg_power, sport_type,
+                    training_load, ftp, power_zone_times, hr_zone_times
+             FROM activity_metrics ORDER BY date DESC, activity_id ASC LIMIT 1",
+            [],
+            metrics_from_row,
+        )
+        .optional()
+        .unwrap_or_else(|e| {
+            log::warn!("[widget] latest metrics: {e:?}");
+            None
+        })
+    }
+
+    /// Load a stored signature. A corrupt points blob names itself in the log
+    /// before the read gives up, so route grouping never drops an activity in
+    /// silence.
+    pub(crate) fn signature(conn: &Connection, id: &str) -> Option<RouteSignature> {
+        // Cached, because a regroup runs this once per activity and the parse
+        // is the whole cost of a row that decodes in microseconds.
+        let mut stmt = match conn
+            .prepare_cached(
+                "SELECT points, start_point_lat, start_point_lng, end_point_lat, end_point_lng, total_distance
+                 FROM signatures WHERE activity_id = ?",
+            ) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("[load_signature_from_db] activity {}: query failed: {}", id, e);
+                return None;
+            }
+        };
+
+        let row = stmt
+            .query_row(params![id], |row| {
+                Ok((
+                    row.get::<_, Vec<u8>>(0)?,
+                    GpsPoint::new(row.get(1)?, row.get(2)?),
+                    GpsPoint::new(row.get(3)?, row.get(4)?),
+                    row.get::<_, f64>(5)?,
+                ))
+            })
+            .optional();
+
+        let (points_blob, start_point, end_point, total_distance) = match row {
+            Ok(Some(values)) => values,
+            Ok(None) => return None,
+            Err(e) => {
+                log::warn!(
+                    "[load_signature_from_db] activity {}: row read failed: {}",
+                    id,
+                    e
+                );
+                return None;
+            }
+        };
+
+        signature_from_parts(id, &points_blob, start_point, end_point, total_distance)
+    }
+}
+
+/// Whether one census row still owes its download, as a SQL fragment over the
+/// alias `c`.
+///
+/// Three readers ask the same question and a copy in each is a copy that
+/// drifts: a sync deciding whether to fetch a window, a chart deciding what an
+/// empty axis means, and the library count on the sync row. "Stored" is a row
+/// in `activity_bodies`, which is what a window sync writes and what the feed
+/// reads, keyed by the local key, which for an activity this device uploaded is
+/// not the server's id. So the census id is matched against the key directly
+/// and through `activities.intervals_id`.
+const CENSUS_ROW_OWED: &str = "c.fetched_sync_date IS NULL
+     OR c.fetched_sync_date IS NOT c.icu_sync_date
+     OR NOT EXISTS (
+          SELECT 1 FROM activity_bodies b
+          WHERE b.activity_id = c.intervals_id
+             OR b.activity_id = (SELECT a.id FROM activities a
+                                 WHERE a.intervals_id = c.intervals_id))";
+
+/// A value no other census run shares, stamped on every row one run writes so
+/// the rows it did not write can be deleted afterwards.
+///
+/// `census_at` defaults to `datetime('now')`, which has one-second resolution,
+/// and two pulls inside one second would then be indistinguishable: the second
+/// would delete nothing, or the first's leftovers would survive. The counter
+/// rides on the wall clock so the column still reads as a time.
+fn census_run_stamp() -> String {
+    static RUN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let run = RUN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    format!("{now}.{run}")
+}
 
 impl PersistentEngine {
     // ========================================================================
@@ -197,9 +708,14 @@ impl PersistentEngine {
     pub(super) fn load_metadata(&mut self) -> SqlResult<()> {
         self.activity_metadata.clear();
 
-        let mut stmt = self
-            .db
-            .prepare("SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng FROM activities")?;
+        // The start point rides along on the same pass. It lives in `signatures`,
+        // which is a left join rather than a second query: an activity with no
+        // signature yet still has to load, with `None` for its start.
+        let mut stmt = self.db.prepare(
+            "SELECT a.id, a.sport_type, a.min_lat, a.max_lat, a.min_lng, a.max_lng,
+                    s.start_point_lat, s.start_point_lng
+             FROM activities a LEFT JOIN signatures s ON s.activity_id = a.id",
+        )?;
 
         let rows: Vec<SqlResult<ActivityBoundsEntry>> = stmt
             .query_map([], |row| {
@@ -211,6 +727,8 @@ impl PersistentEngine {
                     min_lng: row.get(4)?,
                     max_lng: row.get(5)?,
                 };
+                let start_lat: Option<f64> = row.get(6)?;
+                let start_lng: Option<f64> = row.get(7)?;
 
                 self.activity_metadata.insert(
                     id.clone(),
@@ -218,6 +736,7 @@ impl PersistentEngine {
                         id: id.clone(),
                         sport_type,
                         bounds,
+                        start_point: start_lat.zip(start_lng),
                     },
                 );
 
@@ -346,17 +865,22 @@ impl PersistentEngine {
         id: String,
         coords: Vec<GpsPoint>,
         sport_type: String,
-    ) -> SqlResult<()> {
+    ) -> SqlResult<Vec<String>> {
         self.add_activities_batch(vec![(id, coords, sport_type)])
     }
 
     /// Add multiple activities in a single transaction with one R-tree rebuild.
+    ///
+    /// Reports the ids whose stored track was replaced with a different one.
+    /// Everything derived from a track is stale for exactly those, and the
+    /// caller is what announces it: this runs under the engine lock, and a
+    /// reader woken here would wake into a lock it cannot take.
     pub fn add_activities_batch(
         &mut self,
         activities: Vec<(String, Vec<GpsPoint>, String)>,
-    ) -> SqlResult<()> {
+    ) -> SqlResult<Vec<String>> {
         if activities.is_empty() {
-            return Ok(());
+            return Ok(Vec::new());
         }
 
         // An add that REPLACES a previously-synced activity with a
@@ -377,40 +901,41 @@ impl PersistentEngine {
             .map(|(id, _, _)| id.clone())
             .collect();
 
+        // Read before the loop inserts into the map, or every activity reads
+        // as already known and nothing would ever be swept.
+        let known_before: std::collections::HashSet<String> = activities
+            .iter()
+            .filter(|(id, _, _)| self.activity_metadata.contains_key(id))
+            .map(|(id, _, _)| id.clone())
+            .collect();
+
+        // The rollback arm every sibling writer has. Without it a failed write
+        // left the connection inside the transaction, so every later `BEGIN`
+        // failed with "cannot start a transaction within a transaction" and the
+        // first sibling that does roll back discarded everything since.
         self.db.execute_batch("BEGIN IMMEDIATE")?;
-
-        let mut all_bounds: Vec<Bounds> = Vec::with_capacity(activities.len());
-
-        for (id, coords, sport_type) in &activities {
-            let bounds = Bounds::from_points(coords).unwrap_or(Bounds {
-                min_lat: 0.0,
-                max_lat: 0.0,
-                min_lng: 0.0,
-                max_lng: 0.0,
-            });
-
-            let signature = RouteSignature::from_points(id, coords, &self.match_config);
-
-            self.store_activity(id, sport_type, &bounds)?;
-            self.store_gps_track(id, coords)?;
-            if let Some(sig) = &signature {
-                self.store_signature(id, sig)?;
-                self.signature_cache.put(id.clone(), Arc::new(sig.clone()));
+        let written = self.write_activities_batch(&activities);
+        let written = match written {
+            Ok(w) => {
+                self.db.execute_batch("COMMIT")?;
+                w
             }
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                return Err(e);
+            }
+        };
 
-            self.activity_metadata.insert(
-                id.clone(),
-                ActivityMetadata {
-                    id: id.clone(),
-                    sport_type: sport_type.clone(),
-                    bounds,
-                },
-            );
-
-            all_bounds.push(bounds);
+        // In-memory only once the rows are on disk, or a rolled-back batch
+        // leaves the catalogue claiming activities the database does not hold.
+        let mut stored_bounds: Vec<(String, Bounds)> = Vec::with_capacity(written.len());
+        for (id, metadata, signature) in written {
+            if let Some(sig) = signature {
+                self.signature_cache.put(id.clone(), sig);
+            }
+            stored_bounds.push((id.clone(), metadata.bounds));
+            self.activity_metadata.insert(id, metadata);
         }
-
-        self.db.execute_batch("COMMIT")?;
 
         self.rebuild_spatial_index();
 
@@ -424,72 +949,83 @@ impl PersistentEngine {
         self.groups_dirty = true;
         self.sections_dirty = true;
 
-        if let Some(tiles_path) = self.heatmap_tiles_path.clone() {
+        let bounds_to_clear =
+            bounds_needing_tile_sweep(&stored_bounds, &known_before, &mutated_ids);
+        if let Some(tiles_path) = self.heatmap_tiles_path.clone()
+            && !bounds_to_clear.is_empty()
+        {
             // Tile invalidation deletes PNGs on disk - slow filesystem I/O. Run it
             // on a detached thread so it does not happen while the engine write
             // lock is held (that would convoy every foreground read). The sweep
             // needs only the path and bounds, never `self`.
-            let bounds_to_clear = all_bounds;
-            let activity_count = activities.len();
-            let cancel = crate::persistence::CancelToken::new();
-            if let Ok(mut guard) =
-                crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL.lock()
-            {
-                *guard = Some(cancel.clone());
-            }
-            std::thread::spawn(move || {
-                let config = crate::tiles::HeatmapConfig::default();
-                let path = std::path::Path::new(&tiles_path);
-                let margin = 0.001;
-                let mut total_deleted = 0;
-                let mut stopped = false;
-                for bounds in &bounds_to_clear {
-                    // Per bound, which is the sweep's only boundary: one bound
-                    // is a bounded walk of one activity's tiles, and there are
-                    // as many of them as the sync stored activities.
-                    if cancel.is_cancelled() {
-                        stopped = true;
-                        break;
-                    }
-                    total_deleted += crate::tiles::invalidate_tiles_in_bounds(
-                        path,
-                        bounds.min_lat - margin,
-                        bounds.max_lat + margin,
-                        bounds.min_lng - margin,
-                        bounds.max_lng + margin,
-                        config.min_zoom,
-                        config.max_zoom,
-                    );
-                }
-                // Marked after the sweep, never before. A mark set first can be
-                // cleared by a generation run that finishes between the mark and
-                // the delete, and nothing then redraws the ground the sweep took.
-                //
-                // A cancelled sweep marks too, and must: it deleted tiles for
-                // the bounds it reached, and the bounds it never reached still
-                // hold ground the new activities changed. Either way the set is
-                // owed a redraw.
-                crate::persistence::tiles::mark_tiles_dirty(&tiles_path);
-                if let Ok(mut guard) =
-                    crate::persistence::persistent_engine_ffi::TILE_SWEEP_CANCEL.lock()
-                {
-                    *guard = None;
-                }
-                if stopped {
-                    log::info!(
-                        "[heatmap] Sweep cancelled after {} tiles, the set stays dirty",
-                        total_deleted
-                    );
-                } else if total_deleted > 0 {
-                    log::info!(
-                        "[heatmap] Invalidated {} tiles for {} new activities",
-                        total_deleted,
-                        activity_count
-                    );
-                }
-            });
+            spawn_tile_sweep(tiles_path, bounds_to_clear, "new activities");
         }
 
+        Ok(mutated_ids)
+    }
+
+    /// Commit all provisional rows before publishing them to any engine reader.
+    pub fn save_provisional_activity(
+        &mut self,
+        id: &str,
+        coords: Vec<GpsPoint>,
+        body: &crate::FfiActivityBody,
+        metrics: crate::FfiActivityMetrics,
+    ) -> SqlResult<()> {
+        if body.activity_id != id || metrics.activity_id != id {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "provisional activity id mismatch".into(),
+            ));
+        }
+        // The recording key is stable. A committed retry has nothing left to write,
+        // including the heatmap count, which must only increase once per ride.
+        if self.get_activity_body(id).is_some() && self.activity_metrics.contains_key(id) {
+            return Ok(());
+        }
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+        let result = (|| {
+            let written = if coords.is_empty() {
+                Vec::new()
+            } else {
+                self.write_activities_batch(&[(id.to_owned(), coords, metrics.sport_type.clone())])?
+            };
+            self.db.execute(
+                "INSERT INTO activity_bodies (activity_id, date, raw, updated_at) VALUES (?1, ?2, ?3, strftime('%s', 'now'))
+                 ON CONFLICT(activity_id) DO UPDATE SET date=excluded.date, raw=excluded.raw, updated_at=excluded.updated_at",
+                params![id, body.date as i64, body.raw],
+            )?;
+            self.write_activity_metrics(&[&metrics], true)?;
+            self.db.execute_batch("COMMIT")?;
+            Ok::<_, rusqlite::Error>(written)
+        })();
+        let written = match result {
+            Ok(written) => written,
+            Err(error) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                return Err(error);
+            }
+        };
+        let bounds: Vec<Bounds> = written
+            .iter()
+            .map(|(_, metadata, _)| metadata.bounds)
+            .collect();
+        for (id, metadata, signature) in written {
+            if let Some(signature) = signature {
+                self.signature_cache.put(id.clone(), signature);
+            }
+            self.activity_metadata.insert(id, metadata);
+        }
+        let metrics: ActivityMetrics = metrics.into();
+        self.activity_metrics.insert(id.to_owned(), metrics);
+        self.rebuild_spatial_index();
+        self.groups_dirty = true;
+        self.sections_dirty = true;
+        self.invalidate_perf_cache();
+        if let Some(path) = self.heatmap_tiles_path.clone()
+            && !bounds.is_empty()
+        {
+            spawn_tile_sweep(path, bounds, "provisional activity");
+        }
         Ok(())
     }
 
@@ -510,7 +1046,6 @@ impl PersistentEngine {
             .unwrap_or_default()
     }
 
-    /// Add an activity from flat coordinate buffer.
     /// Remove an activity.
     pub fn remove_activity(&mut self, id: &str) -> SqlResult<()> {
         // Capture bounds before removal for heatmap tile invalidation
@@ -530,40 +1065,75 @@ impl PersistentEngine {
             }
         }
 
+        self.forget_activity_in_memory(id);
         self.rebuild_spatial_index();
 
-        // Invalidate heatmap tiles covering the removed activity
-        // Add small margin (~100m) to catch edge tiles where GPS points bled into neighbors
-        if let Some(ref bounds) = removed_bounds {
-            if let Some(ref tiles_path) = self.heatmap_tiles_path {
-                let config = crate::tiles::HeatmapConfig::default();
-                let path = std::path::Path::new(tiles_path);
-                let margin = 0.001; // ~111m at equator
-                let deleted = crate::tiles::invalidate_tiles_in_bounds(
-                    path,
-                    bounds.min_lat - margin,
-                    bounds.max_lat + margin,
-                    bounds.min_lng - margin,
-                    bounds.max_lng + margin,
-                    config.min_zoom,
-                    config.max_zoom,
-                );
-                if deleted > 0 {
-                    log::info!(
-                        "[heatmap] Invalidated {} tiles for removed activity {}",
-                        deleted,
-                        id
-                    );
-                    self.mark_heatmap_dirty();
-                }
-            }
+        if let Some(bounds) = removed_bounds {
+            self.sweep_tiles_for(vec![bounds], "removed activities");
         }
 
         Ok(())
     }
 
+    /// Remove an activity without sweeping its tiles, handing the caller the
+    /// bounds the sweep would have covered.
+    ///
+    /// For a caller removing many in one hold: `remove_activity` spawns a
+    /// sweep of its own, and a census reconcile that deleted two hundred
+    /// activities would spawn two hundred threads, each overwriting the cancel
+    /// token of the one before it. The caller sweeps once, at the end.
+    pub fn remove_activity_deferred(&mut self, id: &str) -> SqlResult<Option<Bounds>> {
+        let removed_bounds = self.activity_metadata.get(id).map(|m| m.bounds.clone());
+
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+        match self.remove_activity_rows(id) {
+            Ok(()) => self.db.execute_batch("COMMIT")?,
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                return Err(e);
+            }
+        }
+
+        self.forget_activity_in_memory(id);
+        self.rebuild_spatial_index();
+        Ok(removed_bounds)
+    }
+
+    /// Hand a set of bounds to the detached sweep, if tiles are configured.
+    pub(crate) fn sweep_tiles_for(&mut self, bounds: Vec<Bounds>, reason: &'static str) {
+        if bounds.is_empty() {
+            return;
+        }
+        let Some(tiles_path) = self.heatmap_tiles_path.clone() else {
+            return;
+        };
+        // Marked here rather than after the sweep: the rows are already gone,
+        // so the ground they drew is stale whatever the sweep manages.
+        self.mark_heatmap_dirty();
+        spawn_tile_sweep(tiles_path, bounds, reason);
+    }
+
+    /// Drop one activity from the tiers that hold it, after its rows are gone.
+    ///
+    /// The identity registry and the processed set are not here: both write
+    /// rows of their own and belong inside the transaction with the deletes.
+    fn forget_activity_in_memory(&mut self, id: &str) {
+        self.activity_metadata.remove(id);
+        self.signature_cache.pop(&id.to_string());
+        // Groups may change, so every consensus line is suspect.
+        self.consensus_cache.clear();
+        self.groups_dirty = true;
+        self.sections_dirty = true;
+    }
+
     /// Every row a removal touches, with no transaction of its own so the
     /// caller commits them together.
+    ///
+    /// Rows only. The memory tiers are the caller's to empty once the commit
+    /// has landed, through `forget_activity_in_memory`: SQLite rolls a dropped
+    /// transaction back and a `HashMap` does not, and the engine is recovered
+    /// from a poisoned lock rather than rebuilt, so a tier emptied inside the
+    /// transaction stays emptied for the rest of the session.
     fn remove_activity_rows(&mut self, id: &str) -> SqlResult<()> {
         // Sections this activity contributes to, captured before the cascade
         // removes its junction rows. The delete trigger fires on the cascade
@@ -581,25 +1151,7 @@ impl PersistentEngine {
         // Remove from database (cascade deletes signature and track)
         self.db
             .execute("DELETE FROM activities WHERE id = ?", params![id])?;
-
-        // Only four tables carry the foreign key, so the cascade reaches
-        // `gps_tracks`, `signatures`, `time_streams` and `section_activities`
-        // and no further. The rest were stranded, and `activity_bodies` is the
-        // feed, so a removed activity went on rendering on the home screen
-        // with its metrics intact. Deleted here rather than given foreign keys
-        // of their own: this runs inside the caller's transaction, and eleven
-        // new keys on live tables is a migration on every install.
-        for table in ACTIVITY_KEYED_TABLES {
-            self.db.execute(
-                &format!("DELETE FROM {table} WHERE activity_id = ?1"),
-                params![id],
-            )?;
-        }
-        // The overlap cache holds a pair, so the activity is either side of it.
-        self.db.execute(
-            "DELETE FROM overlap_cache WHERE activity_a = ?1 OR activity_b = ?1",
-            params![id],
-        )?;
+        delete_activity_keyed_rows(&self.db, id)?;
 
         // Recompute visit_count on the sections the removed activity was in.
         for sid in &affected_sections {
@@ -611,14 +1163,6 @@ impl PersistentEngine {
                 params![sid, sid],
             );
         }
-
-        // Remove from memory
-        self.activity_metadata.remove(id);
-        self.signature_cache.pop(&id.to_string());
-        self.consensus_cache.clear(); // Invalidate all consensus since groups may change
-
-        self.groups_dirty = true;
-        self.sections_dirty = true;
 
         // Drop the gone activity from the identity registry's carried sections and
         // the in-memory catalogue. The junction rows are cascade-deleted by the
@@ -642,7 +1186,7 @@ impl PersistentEngine {
     /// Clear all data. Every table the declaration does not call
     /// `TableClass::Meta` empties, because this is the logout path and
     /// anything left behind is one athlete's data shown to the next. Nothing
-    /// cascades here: only three tables carry an activity foreign key, so a
+    /// cascades here: only four tables carry an activity foreign key, so a
     /// table missing from this list survives indefinitely.
     ///
     /// The list stays hand-ordered because the order is a foreign-key order,
@@ -665,6 +1209,7 @@ impl PersistentEngine {
              DELETE FROM gps_tracks;
              DELETE FROM signatures;
              DELETE FROM activities;
+             DELETE FROM activity_census;
              DELETE FROM activity_metrics;
              DELETE FROM activity_matches;
              DELETE FROM activity_bodies;
@@ -673,6 +1218,7 @@ impl PersistentEngine {
              DELETE FROM time_streams;
              DELETE FROM stream_bodies;
              DELETE FROM activity_streams;
+             DELETE FROM activity_stream_backfill;
              DELETE FROM interval_bodies;
              DELETE FROM curve_bodies;
              DELETE FROM calendar_event_bodies;
@@ -680,11 +1226,13 @@ impl PersistentEngine {
              DELETE FROM fit_file_status;
              DELETE FROM wellness;
              DELETE FROM ftp_history;
+             DELETE FROM eftp_changes;
              DELETE FROM pace_history;
              DELETE FROM overlap_cache;
              DELETE FROM processed_activities;
              DELETE FROM athlete_profile;
              DELETE FROM job_attempts;
+             DELETE FROM push_runs;
              DELETE FROM sport_settings;",
         )?;
 
@@ -723,6 +1271,12 @@ impl PersistentEngine {
         self.identity = super::sections::SectionIdentity::default();
         self.route_identity = super::route_identity::RouteIdentity::default();
 
+        // The tiles on disk draw the library that was just deleted. Marking
+        // the set owes it a draw, but a dirty pass only fills tiles that are
+        // missing, so the tiles themselves are removed by the wipe's thread
+        // in `clear_all_background` once this lock is released.
+        self.mark_heatmap_dirty();
+
         Ok(())
     }
 
@@ -731,7 +1285,11 @@ impl PersistentEngine {
     /// to free section memory without losing the underlying GPS data (needed
     /// for heatmap).
     pub fn clear_routes_and_sections(&mut self) -> SqlResult<()> {
-        wipe_derived_catalogue(&self.db)?;
+        // One commit, so a kill mid-wipe cannot leave the exclusions held and
+        // their rows still in place, or the rows gone and nothing held.
+        let tx = self.db.unchecked_transaction()?;
+        wipe_derived_catalogue(&tx)?;
+        tx.commit()?;
 
         self.groups.clear();
         self.load_sections()?;
@@ -753,7 +1311,9 @@ impl PersistentEngine {
     /// cut from survive by construction. The ledger, pins, intents, names,
     /// identity registry and cutover archive are records and are not touched.
     /// So is an excluded match row, which is the athlete taking one attempt
-    /// out of a route: `wipe_derived_catalogue` spares it.
+    /// out of a route: `wipe_derived_catalogue` spares it. A lap taken out of
+    /// an auto section goes with the section's rows and is held for the
+    /// re-detect, which puts it back on the re-minted id.
     /// Every spared section comes back memberless until the next detect
     /// re-matches it.
     pub fn clear_derived(&mut self) -> SqlResult<DerivedClear> {
@@ -770,6 +1330,9 @@ impl PersistentEngine {
             &format!("DELETE FROM activities WHERE {REFERENCE_ACTIVITY_EXCLUSION}"),
             [],
         )?;
+        for id in &removed_ids {
+            delete_activity_keyed_rows(&tx, id)?;
+        }
         let activities_kept: u32 =
             tx.query_row("SELECT COUNT(*) FROM activities", [], |row| row.get(0))?;
         tx.execute("DELETE FROM processed_activities", [])?;
@@ -833,6 +1396,53 @@ impl PersistentEngine {
     // ========================================================================
     // Database Storage
     // ========================================================================
+
+    /// Write one batch's rows, answering what the in-memory catalogue owes.
+    ///
+    /// Takes `&self`, so nothing it returns has touched the catalogue yet: the
+    /// caller applies that after the commit.
+    #[allow(clippy::type_complexity)]
+    fn write_activities_batch(
+        &self,
+        activities: &[(String, Vec<GpsPoint>, String)],
+    ) -> SqlResult<Vec<(String, ActivityMetadata, Option<Arc<RouteSignature>>)>> {
+        let mut written = Vec::with_capacity(activities.len());
+
+        for (id, coords, sport_type) in activities {
+            let bounds = Bounds::from_points(coords).unwrap_or(Bounds {
+                min_lat: 0.0,
+                max_lat: 0.0,
+                min_lng: 0.0,
+                max_lng: 0.0,
+            });
+
+            let signature = RouteSignature::from_points(id, coords, &self.match_config);
+
+            self.store_activity(id, sport_type, &bounds)?;
+            self.store_gps_track(id, coords)?;
+            if let Some(sig) = &signature {
+                self.store_signature(id, sig)?;
+            }
+
+            written.push((
+                id.clone(),
+                ActivityMetadata {
+                    id: id.clone(),
+                    sport_type: sport_type.clone(),
+                    bounds,
+                    // Straight from the signature just stored, so a freshly
+                    // synced activity's marker lands on its start without
+                    // waiting for the next load.
+                    start_point: signature
+                        .as_ref()
+                        .map(|sig| (sig.start_point.latitude, sig.start_point.longitude)),
+                },
+                signature.map(Arc::new),
+            ));
+        }
+
+        Ok(written)
+    }
 
     pub(super) fn store_activity(
         &self,
@@ -939,7 +1549,8 @@ impl PersistentEngine {
             .collect();
 
         self.db.execute(
-            "UPDATE gps_tracks SET track_data = ?, elevation_state = ? WHERE activity_id = ?",
+            "UPDATE gps_tracks SET track_data = ?, elevation_state = ?, elevation_attempts = 0 \
+             WHERE activity_id = ?",
             params![
                 codec::serialize_track_points(&spliced),
                 i64::from(crate::persistence::ELEVATION_STATE_FETCHED),
@@ -979,7 +1590,8 @@ impl PersistentEngine {
                     .collect::<Vec<_>>()
                     .join(",");
                 let sql = format!(
-                    "UPDATE gps_tracks SET elevation_state = ? WHERE activity_id IN ({})",
+                    "UPDATE gps_tracks SET elevation_state = ?, elevation_attempts = 0 \
+                     WHERE activity_id IN ({})",
                     placeholders
                 );
                 let mut params_vec: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() + 1);
@@ -989,6 +1601,59 @@ impl PersistentEngine {
             }
         }
         Ok(())
+    }
+
+    /// Count one ask that settled nothing against each track, and retire the
+    /// ones that have now been asked `limit` times. Returns how many retired.
+    ///
+    /// The queue is derived from `elevation_state` on every call, so a row an
+    /// ask leaves untouched is re-offered by every pass for the life of the
+    /// install. One such row holds `elevation_backfill_remaining()` above zero,
+    /// which holds section detection and vetoes the detector cutover at every
+    /// launch. Counting the asks is what lets the queue end.
+    ///
+    /// The count is stored rather than held in the process: the passes are one
+    /// per launch, so a counter that resets with the process would never reach
+    /// any limit.
+    ///
+    /// Only a row still at `UNKNOWN` retires. A track that has since been
+    /// fetched is not demoted by an ask that crossed with it, and a retired
+    /// track is not retired twice.
+    pub fn record_elevation_attempts(&self, ids: &[String], limit: u32) -> SqlResult<u64> {
+        const CHUNK: usize = 500;
+        let mut retired = 0u64;
+        for chunk in ids.chunks(CHUNK) {
+            let placeholders = std::iter::repeat_n("?", chunk.len())
+                .collect::<Vec<_>>()
+                .join(",");
+            let ids_params: Vec<&dyn rusqlite::ToSql> =
+                chunk.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+
+            self.db.execute(
+                &format!(
+                    "UPDATE gps_tracks SET elevation_attempts = elevation_attempts + 1 \
+                     WHERE activity_id IN ({})",
+                    placeholders
+                ),
+                ids_params.as_slice(),
+            )?;
+
+            let limit = i64::from(limit);
+            let unreachable = i64::from(ELEVATION_STATE_UNREACHABLE);
+            let unknown = i64::from(ELEVATION_STATE_UNKNOWN);
+            let mut params_vec: Vec<&dyn rusqlite::ToSql> = vec![&unreachable, &unknown, &limit];
+            params_vec.extend(ids_params.iter().copied());
+            retired += self.db.execute(
+                &format!(
+                    "UPDATE gps_tracks SET elevation_state = ? \
+                     WHERE elevation_state = ? AND elevation_attempts >= ? \
+                       AND activity_id IN ({})",
+                    placeholders
+                ),
+                params_vec.as_slice(),
+            )? as u64;
+        }
+        Ok(retired)
     }
 
     /// How many stored tracks sit in each elevation provenance state. Any value
@@ -1007,6 +1672,7 @@ impl PersistentEngine {
             match u8::try_from(state).unwrap_or(ELEVATION_STATE_UNKNOWN) {
                 ELEVATION_STATE_FETCHED => counts.fetched += n,
                 ELEVATION_STATE_UNAVAILABLE => counts.unavailable += n,
+                ELEVATION_STATE_UNREACHABLE => counts.unreachable += n,
                 _ => counts.unknown += n,
             }
         }
@@ -1055,11 +1721,409 @@ impl PersistentEngine {
     pub fn activity_count(&self) -> usize {
         self.activity_metadata.len()
     }
-    /// Get all activity IDs.
+
+    /// What making an inclusive date range available offline will cost.
+    ///
+    /// Read rather than guessed: the byte figure scales on the moving seconds
+    /// already stored for the range, because per activity the cost spans
+    /// fifty-fold and per moving second it holds to about a third.
+    pub fn estimate_offline_range(
+        &self,
+        oldest: i64,
+        newest: i64,
+    ) -> rusqlite::Result<crate::net::offline_prefetch::OfflineEstimate> {
+        let (activities, moving_seconds) = pooled::offline_range_totals(&self.db, oldest, newest)?;
+        Ok(crate::net::offline_prefetch::estimate_range(
+            activities,
+            moving_seconds,
+        ))
+    }
+
     /// Flag the catalogue as owing a detect. Used where a caller knows the
     /// pool moved under a run that has already reported its own result.
     pub fn mark_sections_dirty(&mut self) {
         self.sections_dirty = true;
+    }
+
+    /// Record the census: what intervals.icu says this athlete's history
+    /// holds, keyed on the athlete so a second sign-in never reads the first
+    /// one's coverage.
+    ///
+    /// The pull spans all history in one request, so an id the new census does
+    /// not carry is gone upstream and its row goes with it: a row left behind
+    /// would answer "already there" for an activity that no longer exists. An
+    /// empty census is refused for the same reason `reconcile_against_census`
+    /// refuses one, a failed request and an emptied account being
+    /// indistinguishable here.
+    ///
+    /// `fetched_sync_date` is not upstream's to say and survives the rewrite.
+    /// It records the version this device came away with, so clearing it made
+    /// every window owe its download again after any sync: `window_is_covered`
+    /// answered false everywhere, the feed re-downloaded pages it held, and
+    /// every chart said "not downloaded yet" over a library that was fully
+    /// downloaded. An id that leaves the account and returns is a new download
+    /// either way, because its row went with the id.
+    ///
+    /// Written as an upsert of the upstream fields against a per-run stamp,
+    /// then a delete of whatever this run did not stamp. `census_at`'s default
+    /// has one-second resolution, so the stamp is the run's own value rather
+    /// than a clock two pulls could share.
+    pub fn record_activity_census(&mut self, athlete_id: &str, entries: &[ActivityCensusEntry]) {
+        if athlete_id.is_empty() || entries.is_empty() {
+            return;
+        }
+        let tx = match self.db.transaction() {
+            Ok(tx) => tx,
+            Err(e) => {
+                log::warn!("veloqrs: [census] coverage transaction failed: {}", e);
+                return;
+            }
+        };
+        let stamp = census_run_stamp();
+        let written = (|| -> SqlResult<()> {
+            {
+                let mut stmt = tx.prepare(
+                    "INSERT INTO activity_census
+                         (athlete_id, intervals_id, start_date_local, created, icu_sync_date,
+                          has_latlng, census_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                     ON CONFLICT(athlete_id, intervals_id) DO UPDATE SET
+                         start_date_local = excluded.start_date_local,
+                         created = excluded.created,
+                         icu_sync_date = excluded.icu_sync_date,
+                         has_latlng = excluded.has_latlng,
+                         census_at = excluded.census_at",
+                )?;
+                for entry in entries {
+                    stmt.execute(params![
+                        athlete_id,
+                        entry.id,
+                        entry.start_date_local,
+                        entry.created,
+                        entry.icu_sync_date,
+                        entry.has_latlng,
+                        stamp
+                    ])?;
+                }
+            }
+            tx.execute(
+                "DELETE FROM activity_census WHERE athlete_id = ?1 AND census_at IS NOT ?2",
+                params![athlete_id, stamp],
+            )?;
+            Ok(())
+        })();
+        match written {
+            Ok(()) => {
+                if let Err(e) = tx.commit() {
+                    log::warn!("veloqrs: [census] coverage commit failed: {}", e);
+                }
+            }
+            Err(e) => log::warn!("veloqrs: [census] coverage write failed: {}", e),
+        }
+    }
+
+    /// Mark census rows as fetched at the version the census names.
+    ///
+    /// The value written is the row's own `icu_sync_date`, not the time this
+    /// ran: a clock says when the device asked, and the question is which
+    /// upstream version it came away with. A later census that moves
+    /// `icu_sync_date` on then leaves the two unequal and the window owes the
+    /// download again.
+    ///
+    /// An id the census does not carry writes nothing, so a mark cannot run
+    /// ahead of the census and make a row that arrives later read as fetched.
+    pub fn mark_census_fetched(&mut self, athlete_id: &str, intervals_ids: &[String]) {
+        if athlete_id.is_empty() || intervals_ids.is_empty() {
+            return;
+        }
+        let tx = match self.db.transaction() {
+            Ok(tx) => tx,
+            Err(e) => {
+                log::warn!("veloqrs: [census] fetch mark transaction failed: {}", e);
+                return;
+            }
+        };
+        let written = (|| -> SqlResult<()> {
+            let mut stmt = tx.prepare(
+                "UPDATE activity_census SET fetched_sync_date = icu_sync_date
+                 WHERE athlete_id = ? AND intervals_id = ?",
+            )?;
+            for id in intervals_ids {
+                stmt.execute(params![athlete_id, id])?;
+            }
+            Ok(())
+        })();
+        match written {
+            Ok(()) => {
+                if let Err(e) = tx.commit() {
+                    log::warn!("veloqrs: [census] fetch mark commit failed: {}", e);
+                }
+            }
+            Err(e) => log::warn!("veloqrs: [census] fetch mark write failed: {}", e),
+        }
+    }
+
+    /// Whether a date window owes nothing: every activity the census names
+    /// inside it is stored locally, at the version the census names.
+    ///
+    /// "Stored" is a row in `activity_bodies`, which is what a window sync
+    /// writes and what the feed reads. It is keyed by the local key, which for
+    /// an activity this device uploaded is not the server's id, so the census
+    /// id is matched against the key directly and through
+    /// `activities.intervals_id`. Reading `activities` alone would answer
+    /// "missing" for every synced activity whose track was never downloaded,
+    /// which is most of them.
+    ///
+    /// The window is inclusive of both ends and compared by date, because the
+    /// caller asks in days and `start_date_local` carries a time.
+    ///
+    /// An athlete with no census rows at all is never covered. Nothing has been
+    /// pulled for them, so an empty table is ignorance rather than an empty
+    /// account, and reading it as coverage is what would leave a second
+    /// sign-in with an empty feed and no download to fill it.
+    pub fn window_is_covered(&self, athlete_id: &str, oldest: &str, newest: &str) -> bool {
+        if athlete_id.is_empty() {
+            return false;
+        }
+        let known: i64 = match self.db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM activity_census WHERE athlete_id = ?)",
+            params![athlete_id],
+            |row| row.get(0),
+        ) {
+            Ok(known) => known,
+            Err(e) => {
+                log::warn!("veloqrs: [census] coverage probe failed: {}", e);
+                return false;
+            }
+        };
+        if known == 0 {
+            return false;
+        }
+        let owed: i64 = match self.db.query_row(
+            &format!(
+                "SELECT COUNT(*) FROM activity_census c
+                 WHERE c.athlete_id = ?1
+                   AND c.start_date_local IS NOT NULL
+                   AND date(c.start_date_local) >= date(?2)
+                   AND date(c.start_date_local) <= date(?3)
+                   AND ({CENSUS_ROW_OWED})"
+            ),
+            params![athlete_id, oldest, newest],
+            |row| row.get(0),
+        ) {
+            Ok(owed) => owed,
+            Err(e) => {
+                log::warn!("veloqrs: [census] coverage read failed: {}", e);
+                return false;
+            }
+        };
+        owed == 0
+    }
+
+    /// The days inside a window that still owe a download, ascending.
+    ///
+    /// The owed test is `window_is_covered`'s, so the three cannot drift: a row
+    /// never marked, a row whose version moved upstream since, or a row with no
+    /// stored body all owe it.
+    ///
+    /// `None` is ignorance rather than "nothing owed": no census for this
+    /// athlete, or a read that failed. The caller falls back to the fixed
+    /// window it used before the census existed, because an empty table is the
+    /// pull not having happened and reading it as coverage is what would leave
+    /// a fresh sign-in with an empty feed and no download to fill it.
+    pub fn owed_dates_in_window(
+        &self,
+        athlete_id: &str,
+        oldest: &str,
+        newest: &str,
+    ) -> Option<Vec<String>> {
+        if athlete_id.is_empty() {
+            return None;
+        }
+        let known: i64 = self
+            .db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM activity_census WHERE athlete_id = ?)",
+                params![athlete_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| log::warn!("veloqrs: [census] owed probe failed: {}", e))
+            .ok()?;
+        if known == 0 {
+            return None;
+        }
+        let mut stmt = self
+            .db
+            .prepare(
+                "SELECT DISTINCT date(c.start_date_local) FROM activity_census c
+                 WHERE c.athlete_id = ?1
+                   AND c.start_date_local IS NOT NULL
+                   AND date(c.start_date_local) >= date(?2)
+                   AND date(c.start_date_local) <= date(?3)
+                   AND (c.fetched_sync_date IS NULL
+                        OR c.fetched_sync_date IS NOT c.icu_sync_date
+                        OR NOT EXISTS (
+                             SELECT 1 FROM activity_bodies b
+                             WHERE b.activity_id = c.intervals_id
+                                OR b.activity_id = (SELECT a.id FROM activities a
+                                                    WHERE a.intervals_id = c.intervals_id)))
+                 ORDER BY 1",
+            )
+            .map_err(|e| log::warn!("veloqrs: [census] owed prepare failed: {}", e))
+            .ok()?;
+        let rows = stmt
+            .query_map(params![athlete_id, oldest, newest], |row| {
+                row.get::<_, String>(0)
+            })
+            .map_err(|e| log::warn!("veloqrs: [census] owed read failed: {}", e))
+            .ok()?;
+        Some(rows.flatten().collect())
+    }
+
+    /// What a date range holds, for a screen rather than for a sync.
+    ///
+    /// `window_is_covered` collapses to a bool because a sync only asks
+    /// whether it owes the download. A chart needs the third answer: a range
+    /// with nothing in it and a range nobody pulled both draw an empty axis,
+    /// and every reader said "no data" for both.
+    ///
+    /// The owed test is `window_is_covered`'s, so the two cannot drift: a row
+    /// never marked, a row whose version moved upstream since, or a row with no
+    /// stored body all owe the download.
+    ///
+    /// Ignorance is never `Empty`. An athlete with no census at all, or no
+    /// athlete at all, owes the range, because an empty table is the pull not
+    /// having happened and reading it as an empty account is what would tell a
+    /// fresh sign-in they had never trained.
+    pub fn range_coverage(&self, athlete_id: &str, oldest: &str, newest: &str) -> RangeCoverage {
+        if athlete_id.is_empty() {
+            return RangeCoverage::NotFetched;
+        }
+        let counted: SqlResult<(i64, i64)> = self.db.query_row(
+            &format!(
+                "SELECT COUNT(*), COUNT(*) FILTER (WHERE {CENSUS_ROW_OWED})
+                 FROM activity_census c
+                 WHERE c.athlete_id = ?1
+                   AND c.start_date_local IS NOT NULL
+                   AND date(c.start_date_local) >= date(?2)
+                   AND date(c.start_date_local) <= date(?3)"
+            ),
+            params![athlete_id, oldest, newest],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        );
+        let (inside, owed) = match counted {
+            Ok(counted) => counted,
+            Err(e) => {
+                log::warn!("veloqrs: [census] range coverage read failed: {}", e);
+                return RangeCoverage::NotFetched;
+            }
+        };
+        if owed > 0 {
+            return RangeCoverage::NotFetched;
+        }
+        if inside > 0 {
+            return RangeCoverage::Loaded;
+        }
+        // Nothing inside the range. Whether that is an empty range or an
+        // unpulled census is the whole question, and only the table as a whole
+        // answers it.
+        let known: i64 = match self.db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM activity_census WHERE athlete_id = ?)",
+            params![athlete_id],
+            |row| row.get(0),
+        ) {
+            Ok(known) => known,
+            Err(e) => {
+                log::warn!("veloqrs: [census] range probe failed: {}", e);
+                return RangeCoverage::NotFetched;
+            }
+        };
+        if known == 0 {
+            RangeCoverage::NotFetched
+        } else {
+            RangeCoverage::Empty
+        }
+    }
+
+    /// How much of the athlete's library is on the device, for the sync row.
+    ///
+    /// Every progress figure before this one was the current run's own queue,
+    /// so a library of 1,598 rides with 400 tracks stored showed "12/12" and
+    /// then nothing: the rides no pass had queued were invisible, online and
+    /// off. These four are the whole account, from the census, which is what
+    /// the server says the account holds.
+    ///
+    /// Two pairs rather than one, because they converge at different times:
+    /// the activity pages arrive with the window syncs, the tracks with the GPS
+    /// pass, and a row of either can be current while the other is short.
+    ///
+    /// An athlete with no census answers zeros. Nothing has been pulled, so
+    /// every figure would be a claim about an account nobody has read, and a
+    /// zero pair reads as "nothing to report" on every surface.
+    pub fn library_coverage(&self, athlete_id: &str) -> LibraryCoverage {
+        if athlete_id.is_empty() {
+            return LibraryCoverage::default();
+        }
+        let counted: SqlResult<LibraryCoverage> = self.db.query_row(
+            &format!(
+                "SELECT COUNT(*),
+                        COUNT(*) FILTER (WHERE NOT ({CENSUS_ROW_OWED})),
+                        COUNT(*) FILTER (WHERE c.has_latlng = 1),
+                        COUNT(*) FILTER (WHERE c.has_latlng = 1 AND EXISTS (
+                             SELECT 1 FROM gps_tracks g
+                             WHERE g.activity_id = c.intervals_id
+                                OR g.activity_id = (SELECT a.id FROM activities a
+                                                    WHERE a.intervals_id = c.intervals_id)))
+                 FROM activity_census c
+                 WHERE c.athlete_id = ?1"
+            ),
+            params![athlete_id],
+            |row| {
+                Ok(LibraryCoverage {
+                    upstream: row.get(0)?,
+                    fetched: row.get(1)?,
+                    tracks_upstream: row.get(2)?,
+                    tracks_stored: row.get(3)?,
+                })
+            },
+        );
+        match counted {
+            Ok(counted) => counted,
+            Err(e) => {
+                log::warn!("veloqrs: [census] library coverage read failed: {}", e);
+                LibraryCoverage::default()
+            }
+        }
+    }
+
+    /// The census as last recorded for an athlete.
+    pub fn activity_census(&self, athlete_id: &str) -> Vec<ActivityCensusEntry> {
+        let mut stmt = match self.db.prepare(
+            "SELECT intervals_id, start_date_local, created, icu_sync_date, has_latlng
+             FROM activity_census WHERE athlete_id = ?",
+        ) {
+            Ok(stmt) => stmt,
+            Err(e) => {
+                log::warn!("veloqrs: [census] coverage read failed: {}", e);
+                return Vec::new();
+            }
+        };
+        let rows = stmt.query_map(params![athlete_id], |row| {
+            Ok(ActivityCensusEntry {
+                id: row.get(0)?,
+                start_date_local: row.get(1)?,
+                created: row.get(2)?,
+                icu_sync_date: row.get(3)?,
+                has_latlng: row.get(4)?,
+            })
+        });
+        match rows {
+            Ok(rows) => rows.flatten().collect(),
+            Err(e) => {
+                log::warn!("veloqrs: [census] coverage read failed: {}", e);
+                Vec::new()
+            }
+        }
     }
 
     /// Ids this athlete's sync wrote, as the server names them, paired with
@@ -1122,6 +2186,7 @@ impl PersistentEngine {
         }
 
         let mut removed = Vec::with_capacity(vanished.len());
+        let mut swept: Vec<Bounds> = Vec::new();
         for key in vanished {
             // A section's line is a triple into one stored stream, so the
             // reference moves before the row does: `section_activities`
@@ -1156,11 +2221,20 @@ impl PersistentEngine {
                     }
                 }
             }
-            match self.remove_activity(&key) {
-                Ok(()) => removed.push(key),
+            match self.remove_activity_deferred(&key) {
+                Ok(bounds) => {
+                    if let Some(bounds) = bounds {
+                        swept.push(bounds);
+                    }
+                    removed.push(key);
+                }
                 Err(e) => log::warn!("veloqrs: [census] removal of {} failed: {}", key, e),
             }
         }
+        // One sweep for the whole reconcile rather than one per activity: this
+        // loop runs inside a single engine hold, and a thread apiece would each
+        // overwrite the cancel token of the one before it.
+        self.sweep_tiles_for(swept, "activities removed by the census");
         if !removed.is_empty() {
             log::info!(
                 "veloqrs: [census] {} activities left intervals.icu and were removed",
@@ -1270,31 +2344,33 @@ impl PersistentEngine {
     /// is found rather than stored a second time. A server id nothing claims
     /// is absent, and the caller then uses it as the key, which is what every
     /// row an older build stored already did.
+    ///
+    /// A failed read is an error and not an empty map. The two read the same
+    /// to the caller, and taking a failure for "nothing claims this id" is
+    /// what stores an uploaded ride a second time.
     pub fn local_ids_for_intervals_ids(
         &self,
         intervals_ids: &[String],
-    ) -> std::collections::HashMap<String, String> {
+    ) -> SqlResult<std::collections::HashMap<String, String>> {
         let mut out = std::collections::HashMap::with_capacity(intervals_ids.len());
         if intervals_ids.is_empty() {
-            return out;
+            return Ok(out);
         }
         let placeholders = vec!["?"; intervals_ids.len()].join(",");
         let sql = format!(
             "SELECT intervals_id, id FROM activities
              WHERE intervals_id IN ({placeholders})"
         );
-        let Ok(mut stmt) = self.db.prepare(&sql) else {
-            return out;
-        };
+        let mut stmt = self.db.prepare(&sql)?;
         let params = rusqlite::params_from_iter(intervals_ids.iter());
-        if let Ok(rows) = stmt.query_map(params, |row| {
+        let rows = stmt.query_map(params, |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        }) {
-            for row in rows.flatten() {
-                out.insert(row.0, row.1);
-            }
+        })?;
+        for row in rows {
+            let (intervals_id, local_id) = row?;
+            out.insert(intervals_id, local_id);
         }
-        out
+        Ok(out)
     }
 
     pub fn get_activity_ids(&self) -> Vec<String> {
@@ -1328,6 +2404,30 @@ impl PersistentEngine {
             .collect()
     }
 
+    /// The activities whose bounds could reach a line, padded by the same
+    /// proximity threshold the matcher uses. `track_portions` already refuses
+    /// a track whose points all miss that box, but it refuses it after the
+    /// read and the decode, so on a real library the refusal costs one DB read
+    /// and one decode per activity the athlete owns. The bounds are in memory
+    /// and indexed, so the same refusal is free here. A bounding box that
+    /// intersects is implied by any point inside the box, so this drops
+    /// nothing the matcher would have kept.
+    pub fn activities_near_polyline(&self, polyline: &[GpsPoint], pad_metres: f64) -> Vec<String> {
+        let Some(bounds) = Bounds::from_points(polyline) else {
+            return Vec::new();
+        };
+        // A degree of longitude shrinks with latitude, so the east-west pad is
+        // taken at the box's own latitude rather than at the equator.
+        let d_lat = pad_metres / 111_132.0;
+        let d_lng = pad_metres / (111_320.0 * bounds.min_lat.to_radians().cos()).max(1.0);
+        self.query_viewport(&Bounds {
+            min_lat: bounds.min_lat - d_lat,
+            max_lat: bounds.max_lat + d_lat,
+            min_lng: bounds.min_lng - d_lng,
+            max_lng: bounds.max_lng + d_lng,
+        })
+    }
+
     /// Get a signature, loading from DB if not cached.
     pub fn get_signature(&mut self, id: &str) -> Option<Arc<RouteSignature>> {
         if let Some(sig) = self.signature_cache.get(&id.to_string()) {
@@ -1340,67 +2440,76 @@ impl PersistentEngine {
         Some(arc)
     }
 
+    /// Test accessor: the ids the signature LRU currently holds, in no
+    /// particular order. `iter` does not promote, so asking does not change
+    /// the answer, which is the whole point when the question is whether
+    /// something else touched the cache.
+    #[doc(hidden)]
+    pub fn signature_cache_ids(&self) -> Vec<String> {
+        self.signature_cache
+            .iter()
+            .map(|(k, _)| k.clone())
+            .collect()
+    }
+
+    /// Every activity's signature the catalogue claims, in one statement.
+    ///
+    /// The regroup wants all of them at once and the LRU holds 200, so walking
+    /// them through `get_signature` evicts what it has just loaded and reads
+    /// every blob back a row at a time on any library past that size. Bypasses
+    /// the cache for the same reason `get_all_map_signatures` does, and leaves
+    /// what the cache already holds alone.
+    pub(crate) fn load_all_signatures(&self) -> HashMap<String, Arc<RouteSignature>> {
+        let mut out = HashMap::with_capacity(self.activity_metadata.len());
+        let mut stmt = match self.db.prepare(
+            "SELECT activity_id, points, start_point_lat, start_point_lng,
+                    end_point_lat, end_point_lng, total_distance
+             FROM signatures",
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("[load_all_signatures] query failed: {}", e);
+                return out;
+            }
+        };
+        let rows = match stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Vec<u8>>(1)?,
+                GpsPoint::new(row.get(2)?, row.get(3)?),
+                GpsPoint::new(row.get(4)?, row.get(5)?),
+                row.get::<_, f64>(6)?,
+            ))
+        }) {
+            Ok(rows) => rows,
+            Err(e) => {
+                log::warn!("[load_all_signatures] row walk failed: {}", e);
+                return out;
+            }
+        };
+        for row in rows.flatten() {
+            let (id, blob, start_point, end_point, total_distance) = row;
+            // A signature whose activity the catalogue no longer holds is not
+            // the regroup's business, and decoding its blob is the cost this
+            // is here to avoid.
+            if !self.activity_metadata.contains_key(&id) {
+                continue;
+            }
+            let Some(signature) =
+                signature_from_parts(&id, &blob, start_point, end_point, total_distance)
+            else {
+                continue;
+            };
+            out.insert(id, Arc::new(signature));
+        }
+        out
+    }
+
     /// Load a stored signature. A corrupt points blob names itself in the log
     /// before the read gives up, so route grouping never drops an activity in
     /// silence.
     fn load_signature_from_db(&self, id: &str) -> Option<RouteSignature> {
-        let mut stmt = match self
-            .db
-            .prepare(
-                "SELECT points, start_point_lat, start_point_lng, end_point_lat, end_point_lng, total_distance
-                 FROM signatures WHERE activity_id = ?",
-            ) {
-            Ok(s) => s,
-            Err(e) => {
-                log::warn!("[load_signature_from_db] activity {}: query failed: {}", id, e);
-                return None;
-            }
-        };
-
-        let row = stmt
-            .query_row(params![id], |row| {
-                Ok((
-                    row.get::<_, Vec<u8>>(0)?,
-                    GpsPoint::new(row.get(1)?, row.get(2)?),
-                    GpsPoint::new(row.get(3)?, row.get(4)?),
-                    row.get::<_, f64>(5)?,
-                ))
-            })
-            .optional();
-
-        let (points_blob, start_point, end_point, total_distance) = match row {
-            Ok(Some(values)) => values,
-            Ok(None) => return None,
-            Err(e) => {
-                log::warn!(
-                    "[load_signature_from_db] activity {}: row read failed: {}",
-                    id,
-                    e
-                );
-                return None;
-            }
-        };
-
-        let points =
-            TrackRead::from_blob(&points_blob).into_option("load_signature_from_db", id)?;
-
-        let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
-            min_lat: 0.0,
-            max_lat: 0.0,
-            min_lng: 0.0,
-            max_lng: 0.0,
-        });
-        let center = bounds.center();
-
-        Some(RouteSignature {
-            activity_id: id.to_string(),
-            points,
-            total_distance,
-            start_point,
-            end_point,
-            bounds,
-            center,
-        })
+        pooled::signature(&self.db, id)
     }
 
     /// Get all map signatures in a single query.
@@ -1465,66 +2574,7 @@ impl PersistentEngine {
         &self,
         ids: &[String],
     ) -> Vec<crate::ffi_types::FfiMapSignature> {
-        if ids.is_empty() {
-            return Vec::new();
-        }
-
-        let placeholders = std::iter::repeat("?")
-            .take(ids.len())
-            .collect::<Vec<_>>()
-            .join(",");
-        let sql = format!(
-            "SELECT activity_id, points FROM signatures WHERE activity_id IN ({})",
-            placeholders
-        );
-        let mut stmt = match self.db.prepare(&sql) {
-            Ok(s) => s,
-            Err(_) => return Vec::new(),
-        };
-
-        let params_vec: Vec<&dyn rusqlite::ToSql> =
-            ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
-        let rows = match stmt.query_map(params_vec.as_slice(), |row| {
-            let activity_id: String = row.get(0)?;
-            let points_blob: Vec<u8> = row.get(1)?;
-            Ok((activity_id, points_blob))
-        }) {
-            Ok(r) => r,
-            Err(_) => return Vec::new(),
-        };
-
-        let mut result = Vec::new();
-        for row in rows {
-            let (activity_id, points_blob) = match row {
-                Ok(r) => r,
-                Err(_) => continue,
-            };
-            let Some(points) =
-                TrackRead::from_blob(&points_blob).into_option("map_signatures", &activity_id)
-            else {
-                continue;
-            };
-            if points.is_empty() {
-                continue;
-            }
-
-            // Compute center from bounds
-            let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
-                min_lat: 0.0,
-                max_lat: 0.0,
-                min_lng: 0.0,
-                max_lng: 0.0,
-            });
-            let center = bounds.center();
-
-            result.push(crate::ffi_types::FfiMapSignature {
-                activity_id,
-                encoded_coords: crate::coords::encode(&points),
-                center_lat: center.latitude,
-                center_lng: center.longitude,
-            });
-        }
-        result
+        pooled::map_signatures_for_ids(&self.db, ids)
     }
 
     // ========================================================================
@@ -1633,13 +2683,25 @@ impl PersistentEngine {
             .collect()
     }
 
-    /// Visit every stored track once, streaming. The callback borrows the
-    /// points for the length of the call and the decoded buffer is dropped
-    /// before the next row, so the whole library is never resident at once.
+    /// Visit the stored tracks `wanted` names, once each, streaming. The
+    /// callback borrows the points for the length of the call and the decoded
+    /// buffer is dropped before the next row, so the whole library is never
+    /// resident at once.
+    ///
+    /// A row outside `wanted` is skipped before its blob is read, so an
+    /// unwanted track costs neither the copy out of SQLite nor the decode.
+    /// The only caller ranks the sections' own members, which on a real
+    /// library is a fraction of the rows, and it runs under the write lock.
+    ///
     /// A corrupt row is logged and visited with an empty slice. The returned
     /// [`TrackWalk`] counts what the walk saw and what it lost, so a caller
-    /// can tell a short result from a complete one.
-    pub fn for_each_track(&self, mut f: impl FnMut(&str, &[GpsPoint])) -> TrackWalk {
+    /// can tell a short result from a complete one. Every count is against
+    /// `wanted`: a row nobody asked for is neither visited nor corrupt.
+    pub fn for_each_track(
+        &self,
+        wanted: &std::collections::HashSet<&str>,
+        mut f: impl FnMut(&str, &[GpsPoint]),
+    ) -> TrackWalk {
         let mut walk = TrackWalk::default();
         let mut stmt = match self
             .db
@@ -1672,9 +2734,20 @@ impl PersistentEngine {
                     continue;
                 }
             };
-            let (id, blob): (String, Vec<u8>) = match (row.get(0), row.get(1)) {
-                (Ok(id), Ok(blob)) => (id, blob),
-                (Err(e), _) | (_, Err(e)) => {
+            let id: String = match row.get(0) {
+                Ok(id) => id,
+                Err(e) => {
+                    log::warn!("[for_each_track] column read failed: {}", e);
+                    walk.failed += 1;
+                    continue;
+                }
+            };
+            if !wanted.contains(id.as_str()) {
+                continue;
+            }
+            let blob: Vec<u8> = match row.get(1) {
+                Ok(blob) => blob,
+                Err(e) => {
                     log::warn!("[for_each_track] column read failed: {}", e);
                     walk.failed += 1;
                     continue;
@@ -1698,12 +2771,56 @@ impl PersistentEngine {
         walk
     }
 
+    /// Drop one activity's cached stream, so a read goes back to the database.
+    /// A fresh launch has nothing cached, which is the shape the length rule is
+    /// about.
+    #[doc(hidden)]
+    pub fn forget_time_stream_for_test(&mut self, activity_id: &str) {
+        self.time_streams.pop(&activity_id.to_string());
+    }
+
+    /// How many points one activity's stored track holds.
+    ///
+    /// `None` when there is no track row. Cheap: `gps_tracks` carries the count
+    /// as a column, so this never decodes a blob.
+    pub(crate) fn track_point_count(&self, activity_id: &str) -> Option<usize> {
+        self.db
+            .query_row(
+                "SELECT point_count FROM gps_tracks WHERE activity_id = ?",
+                params![activity_id],
+                |row| row.get::<_, i64>(0),
+            )
+            .ok()
+            .map(|n| n as usize)
+    }
+
+    /// The same, for a batch, so a pass over many portions makes one query.
+    pub(crate) fn track_point_counts(
+        &self,
+        activity_ids: &[String],
+    ) -> std::collections::HashMap<String, usize> {
+        if activity_ids.is_empty() {
+            return std::collections::HashMap::new();
+        }
+        let placeholders = vec!["?"; activity_ids.len()].join(",");
+        let sql = format!(
+            "SELECT activity_id, point_count FROM gps_tracks WHERE activity_id IN ({placeholders})"
+        );
+        let Ok(mut stmt) = self.db.prepare(&sql) else {
+            return std::collections::HashMap::new();
+        };
+        stmt.query_map(rusqlite::params_from_iter(activity_ids.iter()), |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
+        })
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
+    }
+
     /// Get GPS track from database (on-demand, never cached).
     pub fn get_gps_track(&self, id: &str) -> Option<Vec<GpsPoint>> {
         self.track(id).into_option("get_gps_track", id)
     }
 
-    /// Load original GPS track from database (separate function to avoid borrow issues)
     /// The stored bytes, undecoded. The mutation check compares encodings
     /// rather than points, so it must not go through a decode that would erase
     /// which container the row is in.
@@ -1777,6 +2894,33 @@ impl PersistentEngine {
         rows.collect()
     }
 
+    /// Every stored body whose activity has no `activity_metrics` row, as
+    /// `(activity_id, date, raw)`.
+    ///
+    /// The sync writes both tables in one closure and only warns when the
+    /// metrics half fails, so an activity can hold a body and no metrics row.
+    /// It is then absent from every aggregate reading `activity_metrics`, which
+    /// is the whole Health tab, until an unrelated resync carries it again.
+    /// This is what the repair sweep reads. Ordinarily it answers nothing, so
+    /// the cost is the anti-join and no rows.
+    pub fn activity_bodies_without_metrics(&self) -> SqlResult<Vec<(String, i64, String)>> {
+        let mut stmt = self.db.prepare(
+            "SELECT b.activity_id, b.date, b.raw FROM activity_bodies b
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM activity_metrics m WHERE m.activity_id = b.activity_id
+             )
+             ORDER BY b.date DESC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, String>(2)?,
+            ))
+        })?;
+        rows.collect()
+    }
+
     // ========================================================================
     // Time Streams (for section performance calculations)
     // ========================================================================
@@ -1797,7 +2941,7 @@ impl PersistentEngine {
     pub(super) fn load_time_stream(&self, activity_id: &str) -> Option<Vec<u32>> {
         let mut stmt = self
             .db
-            .prepare("SELECT times FROM time_streams WHERE activity_id = ?")
+            .prepare_cached("SELECT times FROM time_streams WHERE activity_id = ?")
             .ok()?;
 
         stmt.query_row(params![activity_id], |row| {
@@ -1825,10 +2969,31 @@ impl PersistentEngine {
             return Vec::new();
         }
 
-        // Check SQLite for the remaining ones
+        // Check SQLite for the remaining ones.
+        //
+        // A row alone is not enough: a stream whose `point_count` disagrees
+        // with its track's is not in the track's index space, so nothing can
+        // read a lap time off it. Every released 0.3.x stored the raw `time`
+        // series, which keeps the samples the `latlng` mask drops, and on the
+        // July export 587 of 733 activities are that shape. Counting those as
+        // missing is what puts them back in front of the sync, which refetches
+        // them through the backfill lane and recomputes the rows.
+        //
+        // A zero-count row is exempt, because it is an answer rather than a
+        // disagreement: the only writer of one is the stream fetch recording
+        // that upstream has no `time` for this activity. Without the exemption
+        // that row reads as a length mismatch against its track and the
+        // activity is offered again on every pass for the life of the install.
+        // No released 0.3.x row can be zero-length, since what it stored was
+        // the raw series of an activity that had one.
         let placeholders: Vec<&str> = not_in_memory.iter().map(|_| "?").collect();
         let query = format!(
-            "SELECT activity_id FROM time_streams WHERE activity_id IN ({})",
+            "SELECT ts.activity_id FROM time_streams ts
+             LEFT JOIN gps_tracks g ON g.activity_id = ts.activity_id
+             WHERE ts.activity_id IN ({})
+               AND (ts.point_count = 0
+                    OR g.activity_id IS NULL
+                    OR g.point_count = ts.point_count)",
             placeholders.join(",")
         );
 
@@ -1879,6 +3044,604 @@ impl PersistentEngine {
 mod tests {
     use super::super::commit_counter;
     use super::*;
+    use std::collections::HashSet;
+
+    fn provisional_metrics() -> crate::FfiActivityMetrics {
+        crate::FfiActivityMetrics {
+            activity_id: "local-test".into(),
+            name: "Ride".into(),
+            date: 1000.0,
+            distance: 50.0,
+            moving_time: 30,
+            elapsed_time: 30,
+            elevation_gain: 0.0,
+            avg_hr: None,
+            avg_power: None,
+            sport_type: "Ride".into(),
+            training_load: None,
+            ftp: None,
+            power_zone_times: None,
+            hr_zone_times: None,
+        }
+    }
+
+    #[test]
+    fn provisional_failure_rolls_back_every_row_and_retry_succeeds() {
+        for table in [
+            "activities",
+            "gps_tracks",
+            "signatures",
+            "activity_bodies",
+            "activity_metrics",
+            "activity_heatmap",
+        ] {
+            let mut engine = PersistentEngine::in_memory().unwrap();
+            engine.groups_dirty = false;
+            engine.sections_dirty = false;
+            engine.db.execute_batch(&format!("CREATE TRIGGER fail_provisional BEFORE INSERT ON {table} BEGIN SELECT RAISE(ABORT, 'injected failure'); END;")).unwrap();
+            let body = crate::FfiActivityBody {
+                activity_id: "local-test".into(),
+                date: 1000.0,
+                raw: "{}".into(),
+            };
+            let points = vec![GpsPoint::new(46.0, 7.0), GpsPoint::new(46.001, 7.001)];
+            assert!(
+                engine
+                    .save_provisional_activity(
+                        "local-test",
+                        points.clone(),
+                        &body,
+                        provisional_metrics()
+                    )
+                    .is_err()
+            );
+            for row_table in [
+                "activities",
+                "activity_bodies",
+                "activity_metrics",
+                "activity_heatmap",
+                "gps_tracks",
+                "signatures",
+                "ftp_history",
+            ] {
+                let count: i64 = engine
+                    .db
+                    .query_row(&format!("SELECT COUNT(*) FROM {row_table}"), [], |r| {
+                        r.get(0)
+                    })
+                    .unwrap();
+                assert_eq!(count, 0, "failure at {table} left rows in {row_table}");
+            }
+            assert!(!engine.has_activity("local-test"));
+            assert!(!engine.activity_metrics.contains_key("local-test"));
+            assert!(engine.get_gps_track("local-test").is_none());
+            assert!(engine.signature_cache.peek("local-test").is_none());
+            assert!(!engine.groups_dirty);
+            assert!(!engine.sections_dirty);
+            assert!(engine.processed_activity_ids.is_empty());
+            assert!(engine.db.is_autocommit());
+            engine
+                .db
+                .execute_batch("DROP TRIGGER fail_provisional")
+                .unwrap();
+            engine
+                .save_provisional_activity("local-test", points, &body, provisional_metrics())
+                .unwrap();
+            assert!(engine.has_activity("local-test"));
+            assert!(engine.get_activity_body("local-test").is_some());
+            assert!(engine.activity_metrics.contains_key("local-test"));
+        }
+    }
+
+    #[test]
+    fn provisional_empty_track_and_committed_retry_are_complete() {
+        for points in [
+            Vec::new(),
+            vec![GpsPoint::new(46.0, 7.0), GpsPoint::new(46.001, 7.001)],
+        ] {
+            let mut engine = PersistentEngine::in_memory().unwrap();
+            let body = crate::FfiActivityBody {
+                activity_id: "local-test".into(),
+                date: 1000.0,
+                raw: "{}".into(),
+            };
+            for _ in 0..2 {
+                engine
+                    .save_provisional_activity(
+                        "local-test",
+                        points.clone(),
+                        &body,
+                        provisional_metrics(),
+                    )
+                    .unwrap();
+                assert_eq!(
+                    engine.get_activity_body("local-test").as_deref(),
+                    Some("{}")
+                );
+                assert_eq!(engine.activity_metrics.len(), 1);
+                let count: i64 = engine
+                    .db
+                    .query_row("SELECT activity_count FROM activity_heatmap", [], |r| {
+                        r.get(0)
+                    })
+                    .unwrap();
+                assert_eq!(count, 1);
+                assert_eq!(engine.has_activity("local-test"), !points.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn provisional_rejects_mismatched_ids_before_any_write() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let body = crate::FfiActivityBody {
+            activity_id: "other".into(),
+            date: 1000.0,
+            raw: "{}".into(),
+        };
+        assert!(
+            engine
+                .save_provisional_activity("local-test", Vec::new(), &body, provisional_metrics())
+                .is_err()
+        );
+        assert!(engine.activity_metrics.is_empty());
+        assert!(engine.get_activity_body("local-test").is_none());
+        assert!(engine.db.is_autocommit());
+    }
+
+    #[test]
+    #[ignore = "manual timing of the five-second SQLite lock timeout"]
+    fn provisional_locked_database_leaves_no_rows() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("provisional.db");
+        let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+        let blocker = rusqlite::Connection::open(path).unwrap();
+        blocker.execute_batch("BEGIN IMMEDIATE").unwrap();
+        let body = crate::FfiActivityBody {
+            activity_id: "local-test".into(),
+            date: 1000.0,
+            raw: "{}".into(),
+        };
+        let started = std::time::Instant::now();
+        assert!(
+            engine
+                .save_provisional_activity(
+                    "local-test",
+                    vec![GpsPoint::new(46.0, 7.0)],
+                    &body,
+                    provisional_metrics()
+                )
+                .is_err()
+        );
+        eprintln!("provisional SQLite lock failure: {:?}", started.elapsed());
+        assert!(!engine.has_activity("local-test"));
+        assert!(engine.get_activity_body("local-test").is_none());
+        assert!(engine.activity_metrics.is_empty());
+        assert!(engine.db.is_autocommit());
+        blocker.execute_batch("ROLLBACK").unwrap();
+        engine
+            .save_provisional_activity("local-test", Vec::new(), &body, provisional_metrics())
+            .unwrap();
+    }
+
+    #[test]
+    #[ignore = "manual host timing for the save call budget"]
+    fn provisional_long_ride_timing() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let points = (0..18000)
+            .map(|i| {
+                GpsPoint::new(
+                    46.0 + i as f64 * 0.00001,
+                    7.0 + (i as f64 / 80.0).sin() * 0.002,
+                )
+            })
+            .collect();
+        let body = crate::FfiActivityBody {
+            activity_id: "local-test".into(),
+            date: 1000.0,
+            raw: "{}".into(),
+        };
+        let started = std::time::Instant::now();
+        engine
+            .save_provisional_activity("local-test", points, &body, provisional_metrics())
+            .unwrap();
+        eprintln!("provisional 18000-point host save: {:?}", started.elapsed());
+        assert!(engine.has_activity("local-test"));
+    }
+
+    /// An engine holding one activity with a stored track, so a removal has
+    /// bounds to hand back.
+    fn engine_with_track(id: &str, bounds: Bounds) -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let coords = vec![
+            GpsPoint {
+                latitude: bounds.min_lat,
+                longitude: bounds.min_lng,
+                elevation: None,
+            },
+            GpsPoint {
+                latitude: bounds.max_lat,
+                longitude: bounds.max_lng,
+                elevation: None,
+            },
+        ];
+        engine
+            .add_activity(id.to_string(), coords, "Ride".to_string())
+            .unwrap();
+        engine
+    }
+
+    /// Scenario: the `time` stream for an activity comes back empty upstream,
+    /// and the fetch stores a zero-length row so the activity reads as
+    /// answered rather than being asked again forever.
+    ///
+    /// Expected behaviour: it stays answered across a reload. The `point_count`
+    /// guard beside it exists to refetch a legacy stream whose length disagrees
+    /// with its track, and without the exemption it reads 0 against the track's
+    /// 2 and offers the activity on every pass.
+    #[test]
+    fn an_empty_stream_row_reads_as_answered() {
+        let mut engine = engine_with_track("a1", bounds_at(46.0));
+        let ids = vec!["a1".to_string()];
+
+        engine.set_time_streams_flat(&ids, &[], &[0]);
+        // The memory cache would answer for this session, so ask the store the
+        // question a relaunch asks.
+        engine.time_streams.pop(&"a1".to_string());
+
+        assert_eq!(
+            engine.get_activities_missing_time_streams(&ids),
+            Vec::<String>::new()
+        );
+    }
+
+    /// The zero-count exemption must not swallow the case it sits beside: a
+    /// stored stream whose length disagrees with its track is still offered
+    /// for refetch, which is what puts every released 0.3.x row back in front
+    /// of the sync.
+    #[test]
+    fn a_stream_shorter_than_its_track_is_still_missing() {
+        let mut engine = engine_with_track("a1", bounds_at(46.0));
+        let ids = vec!["a1".to_string()];
+
+        engine.set_time_streams_flat(&ids, &[0], &[0]);
+        engine.time_streams.pop(&"a1".to_string());
+
+        assert_eq!(engine.get_activities_missing_time_streams(&ids), ids);
+    }
+
+    /// A stream that matches its track is answered, empty row or not.
+    #[test]
+    fn a_stream_matching_its_track_is_answered() {
+        let mut engine = engine_with_track("a1", bounds_at(46.0));
+        let ids = vec!["a1".to_string()];
+
+        engine.set_time_streams_flat(&ids, &[0, 5], &[0]);
+        engine.time_streams.pop(&"a1".to_string());
+
+        assert_eq!(
+            engine.get_activities_missing_time_streams(&ids),
+            Vec::<String>::new()
+        );
+    }
+
+    /// Storing the empty answer twice is the same answer. The second pass must
+    /// not reopen the activity, since a repeat sync is the ordinary case.
+    #[test]
+    fn a_repeated_empty_answer_stays_answered() {
+        let mut engine = engine_with_track("a1", bounds_at(46.0));
+        let ids = vec!["a1".to_string()];
+
+        engine.set_time_streams_flat(&ids, &[], &[0]);
+        engine.set_time_streams_flat(&ids, &[], &[0]);
+        engine.time_streams.pop(&"a1".to_string());
+
+        assert_eq!(
+            engine.get_activities_missing_time_streams(&ids),
+            Vec::<String>::new()
+        );
+    }
+
+    /// An activity that was never asked has no row at all, and that is still
+    /// the missing case. The exemption is on a row that exists and says zero.
+    #[test]
+    fn an_activity_with_no_row_is_missing() {
+        let engine = engine_with_track("a1", bounds_at(46.0));
+        let ids = vec!["a1".to_string()];
+
+        assert_eq!(engine.get_activities_missing_time_streams(&ids), ids);
+    }
+
+    /// An activity with no track at all, an indoor ride, answers empty too.
+    #[test]
+    fn an_empty_answer_without_a_track_is_answered() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .add_activity("a1".to_string(), Vec::new(), "VirtualRide".to_string())
+            .ok();
+        let ids = vec!["a1".to_string()];
+
+        engine.set_time_streams_flat(&ids, &[], &[0]);
+        engine.time_streams.pop(&"a1".to_string());
+
+        assert_eq!(
+            engine.get_activities_missing_time_streams(&ids),
+            Vec::<String>::new()
+        );
+    }
+
+    /// Scenario: the rows are deleted but the transaction has not committed,
+    /// which is every instant between the deletes and the `COMMIT`, and the
+    /// one a panic or a failed commit strands the engine in.
+    ///
+    /// Expected behaviour: the memory tiers still hold the activity, so a
+    /// rollback leaves the two agreeing. They used to be emptied inside the
+    /// transaction, and the engine is recovered from a poisoned lock rather
+    /// than rebuilt, so the activity stayed on disk and gone from the feed for
+    /// the rest of the session.
+    #[test]
+    fn the_row_deletes_leave_the_memory_tiers_alone() {
+        let mut engine = engine_with_track("a1", bounds_at(47.0));
+
+        engine.db.execute_batch("BEGIN IMMEDIATE").unwrap();
+        engine.remove_activity_rows("a1").expect("rows deleted");
+
+        assert!(
+            engine.has_activity("a1"),
+            "memory must still hold it while the transaction is open"
+        );
+
+        engine.db.execute_batch("ROLLBACK").unwrap();
+
+        let rows: i64 = engine
+            .db
+            .query_row("SELECT COUNT(*) FROM activities", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rows, 1, "the rollback kept the row");
+        assert!(
+            engine.has_activity("a1"),
+            "and memory agrees with it, which is the whole point"
+        );
+    }
+
+    /// The other half: a removal that commits does empty them.
+    #[test]
+    fn a_committed_removal_empties_the_memory_tiers() {
+        let mut engine = engine_with_track("a1", bounds_at(47.0));
+
+        engine.remove_activity("a1").expect("removed");
+
+        assert!(!engine.has_activity("a1"));
+        assert_eq!(engine.activity_count(), 0);
+    }
+
+    fn bounds_at(lat: f64) -> Bounds {
+        Bounds {
+            min_lat: lat,
+            max_lat: lat + 0.1,
+            min_lng: 7.0,
+            max_lng: 7.1,
+        }
+    }
+
+    /// A tile on athlete A's ground in Lausanne, as the pass would have saved it.
+    fn lausanne_tile(tiles: &std::path::Path) -> std::path::PathBuf {
+        let z = 12;
+        let x = crate::tiles::lon_to_tile_x(6.63, z).floor() as u32;
+        let y = crate::tiles::lat_to_tile_y(46.52, z).floor() as u32;
+        crate::tiles::save_tile(tiles, z, x, y, b"A's heat").expect("tile written");
+        tiles
+            .join(z.to_string())
+            .join(x.to_string())
+            .join(format!("{y}.png"))
+    }
+
+    /// Athlete B's first ride, all of it in Melbourne.
+    fn melbourne_ride() -> Vec<GpsPoint> {
+        (0..20)
+            .map(|i| GpsPoint::new(-37.81 + f64::from(i) * 0.001, 144.96 + f64::from(i) * 0.001))
+            .collect()
+    }
+
+    /// Store B's ride in the global engine and run one tile pass over it,
+    /// answering how many tiles it drew. The pass slot is process-wide, so a
+    /// pass another test left running is waited out rather than read as a
+    /// refusal.
+    fn sync_melbourne_and_draw() -> u32 {
+        crate::persistence::with_persistent_engine(|e| {
+            e.add_activity("b1".into(), melbourne_ride(), "Ride".into())
+                .expect("B's ride stored")
+        })
+        .expect("engine");
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        loop {
+            let handle =
+                crate::persistence::with_persistent_engine(|e| e.generate_tiles_background())
+                    .expect("engine");
+            if let Some(handle) = handle {
+                return handle.recv_blocking().expect("the pass answers");
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "no tile pass could start"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+    }
+
+    /// Scenario: athlete A rode in Lausanne with the heatmap on. B signs in on
+    /// the same device, accepts "Continue and delete" and syncs rides that are
+    /// all in Melbourne. The wipe only marked the set dirty, and a dirty pass
+    /// draws the tiles that are missing and removes none, so it never visits
+    /// Lausanne and A's heat stayed on disk for B's map to serve.
+    ///
+    /// Expected behaviour: the wipe removes the whole set, so after it and B's
+    /// first pass nothing of A's is left, and B's own ground is drawn.
+    #[test]
+    fn a_wipe_removes_the_previous_library_tiles() {
+        let _guard = crate::test_globals::serial_global_state();
+        let tmp = crate::test_globals::init_global_engine("wipe.db");
+        let tiles = tmp.path().join("tiles");
+        crate::persistence::with_persistent_engine(|e| {
+            e.set_heatmap_tiles_path(tiles.to_string_lossy().into_owned())
+        })
+        .expect("engine");
+        let a_tile = lausanne_tile(&tiles);
+
+        crate::persistence::clear_all_background(None)
+            .wait()
+            .expect("the wipe");
+        let drawn = sync_melbourne_and_draw();
+
+        crate::persistence::with_persistent_engine(|e| e.clear_heatmap_tiles_path());
+        assert!(drawn > 0, "B's pass drew nothing, so it proves nothing");
+        assert!(
+            !a_tile.exists(),
+            "athlete A's Lausanne tile outlived the wipe"
+        );
+    }
+
+    /// Scenario: the login screen wipes with the engine freshly opened, and
+    /// the tiles path is set only once the heatmap turns on after sign-in, so
+    /// the engine doing the wipe has no path of its own. The tiles are still
+    /// on disk where the app always keeps them, and the map serves whatever
+    /// file it finds there once B turns the heatmap on.
+    ///
+    /// Expected behaviour: the wipe removes the set in the directory it was
+    /// handed, and leaves it marked so B's first pass draws the whole set.
+    #[test]
+    fn a_login_screen_wipe_removes_the_tiles_with_no_path_set() {
+        let _guard = crate::test_globals::serial_global_state();
+        let tmp = crate::test_globals::init_global_engine("login-wipe.db");
+        let tiles = tmp.path().join("tiles");
+        let a_tile = lausanne_tile(&tiles);
+        assert!(
+            crate::persistence::with_persistent_engine(|e| e.heatmap_tiles_path().is_none())
+                .expect("engine"),
+            "the engine has a tiles path, so this is not the login screen's wipe"
+        );
+
+        crate::persistence::clear_all_background(Some(tiles.to_string_lossy().into_owned()))
+            .wait()
+            .expect("the wipe");
+
+        assert!(
+            !a_tile.exists(),
+            "athlete A's Lausanne tile outlived the wipe"
+        );
+        assert!(
+            tiles.join(crate::persistence::tiles::DIRTY_MARKER).exists(),
+            "the emptied set is not marked owed a draw"
+        );
+    }
+
+    /// Scenario: `remove_activity` swept the removed activity's tiles inline,
+    /// under the engine write lock. A 40 km bounding box at z17 is about 10,000
+    /// tiles with two `path.exists()` each, and a census reconcile calls this
+    /// once per activity the athlete deleted upstream, inside one hold.
+    ///
+    /// Expected behaviour: the removal answers with the bounds and sweeps
+    /// nothing, so a caller removing many hands one set to one detached thread
+    /// rather than spawning a thread apiece, each overwriting the cancel token
+    /// of the one before it.
+    #[test]
+    fn a_deferred_removal_hands_back_its_bounds_and_sweeps_nothing() {
+        let mut engine = engine_with_track("gone", bounds_at(46.0));
+
+        let swept = engine
+            .remove_activity_deferred("gone")
+            .expect("the removal succeeds");
+
+        assert_eq!(
+            swept.map(|b| b.min_lat),
+            Some(46.0),
+            "the caller gets the ground to sweep"
+        );
+        assert!(
+            engine.activity_metadata.get("gone").is_none(),
+            "and the rows are gone all the same"
+        );
+    }
+
+    /// An activity with no stored bounds owes no sweep, so the caller is handed
+    /// nothing rather than a rectangle at the origin, which at z17 is a walk of
+    /// the Gulf of Guinea.
+    #[test]
+    fn a_removal_with_no_bounds_owes_no_sweep() {
+        let mut engine = engine_with_track("gone", bounds_at(46.0));
+        engine.activity_metadata.remove("gone");
+
+        assert!(engine.remove_activity_deferred("gone").unwrap().is_none());
+    }
+
+    /// Nothing to sweep spawns nothing: a reconcile that removed only
+    /// activities with no track must not start a thread to do nothing.
+    #[test]
+    fn an_empty_sweep_starts_nothing() {
+        let mut engine = engine_with_track("kept", bounds_at(46.0));
+        engine.heatmap_tiles_path = None;
+
+        engine.sweep_tiles_for(Vec::new(), "nothing");
+        engine.sweep_tiles_for(vec![bounds_at(46.0)], "no path configured");
+    }
+
+    /// Scenario: a sync re-ingests activities it already holds, which is most
+    /// of what a sync does, and `add_activities_batch` sweeps the heatmap tiles
+    /// covering every bound it stored.
+    ///
+    /// Expected behaviour: only the activities whose ground actually moved owe
+    /// a sweep. The batch already decides this for the processed set, and the
+    /// comment there says a verbatim re-ingest "is NOT a mutation and must stay
+    /// idempotent". The tile sweep did not ask: it walked the full rectangle of
+    /// every stored activity at every zoom, deleting tiles that were correct,
+    /// and then marked the whole set dirty for a redraw nobody needed.
+    #[test]
+    fn only_new_and_mutated_activities_owe_a_tile_sweep() {
+        let stored = vec![
+            ("fresh".to_string(), bounds_at(46.0)),
+            ("changed".to_string(), bounds_at(47.0)),
+            ("same".to_string(), bounds_at(48.0)),
+        ];
+        let known: HashSet<String> = ["changed".to_string(), "same".to_string()].into();
+        let mutated = vec!["changed".to_string()];
+
+        let owed = bounds_needing_tile_sweep(&stored, &known, &mutated);
+
+        assert_eq!(
+            owed,
+            vec![bounds_at(46.0), bounds_at(47.0)],
+            "the unchanged re-ingest was swept"
+        );
+    }
+
+    /// Expected behaviour: a batch of nothing but verbatim re-ingests owes no
+    /// sweep at all, so no thread is spawned and the tile set is not marked
+    /// dirty. That is the case a routine sync is mostly made of.
+    #[test]
+    fn a_batch_of_verbatim_re_ingests_owes_no_sweep() {
+        let stored = vec![
+            ("a".to_string(), bounds_at(46.0)),
+            ("b".to_string(), bounds_at(47.0)),
+        ];
+        let known: HashSet<String> = ["a".to_string(), "b".to_string()].into();
+
+        assert!(bounds_needing_tile_sweep(&stored, &known, &[]).is_empty());
+    }
+
+    /// Expected behaviour: a first sync, where the catalogue is empty, still
+    /// sweeps everything. The narrowing must not read as "never sweep".
+    #[test]
+    fn a_first_sync_sweeps_every_activity_it_stored() {
+        let stored = vec![
+            ("a".to_string(), bounds_at(46.0)),
+            ("b".to_string(), bounds_at(47.0)),
+        ];
+
+        assert_eq!(
+            bounds_needing_tile_sweep(&stored, &HashSet::new(), &[]).len(),
+            2
+        );
+    }
 
     fn engine_with_activity_in_sections(sections: usize) -> PersistentEngine {
         let mut engine = PersistentEngine::in_memory().unwrap();
@@ -1921,6 +3684,72 @@ mod tests {
                 .unwrap();
         }
         engine
+    }
+
+    /// Scenario: ranking wants the tracks of the few activities that have
+    /// passes, and the library holds many that do not.
+    ///
+    /// Expected behaviour: the walk hands over only what was asked for, and
+    /// never pays the blob read or the decode for the rest.
+    #[test]
+    fn a_track_walk_decodes_only_the_ids_it_was_asked_for() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let coords = vec![
+            GpsPoint {
+                latitude: 46.2,
+                longitude: 7.3,
+                elevation: None,
+            },
+            GpsPoint {
+                latitude: 46.21,
+                longitude: 7.31,
+                elevation: None,
+            },
+        ];
+        for id in ["a1", "a2", "a3"] {
+            engine
+                .add_activity(id.to_string(), coords.clone(), "Ride".to_string())
+                .unwrap();
+        }
+
+        let wanted: HashSet<&str> = ["a2"].into_iter().collect();
+        let mut seen: Vec<(String, usize)> = Vec::new();
+        let walk = engine.for_each_track(&wanted, |id, pts| seen.push((id.to_string(), pts.len())));
+
+        assert_eq!(seen, vec![("a2".to_string(), 2)]);
+        assert_eq!(walk.visited, 1);
+        assert_eq!(walk.corrupt, 0);
+        assert!(!walk.is_incomplete());
+    }
+
+    /// A corrupt row the caller did not ask for is not its problem, and
+    /// decoding it to find out would be the cost the filter exists to avoid.
+    #[test]
+    fn a_corrupt_row_outside_the_wanted_set_is_not_counted() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let coords = vec![GpsPoint {
+            latitude: 46.2,
+            longitude: 7.3,
+            elevation: None,
+        }];
+        for id in ["a1", "a2"] {
+            engine
+                .add_activity(id.to_string(), coords.clone(), "Ride".to_string())
+                .unwrap();
+        }
+        engine
+            .db
+            .execute(
+                "UPDATE gps_tracks SET track_data = ? WHERE activity_id = 'a1'",
+                params![vec![0xff_u8, 0xfe, 0xfd]],
+            )
+            .unwrap();
+
+        let wanted: HashSet<&str> = ["a2"].into_iter().collect();
+        let walk = engine.for_each_track(&wanted, |_, _| {});
+
+        assert_eq!(walk.visited, 1);
+        assert_eq!(walk.corrupt, 0);
     }
 
     /// A deletion ran the cascade, then one visit_count update per section the
@@ -2107,8 +3936,12 @@ mod tests {
         // A query that found nothing would pass this test vacuously.
         assert!(tables.len() >= ACTIVITY_KEYED_TABLES.len());
 
-        // The four the foreign key cascade already reaches, and the frozen
-        // archive that keeps its members on purpose.
+        // The four the foreign key cascade already reaches, the frozen archive
+        // that keeps its members on purpose, and `push_runs`, whose
+        // `activity_id` is a label in a log line rather than the activity's
+        // data: it is the newest twenty runs of the native push worker,
+        // trimmed by count, and a removed activity does not unmake the run
+        // that happened.
         let cascaded = [
             "gps_tracks",
             "signatures",
@@ -2116,6 +3949,7 @@ mod tests {
             "section_activities",
             "processed_activities",
             "section_catalogue_archive_members",
+            "push_runs",
         ];
         let uncovered: Vec<&String> = tables
             .iter()
@@ -2129,6 +3963,147 @@ mod tests {
         );
     }
 
+    fn two_points() -> Vec<GpsPoint> {
+        vec![
+            GpsPoint {
+                latitude: 46.2,
+                longitude: 7.3,
+                elevation: None,
+            },
+            GpsPoint {
+                latitude: 46.21,
+                longitude: 7.31,
+                elevation: None,
+            },
+        ]
+    }
+
+    /// Scenario: the id reconcile answered a failed query with an empty map,
+    /// which the sync reads as "no row claims this server id" and stores the
+    /// activity a second time under a fresh key.
+    ///
+    /// Expected behaviour: the failure is the answer, so the caller can tell
+    /// an unclaimed id from a lookup it never got.
+    #[test]
+    fn a_failed_id_reconcile_is_an_error_and_not_an_empty_map() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine.db.execute_batch("DROP TABLE activities").unwrap();
+
+        let looked_up = engine.local_ids_for_intervals_ids(&["i1".to_string()]);
+
+        assert!(looked_up.is_err(), "the lookup had no table to read");
+    }
+
+    /// An empty request needs no query, and answers with an empty map rather
+    /// than an error.
+    #[test]
+    fn an_empty_id_reconcile_answers_without_a_query() {
+        let engine = PersistentEngine::in_memory().unwrap();
+
+        assert_eq!(
+            engine.local_ids_for_intervals_ids(&[]).expect("no query"),
+            std::collections::HashMap::new()
+        );
+    }
+
+    /// Scenario: `add_activities_batch` opened `BEGIN IMMEDIATE` and propagated
+    /// every write error with `?`, so a failure left the connection inside the
+    /// transaction. Every later `BEGIN` then failed with "cannot start a
+    /// transaction within a transaction", and the first sibling that does roll
+    /// back discarded everything written since.
+    ///
+    /// Expected behaviour: the same rollback arm every sibling writer has.
+    #[test]
+    fn a_failed_batch_leaves_the_connection_out_of_its_transaction() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine.db.execute_batch("DROP TABLE gps_tracks").unwrap();
+
+        let failed =
+            engine.add_activities_batch(vec![("a1".to_string(), two_points(), "Ride".to_string())]);
+
+        assert!(failed.is_err(), "the write had nowhere to store the track");
+        assert!(
+            engine.db.is_autocommit(),
+            "the rollback ran, so the next writer can begin its own"
+        );
+    }
+
+    /// The in-memory catalogue is the engine's answer to what it holds, so a
+    /// batch that rolled back must not leave it claiming the activity.
+    #[test]
+    fn a_failed_batch_adds_nothing_to_the_in_memory_catalogue() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine.db.execute_batch("DROP TABLE gps_tracks").unwrap();
+
+        let _ =
+            engine.add_activities_batch(vec![("a1".to_string(), two_points(), "Ride".to_string())]);
+
+        assert!(
+            !engine.activity_metadata.contains_key("a1"),
+            "nothing was stored, so nothing is known"
+        );
+        assert!(engine.signature_cache.get(&"a1".to_string()).is_none());
+    }
+
+    #[test]
+    fn a_batch_that_lands_is_still_in_the_catalogue_afterwards() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .add_activities_batch(vec![("a1".to_string(), two_points(), "Ride".to_string())])
+            .unwrap();
+
+        assert!(engine.activity_metadata.contains_key("a1"));
+        assert!(engine.db.is_autocommit());
+    }
+
+    /// Scenario: the feed's preview line is drawn from the stored track, and a
+    /// re-ingest can replace that track with a different one. Nothing said
+    /// which activities that happened to, so the only shape available to a
+    /// reader was re-reading every card's track on every activities event.
+    ///
+    /// Expected behaviour: the batch reports exactly the ids whose stored
+    /// track it replaced with a different one.
+    #[test]
+    fn a_batch_reports_the_tracks_it_replaced_with_different_ones() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .add_activities_batch(vec![
+                ("kept".to_string(), two_points(), "Ride".to_string()),
+                ("moved".to_string(), two_points(), "Ride".to_string()),
+            ])
+            .unwrap();
+
+        let mut elsewhere = two_points();
+        elsewhere[1].latitude = 47.5;
+
+        let mutated = engine
+            .add_activities_batch(vec![
+                ("kept".to_string(), two_points(), "Ride".to_string()),
+                ("moved".to_string(), elsewhere, "Ride".to_string()),
+                ("new".to_string(), two_points(), "Ride".to_string()),
+            ])
+            .unwrap();
+
+        assert_eq!(
+            mutated,
+            vec!["moved".to_string()],
+            "a verbatim re-ingest is not a mutation, and an activity the library did not hold is not one either"
+        );
+    }
+
+    /// A first sync is every activity arriving at once, which is the batch a
+    /// reader must not be told to re-read anything for.
+    #[test]
+    fn a_first_sync_reports_no_mutations() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+
+        let mutated = engine
+            .add_activities_batch(vec![("a1".to_string(), two_points(), "Ride".to_string())])
+            .unwrap();
+
+        assert!(mutated.is_empty());
+    }
+
     #[test]
     fn removing_the_same_activity_twice_is_one_commit_each() {
         let mut engine = engine_with_activity_in_sections(3);
@@ -2139,5 +4114,112 @@ mod tests {
 
         assert_eq!(commit_counter::count(&commits), 1);
         assert!(engine.db.is_autocommit());
+    }
+}
+
+#[cfg(test)]
+mod statement_cache_tests {
+    //! Scenario: the per-row loaders call `prepare`, which parses the SQL
+    //! afresh every time. A regroup over 750 activities parses the same
+    //! `SELECT` 750 times, under the write lock.
+    //!
+    //! Expected behaviour: they go through the connection's statement cache,
+    //! so the SQL is parsed once and the rest of the walk reuses it. The
+    //! authorizer is what counts parses: SQLite runs it while a statement is
+    //! being prepared and not when a prepared one runs again.
+
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use rusqlite::hooks::{AuthContext, Authorization};
+
+    use super::*;
+
+    static PREPARES: AtomicUsize = AtomicUsize::new(0);
+
+    /// One column, because the authorizer runs once per column a statement
+    /// reads and the count wanted here is of statements.
+    fn count_prepares(engine: &PersistentEngine, table: &'static str, column: &'static str) {
+        PREPARES.store(0, Ordering::Relaxed);
+        engine.db.authorizer(Some(move |ctx: AuthContext<'_>| {
+            if let rusqlite::hooks::AuthAction::Read {
+                table_name,
+                column_name,
+                ..
+            } = ctx.action
+            {
+                if table_name == table && column_name == column {
+                    PREPARES.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+            Authorization::Allow
+        }));
+    }
+
+    fn stop_counting(engine: &PersistentEngine) {
+        engine
+            .db
+            .authorizer(None::<fn(AuthContext<'_>) -> Authorization>);
+    }
+
+    fn engine_with(ids: &[&str]) -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        for (i, id) in ids.iter().enumerate() {
+            let base = 46.0 + i as f64 * 0.01;
+            let coords = vec![
+                GpsPoint {
+                    latitude: base,
+                    longitude: 7.0,
+                    elevation: None,
+                },
+                GpsPoint {
+                    latitude: base + 0.005,
+                    longitude: 7.0,
+                    elevation: None,
+                },
+            ];
+            engine
+                .add_activity((*id).to_string(), coords, "Ride".to_string())
+                .unwrap();
+        }
+        engine
+    }
+
+    #[test]
+    fn a_walk_of_the_signatures_parses_the_select_once() {
+        let ids = ["a1", "a2", "a3", "a4"];
+        let engine = engine_with(&ids);
+
+        count_prepares(&engine, "signatures", "points");
+        for id in ids {
+            engine.load_signature_from_db(id);
+        }
+        let parses = PREPARES.load(Ordering::Relaxed);
+        stop_counting(&engine);
+
+        assert_eq!(
+            parses, 1,
+            "four signature loads parsed the same SELECT {parses} times"
+        );
+    }
+
+    #[test]
+    fn a_walk_of_the_time_streams_parses_the_select_once() {
+        let ids = ["a1", "a2", "a3", "a4"];
+        let mut engine = engine_with(&ids);
+        for id in ids {
+            engine.set_time_streams_flat(&[(*id).to_string()], &[1, 2], &[2]);
+        }
+
+        count_prepares(&engine, "time_streams", "times");
+        for id in ids {
+            engine.load_time_stream(id);
+        }
+        let parses = PREPARES.load(Ordering::Relaxed);
+        stop_counting(&engine);
+
+        assert_eq!(
+            parses, 1,
+            "four time-stream loads parsed the same SELECT {parses} times"
+        );
     }
 }

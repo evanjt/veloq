@@ -26,6 +26,19 @@ impl CurveKind {
     }
 }
 
+/// A stored curve and when it was fetched.
+///
+/// The two travel together because a curve drawn offline says nothing about
+/// its own age, and reading the time as a second call would be a second FFI
+/// hop on a screen that already makes one per mount.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiStoredCurve {
+    /// The body the server sent, unparsed.
+    pub raw: String,
+    /// Epoch seconds at the fetch that stored it.
+    pub fetched_at: f64,
+}
+
 impl PersistentEngine {
     /// Store a curve body under the parameters that produced it.
     pub fn set_curve_body(
@@ -70,6 +83,38 @@ impl PersistentEngine {
             })
     }
 
+    /// The stored curve with the time it was fetched, or `None` when that
+    /// combination has never been fetched.
+    ///
+    /// Keyed exactly as `get_curve_body` is: a curve only means anything
+    /// alongside the sport, window and gap flag it was computed for, and so
+    /// does its age.
+    pub fn get_stored_curve(
+        &self,
+        kind: CurveKind,
+        sport: &str,
+        days: i64,
+        gap: bool,
+    ) -> SqlResult<Option<FfiStoredCurve>> {
+        self.db
+            .query_row(
+                "SELECT raw, updated_at FROM curve_bodies
+                 WHERE kind = ? AND sport = ? AND days = ? AND gap = ?",
+                params![kind.as_str(), sport, days, gap as i64],
+                |row| {
+                    Ok(FfiStoredCurve {
+                        raw: row.get(0)?,
+                        fetched_at: row.get(1)?,
+                    })
+                },
+            )
+            .map(Some)
+            .or_else(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                other => Err(other),
+            })
+    }
+
     /// Store an activity's interval body.
     pub fn set_interval_body(&self, activity_id: &str, raw: &str) -> SqlResult<()> {
         self.db.execute(
@@ -96,6 +141,22 @@ impl PersistentEngine {
                 rusqlite::Error::QueryReturnedNoRows => Ok(None),
                 other => Err(other),
             })
+    }
+
+    /// Every activity in the library with no interval body, newest first.
+    ///
+    /// The sync's prefetch queue, derived rather than stored: an id that was
+    /// fetched has a row and leaves the queue, so a killed pass resumes by
+    /// re-deriving the same list and needs no checkpoint.
+    pub fn activities_missing_interval_bodies(&self) -> SqlResult<Vec<String>> {
+        let mut stmt = self.db.prepare(
+            "SELECT m.activity_id FROM activity_metrics m
+             LEFT JOIN interval_bodies b ON b.activity_id = m.activity_id
+             WHERE b.activity_id IS NULL
+             ORDER BY m.date DESC",
+        )?;
+        let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+        rows.collect()
     }
 
     /// Replace the calendar events in a window. Events are deleted upstream as
@@ -155,6 +216,17 @@ const RECONSTRUCTABLE: [&str; 4] = ["altitude", "fixed_altitude", "latlng", "tim
 /// this stay small: it is a hot cache of exactly what the server sent, not the
 /// history.
 const MAX_STREAM_BODY_BYTES: i64 = 8 * 1024 * 1024;
+
+/// How stale a cache hit's stamp has to be before the read moves it to the
+/// front of the eviction order.
+///
+/// The stamp is what makes the ceiling an LRU, but stamping on every hit makes
+/// a read an autocommit write: it needs the engine's write lock and rewrites
+/// `idx_stream_bodies_updated`, on the activity-open path and once a scrub
+/// frame. An hour is coarse enough that a screen reading the same
+/// body repeatedly writes once, and fine enough that the eviction order still
+/// reflects which activities the athlete actually opens.
+const STREAM_BODY_TOUCH_SECS: i64 = 3600;
 
 impl PersistentEngine {
     /// Store a stream payload for an activity and series selection.
@@ -389,27 +461,42 @@ impl PersistentEngine {
     /// activity the athlete keeps opening outlives one fetched once and never
     /// looked at again. Without the stamp the order is write order, so the
     /// activity on screen is evicted while a stale neighbour survives.
+    ///
+    /// The stamp is only rewritten once the stored one is
+    /// `STREAM_BODY_TOUCH_SECS` old, because the write is what costs: stamping
+    /// every hit made a read need the engine's write lock and rewrite
+    /// `idx_stream_bodies_updated`, once per activity open and once a scrub
+    /// frame.
     pub fn get_stream_body(&self, activity_id: &str, types: &str) -> SqlResult<Option<String>> {
-        let hit: Option<String> = self
+        // The stamp comes back with the payload, so deciding whether to touch
+        // costs nothing beyond the read that was happening anyway.
+        let hit: Option<(String, Option<i64>)> = self
             .db
             .query_row(
-                "SELECT raw FROM stream_bodies WHERE activity_id = ? AND types = ?",
+                "SELECT raw, updated_at FROM stream_bodies WHERE activity_id = ? AND types = ?",
                 params![activity_id, types],
-                |row| row.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .map(Some)
             .or_else(|e| match e {
                 rusqlite::Error::QueryReturnedNoRows => Ok(None),
                 other => Err(other),
             })?;
-        if hit.is_some() {
+        let Some((raw, stamped)) = hit else {
+            return Ok(None);
+        };
+        // A row with no stamp cannot be ordered, so it is touched to give it
+        // one rather than left to sort as the oldest thing in the cache.
+        let stale =
+            stamped.is_none_or(|at| chrono::Utc::now().timestamp() - at >= STREAM_BODY_TOUCH_SECS);
+        if stale {
             self.db.execute(
                 "UPDATE stream_bodies SET updated_at = strftime('%s', 'now')
                  WHERE activity_id = ? AND types = ?",
                 params![activity_id, types],
             )?;
         }
-        Ok(hit)
+        Ok(Some(raw))
     }
 }
 
@@ -423,6 +510,189 @@ mod tests {
         let path = dir.path().join("routes.db");
         let engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
         (dir, engine)
+    }
+
+    /// The stamp for one cached body, or None when the row is not there.
+    fn stamp_of(engine: &PersistentEngine, activity_id: &str, types: &str) -> Option<i64> {
+        engine
+            .db
+            .query_row(
+                "SELECT updated_at FROM stream_bodies WHERE activity_id = ? AND types = ?",
+                params![activity_id, types],
+                |r| r.get(0),
+            )
+            .ok()
+    }
+
+    /// What a reconstructed stream body costs against a cached one, measured
+    /// rather than estimated. The shape that matters is the one the activity
+    /// screen opens with: a few thousand track points across five series.
+    ///
+    /// Ignored by default: it is a measurement, not an assertion.
+    /// Run: `cargo test --release -p veloqrs --lib bodies::tests::what_a_reconstruction_costs -- --ignored --nocapture`
+    #[test]
+    #[ignore = "a measurement; run it deliberately"]
+    fn what_a_reconstruction_costs_against_a_cached_body() {
+        use crate::net::types::StreamDto;
+
+        const TYPES: &str = "latlng,time,heartrate,watts,altitude";
+
+        // `storable_series` masks the lot against the latlng index space, so
+        // coordinates have to be real ones or the mask drops most of the track
+        // and every other series is then refused as misaligned.
+        fn series(kind: &str, points: usize) -> StreamDto {
+            if kind == "latlng" {
+                return StreamDto {
+                    kind: kind.to_string(),
+                    data: (0..points).map(|i| Some(46.0 + i as f64 * 1e-5)).collect(),
+                    data2: Some((0..points).map(|i| Some(7.0 + i as f64 * 1e-5)).collect()),
+                };
+            }
+            StreamDto {
+                kind: kind.to_string(),
+                data: (0..points).map(|i| Some(i as f64 * 1.5)).collect(),
+                data2: None,
+            }
+        }
+
+        println!("points  body_bytes  cached_ms  reconstructed_ms  ratio");
+        for &points in &[1_000usize, 4_000, 10_000] {
+            let (_dir, mut engine) = engine();
+            // The reconstruction reads the track first, so the activity has to
+            // be on disk before its series mean anything.
+            engine
+                .add_activity(
+                    "a1".to_string(),
+                    (0..points)
+                        .map(|i| tracematch::GpsPoint {
+                            latitude: 46.0 + i as f64 * 1e-5,
+                            longitude: 7.0 + i as f64 * 1e-5,
+                            elevation: Some(500.0 + i as f64 * 0.01),
+                        })
+                        .collect(),
+                    "Ride".to_string(),
+                )
+                .expect("add_activity");
+            // The ingest may simplify the track, and a series whose sample
+            // count disagrees with the stored points is refused whole, so the
+            // body is built at the length that actually landed.
+            let stored_points = match engine.track("a1") {
+                crate::persistence::codec::TrackRead::Present(p) => p.len(),
+                _ => panic!("the track did not store"),
+            };
+            let body = serde_json::to_string(
+                &["latlng", "time", "heartrate", "watts", "altitude"]
+                    .iter()
+                    .map(|k| series(k, stored_points))
+                    .collect::<Vec<_>>(),
+            )
+            .expect("encode");
+
+            // `set_stream_body` caches the body and writes the durable series
+            // the reconstruction reads, so one call seeds both paths.
+            engine.set_stream_body("a1", TYPES, &body).expect("seed");
+
+            let cached = median_ms(|| {
+                engine
+                    .get_stream_body("a1", TYPES)
+                    .expect("read")
+                    .expect("cached")
+                    .len()
+            });
+            let probe = engine.reconstruct_stream_body("a1", TYPES);
+            assert!(
+                probe.is_some(),
+                "the reconstruction refused the selection at {stored_points} points"
+            );
+            let rebuilt = median_ms(|| {
+                engine
+                    .reconstruct_stream_body("a1", TYPES)
+                    .map(|s| s.len())
+                    .unwrap_or(0)
+            });
+
+            println!(
+                "{stored_points:>6}  {:>10}  {cached:>9.2}  {rebuilt:>16.2}  {:>5.1}x",
+                body.len(),
+                rebuilt / cached.max(f64::MIN_POSITIVE)
+            );
+        }
+    }
+
+    /// Median of five, so one scheduling hiccup does not become the number.
+    fn median_ms(mut run: impl FnMut() -> usize) -> f64 {
+        let mut runs: Vec<f64> = (0..5)
+            .map(|_| {
+                let start = std::time::Instant::now();
+                let n = run();
+                assert!(n > 0, "the read answered nothing");
+                start.elapsed().as_secs_f64() * 1000.0
+            })
+            .collect();
+        runs.sort_by(|a, b| a.partial_cmp(b).expect("finite"));
+        runs[2]
+    }
+
+    /// Scenario: the activity screen reads a cached stream body, once a scrub
+    /// frame.
+    ///
+    /// Expected behaviour: a read of a body already stamped inside the touch
+    /// interval writes nothing. Stamping on every hit turns a read that could
+    /// run on the read lock into an autocommit write that serialises with the
+    /// sync, and rewrites `idx_stream_bodies_updated` with it.
+    #[test]
+    fn a_freshly_stamped_body_is_not_restamped_on_every_read() {
+        let (_dir, engine) = engine();
+        engine.set_stream_body("a1", "time", "body").unwrap();
+
+        // A few minutes back, so it is well inside the interval but not the
+        // same second `strftime('%s','now')` would write. Comparing against a
+        // stamp taken this second proves nothing: the restamp lands on the
+        // value it started from and the assertion holds either way.
+        let fresh = chrono::Utc::now().timestamp() - 300;
+        engine
+            .db
+            .execute(
+                "UPDATE stream_bodies SET updated_at = ? WHERE activity_id = ? AND types = ?",
+                params![fresh, "a1", "time"],
+            )
+            .unwrap();
+
+        assert_eq!(
+            engine.get_stream_body("a1", "time").unwrap().as_deref(),
+            Some("body")
+        );
+
+        assert_eq!(
+            stamp_of(&engine, "a1", "time"),
+            Some(fresh),
+            "the read restamped a body that was already inside the interval"
+        );
+    }
+
+    /// Expected behaviour: the stamp is still what orders the eviction, so a
+    /// read of a body older than the interval does move it to the front. The
+    /// point of the interval is to stop the write, not to stop the LRU.
+    #[test]
+    fn a_stale_body_is_restamped_so_it_outlives_an_untouched_neighbour() {
+        let (_dir, engine) = engine();
+        engine.set_stream_body("a1", "time", "body").unwrap();
+        let stale = chrono::Utc::now().timestamp() - STREAM_BODY_TOUCH_SECS - 60;
+        engine
+            .db
+            .execute(
+                "UPDATE stream_bodies SET updated_at = ? WHERE activity_id = ? AND types = ?",
+                params![stale, "a1", "time"],
+            )
+            .unwrap();
+
+        engine.get_stream_body("a1", "time").unwrap();
+
+        let now = stamp_of(&engine, "a1", "time").expect("the body survived the read");
+        assert!(
+            now > stale,
+            "a body outside the interval was not moved to the front: {now} is not past {stale}"
+        );
     }
 
     #[test]
@@ -486,6 +756,79 @@ mod tests {
                 .unwrap()
                 .as_deref(),
             Some("new")
+        );
+    }
+
+    /// Scenario: a curve drawn offline was fetched weeks ago and the header has
+    /// nothing to date it with, because the read answers the body alone while
+    /// the column has been written since `015_curve_interval_calendar_bodies`.
+    #[test]
+    fn a_stored_curve_answers_when_it_was_fetched() {
+        let (_dir, engine) = engine();
+        let before = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        engine
+            .set_curve_body(CurveKind::Power, "Ride", 90, false, "watts")
+            .unwrap();
+
+        let stored = engine
+            .get_stored_curve(CurveKind::Power, "Ride", 90, false)
+            .unwrap()
+            .expect("the curve was just written");
+        assert_eq!(stored.raw, "watts");
+        assert!(stored.fetched_at >= before as f64);
+    }
+
+    #[test]
+    fn a_curve_that_was_never_fetched_answers_nothing() {
+        let (_dir, engine) = engine();
+
+        assert!(
+            engine
+                .get_stored_curve(CurveKind::Pace, "Run", 42, false)
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn a_refetch_moves_the_fetched_time_with_the_body() {
+        let (_dir, engine) = engine();
+        engine
+            .set_curve_body(CurveKind::Power, "Ride", 90, false, "old")
+            .unwrap();
+        let first = engine
+            .get_stored_curve(CurveKind::Power, "Ride", 90, false)
+            .unwrap()
+            .unwrap();
+
+        engine
+            .set_curve_body(CurveKind::Power, "Ride", 90, false, "new")
+            .unwrap();
+        let second = engine
+            .get_stored_curve(CurveKind::Power, "Ride", 90, false)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(second.raw, "new");
+        assert!(second.fetched_at >= first.fetched_at);
+    }
+
+    #[test]
+    fn the_fetched_time_is_keyed_the_same_way_the_body_is() {
+        let (_dir, engine) = engine();
+        engine
+            .set_curve_body(CurveKind::Pace, "Run", 42, false, "plain")
+            .unwrap();
+
+        assert!(
+            engine
+                .get_stored_curve(CurveKind::Pace, "Run", 42, true)
+                .unwrap()
+                .is_none()
         );
     }
 
@@ -867,6 +1210,47 @@ mod tests {
         assert_eq!(
             engine.get_interval_body("a1").unwrap().as_deref(),
             Some(r#"{"id":"a1"}"#)
+        );
+    }
+
+    fn metric(id: &str, date: i64) -> crate::types::ActivityMetrics {
+        crate::types::ActivityMetrics {
+            activity_id: id.to_string(),
+            name: id.to_string(),
+            date,
+            distance: 1000.0,
+            moving_time: 600,
+            elapsed_time: 600,
+            elevation_gain: 0.0,
+            avg_hr: None,
+            avg_power: None,
+            sport_type: "Ride".to_string(),
+            training_load: None,
+            ftp: None,
+            power_zone_times: None,
+            hr_zone_times: None,
+        }
+    }
+
+    /// Scenario: the sync derives its interval prefetch queue from SQLite
+    /// rather than storing one, so a pass that was killed halfway resumes by
+    /// re-deriving what is still missing.
+    #[test]
+    fn the_interval_queue_is_what_has_no_body_yet_newest_first() {
+        let (_dir, mut engine) = engine();
+        engine
+            .set_activity_metrics(vec![
+                metric("older", 1_700_000_000),
+                metric("newer", 1_700_100_000),
+                metric("fetched", 1_700_200_000),
+            ])
+            .unwrap();
+        engine.set_interval_body("fetched", "{}").unwrap();
+
+        assert_eq!(
+            engine.activities_missing_interval_bodies().unwrap(),
+            vec!["newer".to_string(), "older".to_string()],
+            "a body already stored leaves the queue, and the newest ride is asked for first"
         );
     }
 

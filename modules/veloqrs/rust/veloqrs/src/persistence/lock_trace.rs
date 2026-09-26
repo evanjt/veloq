@@ -96,7 +96,7 @@ impl Drop for Timing {
 fn record(caller: &'static Location<'static>, wait: Duration, hold: Duration) {
     if wait >= SLOW || hold >= SLOW {
         let thread = std::thread::current();
-        log::info!(
+        log::warn!(
             "[LockTrace] slow {}:{} thread={} wait={:.1}ms hold={:.1}ms",
             caller.file(),
             caller.line(),
@@ -147,7 +147,7 @@ fn report() {
         return;
     }
     table.dirty = false;
-    log::info!(
+    log::warn!(
         "[LockTrace] summary calls={} callers={} wait[{}] hold[{}]",
         table.calls,
         table.by_caller.len(),
@@ -157,7 +157,7 @@ fn report() {
     let mut rows: Vec<_> = table.by_caller.iter().collect();
     rows.sort_by(|a, b| b.1.hold_total.cmp(&a.1.hold_total));
     for (caller, s) in rows.iter().take(TOP) {
-        log::info!(
+        log::warn!(
             "[LockTrace] hold {}:{} calls={} sum={:.1}ms max={:.1}ms wait_sum={:.1}ms wait_max={:.1}ms hold[{}]",
             caller.file(),
             caller.line(),
@@ -171,7 +171,7 @@ fn report() {
     }
     rows.sort_by(|a, b| b.1.calls.cmp(&a.1.calls));
     for (caller, s) in rows.iter().take(TOP) {
-        log::info!(
+        log::warn!(
             "[LockTrace] calls {}:{} calls={} sum={:.1}ms max={:.1}ms",
             caller.file(),
             caller.line(),
@@ -185,7 +185,7 @@ fn report() {
         if s.wait_max < Duration::from_millis(1) {
             break;
         }
-        log::info!(
+        log::warn!(
             "[LockTrace] wait {}:{} calls={} wait_sum={:.1}ms wait_max={:.1}ms wait[{}]",
             caller.file(),
             caller.line(),

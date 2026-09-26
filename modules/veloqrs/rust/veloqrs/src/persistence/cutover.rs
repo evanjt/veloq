@@ -14,9 +14,11 @@
 //! archive. There is no other detector to go back to, so the config stays as
 //! it is.
 
+use crate::objects::observer::Announcement;
 use crate::persistence::sections::geometry;
 use crate::persistence::{
-    PersistentEngine, codec, settings_keys, suspend_detection, with_persistent_engine,
+    PersistentEngine, codec, engine_install, settings_keys, suspend_detection,
+    with_persistent_engine, with_persistent_engine_for,
 };
 use log::info;
 use rusqlite::params;
@@ -218,10 +220,14 @@ pub fn start_cutover() -> bool {
     {
         return false;
     }
-    std::thread::spawn(|| {
+    // Which library this cutover belongs to, read here rather than on the
+    // worker: a restore mid-run would otherwise get a catalogue cut from the
+    // old library's tracks.
+    let install = engine_install();
+    std::thread::spawn(move || {
         // The flag is already claimed, so the run adopts it rather than
         // taking it again.
-        let outcome = run_cutover_claimed(&|_phase: &str| cutover_cancelled());
+        let outcome = run_cutover_claimed(install, &|_phase: &str| cutover_cancelled());
         if let Err(ref e) = outcome {
             log::warn!("veloqrs: [cutover] Run failed: {}", e);
         }
@@ -746,7 +752,7 @@ pub fn run_cutover() -> Result<CutoverOutcome, String> {
     {
         return Err("cutover already running".into());
     }
-    run_cutover_claimed(&|_phase: &str| cutover_cancelled())
+    run_cutover_claimed(engine_install(), &|_phase: &str| cutover_cancelled())
 }
 
 /// [`run_cutover`] with its stop signal handed in.
@@ -764,11 +770,12 @@ pub fn run_cutover_with(
     {
         return Err("cutover already running".into());
     }
-    run_cutover_claimed(should_stop)
+    run_cutover_claimed(engine_install(), should_stop)
 }
 
 /// The run itself, with [`CUTOVER_RUNNING`] already claimed by the caller.
 fn run_cutover_claimed(
+    install: u64,
     should_stop: &(dyn Fn(&str) -> bool + Sync),
 ) -> Result<CutoverOutcome, String> {
     /// Stop here if the athlete has asked to. Every call site is a point the
@@ -800,7 +807,7 @@ fn run_cutover_claimed(
         fn drop(&mut self) {
             CUTOVER_RUNNING.store(false, Ordering::SeqCst);
             if self.announce {
-                crate::objects::observer::notify(|o| o.cutover_settled());
+                crate::objects::observer::notify(Announcement::CutoverSettled);
             }
         }
     }
@@ -818,7 +825,7 @@ fn run_cutover_claimed(
     let mut clock = PhaseClock::new();
 
     // Check whether the cutover is actually owed.
-    let owed = with_persistent_engine(|e| e.cutover_is_owed()).ok_or("no engine")?;
+    let owed = with_persistent_engine_for(install, |e| e.cutover_is_owed()).ok_or("no engine")?;
     if !owed {
         set_phase(PHASE_IDLE);
         return Ok(CutoverOutcome::NotOwed);
@@ -843,7 +850,7 @@ fn run_cutover_claimed(
     // leaves the user on Corridor with an intact catalogue and the cutover
     // still owed.
     clock.enter(PHASE_ARCHIVING);
-    let archived = with_persistent_engine(|e| e.archive_current_catalogue())
+    let archived = with_persistent_engine_for(install, |e| e.archive_current_catalogue())
         .ok_or("no engine")?
         .map_err(|e| format!("archive failed: {}", e))?;
     info!("veloqrs: [cutover] Archived {} sections", archived);
@@ -855,7 +862,7 @@ fn run_cutover_claimed(
     // Step 2: commit the switch. Config, in-flight token and the cleared
     // processed set land together, so a crash after this point resumes rather
     // than stranding the install on a half-migrated catalogue.
-    with_persistent_engine(|e| e.commit_switch())
+    with_persistent_engine_for(install, |e| e.commit_switch())
         .ok_or("no engine")?
         .map_err(|e| format!("switch failed: {}", e))?;
 
@@ -869,20 +876,32 @@ fn run_cutover_claimed(
     // alongside a multi-minute cut adds activities the detect never saw, and
     // the apply below clears `sections_dirty` for all of them.
     let pool_at_spawn =
-        with_persistent_engine(|e| e.get_activity_ids().len()).ok_or("no engine")?;
-    let handle =
-        with_persistent_engine(|e| e.detect_sections_background_unchecked()).ok_or("no engine")?;
+        with_persistent_engine_for(install, |e| e.get_activity_ids().len()).ok_or("no engine")?;
+    let handle = with_persistent_engine_for(install, |e| e.detect_sections_background_unchecked())
+        .ok_or("no engine")?;
 
-    // Drive the detect to completion.
-    let (main, cache_update) = handle.recv_with_cache();
+    // Drive the detect to completion, bounded by the same ceiling the slot wait
+    // twenty lines up already uses. A worker that hangs rather than dies never
+    // closes its channel, and an unbounded read here held `CUTOVER_RUNNING` for
+    // the life of the process, so every later launch was refused its cutover.
+    let (main, cache_update) =
+        handle.recv_state_with_cache_within(Some(crate::objects::detection::SLOT_WAIT_LIMIT));
     // A cancel arriving inside the detect discards the result rather than
     // shortening the run, the same honest caveat the preview carries: the
     // detect is one call and it does not read this flag. Discarding is safe
     // because nothing has been applied, so the next launch redoes it.
     stop_if_cancelled!(PHASE_DETECTING, clock.finish(PHASE_IDLE));
-    let (sections, processed_ids) = main.ok_or("detect failed")?;
+    let (sections, processed_ids) = match main {
+        crate::persistence::WorkerPoll::Ready(v) => v,
+        // A panic inside the fold drops the sender, which used to be
+        // indistinguishable from a run with nothing to report.
+        crate::persistence::WorkerPoll::Died => return Err("detect died".to_string()),
+        // The read gave up. The run may still be folding, and its checkpoints
+        // are on disk, so the next launch resumes rather than starting cold.
+        crate::persistence::WorkerPoll::Running => return Err("detect never answered".to_string()),
+    };
 
-    with_persistent_engine(|e| {
+    with_persistent_engine_for(install, |e| {
         e.apply_sections_with_cache(sections, cache_update)
             .map_err(|err| format!("apply failed: {}", err))?;
         e.save_processed_activity_ids(&processed_ids)
@@ -901,11 +920,11 @@ fn run_cutover_claimed(
     // failure above leaves the token in flight and the whole run is retried
     // from the top on the next launch.
     clock.enter(PHASE_DIFFING);
-    let diff = with_persistent_engine(|e| e.build_cutover_diff())
+    let diff = with_persistent_engine_for(install, |e| e.build_cutover_diff())
         .ok_or("no engine")?
         .map_err(|e| format!("diff failed: {}", e))?;
 
-    with_persistent_engine(|e| e.finish_cutover())
+    with_persistent_engine_for(install, |e| e.finish_cutover())
         .ok_or("no engine")?
         .map_err(|e| format!("token promotion failed: {}", e))?;
 

@@ -1,0 +1,21 @@
+-- Migration 036: which activities the server holds a GPS track for.
+--
+-- The GPS fetch list and the download-progress count both ask the same
+-- question, and until now the only place the answer existed was inside
+-- `activity_bodies.raw`, as `stream_types`. So TypeScript parsed every stored
+-- body on the JS thread to build a list of ids.
+--
+-- The census pull already reads the whole history in one request with an
+-- explicit field list, and `stream_types` is served by that same endpoint, so
+-- the flag rides along at no extra cost and the predicate becomes a join
+-- against `gps_tracks`.
+--
+-- One bit rather than the list: every caller asks only whether there is a
+-- track, and a row that says nothing about its streams has no track as far as
+-- a download is concerned.
+--
+-- Nothing backfills it. Every row reads 0 after the upgrade and the next
+-- census pull rewrites the athlete's rows wholesale, which is how this table
+-- is maintained.
+
+ALTER TABLE activity_census ADD COLUMN has_latlng INTEGER NOT NULL DEFAULT 0;
