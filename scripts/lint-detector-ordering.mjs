@@ -19,7 +19,11 @@ const BANNED = /->\s*[^;{]*\b(HashMap|HashSet)\s*</;
 
 function rustFiles(path) {
   if (statSync(path).isFile()) return path.endsWith('.rs') ? [path] : [];
-  return readdirSync(path).flatMap((entry) => rustFiles(join(path, entry)));
+  return readdirSync(path, { withFileTypes: true }).flatMap((entry) => {
+    const full = join(path, entry.name);
+    if (entry.isDirectory()) return rustFiles(full);
+    return entry.name.endsWith('.rs') ? [full] : [];
+  });
 }
 
 // Both roots live inside the tracematch submodule, and a fresh worktree cannot

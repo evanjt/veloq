@@ -7,9 +7,7 @@
 // EXEMPT holds the words that are not ours to spell. They fall into four
 // groups and each needs a reason, not just an entry.
 
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { indexedSources, refuseEmptyListing } from './lib/indexedSources.mjs';
 
 const ROOT = 'modules/veloqrs/rust/veloqrs/src';
 
@@ -59,36 +57,23 @@ const EXEMPT = [
 // crosses the FFI as data, and a string an athlete reads is never that.
 const LOCALE_EXEMPT = [];
 
-// `cwd` does not decide which repository git reads. The pre-commit hook exports
-// GIT_DIR and GIT_INDEX_FILE, and those win, so a guard pointed at a fixture
-// with --root would list the repository's own files instead. Drop them.
-const GIT_ENV = (() => {
-  const env = { ...process.env };
-  for (const key of [
-    'GIT_DIR',
-    'GIT_INDEX_FILE',
-    'GIT_WORK_TREE',
-    'GIT_OBJECT_DIRECTORY',
-    'GIT_COMMON_DIR',
-    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-    'GIT_PREFIX',
-    'GIT_CEILING_DIRECTORIES',
-  ]) {
-    delete env[key];
-  }
-  return env;
-})();
-
 const rootFlag = process.argv.indexOf('--root');
 const root = rootFlag === -1 ? process.cwd() : process.argv[rootFlag + 1];
 
+// Out of the index and not off the disk: this runs in the one checkout every
+// worktree merges through, so a working copy here is whatever session has a
+// file open rather than what anyone is committing (`B1070`).
+const INDEXED = indexedSources(root);
+refuseEmptyListing(INDEXED, 'Spelling guard');
+
 function sources() {
-  const out = execFileSync('git', ['ls-files', '-z', ROOT], {
-    cwd: root,
-    env: GIT_ENV,
-    encoding: 'utf8',
-  });
-  return out.split('\0').filter((f) => f.endsWith('.rs'));
+  return [...INDEXED.keys()].filter((file) => file.startsWith(ROOT) && file.endsWith('.rs'));
+}
+
+/** The indexed text of one path, or null when the index does not hold it. */
+function indexedText(file) {
+  const bytes = INDEXED.get(file);
+  return bytes === undefined ? null : bytes.toString('utf8');
 }
 
 function withoutExempt(line) {
@@ -109,9 +94,11 @@ function offences(text, exempt) {
 function localeFailures(root) {
   const found = [];
   for (const file of LOCALES) {
+    const raw = indexedText(file);
+    if (raw === null) continue;
     let parsed;
     try {
-      parsed = JSON.parse(readFileSync(join(root, file), 'utf8'));
+      parsed = JSON.parse(raw);
     } catch {
       continue;
     }
@@ -132,12 +119,8 @@ function localeFailures(root) {
 
 const failures = [];
 for (const file of sources()) {
-  let text;
-  try {
-    text = readFileSync(join(root, file), 'utf8');
-  } catch {
-    continue;
-  }
+  const text = indexedText(file);
+  if (text === null) continue;
   text.split('\n').forEach((line, i) => {
     const rest = withoutExempt(line);
     for (const [bad, good] of BANNED) {

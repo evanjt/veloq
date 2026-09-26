@@ -15,6 +15,9 @@ module.exports = [
       'node_modules/**',
       'modules/veloqrs/src/generated/**',
       'modules/veloqrs/rust/**',
+      // Gradle's own output, including the HTML test report's bundled script,
+      // which `npm run test:android` writes here.
+      'modules/veloqrs/android/build/**',
       'src/__tests__/bindings/ffi-exports.generated.ts',
       'src/features/maps/assets/*.generated.ts',
       'coverage/**',
@@ -106,6 +109,18 @@ module.exports = [
           message:
             'Raw font size. Use typography.<role>.fontSize from src/theme, or add a role there.',
         },
+        {
+          // Zero is exempt: it is not a rung and never will be.
+          selector:
+            'Property[key.name=/^((padding|margin)(Top|Bottom|Left|Right|Horizontal|Vertical|Start|End)?|gap|rowGap|columnGap)$/] > Literal[raw=/^(?!0$)[0-9.]+$/]',
+          message:
+            'Raw spacing. Use a spacing.* token from src/theme: 2, 4, 6, 8, 12, 16, 24, 32 or 48.',
+        },
+        {
+          selector:
+            'Property[key.name=/^((padding|margin)(Top|Bottom|Left|Right|Horizontal|Vertical|Start|End)?|gap|rowGap|columnGap)$/] > UnaryExpression[operator="-"] > Literal[raw=/^[0-9.]+$/]',
+          message: 'Raw negative spacing. Use the negative of a spacing.* token from src/theme.',
+        },
       ],
     },
   },
@@ -175,7 +190,7 @@ module.exports = [
       'src/shared/storage/gpsStorage.ts',
       'src/shared/ui/GlobalErrorBoundary.tsx',
       'src/app/debug.tsx',
-      'src/features/insights/lib/activityNotificationBody.ts',
+      'src/features/insights/lib/activityHighlight.ts',
       'src/features/routes/stores/RouteSettingsStore.ts',
       'src/features/sensors/lib/sensorManager.ts',
       'src/features/settings/components/DetectionIllustration.tsx',
@@ -220,10 +235,7 @@ module.exports = [
     // Render instrumentation. `PERF_DEBUG` is `__DEV__`, and what these measure
     // IS the render, so moving the clock read out of render is the same as
     // deleting the instrument.
-    files: [
-      'src/app/(tabs)/index.tsx',
-      'src/features/routes/hooks/useSectionChartDataEnriched.ts',
-    ],
+    files: ['src/app/(tabs)/index.tsx', 'src/features/routes/hooks/useSectionChartDataEnriched.ts'],
     rules: { 'react-hooks/purity': 'off' },
   },
   {
@@ -283,6 +295,131 @@ module.exports = [
     // own documented shape, so the caution has nothing to catch here.
     files: ['src/i18n/index.ts'],
     rules: { 'import/no-named-as-default-member': 'off' },
+  },
+  {
+    // A read keyed on a route param or a record id. There is no mount value to
+    // put in a `useState` initialiser, because the value the screen wants
+    // depends on which id it was handed and changes when that id does: the
+    // recording being viewed, the group whose consensus route is drawn, the
+    // route's excluded activities, its custom name, the section's excluded
+    // activities. Each effect reads for the current id and sets what it read.
+    files: [
+      // Escaped, because the brackets are glob character classes: an unescaped
+      // `[id].tsx` matches neither the file nor anything else, and naming the
+      // directory would scope `index.tsx` off with it.
+      'src/app/recordings/\\[id\\].tsx',
+      'src/features/routes/hooks/useEngine.ts',
+      'src/features/routes/hooks/useExcludedActivities.ts',
+      'src/features/routes/hooks/useRouteRenaming.ts',
+      'src/features/routes/hooks/useSectionActions.ts',
+    ],
+    rules: { 'react-hooks/set-state-in-effect': 'off' },
+  },
+  {
+    // A read keyed on a refresh signal rather than on render. The map trigger
+    // is bumped by an `activities` subscription, the stream fetch is keyed on
+    // its own `fetchKey` and the activity set, the rescan adopts a detection
+    // that is already running, and the cache sizes are awaited from an async
+    // estimate and re-read on two counts. None of the four has a synchronous
+    // mount value, so an initialiser reaches nothing.
+    files: [
+      'src/features/maps/hooks/useEngineMapActivities.ts',
+      'src/features/routes/hooks/useSectionPerformances.ts',
+      'src/features/routes/hooks/useSectionRescan.ts',
+      'src/features/settings/components/DataCacheSection.tsx',
+    ],
+    rules: { 'react-hooks/set-state-in-effect': 'off' },
+  },
+  {
+    // State that arrives from outside React and has to be mirrored when it
+    // does. The insights tab follows the URL params, the form zone chart
+    // follows a sibling chart's selection, the donation hook waits for the IAP
+    // connection, and `useSyncHealth` mounts before the root layout opens the
+    // engine, so its first read reaches a null handle and the ready nonce is
+    // what brings it back. In each case the effect exists for the arrival, not
+    // for the mount.
+    files: [
+      'src/app/(tabs)/insights.tsx',
+      'src/features/fitness/components/FormZoneChart.tsx',
+      'src/shared/app/useDonation.ts',
+      'src/shared/native/useSyncHealth.ts',
+    ],
+    rules: { 'react-hooks/set-state-in-effect': 'off' },
+  },
+  {
+    // Render instrumentation. A render counter incremented in render, and the
+    // `perfEndRef.current = logScreenRender(...)` line that starts a screen's
+    // render timer, are both measurements OF the render, so moving them out of
+    // it is the same as deleting the instrument. Both are `PERF_DEBUG`, which
+    // is `__DEV__`.
+    files: [
+      'src/app/\\(tabs\\)/_layout.tsx',
+      'src/app/\\(tabs\\)/insights.tsx',
+      'src/app/\\(tabs\\)/map.tsx',
+      'src/app/activity/\\[id\\].tsx',
+      'src/app/route/\\[id\\].tsx',
+      'src/app/section/\\[id\\].tsx',
+      'src/app/settings.tsx',
+      'src/shared/ui/BottomTabBar.tsx',
+    ],
+    rules: { 'react-hooks/refs': 'off' },
+  },
+  {
+    // `useRef(new Animated.Value(x)).current`, which is the Animated API's own
+    // documented shape for a value that must survive a render without being
+    // recreated. The rule reads the `.current` as a render-time ref read, and
+    // every `.interpolate` and every `panHandlers` spread that closes over one
+    // is reported with it. There is no form that satisfies the rule and still
+    // keeps one animated value per mount. Two files here also hand the map its
+    // initial camera from a ref, `currentCenterRef` and `currentZoomRef`, which
+    // is a mount-only prop read from the last viewport the surface reported.
+    files: [
+      'src/features/maps/components/BaseMapView.tsx',
+      'src/features/maps/components/RegionalMapView.tsx',
+      'src/features/maps/hooks/useMapCamera.ts',
+      'src/features/recording/components/ControlBar.tsx',
+      'src/features/recording/components/RpeSlider.tsx',
+      'src/features/recording/components/UnlockTrack.tsx',
+      'src/features/recording/hooks/useDiscardWithAnimation.ts',
+      'src/features/recording/hooks/useStatusPulseAnimation.ts',
+    ],
+    rules: { 'react-hooks/refs': 'off' },
+  },
+  {
+    // The latest-value ref: `xRef.current = x` in the body, read later from a
+    // gesture handler, a subscription callback or a worklet, none of which is a
+    // render. It exists so the callback does not close over a stale prop and
+    // does not have to be rebuilt when one changes, which is the whole point of
+    // the pattern. The rule reports the assignment as a render-time write and
+    // the handler that reads it as a render-time read.
+    files: [
+      'src/features/fitness/components/FormZoneChart.tsx',
+      'src/features/home/hooks/useStartupData.ts',
+      'src/features/maps/components/regional/useMapHandlers.ts',
+      'src/features/maps/components/regional/useRegionalMapCamera.ts',
+      'src/features/maps/hooks/useSectionAutoToggle.ts',
+      'src/features/routes/hooks/useElevationBackfill.ts',
+      'src/features/stats/components/SeasonComparison.tsx',
+      'src/shared/charts/useChartGestures.ts',
+      'src/shared/native/useEngineSubscription.ts',
+    ],
+    rules: { 'react-hooks/refs': 'off' },
+  },
+  {
+    // Lazy tab mounting. The visited set is added to during render on purpose,
+    // because the JSX below it decides in the same pass whether a tab has ever
+    // been shown and therefore whether to mount it. A set written after render
+    // would mount every tab one render late.
+    files: ['src/shared/ui/SwipeableTabs.tsx'],
+    rules: { 'react-hooks/refs': 'off' },
+  },
+  {
+    // A false positive on the `ref` prop. `editable.inputRef` is passed to a
+    // `TextInput`'s `ref`, which is React handing the ref to the host component
+    // rather than anybody reading `.current`, and the rule then reports every
+    // other field of the same `editable` object read in that JSX block.
+    files: ['src/shared/ui/DetailHero.tsx'],
+    rules: { 'react-hooks/refs': 'off' },
   },
   {
     // The console's home. `debug` wraps it and `renderTimer` is the dev

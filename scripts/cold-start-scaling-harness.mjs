@@ -20,12 +20,33 @@
 //   node scripts/cold-start-scaling-harness.mjs --n 50,200
 //   APP_ID=com.veloq.app.dev SETTLE_MS=120000 node scripts/cold-start-scaling-harness.mjs
 
-import { execSync, spawn } from 'node:child_process';
+import { execSync, spawn, spawnSync } from 'node:child_process';
 import { writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+
+// One measurement at a time against one handset. `docket start` locks the item
+// and not the device, so a second session clearing app data or relaunching
+// mid-run lands in this run's peak RSS (B1034). Re-exec through the lock
+// unless it is already held.
+if (!process.env.VELOQ_DEVICE_LOCK_HELD) {
+  const lock = join(SCRIPT_DIR, 'with-device-lock.sh');
+  const relock = spawnSync(
+    lock,
+    [process.execPath, fileURLToPath(import.meta.url), ...process.argv.slice(2)],
+    { stdio: 'inherit' }
+  );
+  // Same reason as the bundle step: a lock script that is missing, or that has
+  // lost its mode bit in a fresh worktree, would otherwise end a measurement
+  // run with no output and nothing to read.
+  if (relock.error) {
+    console.error(`cold-start-scaling-harness: could not run ${lock}: ${relock.error.message}`);
+    process.exit(1);
+  }
+  process.exit(relock.status ?? 1);
+}
 const CSV_PATH = join(SCRIPT_DIR, '.cold-start-baseline.csv');
 
 const APP_ID = process.env.APP_ID || 'com.veloq.app.dev';

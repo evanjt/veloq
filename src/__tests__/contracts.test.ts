@@ -29,7 +29,7 @@ import type { RawStreamItem } from '@/types';
 jest.mock('veloqrs', () => require('__shared__/veloqrsStub'));
 
 // Import after mock is set up
-const { toActivityMetrics } = require('@/features/activity/lib/activityMetrics');
+const { toActivityMetrics } = require('@/shared/activity/activityMetrics');
 
 // ============================================================================
 // FIXTURES - stable test activities from demo data
@@ -215,11 +215,11 @@ describe('Data Pipeline', () => {
   });
 
   // Test 10: toActivityMetrics date and zone fields
-  it('toActivityMetrics → date is correct unix BigInt, zone times are JSON strings', () => {
+  it('toActivityMetrics → date is a correct unix second, zone times are JSON strings', () => {
     const metrics = toActivityMetrics(RIDE);
 
     // The zoneless wall clock is stamped as UTC, so this holds in any device zone.
-    expect(metrics.date).toBe(BigInt(Date.UTC(2026, 0, 15, 8, 30, 0) / 1000));
+    expect(metrics.date).toBe(Date.UTC(2026, 0, 15, 8, 30, 0) / 1000);
 
     // Zone times should be number arrays
     expect(metrics.powerZoneTimes).toEqual([600, 1800, 1500, 900, 600]);
@@ -293,7 +293,7 @@ describe('Resilience', () => {
 
     expect(metrics.activityId).toBe('minimal-1');
     expect(metrics.name).toBe('Test');
-    expect(typeof metrics.date).toBe('bigint');
+    expect(typeof metrics.date).toBe('number');
     expect(metrics.distance).toBe(0);
     expect(metrics.movingTime).toBe(0);
     expect(metrics.elevationGain).toBe(0);
@@ -341,7 +341,7 @@ describe('Zero-distance activity contract', () => {
     expect(metrics.activityId).toBe('contract-zero');
     expect(metrics.distance).toBe(0);
     expect(metrics.movingTime).toBe(3600);
-    expect(typeof metrics.date).toBe('bigint');
+    expect(typeof metrics.date).toBe('number');
   });
 });
 

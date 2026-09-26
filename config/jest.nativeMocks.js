@@ -85,6 +85,22 @@ jest.mock("react-native-webview", () => ({
   })),
 }));
 
+// In-app purchases reach the graph of anything that touches the `@/shared/app`
+// barrel, which `Shimmer` does for `useTheme`, so every suite rendering a
+// shimmer loads the native NitroModules binding and fails to start. The stub
+// reports a store that is not connected, which is what `useDonation` treats as
+// "tipping unavailable".
+jest.mock("react-native-iap", () => ({
+  useIAP: () => ({
+    connected: false,
+    products: [],
+    fetchProducts: jest.fn().mockResolvedValue(undefined),
+    requestPurchase: jest.fn().mockResolvedValue(undefined),
+    finishTransaction: jest.fn().mockResolvedValue(undefined),
+  }),
+  ErrorCode: { UserCancelled: "user-cancelled" },
+}));
+
 jest.mock("@shopify/react-native-skia", () => {
   const Canvas = mockView("Canvas", "skia-canvas");
   return {
@@ -99,6 +115,7 @@ jest.mock("@shopify/react-native-skia", () => {
     LinearGradient: mockView("LinearGradient", "skia-linear-gradient"),
     Paint: mockView("Paint", "skia-paint"),
     vec: (x, y) => ({ x, y }),
+    Picture: mockView("Picture", "skia-picture"),
     Skia: {
       Path: {
         Make: () => ({
@@ -110,6 +127,27 @@ jest.mock("@shopify/react-native-skia", () => {
         MakeFromSVGString: () => null,
       },
       Color: (value) => value,
+      // A chart that draws its grid as one recorded picture rather than as
+      // nodes still has to record something for the render to complete.
+      PictureRecorder: () => ({
+        beginRecording: () => ({
+          drawRect: jest.fn(),
+          drawRRect: jest.fn(),
+          drawCircle: jest.fn(),
+          drawLine: jest.fn(),
+          drawText: jest.fn(),
+          drawPath: jest.fn(),
+        }),
+        finishRecordingAsPicture: () => ({}),
+      }),
+      XYWHRect: (x, y, width, height) => ({ x, y, width, height }),
+      RRectXY: (rect, rx, ry) => ({ rect, rx, ry }),
+      Paint: () => ({
+        setColor: jest.fn(),
+        setAntiAlias: jest.fn(),
+        setStrokeWidth: jest.fn(),
+        setStyle: jest.fn(),
+      }),
     },
     useFont: () => null,
     matchFont: () => null,

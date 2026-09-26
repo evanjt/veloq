@@ -366,6 +366,14 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
   'StrengthManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'SyncManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
 
+  // Built for a caller that is not TypeScript. The push handler this exists
+  // for runs in Kotlin, and on iOS in Swift, with no JS runtime alive: it
+  // holds an activity id, fetches the track, stores it and indexes it in one
+  // blocking call, because it has no run loop to poll the batch path's global
+  // result slot on. Delete it if that handler is never written.
+  fetchAndIndexActivity:
+    'called from the native push handler, which runs with no JS runtime, not from TypeScript',
+
   // The basemap tile store. Reached by the offline map work rather than a
   // screen, so none of it has a caller here yet.
   'BasemapManager.setPath': 'the basemap tile store, reached from the offline map work rather than a screen',
@@ -376,6 +384,8 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
   'BasemapManager.clearTiles': 'the basemap tile store, the whole-store clear',
   'BasemapManager.clearSourceTiles': 'the basemap tile store, the per-source clear',
   'BasemapManager.evictTo': 'the basemap tile store, the budget eviction',
+  'BasemapManager.flush':
+    'written back when the app backgrounds, through a lazy require the scan does not follow',
   'BasemapManager.setSourceTemplate':
     'handed each source\'s upstream template at style load, through a lazy require the scan does not follow',
   'BasemapManager.getOrFetchTile':
@@ -389,10 +399,7 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
     'reached through a dynamic property off the native module, so no static call exists to find',
   // The engine can answer what shape a week's load had; no screen asks yet,
   // and the surface that would draw it is its own item.
-  'FitnessManager.getWeekLoadShape': 'the week-shape reading has no surface yet',
 
-  'SettingsManager.clearUserProfileCaches':
-    'called through a cast to an inline optional-method type, deliberately, so there is no typed receiver to read',
   'SectionManager.getNearPoint':
     'the point query a live recording asks the catalogue, and the recording screen that would call it is frozen',
 
@@ -438,4 +445,55 @@ export function clientMethodReach(
     }
   }
   return reach;
+}
+
+/**
+ * Which part of the app a caller file belongs to.
+ *
+ * The migration moves one screen at a time, so the unit a ceiling is kept per
+ * is the feature the screen lives in. `src/app` is the router's own files and
+ * `src/shared` the cross-feature ones; both hold engine calls and both shrink
+ * the same way. Anything outside `src/` is the engine layer and is not an
+ * area: a delegate reaching the boundary is the layer doing its job.
+ */
+export function areaOf(file: string): string | null {
+  const path = normalise(file);
+  const feature = path.match(/^src\/features\/([^/]+)\//);
+  if (feature) return `features/${feature[1]}`;
+  if (path.startsWith('src/app/')) return 'app';
+  if (path.startsWith('src/shared/')) return 'shared';
+  if (path.startsWith('src/')) return 'src';
+  return null;
+}
+
+/** One area's reach: the exports its files name, sorted. */
+export type AreaSurface = Record<string, string[]>;
+
+/**
+ * Which areas reach further than they are allowed to, and by which export.
+ *
+ * A ratchet, so an area that reaches fewer exports than its ceiling lists is
+ * not a failure: a migration lands, the number falls, and the ceiling is
+ * lowered in the same commit. What is refused is an export an area did not
+ * reach before, because that is the ground a sweep took being given back.
+ *
+ * An area with no ceiling at all is refused too. A new feature that talks to
+ * the engine directly has to say so, or the file it should appear in is the
+ * one place nobody looks.
+ */
+export function surfaceOverCeiling(
+  surface: AreaSurface,
+  ceilings: AreaSurface
+): { area: string; added: string[] }[] {
+  const over: { area: string; added: string[] }[] = [];
+  for (const area of Object.keys(surface).sort()) {
+    const allowed = ceilings[area];
+    if (allowed === undefined) {
+      over.push({ area, added: [...surface[area]].sort() });
+      continue;
+    }
+    const added = surface[area].filter((key) => !allowed.includes(key)).sort();
+    if (added.length > 0) over.push({ area, added });
+  }
+  return over;
 }

@@ -1,0 +1,54 @@
+{
+  "//": "getGpsTrack, getActivityBody, getActivityBodies, getIntervalBody and getStreamBody are read outside the screen reads on purpose: a track and a stored body are large and belong on the path that needs them, not on every mount. The engine's doc comment on activity_detail_data carries the measurement.",
+  "app": [
+    "VeloqEngine.clear",
+    "VeloqEngine.getActivityCount",
+    "VeloqEngine.initOutcome",
+    "VeloqEngine.launchData"
+  ],
+  "features/auth": [
+    "VeloqEngine.clear",
+    "VeloqEngine.getActivityCount",
+    "validateCredentials"
+  ],
+  "features/insights": [
+    "getDownloadProgress",
+    "startFetchAndStore"
+  ],
+  "features/maps": [
+    "startFetchAndStore"
+  ],
+  "features/routes": [
+    "VeloqEngine.clear",
+    "VeloqEngine.getActivitiesNeedingTimeStreams",
+    "VeloqEngine.getActivityCount",
+    "VeloqEngine.getStats",
+    "VeloqEngine.markForRecomputation",
+    "cancelFetchAndStore",
+    "startFetchAndStore",
+    "takeFetchAndStoreResult"
+  ],
+  "features/settings": [
+    "VeloqEngine.bulkExportProgress",
+    "VeloqEngine.getActivityCount",
+    "VeloqEngine.getBackupMetadata",
+    "VeloqEngine.getStats",
+    "VeloqEngine.runBackup",
+    "VeloqEngine.runBulkExport",
+    "cancelDetectorCutover",
+    "pauseElevationBackfill",
+    "resumeElevationBackfill",
+    "startStreamBackfill",
+    "stopStreamBackfill",
+    "takeQuarantineReport"
+  ],
+  "shared": [
+    "VeloqEngine.clear",
+    "VeloqEngine.create",
+    "VeloqEngine.getActivityCount",
+    "VeloqEngine.runClearDerived",
+    "VeloqEngine.runClearRoutesAndSections",
+    "VeloqEngine.setNameTranslations",
+    "setNetworkOnline"
+  ]
+}

@@ -4,55 +4,28 @@
 // files this was written for had drifted by 30 to 200 per cent before anyone
 // noticed. Name the symbol instead, or say nothing.
 
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { indexedSources, refuseEmptyListing } from './lib/indexedSources.mjs';
 
 const COMMENT = /^\s*(\*|\/\/)/;
 const CITATION = /\b(lines? \d+(\s*[-–]\s*\d+)?|\d+ lines)\b/i;
 
-// `cwd` does not decide which repository git reads. The pre-commit hook exports
-// GIT_DIR and GIT_INDEX_FILE, and those win, so a guard pointed at a fixture
-// with --root would list the repository's own files instead. Drop them.
-const GIT_ENV = (() => {
-  const env = { ...process.env };
-  for (const key of [
-    'GIT_DIR',
-    'GIT_INDEX_FILE',
-    'GIT_WORK_TREE',
-    'GIT_OBJECT_DIRECTORY',
-    'GIT_COMMON_DIR',
-    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-    'GIT_PREFIX',
-    'GIT_CEILING_DIRECTORIES',
-  ]) {
-    delete env[key];
-  }
-  return env;
-})();
-
 const rootFlag = process.argv.indexOf('--root');
 const root = rootFlag === -1 ? process.cwd() : process.argv[rootFlag + 1];
 
+// Out of the index and not off the disk: this runs in the one checkout every
+// worktree merges through, so a working copy here is whatever session has a
+// file open rather than what anyone is committing (`B1070`).
 function sources() {
-  const out = execFileSync('git', ['ls-files', '-z', 'src'], {
-    cwd: root,
-    env: GIT_ENV,
-    encoding: 'utf8',
-  });
-  return out
-    .split('\0')
-    .filter((f) => /\.tsx?$/.test(f) && !f.includes('__tests__'));
+  const tracked = indexedSources(root, ['src']);
+  refuseEmptyListing(tracked, 'Comment line-reference guard');
+  return [...tracked].filter(
+    ([file]) => /\.tsx?$/.test(file) && !file.includes('__tests__')
+  );
 }
 
 const failures = [];
-for (const file of sources()) {
-  let text;
-  try {
-    text = readFileSync(join(root, file), 'utf8');
-  } catch {
-    continue;
-  }
+for (const [file, bytes] of sources()) {
+  const text = bytes.toString('utf8');
   text.split('\n').forEach((line, i) => {
     if (!COMMENT.test(line) || !CITATION.test(line)) return;
     failures.push(`${file}:${i + 1}  ${line.trim()}`);

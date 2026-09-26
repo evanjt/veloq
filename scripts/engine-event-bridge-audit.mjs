@@ -14,7 +14,7 @@
 //      the STORE_INITIALISERS table, so a restored preference
 //      key isn't silently left un-hydrated.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,10 +29,10 @@ const rel = (p) => relative(ROOT, p);
 
 function walk(dir) {
   const out = [];
-  for (const name of readdirSync(dir)) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const { name } = entry;
     const full = join(dir, name);
-    const st = statSync(full);
-    if (st.isDirectory()) out.push(...walk(full));
+    if (entry.isDirectory()) out.push(...walk(full));
     else if (/\.tsx?$/.test(name)) out.push(full);
   }
   return out;

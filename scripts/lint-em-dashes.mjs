@@ -7,9 +7,7 @@
 //
 // The tracematch submodule has its own index and is not covered here.
 
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { indexedSources, refuseEmptyListing } from './lib/indexedSources.mjs';
 
 // Built from its code point so this file is not its own first offender.
 const EM_DASH = String.fromCharCode(0x2014);
@@ -18,6 +16,10 @@ const EM_DASH = String.fromCharCode(0x2014);
 const ALLOWED = [
   // The guard's own fixtures have to hold the character it looks for.
   'src/__tests__/bugs/emDashLintExitCode.test.ts',
+  'src/__tests__/bugs/guardsReadTheIndex.test.ts',
+  // The fixer's own fixture, whose assertion is that it turns this into a
+  // comma. Without the character there is nothing for the fixer to fix.
+  'src/__tests__/scripts/bundleFixesGenerated.test.ts',
   // Migration bytes are checksummed, not prose. Editing a comment inside one
   // changes its sha and splits the installed base, which is what
   // `migration_checksums.rs` refuses. Style never outranks that.
@@ -27,37 +29,8 @@ const ALLOWED = [
   'src/features/maps/assets/maplibreRenderer.generated.ts',
 ];
 
-// `cwd` does not decide which repository git reads. The pre-commit hook exports
-// GIT_DIR and GIT_INDEX_FILE, and those win, so a guard pointed at a fixture
-// with --root would list the repository's own files instead. Drop them.
-const GIT_ENV = (() => {
-  const env = { ...process.env };
-  for (const key of [
-    'GIT_DIR',
-    'GIT_INDEX_FILE',
-    'GIT_WORK_TREE',
-    'GIT_OBJECT_DIRECTORY',
-    'GIT_COMMON_DIR',
-    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-    'GIT_PREFIX',
-    'GIT_CEILING_DIRECTORIES',
-  ]) {
-    delete env[key];
-  }
-  return env;
-})();
-
 const rootFlag = process.argv.indexOf('--root');
 const root = rootFlag === -1 ? process.cwd() : process.argv[rootFlag + 1];
-
-function tracked() {
-  const out = execFileSync('git', ['ls-files', '-z'], {
-    cwd: root,
-    env: GIT_ENV,
-    encoding: 'utf8',
-  });
-  return out.split('\0').filter(Boolean);
-}
 
 function isText(bytes) {
   return !bytes.includes(0);
@@ -66,15 +39,14 @@ function isText(bytes) {
 const failures = [];
 let total = 0;
 
-for (const file of tracked()) {
-  if (ALLOWED.some((prefix) => file.startsWith(prefix))) continue;
+// The bytes come out of the index and not off the disk: this runs in the one
+// checkout every worktree merges through, so a working copy here is whatever
+// session has a file open rather than what anyone is committing (`B1070`).
+const tracked = indexedSources(root);
+refuseEmptyListing(tracked, 'Em dash guard');
 
-  let bytes;
-  try {
-    bytes = readFileSync(join(root, file));
-  } catch {
-    continue; // A submodule entry, or a path the index still lists after a move.
-  }
+for (const [file, bytes] of tracked) {
+  if (ALLOWED.some((prefix) => file.startsWith(prefix))) continue;
   if (!isText(bytes)) continue;
 
   const lines = bytes.toString('utf8').split('\n');

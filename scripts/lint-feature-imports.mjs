@@ -16,7 +16,7 @@
 // which is the barrel and the point; a feature reaching into itself; and tests,
 // which reach wherever the thing they test lives.
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
@@ -43,9 +43,10 @@ const APP_OWNER = '~app';
 function walk(dir) {
   const out = [];
   if (!existsSync(dir)) return out;
-  for (const name of readdirSync(dir)) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const { name } = entry;
     const full = join(dir, name);
-    if (statSync(full).isDirectory()) {
+    if (entry.isDirectory()) {
       if (name === '__tests__' || name === '__mocks__') continue;
       out.push(...walk(full));
       continue;

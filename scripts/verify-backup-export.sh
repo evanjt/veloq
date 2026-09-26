@@ -5,6 +5,15 @@
 # Run after the Maestro backup flow. Requires sqlite3 + adb in PATH.
 set -uo pipefail
 
+# One measurement at a time against one handset: `docket start` locks the item
+# and not the phone, and a second session resetting or relaunching the app
+# mid-run lands in this run's numbers (B1034). Re-exec through the lock unless
+# it is already held, so running this by hand takes it too.
+if [ -z "${VELOQ_DEVICE_LOCK_HELD:-}" ]; then
+  exec "$(dirname "$0")/with-device-lock.sh" "$0" "$@"
+fi
+
+
 PKG="com.veloq.app.dev"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
