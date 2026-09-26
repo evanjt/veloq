@@ -31,7 +31,7 @@ const setAthlete = jest.fn();
 const engine = {
   getAthleteProfile: jest.fn(),
   getSportSettings: jest.fn(),
-  getWellnessBodies: jest.fn(),
+  getWellnessDays: jest.fn(),
   subscribe: jest.fn(() => () => {}),
 };
 
@@ -49,7 +49,7 @@ beforeEach(() => {
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   engine.getAthleteProfile.mockReturnValue(null);
   engine.getSportSettings.mockReturnValue(null);
-  engine.getWellnessBodies.mockReturnValue([]);
+  engine.getWellnessDays.mockReturnValue([]);
   useAuthStore.setState({ isAuthenticated: true, setAthlete });
 });
 
@@ -112,36 +112,43 @@ describe('useSportSettings', () => {
 });
 
 describe('useWellness', () => {
-  it('parses each stored day, keeping fields the typed row drops', async () => {
-    engine.getWellnessBodies.mockReturnValue([
-      JSON.stringify({ id: '2026-07-01', ctl: 60, hrr: 18 }),
-      JSON.stringify({ id: '2026-07-02', ctl: 61, hrvSDNN: 92 }),
+  it('carries each stored day through, in the order the engine gave them', async () => {
+    engine.getWellnessDays.mockReturnValue([
+      { date: '2026-07-01', ctl: 60, sportLoad: [] },
+      { date: '2026-07-02', ctl: 61, sportLoad: [] },
     ]);
 
     const { result } = renderHook(() => useWellness('1m'), { wrapper });
 
     await waitFor(() => expect(result.current.data?.length).toBe(2));
-    expect(result.current.data?.[0].hrr).toBe(18);
-    expect(result.current.data?.[1].hrvSDNN).toBe(92);
+    expect(result.current.data?.map((d) => d.id)).toEqual(['2026-07-01', '2026-07-02']);
+    expect(result.current.data?.[1].ctl).toBe(61);
   });
 
-  it('drops a corrupt day rather than failing the whole range', async () => {
-    engine.getWellnessBodies.mockReturnValue([
-      '{broken',
-      JSON.stringify({ id: '2026-07-02', ctl: 61 }),
+  it('keeps the per-sport loads the daily load bar sums', async () => {
+    engine.getWellnessDays.mockReturnValue([
+      {
+        date: '2026-07-01',
+        ctl: 60,
+        sportLoad: [
+          { sportGroup: 'Ride', load: 63 },
+          { sportGroup: 'Run', load: 28 },
+        ],
+      },
     ]);
 
     const { result } = renderHook(() => useWellness('1m'), { wrapper });
 
     await waitFor(() => expect(result.current.data?.length).toBe(1));
-    expect(result.current.data?.[0].id).toBe('2026-07-02');
+    const total = result.current.data?.[0].sportInfo?.reduce((sum, s) => sum + (s.load ?? 0), 0);
+    expect(total).toBe(91);
   });
 
   it('asks for the window the range covers', async () => {
     const { result } = renderHook(() => useWellness('7d'), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    const [oldest, newest] = engine.getWellnessBodies.mock.calls[0];
+    const [oldest, newest] = engine.getWellnessDays.mock.calls[0];
     expect(oldest).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(newest).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(oldest < newest).toBe(true);
@@ -150,13 +157,13 @@ describe('useWellness', () => {
 
 describe('useWellnessForDate', () => {
   it('returns the single day stored for that date', async () => {
-    engine.getWellnessBodies.mockReturnValue([JSON.stringify({ id: '2026-07-04', ctl: 62 })]);
+    engine.getWellnessDays.mockReturnValue([{ date: '2026-07-04', ctl: 62, sportLoad: [] }]);
 
     const { result } = renderHook(() => useWellnessForDate('2026-07-04'), { wrapper });
 
     await waitFor(() => expect(result.current.data).not.toBeUndefined());
     expect(result.current.data?.ctl).toBe(62);
-    expect(engine.getWellnessBodies).toHaveBeenCalledWith('2026-07-04', '2026-07-04');
+    expect(engine.getWellnessDays).toHaveBeenCalledWith('2026-07-04', '2026-07-04');
   });
 
   it('returns null for a date with no stored day', async () => {

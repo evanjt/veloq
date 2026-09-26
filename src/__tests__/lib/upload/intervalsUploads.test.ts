@@ -125,7 +125,7 @@ describe('createManualActivity', () => {
       activityType: 'WeightTraining',
       name: 'Gym',
       startDateLocal: '2026-08-05T18:00:00',
-      elapsedTime: 3600n,
+      elapsedTime: 3600,
       movingTime: undefined,
       distance: undefined,
       totalElevationGain: undefined,
@@ -142,7 +142,7 @@ describe('createManualActivity', () => {
     const [sent] = mockCreateManualActivity.mock.calls[0];
     expect(sent.trainer).toBe(true);
     expect(sent.commute).toBe(false);
-    expect(sent.movingTime).toBe(3000n);
+    expect(sent.movingTime).toBe(3000);
   });
 
   it('throws with the outcome attached when the entry is refused', async () => {

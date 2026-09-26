@@ -5,7 +5,9 @@ import {
 } from '@/features/insights/lib/generateInsights';
 import { consolidateInsights } from '@/features/insights/lib/computeInsightsData';
 import type { Insight } from '@/types';
+import type { PeriodComparison, PeriodStats } from '@/features/insights/types';
 import { getEngine } from '@/shared/native/engine';
+import type { HrvTrend, StalePrOpportunity } from 'veloqrs';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(() => null),
@@ -13,30 +15,20 @@ jest.mock('@/shared/native/engine', () => ({
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
-/** The HRV verdict is Rust's, so the generator only ever sees this shape. */
-const stubHrvTrend = (
-  trend: {
-    label: string;
-    avg: number;
-    latest: number;
-    dataPoints: number;
-    sparkline: number[];
-  } | null
-) => {
-  mockGetEngine.mockReturnValue({
-    computeHrvTrend: () => trend,
-  } as unknown as ReturnType<typeof getEngine>);
-};
-
 /**
- * The stale-PR filter is the engine's, so a generator test hands it the rows
- * the engine would have returned rather than the raw sections it filters.
+ * The HRV verdict and the stale-PR filter are both the engine's, and both ride
+ * the insights bundle. A generator test states what the bundle carried rather
+ * than stubbing a call the pipeline no longer makes.
  */
-const stubStalePrRows = (rows: unknown[]) => {
-  mockGetEngine.mockReturnValue({
-    findStalePrOpportunities: () => rows,
-  } as unknown as ReturnType<typeof getEngine>);
-};
+const withHrv = (input: InsightInputData, trend: HrvTrend | null): InsightInputData => ({
+  ...input,
+  hrvTrend: trend,
+});
+
+const withStalePrs = (input: InsightInputData, rows: StalePrOpportunity[]): InsightInputData => ({
+  ...input,
+  stalePrOpportunities: rows,
+});
 
 // Mock translation function - returns key with interpolated params
 const mockT = (key: string, params?: Record<string, string | number>): string => {
@@ -46,6 +38,34 @@ const mockT = (key: string, params?: Record<string, string | number>): string =>
     .join(', ');
   return `${key} {${paramStr}}`;
 };
+
+/**
+ * The fixture's weeks plus the comparisons `insights_data` carries for them.
+ *
+ * The ratio and the metric are the engine's, so a generator fixture states its
+ * two weeks and this fills the engine half on the same terms `screens.rs` uses.
+ */
+function withComparisons(input: InsightInputData): InsightInputData {
+  const compare = (current: PeriodStats, previous: PeriodStats): PeriodComparison | null => {
+    const metric = previous.totalTss > 0 && current.totalTss > 0 ? 'tss' : 'duration';
+    const cur = metric === 'tss' ? current.totalTss : current.totalDuration;
+    const prev = metric === 'tss' ? previous.totalTss : previous.totalDuration;
+    if (prev <= 0 || cur <= 0) return null;
+    return { metric, current: cur, previous: prev, ratio: cur / prev - 1 };
+  };
+  const { currentPeriod, previousPeriod, chronicPeriod } = input;
+  return {
+    ...input,
+    weekOverWeek:
+      currentPeriod && previousPeriod && currentPeriod.count > 0
+        ? compare(currentPeriod, previousPeriod)
+        : null,
+    weekAgainstChronic:
+      previousPeriod && chronicPeriod && previousPeriod.count > 0
+        ? compare(previousPeriod, chronicPeriod)
+        : null,
+  };
+}
 
 const EMPTY_INPUT: InsightInputData = {
   currentPeriod: null,
@@ -74,7 +94,7 @@ describe('generateInsights', () => {
 
     it('previous period with zero duration does not crash', () => {
       const result = generateInsights(
-        {
+        withComparisons({
           ...EMPTY_INPUT,
           currentPeriod: {
             count: 5,
@@ -88,7 +108,7 @@ describe('generateInsights', () => {
             totalDistance: 0,
             totalTss: 0,
           },
-        },
+        }),
         mockT
       );
       expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
@@ -159,6 +179,7 @@ describe('generateInsights', () => {
   describe('HRV trend', () => {
     const hrvTrend = (label: string, sparkline: number[]) => ({
       label,
+      reason: 'halves',
       avg: sparkline.reduce((a, b) => a + b, 0) / sparkline.length,
       latest: sparkline[sparkline.length - 1],
       dataPoints: sparkline.length,
@@ -170,44 +191,50 @@ describe('generateInsights', () => {
     });
 
     it('generates HRV trend from the engine verdict', () => {
-      stubHrvTrend(hrvTrend('trendingUp', [50, 52, 55, 58, 60]));
-      const result = generateInsights(EMPTY_INPUT, mockT);
+      const result = generateInsights(
+        withHrv(EMPTY_INPUT, hrvTrend('trendingUp', [50, 52, 55, 58, 60])),
+        mockT
+      );
       const hrv = result.find((i) => i.id === 'hrv_trend');
       expect(hrv!.category).toBe('hrv_trend');
       expect(hrv!.priority).toBe(2);
     });
 
     it('generates nothing when the engine withholds a verdict', () => {
-      stubHrvTrend(null);
-      const result = generateInsights(EMPTY_INPUT, mockT);
+      const result = generateInsights(withHrv(EMPTY_INPUT, null), mockT);
       expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
     });
 
-    it('generates nothing when there is no engine at all', () => {
-      mockGetEngine.mockReturnValue(null);
+    it('generates nothing when the bundle carried no verdict at all', () => {
       const result = generateInsights(EMPTY_INPUT, mockT);
       expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
     });
 
     it('titles each verdict the engine can return', () => {
       for (const label of ['trendingUp', 'trendingDown', 'stable']) {
-        stubHrvTrend(hrvTrend(label, [50, 52, 55, 58, 60]));
-        const result = generateInsights(EMPTY_INPUT, mockT);
+        const result = generateInsights(
+          withHrv(EMPTY_INPUT, hrvTrend(label, [50, 52, 55, 58, 60])),
+          mockT
+        );
         const hrv = result.find((i) => i.id === 'hrv_trend');
         expect(hrv!.title).toContain(label);
       }
     });
 
     it('includes HRV sparkline in supporting data', () => {
-      stubHrvTrend(hrvTrend('trendingUp', [50, 52, 55, 58, 60]));
-      const result = generateInsights(EMPTY_INPUT, mockT);
+      const result = generateInsights(
+        withHrv(EMPTY_INPUT, hrvTrend('trendingUp', [50, 52, 55, 58, 60])),
+        mockT
+      );
       const hrv = result.find((i) => i.id === 'hrv_trend');
       expect(hrv!.supportingData?.sparklineData).toEqual([50, 52, 55, 58, 60]);
     });
 
     it('includes methodology with Kiviniemi reference in APA format', () => {
-      stubHrvTrend(hrvTrend('trendingUp', [50, 52, 55, 58, 60]));
-      const result = generateInsights(EMPTY_INPUT, mockT);
+      const result = generateInsights(
+        withHrv(EMPTY_INPUT, hrvTrend('trendingUp', [50, 52, 55, 58, 60])),
+        mockT
+      );
       const hrv = result.find((i) => i.id === 'hrv_trend');
       expect(hrv!.methodology?.description).toContain('insights.methodology.hrvDescription');
     });
@@ -227,6 +254,7 @@ describe('generateInsights', () => {
             latestDate: BigInt(1000),
             previousFtp: 250,
             previousDate: BigInt(500),
+            deltaWatts: 10,
           },
         },
         mockT
@@ -262,6 +290,8 @@ describe('generateInsights', () => {
             latestDate: BigInt(1000),
             previousPace: 1000 / 300,
             previousDate: BigInt(500),
+            gainPercent: (20 / 280) * 100,
+            deltaSeconds: 20,
           },
         },
         mockT
@@ -295,6 +325,8 @@ describe('generateInsights', () => {
             latestDate: BigInt(1000),
             previousPace: 1.0,
             previousDate: BigInt(500),
+            gainPercent: 10,
+            deltaSeconds: 100 - 100 / 1.1,
           },
         },
         mockT
@@ -309,9 +341,58 @@ describe('generateInsights', () => {
   // ============================================================
 
   describe('period comparison', () => {
-    it('detects load increase >15% (uses TSS when available)', () => {
+    it('reports the engine ratio rather than dividing the two weeks again', () => {
+      // The weeks say +25%, the engine says +60%. A generator still doing the
+      // divide would round 25 and read the metric off the totals.
       const result = generateInsights(
         {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 250 },
+          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 200 },
+          weekOverWeek: { metric: 'tss', current: 320, previous: 200, ratio: 0.6 },
+          weekAgainstChronic: null,
+        },
+        mockT
+      );
+      const vol = result.find((i) => i.id === 'period_comparison-volume');
+      expect(vol!.title).toContain('percent: 60');
+      expect(vol!.supportingData!.comparisonData!.change.value).toBe('+60%');
+    });
+
+    it('says nothing when the engine took no comparison', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 250 },
+          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 200 },
+          weekOverWeek: null,
+          weekAgainstChronic: null,
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+    });
+
+    it('reads last week against the chronic average off the engine too', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 200 },
+          chronicPeriod: { count: 3, totalDuration: 4000, totalDistance: 60000, totalTss: 160 },
+          weekOverWeek: null,
+          weekAgainstChronic: { metric: 'tss', current: 200, previous: 100, ratio: 1 },
+        },
+        mockT
+      );
+      const vol = result.find((i) => i.id === 'period_comparison-volume');
+      expect(vol!.title).toContain('percent: 100');
+      expect(vol!.supportingData!.comparisonData!.previous.value).toBe(100);
+    });
+
+    it('detects load increase >15% (uses TSS when available)', () => {
+      const result = generateInsights(
+        withComparisons({
           ...EMPTY_INPUT,
           currentPeriod: {
             count: 5,
@@ -325,7 +406,7 @@ describe('generateInsights', () => {
             totalDistance: 80000,
             totalTss: 150,
           },
-        },
+        }),
         mockT
       );
       const vol = result.find((i) => i.id === 'period_comparison-volume');
@@ -335,7 +416,7 @@ describe('generateInsights', () => {
 
     it('detects load decrease >15% (uses TSS when available)', () => {
       const result = generateInsights(
-        {
+        withComparisons({
           ...EMPTY_INPUT,
           currentPeriod: {
             count: 2,
@@ -349,7 +430,7 @@ describe('generateInsights', () => {
             totalDistance: 100000,
             totalTss: 200,
           },
-        },
+        }),
         mockT
       );
       const vol = result.find((i) => i.id === 'period_comparison-volume');
@@ -359,7 +440,7 @@ describe('generateInsights', () => {
 
     it('no insight when load change <15%', () => {
       const result = generateInsights(
-        {
+        withComparisons({
           ...EMPTY_INPUT,
           currentPeriod: {
             count: 5,
@@ -373,7 +454,7 @@ describe('generateInsights', () => {
             totalDistance: 100000,
             totalTss: 200,
           },
-        },
+        }),
         mockT
       );
       expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
@@ -381,7 +462,7 @@ describe('generateInsights', () => {
 
     it('falls back to duration when TSS is zero', () => {
       const result = generateInsights(
-        {
+        withComparisons({
           ...EMPTY_INPUT,
           currentPeriod: {
             count: 5,
@@ -395,7 +476,7 @@ describe('generateInsights', () => {
             totalDistance: 80000,
             totalTss: 0,
           },
-        },
+        }),
         mockT
       );
       const vol = result.find((i) => i.id === 'period_comparison-volume');
@@ -408,7 +489,7 @@ describe('generateInsights', () => {
 
     it('change context is always neutral (no warning)', () => {
       const result = generateInsights(
-        {
+        withComparisons({
           ...EMPTY_INPUT,
           currentPeriod: {
             count: 5,
@@ -422,7 +503,7 @@ describe('generateInsights', () => {
             totalDistance: 80000,
             totalTss: 200,
           },
-        },
+        }),
         mockT
       );
       const vol = result.find((i) => i.id === 'period_comparison-volume');
@@ -432,7 +513,7 @@ describe('generateInsights', () => {
 
     it('suppresses period comparison when current week has zero activities', () => {
       const result = generateInsights(
-        {
+        withComparisons({
           ...EMPTY_INPUT,
           currentPeriod: {
             count: 0,
@@ -446,7 +527,7 @@ describe('generateInsights', () => {
             totalDistance: 100000,
             totalTss: 200,
           },
-        },
+        }),
         mockT
       );
       expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
@@ -539,77 +620,71 @@ describe('generateInsights', () => {
 
   describe('stale PR grouping', () => {
     it('formats grouped stale PR subtitles with sport-appropriate units', () => {
-      stubStalePrRows([
-        {
-          sectionId: 'ride-1',
-          sectionName: 'North Climb',
-          bestTimeSecs: 590,
-          daysSinceLast: 60,
-          traversalCount: 8,
-          fitnessMetric: 'power',
-          currentValue: 270,
-          previousValue: 250,
-          gainPercent: 8,
-          unit: 'W',
-        },
-        {
-          sectionId: 'swim-1',
-          sectionName: 'Pool Threshold Set',
-          bestTimeSecs: 360,
-          daysSinceLast: 75,
-          traversalCount: 5,
-          fitnessMetric: 'pace',
-          currentValue: 1.1,
-          previousValue: 1.0,
-          gainPercent: 10,
-          unit: '/100m',
-        },
-      ]);
       const result = generateInsights(
-        {
-          ...EMPTY_INPUT,
-          ftpTrend: {
-            latestFtp: 270,
-            latestDate: BigInt(1000),
-            previousFtp: 250,
-            previousDate: BigInt(500),
+        withStalePrs(EMPTY_INPUT, [
+          {
+            sectionId: 'ride-1',
+            sectionName: 'North Climb',
+            bestTimeSecs: 590,
+            daysSinceLast: 60,
+            traversalCount: 8,
+            fitnessMetric: 'power',
+            currentValue: 270,
+            previousValue: 250,
+            gainPercent: 8,
+            unit: 'W',
+            sportType: 'Ride',
+            recentEfforts: [],
           },
-          swimPaceTrend: {
-            latestPace: 1.1,
-            latestDate: BigInt(1000),
-            previousPace: 1.0,
-            previousDate: BigInt(500),
+          {
+            sectionId: 'swim-1',
+            sectionName: 'Pool Threshold Set',
+            bestTimeSecs: 360,
+            daysSinceLast: 75,
+            traversalCount: 5,
+            fitnessMetric: 'pace',
+            currentValue: 1.1,
+            previousValue: 1.0,
+            gainPercent: 10,
+            unit: '/100m',
+            sportType: 'Swim',
+            recentEfforts: [],
           },
-          recentPRs: [],
-          sectionTrends: [
-            {
-              sectionId: 'ride-1',
-              sectionName: 'North Climb',
-              trend: 0,
-              medianRecentSecs: 620,
-              bestTimeSecs: 590,
-              traversalCount: 8,
-              daysSinceLast: 60,
-              sportType: 'Ride',
-            },
-            {
-              sectionId: 'swim-1',
-              sectionName: 'Pool Threshold Set',
-              trend: 0,
-              medianRecentSecs: 390,
-              bestTimeSecs: 360,
-              traversalCount: 5,
-              daysSinceLast: 75,
-              sportType: 'Swim',
-            },
-          ],
-        },
+        ]),
         mockT
       );
 
       const stale = result.find((insight) => insight.id === 'stale_pr-group');
       expect(stale!.subtitle).toContain('FTP: 250W → 270W');
       expect(stale!.subtitle).toContain('Swim threshold: 1:40/100m → 1:31/100m');
+    });
+
+    /**
+     * The gate that used to stand here read a TypeScript trend and a non-empty
+     * section list, neither of which the engine's answer depends on.
+     */
+    it('renders what the engine decided without a trend on this side', () => {
+      const result = generateInsights(
+        withStalePrs(EMPTY_INPUT, [
+          {
+            sectionId: 'ride-1',
+            sectionName: 'North Climb',
+            bestTimeSecs: 590,
+            daysSinceLast: 60,
+            traversalCount: 8,
+            fitnessMetric: 'power',
+            currentValue: 270,
+            previousValue: 250,
+            gainPercent: 8,
+            unit: 'W',
+            sportType: 'Ride',
+            recentEfforts: [],
+          },
+        ]),
+        mockT
+      );
+
+      expect(result.find((insight) => insight.id === 'stale_pr-ride-1')).toBeDefined();
     });
   });
 
@@ -620,7 +695,7 @@ describe('generateInsights', () => {
   describe('priority ordering', () => {
     it('sorts by priority ascending', () => {
       const result = generateInsights(
-        {
+        withComparisons({
           ...EMPTY_INPUT,
           recentPRs: [
             { sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 0, traversalCount: 12 },
@@ -630,6 +705,7 @@ describe('generateInsights', () => {
             latestDate: BigInt(1000),
             previousFtp: 250,
             previousDate: BigInt(500),
+            deltaWatts: 10,
           },
           currentPeriod: {
             count: 5,
@@ -646,7 +722,7 @@ describe('generateInsights', () => {
           formTsb: 0,
           formCtl: 50,
           formAtl: 50,
-        },
+        }),
         mockT
       );
 
@@ -660,7 +736,7 @@ describe('generateInsights', () => {
   describe('navigation coverage', () => {
     it('generated insight categories include navigation targets for current detail flows', () => {
       const result = generateInsights(
-        {
+        withComparisons({
           ...EMPTY_INPUT,
           currentPeriod: {
             count: 5,
@@ -692,6 +768,7 @@ describe('generateInsights', () => {
               bestTimeSecs: 300,
               traversalCount: 8,
               sportType: 'Ride',
+              recentEfforts: [],
             },
             {
               sectionId: 's2',
@@ -701,6 +778,7 @@ describe('generateInsights', () => {
               bestTimeSecs: 390,
               traversalCount: 6,
               sportType: 'Ride',
+              recentEfforts: [],
             },
           ],
           allSectionTrends: [
@@ -712,6 +790,7 @@ describe('generateInsights', () => {
               bestTimeSecs: 300,
               traversalCount: 8,
               sportType: 'Ride',
+              recentEfforts: [],
             },
             {
               sectionId: 's2',
@@ -721,12 +800,13 @@ describe('generateInsights', () => {
               bestTimeSecs: 390,
               traversalCount: 6,
               sportType: 'Ride',
+              recentEfforts: [],
             },
           ],
           formTsb: -5,
           formCtl: 60,
           formAtl: 65,
-        },
+        }),
         mockT
       );
 
@@ -767,7 +847,7 @@ describe('generateInsights', () => {
   describe('informational framing', () => {
     it('no insight has alternatives array (removed prescriptive zone comparisons)', () => {
       const result = generateInsights(
-        {
+        withComparisons({
           ...EMPTY_INPUT,
           formTsb: -5,
           formCtl: 50,
@@ -790,7 +870,7 @@ describe('generateInsights', () => {
             totalDistance: 80000,
             totalTss: 200,
           },
-        },
+        }),
         mockT
       );
       for (const insight of result) {
@@ -806,7 +886,7 @@ describe('generateInsights', () => {
   describe('body text', () => {
     it('load insight has body with TSS and duration context', () => {
       const result = generateInsights(
-        {
+        withComparisons({
           ...EMPTY_INPUT,
           currentPeriod: {
             count: 5,
@@ -820,7 +900,7 @@ describe('generateInsights', () => {
             totalDistance: 80000,
             totalTss: 150,
           },
-        },
+        }),
         mockT
       );
       const vol = result.find((i) => i.id === 'period_comparison-volume');
@@ -907,7 +987,7 @@ describe('generateInsights - additional edge cases', () => {
    */
   it('previous period all zeroes does not generate period comparison', () => {
     const result = generateInsights(
-      {
+      withComparisons({
         ...EMPTY_INPUT,
         currentPeriod: {
           count: 3,
@@ -921,7 +1001,7 @@ describe('generateInsights - additional edge cases', () => {
           totalDistance: 0,
           totalTss: 0,
         },
-      },
+      }),
       mockT
     );
     expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
@@ -980,11 +1060,11 @@ describe('generateInsights - additional edge cases', () => {
       totalTss: 200,
     };
     const result = generateInsights(
-      {
+      withComparisons({
         ...EMPTY_INPUT,
         currentPeriod: period,
         previousPeriod: period,
-      },
+      }),
       mockT
     );
     expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
@@ -1035,14 +1115,17 @@ describe('generateInsights - additional edge cases', () => {
 
 describe('generateInsights - boundary conditions', () => {
   it('confidence tracks the day count the engine reports', () => {
-    stubHrvTrend({
-      label: 'trendingUp',
-      avg: 51.6,
-      latest: 60,
-      dataPoints: 5,
-      sparkline: [45, 48, 50, 55, 60],
-    });
-    const result = generateInsights(EMPTY_INPUT, mockT);
+    const result = generateInsights(
+      withHrv(EMPTY_INPUT, {
+        label: 'trendingUp',
+        reason: 'halves',
+        avg: 51.6,
+        latest: 60,
+        dataPoints: 5,
+        sparkline: [45, 48, 50, 55, 60],
+      } as HrvTrend),
+      mockT
+    );
     const hrv = result.find((i) => i.id === 'hrv_trend');
     expect(hrv!.category).toBe('hrv_trend');
     expect(hrv!.confidence).toBeCloseTo(5 / 7, 2);
@@ -1050,14 +1133,17 @@ describe('generateInsights - boundary conditions', () => {
   });
 
   it('the sparkline passes through the engine window untouched', () => {
-    stubHrvTrend({
-      label: 'stable',
-      avg: 49,
-      latest: 51,
-      dataPoints: 5,
-      sparkline: [45, 48, 52, 49, 51],
-    });
-    const result = generateInsights(EMPTY_INPUT, mockT);
+    const result = generateInsights(
+      withHrv(EMPTY_INPUT, {
+        label: 'stable',
+        reason: 'halves',
+        avg: 49,
+        latest: 51,
+        dataPoints: 5,
+        sparkline: [45, 48, 52, 49, 51],
+      } as HrvTrend),
+      mockT
+    );
     const hrv = result.find((i) => i.id === 'hrv_trend');
     expect(hrv!.supportingData?.sparklineData).toEqual([45, 48, 52, 49, 51]);
     mockGetEngine.mockReturnValue(null);
@@ -1068,8 +1154,11 @@ describe('generateInsights - boundary conditions', () => {
    * The minimum threshold is 5W to filter noise from small fluctuations.
    */
   it('FTP improvement below 5W threshold does not generate insight', () => {
-    // 1W is below threshold; 0.4W rounds to 0 delta. Both must be suppressed.
-    for (const latestFtp of [251, 250.4]) {
+    // A step of one watt and a step of none are both under the threshold.
+    for (const [latestFtp, deltaWatts] of [
+      [251, 1],
+      [250, 0],
+    ]) {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -1078,6 +1167,7 @@ describe('generateInsights - boundary conditions', () => {
             latestDate: BigInt(1000),
             previousFtp: 250,
             previousDate: BigInt(500),
+            deltaWatts,
           },
         },
         mockT
@@ -1099,6 +1189,7 @@ describe('generateInsights - boundary conditions', () => {
           latestDate: BigInt(1000),
           previousFtp: 250,
           previousDate: BigInt(500),
+          deltaWatts: 5,
         },
       },
       mockT
@@ -1160,7 +1251,7 @@ describe('generateInsights - boundary conditions', () => {
   it('period comparison below 15% threshold does not trigger', () => {
     for (const totalTss of [109, 110]) {
       const result = generateInsights(
-        {
+        withComparisons({
           ...EMPTY_INPUT,
           currentPeriod: {
             count: 3,
@@ -1174,7 +1265,7 @@ describe('generateInsights - boundary conditions', () => {
             totalDistance: 50000,
             totalTss: 100,
           },
-        },
+        }),
         mockT
       );
       expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
@@ -1187,7 +1278,7 @@ describe('generateInsights - boundary conditions', () => {
    */
   it('period comparison at 16% triggers (above 15% threshold)', () => {
     const result = generateInsights(
-      {
+      withComparisons({
         ...EMPTY_INPUT,
         currentPeriod: {
           count: 3,
@@ -1201,7 +1292,7 @@ describe('generateInsights - boundary conditions', () => {
           totalDistance: 50000,
           totalTss: 100,
         },
-      },
+      }),
       mockT
     );
     const vol = result.find((i) => i.id === 'period_comparison-volume');
@@ -1230,7 +1321,7 @@ describe('consolidateInsights', () => {
       priority,
       title: id,
       icon: 'star',
-      iconColor: '#000',
+      iconTone: 'neutral',
       timestamp: options?.timestamp ?? 0,
       isNew: false,
       navigationTarget: options?.navigationTarget,

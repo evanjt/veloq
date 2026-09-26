@@ -63,14 +63,26 @@ function corridor(over: Record<string, unknown> = {}) {
 
 function engineWith(rows: ReturnType<typeof corridor>[]) {
   const state = { rows };
+  const listeners = new Map<string, Set<() => void>>();
   return {
     state,
+    listeners,
     getNamedCorridors: jest.fn(() => state.rows),
+    // The stub announces the way the client does. `removeNamedCorridor` in
+    // `delegates/sections/mutations.ts` calls `host.notify('sections')` after a
+    // successful removal, so a stub that stays silent would let a hook pass
+    // that only ever re-read through a bump of its own.
     removeNamedCorridor: jest.fn((intentId: string) => {
       state.rows = state.rows.filter((r) => r.intentId !== intentId);
+      listeners.get('sections')?.forEach((cb) => cb());
       return true;
     }),
-    subscribe: jest.fn((_event: string, _cb: () => void) => () => {}),
+    subscribe: jest.fn((event: string, cb: () => void) => {
+      const set = listeners.get(event) ?? new Set<() => void>();
+      set.add(cb);
+      listeners.set(event, set);
+      return () => set.delete(cb);
+    }),
   };
 }
 
@@ -153,9 +165,25 @@ describe('useNamedCorridors', () => {
 
     engine.state.rows = [corridor({ intentId: 'intent-9' })];
     act(() => {
-      engine.subscribe.mock.calls[0][1]();
+      engine.listeners.get('sections')?.forEach((cb) => cb());
     });
     expect(result.current.corridors.map((c) => c.intentId)).toEqual(['intent-9']);
+  });
+
+  it('re-reads once on the announcement a removal makes', () => {
+    const engine = engineWith([corridor()]);
+    (getEngine as jest.Mock).mockReturnValue(engine);
+    const { result } = renderHook(() => useNamedCorridors());
+    const afterMount = engine.getNamedCorridors.mock.calls.length;
+
+    act(() => {
+      result.current.remove('intent-1');
+    });
+
+    // The announcement is what brings the read back. One read for the one
+    // change, so nothing beside it is re-reading the same rows.
+    expect(engine.getNamedCorridors.mock.calls.length).toBe(afterMount + 1);
+    expect(result.current.corridors).toEqual([]);
   });
 
   it('reports a failed delete instead of dropping the row', () => {

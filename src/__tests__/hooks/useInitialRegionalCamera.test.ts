@@ -10,6 +10,7 @@ import { renderHook } from '@testing-library/react-native';
 
 import {
   WORLD_CAMERA,
+  surfaceIsLeaving,
   useInitialRegionalCamera,
   type RegionalCamera,
 } from '@/features/maps/hooks/useInitialRegionalCamera';
@@ -73,5 +74,27 @@ describe('useInitialRegionalCamera', () => {
 
     rerender({ blur: null });
     expect(result.current).toEqual(BERN);
+  });
+});
+
+/**
+ * Scenario: the camera was only snapshotted when the tab lost focus, but
+ * entering 3D unmounts the 2D surface just as surely. Leaving 3D then opened
+ * the surface on the camera saved at the last tab blur, and saved that as the
+ * new one.
+ *
+ * Expected behaviour: both ways of the surface going away keep where it was.
+ */
+describe('when the 2D surface is worth snapshotting', () => {
+  it('keeps the camera when the tab loses focus', () => {
+    expect(surfaceIsLeaving(false, false)).toBe(true);
+  });
+
+  it('keeps it when 3D takes over, which unmounts the surface too', () => {
+    expect(surfaceIsLeaving(true, true)).toBe(true);
+  });
+
+  it('keeps nothing while the surface is on screen', () => {
+    expect(surfaceIsLeaving(true, false)).toBe(false);
   });
 });

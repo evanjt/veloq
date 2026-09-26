@@ -13,6 +13,7 @@ import {
   TILE_CACHE_NAMES,
   applyTileCacheBudgetScript,
   cacheEvictionScript,
+  TILE_TOUCH_HEADER,
   clampTileCacheBudgetMb,
   tileCacheBudgets,
 } from '@/features/maps/lib/tileCacheBudget';
@@ -33,15 +34,16 @@ jest.mock('@/shared/storage', () => ({
 }));
 
 describe('the budget', () => {
-  // 110/50/30/10, the 120/50/30 that shipped with the ground raster's 10 MB
-  // taken from satellite, which is the only share large enough to give it up.
-  it('defaults to the shipped split, with the ground raster carved off satellite', () => {
-    expect(DEFAULT_TILE_CACHE_BUDGET_MB).toBe(200);
+  // The 50/10 proportions of the 120/30 MB that shipped, with satellite and
+  // the DEM gone to the Rust store and their shares spread across the two
+  // buckets the page still keeps.
+  it('defaults to the shipped proportions over the two kept caches', () => {
     const budgets = tileCacheBudgets(DEFAULT_TILE_CACHE_BUDGET_MB);
-    expect(budgets['veloq-satellite-v1']).toBe(110 * MB);
-    expect(budgets['veloq-vector-v1']).toBe(50 * MB);
-    expect(budgets['veloq-terrain-dem-v1']).toBe(30 * MB);
-    expect(budgets['veloq-ground-v1']).toBe(10 * MB);
+    const total = DEFAULT_TILE_CACHE_BUDGET_MB * MB;
+    expect(budgets['veloq-ground-v1']).toBe(Math.round((total * 10) / 60));
+    // Vector takes the remainder, so the two sum to exactly the ceiling.
+    expect(budgets['veloq-vector-v1']).toBe(total - budgets['veloq-ground-v1']);
+    expect(budgets).not.toHaveProperty('veloq-terrain-dem-v1');
   });
 
   it('scales every cache and always sums to the total', () => {
@@ -53,9 +55,26 @@ describe('the budget', () => {
   });
 
   it('falls back to the default rather than trusting stored junk', () => {
-    for (const junk of [undefined, null, 'lots', -50, 0, 12345, NaN]) {
+    for (const junk of [undefined, null, 'lots', -50, 0, NaN]) {
       expect(clampTileCacheBudgetMb(junk)).toBe(DEFAULT_TILE_CACHE_BUDGET_MB);
     }
+  });
+
+  // One pool for every source, and the athlete can raise it.
+  it('starts at the 50 MB the athlete was promised, and climbs from there', () => {
+    expect(DEFAULT_TILE_CACHE_BUDGET_MB).toBe(50);
+    expect(TILE_CACHE_BUDGET_CHOICES_MB).toEqual([50, 100, 200, 400]);
+    expect(clampTileCacheBudgetMb(undefined)).toBe(50);
+  });
+
+  // An install carrying the old 200 MB ceiling asked for 200 MB, so it keeps
+  // it. One carrying 800, which the ladder no longer offers, comes down to the
+  // nearest rung rather than all the way back to the default.
+  it('brings a stored ceiling down to the nearest rung, not back to the default', () => {
+    expect(clampTileCacheBudgetMb(200)).toBe(200);
+    expect(clampTileCacheBudgetMb(800)).toBe(400);
+    expect(clampTileCacheBudgetMb(150)).toBe(100);
+    expect(clampTileCacheBudgetMb(20)).toBe(50);
   });
 });
 
@@ -96,8 +115,28 @@ describe('lowering the budget', () => {
     return { cache, win };
   }
 
+  /** Let the page's own load-time pass finish, so a case sees only its trigger. */
+  async function settled(cache: CacheStub): Promise<void> {
+    await new Promise(process.nextTick);
+    cache.delete.mockClear();
+  }
+
+  /**
+   * A page opening over a cache the previous session left above the ceiling
+   * would otherwise sit there until its fiftieth insert, which on a map the
+   * athlete only pans is a long time.
+   */
+  it('evicts once on load, without waiting for an insert', async () => {
+    const { cache } = runPage(cacheEvictionScript(60));
+
+    await new Promise(process.nextTick);
+
+    expect(cache.delete).toHaveBeenCalled();
+  });
+
   it('evicts down to the new ceiling as soon as it is set', async () => {
     const { cache, win } = runPage(cacheEvictionScript());
+    await settled(cache);
     const setBudgets = win._veloqSetCacheBudgets as (b: Record<string, number>) => void;
     expect(setBudgets).toBeInstanceOf(Function);
 
@@ -109,6 +148,7 @@ describe('lowering the budget', () => {
 
   it('deletes nothing when the cache is already under the new ceiling', async () => {
     const { cache, win } = runPage(cacheEvictionScript());
+    await settled(cache);
     (win._veloqSetCacheBudgets as (b: Record<string, number>) => void)({
       'veloq-satellite-v1': 400 * MB,
     });
@@ -140,14 +180,14 @@ describe('the stored setting', () => {
   it('survives a restart and keeps the cache mode beside it', async () => {
     store['veloq-tile-cache'] = JSON.stringify({ cacheMode: 'ambient' });
     await useTileCacheSettings.getState().initialize();
-    await useTileCacheSettings.getState().setBudgetMb(800);
+    await useTileCacheSettings.getState().setBudgetMb(400);
 
     const written = JSON.parse(store['veloq-tile-cache']);
-    expect(written).toEqual({ cacheMode: 'ambient', budgetMb: 800 });
+    expect(written).toEqual({ cacheMode: 'ambient', budgetMb: 400 });
 
     useTileCacheSettings.setState({ budgetMb: DEFAULT_TILE_CACHE_BUDGET_MB });
     await useTileCacheSettings.getState().initialize();
-    expect(useTileCacheSettings.getState().budgetMb).toBe(800);
+    expect(useTileCacheSettings.getState().budgetMb).toBe(400);
   });
 
   it('tells the open pages the moment it changes', async () => {
@@ -158,9 +198,113 @@ describe('the stored setting', () => {
     expect(seen).toEqual([400]);
   });
 
-  it('ignores a stored value that is not one of the choices', async () => {
-    store['veloq-tile-cache'] = JSON.stringify({ budgetMb: 99999 });
+  // An install that had raised its ceiling asked for room, so it keeps as much
+  // of it as the ladder still offers rather than being scrubbed back to 50 MB.
+  it('brings a stored ceiling the ladder no longer offers down one rung', async () => {
+    store['veloq-tile-cache'] = JSON.stringify({ budgetMb: 800 });
+    await useTileCacheSettings.getState().initialize();
+    expect(useTileCacheSettings.getState().budgetMb).toBe(400);
+  });
+
+  it('takes the default for a stored value that was never a ceiling', async () => {
+    store['veloq-tile-cache'] = JSON.stringify({ budgetMb: 'lots' });
     await useTileCacheSettings.getState().initialize();
     expect(useTileCacheSettings.getState().budgetMb).toBe(DEFAULT_TILE_CACHE_BUDGET_MB);
+  });
+});
+
+/**
+ * Scenario: an athlete rides the same roads every week and takes one holiday.
+ * The home tiles are the oldest entries in the cache and the holiday tiles the
+ * newest.
+ *
+ * Expected behaviour: eviction takes the tiles nobody has looked at in months,
+ * not the tiles that arrived first. Insert order alone throws away the home
+ * area and keeps the holiday, which is the wrong way round and is what the
+ * athlete notices.
+ */
+describe('eviction order', () => {
+  type Entry = { url: string; size: number; touched: number | null };
+  type CacheStub = { keys: jest.Mock; match: jest.Mock; delete: jest.Mock };
+
+  const HOUR = 3600 * 1000;
+  const NOW = 1_800_000_000_000;
+  const CACHE = 'veloq-vector-v1';
+
+  function runPage(entries: Entry[]): {
+    cache: CacheStub;
+    setBudgets: (b: Record<string, number>) => void;
+  } {
+    const cache: CacheStub = {
+      keys: jest.fn(async () => entries.map((e) => e.url)),
+      match: jest.fn(async (url: string) => {
+        const entry = entries.find((e) => e.url === url);
+        if (!entry) return undefined;
+        return {
+          headers: {
+            get: (name: string) =>
+              name === TILE_TOUCH_HEADER
+                ? entry.touched === null
+                  ? null
+                  : String(entry.touched)
+                : String(entry.size),
+          },
+          arrayBuffer: async () => new ArrayBuffer(0),
+        };
+      }),
+      delete: jest.fn(async () => true),
+    };
+    const caches = { open: async () => cache };
+    const win: Record<string, unknown> = { _rn_log: () => {} };
+    const realNow = Date.now;
+    Date.now = () => NOW;
+    try {
+      new Function('caches', 'window', cacheEvictionScript())(caches, win);
+    } finally {
+      Date.now = realNow;
+    }
+    return { cache, setBudgets: win._veloqSetCacheBudgets as (b: Record<string, number>) => void };
+  }
+
+  /** Two microtask drains: the sizing pass, then the deletes it decides on. */
+  async function drain(): Promise<void> {
+    await new Promise(process.nextTick);
+    await new Promise(process.nextTick);
+    await new Promise(process.nextTick);
+  }
+
+  it('evicts the least recently read tile, not the first inserted', async () => {
+    const size = 30 * MB;
+    const { cache, setBudgets } = runPage([
+      { url: 'home-inserted-first', size, touched: NOW - HOUR },
+      { url: 'holiday-inserted-second', size, touched: NOW - 200 * 24 * HOUR },
+      { url: 'home-inserted-third', size, touched: NOW },
+    ]);
+    await drain();
+    cache.delete.mockClear();
+
+    // 90 MB held against a 60 MB ceiling, so exactly one entry goes.
+    setBudgets({ [CACHE]: 60 * MB });
+    await drain();
+
+    expect(cache.delete).toHaveBeenCalledWith('holiday-inserted-second');
+    expect(cache.delete).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats a tile stored before stamping as the oldest, wherever it was inserted', async () => {
+    const size = 30 * MB;
+    const { cache, setBudgets } = runPage([
+      { url: 'stamped-old', size, touched: NOW - 10 * HOUR },
+      { url: 'stamped-recent', size, touched: NOW },
+      { url: 'unstamped-legacy', size, touched: null },
+    ]);
+    await drain();
+    cache.delete.mockClear();
+
+    setBudgets({ [CACHE]: 60 * MB });
+    await drain();
+
+    expect(cache.delete).toHaveBeenCalledWith('unstamped-legacy');
+    expect(cache.delete).toHaveBeenCalledTimes(1);
   });
 });

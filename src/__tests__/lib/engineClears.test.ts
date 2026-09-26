@@ -1,56 +1,46 @@
 /**
  * The waiters around the two background wipes that need no re-open after them.
  * The third, the whole-database one, waits inside `EngineClient.clear`.
+ *
+ * The wipes are Promises the engine answers with, so what these hold is the
+ * session's ceiling over them: a wipe past its budget is reported as still
+ * running rather than as stuck, and the engine's own failure comes through
+ * with its message.
  */
 
 import { runCatalogueClear, runDerivedClear } from '@/shared/native/engineClears';
 
+jest.useFakeTimers();
+
+afterEach(() => {
+  jest.clearAllTimers();
+});
+
+/** A wipe that never answers, which is what a caller's ceiling is for. */
+const neverSettles = <T>() => new Promise<T>(() => {});
+
 describe('runCatalogueClear', () => {
   it('returns once the engine reports it complete', async () => {
-    const engine = {
-      startClearRoutesAndSections: jest.fn(),
-      pollClearRoutesAndSections: jest.fn(() => 'complete'),
-    };
+    const engine = { runClearRoutesAndSections: jest.fn(() => Promise.resolve()) };
 
-    await expect(runCatalogueClear(engine)).resolves.toBeUndefined();
-    expect(engine.startClearRoutesAndSections).toHaveBeenCalledTimes(1);
+    await expect(runCatalogueClear(engine)).resolves.toEqual({ state: 'complete' });
+    expect(engine.runClearRoutesAndSections).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps polling while the wipe is still running', async () => {
-    const states = ['running', 'running', 'complete'];
-    const engine = {
-      startClearRoutesAndSections: jest.fn(),
-      pollClearRoutesAndSections: jest.fn(() => states.shift() as string),
-    };
+  it('stops watching at the cap and says the wipe is still running', async () => {
+    const engine = { runClearRoutesAndSections: jest.fn(neverSettles<void>) };
 
-    await runCatalogueClear(engine);
-    expect(engine.pollClearRoutesAndSections).toHaveBeenCalledTimes(3);
-  });
+    const outcome = runCatalogueClear(engine, 120);
+    await jest.advanceTimersByTimeAsync(2_000);
 
-  it('gives up rather than polling forever', async () => {
-    const engine = {
-      startClearRoutesAndSections: jest.fn(),
-      pollClearRoutesAndSections: jest.fn(() => 'running'),
-    };
-
-    await expect(runCatalogueClear(engine, 120)).rejects.toThrow('did not finish in time');
-  });
-
-  it('surfaces a wipe that stopped without finishing', async () => {
-    const engine = {
-      startClearRoutesAndSections: jest.fn(),
-      pollClearRoutesAndSections: jest.fn(() => 'idle'),
-    };
-
-    await expect(runCatalogueClear(engine)).rejects.toThrow('stopped without finishing');
+    await expect(outcome).resolves.toEqual({ state: 'stillRunning' });
   });
 
   it('lets the engine error through, message intact', async () => {
     const engine = {
-      startClearRoutesAndSections: jest.fn(),
-      pollClearRoutesAndSections: jest.fn(() => {
-        throw new Error('Clear thread died without a result');
-      }),
+      runClearRoutesAndSections: jest.fn(() =>
+        Promise.reject(new Error('Clear thread died without a result'))
+      ),
     };
 
     await expect(runCatalogueClear(engine)).rejects.toThrow('Clear thread died without a result');
@@ -61,66 +51,50 @@ describe('runDerivedClear', () => {
   const cleared = { sectionsRemoved: 4, activitiesRemoved: 90, activitiesKept: 3 };
 
   it('hands back what the wipe removed', async () => {
-    const engine = {
-      startClearDerived: jest.fn(),
-      pollClearDerived: jest.fn(() => ({ state: 'complete', ...cleared })),
-    };
+    const engine = { runClearDerived: jest.fn(() => Promise.resolve(cleared)) };
 
-    await expect(runDerivedClear(engine)).resolves.toEqual(cleared);
-    expect(engine.startClearDerived).toHaveBeenCalledTimes(1);
+    await expect(runDerivedClear(engine)).resolves.toEqual({
+      state: 'complete',
+      removed: cleared,
+    });
+    expect(engine.runClearDerived).toHaveBeenCalledTimes(1);
   });
 
-  /** The counts are only meaningful once it completes, so a running poll is not read. */
-  it('keeps polling while the wipe is still running', async () => {
-    const polls = [
-      { state: 'running', sectionsRemoved: 0, activitiesRemoved: 0, activitiesKept: 0 },
-      { state: 'complete', ...cleared },
-    ];
-    const engine = {
-      startClearDerived: jest.fn(),
-      pollClearDerived: jest.fn(() => polls.shift()!),
-    };
+  it('stops watching at the cap and says the wipe is still running', async () => {
+    const engine = { runClearDerived: jest.fn(neverSettles<typeof cleared>) };
 
-    await expect(runDerivedClear(engine)).resolves.toEqual(cleared);
-    expect(engine.pollClearDerived).toHaveBeenCalledTimes(2);
+    const outcome = runDerivedClear(engine, 120);
+    await jest.advanceTimersByTimeAsync(2_000);
+
+    await expect(outcome).resolves.toMatchObject({ state: 'stillRunning' });
   });
 
-  it('gives up rather than polling forever', async () => {
+  it('hands a wipe past the cap back to the caller, to follow once it lands', async () => {
+    let land: (removed: typeof cleared) => void = () => {};
     const engine = {
-      startClearDerived: jest.fn(),
-      pollClearDerived: jest.fn(() => ({
-        state: 'running',
-        sectionsRemoved: 0,
-        activitiesRemoved: 0,
-        activitiesKept: 0,
-      })),
+      runClearDerived: jest.fn(
+        () =>
+          new Promise<typeof cleared>((resolve) => {
+            land = resolve;
+          })
+      ),
     };
 
-    await expect(runDerivedClear(engine, 120)).rejects.toThrow(
-      'Cache clear did not finish in time'
-    );
-  });
+    const watching = runDerivedClear(engine, 120);
+    await jest.advanceTimersByTimeAsync(2_000);
+    const outcome = await watching;
+    if (outcome.state !== 'stillRunning') throw new Error('expected the wipe to outlive the cap');
 
-  it('surfaces a wipe that stopped without finishing', async () => {
-    const engine = {
-      startClearDerived: jest.fn(),
-      pollClearDerived: jest.fn(() => ({
-        state: 'idle',
-        sectionsRemoved: 0,
-        activitiesRemoved: 0,
-        activitiesKept: 0,
-      })),
-    };
-
-    await expect(runDerivedClear(engine)).rejects.toThrow('Cache clear stopped without finishing');
+    land(cleared);
+    await expect(outcome.landing).resolves.toEqual(cleared);
+    expect(engine.runClearDerived).toHaveBeenCalledTimes(1);
   });
 
   it('lets the engine error through, message intact', async () => {
     const engine = {
-      startClearDerived: jest.fn(),
-      pollClearDerived: jest.fn(() => {
-        throw new Error('Clear thread died without a result');
-      }),
+      runClearDerived: jest.fn(() =>
+        Promise.reject(new Error('Clear thread died without a result'))
+      ),
     };
 
     await expect(runDerivedClear(engine)).rejects.toThrow('Clear thread died without a result');

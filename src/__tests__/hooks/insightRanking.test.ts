@@ -22,7 +22,7 @@ function ranked(ranking?: SectionRankingScores): Insight {
     priority: 2,
     title: 'Sunday Climb getting faster',
     icon: 'x',
-    iconColor: '#000',
+    iconTone: 'neutral',
     timestamp: 0,
     isNew: false,
     confidence: 1,

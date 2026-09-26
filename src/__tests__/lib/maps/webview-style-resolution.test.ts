@@ -10,6 +10,15 @@ import {
   TERRAIN_STYLE_OPTIONS,
 } from '@/features/maps/lib/htmlBuilders/styleResolution';
 
+// The page protocols are the web's transport now that both handsets intercept
+// on the page's own origin, so this runs where nothing can intercept. Set at
+// load, since a page built at describe time reads it before any hook runs.
+import { Platform } from 'react-native';
+
+const platform = Platform.OS;
+Object.defineProperty(Platform, 'OS', { value: 'web', configurable: true });
+afterAll(() => Object.defineProperty(Platform, 'OS', { value: platform, configurable: true }));
+
 describe('resolveStyleForWebView', () => {
   it('serves the bundled light style when the caller states nothing', () => {
     const resolved = resolveStyleForWebView('light');

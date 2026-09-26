@@ -6,7 +6,7 @@
  * matches what the user can do about it. A transient failure must stay
  * retriable, a 403 must route to the permission upgrade, and a hard rejection
  * must never be silently re-queued. No failure outcome deletes the FIT file;
- * that a success does is `discardFitAfterUpload.test.ts`.
+ * confirmation before deletion is covered by `confirmUploadsBeforeDelete.test.ts`.
  */
 
 import { uploadActivityFile } from '@/features/recording/lib/upload/intervalsUploads';
@@ -18,8 +18,9 @@ import {
   markRecordingUploadFailed,
   markRecordingRejected,
   markRecordingPermissionBlocked,
+  deleteRecording,
   holdRecordingForAuth,
-  discardRecordingFit,
+  holdRecordingForNetwork,
   readRecordingFit,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { recordProvisionalUpload } from '@/features/recording/lib/storage/provisionalActivity';
@@ -38,8 +39,9 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   markRecordingUploadFailed: jest.fn().mockResolvedValue(undefined),
   markRecordingRejected: jest.fn().mockResolvedValue(undefined),
   markRecordingPermissionBlocked: jest.fn().mockResolvedValue(undefined),
+  deleteRecording: jest.fn().mockResolvedValue(undefined),
   holdRecordingForAuth: jest.fn().mockResolvedValue(undefined),
-  discardRecordingFit: jest.fn().mockResolvedValue(undefined),
+  holdRecordingForNetwork: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/features/recording/lib/storage/provisionalActivity', () => ({
@@ -60,6 +62,7 @@ const mockRecordProvisional = recordProvisionalUpload as jest.Mock;
 
 const ENTRY: RecordingLibraryEntry = {
   id: 'rec-1',
+  kind: 'fit',
   fitPath: 'file:///recordings/rec-1.fit',
   activityType: 'Ride',
   name: 'Morning Ride',
@@ -74,6 +77,7 @@ const ENTRY: RecordingLibraryEntry = {
 const STRENGTH_ENTRY: RecordingLibraryEntry = {
   ...ENTRY,
   id: 'rec-strength',
+  kind: 'fit',
   activityType: 'WeightTraining',
   name: 'Lower body',
   fitPath: 'file:///recordings/rec-strength.fit',
@@ -164,7 +168,7 @@ describe('uploadRecording', () => {
     expect(markRecordingRejected).not.toHaveBeenCalled();
   });
 
-  it('queues a network failure for a later attempt', async () => {
+  it("holds a network failure without spending one of the ride's attempts", async () => {
     mockUpload.mockRejectedValue(
       refused(CallKind.Network, undefined, undefined, 'transport error: connection reset')
     );
@@ -175,10 +179,25 @@ describe('uploadRecording', () => {
       outcome: 'network',
       errorDetail: 'transport error: connection reset',
     });
-    expect(markRecordingUploadFailed).toHaveBeenCalledWith(
+    expect(holdRecordingForNetwork).toHaveBeenCalledWith(
       'rec-1',
       'transport error: connection reset'
     );
+    // The ceiling is what parks a ride as `failed`, and a request that never
+    // reached intervals.icu must not move it. Five cold launches out of signal
+    // used to be enough.
+    expect(markRecordingUploadFailed).not.toHaveBeenCalled();
+    expect(markRecordingRejected).not.toHaveBeenCalled();
+  });
+
+  it('still spends an attempt when the server itself failed', async () => {
+    mockUpload.mockRejectedValue(refused(CallKind.Http, 503, 'upstream unavailable'));
+
+    const result = await uploadRecording(ENTRY);
+
+    expect(result).toEqual({ outcome: 'retriable', errorDetail: 'upstream unavailable' });
+    expect(markRecordingUploadFailed).toHaveBeenCalledWith('rec-1', 'upstream unavailable');
+    expect(holdRecordingForNetwork).not.toHaveBeenCalled();
   });
 
   it('surfaces the server message on a hard rejection', async () => {
@@ -235,8 +254,7 @@ describe('uploadRecording', () => {
     );
 
     await uploadRecording(ENTRY);
-
-    expect(discardRecordingFit).not.toHaveBeenCalled();
+    expect(deleteRecording).not.toHaveBeenCalled();
   });
 
   it('still parks a 400, which retrying the same bytes cannot fix', async () => {

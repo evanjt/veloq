@@ -13,6 +13,14 @@ import { waitForGpsTrack } from '@/features/maps/lib/gpsTrackWait';
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
 }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    // The stored track crosses encoded, so the fake engine hands back a blob and
+    // this stands in for the decoder. The blob's own bytes do not matter here,
+    // what is being counted is how many times the engine is read.
+    decodeCoords: (buf: ArrayBuffer) => (buf as unknown as { points?: unknown[] }).points ?? [],
+  })
+);
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
@@ -28,7 +36,10 @@ function fakeEngine(track: { latitude: number; longitude: number }[] | null) {
     },
     announce: (event: string, payload?: { activityId: string }) =>
       listeners.get(event)?.forEach((cb) => cb(payload)),
-    getGpsTrack: jest.fn(() => stored),
+    // The track crosses the FFI coordinate-encoded. What stands in for the blob
+    // here is an object carrying the points, which the `decodeCoords` mock above
+    // reads back, so the counting below is still counting engine reads.
+    getGpsTrack: jest.fn(() => (stored === null ? null : { points: stored })),
     subscribe: jest.fn((event: string, cb: Listener) => {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event)!.add(cb);

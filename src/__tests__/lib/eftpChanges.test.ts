@@ -1,94 +1,95 @@
 /**
  * Scenario: intervals.icu marks an activity that changed the accepted eFTP.
- * The app carried only the per-activity estimate, which moves on every hard
- * ride and cannot say which one intervals.icu accepted.
+ * The markers used to be derived here, from the parsed body of every activity
+ * in the window; the sync now stores them and the engine answers with them.
  *
- * Expected behaviour: a change is an activity with a non-zero rolling delta
- * and a rolling value, dated by its local start, oldest first. An estimate
- * alone, a zero delta, or a missing date is not one.
+ * Expected behaviour: the hook maps the engine's records onto the local day
+ * the plot keys on, and the label reads the same as it did.
  */
 
-import { eftpChanges, eftpChangesOn, formatEftpChange } from '@/features/fitness/lib/eftpChanges';
-import type { Activity } from '@/types';
+import { renderHook } from '@testing-library/react-native';
 
-const ride = (over: Partial<Activity>): Activity =>
-  ({
-    id: 'a',
-    name: 'Ride',
-    type: 'Ride',
-    start_date_local: '2026-07-14T08:00:00',
-    ...over,
-  }) as Activity;
+import {
+  eftpChangesOn,
+  formatEftpChange,
+  type EftpChange,
+} from '@/features/fitness/lib/eftpChanges';
+import { useEftpChanges } from '@/features/fitness/hooks/useEftpChanges';
 
-describe('eftpChanges', () => {
-  it('keeps the activities with a non-zero rolling delta, oldest first', () => {
-    const changes = eftpChanges([
-      ride({
-        id: 'b',
-        start_date_local: '2026-07-14T08:00:00',
-        icu_rolling_ftp: 406,
-        icu_rolling_ftp_delta: 20,
-      }),
-      ride({
-        id: 'a',
-        start_date_local: '2026-06-06T08:00:00',
-        icu_rolling_ftp: 390,
-        icu_rolling_ftp_delta: 33,
-      }),
-      ride({
-        id: 'c',
-        start_date_local: '2026-08-30T08:00:00',
-        icu_rolling_ftp: 155,
-        icu_rolling_ftp_delta: -12,
-      }),
+const mockGetEftpChanges = jest.fn();
+
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => ({ getEftpChanges: mockGetEftpChanges }),
+}));
+
+jest.mock('@/shared/native/useEngineSubscription', () => ({
+  useEngineSubscription: () => 0,
+  // The hook reads through the keyed reader, so the stub is the reader and not
+  // the counter: it hands the closure whatever `getEngine` answers.
+  useEngineRead:
+    () =>
+    <T>(read: (engine: unknown) => T): T | undefined => {
+      const engine = jest.requireMock('@/shared/native/engine').getEngine();
+      return engine ? read(engine) : undefined;
+    },
+}));
+
+/** Local midnight, so the mapped day is the one the record was dated by. */
+function localNoon(day: string): number {
+  return new Date(`${day}T12:00:00`).getTime() / 1000;
+}
+
+const change = (over: Partial<EftpChange> & { day: string }) => ({
+  activityId: over.activityId ?? 'a',
+  date: localNoon(over.day),
+  eftp: over.eftp ?? 406,
+  delta: over.delta ?? 20,
+  activityName: over.activityName ?? 'Ride',
+});
+
+describe('useEftpChanges', () => {
+  beforeEach(() => mockGetEftpChanges.mockReset());
+
+  it('dates each marker by the local day the plot keys on', () => {
+    mockGetEftpChanges.mockReturnValue([
+      change({ day: '2026-06-06', activityId: 'a', eftp: 390, delta: 33 }),
+      change({ day: '2026-07-14', activityId: 'b', eftp: 406, delta: 20 }),
     ]);
-    expect(changes.map((c) => [c.activityId, c.date, c.eftp, c.delta])).toEqual([
+
+    const { result } = renderHook(() => useEftpChanges());
+
+    expect(result.current.map((c) => [c.activityId, c.date, c.eftp, c.delta])).toEqual([
       ['a', '2026-06-06', 390, 33],
       ['b', '2026-07-14', 406, 20],
-      ['c', '2026-08-30', 155, -12],
     ]);
   });
 
-  it('is not moved by an estimate, a zero delta, a missing value or a missing date', () => {
-    expect(
-      eftpChanges([
-        ride({ icu_pm_ftp_watts: 424 }),
-        ride({ icu_rolling_ftp: 359, icu_rolling_ftp_delta: 0 }),
-        ride({ icu_rolling_ftp_delta: 5 }),
-        ride({ icu_rolling_ftp: 359, icu_rolling_ftp_delta: Number.NaN }),
-        ride({ icu_rolling_ftp: 359, icu_rolling_ftp_delta: 5, start_date_local: '' }),
-      ])
-    ).toEqual([]);
-    expect(eftpChanges(undefined)).toEqual([]);
-    expect(eftpChanges([])).toEqual([]);
+  it('answers with nothing when the engine is not up', () => {
+    mockGetEftpChanges.mockImplementation(() => {
+      throw new Error('engine closed');
+    });
+
+    const { result } = renderHook(() => useEftpChanges());
+
+    expect(result.current).toEqual([]);
   });
+});
+
+describe('the markers on one day', () => {
+  const markers: EftpChange[] = [
+    { date: '2026-07-14', eftp: 406, delta: 20, activityId: 'a', activityName: 'Ride' },
+    { date: '2026-07-14', eftp: 410, delta: 4, activityId: 'b', activityName: 'Ride' },
+    { date: '2026-08-30', eftp: 155, delta: -12.6, activityId: 'c', activityName: 'Ride' },
+  ];
 
   it('answers a day with its changes and a day without with none', () => {
-    const changes = eftpChanges([
-      ride({ id: 'a', icu_rolling_ftp: 406, icu_rolling_ftp_delta: 20 }),
-      ride({
-        id: 'b',
-        start_date_local: '2026-07-14T18:00:00',
-        icu_rolling_ftp: 410,
-        icu_rolling_ftp_delta: 4,
-      }),
-    ]);
-    expect(eftpChangesOn(changes, '2026-07-14').map((c) => c.activityId)).toEqual(['a', 'b']);
-    expect(eftpChangesOn(changes, '2026-07-15')).toEqual([]);
-    expect(eftpChangesOn(changes, undefined)).toEqual([]);
+    expect(eftpChangesOn(markers, '2026-07-14').map((c) => c.activityId)).toEqual(['a', 'b']);
+    expect(eftpChangesOn(markers, '2026-07-15')).toEqual([]);
+    expect(eftpChangesOn(markers, undefined)).toEqual([]);
   });
 
   it('formats a rise with its plus and a fall with its minus', () => {
-    const [up, down] = eftpChanges([
-      ride({ id: 'a', icu_rolling_ftp: 406.4, icu_rolling_ftp_delta: 20 }),
-      ride({
-        id: 'b',
-        start_date_local: '2026-08-30T08:00:00',
-        icu_rolling_ftp: 155,
-        icu_rolling_ftp_delta: -12.6,
-      }),
-    ]);
-    expect(formatEftpChange(up)).toBe('eFTP 406 W (+20)');
-    expect(formatEftpChange(down)).toBe('eFTP 155 W (-13)');
+    expect(formatEftpChange({ ...markers[0], eftp: 406.4 })).toBe('eFTP 406 W (+20)');
+    expect(formatEftpChange(markers[2])).toBe('eFTP 155 W (-13)');
   });
 });

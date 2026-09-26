@@ -10,6 +10,7 @@ import { renderHook } from '@testing-library/react-native';
 import { useActivitySummary } from '@/features/recording/hooks/useActivitySummary';
 import { pausedSecondsBetween } from '@/features/recording/lib/pausedTime';
 import type { RecordingStreams } from '@/features/recording/types';
+import { elevationGain } from '@/shared/math';
 
 const START = 1_700_000_000_000;
 
@@ -82,5 +83,61 @@ describe('useActivitySummary duration', () => {
     });
     expect(pausedSecondsInWindow).toBe(0);
     expect(summary.duration).toBe(10);
+  });
+});
+
+/**
+ * The window's gain and averages now come from prefixes built once, so they
+ * are pinned against a walk of the slice they are meant to describe.
+ */
+describe('useActivitySummary over a trimmed window', () => {
+  const RICH: RecordingStreams = {
+    time: [0, 10, 20, 30, 40, 50],
+    latlng: [0, 1, 2, 3, 4, 5].map((i) => [1 + i * 0.001, 2] as [number, number]),
+    altitude: [100, 112, 108, 130, 129, 140],
+    heartrate: [0, 140, 152, 0, 168, 160],
+    power: [0, 200, 0, 250, 260, 0],
+    cadence: [0, 0, 0, 0, 0, 0],
+    speed: [0, 0, 0, 0, 0, 0],
+    distance: [0, 100, 200, 300, 400, 500],
+  };
+
+  function richSummary(trimStart: number, trimEnd: number) {
+    const { result } = renderHook(() =>
+      useActivitySummary({
+        streams: RICH,
+        startTime: START,
+        stopTime: START + 50_000,
+        pausedDuration: 0,
+        pauseIntervals: [],
+        trimStart,
+        trimEnd,
+        canTrim: true,
+        isManual: false,
+        params: {},
+      })
+    );
+    return result.current.summary;
+  }
+
+  const walkedAverage = (values: number[]) => {
+    const kept = values.filter((v) => v > 0);
+    return kept.length > 0 ? kept.reduce((sum, v) => sum + v, 0) / kept.length : null;
+  };
+
+  it.each([
+    [0, 5],
+    [1, 4],
+    [2, 5],
+    [3, 3],
+    [0, 2],
+  ])('matches a walk of the slice for [%i, %i]', (from, to) => {
+    const summary = richSummary(from, to);
+
+    expect(summary.elevationGain).toBeCloseTo(elevationGain(RICH.altitude.slice(from, to + 1)), 9);
+    expect(summary.avgHeartrate).toEqual(walkedAverage(RICH.heartrate.slice(from, to + 1)));
+    expect(summary.avgPower).toEqual(walkedAverage(RICH.power.slice(from, to + 1)));
+    expect(summary.distance).toBe(RICH.distance[to] - RICH.distance[from]);
+    expect(summary.hasGps).toBe(true);
   });
 });

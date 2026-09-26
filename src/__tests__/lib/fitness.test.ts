@@ -16,14 +16,6 @@ describe('calculateTSB', () => {
     expect(result[2].tsb).toBe(0); // 45 - 45
   });
 
-  it('handles ctlLoad/atlLoad field variants', () => {
-    const wellness: WellnessData[] = [{ id: '1', ctlLoad: 50, atlLoad: 30 } as WellnessData];
-
-    const result = calculateTSB(wellness);
-
-    expect(result[0].tsb).toBe(20); // 50 - 30
-  });
-
   it('handles missing CTL/ATL values', () => {
     const wellness: WellnessData[] = [{ id: '1' } as WellnessData];
 
@@ -32,14 +24,15 @@ describe('calculateTSB', () => {
     expect(result[0].tsb).toBe(0); // 0 - 0
   });
 
-  it('prefers ctl/atl over ctlLoad/atlLoad', () => {
-    const wellness: WellnessData[] = [
-      { id: '1', ctl: 100, atl: 50, ctlLoad: 10, atlLoad: 5 } as WellnessData,
-    ];
+  // `ctlLoad` is the day's own load, measured over 1,900 API days as a
+  // different quantity from `ctl` rather than a second spelling of it, so a
+  // day that carries one and not the other has no form.
+  it('reads no form from a day that carries only its daily load', () => {
+    const wellness = [{ id: '1', ctlLoad: 50, atlLoad: 30 }] as unknown as WellnessData[];
 
     const result = calculateTSB(wellness);
 
-    expect(result[0].tsb).toBe(50); // 100 - 50 (uses ctl/atl)
+    expect(result[0].tsb).toBe(0);
   });
 
   it('preserves original wellness data fields', () => {

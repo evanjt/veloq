@@ -2,8 +2,8 @@
  * Scenario: expo-notifications reads the Android channel from the trigger and
  * nowhere else. A channel named in `content` with `trigger: null` is dropped,
  * and the notification lands on expo's own fallback channel, which is
- * hardcoded IMPORTANCE_HIGH. Every sync progress re-post was a heads-up
- * banner because of it.
+ * hardcoded IMPORTANCE_HIGH, so a notification that means to be quiet has to
+ * name its channel in the trigger.
  *
  * Expected behaviour: the channel travels in the trigger, so it is the shape
  * the library consumes rather than the shape the code happened to produce.
@@ -13,8 +13,6 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import {
-  updateSyncNotification,
-  dismissSyncNotification,
   initializeNotifications,
   presentInsightNotification,
   presentActivityNotification,
@@ -54,51 +52,6 @@ async function onPlatform(os: string, run: () => Promise<void>) {
   }
 }
 
-describe('updateSyncNotification', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it('posts notification with fixed identifier for in-place updates', async () => {
-    await updateSyncNotification('Downloading GPS data... 5/20');
-
-    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ identifier: 'sync-progress' })
-    );
-  });
-
-  it('sets sticky: true so Android users cannot swipe away', async () => {
-    await updateSyncNotification('Downloading...');
-
-    expect(lastCall().content.sticky).toBe(true);
-  });
-
-  it('names veloq-sync in the trigger, which is where Android reads it', async () => {
-    await onPlatform('android', () => updateSyncNotification('Downloading...'));
-
-    expect(lastCall().trigger).toEqual({ channelId: 'veloq-sync' });
-  });
-
-  it('leaves the trigger null on iOS, which has no channels', async () => {
-    await onPlatform('ios', () => updateSyncNotification('Downloading...'));
-
-    expect(lastCall().trigger).toBeNull();
-    expect(lastCall().content.channelId).toBeUndefined();
-  });
-
-  it('re-posting keeps naming the channel, so no update falls back', async () => {
-    await onPlatform('android', async () => {
-      await updateSyncNotification('1/20');
-      await updateSyncNotification('2/20');
-      await updateSyncNotification('3/20');
-    });
-
-    const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls;
-    expect(calls).toHaveLength(3);
-    for (const [request] of calls) {
-      expect(request.trigger).toEqual({ channelId: 'veloq-sync' });
-    }
-  });
-});
-
 describe('the insight notifications name their own channel too', () => {
   beforeEach(() => jest.clearAllMocks());
 
@@ -125,38 +78,7 @@ describe('the insight notifications name their own channel too', () => {
   });
 });
 
-describe('dismissSyncNotification', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it('dismisses the sync-progress notification', async () => {
-    await dismissSyncNotification();
-
-    expect(Notifications.dismissNotificationAsync).toHaveBeenCalledWith('sync-progress');
-  });
-});
-
 describe('notification handler differentiation', () => {
-  it('suppresses banner but allows alert for sync-progress notifications', () => {
-    initializeNotifications();
-
-    const handlerCall = (Notifications.setNotificationHandler as jest.Mock).mock.calls[0][0];
-    const syncNotification = {
-      request: { identifier: 'sync-progress' },
-    } as Notifications.Notification;
-
-    return handlerCall
-      .handleNotification(syncNotification)
-      .then((result: Notifications.NotificationBehavior) => {
-        // shouldShowBanner false suppresses iOS drop-down banner
-        expect(result.shouldShowBanner).toBe(false);
-        // shouldShowList true keeps it in iOS notification center and posts
-        // on Android via the LOW-importance channel
-        expect(result.shouldShowList).toBe(true);
-        // shouldShowAlert is deprecated in expo-notifications and must not be set
-        expect(result.shouldShowAlert).toBeUndefined();
-      });
-  });
-
   it('shows banner and list for insight notifications', () => {
     initializeNotifications();
 
@@ -211,7 +133,7 @@ describe('notification tap handler', () => {
     };
 
     callback(response);
-    expect(router.push).toHaveBeenCalledWith('/activity/act-123');
+    expect(router.push).toHaveBeenCalledWith('/summary/act-123');
   });
 
   it('navigates to section when sectionId provided without activityId', () => {

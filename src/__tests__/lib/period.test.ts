@@ -148,6 +148,13 @@ describe('what a picker opens on', () => {
       /useState<(?:TimeRange|SectionTimeRange|StrengthPeriod|MapPeriod)>\(([^)]*)\)/
     );
     expect(initialiser).not.toBeNull();
-    expect(initialiser?.[1].trim()).toBe(constant);
+
+    // The window the screen falls back to is the shared constant. A screen may
+    // open on something a link handed it, `entryRange ?? DEFAULT_PERIOD` on the
+    // fitness tab, but the fallback is still the constant and never a period
+    // spelled out here, which is how the four drifted apart.
+    const expression = initialiser?.[1].trim() ?? '';
+    expect(expression.endsWith(constant)).toBe(true);
+    expect(expression).not.toMatch(/['"`]/);
   });
 });

@@ -11,6 +11,7 @@ import type { RecordingLibraryEntry, RecordingUploadStatus } from '@/types';
 
 const ENTRY: RecordingLibraryEntry = {
   id: 'rec-1',
+  kind: 'fit',
   fitPath: 'file:///recordings/rec-1.fit',
   activityType: 'Ride',
   name: 'Morning Ride',

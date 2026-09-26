@@ -1,129 +1,73 @@
-import {
-  buildStrengthBalancePairs,
-  buildStrengthProgression,
-} from '@/features/strength/lib/analysis';
-import type { MuscleVolume, StrengthProgressPoint } from '@/types';
+import { buildStrengthBalancePairs } from '@/features/strength/lib/analysis';
+import type { EngineBalancePair } from '@/features/strength/types';
 
-function makeMuscle(slug: string, weightedSets: number): MuscleVolume {
+function enginePair(
+  id: string,
+  leftSlug: string,
+  rightSlug: string,
+  left: number,
+  right: number,
+  status: EngineBalancePair['status'],
+  ratio: number | null = null
+): EngineBalancePair {
   return {
-    slug,
-    primarySets: Math.floor(weightedSets),
-    secondarySets: 0,
-    weightedSets,
-    totalReps: 0,
-    totalWeightKg: 0,
-    exerciseNames: [],
+    id,
+    leftSlug,
+    rightSlug,
+    leftWeightedSets: left,
+    rightWeightedSets: right,
+    dominantSlug: left === right ? null : left > right ? leftSlug : rightSlug,
+    ratio,
+    status,
   };
 }
 
-function makePoint(label: string, weightedSets: number): StrengthProgressPoint {
-  return {
-    label,
-    startTs: 0,
-    endTs: 0,
-    weightedSets,
-    activityCount: 1,
-  };
-}
-
+/**
+ * Scenario: the verdict and the volumes behind it come from the engine, which
+ * is where the sets are aggregated. What is left here is the copy and the order
+ * the rows are read in.
+ */
 describe('buildStrengthBalancePairs', () => {
-  it('flags a large antagonist gap as imbalanced', () => {
+  it('names the pair and both sides from the slugs the engine sent', () => {
+    const [pair] = buildStrengthBalancePairs([
+      enginePair('quads_hamstrings', 'quadriceps', 'hamstring', 10, 4, 'imbalanced', 2.5),
+    ]);
+
+    expect(pair.label).toBe('Quads vs Hamstrings');
+    expect(pair.leftLabel).toBe('Quadriceps');
+    expect(pair.rightLabel).toBe('Hamstrings');
+    expect(pair.dominantLabel).toBe('Quadriceps');
+    expect(pair.ratio).toBe(2.5);
+  });
+
+  it('reads the worst pair first, and the wider gap first within a verdict', () => {
     const pairs = buildStrengthBalancePairs([
-      makeMuscle('quadriceps', 10),
-      makeMuscle('hamstring', 4),
-      makeMuscle('chest', 6),
-      makeMuscle('upper-back', 6),
+      enginePair('quads_hamstrings', 'quadriceps', 'hamstring', 6, 3, 'imbalanced', 2),
+      enginePair('chest_back', 'chest', 'upper-back', 5, 0, 'one-sided'),
+      enginePair('biceps_triceps', 'biceps', 'triceps', 8, 2, 'imbalanced', 4),
     ]);
 
-    expect(pairs[0].id).toBe('quads_hamstrings');
-    expect(pairs[0].status).toBe('imbalanced');
-    expect(pairs[0].dominantLabel).toBe('Quadriceps');
-    expect(pairs[0].ratio).toBe(2.5);
+    expect(pairs.map((pair) => pair.id)).toEqual([
+      'chest_back',
+      'biceps_triceps',
+      'quads_hamstrings',
+    ]);
   });
 
-  it('flags a pair with one active side as one-sided', () => {
-    const pairs = buildStrengthBalancePairs([
-      makeMuscle('chest', 5),
-      makeMuscle('biceps', 4),
-      makeMuscle('triceps', 4),
+  it('leaves an even pair without a dominant name', () => {
+    const [pair] = buildStrengthBalancePairs([
+      enginePair('biceps_triceps', 'biceps', 'triceps', 4, 4, 'balanced', 1),
     ]);
 
-    const chestBack = pairs.find((pair) => pair.id === 'chest_back');
-    expect(chestBack!.status).toBe('one-sided');
-    expect(chestBack!.ratio).toBe(Infinity);
+    expect(pair.dominantLabel).toBeNull();
   });
 
-  it('keeps matched pairs balanced', () => {
-    const pairs = buildStrengthBalancePairs([
-      makeMuscle('biceps', 4),
-      makeMuscle('triceps', 4),
-      makeMuscle('quadriceps', 5),
-      makeMuscle('hamstring', 5),
+  it('falls back to the slug for a pair it has no copy for', () => {
+    const [pair] = buildStrengthBalancePairs([
+      enginePair('calves_shins', 'calves', 'shins', 4, 4, 'balanced', 1),
     ]);
 
-    const armPair = pairs.find((pair) => pair.id === 'biceps_triceps');
-    expect(armPair!.status).toBe('balanced');
-    expect(armPair!.dominantLabel).toBeNull();
-  });
-
-  it('marks low-signal pairs as insufficient', () => {
-    const pairs = buildStrengthBalancePairs([
-      makeMuscle('quadriceps', 1),
-      makeMuscle('hamstring', 1),
-    ]);
-    const lowerBody = pairs.find((pair) => pair.id === 'quads_hamstrings');
-    expect(lowerBody!.status).toBe('insufficient');
-  });
-});
-
-describe('buildStrengthProgression', () => {
-  it('detects upward recent averages', () => {
-    const progression = buildStrengthProgression('quadriceps', [
-      makePoint('-3w', 4),
-      makePoint('-2w', 5),
-      makePoint('-1w', 8),
-      makePoint('This wk', 9),
-    ]);
-
-    expect(progression.trend).toBe('up');
-    expect(progression.changePct).toBeCloseTo(88.9, 1);
-    expect(progression.recentAverage).toBe(8.5);
-  });
-
-  it('detects downward recent averages', () => {
-    const progression = buildStrengthProgression('chest', [
-      makePoint('-3w', 8),
-      makePoint('-2w', 8),
-      makePoint('-1w', 4),
-      makePoint('This wk', 4),
-    ]);
-
-    expect(progression.trend).toBe('down');
-    expect(progression.changePct).toBe(-50);
-  });
-
-  it('treats similar averages as flat', () => {
-    const progression = buildStrengthProgression('upper-back', [
-      makePoint('-3w', 4),
-      makePoint('-2w', 5),
-      makePoint('-1w', 4),
-      makePoint('This wk', 5),
-    ]);
-
-    expect(progression.trend).toBe('flat');
-    expect(progression.changePct).toBe(0);
-  });
-
-  it('treats a quiet baseline followed by recent work as up without a percentage', () => {
-    const progression = buildStrengthProgression('hamstring', [
-      makePoint('-3w', 0),
-      makePoint('-2w', 0),
-      makePoint('-1w', 3),
-      makePoint('This wk', 5),
-    ]);
-
-    expect(progression.trend).toBe('up');
-    expect(progression.changePct).toBeNull();
-    expect(progression.peakWeightedSets).toBe(5);
+    expect(pair.label).toBe('calves_shins');
+    expect(pair.rightLabel).toBe('shins');
   });
 });

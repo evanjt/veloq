@@ -18,16 +18,21 @@ import { generateSectionChangedInsights } from '@/features/insights/generators/s
 import { generateFitnessMilestoneInsights } from '@/features/insights/generators/fitnessMilestone';
 import { generateSectionPRInsights } from '@/features/insights/generators/sectionPR';
 import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
+import type { HrvTrend } from 'veloqrs';
+
 import type { Insight } from '@/features/insights/types';
 
 const NOW = 1_700_000_000_000;
 const t = (key: string) => key;
 
 // Two days of seven: the thin-but-honest reading Q77 measured the inversion on.
-const mockComputeHrvTrend = jest.fn(() => ({ avg: 62, dataPoints: 2, label: 'trendingUp' }));
-jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({ computeHrvTrend: mockComputeHrvTrend }),
-}));
+const THIN_HRV = {
+  label: 'trendingUp',
+  avg: 62,
+  latest: 62,
+  dataPoints: 2,
+  sparkline: [60, 62],
+} as HrvTrend;
 
 /** Every insight this suite reaches, from the generators that take fixtures. */
 function everyInsight(): Insight[] {
@@ -47,10 +52,13 @@ function everyInsight(): Insight[] {
       NOW,
       t
     ),
-    ...generateHrvTrendInsight(NOW, t),
+    ...generateHrvTrendInsight(THIN_HRV, NOW, t),
     ...generatePeriodComparisonInsights(
       { count: 6, totalDuration: 21_600, totalDistance: 120_000, totalTss: 400 },
       { count: 3, totalDuration: 9_000, totalDistance: 50_000, totalTss: 160 },
+      null,
+      undefined,
+      { metric: 'tss', current: 400, previous: 160, ratio: 400 / 160 - 1 },
       null,
       NOW,
       t
@@ -120,6 +128,9 @@ function periodComparison(count: number) {
     { count, totalDuration: 3600 * count, totalDistance: 20_000 * count, totalTss: 60 * count },
     { count, totalDuration: 1800 * count, totalDistance: 10_000 * count, totalTss: 30 * count },
     null,
+    undefined,
+    { metric: 'tss', current: 60 * count, previous: 30 * count, ratio: 1 },
+    null,
     NOW,
     t
   )[0];
@@ -133,7 +144,7 @@ it('ranks a thin comparison below a thinner-but-honest trend, and a solid one ab
   // flat 15. Now both count, so the one standing on more wins and the one
   // standing on less loses. Same priority throughout, so confidence and the
   // category base are what separate them.
-  const hrv = generateHrvTrendInsight(NOW, t)[0];
+  const hrv = generateHrvTrendInsight(THIN_HRV, NOW, t)[0];
   const thin = periodComparison(1);
   const solid = periodComparison(6);
 
@@ -179,7 +190,14 @@ it('weighs a record by the outings it was set over', () => {
 it('weighs an FTP step by the days of estimate behind it', () => {
   const step = (sampleCount: number) =>
     generateFitnessMilestoneInsights(
-      { latestFtp: 260, latestDate: NOW, previousFtp: 240, previousDate: NOW, sampleCount },
+      {
+        latestFtp: 260,
+        latestDate: NOW,
+        previousFtp: 240,
+        previousDate: NOW,
+        deltaWatts: 20,
+        sampleCount,
+      },
       null,
       null,
       NOW,
@@ -195,7 +213,15 @@ it('weighs a pace step by the snapshots behind it', () => {
   const step = (sampleCount: number) =>
     generateFitnessMilestoneInsights(
       {},
-      { latestPace: 3.5, latestDate: NOW, previousPace: 3.2, previousDate: NOW, sampleCount },
+      {
+        latestPace: 3.5,
+        latestDate: NOW,
+        previousPace: 3.2,
+        previousDate: NOW,
+        gainPercent: 9.375,
+        deltaSeconds: 1000 / 3.2 - 1000 / 3.5,
+        sampleCount,
+      },
       null,
       NOW,
       t
@@ -207,7 +233,7 @@ it('weighs a pace step by the snapshots behind it', () => {
 
 it('reads a trend with no count as standing on nothing, not on a default', () => {
   const noCount = generateFitnessMilestoneInsights(
-    { latestFtp: 260, latestDate: NOW, previousFtp: 240, previousDate: NOW },
+    { latestFtp: 260, latestDate: NOW, previousFtp: 240, previousDate: NOW, deltaWatts: 20 },
     null,
     null,
     NOW,

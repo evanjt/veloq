@@ -44,10 +44,12 @@ describe('fromUnixSeconds', () => {
     expect(fromUnixSeconds(null)).toBeNull();
   });
 
-  it('handles bigint input from FFI', () => {
-    const date = fromUnixSeconds(BigInt(1768435200));
+  /** Every engine timestamp crosses as a number now, so a large one is a
+   *  plain double and not a bigint. */
+  it('handles a timestamp past the year 2038', () => {
+    const date = fromUnixSeconds(4_102_444_800);
     expect(date).not.toBeNull();
-    expect(date!.getUTCFullYear()).toBe(2026);
+    expect(date!.getUTCFullYear()).toBe(2100);
   });
 
   it('handles negative timestamp (before epoch)', () => {

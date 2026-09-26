@@ -14,6 +14,15 @@ import { DARK_MATTER_STYLE } from '@/features/maps/components/darkMatterStyle';
 import { tileProtocolsScript, vectorProtocolScript } from '@/features/maps/lib/htmlBuilders/shared';
 import { buildSnapshotWorkerHtml } from '@/features/maps/lib/htmlBuilders/snapshotWorker';
 
+// The page protocols are the web's transport now that both handsets intercept
+// on the page's own origin, so this runs where nothing can intercept. Set at
+// load, since a page built at describe time reads it before any hook runs.
+import { Platform } from 'react-native';
+
+const platform = Platform.OS;
+Object.defineProperty(Platform, 'OS', { value: 'web', configurable: true });
+afterAll(() => Object.defineProperty(Platform, 'OS', { value: platform, configurable: true }));
+
 const PLANET = 'https://tiles.openfreemap.org/planet';
 const SNAPSHOT = `${PLANET}/20260823_080002_pt/{z}/{x}/{y}.pbf`;
 
@@ -138,61 +147,15 @@ describe('planet vector tiles resolve through the TileJSON', () => {
   });
 });
 
-/**
- * The snapshot worker registers its own `cached-vector` handler over the same
- * `veloq-vector-v1` cache, so an empty body it stores is one the interactive
- * surfaces serve. Its copy has to hold the same contract.
- */
-describe('the snapshot worker holds the same vector contract', () => {
-  function workerProtocolScript(): string {
-    const html = buildSnapshotWorkerHtml(0);
-    const start = html.indexOf("var VECTOR_CACHE = 'veloq-vector-v1';");
-    expect(start).toBeGreaterThan(-1);
-    // Stop at whichever block follows the vector protocol, so an insertion
-    // between them does not drag unrelated scope into the eval.
-    const end = ['// The sprite and the Latin glyph ranges', '// Cache eviction']
-      .map((marker) => html.indexOf(marker, start))
-      .filter((at) => at > start)
-      .sort((a, b) => a - b)[0];
-    expect(end).toBeGreaterThan(start);
-    return 'function maybeEvict() {}\n' + html.substring(start, end);
-  }
-
-  it('refuses to cache a zero-length tile', async () => {
-    const url = 'cached-vector://tiles.openfreemap.org/planet/20260823_080002_pt/2/2/1.pbf';
-    const fetchImpl = jest.fn(async () => tileResponse(0));
-    const { handlers, cache } = evalProtocols(fetchImpl as jest.Mock, workerProtocolScript());
-    await expect(handlers['cached-vector']({ url })).rejects.toThrow();
-    expect(cache.put).not.toHaveBeenCalled();
-  });
-
-  it('rewrites the TileJSON tile template back onto the protocol', async () => {
-    const fetchImpl = jest.fn(async () => jsonResponse({ tilejson: '3.0.0', tiles: [SNAPSHOT] }));
-    const { handlers } = evalProtocols(fetchImpl as jest.Mock, workerProtocolScript());
-    const result = await handlers['cached-vector']({
-      url: 'cached-vector://tiles.openfreemap.org/planet',
-    });
-    expect((result.data as { tiles: string[] }).tiles[0]).toContain('20260823_080002_pt');
-  });
-});
-
-/**
- * Scenario: the vector protocol is registered by two pages over one cache.
- * Expected behaviour: there is one copy of it. A defect in the contract had
- * to be fixed in both handlers, which is the argument for the snippet being
- * shared rather than duplicated.
- */
-describe('one vector protocol, two pages', () => {
-  it('is the same text in the interactive surfaces and in the worker', () => {
+describe('one vector protocol, one page', () => {
+  it("is the interactive surfaces' own, registered exactly once", () => {
     const snippet = vectorProtocolScript();
     expect(snippet).toContain("addProtocol('cached-vector'");
     expect(tileProtocolsScript()).toContain(snippet);
-    expect(buildSnapshotWorkerHtml(0)).toContain(snippet);
+    expect(tileProtocolsScript().split("addProtocol('cached-vector'").length - 1).toBe(1);
   });
 
-  it('registers the protocol exactly once on each page', () => {
-    for (const page of [tileProtocolsScript(), buildSnapshotWorkerHtml(0)]) {
-      expect(page.split("addProtocol('cached-vector'").length - 1).toBe(1);
-    }
+  it('is not registered on the worker, which no style can point at it', () => {
+    expect(buildSnapshotWorkerHtml(0)).not.toContain("addProtocol('cached-vector'");
   });
 });

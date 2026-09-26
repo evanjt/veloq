@@ -138,12 +138,12 @@ describe('a sport filter over a screen bundle', () => {
   ];
   const bundledMetrics = (activityId: string, movingTime: number): FfiActivityMetrics => ({
     ...metrics(activityId, movingTime),
-    date: 1_700_000_000n,
+    date: 1_700_000_000,
     sportType: 'Ride',
   });
   const bundledPerformance = (activityId: string, movingTime: number): FfiRoutePerformance => ({
     ...performance(activityId, movingTime),
-    date: 1_700_000_000n,
+    date: 1_700_000_000,
     duration: movingTime,
     isCurrent: activityId === 'a1',
   });

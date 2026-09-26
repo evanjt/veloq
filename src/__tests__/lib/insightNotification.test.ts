@@ -17,7 +17,7 @@ function createInsight(
     priority,
     title: id,
     icon: 'star',
-    iconColor: '#000',
+    iconTone: 'neutral',
     timestamp: 0,
     isNew: true,
   };
@@ -28,6 +28,7 @@ describe('insight notifications', () => {
     enabled: true,
     privacyAccepted: true,
     pendingUnregister: false,
+    pendingUnregisterAthleteId: null,
     categories: {
       sectionPr: false,
       fitnessMilestone: true,

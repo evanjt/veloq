@@ -11,12 +11,15 @@
  *
  * If Tier 3.3 changes the output of computeInsightsFromData, that's a
  * semantics change and needs explicit baseline review, not a silent diff.
+ *
+ * Reviewed 2026-09-14: the HRV card moved above the stale-PR card at the same
+ * priority. R6 now reads a signal delta off the seven-day window, which for this
+ * fixture is 0.7 standard deviations, inside the flow corridor, and the stale-PR
+ * card declares none. That is the term working rather than the ranking drifting.
  */
 
-import {
-  computeInsightsFromData,
-  type WellnessInput,
-} from '@/features/insights/lib/computeInsightsData';
+import { computeInsightsFromData } from '@/features/insights/lib/computeInsightsData';
+import { LoadMetric } from 'veloqrs';
 import type { InsightsData, SummaryCardData } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 
@@ -35,7 +38,7 @@ const t = (key: string, params?: Record<string, string | number>) => {
 function makePeriod(count: number, durationSecs: number, distanceM: number, tss: number) {
   return {
     count,
-    totalDuration: BigInt(Math.round(durationSecs)),
+    totalDuration: Math.round(durationSecs),
     totalDistance: distanceM,
     totalTss: tss,
   };
@@ -59,7 +62,6 @@ function makePattern(
     avgDistanceMeters: 40_000,
     frequencyPerMonth: 4,
     confidence,
-    silhouetteScore: 0.7,
     daysSinceLast: 3,
   };
 }
@@ -86,6 +88,7 @@ function makeRankedSections(sportType: string) {
       daysSinceLast: 4,
       trend: 1,
       latestIsPr: true,
+      recentEfforts: [],
     },
     {
       sectionId: `sec-${sportType.toLowerCase()}-flat-B`,
@@ -101,6 +104,7 @@ function makeRankedSections(sportType: string) {
       daysSinceLast: 12,
       trend: -1,
       latestIsPr: false,
+      recentEfforts: [],
     },
     {
       // Past the staleness floor, so this is the only section a stale-PR
@@ -118,29 +122,35 @@ function makeRankedSections(sportType: string) {
       daysSinceLast: 65,
       trend: 0,
       latestIsPr: false,
+      recentEfforts: [],
     },
   ];
 }
 
 function buildFfiData(): InsightsData {
   return {
+    form: { date: '2026-04-19', ctl: 67.8, atl: 61.5, tsb: 6.3 },
     currentWeek: makePeriod(5, 4 * 3600, 80_000, 320),
     previousWeek: makePeriod(3, 2.5 * 3600, 50_000, 220),
     chronicPeriod: makePeriod(20, 18 * 3600, 320_000, 1280),
+    chronicWeekAverage: makePeriod(5, 4.5 * 3600, 80_000, 320),
+    chronicWeeks: [],
     todayPeriod: makePeriod(1, 1.2 * 3600, 22_000, 90),
     ftpTrend: {
       latestFtp: 285,
-      latestDate: BigInt(1_745_000_000),
+      latestDate: 1_745_000_000,
       previousFtp: 270,
-      previousDate: BigInt(1_700_000_000),
+      previousDate: 1_700_000_000,
       sampleCount: 24,
+      history: [],
     },
     runPaceTrend: {
       latestPace: 4.55,
-      latestDate: BigInt(1_745_000_000),
+      latestDate: 1_745_000_000,
       previousPace: 4.7,
-      previousDate: BigInt(1_700_000_000),
+      previousDate: 1_700_000_000,
       sampleCount: 24,
+      history: [],
     },
     allPatterns: [
       makePattern('Ride', 6, 0.9, 3 * 3600, 12),
@@ -153,7 +163,10 @@ function buildFfiData(): InsightsData {
         sectionName: 'Sunday Climb',
         bestTime: 690,
         daysAgo: 3,
+        sportType: 'Ride',
         traversalCount: 14,
+        recentEfforts: [],
+        encodedPolyline: new ArrayBuffer(0),
       },
     ],
     sectionCount: 42,
@@ -165,64 +178,26 @@ function buildFfiData(): InsightsData {
     efficiencyTrends: [],
     hasStrengthData: false,
     strengthSeries: undefined,
-  };
-}
-
-function buildSummaryCardData(): SummaryCardData {
-  return {
-    currentWeek: makePeriod(5, 4 * 3600, 80_000, 320),
-    prevWeek: makePeriod(3, 2.5 * 3600, 50_000, 220),
-    ftpTrend: {
-      latestFtp: 285,
-      latestDate: BigInt(1_745_000_000),
-      previousFtp: 270,
-      previousDate: BigInt(1_700_000_000),
-      sampleCount: 24,
+    weekOverWeek: { metric: LoadMetric.Tss, current: 320, previous: 220, ratio: 320 / 220 - 1 },
+    weekAgainstChronic: {
+      metric: LoadMetric.Tss,
+      current: 220,
+      previous: 320,
+      ratio: 220 / 320 - 1,
     },
-    runPaceTrend: {
-      latestPace: 4.55,
-      latestDate: BigInt(1_745_000_000),
-      previousPace: 4.7,
-      previousDate: BigInt(1_700_000_000),
-      sampleCount: 24,
+    hrvTrend: {
+      label: 'trendingDown',
+      reason: 'halves',
+      avg: 470 / 7,
+      latest: 68,
+      dataPoints: 7,
+      sparkline: [67, 68, 69, 65, 66, 67, 68],
+      // The engine takes the distance off the same window it read the verdict
+      // from: 68 against the window's mean of 67.14, over a deviation of 1.245.
+      signalDelta: 0.688,
     },
-    swimPaceTrend: {
-      latestPace: undefined,
-      latestDate: undefined,
-      previousPace: undefined,
-      previousDate: undefined,
-      sampleCount: 24,
-    },
-  };
-}
-
-function buildWellness(): WellnessInput[] {
-  // 14 days of slowly rising CTL, ATL just under, TSB slightly positive.
-  const today = new Date('2026-04-19T08:00:00Z');
-  return Array.from({ length: 14 }).map((_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - (13 - i));
-    return {
-      id: d.toISOString().slice(0, 10),
-      ctl: 60 + i * 0.6,
-      atl: 55 + i * 0.5,
-      ctlLoad: 60 + i * 0.6,
-      atlLoad: 55 + i * 0.5,
-      hrv: 65 + (i % 5),
-      restingHr: 48,
-      sleepSecs: 7 * 3600,
-      weight: 72,
-    } as WellnessInput;
-  });
-}
-
-function buildMockEngine(): unknown {
-  // The bundle carries the section and strength data, so the engine mock
-  // exists for the two answers only Rust gives: the HRV verdict, and the
-  // stale-PR filter, whose row here is Ride Neglected C at 65 days against
-  // the 270 to 285 W gain the fixture's FTP trend carries.
-  return {
-    findStalePrOpportunities: () => [
+    recentSectionChanges: [],
+    stalePrOpportunities: [
       {
         sectionId: 'sec-ride-neglected-C',
         sectionName: 'Ride Neglected C',
@@ -234,16 +209,66 @@ function buildMockEngine(): unknown {
         previousValue: 270,
         gainPercent: 5.6,
         unit: 'W',
+        sportType: 'Ride',
+        recentEfforts: [],
       },
     ],
-    computeHrvTrend: () => ({
-      label: 'trendingDown',
-      avg: 470 / 7,
-      latest: 68,
-      dataPoints: 7,
-      sparkline: [67, 68, 69, 65, 66, 67, 68],
-    }),
   };
+}
+
+function buildSummaryCardData(): SummaryCardData {
+  return {
+    // The insights bundle does not read the card's wellness half; it is here
+    // because the record carries it.
+    wellness: {
+      fitness: 60,
+      fitnessTrend: '↑',
+      form: 20,
+      formTrend: '→',
+      hrv: 70,
+      hrvTrend: undefined,
+      rhr: 48,
+      rhrTrend: undefined,
+      weight: undefined,
+      weightTrend: undefined,
+    },
+    currentWeek: makePeriod(5, 4 * 3600, 80_000, 320),
+    prevWeek: makePeriod(3, 2.5 * 3600, 50_000, 220),
+    ftpTrend: {
+      latestFtp: 285,
+      latestDate: 1_745_000_000,
+      previousFtp: 270,
+      previousDate: 1_700_000_000,
+      sampleCount: 24,
+      history: [],
+    },
+    runPaceTrend: {
+      latestPace: 4.55,
+      latestDate: 1_745_000_000,
+      previousPace: 4.7,
+      previousDate: 1_700_000_000,
+      sampleCount: 24,
+      history: [],
+    },
+    swimPaceTrend: {
+      latestPace: undefined,
+      latestDate: undefined,
+      previousPace: undefined,
+      previousDate: undefined,
+      sampleCount: 24,
+      history: [],
+    },
+  };
+}
+
+/**
+ * The bundle carries everything now, including the two answers only Rust gives:
+ * the HRV verdict, and the stale-PR filter, whose row here is Ride Neglected C
+ * at 65 days against the 270 to 285 W gain the fixture's FTP trend carries.
+ * There is nothing left for an engine mock to answer.
+ */
+function buildMockEngine(): unknown {
+  return {};
 }
 
 describe('Tier 0.6 contract: computeInsightsFromData', () => {
@@ -252,12 +277,7 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
   });
 
   it('produces a stable, ranked insight list given fixture FFI data', () => {
-    const insights = computeInsightsFromData(
-      buildFfiData(),
-      buildWellness(),
-      t,
-      buildSummaryCardData()
-    );
+    const insights = computeInsightsFromData(buildFfiData(), t, buildSummaryCardData());
 
     // Snapshot the structural shape of the output. Each entry's id /
     // category / priority are the contract Tier 3.3 must preserve. Title
@@ -291,24 +311,19 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
   });
 
   it('returns [] when ffiData is null', () => {
-    const insights = computeInsightsFromData(null, buildWellness(), t, null);
+    const insights = computeInsightsFromData(null, t, null);
     expect(insights).toEqual([]);
   });
 
   it('does not crash when wellness is empty (rest-day framing path)', () => {
-    const insights = computeInsightsFromData(buildFfiData(), [], t, buildSummaryCardData());
+    const insights = computeInsightsFromData(buildFfiData(), t, buildSummaryCardData());
     // Should still produce at least the section-pattern insights derived
     // from FFI data alone.
     expect(Array.isArray(insights)).toBe(true);
   });
 
   it('carries the engine ranking breakdown onto section-trend insights', () => {
-    const insights = computeInsightsFromData(
-      buildFfiData(),
-      buildWellness(),
-      t,
-      buildSummaryCardData()
-    );
+    const insights = computeInsightsFromData(buildFfiData(), t, buildSummaryCardData());
 
     const trend = insights.find((i) => i.id.startsWith('section_trend-'));
     if (!trend) throw new Error('expected a section-trend insight');
@@ -339,12 +354,7 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
   });
 
   it('exercises both the improving and the declining section-trend branch', () => {
-    const insights = computeInsightsFromData(
-      buildFfiData(),
-      buildWellness(),
-      t,
-      buildSummaryCardData()
-    );
+    const insights = computeInsightsFromData(buildFfiData(), t, buildSummaryCardData());
 
     const trends = insights.filter((i) => i.category === 'section_trend');
     expect(trends.map((i) => i.icon)).toEqual(
@@ -366,18 +376,13 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
   it('produces no section trends when the ranked batch is empty', () => {
     const ffiData = { ...buildFfiData(), rankedSections: [] } as InsightsData;
 
-    const insights = computeInsightsFromData(ffiData, buildWellness(), t, buildSummaryCardData());
+    const insights = computeInsightsFromData(ffiData, t, buildSummaryCardData());
 
     expect(insights.filter((i) => i.id.startsWith('section_trend-'))).toEqual([]);
   });
 
   it('section-derived insights only reference sections present in the FFI ranked-batch', () => {
-    const insights = computeInsightsFromData(
-      buildFfiData(),
-      buildWellness(),
-      t,
-      buildSummaryCardData()
-    );
+    const insights = computeInsightsFromData(buildFfiData(), t, buildSummaryCardData());
 
     const allowedSectionIds = new Set([
       'sec-ride-climb-A',

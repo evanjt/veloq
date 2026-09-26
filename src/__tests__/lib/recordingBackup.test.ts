@@ -183,3 +183,12 @@ describe('savedAt stamping', () => {
     expect(backup.savedAt).toBe(now);
   });
 });
+
+it('round-trips missing altitude separately from real zero', async () => {
+  const streams = makeStreams();
+  streams.altitude = [NaN, 0, NaN, 2, NaN];
+  const backup = buildRecordingBackup(makeState({ streams }))!;
+  await saveRecordingBackup(backup);
+  const restored = await loadRecordingBackup();
+  expect(restored?.streams.altitude).toEqual(streams.altitude);
+});

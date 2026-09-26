@@ -51,7 +51,7 @@ function makeInsight(overrides: Partial<Insight> = {}): Insight {
     priority: 2,
     title: 'Test insight',
     icon: 'trending-up',
-    iconColor: '#000',
+    iconTone: 'neutral',
     timestamp: NOW,
     isNew: false,
     ...overrides,
@@ -244,9 +244,12 @@ describe('rules.signalScore (R6)', () => {
     expect(signalScore(insight)).toBe(10);
   });
 
-  it('penalises below-floor noise', () => {
+  // A delta below the floor scores what an absence scores. Measuring an honest
+  // small change may help or be neutral, never cost, as with confidence.
+  it('scores below-floor noise as an absence does', () => {
     const insight = makeInsight({ meta: { signalDelta: 0.2 } });
-    expect(signalScore(insight)).toBe(-5);
+    expect(signalScore(insight)).toBe(0);
+    expect(signalScore(makeInsight())).toBe(signalScore(insight));
   });
 
   it('gives small credit above ceiling', () => {

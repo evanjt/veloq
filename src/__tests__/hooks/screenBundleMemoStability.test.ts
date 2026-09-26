@@ -17,8 +17,8 @@ import { decodeCoords } from 'veloqrs';
 import type {
   ActivityMetrics,
   FfiMapSignature,
-  Section as NativeSection,
   SectionEncounter,
+  SectionWithPolyline,
 } from 'veloqrs';
 import type { FrequentSection, Section } from '@/types';
 
@@ -35,21 +35,19 @@ jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 const mockDecodeCoords = decodeCoords as jest.MockedFunction<typeof decodeCoords>;
 
-function nativeSection(id: string): NativeSection {
+function nativeSection(id: string): SectionWithPolyline {
   return {
     id,
-    sectionType: 'auto',
     sportType: 'Ride',
+    sportTypes: ['Ride'],
     encodedPolyline: new ArrayBuffer(0),
-    representativeActivityId: 'act-1',
-    activityIds: ['act-1'],
+    activityCount: 1,
     visitCount: 3,
     distanceMeters: 1200,
     isLift: false,
     isUserDefined: false,
     disabled: false,
-    createdAt: '2026-01-01T00:00:00Z',
-  } as unknown as NativeSection;
+  } as unknown as SectionWithPolyline;
 }
 
 beforeEach(() => {
@@ -86,7 +84,7 @@ describe('useSectionMatches over a rebuilt bundle wrapper', () => {
 
   it('recomputes when the matched sections themselves change', () => {
     const { result, rerender } = renderHook(
-      ({ list }: { list: NativeSection[] }) =>
+      ({ list }: { list: SectionWithPolyline[] }) =>
         useSectionMatches('act-1', { sections: list, sectionCount: list.length }),
       { initialProps: { list: sections } }
     );
@@ -100,7 +98,7 @@ describe('useSectionMatches over a rebuilt bundle wrapper', () => {
   });
 
   it('holds an empty result stable and reports the bundle count', () => {
-    const empty: NativeSection[] = [];
+    const empty: SectionWithPolyline[] = [];
     const { result, rerender } = renderHook(() =>
       useSectionMatches('act-1', { sections: empty, sectionCount: 7 })
     );

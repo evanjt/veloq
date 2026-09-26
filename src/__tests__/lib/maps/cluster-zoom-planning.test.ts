@@ -128,12 +128,14 @@ describe('planClusterZoom', () => {
     }
   });
 
-  it('returns stacked plan when leaves list is empty', () => {
+  // Was `stacked` with a leaf count of zero, which is not a thing that can be
+  // stacked, and the handler dropped it: that is what made a cluster tap on the
+  // global map do nothing at all.
+  it('returns an expand plan when the leaves list is empty', () => {
     const plan = planClusterZoom([], center);
-    expect(plan.kind).toBe('stacked');
-    if (plan.kind === 'stacked') {
+    expect(plan.kind).toBe('expand');
+    if (plan.kind === 'expand') {
       expect(plan.center).toEqual(center);
-      expect(plan.leafCount).toBe(0);
     }
   });
 

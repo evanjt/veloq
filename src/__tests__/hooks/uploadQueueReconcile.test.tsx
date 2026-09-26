@@ -12,8 +12,22 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { reconcileProvisionalUploads } from '@/features/recording/lib/storage/provisionalActivity';
-import { nextPendingUpload } from '@/features/recording/lib/storage/recordingLibrary';
+import {
+  nextPendingUpload,
+  migrateLegacyUploadQueue,
+  adoptAsyncStorageIndex,
+} from '@/features/recording/lib/storage/recordingLibrary';
 import { confirmAndDeleteUploaded } from '@/features/recording/lib/upload/confirmUploads';
+
+let mockReady = false;
+let mockReadyNonce = 0;
+jest.mock('@/shared/native/useEngineReady', () => ({
+  useEngineReady: () => ({ ready: mockReady }),
+}));
+jest.mock('@/features/routes', () => ({
+  useEngineStatus: (selector: (s: { readyNonce: number }) => unknown) =>
+    selector({ readyNonce: mockReadyNonce }),
+}));
 
 jest.mock('@/shared/app/NetworkContext', () => ({
   useNetwork: () => ({ isOnline: false }),
@@ -26,6 +40,7 @@ jest.mock('@/features/recording/lib/storage/provisionalActivity', () => ({
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   nextPendingUpload: jest.fn(async () => null),
   migrateLegacyUploadQueue: jest.fn(async () => {}),
+  adoptAsyncStorageIndex: jest.fn(async () => 0),
 }));
 
 jest.mock('@/features/recording/lib/upload/uploadRecording', () => ({
@@ -45,6 +60,8 @@ const mockNextPending = nextPendingUpload as jest.Mock;
 const mockConfirm = confirmAndDeleteUploaded as jest.Mock;
 
 beforeEach(() => {
+  mockReady = false;
+  mockReadyNonce = 0;
   jest.clearAllMocks();
   mockReconcile.mockResolvedValue(0);
   mockNextPending.mockResolvedValue(null);
@@ -86,4 +103,17 @@ describe('useUploadQueueProcessor', () => {
     await waitFor(() => expect(mockReconcile).toHaveBeenCalled());
     expect(mockConfirm).not.toHaveBeenCalled();
   });
+});
+
+it('adopts legacy recordings when readiness is announced and repeats on a later open', async () => {
+  const { rerender } = renderHook(() => useUploadQueueProcessor());
+  expect(migrateLegacyUploadQueue).not.toHaveBeenCalled();
+  mockReady = true;
+  mockReadyNonce++;
+  rerender({});
+  await waitFor(() => expect(adoptAsyncStorageIndex).toHaveBeenCalledTimes(1));
+  expect(migrateLegacyUploadQueue).toHaveBeenCalledTimes(1);
+  mockReadyNonce++;
+  rerender({});
+  await waitFor(() => expect(adoptAsyncStorageIndex).toHaveBeenCalledTimes(2));
 });
