@@ -115,6 +115,7 @@ table sections
   index idx_sections_sport unique=0 origin=c partial=0 cols=[sport_type]
   index idx_sections_type unique=0 origin=c partial=0 cols=[section_type]
   index auto(id) unique=1 origin=pk partial=0 cols=[id]
+  check section_type IN('auto','custom')
 table signatures
   column activity_id type=TEXT notnull=0 default=<none> pk=1
   column end_point_lat type=REAL notnull=1 default=<none> pk=0

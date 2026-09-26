@@ -152,3 +152,69 @@ fn an_excluded_portion_is_never_examined() {
 
     assert_eq!(engine.backfill_section_performance_cache(), 0);
 }
+
+/// Scenario: every released 0.3.x stored the raw `time` series, longer
+/// than its track by the samples the `latlng` mask drops, and the lap times
+/// computed off it are wrong. The sync now refetches such a stream, but the
+/// backfill only ever filled `NULL` rows, so the wrong values would stand.
+///
+/// Expected behaviour: a stream that actually moved takes its activity's lap
+/// times with it.
+#[test]
+fn a_replaced_stream_recomputes_the_lap_times_it_already_wrote() {
+    let dir = TempDir::new().unwrap();
+    let path = seed(&dir);
+    let db = conn(&path);
+    let mut engine = open(&path);
+
+    // The pre-mask shape: one sample per second, but forty-three of them for a
+    // forty-point track, so the traversal is timed off the wrong window.
+    let misaligned: Vec<u32> = (0..43).map(|i| i * 2).collect();
+    db.execute(
+        "INSERT INTO time_streams (activity_id, times, point_count) VALUES ('streamed', ?, 43)",
+        params![veloqrs::persistence::codec::serialize(&misaligned).expect("encode")],
+    )
+    .expect("store the stream");
+    db.execute(
+        "UPDATE section_activities SET lap_time = 40.0, lap_pace = 22.5
+         WHERE activity_id = 'streamed'",
+        [],
+    )
+    .expect("the wrong value the old stream produced");
+
+    // What the mask-reduced fetch answers: one per point, one second apart.
+    let aligned: Vec<u32> = (0..40).collect();
+    engine.set_time_streams_flat(&["streamed".into()], &aligned, &[0]);
+
+    assert_eq!(
+        lap_time(&db, "streamed"),
+        Some(20.0),
+        "the replaced stream must take the lap time it already wrote with it"
+    );
+}
+
+/// A stream that did not move leaves the lap times alone, so a routine sync
+/// re-storing the same series costs nothing.
+#[test]
+fn an_unchanged_stream_leaves_the_lap_times_where_they_are() {
+    let dir = TempDir::new().unwrap();
+    let path = seed(&dir);
+    let db = conn(&path);
+    let mut engine = open(&path);
+    let times: Vec<u32> = (0..40).collect();
+    engine.set_time_streams_flat(&["streamed".into()], &times, &[0]);
+    assert_eq!(lap_time(&db, "streamed"), Some(20.0));
+
+    db.execute(
+        "UPDATE section_activities SET lap_time = 99.0 WHERE activity_id = 'streamed'",
+        [],
+    )
+    .unwrap();
+    engine.set_time_streams_flat(&["streamed".into()], &times, &[0]);
+
+    assert_eq!(
+        lap_time(&db, "streamed"),
+        Some(99.0),
+        "nothing moved, so nothing was recomputed"
+    );
+}

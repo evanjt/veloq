@@ -24,8 +24,8 @@ use veloqrs::governor::{AuthMethod, Governor, NoopPolicy};
 use veloqrs::net::Transport;
 use veloqrs::net::elevation_backfill::{
     BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, BACKFILL_PHASE_PARTIAL,
-    BACKFILL_PHASE_PAUSED, BackfillRun, MAX_CONSECUTIVE_FAILURES, backfill_progress,
-    backfill_retry_delays, detect_runs_started, elevation_backfill_paused,
+    BACKFILL_PHASE_PAUSED, BackfillRun, ELEVATION_ATTEMPT_LIMIT, MAX_CONSECUTIVE_FAILURES,
+    backfill_progress, backfill_retry_delays, detect_runs_started, elevation_backfill_paused,
     pause_elevation_backfill, reset_elevation_backfill_pause, run_elevation_backfill,
 };
 use veloqrs::objects::{SYNC_SERVICE, SyncState};
@@ -37,6 +37,7 @@ use veloqrs::persistence::{detection_suspended, with_persistent_engine};
 const UNKNOWN: u8 = 0;
 const FETCHED: u8 = 1;
 const UNAVAILABLE: u8 = 2;
+const UNREACHABLE: u8 = 3;
 
 static SERIAL: Mutex<()> = Mutex::new(());
 
@@ -104,7 +105,15 @@ fn confirm_rejection(server: &MockServer) {
 
 /// The process-wide sync service is shared across these tests, so each one
 /// that reads it starts from a live session rather than the last test's park.
+///
+/// The credential is what does it. `finish` refuses to write over the
+/// `auth_expired` latch, deliberately, so that a parked athlete is not un-parked
+/// by the interrupted run's own tail, and a `finish(Idle)` on its own therefore
+/// left a neighbour's park standing. Setting a credential is the one thing that
+/// releases the latch, and it is also what a live session is.
 fn live_session() {
+    veloqrs::objects::set_credentials_from_native("api_key", "k", ATHLETE)
+        .expect("api_key is a known auth method");
     SYNC_SERVICE.finish(SyncState::Idle, None, false);
 }
 
@@ -1434,6 +1443,30 @@ fn a_clean_pass_leaves_the_session_alone() {
     assert_eq!(sync_state(), SyncState::Idle);
 }
 
+/// Scenario: a confirmed 401 in any test latches `auth_expired` on the
+/// process-wide service, and `finish` refuses to write over that latch by
+/// design, so the interrupted run's own tail cannot un-park the athlete. The
+/// tests run in whatever order the threads reach the serial guard, which moves
+/// with machine load, so the neighbour that parks lands before a reader as often
+/// as after it.
+///
+/// Expected behaviour: `live_session` hands back a service at Idle whatever the
+/// last test left, because a credential is what a live session is and setting
+/// one is the only thing that releases a park.
+#[test]
+fn live_session_clears_a_park_the_last_test_left() {
+    let _serial = serial();
+    SYNC_SERVICE.park_auth_expired_now();
+
+    live_session();
+
+    assert_eq!(
+        sync_state(),
+        SyncState::Idle,
+        "the park a neighbour left is still standing"
+    );
+}
+
 /// The second pass parks too. Nothing latches the first one, so a resume that
 /// runs while the token is still dead reports it again rather than falling
 /// silent.
@@ -1812,5 +1845,58 @@ fn a_paused_pass_ends_paused_without_the_final_recut_and_releases_detection() {
     );
 
     reset_elevation_backfill_pause();
+    drain_detection();
+}
+
+/// Scenario: upstream will not answer for one activity, and says so the same
+/// way every time. The row is left untouched by every pass, so the derived
+/// queue re-offers it for the life of the install,
+/// `getElevationBackfillRemaining()` never reaches zero, detection stays held
+/// and the detector cutover is vetoed at every launch. One activity is enough
+/// to do that to a whole library.
+///
+/// Expected behaviour: the refusals are counted against the track, and the
+/// pass that reaches the limit retires it. The queue drains, and the track
+/// still counts as not elevated, because nothing was ever fetched for it.
+#[test]
+fn a_track_upstream_will_not_answer_for_is_retired_and_leaves_the_queue() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a1"]);
+
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.path("/activity/a1/streams.json");
+        then.status(404).body("no such activity");
+    });
+
+    for pass in 1..ELEVATION_ATTEMPT_LIMIT {
+        let run = run_backfill(&fast_transport(server.base_url()));
+        assert!(
+            matches!(run, BackfillRun::Finished(_)),
+            "an answer about one activity does not fail the pass, got {run:?}"
+        );
+        assert_eq!(
+            queue_ids(),
+            vec!["a1"],
+            "ask {pass} of {ELEVATION_ATTEMPT_LIMIT} is not the last word"
+        );
+    }
+
+    let run = run_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {run:?}");
+    };
+
+    assert_eq!(outcome.retired, 1, "the pass reaching the limit retires it");
+    assert!(
+        queue_ids().is_empty(),
+        "a track nothing can fetch must leave the queue, or it holds detection for ever"
+    );
+    assert_eq!(state_of("a1"), UNREACHABLE);
+    assert_eq!(
+        outstanding(),
+        1,
+        "retired is not elevated: the library still does not read uniformly"
+    );
     drain_detection();
 }

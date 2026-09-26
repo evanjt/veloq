@@ -87,7 +87,7 @@ fn backfill_cadence_conditions_without_any_ts_poll() {
     // over the same pool short-circuits instead of re-deriving.
     let processed = with_persistent_engine(|engine| {
         let handle = engine.detect_sections_background();
-        let (sections_again, _) = handle.recv().unwrap_or_default();
+        let (sections_again, _) = handle.recv().expect("the detect ran");
         (sections_again.len(), engine.get_sections().len())
     })
     .unwrap();

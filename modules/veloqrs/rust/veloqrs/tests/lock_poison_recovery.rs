@@ -15,9 +15,9 @@
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Mutex;
 use tempfile::TempDir;
-use veloqrs::objects::error::{with_engine, with_engine_read};
+use veloqrs::objects::error::with_engine;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
-use veloqrs::persistence::{with_persistent_engine, with_persistent_engine_read};
+use veloqrs::persistence::with_persistent_engine;
 
 static SERIAL: Mutex<()> = Mutex::new(());
 
@@ -51,18 +51,8 @@ fn assert_all_accessors_serve(context: &str) {
         context
     );
     assert!(
-        with_persistent_engine_read(|engine| engine.activity_count()).is_some(),
-        "with_persistent_engine_read went dead after {}",
-        context
-    );
-    assert!(
         with_engine(|engine| engine.activity_count()).is_ok(),
         "with_engine answered LockFailed after {}",
-        context
-    );
-    assert!(
-        with_engine_read(|engine| engine.activity_count()).is_ok(),
-        "with_engine_read answered LockFailed after {}",
         context
     );
 }
@@ -81,21 +71,21 @@ fn write_accessor_recovers_from_a_poisoned_lock() {
     assert_all_accessors_serve("a panic inside with_persistent_engine");
 }
 
+/// The engine has one lock now, so a second panic under it is what a second
+/// caller finds. There is no read accessor left to poison separately.
 #[test]
-fn read_accessor_recovers_from_a_poisoned_lock() {
+fn a_second_panic_under_the_lock_still_leaves_it_serving() {
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let _tmp = init_global_engine();
 
-    // std only poisons on an exclusive panic, so a writer poisons the lock
-    // first and the read closure then panics under it.
     panic_quietly(|| {
         with_persistent_engine(|_engine| panic!("writer blew up"));
     });
     panic_quietly(|| {
-        with_persistent_engine_read(|_engine| panic!("reader blew up"));
+        with_engine(|_engine| panic!("the next caller blew up too"));
     });
 
-    assert_all_accessors_serve("a panic inside with_persistent_engine_read");
+    assert_all_accessors_serve("two panics under the engine lock");
 }
 
 #[test]

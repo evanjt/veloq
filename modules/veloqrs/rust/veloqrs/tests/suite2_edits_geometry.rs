@@ -362,10 +362,19 @@ fn gate_reset_reference_fully_resets_like_reset_bounds() {
 }
 
 /// recalculate_section_polyline must be idempotent: recomputing a section's
-/// consensus a second time, with no new activities, must not move it. Fails
-/// today: a second recalc changes the point count again (drift), and the extent
-/// is non-deterministic across runs. Green when consensus regeneration converges
-/// to a fixed point.
+/// consensus a second time, with no new activities, must not move it.
+///
+/// Measured on the length rather than the point count, which is the field the
+/// recalc still reports: `polyline_point_count` was cut from
+/// `FfiSectionRecalcResult` with the twenty other slots no reader wanted, and
+/// this assertion was left reading a field that no longer existed, which
+/// stopped the whole synthetic suite from building (`SB17`).
+///
+/// It converges: measured 2026-09-13 on the battery arm, both recalcs answer
+/// 251.5 m, a drift of nought. The tolerance is a centimetre rather than
+/// equality because the length is a sum of floats, and it is deliberately far
+/// tighter than the two-point slack the point count carried: a consensus that
+/// lands somewhere else moves the length by metres.
 #[test]
 fn gate_recalculate_polyline_is_idempotent() {
     let corpus = corpus();
@@ -376,12 +385,12 @@ fn gate_recalculate_polyline_is_idempotent() {
     let first = engine.recalculate_section_polyline(&id).expect("recalc #1");
     let second = engine.recalculate_section_polyline(&id).expect("recalc #2");
 
-    let drift = (first.polyline_point_count as i64 - second.polyline_point_count as i64).abs();
+    let drift = (first.distance_meters - second.distance_meters).abs();
     assert!(
-        drift <= 2,
-        "recalculate drifted by {drift} points on a no-op re-run ({} -> {})",
-        first.polyline_point_count,
-        second.polyline_point_count,
+        drift <= 0.01,
+        "recalculate drifted by {drift:.1} m on a no-op re-run ({:.1} -> {:.1})",
+        first.distance_meters,
+        second.distance_meters,
     );
 }
 

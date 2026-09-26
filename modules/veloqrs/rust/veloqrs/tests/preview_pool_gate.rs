@@ -16,6 +16,8 @@ use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::FfiSectionConfig;
 use veloqrs::objects::SectionPreview;
+use veloqrs::objects::start::FfiStartOutcome;
+use veloqrs::objects::start::FfiStartOutcome::Started;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -88,8 +90,9 @@ fn a_preview_over_an_unusable_pool_refuses() {
     let ffi_cfg = FfiSectionConfig::from(&cfg);
 
     let preview = SectionPreview::new();
-    assert!(
+    assert_eq!(
         preview.start(46.01, 7.0, ffi_cfg).expect("start call"),
+        Started,
         "the preview must start before it can refuse the pool"
     );
 

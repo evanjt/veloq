@@ -24,6 +24,8 @@ use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::FfiSectionConfig;
 use veloqrs::objects::SectionPreview;
+use veloqrs::objects::start::FfiStartOutcome;
+use veloqrs::objects::start::FfiStartOutcome::Started;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -184,9 +186,10 @@ fn a_preview_on_the_live_config_proposes_the_catalogue_it_already_holds() {
     for centre in centres.iter().take(3) {
         // The sliders open on the live config, so this is Preview pressed with
         // nothing touched.
-        if !preview
+        if preview
             .start(centre.lat, centre.lng, FfiSectionConfig::from(&config))
             .expect("start call")
+            != Started
         {
             continue;
         }
@@ -205,28 +208,26 @@ fn a_preview_on_the_live_config_proposes_the_catalogue_it_already_holds() {
             std::thread::sleep(Duration::from_millis(50));
         }
 
-        let json = preview
+        let payload = preview
             .take_result()
             .expect("take call")
             .expect("a completed preview yields a payload");
-        let payload: serde_json::Value = serde_json::from_str(&json).expect("payload parses");
-        let counts = &payload["counts"];
-        let n = |k: &str| counts[k].as_u64().unwrap_or(u64::MAX);
+        let counts = &payload.counts;
 
         println!(
             "  area {}: pool {} activities, current {}, proposed {}, \
              unchanged {}, changed {}, new {}, gone {}",
             measured + 1,
-            payload["pool"]["activities"].as_u64().unwrap_or(0),
-            n("current"),
-            n("proposed"),
-            n("unchanged"),
-            n("changed"),
-            n("new"),
-            n("gone"),
+            payload.pool.activities,
+            counts.current,
+            counts.proposed,
+            counts.unchanged,
+            counts.changed,
+            counts.new,
+            counts.gone,
         );
 
-        worst_gone = worst_gone.max(n("gone"));
+        worst_gone = worst_gone.max(u64::from(counts.gone));
         measured += 1;
     }
 

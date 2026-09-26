@@ -81,7 +81,7 @@ fn metrics(id: &str, date: i64) -> veloqrs::FfiActivityMetrics {
     veloqrs::FfiActivityMetrics {
         activity_id: id.to_string(),
         name: format!("Fixture {}", id),
-        date,
+        date: date as f64,
         distance: 1000.0,
         moving_time: 300,
         elapsed_time: 300,
@@ -159,18 +159,34 @@ fn activity_detail_matches_the_calls_it_replaces() {
     assert_eq!(bundled_matched, matched);
     assert!(matched.contains(&"auto1".to_string()));
 
-    let custom: Vec<String> = s
-        .engine
-        .get_sections_by_type(Some(veloqrs::sections::SectionType::Custom))
-        .into_iter()
-        .map(|sec| sec.id)
-        .collect();
+    // The bundle carries the custom sections that name this activity and are
+    // not already in `matched_sections`, not the whole custom catalogue. That
+    // is the filter the screen ran on the far side of the FFI call, and it is
+    // what stops the payload growing with the library.
     let bundled_custom: Vec<String> = bundle
         .custom_sections
         .iter()
         .map(|sec| sec.id.clone())
         .collect();
-    assert_eq!(bundled_custom, custom);
+    let expected_custom: Vec<String> = s
+        .engine
+        .get_sections_by_type(Some(veloqrs::sections::SectionType::Custom))
+        .into_iter()
+        .filter(|sec| {
+            sec.source_activity_id.as_deref() == Some("a1")
+                || sec.activity_ids.iter().any(|a| a == "a1")
+        })
+        .map(|sec| sec.id)
+        .filter(|id| !matched.contains(id))
+        .collect();
+    assert_eq!(bundled_custom, expected_custom);
+    assert!(
+        bundle.custom_sections.iter().all(|sec| {
+            sec.source_activity_id.as_deref() == Some("a1")
+                || sec.activity_ids.iter().any(|a| a == "a1")
+        }),
+        "a custom section that does not name this activity reached the screen"
+    );
 
     let encounters = s.engine.get_activity_section_encounters("a1");
     assert_eq!(bundle.encounters.len(), encounters.len());
@@ -189,6 +205,36 @@ fn activity_detail_matches_the_calls_it_replaces() {
         bundle.highlights.route_highlights.len(),
         s.engine.get_activity_route_highlights(&ids).len()
     );
+}
+
+/// Scenario: the detail screen opens on an activity that traverses a section
+/// with members.
+///
+/// Expected behaviour: the record carries the member count and the line, not
+/// the member list. The screen never reads the ids, and an activity crossing
+/// thirty sections lifted several hundred id strings across JSI on the mount.
+#[test]
+fn activity_detail_sends_the_member_count_and_not_the_member_list() {
+    let mut s = populated();
+    let bundle = s.engine.activity_detail_data("a1", 2);
+
+    let auto = bundle
+        .matched_sections
+        .iter()
+        .find(|sec| sec.id == "auto1")
+        .expect("auto1 is matched");
+    let members = s
+        .engine
+        .get_section_by_id("auto1")
+        .expect("section")
+        .activity_ids
+        .len() as u32;
+
+    assert!(members > 0, "the fixture section has members to count");
+    assert_eq!(auto.activity_count, members);
+    assert!(!auto.encoded_polyline.is_empty(), "the line still rides");
+    assert_eq!(auto.sport_types, vec![auto.sport_type.clone()]);
+    assert!(auto.bounds.is_some(), "the line's own extent");
 }
 
 #[test]
@@ -253,8 +299,6 @@ fn activity_detail_route_groups_honour_the_minimum() {
     let mut s = populated();
     let bundle = s.engine.activity_detail_data("a1", 2);
 
-    let total = s.engine.get_groups().len() as u32;
-    assert_eq!(bundle.total_route_group_count, total);
     assert!(
         bundle
             .route_groups
@@ -262,15 +306,60 @@ fn activity_detail_route_groups_honour_the_minimum() {
             .all(|g| g.activity_ids.len() >= 2),
         "groups below the minimum must not be returned"
     );
+}
 
-    let counts: Vec<usize> = bundle
-        .route_groups
-        .iter()
-        .map(|g| g.activity_ids.len())
-        .collect();
+/// The screen asks one question of this list, which group holds this activity,
+/// so the catalogue is what it had to search rather than what it needed. A
+/// bundle that hands over the whole of it grows with the library on the mount
+/// path of every activity opened.
+#[test]
+fn activity_detail_carries_only_the_group_this_activity_is_in() {
+    let mut s = populated();
+    // A minimum of one, so every group in the fixture qualifies and the
+    // narrowing is what removes the ones this activity is not in.
+    let bundle = s.engine.activity_detail_data("a1", 1);
     assert!(
-        counts.windows(2).all(|w| w[0] >= w[1]),
-        "route groups must arrive sorted by attempt count"
+        s.engine.get_groups().len() > 1,
+        "the fixture has to hold a group this activity is not in"
+    );
+
+    assert!(
+        bundle.route_groups.len() <= 1,
+        "the bundle carried {} groups to paint one activity",
+        bundle.route_groups.len()
+    );
+    assert!(
+        bundle
+            .route_groups
+            .iter()
+            .all(|g| g.activity_ids.iter().any(|a| a == "a1")),
+        "a group this activity is not in reached the screen"
+    );
+
+    // What the screen reads off it has to be unchanged: the whole catalogue
+    // filtered and searched gives the same group as the bundle now hands over.
+    let mut expected: Vec<_> = s.engine.get_groups().to_vec();
+    expected.sort_by_key(|g| std::cmp::Reverse(g.activity_ids.len()));
+    let searched = expected
+        .iter()
+        .find(|g| g.activity_ids.iter().any(|a| a == "a1"));
+    assert_eq!(
+        bundle.route_groups.first().map(|g| g.group_id.clone()),
+        searched.map(|g| g.group_id.clone()),
+        "the narrowed bundle names a different group than the search it replaces"
+    );
+}
+
+/// An activity in no group at all, which is the case the narrowing could turn
+/// into a group picked by position rather than by membership.
+#[test]
+fn activity_detail_carries_no_group_for_an_activity_in_none() {
+    let mut s = populated();
+    let bundle = s.engine.activity_detail_data("a1", 1_000);
+
+    assert!(
+        bundle.route_groups.is_empty(),
+        "no group meets the minimum, so none may be returned"
     );
 }
 
@@ -296,6 +385,100 @@ fn map_screen_matches_the_calls_it_replaces() {
     assert_eq!(bundle.activities.len(), 2);
 }
 
+/// The marker wants the start of the ride, and the page used to place every
+/// marker on its bounds centre and then move all of them once the signatures
+/// finished loading. Carrying the start here is what removes the second upload.
+#[test]
+fn map_screen_carries_the_start_point_for_each_marker() {
+    let s = populated();
+    let bundle = s
+        .engine
+        .map_screen_data(1_600_000_000, 1_800_000_000, Vec::new());
+
+    assert_eq!(bundle.activities.len(), 2);
+    for activity in &bundle.activities {
+        let lat = activity
+            .start_lat
+            .unwrap_or_else(|| panic!("{} has no start latitude", activity.activity_id));
+        let lng = activity
+            .start_lng
+            .unwrap_or_else(|| panic!("{} has no start longitude", activity.activity_id));
+        // `line(46.2, 7.35, 60)` starts where it says it does.
+        assert!((lat - 46.2).abs() < 1e-6, "start latitude was {lat}");
+        assert!((lng - 7.35).abs() < 1e-6, "start longitude was {lng}");
+        // The fixture runs due east, so longitude is the axis on which the start
+        // and the bounding box centre differ. Without this the test would pass
+        // just as well against the centre it is meant to replace.
+        let centre_lng = (activity.bounds.min_lng + activity.bounds.max_lng) / 2.0;
+        assert!(
+            (lng - centre_lng).abs() > 1e-9,
+            "the start must not be the bounds centre, or the test proves nothing"
+        );
+    }
+}
+
+/// An activity the sync has added but not yet given metrics has no date, so
+/// there is no window to place it in. It still counts towards the library
+/// total, which is what the header shows.
+#[test]
+fn map_screen_counts_an_activity_with_no_metrics_but_does_not_place_it() {
+    let mut s = populated();
+    s.engine
+        .add_activity("a3".to_string(), line(46.3, 7.4, 60), "Ride".to_string())
+        .expect("add a3");
+
+    let bundle = s
+        .engine
+        .map_screen_data(1_600_000_000, 1_800_000_000, Vec::new());
+
+    assert_eq!(bundle.activity_count, 3, "the total is every activity");
+    assert!(
+        !bundle.activities.iter().any(|a| a.activity_id == "a3"),
+        "an activity with no metrics row has no date and cannot be in the window"
+    );
+}
+
+/// The window comes back newest first and in one order every time, so the map
+/// draws the same stack on every read rather than whichever order a hash gave.
+#[test]
+fn map_screen_returns_the_window_newest_first() {
+    let mut s = populated();
+
+    let dates: Vec<f64> = s
+        .engine
+        .map_screen_data(1_600_000_000, 1_800_000_000, Vec::new())
+        .activities
+        .iter()
+        .map(|a| a.date)
+        .collect();
+
+    assert_eq!(dates, vec![1_700_086_400.0, 1_700_000_000.0]);
+}
+
+/// An activity with no signature yet has no start to give, and says so rather
+/// than answering with a coordinate nothing measured.
+#[test]
+fn map_screen_leaves_the_start_absent_when_there_is_no_signature() {
+    let mut s = setup();
+    s.engine
+        .add_activity("no_gps".to_string(), Vec::new(), "Ride".to_string())
+        .ok();
+    s.engine
+        .set_activity_metrics_extended(vec![metrics("no_gps", 1_700_000_000)])
+        .expect("set metrics");
+
+    for activity in s
+        .engine
+        .map_screen_data(1_600_000_000, 1_800_000_000, Vec::new())
+        .activities
+    {
+        if activity.activity_id == "no_gps" {
+            assert!(activity.start_lat.is_none());
+            assert!(activity.start_lng.is_none());
+        }
+    }
+}
+
 #[test]
 fn map_screen_honours_the_sport_filter() {
     let s = populated();
@@ -316,6 +499,97 @@ fn map_screen_honours_the_sport_filter() {
 }
 
 // ============================================================================
+// Map sections
+// ============================================================================
+
+/// The regional map reads six fields and draws a line. Its old read carried the
+/// activity ids, one portion record per traversal and the point density for
+/// every section, and threw all of it away.
+#[test]
+fn map_sections_carry_the_line_and_the_six_fields_the_map_draws_with() {
+    let s = populated();
+
+    let sections = s.engine.get_map_sections(None, None);
+
+    assert_eq!(sections.len(), 2, "both fixture sections are visible");
+    for section in &sections {
+        assert!(!section.id.is_empty());
+        assert!(!section.sport_type.is_empty());
+        assert!(section.distance_meters >= 0.0);
+        assert!(
+            !section.encoded_polyline.is_empty(),
+            "{} came back with no line to draw",
+            section.id
+        );
+    }
+    // The custom section's own name is carried rather than looked up again.
+    assert!(
+        sections
+            .iter()
+            .any(|x| x.name.as_deref() == Some("My Portion")),
+        "the named section kept its name"
+    );
+}
+
+#[test]
+fn map_sections_honour_the_sport_and_visit_filters() {
+    let s = populated();
+
+    assert_eq!(s.engine.get_map_sections(Some("Ride"), None).len(), 2);
+    assert!(s.engine.get_map_sections(Some("Run"), None).is_empty());
+    // Both fixture sections are traversed fewer than a hundred times.
+    assert!(s.engine.get_map_sections(None, Some(100)).is_empty());
+}
+
+/// The light read answers from the `sections` table, so its fields are compared
+/// against the summaries read of that same table. `get_sections_filtered`, the
+/// call the map used to make, answers from the in-memory catalogue, which these
+/// fixtures never populate: they are written through a parallel connection.
+#[test]
+fn map_sections_agree_with_the_summaries_of_the_same_rows() {
+    let s = populated();
+
+    let light = s.engine.get_map_sections(None, None);
+    let summaries = s.engine.get_section_summaries();
+
+    assert_eq!(light.len(), summaries.len());
+    for section in &light {
+        let same = summaries
+            .iter()
+            .find(|x| x.id == section.id)
+            .unwrap_or_else(|| panic!("{} is missing from the summaries", section.id));
+        assert_eq!(section.sport_type, same.sport_type);
+        assert_eq!(section.visit_count, same.visit_count);
+        assert_eq!(section.klass, same.klass);
+        assert_eq!(section.max_grade_percent, same.max_grade_percent);
+        assert!((section.distance_meters - same.distance_meters).abs() < 1e-9);
+    }
+}
+
+/// The floor counts outings and a pin exempts it, which is the rule
+/// `get_sections_filtered` applies. Counting traversals instead would admit a
+/// road ridden ten times in one outing to a list with a floor of two.
+#[test]
+fn map_sections_count_outings_for_the_floor_not_passes() {
+    let s = populated();
+
+    // `cust1` is traversed once by a1; `auto1` by a1 and a2.
+    let two_outings = s.engine.get_map_sections(None, Some(2));
+
+    assert!(two_outings.iter().any(|x| x.id == "auto1"));
+    assert!(
+        !two_outings.iter().any(|x| x.id == "cust1"),
+        "one outing cannot meet a floor of two"
+    );
+}
+
+#[test]
+fn map_sections_are_nothing_at_all_for_an_empty_catalogue() {
+    let s = setup();
+    assert!(s.engine.get_map_sections(None, None).is_empty());
+}
+
+// ============================================================================
 // Widget snapshot
 // ============================================================================
 
@@ -329,6 +603,8 @@ fn widget_snapshot_matches_the_calls_it_replaces() {
         now - 14 * 86_400,
         now - 7 * 86_400,
         30,
+        // The widget's own point budget, so the track crosses at the cap.
+        150,
     );
 
     assert_eq!(
@@ -369,6 +645,8 @@ fn widget_snapshot_is_empty_without_activities() {
         now - 14 * 86_400,
         now - 7 * 86_400,
         30,
+        // The widget's own point budget, so the track crosses at the cap.
+        150,
     );
 
     assert!(bundle.latest.is_none());
@@ -436,12 +714,13 @@ fn route_detail_honours_the_group_minimum() {
 fn insights_params() -> veloqrs::FfiInsightsParams {
     let now = 1_700_200_000;
     veloqrs::FfiInsightsParams {
-        current_start: now - 7 * 86_400,
-        current_end: now,
-        prev_start: now - 14 * 86_400,
-        prev_end: now - 7 * 86_400,
-        chronic_start: now - 35 * 86_400,
-        today_start: now - 86_400,
+        history_limit: 20,
+        current_start: (now - 7 * 86_400) as f64,
+        current_end: now as f64,
+        prev_start: (now - 14 * 86_400) as f64,
+        prev_end: (now - 7 * 86_400) as f64,
+        chronic_start: (now - 35 * 86_400) as f64,
+        today_start: (now - 86_400) as f64,
         include_sections: true,
         ranked_limit: 50,
         active_window_days: 90,
@@ -449,13 +728,20 @@ fn insights_params() -> veloqrs::FfiInsightsParams {
         efficiency_limit: 2,
         efficiency_min_efforts: 3,
         strength_month: veloqrs::FfiTimestampRange {
-            start_ts: now - 28 * 86_400,
-            end_ts: now,
+            start_ts: (now - 28 * 86_400) as f64,
+            end_ts: now as f64,
         },
         strength_weeks: vec![veloqrs::FfiTimestampRange {
-            start_ts: now - 7 * 86_400,
-            end_ts: now,
+            start_ts: (now - 7 * 86_400) as f64,
+            end_ts: now as f64,
         }],
+        wellness_oldest: "2026-01-01".to_string(),
+        wellness_newest: "2026-12-31".to_string(),
+        hrv_window_days: 7,
+        section_change_window_days: 14,
+        stale_threshold_days: 30,
+        stale_min_gain_percent: 3.0,
+        stale_max_opportunities: 3,
     }
 }
 
@@ -468,12 +754,14 @@ fn insights_matches_the_calls_it_replaces() {
     assert_eq!(
         bundle.current_week.count,
         s.engine
-            .get_period_stats(p.current_start, p.current_end)
+            .get_period_stats(p.current_start as i64, p.current_end as i64)
             .count
     );
     assert_eq!(
         bundle.previous_week.count,
-        s.engine.get_period_stats(p.prev_start, p.prev_end).count
+        s.engine
+            .get_period_stats(p.prev_start as i64, p.prev_end as i64)
+            .count
     );
     assert_eq!(bundle.section_count, s.engine.get_section_count());
     assert_eq!(
@@ -496,6 +784,75 @@ fn insights_matches_the_calls_it_replaces() {
             .collect();
         let expected: Vec<&str> = direct.iter().map(|r| r.section_id.as_str()).collect();
         assert_eq!(bundled, expected);
+    }
+}
+
+/// Scenario: every insight card draws a graphic of its own history, and the
+/// bundle carried a series for two of eight generators. The rest carried
+/// summary numbers, so a card either drew nothing or the sheet behind it read
+/// the engine again per open, which on eight cards at mount is eight reads on
+/// the JS thread beside the heaviest screen read in the tree.
+///
+/// Expected behaviour: the series a card draws travels with the thing it
+/// describes, oldest first and capped.
+#[test]
+fn insights_carries_a_history_series_for_each_card_that_draws_one() {
+    let mut s = populated();
+    let p = insights_params();
+    let bundle = s.engine.insights_data(&p);
+
+    // The ranked sections are the cards with the most to draw: the ranker
+    // already holds every traversal to take its medians from.
+    let ranked: Vec<&veloqrs::FfiRankedSection> = bundle
+        .ranked_sections
+        .iter()
+        .flat_map(|batch| batch.sections.iter())
+        .collect();
+    assert!(!ranked.is_empty(), "the fixture holds ranked sections");
+    for section in &ranked {
+        assert!(
+            !section.recent_efforts.is_empty(),
+            "{} carries no efforts to draw",
+            section.section_id
+        );
+        assert!(
+            section
+                .recent_efforts
+                .windows(2)
+                .all(|w| w[0].date <= w[1].date),
+            "{} is not oldest first",
+            section.section_id
+        );
+        assert!(
+            section.recent_efforts.len() <= section.traversal_count as usize,
+            "more points than traversals"
+        );
+    }
+
+    // The chronic window one week at a time. Four totals that sum back to the
+    // one the card names, because four weeks that fell steadily and four that
+    // jumped once sum the same.
+    assert_eq!(bundle.chronic_weeks.len(), 4);
+    let weekly: f64 = bundle.chronic_weeks.iter().map(|w| w.total_duration).sum();
+    assert!(
+        (weekly - bundle.chronic_period.total_duration).abs() < 1.0,
+        "{weekly} over four weeks against {} over the window",
+        bundle.chronic_period.total_duration
+    );
+}
+
+/// The cap is the caller's, and it is honoured rather than advisory: the
+/// graphic is a strip a few dozen pixels wide and the bridge is not free.
+#[test]
+fn insights_caps_the_history_a_card_carries() {
+    let mut s = populated();
+    let mut p = insights_params();
+    p.history_limit = 1;
+
+    let bundle = s.engine.insights_data(&p);
+
+    for pr in &bundle.recent_prs {
+        assert!(pr.recent_efforts.len() <= 1, "{}", pr.section_id);
     }
 }
 
@@ -554,12 +911,12 @@ fn populated_with_pr_candidate(third_date: i64) -> Setup {
 /// Move the whole window so `end` is the call's present.
 fn insights_params_ending(end: i64) -> veloqrs::FfiInsightsParams {
     let mut p = insights_params();
-    p.current_end = end;
-    p.current_start = end - 7 * 86_400;
-    p.prev_start = end - 14 * 86_400;
-    p.prev_end = end - 7 * 86_400;
-    p.chronic_start = end - 35 * 86_400;
-    p.today_start = end - 86_400;
+    p.current_end = end as f64;
+    p.current_start = (end - 7 * 86_400) as f64;
+    p.prev_start = (end - 14 * 86_400) as f64;
+    p.prev_end = (end - 7 * 86_400) as f64;
+    p.chronic_start = (end - 35 * 86_400) as f64;
+    p.today_start = (end - 86_400) as f64;
     p
 }
 
@@ -630,6 +987,132 @@ fn a_recent_pr_carries_the_traversals_it_stands_on() {
     );
 }
 
+/// Scenario: the PR card names a section and draws nothing of it, so an
+/// athlete reading a record on "section 6" has no picture of which stretch of
+/// road that is without leaving the card.
+///
+/// Expected behaviour: the row carries the section's line, thinned to what a
+/// thumbnail can draw, from the summary the loop already holds.
+#[test]
+fn a_recent_pr_carries_the_section_line_the_card_draws() {
+    let mut s = populated_with_pr_candidate(1_700_150_000);
+    let p = insights_params_ending(1_700_200_000);
+
+    let bundle = s.engine.insights_data(&p);
+
+    let pr = bundle
+        .recent_prs
+        .iter()
+        .find(|pr| pr.section_id == "auto1")
+        .expect("the section holds a recent record");
+    let points = veloqrs::coords::decode(&pr.encoded_polyline);
+    assert_eq!(points.len(), 30, "the section's own line, as inserted");
+    assert!((points[0].latitude - 46.2).abs() < 1e-6, "{:?}", points[0]);
+}
+
+/// A thumbnail is 48 by 36 points, so a thousand-point line is a thousand
+/// coordinates crossing the FFI on the slowest screen read to draw the same
+/// forty pixels.
+#[test]
+fn a_long_section_line_is_thinned_to_what_a_thumbnail_draws() {
+    let mut s = setup();
+    let track = line(46.2, 7.35, 600);
+    for (id, date) in [
+        ("a1", 1_700_000_000),
+        ("a2", 1_700_086_400),
+        ("a3", 1_700_150_000),
+    ] {
+        s.engine
+            .add_activity(id.to_string(), track.clone(), "Ride".to_string())
+            .expect("add activity");
+        s.engine
+            .set_activity_metrics_extended(vec![metrics(id, date)])
+            .expect("set metrics");
+    }
+    insert_section(&s.raw, "auto1", "auto", "Long Climb", &track, None);
+    insert_traversal(&s.raw, "auto1", "a1", 200.0);
+    insert_traversal(&s.raw, "auto1", "a2", 240.0);
+    insert_traversal(&s.raw, "auto1", "a3", 190.0);
+
+    let bundle = s
+        .engine
+        .insights_data(&insights_params_ending(1_700_200_000));
+
+    let pr = bundle
+        .recent_prs
+        .iter()
+        .find(|pr| pr.section_id == "auto1")
+        .expect("the section holds a recent record");
+    let points = veloqrs::coords::decode(&pr.encoded_polyline);
+    assert!(
+        (2..=64).contains(&points.len()),
+        "thinned to a drawable count, got {}",
+        points.len()
+    );
+    // The ends are what the start and finish markers sit on, so neither is
+    // allowed to fall out of the thinning.
+    let full = veloqrs::coords::decode(&veloqrs::coords::encode(&track));
+    assert!((points[0].latitude - full[0].latitude).abs() < 1e-6);
+    assert!((points[points.len() - 1].latitude - full[full.len() - 1].latitude).abs() < 1e-6);
+}
+
+/// Scenario: a section ridden forty times and run three times. A run record
+/// produces a card whose confidence stands on every sport's traversals and
+/// whose icon is a bicycle, and the row names no sport at all.
+///
+/// Expected behaviour: the row carries the sport the record was set in, and
+/// counts that sport's traversals rather than the section's.
+#[test]
+fn a_recent_pr_counts_its_own_sport_and_says_which() {
+    let mut s = setup();
+    let track = line(46.2, 7.35, 60);
+    // Four rides, then three runs, the newest of them inside the window so the
+    // row kept for this section is the run's.
+    let library = [
+        ("r1", 1_699_000_000, "Ride"),
+        ("r2", 1_699_100_000, "Ride"),
+        ("r3", 1_699_200_000, "Ride"),
+        ("r4", 1_699_300_000, "Ride"),
+        ("n1", 1_700_000_000, "Run"),
+        ("n2", 1_700_086_400, "Run"),
+        ("n3", 1_700_150_000, "Run"),
+    ];
+    for (id, date, sport) in library {
+        s.engine
+            .add_activity(id.to_string(), track.clone(), sport.to_string())
+            .expect("add activity");
+        let mut m = metrics(id, date);
+        m.sport_type = sport.to_string();
+        s.engine
+            .set_activity_metrics_extended(vec![m])
+            .expect("set metrics");
+    }
+    insert_section(&s.raw, "auto1", "auto", "Shared Climb", &track, None);
+    for (id, _, _) in library {
+        insert_traversal(
+            &s.raw,
+            "auto1",
+            id,
+            if id.starts_with('n') { 300.0 } else { 200.0 },
+        );
+    }
+
+    let bundle = s
+        .engine
+        .insights_data(&insights_params_ending(1_700_200_000));
+
+    let pr = bundle
+        .recent_prs
+        .iter()
+        .find(|pr| pr.section_id == "auto1")
+        .expect("the section holds a recent record");
+    assert_eq!(pr.sport_type, "Run", "the sport the record was set in");
+    assert_eq!(
+        pr.traversal_count, 3,
+        "the three runs the record stands on, not the seven outings on the section"
+    );
+}
+
 #[test]
 fn insights_computes_no_performances_on_an_empty_library() {
     let mut s = setup();
@@ -653,7 +1136,7 @@ fn pattern_metrics(
     veloqrs::FfiActivityMetrics {
         activity_id: id.to_string(),
         name: format!("Fixture {}", id),
-        date,
+        date: date as f64,
         distance,
         moving_time,
         elapsed_time: moving_time,
@@ -718,11 +1201,10 @@ fn pattern_shape(patterns: &[veloqrs::FfiActivityPattern]) -> Vec<String> {
                 avg_distance_meters,
                 frequency_per_month,
                 confidence,
-                silhouette_score,
                 days_since_last,
             } = p;
             format!(
-                "{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}",
+                "{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}",
                 sport_type,
                 cluster_id,
                 primary_day,
@@ -733,7 +1215,6 @@ fn pattern_shape(patterns: &[veloqrs::FfiActivityPattern]) -> Vec<String> {
                 avg_distance_meters,
                 frequency_per_month,
                 confidence,
-                silhouette_score,
                 days_since_last
             )
         })
@@ -858,28 +1339,40 @@ fn startup_matches_the_calls_it_replaces() {
     let p = insights_params();
     let ids = vec!["a1".to_string(), "a2".to_string()];
 
-    // Destructured exhaustively: the bundle carries these two fields and
+    // Destructured exhaustively: the bundle carries these three fields and
     // nothing the feed does not paint.
     let veloqrs::FfiStartupData {
         summary_card,
         preview_tracks,
+        sparklines,
     } = s.engine.startup_data(
-        p.current_start,
-        p.current_end,
-        p.prev_start,
-        p.prev_end,
+        p.current_start as i64,
+        p.current_end as i64,
+        p.prev_start as i64,
+        p.prev_end as i64,
         &ids,
+    );
+
+    assert_eq!(
+        sparklines.map(|s| s.fitness),
+        s.engine
+            .get_wellness_sparklines(30)
+            .unwrap()
+            .map(|s| s.fitness),
+        "the bundled line is the one the second call used to fetch"
     );
 
     assert_eq!(
         summary_card.current_week.count,
         s.engine
-            .get_period_stats(p.current_start, p.current_end)
+            .get_period_stats(p.current_start as i64, p.current_end as i64)
             .count
     );
     assert_eq!(
         summary_card.prev_week.count,
-        s.engine.get_period_stats(p.prev_start, p.prev_end).count
+        s.engine
+            .get_period_stats(p.prev_start as i64, p.prev_end as i64)
+            .count
     );
     assert_eq!(
         summary_card.ftp_trend.latest_ftp,
@@ -919,10 +1412,10 @@ fn startup_skips_ids_with_no_signature() {
     let ids = vec!["nope".to_string(), "a1".to_string()];
 
     let bundle = s.engine.startup_data(
-        p.current_start,
-        p.current_end,
-        p.prev_start,
-        p.prev_end,
+        p.current_start as i64,
+        p.current_end as i64,
+        p.prev_start as i64,
+        p.prev_end as i64,
         &ids,
     );
 
@@ -940,10 +1433,10 @@ fn startup_still_answers_with_no_preview_ids() {
     let p = insights_params();
 
     let bundle = s.engine.startup_data(
-        p.current_start,
-        p.current_end,
-        p.prev_start,
-        p.prev_end,
+        p.current_start as i64,
+        p.current_end as i64,
+        p.prev_start as i64,
+        p.prev_end as i64,
         &[],
     );
 
@@ -951,9 +1444,64 @@ fn startup_still_answers_with_no_preview_ids() {
     assert_eq!(
         bundle.summary_card.current_week.count,
         s.engine
-            .get_period_stats(p.current_start, p.current_end)
+            .get_period_stats(p.current_start as i64, p.current_end as i64)
             .count
     );
+}
+
+// ============================================================================
+// Launch
+// ============================================================================
+
+#[test]
+fn launch_writes_the_athlete_id_and_answers_with_the_stats() {
+    let mut s = populated();
+    let tiles = s._tmp.path().join("heatmap-tiles");
+
+    let stats = s.engine.launch_data(
+        Some("12345".to_string()),
+        Some(tiles.to_str().unwrap().to_string()),
+    );
+
+    assert_eq!(
+        s.engine.get_setting("__athlete_id").expect("read setting"),
+        Some("12345".to_string())
+    );
+    assert_eq!(stats.activity_count, s.engine.stats().activity_count);
+    assert_eq!(stats.oldest_date, s.engine.stats().oldest_date);
+    assert_eq!(stats.newest_date, s.engine.stats().newest_date);
+    assert!(s.engine.heatmap_tiles_path().is_some());
+}
+
+/// A launch with no credentials athlete id must not blank the one on disk: the
+/// backup's cross-athlete guard reads it and an empty value passes anything.
+#[test]
+fn launch_leaves_the_stored_athlete_id_alone_when_given_none() {
+    let mut s = populated();
+    s.engine
+        .set_setting("__athlete_id", "12345")
+        .expect("seed setting");
+
+    s.engine.launch_data(None, None);
+
+    assert_eq!(
+        s.engine.get_setting("__athlete_id").expect("read setting"),
+        Some("12345".to_string())
+    );
+}
+
+/// The athlete turned the heatmap off, so launch has to clear the path rather
+/// than leave whatever the last run set.
+#[test]
+fn launch_clears_the_tiles_path_when_the_heatmap_is_off() {
+    let mut s = populated();
+    let tiles = s._tmp.path().join("heatmap-tiles");
+    s.engine
+        .set_heatmap_tiles_path(tiles.to_str().unwrap().to_string());
+
+    s.engine.launch_data(None, None);
+
+    assert!(s.engine.heatmap_tiles_path().is_none());
 }
 
 // ============================================================================
@@ -1022,7 +1570,7 @@ fn section_detail_carries_the_ledger_the_laps_and_the_trend() {
     );
     assert_eq!(
         bundle.pinned_version,
-        s.engine.pinned_section_version("auto1")
+        s.engine.pinned_section_version("auto1").map(|v| v as f64)
     );
     assert_eq!(
         bundle.excluded_laps.len(),
@@ -1051,14 +1599,14 @@ fn a_pinned_version_reads_as_pinned_in_the_bundle() {
 
     let bundle = s.engine.section_detail_data("auto1", 500.0);
 
-    assert_eq!(bundle.pinned_version, Some(version));
-    let pinned: Vec<i64> = bundle
+    assert_eq!(bundle.pinned_version, Some(version as f64));
+    let pinned: Vec<f64> = bundle
         .geometry_versions
         .iter()
         .filter(|v| v.pinned)
         .map(|v| v.version)
         .collect();
-    assert_eq!(pinned, vec![version]);
+    assert_eq!(pinned, vec![version as f64]);
 }
 
 /// An unknown id returns the empty bundle rather than failing, the way the
@@ -1163,4 +1711,256 @@ fn activity_detail_is_empty_for_an_unknown_activity() {
     // Engine-wide counts are unaffected by the activity being unknown.
     assert_eq!(bundle.activity_count, 2);
     assert_eq!(bundle.section_count, 2);
+}
+
+/// Scenario: a feed card past the first five needs its preview track. It used
+/// to ask for the full-resolution GPS track, one boxed record per point, and
+/// decode the whole blob each time.
+///
+/// Expected behaviour: one card gets exactly what the startup bundle would
+/// have given it, from the same cached signature.
+#[test]
+fn one_preview_track_matches_the_one_the_startup_bundle_carries() {
+    let mut s = populated();
+    let p = insights_params();
+    let ids = vec!["a1".to_string()];
+
+    let bundle = s.engine.startup_data(
+        p.current_start as i64,
+        p.current_end as i64,
+        p.prev_start as i64,
+        p.prev_end as i64,
+        &ids,
+    );
+    let bundled = bundle.preview_tracks.first().expect("a1 has a signature");
+
+    let alone = s.engine.preview_track("a1").expect("a1 has a signature");
+
+    assert_eq!(alone.activity_id, bundled.activity_id);
+    assert_eq!(alone.encoded_coords, bundled.encoded_coords);
+}
+
+/// A preview track is the signature, not the stored track, so it is the
+/// simplified line and never the four thousand points behind it.
+#[test]
+fn a_preview_track_is_the_signature_rather_than_the_whole_ride() {
+    let mut s = populated();
+
+    let track = s.engine.preview_track("a1").expect("a1 has a signature");
+    let points = veloqrs::coords::decode(&track.encoded_coords).len();
+    let signature = s
+        .engine
+        .get_signature("a1")
+        .expect("signature")
+        .points
+        .len();
+    let stored = s.engine.get_gps_track("a1").map(|t| t.len()).unwrap_or(0);
+
+    assert_eq!(points, signature);
+    assert!(
+        points <= stored,
+        "a signature is never longer than its track"
+    );
+}
+
+#[test]
+fn an_activity_with_no_signature_has_no_preview_track() {
+    let mut s = populated();
+
+    assert!(s.engine.preview_track("nope").is_none());
+}
+
+// ============================================================================
+// One bundle computes one section's performances once
+// ============================================================================
+
+/// Twelve sections all travelled inside the recent window, which is more than
+/// the performance cache holds. Every one qualifies for a PR slot, so the
+/// recent-PR loop asks about all twelve, and the efficiency loop asks again.
+fn populated_with_many_recent_sections(latest: i64) -> Setup {
+    const SECTIONS: usize = 12;
+    let mut s = setup();
+    let track = line(46.2, 7.35, 60);
+
+    for n in 0..3 {
+        let id = format!("act{n}");
+        s.engine
+            .add_activity(id.clone(), track.clone(), "Ride".to_string())
+            .unwrap_or_else(|e| panic!("add {id}: {e}"));
+        // An efficiency trend is heart rate against pace, so the outings carry
+        // a falling heart rate as well as a falling lap time.
+        let mut m = metrics(&id, latest - (n as i64) * 86_400);
+        m.avg_hr = Some(150 + n as u16 * 6);
+        s.engine
+            .set_activity_metrics_extended(vec![m])
+            .expect("set metrics");
+    }
+
+    let polyline = line(46.2, 7.35, 30);
+    for i in 0..SECTIONS {
+        let section = format!("auto{i}");
+        insert_section(
+            &s.raw,
+            &section,
+            "auto",
+            &format!("Climb {i}"),
+            &polyline,
+            None,
+        );
+        // Getting faster each outing, so each section holds a recent record.
+        for n in 0..3 {
+            insert_traversal(
+                &s.raw,
+                &section,
+                &format!("act{n}"),
+                240.0 - (n as f64) * 10.0,
+            );
+        }
+    }
+    // The sections went in behind the engine, and the efficiency loop reads the
+    // in-memory catalogue rather than the table.
+    s.engine.load().expect("load the catalogue");
+    s
+}
+
+#[test]
+fn one_insights_bundle_computes_each_section_at_most_once() {
+    let mut s = populated_with_many_recent_sections(1_700_150_000);
+    let p = insights_params_ending(1_700_200_000);
+
+    let bundle = s.engine.insights_data(&p);
+
+    // Twelve sections in one sport, so twelve is every computation the bundle
+    // can honestly need. Above that a section was computed, evicted by its
+    // neighbours, and computed again inside the one call.
+    assert!(
+        s.engine.performance_computations() > 0,
+        "the fixture must reach the performance path at all"
+    );
+    assert!(
+        s.engine.performance_computations() <= 12,
+        "{} computations for 12 sections inside one bundle",
+        s.engine.performance_computations()
+    );
+    assert!(
+        !bundle.recent_prs.is_empty(),
+        "the fixture must earn records"
+    );
+}
+
+/// Reopening the Insights tab, and the re-read the bundle takes on every
+/// `activities` or `sections` event while it is open.
+#[test]
+fn a_second_identical_bundle_computes_no_performances_again() {
+    let mut s = populated_with_many_recent_sections(1_700_150_000);
+    let p = insights_params_ending(1_700_200_000);
+
+    let _ = s.engine.insights_data(&p);
+    let after_first = s.engine.performance_computations();
+    assert!(after_first > 0, "the first bundle must compute something");
+
+    let _ = s.engine.insights_data(&p);
+
+    assert_eq!(
+        s.engine.performance_computations(),
+        after_first,
+        "nothing changed between the two calls, so the second must be served from \
+         the cache; a cache too small for one bundle's working set holds none of it"
+    );
+}
+
+/// One wellness day, carrying only what form is read from.
+fn wellness_day(
+    date: &str,
+    ctl: Option<f64>,
+    atl: Option<f64>,
+) -> veloqrs::persistence::wellness::WellnessRow {
+    veloqrs::persistence::wellness::WellnessRow {
+        date: date.to_string(),
+        ctl,
+        atl,
+        ramp_rate: None,
+        hrv: None,
+        resting_hr: None,
+        weight: None,
+        sleep_secs: None,
+        sleep_score: None,
+        soreness: None,
+        fatigue: None,
+        stress: None,
+        mood: None,
+        motivation: None,
+        raw: None,
+    }
+}
+
+/// Form is fitness, fatigue and the difference, which every caller was sorting
+/// a month of rows to reach. The bundle carries the day it was read from, so a
+/// stale reading can be named rather than passed off as today's.
+#[test]
+fn the_bundle_carries_the_newest_form_reading_in_its_window() {
+    let mut s = populated();
+    s.engine
+        .upsert_wellness(&[
+            wellness_day("2026-09-10", Some(40.0), Some(55.0)),
+            wellness_day("2026-09-12", Some(42.0), Some(30.0)),
+        ])
+        .expect("store wellness");
+
+    let mut p = insights_params();
+    p.wellness_oldest = "2026-09-01".to_string();
+    p.wellness_newest = "2026-09-30".to_string();
+
+    let form = s.engine.insights_data(&p).form.expect("a window with rows");
+
+    assert_eq!(
+        form.date, "2026-09-12",
+        "the newest day in the window is the reading"
+    );
+    assert_eq!(form.ctl, 42.0);
+    assert_eq!(form.atl, 30.0);
+    assert_eq!(form.tsb, 12.0, "form is fitness less fatigue");
+}
+
+#[test]
+fn a_window_with_no_wellness_row_carries_no_form() {
+    let mut s = populated();
+    s.engine
+        .upsert_wellness(&[wellness_day("2026-08-01", Some(40.0), Some(20.0))])
+        .expect("store wellness");
+
+    let mut p = insights_params();
+    p.wellness_oldest = "2026-09-01".to_string();
+    p.wellness_newest = "2026-09-30".to_string();
+
+    assert!(
+        s.engine.insights_data(&p).form.is_none(),
+        "a library synced a month ago has no reading for this window, and no zero either"
+    );
+}
+
+/// A day the athlete logged without an upstream fitness figure is still the
+/// newest day, and it reads as nothing rather than as a collapse to zero.
+#[test]
+fn a_newest_day_missing_its_figures_reads_as_zero_rather_than_reaching_back() {
+    let mut s = populated();
+    s.engine
+        .upsert_wellness(&[
+            wellness_day("2026-09-10", Some(40.0), Some(20.0)),
+            wellness_day("2026-09-12", None, None),
+        ])
+        .expect("store wellness");
+
+    let mut p = insights_params();
+    p.wellness_oldest = "2026-09-01".to_string();
+    p.wellness_newest = "2026-09-30".to_string();
+
+    let form = s
+        .engine
+        .insights_data(&p)
+        .form
+        .expect("the window has rows");
+    assert_eq!(form.date, "2026-09-12");
+    assert_eq!(form.ctl, 0.0);
+    assert_eq!(form.tsb, 0.0);
 }

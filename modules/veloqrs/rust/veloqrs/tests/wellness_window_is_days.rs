@@ -182,6 +182,69 @@ fn the_hrv_flag_still_reads_a_decline_on_two_days_running() {
     assert_eq!(trend.label, "trendingDown");
 }
 
+/// Scenario: the insight ranker scores a claim on how far its newest reading
+/// sits from its own baseline, and the HRV window is the only spread that
+/// reading has.
+///
+/// Expected behaviour: the trend carries the distance in the window's own
+/// standard deviations, so no caller averages the sparkline a second time, and
+/// a window with no spread carries none rather than a number on another scale.
+#[test]
+fn the_hrv_trend_carries_the_latest_day_against_its_own_window() {
+    let dir = TempDir::new().unwrap();
+    let mut engine = engine(&dir);
+    let dates = [
+        "2026-09-05",
+        "2026-09-06",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-09",
+        "2026-09-10",
+    ];
+    let rows: Vec<WellnessRow> = dates
+        .iter()
+        .zip(STEADY_THEN_DOWN)
+        .map(|(d, hrv)| row(d, 40.0, hrv))
+        .collect();
+    engine.upsert_wellness(&rows).expect("seed");
+
+    let trend = engine
+        .compute_hrv_trend_to(10, "2026-09-10")
+        .expect("trend")
+        .expect("a verdict");
+
+    let delta = trend
+        .signal_delta
+        .expect("a window with spread reads a distance");
+    let expected = veloqrs::signal::signal_delta(trend.latest, trend.avg, &trend.sparkline)
+        .expect("the same window");
+    assert_eq!(delta, expected);
+    assert!(delta > 0.0, "the last day is not the window average");
+}
+
+#[test]
+fn a_flat_hrv_window_carries_no_distance() {
+    let dir = TempDir::new().unwrap();
+    let mut engine = engine(&dir);
+    let dates = [
+        "2026-09-05",
+        "2026-09-06",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-09",
+        "2026-09-10",
+    ];
+    let rows: Vec<WellnessRow> = dates.iter().map(|d| row(d, 40.0, 55.0)).collect();
+    engine.upsert_wellness(&rows).expect("seed");
+
+    let trend = engine
+        .compute_hrv_trend_to(10, "2026-09-10")
+        .expect("trend")
+        .expect("a verdict");
+
+    assert!(trend.signal_delta.is_none(), "every day is the baseline");
+}
+
 // The sparkline arrays are what the widget indexes by position: the last
 // entry is today, the one before it is yesterday, and seven back is a week.
 // That only holds if the array carries one entry per calendar day.

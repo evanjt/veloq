@@ -58,7 +58,7 @@ fn engine_with_b_state() -> (PersistentEngine, TempDir) {
     }
 
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).expect("initial apply");
 
     (engine, dir)
@@ -143,7 +143,7 @@ fn apply_sections_preserves_db_after_failure_then_succeeds_on_retry() {
     // healthy enough to do this. If save_sections left the DB in a
     // partial state, this would error.
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     let retry = engine.apply_sections(sections);
     assert!(
         retry.is_ok(),

@@ -300,7 +300,7 @@ fn read_during_write() -> (usize, usize, Vec<(usize, Duration)>) {
                 .expect("writer update_metadata");
         }
         let handle = w.detect_sections_background();
-        let (sections, processed) = handle.recv().unwrap_or_default();
+        let (sections, processed) = handle.recv().expect("the detect ran");
         w.apply_sections(sections).expect("writer apply_sections");
         w.save_processed_activity_ids(&processed)
             .expect("writer save_processed");
@@ -383,8 +383,8 @@ fn racing_detect() -> (bool, bool, String, String, usize, Option<String>) {
 
     let h1 = engine.detect_sections_background();
     let h2 = engine.detect_sections_background();
-    let (s1, _) = h1.recv().unwrap_or_default();
-    let (s2, _) = h2.recv().unwrap_or_default();
+    let (s1, _) = h1.recv().expect("the detect ran");
+    let (s2, _) = h2.recv().expect("the detect ran");
     let sig1 = frequent_signature(&s1);
     let sig2 = frequent_signature(&s2);
 

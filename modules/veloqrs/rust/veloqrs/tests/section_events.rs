@@ -534,7 +534,7 @@ fn a_recut_that_changes_the_pr_writes_a_ledger_row() {
         offsets.push(times.len() as u32);
         engine.set_time_streams_flat(&ids, &times, &offsets);
         let handle = engine.detect_sections_background();
-        let (sections, processed) = handle.recv().unwrap_or_default();
+        let (sections, processed) = handle.recv().expect("the detect ran");
         engine.apply_sections(sections).unwrap();
         engine.save_processed_activity_ids(&processed).unwrap();
     };

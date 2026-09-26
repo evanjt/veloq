@@ -160,14 +160,11 @@ fn diff_payload_is_retrievable_after_restart() {
 
     veloqrs::persistence::cutover::run_cutover().unwrap();
 
-    let diff = veloqrs::ffi::get_cutover_diff();
-    assert!(diff.is_some(), "diff should be stored");
+    let diff = veloqrs::ffi::get_cutover_diff().expect("diff should be stored");
 
-    let payload: serde_json::Value =
-        serde_json::from_str(&diff.unwrap()).expect("diff is valid JSON");
-    assert_eq!(payload["token"].as_str(), Some("unified-1"));
+    assert_eq!(diff.token, "unified-1");
     assert!(
-        payload["counts"]["current"].as_u64().unwrap_or(0) > 0,
+        diff.counts.current > 0,
         "diff should report non-zero current sections"
     );
 }
@@ -185,14 +182,20 @@ fn the_stored_diff_carries_no_section_rows() {
 
     veloqrs::persistence::cutover::run_cutover().unwrap();
 
-    let payload: serde_json::Value =
-        serde_json::from_str(&veloqrs::ffi::get_cutover_diff().expect("diff is stored"))
-            .expect("diff is valid JSON");
+    let diff = veloqrs::ffi::get_cutover_diff().expect("diff is stored");
+    assert!(diff.counts.current > 0);
+
+    // The record carries no rows by its shape, so the claim is about the row
+    // the engine keeps: it holds token, counts and settings_reset only.
+    let stored = with_persistent_engine(|e| e.get_setting("__detector_cutover_diff"))
+        .expect("engine")
+        .expect("setting readable")
+        .expect("still stored");
+    let payload: serde_json::Value = serde_json::from_str(&stored).expect("diff is valid JSON");
     assert!(
         payload.get("sections").is_none(),
         "the payload keeps token, counts and settings_reset only: {payload}"
     );
-    assert!(payload["counts"]["current"].as_u64().unwrap_or(0) > 0);
 }
 
 /// An install that migrated on an older build keeps the fat row for ever: the
@@ -222,10 +225,8 @@ fn a_payload_an_older_build_wrote_is_trimmed_when_it_is_read() {
     .expect("engine");
 
     let read = veloqrs::ffi::get_cutover_diff().expect("diff is stored");
-    let payload: serde_json::Value = serde_json::from_str(&read).expect("diff is valid JSON");
-    assert!(payload.get("sections").is_none(), "trimmed on the way out");
-    assert_eq!(payload["counts"]["current"].as_u64(), Some(3));
-    assert_eq!(payload["token"].as_str(), Some("unified-1"));
+    assert_eq!(read.counts.current, 3);
+    assert_eq!(read.token, "unified-1");
 
     let stored = with_persistent_engine(|e| e.get_setting("__detector_cutover_diff"))
         .expect("engine")
@@ -535,9 +536,11 @@ impl SettleRecorder {
 impl EngineObserver for SettleRecorder {
     fn sync_progress(&self) {}
     fn sync_settled(&self) {}
+    fn activities_stored(&self) {}
     fn body_stored(&self, _kind: String, _activity_id: String) {}
     fn time_streams_stored(&self, _activity_ids: Vec<String>) {}
     fn gps_track_stored(&self, _activity_id: String) {}
+    fn gps_tracks_mutated(&self, _activity_ids: Vec<String>) {}
     fn fit_parsed(&self, _activity_id: String) {}
     fn detection_applied(&self) {}
     fn tiles_generated(&self) {}
@@ -546,7 +549,7 @@ impl EngineObserver for SettleRecorder {
     fn cutover_settled(&self) {
         // A blocking take would hang rather than fail if the run still held the
         // engine, so the lock is probed and the diff read only if it is free.
-        let lock_free = veloqrs::persistence::PERSISTENT_ENGINE.try_write().is_ok();
+        let lock_free = veloqrs::persistence::PERSISTENT_ENGINE.try_lock().is_ok();
         let progress = veloqrs::ffi::get_cutover_progress();
         self.settles
             .lock()

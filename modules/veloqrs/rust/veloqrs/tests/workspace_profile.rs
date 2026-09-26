@@ -59,12 +59,31 @@ fn members() -> Vec<PathBuf> {
         .collect()
 }
 
+/// tracematch is the one member allowed a profile of its own, because it is also
+/// built standalone: its own CI, the wasm build and the web lab all take the
+/// crate's manifest, where cargo honours it. The ban stands for every other
+/// member, and `release_profile_agreement` asserts the crate's profile and the
+/// root's say the same thing, so the pair cannot drift.
+const PROFILE_EXEMPT: &[&str] = &["tracematch"];
+
 #[test]
 fn no_member_declares_a_profile_cargo_would_ignore() {
     let members = members();
     assert!(!members.is_empty(), "no workspace members found to check");
 
+    // An exemption that covered every member would leave the ban asserting
+    // nothing, and the loop would still pass.
+    let mut checked = 0;
     for member in members {
+        let name = member
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default()
+            .to_string();
+        if PROFILE_EXEMPT.contains(&name.as_str()) {
+            continue;
+        }
+        checked += 1;
         let manifest = member.join("Cargo.toml");
         let ignored: Vec<String> = sections(&manifest)
             .into_iter()
@@ -78,6 +97,11 @@ fn no_member_declares_a_profile_cargo_would_ignore() {
             manifest.display()
         );
     }
+
+    assert!(
+        checked > 0,
+        "every member is exempt, so the ban checks nothing"
+    );
 }
 
 #[test]

@@ -241,11 +241,18 @@ fn seed_probe_rows(conn: &Connection) -> Vec<Probe> {
     probes
 }
 
-/// Migration 012 clears the detection bookkeeping cache on purpose, so a probe
-/// row seeded below v12 is expected to be gone. Nothing else may lose a row, and
-/// the emptiness is asserted rather than skipped.
+/// Two tables are cleared on purpose, so a probe row in either is expected to
+/// be gone. Nothing else may lose a row, and the emptiness is asserted rather
+/// than skipped.
+///
+/// Migration 012 clears the detection bookkeeping cache, so a row seeded below
+/// v12 goes with it. And `activity_indicators` is materialised from
+/// `section_activities` and `activities`: every released version carries an
+/// indicator version behind the current constant, so the open recomputes the
+/// table from scratch. A badge is derived, never an athlete's record of
+/// anything, and it is rebuilt from the rows this same test proves survive.
 fn cleared_on_purpose(table: &str, seeded_at: u32) -> bool {
-    table == "processed_activities" && seeded_at < 12
+    (table == "processed_activities" && seeded_at < 12) || table == "activity_indicators"
 }
 
 fn assert_probe_survived(conn: &Connection, probe: &Probe, seeded_at: u32) {

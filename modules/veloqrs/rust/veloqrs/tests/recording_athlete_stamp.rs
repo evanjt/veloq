@@ -33,17 +33,18 @@ fn migrations_before_the_stamp() -> Migrations<'static> {
 fn entry(id: &str) -> FfiRecordingEntry {
     FfiRecordingEntry {
         id: id.to_string(),
+        kind: "fit".to_string(),
         fit_path: format!("/recordings/{id}.fit"),
         streams_path: None,
         activity_type: "Ride".to_string(),
         name: "Evening ride".to_string(),
-        start_time: 1_757_200_000_000,
-        duration_seconds: 3_600,
+        start_time: 1_757_200_000_000.0,
+        duration_seconds: 3_600.0,
         distance_meters: 28_400.0,
         elevation_gain: Some(420.0),
         avg_heartrate: Some(142.0),
         paired_event_id: None,
-        created_at: 1_757_203_600_000,
+        created_at: 1_757_203_600_000.0,
         upload_status: "pending".to_string(),
         retry_count: 0,
         last_attempt_at: None,
@@ -105,7 +106,7 @@ fn an_upgrade_leaves_a_recording_written_before_the_column_unstamped_and_otherwi
     assert_eq!(row.distance_meters, 28_400.0);
     assert_eq!(row.elevation_gain, Some(420.0));
     assert_eq!(row.avg_heartrate, Some(142.0));
-    assert_eq!(row.duration_seconds, 3_600);
+    assert_eq!(row.duration_seconds, 3_600.0);
 }
 
 #[test]

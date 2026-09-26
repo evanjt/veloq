@@ -31,7 +31,7 @@ fn clearing_routes_keeps_the_sections_the_athlete_drew() {
             .unwrap();
     }
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).unwrap();
     let detected = engine.get_section_summaries().len();
     assert!(detected > 0, "corpus produced no detected sections");
@@ -82,7 +82,7 @@ fn clearing_routes_keeps_a_disabled_section_and_its_members() {
             .unwrap();
     }
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).unwrap();
 
     let hidden = engine.get_section_summaries()[0].id.clone();

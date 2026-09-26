@@ -140,7 +140,7 @@ fn assert_summaries_true(raw: &Connection, after: &str) {
 
 fn detect_and_apply(engine: &mut PersistentEngine) {
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     assert!(!sections.is_empty(), "the corpus produced no sections");
     engine.apply_sections(sections).expect("apply");
 }

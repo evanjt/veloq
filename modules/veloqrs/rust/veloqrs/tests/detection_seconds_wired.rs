@@ -15,6 +15,7 @@ use tracematch::GpsPoint;
 use veloqrs::FfiSectionConfig;
 use veloqrs::PersistentEngine;
 use veloqrs::objects::SectionPreview;
+use veloqrs::objects::start::FfiStartOutcome;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -108,11 +109,37 @@ fn engine_with_corpus(path: &std::path::Path, timed: bool) -> PersistentEngine {
 }
 
 fn detected(engine: &mut PersistentEngine) -> usize {
-    let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    // A refused or aborted run sends nothing, and reading that as a detect
+    // that cut nothing made every assertion below blame the corpus, or the
+    // veto, for a run that never happened. `recv` answers with the phase.
+    let (sections, _) = engine
+        .detect_sections_background()
+        .recv()
+        .expect("the detect ran");
     let count = sections.len();
     engine.apply_sections(sections).unwrap();
     count
+}
+
+/// Scenario: the detect is refused rather than run. Three gates do that, the
+/// detection switch, a backfill suspension and an owed cutover
+/// (`src/persistence/sections/detection.rs:793-810`), and each drops the
+/// sender instead of sending an empty result.
+///
+/// Expected behaviour: `detected` fails naming the phase. It answered 0, and
+/// every assertion in this file reads 0 as "the detector cut nothing", so on
+/// 2026-09-19 one full-crate run reported a refusal as the lift veto holding
+/// over a climb the streams say was walked.
+#[test]
+#[should_panic(expected = "the detect ran")]
+fn a_refused_detect_is_not_a_detect_that_cut_nothing() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let mut engine = engine_with_corpus(&dir.path().join("refused.db"), true);
+    engine
+        .set_detection_enabled(false)
+        .expect("the switch is off");
+
+    detected(&mut engine);
 }
 
 #[test]
@@ -149,23 +176,22 @@ fn the_preview_sees_the_same_ground_as_the_detect() {
 
     with_persistent_engine(|engine| {
         seed(engine, true);
-        let handle = engine.detect_sections_background();
-        let (sections, _) = handle.recv().unwrap_or_default();
+        let count = detected(engine);
         assert!(
-            !sections.is_empty(),
+            count > 0,
             "the corpus must cut something for the preview to agree with"
         );
-        engine.apply_sections(sections).unwrap();
     })
     .expect("engine installed");
 
     let cfg = with_persistent_engine(|engine| engine.get_section_config()).expect("config");
     let preview = SectionPreview::new();
     let mid = offset(BASE, 0.0, 395.0);
-    assert!(
+    assert_eq!(
         preview
             .start(mid.0, mid.1, FfiSectionConfig::from(&cfg))
             .expect("start"),
+        FfiStartOutcome::Started,
         "the climb sits inside a component"
     );
 
@@ -180,16 +206,14 @@ fn the_preview_sees_the_same_ground_as_the_detect() {
         std::thread::sleep(Duration::from_millis(50));
     };
 
-    let payload: serde_json::Value = serde_json::from_str(&payload).unwrap();
-    let counts = &payload["counts"];
+    let counts = &payload.counts;
 
     assert!(
-        counts["proposed"].as_u64().unwrap() > 0,
-        "the preview must see the climb the detect cut, not lift ground: {counts}"
+        counts.proposed > 0,
+        "the preview must see the climb the detect cut, not lift ground: {counts:?}"
     );
     assert_eq!(
-        counts["gone"].as_u64().unwrap(),
-        0,
-        "an untimed preview reports the timed detect's sections as gone: {counts}"
+        counts.gone, 0,
+        "an untimed preview reports the timed detect's sections as gone: {counts:?}"
     );
 }

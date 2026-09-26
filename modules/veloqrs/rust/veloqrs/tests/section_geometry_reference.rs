@@ -55,7 +55,7 @@ fn detected() -> (TempDir, PersistentEngine) {
     }
 
     let handle = engine.detect_sections_background();
-    let (sections, processed) = handle.recv().unwrap_or_default();
+    let (sections, processed) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).expect("apply_sections");
     engine
         .save_processed_activity_ids(&processed)

@@ -31,7 +31,7 @@ fn clear_leaves_no_registry_behind() {
             .expect("add");
     }
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).expect("apply");
     assert!(
         engine.section_identity_visible_len() > 0,
@@ -63,7 +63,7 @@ fn clear_leaves_no_registry_behind() {
             .expect("add");
     }
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections(sections).expect("apply");
 
     let second = engine.get_section_summaries();

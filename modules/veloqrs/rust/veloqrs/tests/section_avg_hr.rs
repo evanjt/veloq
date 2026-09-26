@@ -229,7 +229,7 @@ fn the_apply_records_the_effort_and_a_redetect_keeps_it() {
     }
 
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections_save(sections).expect("apply");
 
     let recorded = recorded_efforts(&dir);
@@ -244,7 +244,7 @@ fn the_apply_records_the_effort_and_a_redetect_keeps_it() {
         .recompute_activity_indicators()
         .expect("the lazy pass");
     let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, _) = handle.recv().expect("the detect ran");
     engine.apply_sections_save(sections).expect("re-apply");
 
     assert_eq!(
