@@ -26,6 +26,8 @@ import {
   type FfiEfficiencyTrend,
   type FfiEfficiencyPoint,
   type FfiPeriodStats,
+  type FfiPeriodComparison,
+  type FfiMonthlyStats,
   type FfiSummaryCardData,
   type FfiFtpTrend,
   type FfiPaceTrend,
@@ -41,9 +43,17 @@ import {
   type FfiSectionDetailData,
   type FfiSectionPerformanceData,
   type FfiRoutesScreenData,
+  type FfiRoutesScreenQuery,
+  type FfiSectionFilters,
+  FfiGroupSort,
+  FfiSectionSort,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
   type FfiStalePrOpportunity,
+  type FfiSectionChange,
+  type FfiHrvTrend,
+  type FfiBackupValidation,
+  type FfiEftpChange,
 } from './generated/veloqrs';
 
 import { EngineClient } from './EngineClient';
@@ -60,7 +70,7 @@ export * from './generated/veloqrs';
 
 // Re-export conversions, types, and utilities
 export { validateId, validateName } from './conversions';
-export { decodeCoords, type LatLng } from './coords';
+export { decodeCoords, decodeCoordsFlat, type LatLng } from './coords';
 export type {
   RoutePoint,
   SectionDetectionProgress,
@@ -85,6 +95,7 @@ export type {
 export {
   FfiCallKind as CallKind,
   FfiSyncErrorReason as SyncErrorReason,
+  FfiSyncStep as SyncStep,
 } from './generated/veloqrs';
 
 // The verdict every start answers with, and the one place that says which
@@ -100,6 +111,8 @@ export { isRetryableInit, hasOpened } from './delegates/init';
 
 // Elevation backfill consumer types
 export type { ElevationBackfillPhase } from './delegates/elevation';
+export type { RoutesStatus } from './delegates/routesStatus';
+export type { StreamBackfillPhase } from './delegates/streamBackfill';
 
 // Detector cutover consumer types
 export type {
@@ -120,6 +133,17 @@ export type {
   PreviewSectionStatus,
 } from './delegates/preview';
 
+// The typed wellness day the fitness and wellness screens read
+export type {
+  WellnessDay,
+  WellnessSparklines,
+  SportLoad,
+  CurveActivityRow,
+  PowerModelRow,
+  PowerCurveRow,
+  PaceCurveRow,
+} from './delegates/fitness';
+
 // Delegate-shaped bundles returned by the façade
 export type { ActivityHighlightsBundle } from './delegates/activities';
 export type { RouteDetailData } from './delegates/routes';
@@ -139,6 +163,10 @@ export type EfficiencyTrend = FfiEfficiencyTrend;
 export type EfficiencyPoint = FfiEfficiencyPoint;
 // Aggregate query types
 export type PeriodStats = FfiPeriodStats;
+/** One period against an earlier one, with the metric it was taken on. */
+export type PeriodComparison = FfiPeriodComparison;
+export { FfiLoadMetric as LoadMetric } from './generated/veloqrs';
+export type MonthlyStats = FfiMonthlyStats;
 export type SummaryCardData = FfiSummaryCardData;
 export type FtpTrend = FfiFtpTrend;
 export type PaceTrend = FfiPaceTrend;
@@ -159,9 +187,20 @@ export type SectionDetailData = FfiSectionDetailData;
 export type SectionPerformanceData = FfiSectionPerformanceData;
 // Routes screen batch types
 export type RoutesScreenData = FfiRoutesScreenData;
+export type RoutesScreenQuery = FfiRoutesScreenQuery;
+export type SectionHiddenFilters = FfiSectionFilters;
+export { FfiGroupSort as GroupSort, FfiSectionSort as SectionSort };
 export type GroupWithPolyline = FfiGroupWithPolyline;
 export type SectionWithPolyline = FfiSectionWithPolyline;
 export type StalePrOpportunity = FfiStalePrOpportunity;
+/** One visible change the section ledger recorded. */
+export type SectionChange = FfiSectionChange;
+/** The HRV verdict over a trailing window. */
+export type HrvTrend = FfiHrvTrend;
+/** What the native probe reports about a picked backup file. */
+export type BackupValidation = FfiBackupValidation;
+/** One activity that moved the athlete's accepted eFTP. */
+export type EftpChange = FfiEftpChange;
 export type {
   FfiSectionMatch as SectionMatch,
   FfiMergeCandidate as MergeCandidate,
@@ -173,6 +212,7 @@ export type {
 export type {
   FfiExerciseSet as ExerciseSet,
   FfiMuscleGroup as MuscleGroup,
+  FfiActivityNotification as ActivityNotification,
 } from './generated/veloqrs';
 
 // Wraps the generated call; the explicit export deliberately wins over `export *`.

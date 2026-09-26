@@ -11,6 +11,7 @@ import type {
   FfiRouteDetailData,
   FfiRoutePerformanceResult,
   FfiRoutesScreenData,
+  FfiRoutesScreenQuery,
   GroupSummary,
 } from '../generated/veloqrs';
 import type { FfiActivityRouteHighlight } from './shared-types';
@@ -20,14 +21,7 @@ import type { DelegateHost } from './host';
 const EMPTY_ROUTE_PERFORMANCE_RESULT: FfiRoutePerformanceResult = {
   performances: [],
   activityMetrics: [],
-  best: undefined,
-  bestForward: undefined,
-  bestReverse: undefined,
-  forwardStats: undefined,
-  reverseStats: undefined,
-  currentRank: undefined,
   attemptCount: 0,
-  percentileRank: undefined,
 };
 
 export function getGroups(host: DelegateHost): FfiRouteGroup[] {
@@ -146,33 +140,11 @@ export function getExcludedRoutePerformances(
 
 export function getRoutesScreenData(
   host: DelegateHost,
-  groupLimit: number,
-  groupOffset: number,
-  sectionLimit: number,
-  sectionOffset: number,
-  minGroupActivityCount: number,
-  prioritizeNearestGroups: boolean,
-  prioritizeNearestSections: boolean,
-  userLat: number,
-  userLng: number
+  query: FfiRoutesScreenQuery
 ): FfiRoutesScreenData | undefined {
   if (!host.ready) return undefined;
   try {
-    return host.timed('getRoutesScreenData', () =>
-      host.engine
-        .routes()
-        .getScreenData(
-          groupLimit,
-          groupOffset,
-          sectionLimit,
-          sectionOffset,
-          minGroupActivityCount,
-          prioritizeNearestGroups,
-          prioritizeNearestSections,
-          userLat,
-          userLng
-        )
-    );
+    return host.timed('getRoutesScreenData', () => host.engine.routes().getScreenData(query));
   } catch {
     return undefined;
   }

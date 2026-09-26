@@ -16,6 +16,7 @@ import {
   getChangeCardSupport as ffiGetChangeCardSupport,
 } from '../generated/veloqrs';
 import type { FfiChangeCardSupport } from '../generated/veloqrs';
+import { toCatalogueCounts } from '../conversions';
 import type { DelegateHost } from './host';
 
 export interface CutoverCounts {
@@ -53,35 +54,6 @@ export interface CutoverDiff {
   token: string;
   counts: CutoverCounts;
   settingsReset: CutoverSettingsReset | null;
-}
-
-const SETTINGS_FIELDS: (keyof CutoverSettings)[] = [
-  'proximityThreshold',
-  'minSectionLength',
-  'maxSectionLength',
-  'minActivities',
-  'divergenceThreshold',
-];
-
-function parseSettings(raw: unknown): CutoverSettings | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const record = raw as Record<string, unknown>;
-  const out = {} as CutoverSettings;
-  for (const field of SETTINGS_FIELDS) {
-    const v = record[field];
-    if (typeof v !== 'number' || !Number.isFinite(v)) return null;
-    out[field] = v;
-  }
-  return out;
-}
-
-/** A half-readable reset is dropped alone, never the diff it rides in. */
-function parseSettingsReset(raw: unknown): CutoverSettingsReset | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const record = raw as Record<string, unknown>;
-  const previous = parseSettings(record.previous);
-  const current = parseSettings(record.current);
-  return previous && current ? { previous, current } : null;
 }
 
 /**
@@ -180,47 +152,30 @@ export function getCutoverProgress(host: DelegateHost): CutoverProgress | null {
   }
 }
 
-/** The stored diff, so the change card survives a restart. */
+/**
+ * The stored diff, so the change card survives a restart.
+ *
+ * The engine parses the settings row it persisted and hands back a record: the
+ * payload used to cross as a JSON string this side cast blind, so a field
+ * renamed in Rust reached the card as `undefined`. What is left here
+ * is `undefined` becoming `null`, which is the only difference between the
+ * record and the shape the card reads.
+ */
 export function getCutoverDiff(host: DelegateHost): CutoverDiff | null {
   if (!host.ready) return null;
   try {
-    const json = host.timed('getCutoverDiff', () => ffiGetCutoverDiff());
-    return json ? parseCutoverDiff(json) : null;
+    const diff = host.timed('getCutoverDiff', () => ffiGetCutoverDiff());
+    if (!diff) return null;
+    return {
+      token: diff.token,
+      counts: toCatalogueCounts(diff.counts),
+      settingsReset: diff.settingsReset ?? null,
+    };
   } catch (e) {
     console.error('[Engine] getCutoverDiff threw:', e);
     return null;
   }
 }
-
-/** Parse the Rust payload. Returns null on anything malformed. */
-export function parseCutoverDiff(json: string): CutoverDiff | null {
-  try {
-    const raw = JSON.parse(json) as {
-      token?: unknown;
-      counts?: Record<string, unknown>;
-      settings_reset?: unknown;
-    };
-    if (typeof raw.token !== 'string' || !raw.counts) {
-      return null;
-    }
-    const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
-    return {
-      token: raw.token,
-      counts: {
-        current: num(raw.counts.current),
-        proposed: num(raw.counts.proposed),
-        unchanged: num(raw.counts.unchanged),
-        changed: num(raw.counts.changed),
-        new: num(raw.counts.new),
-        gone: num(raw.counts.gone),
-      },
-      settingsReset: parseSettingsReset(raw.settings_reset),
-    };
-  } catch {
-    return null;
-  }
-}
-
 
 export type ChangeCardSupport = FfiChangeCardSupport;
 

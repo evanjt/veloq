@@ -114,7 +114,40 @@ describe('FFI Binding Validation', () => {
       // is standalone for the same reason: it is written during init, before
       // there is a handle to hang it on, and it says the library that handle
       // opens is not the one the athlete had.
-      expect(STANDALONE_EXPORTS.length).toBe(22);
+      //
+      // The four stream-backfill calls sit here for the same reason the
+      // elevation ones do, and beside them: the pass is a detached thread
+      // holding a process-global slot, and its start, stop and progress are
+      // all reads of that slot rather than of a handle.
+      //
+      // `get_fetch_run_progress` is standalone beside the global read it
+      // narrows: the download queue is process state in `http`, not engine
+      // state, and a caller polling its own run must not queue behind the
+      // engine lock to do it.
+      //
+      // `fetch_and_index_activity` sits beside the rest of that fetch
+      // lifecycle, for the reason `cancel_fetch_and_store` does. It is the
+      // blocking single-activity sibling of `start_fetch_and_store`, over the
+      // same fetch and the same store, and its caller is the case that pair
+      // cannot serve: a push handler in Kotlin or Swift holding an activity
+      // id, a budget in seconds and no run loop to poll a global slot on.
+      // Hanging it on an object would make that handler build a handle across
+      // the FFI first, an allocation and a failure mode inside that budget,
+      // for a call that is one shot rather than a session.
+      // `validate_credentials` is standalone because a sign-in screen has no
+      // engine: the layout opens one only once the athlete is authenticated.
+      // The check reads nothing from the database, builds its own transport
+      // from the process base URL and runs on the lazily built runtime, so
+      // hanging it on the engine object made a valid key on a fresh install
+      // answer "unavailable", which the screen rendered as a connection
+      // failure.
+      // `get_routes_status_data` is standalone because every figure it carries
+      // is: the detection and tile handles, the backfill's phase and the
+      // cutover's are all process-global slots, and it exists so a tick reads
+      // them once rather than four times. Hanging the bundle on the engine
+      // object would put a read of four slots behind the engine lock the
+      // separate reads it replaces did not all take.
+      expect(STANDALONE_EXPORTS.length).toBe(30);
     });
 
     it('should include the known standalone FFI functions', () => {
@@ -131,6 +164,13 @@ describe('FFI Binding Validation', () => {
       // an engine method would be the wrong home and would queue behind the
       // lock the cancel exists to stop taking.
       expect(names.has('cancel_fetch_and_store')).toBe(true);
+      // One id in, a summary out, blocking. The native push handler this was
+      // built for has no run loop to poll the global slot the batch reports
+      // through, so the composition it needs lives beside that batch.
+      expect(names.has('fetch_and_index_activity')).toBe(true);
+      // A caller queued behind a 500-activity sync used to poll the global
+      // flag and watch someone else's numbers long after its own had landed.
+      expect(names.has('get_fetch_run_progress')).toBe(true);
       expect(names.has('compute_polyline_overlap')).toBe(true);
       // Deleted with the synthetic detection illustration, its only caller.
       // Named here so a re-add has to answer for itself rather than ride in
@@ -144,6 +184,13 @@ describe('FFI Binding Validation', () => {
       expect(names.has('is_elevation_backfill_paused')).toBe(true);
       expect(names.has('get_elevation_backfill_progress')).toBe(true);
       expect(names.has('get_elevation_backfill_remaining')).toBe(true);
+      expect(names.has('start_stream_backfill')).toBe(true);
+      // Tens of megabytes on the athlete's own connection, so unlike the
+      // elevation pass nothing starts this at launch and the stop is the
+      // control that matters.
+      expect(names.has('stop_stream_backfill')).toBe(true);
+      expect(names.has('get_stream_backfill_progress')).toBe(true);
+      expect(names.has('get_stream_backfill_remaining')).toBe(true);
       expect(names.has('is_cutover_pending')).toBe(true);
       expect(names.has('is_cutover_running')).toBe(true);
       expect(names.has('start_detector_cutover')).toBe(true);
@@ -298,6 +345,60 @@ describe('FFI Binding Validation', () => {
       }
 
       expect(orphanImports).toEqual([]);
+    });
+  });
+
+  // The manifest is extracted from Rust source and the bindings are generated
+  // from a compiled library, so the two can disagree and nothing noticed. An
+  // export whose signature the generator refuses leaves the manifest naming a
+  // function the bindings do not have: it is callable from no TypeScript, the
+  // app still starts because a uniffi checksum is per item, and the suite passed.
+  describe('Generated bindings cover the manifest', () => {
+    const GENERATED_PATH = path.join(VELOQRS_SRC_DIR, 'generated', 'veloqrs.ts');
+
+    /** Every function the generated module exports, by name. */
+    function generatedFunctions(): Set<string> {
+      const source = fs.readFileSync(GENERATED_PATH, 'utf-8');
+      const names = new Set<string>();
+      for (const m of source.matchAll(/^export (?:async )?function (\w+)/gm)) {
+        names.add(m[1]);
+      }
+      return names;
+    }
+
+    // Only standalone exports. A method lives on a generated class and is not a
+    // module-level function, so the manifest's own `object` field is what
+    // separates the two rather than a guess from the name.
+    const standalone = FFI_EXPORTS.filter((exp) => !exp.object);
+
+    it('generates a function for every standalone export in the manifest', () => {
+      const generated = generatedFunctions();
+      const missing = standalone
+        .filter((exp) => !generated.has(exp.camelName))
+        .map((exp) => `${exp.camelName} (${exp.file}:${exp.line})`);
+
+      if (missing.length > 0) {
+        console.error(
+          'In the manifest and absent from the generated bindings. Run `npm run ffi:generate`; ' +
+            'if it fails, the export signature is what it refuses:'
+        );
+        missing.forEach((name) => console.error(`  - ${name}`));
+      }
+
+      expect(missing).toEqual([]);
+    });
+
+    it('generates no standalone function the manifest does not name', () => {
+      const named = new Set(standalone.map((exp) => exp.camelName));
+      // The generated module also exports its own helpers and converters, which
+      // are not FFI functions. Only names the manifest has ever used are
+      // compared, so a deleted export is caught and a helper is not reported.
+      const rustNames = new Set(Object.values(RUST_TO_TS_NAME));
+      const orphans = [...generatedFunctions()].filter(
+        (name) => rustNames.has(name) && !named.has(name)
+      );
+
+      expect(orphans).toEqual([]);
     });
   });
 

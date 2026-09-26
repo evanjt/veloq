@@ -14,17 +14,18 @@ import type {
   PersistentEngineStats,
   FfiActivityDetailData,
   FfiActivityMetrics,
+  FfiActivityNotification,
   FfiCallOutcome,
   FfiManualActivity,
   FfiExerciseActivities,
   FfiExerciseSet,
-  FfiMuscleExerciseSummary,
   FfiMuscleGroup,
-  FfiStrengthSummary,
-  FfiGpsPoint,
+  FfiStrengthScreenData,
+  FfiPreviewTrack,
   FfiMapScreenData,
   FfiRouteGroup,
   FfiSection,
+  FfiMapSection,
   FfiNamedCorridor,
   FfiSectionDetailData,
   FfiSectionPerformanceData,
@@ -34,25 +35,28 @@ import type {
   FfiEfficiencyTrend,
   SectionSummary,
   GroupSummary,
-  FfiPeriodStats,
-  FfiFtpTrend,
-  FfiPaceTrend,
+  FfiSummaryCardData,
+  FfiEftpChange,
   FfiInsightsData,
   FfiInsightsParams,
   FfiStartupData,
-  FfiWeekLoadShape,
   FfiWidgetSnapshotData,
   FfiRoutesScreenData,
+  FfiRoutesScreenQuery,
+  FfiMatchStrictness,
   FfiSectionConfig,
   FfiIndexActivitySummary,
   DownloadProgressResult,
   DerivedClear,
-  DerivedClearPoll,
+  DerivedClearCounts,
+  FfiNotificationTemplates,
   SettingPair,
   BulkExportFormat,
   FfiQuarantineReport,
+  FfiPushRun,
+  LibraryCoverage,
 } from './generated/veloqrs';
-import { FfiInitOutcome, FfiStartOutcome } from './generated/veloqrs';
+import { FfiInitOutcome, FfiStartOutcome, RangeCoverage } from './generated/veloqrs';
 
 import type { SectionDetectionProgress } from './conversions';
 import type { DelegateHost } from './delegates/host';
@@ -61,11 +65,16 @@ import * as detectionDelegates from './delegates/detection';
 import * as connectivityDelegates from './delegates/connectivity';
 import * as elevationDelegates from './delegates/elevation';
 import type { ElevationBackfillProgress } from './delegates/elevation';
+import * as streamBackfillDelegates from './delegates/streamBackfill';
+import type { StreamBackfillProgress } from './delegates/streamBackfill';
 import type { NetworkPush } from './delegates/connectivity';
 import * as cutoverDelegates from './delegates/cutover';
+import * as routesStatusDelegates from './delegates/routesStatus';
+import type { RoutesStatus } from './delegates/routesStatus';
 import type { CutoverDiff, CutoverProgress } from './delegates/cutover';
 import * as fitnessDelegates from './delegates/fitness';
 import * as previewDelegates from './delegates/preview';
+import * as routeGroupingPreviewDelegates from './delegates/routeGroupingPreview';
 import type {
   PreviewCentre,
   PreviewPollStatus,
@@ -73,6 +82,7 @@ import type {
   PreviewSection,
 } from './delegates/preview';
 import * as heatmapDelegates from './delegates/heatmap';
+import * as launchDelegates from './delegates/launch';
 import * as recordingDelegates from './delegates/recordings';
 import * as mapsDelegates from './delegates/maps';
 import * as routeDelegates from './delegates/routes';
@@ -116,9 +126,11 @@ export type EngineEvent =
   | 'sync'
   | 'syncProgress'
   | 'syncSettled'
+  | 'activitiesStored'
   | 'bodyStored'
   | 'timeStreamsStored'
   | 'gpsTrackStored'
+  | 'gpsTracksMutated'
   | 'fitParsed'
   | 'detectionApplied'
   | 'tilesGenerated'
@@ -136,13 +148,25 @@ export type EnginePayload =
 
 export type EngineListener = (payload?: EnginePayload) => void;
 
+/** What `engineEventDiagnostics` reports about the Rust to JavaScript seam. */
+export interface EngineEventDiagnostics {
+  live: boolean;
+  bindingInitError: string | null;
+  observerError: string | null;
+  received: Record<string, number>;
+  delivered: Record<string, number>;
+  listeners: Record<string, number>;
+}
+
 /** The shape `VeloqEngine.setObserver` takes, matching the Rust trait. */
 interface EngineObserverBinding {
   syncProgress(): void;
   syncSettled(): void;
+  activitiesStored(): void;
   bodyStored(kind: string, activityId: string): void;
   timeStreamsStored(activityIds: string[]): void;
   gpsTrackStored(activityId: string): void;
+  gpsTracksMutated(activityIds: string[]): void;
   fitParsed(activityId: string): void;
   detectionApplied(): void;
   tilesGenerated(): void;
@@ -198,6 +222,18 @@ class EngineClient implements DelegateHost {
    * throws. A caller with no polling fallback reads it and polls.
    */
   private observerRegistered = false;
+  /** What the binding's initialise threw, kept because release strips the warn. */
+  private bindingInitError: string | null = null;
+  /** What `setObserver` threw, for the same reason. */
+  private observerError: string | null = null;
+  /**
+   * Announcements counted the moment Rust's callback lands here, per channel,
+   * before the microtask that delivers them. A channel that Rust announces on
+   * and that never appears here is an event lost inside the binding.
+   */
+  private received = new Map<string, number>();
+  /** Deliveries that found at least one listener, per channel. */
+  private delivered = new Map<string, number>();
   private pendingWrites: PendingWrite[] = [];
   private droppedWrites = 0;
 
@@ -349,17 +385,26 @@ class EngineClient implements DelegateHost {
       // call through is worse than none, since the polling fallback still
       // works and a panic per event does not.
       this.observerRegistered = false;
+      this.observerError = null;
       if (this.ensureBindingInitialised()) {
         try {
           this.engine.setObserver(this.observer());
           this.observerRegistered = true;
         } catch (e) {
+          this.observerError = String(e);
           console.warn('[EngineClient] Engine refused the observer:', e);
         }
       }
       // Heatmap tiles path is set lazily via enableHeatmapTiles() - called from app
       // code when the heatmap setting is enabled. This avoids importing provider stores
-      // in the native module.
+      // in the native module. What the athlete last chose is re-applied here,
+      // because the path lives only in the engine's memory and a clear opens a
+      // new one: the layout's post-init block does not run again for a clear
+      // mid-session, so the path stayed unset and the previous library's tiles
+      // went on being served.
+      if (this.heatmapTilesPath) {
+        this.applyHeatmapTilesPath(this.heatmapTilesPath);
+      }
       this.replayPendingWrites();
     }
     return result;
@@ -376,8 +421,10 @@ class EngineClient implements DelegateHost {
     try {
       gen().default.initialize();
       this.bindingInitialised = true;
+      this.bindingInitError = null;
       return true;
     } catch (e) {
+      this.bindingInitError = String(e);
       console.warn('[EngineClient] Binding init failed, observer withheld:', e);
       return false;
     }
@@ -414,41 +461,30 @@ class EngineClient implements DelegateHost {
     return this.initialized;
   }
 
-  /** Start the route/section wipe on a Rust thread. Poll
-   *  `pollClearRoutesAndSections` for the outcome. */
-  startClearRoutesAndSections(): void {
-    if (!this.ready) return;
-    this.timed('startClearRoutesAndSections', () => this.engine.startClearRoutesAndSections());
-  }
-
-  /** Poll the running wipe: "idle" | "running" | "complete". Throws on failure. */
-  pollClearRoutesAndSections(): string {
-    if (!this.ready) return 'idle';
-    return this.timed('pollClearRoutesAndSections', () => this.engine.pollClearRoutesAndSections());
-  }
-
-  /** Start the clear-cache wipe on a Rust thread. Poll `pollClearDerived`. */
-  startClearDerived(): void {
-    if (!this.ready) return;
-    this.timed('startClearDerived', () => this.engine.startClearDerived());
-  }
-
   /**
-   * Poll the running clear-cache wipe. `state` is "idle" | "running" |
-   * "complete", and the counts are only meaningful once it is complete.
-   * Throws on failure.
+   * Wipe the routes and sections on a Rust thread, resolving when it is done.
+   *
+   * The ceiling is the caller's: `shared/native/engineClears.ts` stops waiting
+   * at the session's budget and reports that the wipe is still going. A wipe
+   * that stopped without finishing rejects, carrying the Rust message.
    */
-  pollClearDerived(): DerivedClearPoll {
+  async runClearRoutesAndSections(): Promise<void> {
+    if (!this.ready) return;
+    await this.engine.runClearRoutesAndSections();
+  }
+
+  /** Wipe everything the engine can re-derive, resolving with what went. */
+  async runClearDerived(): Promise<DerivedClearCounts> {
     if (!this.ready) {
-      return { state: 'idle', sectionsRemoved: 0, activitiesRemoved: 0, activitiesKept: 0 };
+      return { sectionsRemoved: 0, activitiesRemoved: 0, activitiesKept: 0 };
     }
-    return this.timed('pollClearDerived', () => this.engine.pollClearDerived());
+    return this.engine.runClearDerived();
   }
 
   /**
    * Wait out the whole-database wipe this client started.
    *
-   * The sibling wipes are waited on by `features/routes/lib/engineClears.ts`,
+   * The sibling wipes are waited on by `shared/native/engineClears.ts`,
    * which this cannot use: nothing here may import from `src/`. This one has
    * to live here anyway, because the re-open that follows it is this class's
    * own and no caller should be trusted to order it.
@@ -470,10 +506,17 @@ class EngineClient implements DelegateHost {
     }
   }
 
-  /** Start the whole-database wipe on a Rust thread. Poll `pollClearAll`. */
+  /**
+   * Start the whole-database wipe on a Rust thread. Poll `pollClearAll`.
+   *
+   * The tiles directory goes with it whether or not the heatmap is on: the
+   * engine learns the path only when the heatmap turns on, and the login
+   * screen wipes before that, over tiles the previous athlete left on disk.
+   */
   startClearAll(): void {
     if (!this.ready) return;
-    this.timed('startClearAll', () => this.engine.startClearAll());
+    const tilesPath = heatmapDelegates.heatmapTilesPath();
+    this.timed('startClearAll', () => this.engine.startClearAll(tilesPath));
   }
 
   /** Poll the running wipe: "idle" | "running" | "complete". Throws on failure. */
@@ -506,6 +549,10 @@ class EngineClient implements DelegateHost {
   /** Drop the Rust engine singleton without clearing data. Used before database restore. */
   destroyEngine(): void {
     try {
+      // The observer handle is dropped with the engine it was registered on,
+      // so a re-open registers a fresh one rather than announcing into a
+      // listener map from a client state that has moved on.
+      if (this.observerRegistered) this.engine?.clearObserver?.();
       this.engine?.destroy();
     } catch {
       // Best-effort destroy
@@ -526,21 +573,42 @@ class EngineClient implements DelegateHost {
    * that fails leaves the handle closed and reported closed, which is the same
    * state a failed launch leaves.
    */
-  async clear(): Promise<void> {
+  async clear(openIfClosed?: string): Promise<void> {
+    // The login screen holds a closed handle by design, and both Try Demo and
+    // a sign-in to another account wipe from it. A closed handle used to make
+    // `startClearAll` a no-op, `pollClearAll` answer `idle` and the poll's
+    // throw get swallowed, so the call resolved having touched nothing, one
+    // tap after the athlete accepted "Continue and delete". A wipe opens the
+    // database it was given rather than skipping.
+    if (!this.ready) {
+      const path = openIfClosed ?? this.dbPath;
+      if (!path) {
+        throw new Error('Engine wipe has no database to open: the engine is closed');
+      }
+      if (!this.initWithPath(path)) {
+        throw new Error(`Engine wipe could not open ${path}`);
+      }
+    }
     const dbPath = this.dbPath;
+    // The wipe runs on a Rust thread and this waits for it, so the destroy
+    // and re-open below stay ordered after it rather than racing it. On the
+    // JavaScript thread the same wipe cost 401 ms on a 750-activity library
+    // and froze every caller's screen for it.
+    //
+    // A failure is raised rather than swallowed: the caller has told the
+    // athlete their library is gone, and the one thing worse than a wipe that
+    // fails is a wipe that fails quietly.
+    let wipeError: unknown;
     try {
-      // The wipe runs on a Rust thread and this waits for it, so the destroy
-      // and re-open below stay ordered after it rather than racing it. On the
-      // JavaScript thread the same wipe cost 401 ms on a 750-activity library
-      // and froze every caller's screen for it.
       await this.awaitWipe();
-    } catch {
-      // Best-effort clear - reset local state regardless
+    } catch (e) {
+      wipeError = e;
     }
     try {
       // Drop the Rust PERSISTENT_ENGINE global so the next create() re-initializes
       // from scratch. Without this, the global retains stale data (e.g., from demo mode)
       // because create() skips init when the global is already Some.
+      if (this.observerRegistered) this.engine?.clearObserver?.();
       this.engine?.destroy();
     } catch {
       // Best-effort destroy
@@ -552,6 +620,7 @@ class EngineClient implements DelegateHost {
     this.pendingWrites = [];
     if (dbPath) this.initWithPath(dbPath);
     this.notifyAll('activities', 'groups', 'sections', 'syncReset');
+    if (wipeError) throw wipeError;
   }
 
   addActivities = (
@@ -562,12 +631,37 @@ class EngineClient implements DelegateHost {
   ): Promise<void> =>
     activityDelegates.addActivities(this, activityIds, allCoords, offsets, sportTypes);
 
-  mintLocalActivityId = (): string => activityDelegates.mintLocalActivityId(this);
+  saveProvisionalActivity = (
+    activityId: string,
+    coords: number[],
+    body: { activityId: string; date: number; raw: string },
+    metrics: FfiActivityMetrics
+  ): Promise<boolean> =>
+    activityDelegates.saveProvisionalActivity(this, activityId, coords, body, metrics);
+
+  provisionalActivityId = (recordingId: string): string =>
+    activityDelegates.provisionalActivityId(this, recordingId);
+
+  activityNotification = (
+    activityId: string,
+    activityName: string,
+    announcePrs: boolean,
+    milestoneTitle: string | null = null
+  ): FfiActivityNotification | null =>
+    activityDelegates.activityNotification(
+      this,
+      activityId,
+      activityName,
+      announcePrs,
+      milestoneTitle
+    );
 
   recordActivityUpload = (activityId: string, intervalsId: string): boolean =>
     activityDelegates.recordActivityUpload(this, activityId, intervalsId);
 
   getActivityIds = (): string[] => activityDelegates.getActivityIds(this);
+
+  hasActivity = (activityId: string): boolean => activityDelegates.hasActivity(this, activityId);
 
   getActivityMetricIds = (): string[] => fitnessDelegates.getActivityMetricIds(this);
 
@@ -584,8 +678,7 @@ class EngineClient implements DelegateHost {
 
   startSectionDetection = (): FfiStartOutcome => detectionDelegates.startSectionDetection(this);
 
-  sectionDetectionAwaiting = (): number | null =>
-    detectionDelegates.sectionDetectionAwaiting(this);
+  sectionDetectionAwaiting = (): number | null => detectionDelegates.sectionDetectionAwaiting(this);
   cancelSectionDetection = (): boolean => detectionDelegates.cancelSectionDetection(this);
 
   pollSectionDetection = (): string => detectionDelegates.pollSectionDetection(this);
@@ -602,7 +695,7 @@ class EngineClient implements DelegateHost {
   getPreviewCurrentSections = (lat: number, lng: number): PreviewSection[] | null =>
     previewDelegates.getPreviewCurrentSections(this, lat, lng);
 
-  startPreviewDetect = (lat: number, lng: number, config: FfiSectionConfig): boolean =>
+  startPreviewDetect = (lat: number, lng: number, config: FfiSectionConfig): FfiStartOutcome =>
     previewDelegates.startPreviewDetect(this, lat, lng, config);
 
   pollPreviewDetect = (): PreviewPollStatus => previewDelegates.pollPreviewDetect(this);
@@ -614,10 +707,40 @@ class EngineClient implements DelegateHost {
 
   cancelPreviewDetect = (): void => previewDelegates.cancelPreviewDetect(this);
 
+  runRouteGroupingPreview = (
+    minMatchPercentage: number,
+    endpointThreshold: number
+  ): Promise<routeGroupingPreviewDelegates.RouteGroupingOutcome> =>
+    routeGroupingPreviewDelegates.runRouteGroupingPreview(
+      this,
+      minMatchPercentage,
+      endpointThreshold
+    );
+
+  cancelRouteGroupingPreview = (): void =>
+    routeGroupingPreviewDelegates.cancelRouteGroupingPreview(this);
+
   setNetworkOnline = (online: boolean): void =>
     connectivityDelegates.setNetworkOnline(this, online);
 
   getNetworkPush = (): NetworkPush | null => connectivityDelegates.getNetworkPush(this);
+
+  /**
+   * Take whatever a push handler wrote from another process while the app was
+   * away, and say whether there was anything to take.
+   *
+   * False before the engine is open, which is a launch that has not reached
+   * `initWithPath` yet: it has nothing stale to take, because its first read
+   * of the file is still ahead of it.
+   */
+  takeExternalWrites = (): boolean => {
+    try {
+      return this.engine?.takeExternalWrites() ?? false;
+    } catch (e) {
+      console.warn('[EngineClient] Could not take what a push handler wrote:', e);
+      return false;
+    }
+  };
 
   startElevationBackfill = (): FfiStartOutcome => elevationDelegates.startElevationBackfill(this);
 
@@ -631,6 +754,16 @@ class EngineClient implements DelegateHost {
   getElevationBackfillRemaining = (): number | null =>
     elevationDelegates.getElevationBackfillRemaining(this);
 
+  startStreamBackfill = (): FfiStartOutcome => streamBackfillDelegates.startStreamBackfill(this);
+
+  stopStreamBackfill = (): void => streamBackfillDelegates.stopStreamBackfill(this);
+
+  getStreamBackfillProgress = (): StreamBackfillProgress | null =>
+    streamBackfillDelegates.getStreamBackfillProgress(this);
+
+  getStreamBackfillRemaining = (): number | null =>
+    streamBackfillDelegates.getStreamBackfillRemaining(this);
+
   isCutoverPending = (): boolean => cutoverDelegates.isCutoverPending(this);
 
   isCutoverRunning = (): boolean => cutoverDelegates.isCutoverRunning(this);
@@ -643,6 +776,13 @@ class EngineClient implements DelegateHost {
 
   getCutoverProgress = (): CutoverProgress | null => cutoverDelegates.getCutoverProgress(this);
 
+  /**
+   * Every routes background-job figure in one read, for the poller that
+   * follows a run. One call a tick rather than four, and the figures agree
+   * with each other because they were taken together.
+   */
+  getRoutesStatusData = (): RoutesStatus | null => routesStatusDelegates.getRoutesStatusData(this);
+
   getCutoverDiff = (): CutoverDiff | null => cutoverDelegates.getCutoverDiff(this);
 
   setSyncCredentials = (method: SyncAuthMethod, secret: string, athleteId: string): void =>
@@ -652,8 +792,16 @@ class EngineClient implements DelegateHost {
 
   syncNow = (): FfiStartOutcome => syncDelegates.syncNow(this);
 
+  offlineEstimate = (oldest: number, newest: number): syncDelegates.OfflineEstimate | null =>
+    syncDelegates.offlineEstimate(this, oldest, newest);
+
   syncActivitiesWindow = (oldest: string, newest: string): FfiStartOutcome =>
     syncDelegates.syncActivitiesWindow(this, oldest, newest);
+
+  rangeCoverage = (oldest: string, newest: string): RangeCoverage =>
+    syncDelegates.rangeCoverage(this, oldest, newest);
+
+  libraryCoverage = (): LibraryCoverage => syncDelegates.libraryCoverage(this);
 
   syncPowerCurve = (sport: string, days: number): FfiStartOutcome =>
     syncDelegates.syncPowerCurve(this, sport, days);
@@ -690,9 +838,6 @@ class EngineClient implements DelegateHost {
   createManualActivity = (activity: FfiManualActivity): Promise<FfiCallOutcome> =>
     syncDelegates.createManualActivity(this, activity);
 
-  validateSyncCredentials = (method: SyncAuthMethod, secret: string): Promise<FfiCallOutcome> =>
-    syncDelegates.validateSyncCredentials(this, method, secret);
-
   cancelSync = (): void => syncDelegates.cancelSync(this);
 
   getSyncStatus = (): SyncStatus | null => syncDelegates.getSyncStatus(this);
@@ -703,6 +848,10 @@ class EngineClient implements DelegateHost {
 
   getSectionsFiltered = (sportType?: string, minVisits?: number): FfiSection[] =>
     sectionDelegates.getSectionsFiltered(this, sportType, minVisits);
+
+  /** Six fields and the encoded line, for the regional map's section overlay. */
+  getMapSections = (sportType?: string, minVisits?: number): FfiMapSection[] =>
+    sectionDelegates.getMapSections(this, sportType, minVisits);
 
   getSectionsForActivity = (activityId: string): FfiSection[] =>
     sectionDelegates.getSectionsForActivity(this, activityId);
@@ -758,6 +907,9 @@ class EngineClient implements DelegateHost {
   setSectionName = (sectionId: string, name: string): boolean =>
     sectionDelegates.setSectionName(this, sectionId, name);
 
+  setSectionIsLift = (sectionId: string, isLift: boolean): boolean =>
+    sectionDelegates.setSectionIsLift(this, sectionId, isLift);
+
   getNamedCorridors = (): FfiNamedCorridor[] => sectionDelegates.getNamedCorridors(this);
 
   removeNamedCorridor = (intentId: string): boolean =>
@@ -770,8 +922,16 @@ class EngineClient implements DelegateHost {
 
   getAllSectionNames = (): Record<string, string> => sectionDelegates.getAllSectionNames(this);
 
-  getGpsTrack = (activityId: string): FfiGpsPoint[] =>
+  /** Coordinate-encoded; put it through `decodeCoords`. */
+  getGpsTrack = (activityId: string): ArrayBuffer =>
     activityDelegates.getGpsTrack(this, activityId);
+
+  /**
+   * One feed card's preview line, from the cached signature. Coordinate
+   * encoded, so put `encodedCoords` through `decodeCoords`.
+   */
+  getPreviewTrack = (activityId: string): FfiPreviewTrack | undefined =>
+    activityDelegates.getPreviewTrack(this, activityId);
 
   /** Coordinate-encoded; put it through `decodeCoords`. */
   getConsensusRoute = (groupId: string): ArrayBuffer =>
@@ -892,12 +1052,36 @@ class EngineClient implements DelegateHost {
   queryViewport = (minLat: number, maxLat: number, minLng: number, maxLng: number): string[] =>
     mapsDelegates.queryViewport(this, minLat, maxLat, minLng, maxLng);
 
+  /**
+   * Everything launch does to the engine once the library's identity is
+   * settled, in one call across the binding.
+   */
+  launchData = (input: launchDelegates.LaunchDataInput): PersistentEngineStats | undefined =>
+    launchDelegates.launchData(this, input);
+
   getStats(): PersistentEngineStats | undefined {
     if (!this.ready) return undefined;
     try {
       return this.timed('getStats', () => this.engine.getStats());
     } catch {
       return undefined;
+    }
+  }
+
+  /**
+   * What each recent native push run did, newest first, for the Developer
+   * Dashboard.
+   *
+   * The Android worker runs in a process with no JavaScript in it, so nothing
+   * it does reaches the task-run ring in `AsyncStorage`. The engine is the one
+   * thing both it and this screen can see.
+   */
+  pushRuns(): FfiPushRun[] {
+    if (!this.ready) return [];
+    try {
+      return this.timed('pushRuns', () => this.engine.pushRuns());
+    } catch {
+      return [];
     }
   }
 
@@ -913,42 +1097,16 @@ class EngineClient implements DelegateHost {
     }
   }
 
-  getRoutesScreenData = (
-    groupLimit = 20,
-    groupOffset = 0,
-    sectionLimit = 20,
-    sectionOffset = 0,
-    minGroupActivityCount = 2,
-    prioritizeNearestGroups = false,
-    prioritizeNearestSections = false,
-    userLat = Number.NaN,
-    userLng = Number.NaN
-  ): FfiRoutesScreenData | undefined =>
-    routeDelegates.getRoutesScreenData(
-      this,
-      groupLimit,
-      groupOffset,
-      sectionLimit,
-      sectionOffset,
-      minGroupActivityCount,
-      prioritizeNearestGroups,
-      prioritizeNearestSections,
-      userLat,
-      userLng
-    );
+  getRoutesScreenData = (query: FfiRoutesScreenQuery): FfiRoutesScreenData | undefined =>
+    routeDelegates.getRoutesScreenData(this, query);
 
   getSummaryCardData = (
     currentStart: number,
     currentEnd: number,
     prevStart: number,
     prevEnd: number
-  ): {
-    currentWeek: FfiPeriodStats;
-    prevWeek: FfiPeriodStats;
-    ftpTrend: FfiFtpTrend;
-    runPaceTrend: FfiPaceTrend;
-    swimPaceTrend: FfiPaceTrend;
-  } => fitnessDelegates.getSummaryCardData(this, currentStart, currentEnd, prevStart, prevEnd);
+  ): FfiSummaryCardData =>
+    fitnessDelegates.getSummaryCardData(this, currentStart, currentEnd, prevStart, prevEnd);
 
   getInsightsData = (params: FfiInsightsParams): FfiInsightsData | undefined =>
     fitnessDelegates.getInsightsData(this, params);
@@ -964,7 +1122,8 @@ class EngineClient implements DelegateHost {
     currentEnd: number,
     prevStart: number,
     prevEnd: number,
-    sparklineDays: number
+    sparklineDays: number,
+    maxGpsPoints: number
   ): FfiWidgetSnapshotData | undefined =>
     fitnessDelegates.getWidgetSnapshot(
       this,
@@ -972,28 +1131,43 @@ class EngineClient implements DelegateHost {
       currentEnd,
       prevStart,
       prevEnd,
-      sparklineDays
+      sparklineDays,
+      maxGpsPoints
     );
 
   getZoneDistribution = (sportType: string, zoneType: string): number[] =>
     fitnessDelegates.getZoneDistribution(this, sportType, zoneType);
 
-  /** How a week's load was spread, or `null` below the engine's four-day floor. */
-  getWeekLoadShape = (startTs: number, endTs: number): FfiWeekLoadShape | null =>
-    fitnessDelegates.getWeekLoadShape(this, startTs, endTs);
-
+  /**
+   * Record one critical-speed snapshot under the range the curve covered.
+   *
+   * `windowDays` is part of what makes a snapshot distinct, because the pace
+   * curve screen and the sync both write this and over different ranges. The
+   * trend compares one window only.
+   */
   savePaceSnapshot = (
     sportType: string,
     criticalSpeed: number,
+    windowDays: number,
     dPrime?: number,
     r2?: number,
     date?: number
-  ): void => fitnessDelegates.savePaceSnapshot(this, sportType, criticalSpeed, dPrime, r2, date);
+  ): void =>
+    fitnessDelegates.savePaceSnapshot(this, sportType, criticalSpeed, windowDays, dPrime, r2, date);
 
   getAvailableSportTypes = (): string[] => fitnessDelegates.getAvailableSportTypes(this);
 
+  /** The activities that moved the accepted eFTP, oldest first. */
+  getEftpChanges = (): FfiEftpChange[] => fitnessDelegates.getEftpChanges(this);
+
   getActivityHeatmap = (startDate: string, endDate: string): HeatmapDay[] =>
     fitnessDelegates.getActivityHeatmap(this, startDate, endDate);
+
+  getPeriodStats = (startTs: number, endTs: number) =>
+    fitnessDelegates.getPeriodStats(this, startTs, endTs);
+
+  getMonthlyStats = (startTs: number, endTs: number) =>
+    fitnessDelegates.getMonthlyStats(this, startTs, endTs);
 
   // ==========================================================================
   // Heatmap Tiles (Raster tile generation for map overlay)
@@ -1004,15 +1178,43 @@ class EngineClient implements DelegateHost {
   /** Enable heatmap tile generation by setting the tiles path. */
   enableHeatmapTiles = (): void => heatmapDelegates.enableHeatmapTiles(this);
 
+  /**
+   * The tiles path in force, or null when the athlete has the heatmap off.
+   *
+   * Remembered on this side because the engine's own copy is in memory and
+   * goes with a clear, a quarantine reopen or an init retry.
+   */
+  heatmapTilesPath: string | null = null;
+
+  /** Re-apply a remembered path to a freshly opened engine. */
+  applyHeatmapTilesPath(path: string): void {
+    try {
+      this.engine?.heatmap().setTilesPath(path);
+    } catch (e) {
+      console.warn('[EngineClient] Failed to re-apply the heatmap tiles path:', e);
+    }
+  }
+
   /** Disable heatmap tile generation by clearing the tiles path in the engine. */
   disableHeatmapTiles = (): void => heatmapDelegates.disableHeatmapTiles(this);
 
   /** Stop the tile pass and the invalidation sweep, if either is running. */
   cancelHeatmapWork = (): boolean => heatmapDelegates.cancelHeatmapWork(this);
 
+  setHeatmapPriorityView = (latitude: number, longitude: number, zoom: number): void =>
+    heatmapDelegates.setHeatmapPriorityView(this, latitude, longitude, zoom);
+
+  clearHeatmapPriorityView = (): void => heatmapDelegates.clearHeatmapPriorityView(this);
+
   /** Get total size of heatmap tile cache in bytes (fast native scan). */
   getHeatmapCacheSize = (basePath: string): number =>
     heatmapDelegates.getHeatmapCacheSize(this, basePath);
+
+  startHeatmapCacheSize = (basePath: string): void =>
+    heatmapDelegates.startHeatmapCacheSize(this, basePath);
+
+  pollHeatmapCacheSize = (): heatmapDelegates.HeatmapCacheSizePoll =>
+    heatmapDelegates.pollHeatmapCacheSize(this);
 
   /** Clear all heatmap tiles from disk. */
   clearHeatmapTiles = (basePath: string): number =>
@@ -1046,10 +1248,6 @@ class EngineClient implements DelegateHost {
   markRecordingReconciled = (id: string): void =>
     recordingDelegates.markRecordingReconciled(this, id);
 
-  /** Forget the streams sidecar, once the engine holds the ride's track. */
-  clearRecordingStreamsPath = (id: string): void =>
-    recordingDelegates.clearRecordingStreamsPath(this, id);
-
   markRecordingUploading = (id: string): void =>
     recordingDelegates.markRecordingUploading(this, id);
 
@@ -1068,6 +1266,9 @@ class EngineClient implements DelegateHost {
 
   holdRecordingForAuth = (id: string, error: string): void =>
     recordingDelegates.holdRecordingForAuth(this, id, error);
+
+  holdRecordingForNetwork = (id: string, error: string, nowMs: number): void =>
+    recordingDelegates.holdRecordingForNetwork(this, id, error, nowMs);
 
   /** Stops auto-uploading every ride this athlete did not record. */
   holdRecordingsOfOtherAthletes = (athleteId: string): void =>
@@ -1090,17 +1291,16 @@ class EngineClient implements DelegateHost {
 
   unuploadedRecordingCount = (): number => recordingDelegates.unuploadedRecordingCount(this);
 
-  permissionBlockedRecordingCount = (): number =>
-    recordingDelegates.permissionBlockedRecordingCount(this);
-
   /** Drop every recording row, which a `.veloqdb` restore leaves stale. */
   clearRecordings = (): void => recordingDelegates.clearRecordings(this);
 
   upsertWellness = (rows: fitnessDelegates.WellnessRowInput[]): void =>
     fitnessDelegates.upsertWellness(this, rows);
 
-  getWellnessBodies = (oldest: string, newest: string): string[] =>
-    fitnessDelegates.getWellnessBodies(this, oldest, newest);
+  getWellnessDays = (oldest: string, newest: string): fitnessDelegates.WellnessDay[] =>
+    fitnessDelegates.getWellnessDays(this, oldest, newest);
+
+  getWellnessLatestDate = (): string | null => fitnessDelegates.getWellnessLatestDate(this);
 
   getActivityBody = (activityId: string): string | null =>
     activityDelegates.getActivityBody(this, activityId);
@@ -1110,6 +1310,9 @@ class EngineClient implements DelegateHost {
 
   upsertActivityBodies = (rows: activityDelegates.ActivityBodyInput[]): void =>
     activityDelegates.upsertActivityBodies(this, rows);
+
+  getActivityNames = (activityIds: string[]): activityDelegates.ActivityName[] =>
+    activityDelegates.getActivityNames(this, activityIds);
 
   setIntervalBody = (activityId: string, raw: string): void =>
     activityDelegates.setIntervalBody(this, activityId, raw);
@@ -1131,11 +1334,14 @@ class EngineClient implements DelegateHost {
   getStreamBody = (activityId: string, types: string): string | null =>
     activityDelegates.getStreamBody(this, activityId, types);
 
-  getPowerCurveBody = (sport: string, days: number): string | null =>
-    fitnessDelegates.getPowerCurveBody(this, sport, days);
+  getPowerCurve = (sport: string, days: number): fitnessDelegates.PowerCurveRow | null =>
+    fitnessDelegates.getPowerCurve(this, sport, days);
 
-  getPaceCurveBody = (sport: string, days: number, gap: boolean): string | null =>
-    fitnessDelegates.getPaceCurveBody(this, sport, days, gap);
+  getPaceCurve = (
+    sport: string,
+    days: number,
+    gap: boolean
+  ): fitnessDelegates.PaceCurveRow | null => fitnessDelegates.getPaceCurve(this, sport, days, gap);
 
   getIntervalBody = (activityId: string): string | null =>
     fitnessDelegates.getIntervalBody(this, activityId);
@@ -1178,8 +1384,6 @@ class EngineClient implements DelegateHost {
 
   getSportSettings = (): string => settingsDelegates.getSportSettings(this);
 
-  clearUserProfileCaches = (): void => settingsDelegates.clearUserProfileCaches(this);
-
   // ==========================================================================
   // User Preferences (SQLite settings table)
   // ==========================================================================
@@ -1200,6 +1404,12 @@ class EngineClient implements DelegateHost {
 
   setSettings = (pairs: SettingPair[]): number => settingsDelegates.setSettings(this, pairs);
 
+  setNotificationTemplates = (locale: string, templates: SettingPair[]): boolean =>
+    settingsDelegates.setNotificationTemplates(this, locale, templates);
+
+  notificationTemplates = (): FfiNotificationTemplates | undefined =>
+    settingsDelegates.notificationTemplates(this);
+
   deleteSetting = (key: string): void => settingsDelegates.deleteSetting(this, key);
 
   streamRetentionDays = (): number | undefined => settingsDelegates.streamRetentionDays(this);
@@ -1213,16 +1423,16 @@ class EngineClient implements DelegateHost {
   // Database Backup
   // ==========================================================================
 
-  /** Start the database copy on a Rust thread. Poll `pollBackup` for the outcome. */
-  startBackup(destPath: string): void {
+  /**
+   * Copy the database on a Rust thread, resolving when the copy has landed.
+   *
+   * The ceiling is the caller's: `features/settings/lib/runBackup.ts` stops
+   * waiting at the budget its screen can carry, and the copy runs on. A failed
+   * copy rejects, carrying the Rust message.
+   */
+  async runBackup(destPath: string): Promise<void> {
     if (!this.ready) throw new Error('Engine not initialized');
-    this.timed('startBackup', () => this.engine.startBackup(destPath));
-  }
-
-  /** 'idle' | 'running' | 'complete'. Throws when the copy failed. */
-  pollBackup(): string {
-    if (!this.ready) throw new Error('Engine not initialized');
-    return this.timed('pollBackup', () => this.engine.pollBackup());
+    await this.engine.runBackup(destPath);
   }
 
   getBackupMetadata(): Record<string, unknown> {
@@ -1236,27 +1446,30 @@ class EngineClient implements DelegateHost {
   }
 
   /**
-   * Start a bulk export of every GPS activity on a Rust thread. Poll
-   * `pollBulkExport` for progress and outcome: the file is written from a
-   * connection of its own, so neither this thread nor the engine's write lock
-   * waits for it.
+   * Write every GPS activity to one file on a Rust thread, resolving with what
+   * it wrote.
+   *
+   * The file is written from a connection of its own, so neither this thread
+   * nor the engine's write lock waits for it. The ceiling is the caller's, and
+   * `bulkExportProgress` is what a progress bar reads while it runs.
    */
-  startBulkExport(format: BulkExportFormat, destPath: string): void {
+  async runBulkExport(
+    format: BulkExportFormat,
+    destPath: string
+  ): Promise<{ exported: number; skipped: number; totalBytes: number }> {
     if (!this.ready) throw new Error('Engine not initialized');
-    this.timed('startBulkExport', () => this.engine.startBulkExport(format, destPath));
+    const result = await this.engine.runBulkExport(format, destPath);
+    return {
+      exported: result.exported,
+      skipped: result.skipped,
+      totalBytes: Number(result.totalBytes),
+    };
   }
 
-  /** Progress and outcome of the running export. */
-  pollBulkExport(): BulkExportStatus {
-    if (!this.ready) throw new Error('Engine not initialized');
-    const poll = this.timed('pollBulkExport', () => this.engine.pollBulkExport());
-    return {
-      state: poll.state as BulkExportStatus['state'],
-      exported: poll.exported,
-      total: poll.total,
-      skipped: poll.skipped,
-      totalBytes: Number(poll.totalBytes),
-    };
+  /** How far the running export has got, or nothing running. */
+  bulkExportProgress(): { running: boolean; exported: number; total: number } {
+    if (!this.ready) return { running: false, exported: 0, total: 0 };
+    return this.timed('bulkExportProgress', () => this.engine.bulkExportProgress());
   }
 
   computePolylineOverlap(coordsA: number[], coordsB: number[], thresholdMeters = 50): number {
@@ -1300,9 +1513,6 @@ class EngineClient implements DelegateHost {
   clearSuperseded = (customSectionId: string): boolean =>
     sectionDelegates.clearSuperseded(this, customSectionId);
 
-  getAllSectionsIncludingHidden = (sportType?: string): SectionSummary[] =>
-    sectionDelegates.getAllSectionsIncludingHidden(this, sportType);
-
   setSectionReference = (sectionId: string, activityId: string): boolean =>
     sectionDelegates.setSectionReference(this, sectionId, activityId);
 
@@ -1337,6 +1547,10 @@ class EngineClient implements DelegateHost {
 
   getDownloadProgress(): DownloadProgressResult {
     return gen().getDownloadProgress();
+  }
+
+  getFetchRunProgress(run: bigint): DownloadProgressResult {
+    return gen().getFetchRunProgress(run);
   }
 
   removeActivity = (activityId: string): activityDelegates.RemoveActivityResult =>
@@ -1382,6 +1596,7 @@ class EngineClient implements DelegateHost {
   getMuscleGroups = (activityId: string): FfiMuscleGroup[] =>
     strengthDelegates.getMuscleGroups(this, activityId);
 
+  /** An empty list asks for every strength activity still owed a FIT. */
   getUnprocessedStrengthIds = (activityIds: string[]): string[] =>
     strengthDelegates.getUnprocessedStrengthIds(this, activityIds);
 
@@ -1396,11 +1611,12 @@ class EngineClient implements DelegateHost {
   importSetsFromFit = (activityId: string, fitBytes: Uint8Array): number =>
     strengthDelegates.importSetsFromFit(this, activityId, fitBytes);
 
-  getStrengthSummary = (startTs: number, endTs: number): FfiStrengthSummary =>
-    strengthDelegates.getStrengthSummary(this, startTs, endTs);
-
-  getStrengthSummaryBatch = (ranges: { startTs: number; endTs: number }[]): FfiStrengthSummary[] =>
-    strengthDelegates.getStrengthSummaryBatch(this, ranges);
+  getStrengthScreenData = (
+    startTs: number,
+    endTs: number,
+    weekRanges: { startTs: number; endTs: number }[]
+  ): FfiStrengthScreenData =>
+    strengthDelegates.getStrengthScreenData(this, startTs, endTs, weekRanges);
 
   getMuscleDetail = (
     activityId: string,
@@ -1409,13 +1625,6 @@ class EngineClient implements DelegateHost {
     strengthDelegates.getMuscleDetail(this, activityId, muscleSlug);
 
   hasStrengthData = (): boolean => strengthDelegates.hasStrengthData(this);
-
-  getExercisesForMuscle = (
-    startTs: number,
-    endTs: number,
-    muscleSlug: string
-  ): FfiMuscleExerciseSummary =>
-    strengthDelegates.getExercisesForMuscle(this, startTs, endTs, muscleSlug);
 
   getActivitiesForExercise = (
     startTs: number,
@@ -1458,6 +1667,8 @@ class EngineClient implements DelegateHost {
   setMatchStrictness = (minMatchPct: number, endpointThreshold: number): void =>
     detectionDelegates.setMatchStrictness(this, minMatchPct, endpointThreshold);
 
+  getMatchStrictness = (): FfiMatchStrictness | null => detectionDelegates.getMatchStrictness(this);
+
   /**
    * Whether a subscription can ever fire.
    *
@@ -1467,6 +1678,29 @@ class EngineClient implements DelegateHost {
    */
   eventsAreLive(): boolean {
     return this.observerRegistered;
+  }
+
+  /**
+   * The event seam, end to end, for the Developer Dashboard.
+   *
+   * Three counts per channel say where an announcement stopped: arrived here
+   * from Rust, delivered to a listener, and how many are listening now. The
+   * two errors are the reasons registration can fail, kept as strings because
+   * a release build drops the warn that used to be the only record.
+   */
+  engineEventDiagnostics(): EngineEventDiagnostics {
+    const listeners: Record<string, number> = {};
+    for (const [event, set] of this.listeners) {
+      if (set.size > 0) listeners[event] = set.size;
+    }
+    return {
+      live: this.observerRegistered,
+      bindingInitError: this.bindingInitError,
+      observerError: this.observerError,
+      received: Object.fromEntries(this.received),
+      delivered: Object.fromEntries(this.delivered),
+      listeners,
+    };
   }
 
   subscribe(event: string, callback: EngineListener): () => void {
@@ -1491,6 +1725,7 @@ class EngineClient implements DelegateHost {
    */
   private observer(): EngineObserverBinding {
     const post = (event: EngineEvent, payload?: EnginePayload) => {
+      this.received.set(event, (this.received.get(event) ?? 0) + 1);
       queueMicrotask(() => this.deliver(event, payload));
     };
     return {
@@ -1499,9 +1734,11 @@ class EngineClient implements DelegateHost {
         post('syncSettled');
         post('sync');
       },
+      activitiesStored: () => post('activitiesStored'),
       bodyStored: (kind, activityId) => post('bodyStored', { kind, activityId }),
       timeStreamsStored: (activityIds) => post('timeStreamsStored', { activityIds }),
       gpsTrackStored: (activityId) => post('gpsTrackStored', { activityId }),
+      gpsTracksMutated: (activityIds) => post('gpsTracksMutated', { activityIds }),
       fitParsed: (activityId) => post('fitParsed', { activityId }),
       detectionApplied: () => post('detectionApplied'),
       tilesGenerated: () => post('tilesGenerated'),
@@ -1512,8 +1749,48 @@ class EngineClient implements DelegateHost {
     };
   }
 
+  /**
+   * Hand one event to everyone listening for it.
+   *
+   * Over a copy, because `Set.forEach` visits entries added during its own
+   * iteration and a listener that re-subscribes from inside its callback,
+   * which `requestSyncRefresh` does whenever the outcome is retryable, was
+   * then visited again for as long as it kept doing so. `NotReady` is
+   * retryable and holds for the whole window between `destroy` and
+   * `initWithPath`, so pull to refresh followed by Clear and Sync span it and
+   * the loop never ends.
+   *
+   * A listener that unsubscribed earlier in the same delivery is skipped: the
+   * copy says who was listening when the event arrived, and the live set says
+   * who still is.
+   *
+   * Each call is wrapped, because one listener throwing used to skip every
+   * listener behind it on that channel and nothing said so.
+   */
   private deliver(event: string, payload?: EnginePayload): void {
-    this.listeners.get(event)?.forEach((cb) => cb(payload));
+    const listeners = this.listeners.get(event);
+    if (!listeners || listeners.size === 0) return;
+    this.delivered.set(event, (this.delivered.get(event) ?? 0) + 1);
+    for (const cb of [...listeners]) {
+      if (!listeners.has(cb)) continue;
+      try {
+        cb(payload);
+      } catch (e) {
+        console.warn(`[EngineClient] a ${event} listener threw:`, e);
+      }
+    }
+  }
+
+  /**
+   * Announce a body this process wrote, the way Rust announces one it stored.
+   *
+   * Demo mode seeds the same tables a live sync writes, through the same engine
+   * writers, but the writes are FFI calls and nothing announces them. A reader
+   * that follows a body's kind rather than the coarse `activities` channel would
+   * otherwise never hear about a seeded table.
+   */
+  announceBodyStored(kind: string, activityId = ''): void {
+    queueMicrotask(() => this.deliver('bodyStored', { kind, activityId }));
   }
 
   triggerRefresh(event: 'groups' | 'sections' | 'activities' | 'syncReset'): void {

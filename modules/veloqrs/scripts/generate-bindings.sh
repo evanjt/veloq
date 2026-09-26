@@ -1,23 +1,36 @@
 #!/bin/bash
 # Regenerate the committed UniFFI bindings from the host library.
-#
-# The generator reads the metadata out of a compiled `.so`, so this needs no
-# NDK, no device target and no cross-compile: a host release build is enough.
-# `cargo metadata` has to find a manifest, which is why the generate step runs
-# from the rust workspace and not from the module root.
-#
-# Run this after any change to an exported signature OR its doc comment: the
-# export macro hashes the docstring into the item's checksum, so a comment
-# alone moves it and a stale binding refuses to start the app (B286).
+# Exported signatures and doc comments both affect UniFFI checksums.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 MODULE_DIR=$(pwd)
 
 cd rust
-cargo build -p veloqrs --release
+HOST=$(rustc -vV | sed -n 's/^host: //p')
+if [ -z "$HOST" ]; then
+  echo 'Could not determine the Rust host target' >&2
+  exit 1
+fi
+ARTIFACTS=$(mktemp)
+trap 'rm -f "$ARTIFACTS"' EXIT
+cargo build -p veloqrs --release --target "$HOST" --message-format=json-render-diagnostics > "$ARTIFACTS"
+LIBRARY=$(node - "$ARTIFACTS" <<'NODE'
+const fs = require('fs');
+const messages = fs.readFileSync(process.argv[2], 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
+const libraries = messages
+  .filter(message => message.reason === 'compiler-artifact' && message.target.name === 'veloqrs')
+  .flatMap(message => message.filenames)
+  .filter(filename => /\.(so|dylib)$/.test(filename));
+if (libraries.length !== 1 || !fs.existsSync(libraries[0])) {
+  console.error(`Host library not found in Cargo output: ${libraries.join(', ') || 'no shared library reported'}`);
+  process.exit(1);
+}
+process.stdout.write(libraries[0]);
+NODE
+)
 npx uniffi-bindgen-react-native generate jsi bindings \
-  target/release/libveloqrs.so --library \
+  "$LIBRARY" --library \
   --ts-dir ../src/generated --cpp-dir ../cpp/generated
 
 cd "$MODULE_DIR"

@@ -33,6 +33,61 @@ export interface LatLng {
   elevation?: number;
 }
 
+/**
+ * The coordinates alone, as a flat `[lat, lng, lat, lng, ...]` array.
+ *
+ * The map's signature read decodes a library's worth of these at once, 58,660
+ * points on a 838-activity library, and measured 56 ms under Hermes on an S22
+ * as objects. A point that is two slots of one typed array allocates nothing,
+ * and the caller that wants a pair builds only the pairs it keeps.
+ *
+ * Elevations are not carried: no caller of this wants them, and reading them
+ * would cost the allocation this exists to avoid.
+ */
+export function decodeCoordsFlat(buf: ArrayBuffer): Float64Array {
+  if (!(buf instanceof ArrayBuffer) || buf.byteLength === 0) {
+    return new Float64Array(0);
+  }
+  const bytes = new Uint8Array(buf);
+  let pos = 0;
+
+  const readVarint = (): number => {
+    let result = 0;
+    let shift = 0;
+    while (pos < bytes.length) {
+      const byte = bytes[pos++];
+      result |= (byte & 0x7f) << shift;
+      if ((byte & 0x80) === 0) break;
+      shift += 7;
+    }
+    return result >>> 0;
+  };
+
+  const readZigzag = (): number => {
+    const v = readVarint();
+    return (v >>> 1) ^ -(v & 1);
+  };
+
+  const count = readVarint();
+  const out = new Float64Array(count * 2);
+
+  let lat = 0;
+  let lng = 0;
+  let written = 0;
+
+  for (let i = 0; i < count; i++) {
+    if (pos >= bytes.length) break;
+    lat += readZigzag();
+    lng += readZigzag();
+    out[written++] = lat / SCALE;
+    out[written++] = lng / SCALE;
+  }
+
+  // A truncated stream stops where the bytes ran out, the same as the object
+  // decoder, so the pairs that did arrive are all real.
+  return written === out.length ? out : out.subarray(0, written);
+}
+
 export function decodeCoords(buf: ArrayBuffer): LatLng[] {
   if (!(buf instanceof ArrayBuffer) || buf.byteLength === 0) {
     return [];

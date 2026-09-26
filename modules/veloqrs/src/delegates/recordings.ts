@@ -8,16 +8,19 @@
 
 import type { FfiRecordingEntry } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
+import { present } from './optional';
 
 /**
  * One recording, with its epoch milliseconds as numbers.
  *
- * The generated record carries `i64` as `bigint`, which no caller here wants:
- * every one of these fits a double exactly and the screens do arithmetic on
- * them. Converted at this boundary, the way the weekly summaries are.
+ * The generated record carries these as numbers now, so nothing is converted
+ * here: the fields cross as `f64`, which is exact to 2^53 and holds every
+ * epoch millisecond, duration and id this record carries.
  */
 export interface RecordingEntry {
   id: string;
+  /** `fit` for a recorded ride, `manual` for an entry with no file behind it. */
+  kind: string;
   fitPath: string;
   streamsPath?: string;
   activityType: string;
@@ -40,8 +43,9 @@ export interface RecordingEntry {
 }
 
 function toEntry(row: FfiRecordingEntry): RecordingEntry {
-  return {
+  return present({
     id: row.id,
+    kind: row.kind,
     fitPath: row.fitPath,
     streamsPath: row.streamsPath ?? undefined,
     activityType: row.activityType,
@@ -60,37 +64,38 @@ function toEntry(row: FfiRecordingEntry): RecordingEntry {
     intervalsActivityId: row.intervalsActivityId ?? undefined,
     engineActivityId: row.engineActivityId ?? undefined,
     engineReconciled: row.engineReconciled,
-  };
+  });
 }
 
 function toRow(entry: RecordingEntry): FfiRecordingEntry {
-  return {
+  return present({
     id: entry.id,
+    kind: entry.kind,
     fitPath: entry.fitPath,
     streamsPath: entry.streamsPath,
     activityType: entry.activityType,
     name: entry.name,
-    startTime: BigInt(Math.trunc(entry.startTime)),
-    durationSeconds: BigInt(Math.trunc(entry.durationSeconds)),
+    startTime: Math.trunc(entry.startTime),
+    durationSeconds: Math.trunc(entry.durationSeconds),
     distanceMeters: entry.distanceMeters,
     elevationGain: entry.elevationGain,
     avgHeartrate: entry.avgHeartrate,
-    pairedEventId: entry.pairedEventId === undefined ? undefined : BigInt(entry.pairedEventId),
-    createdAt: BigInt(Math.trunc(entry.createdAt)),
+    pairedEventId: entry.pairedEventId,
+    createdAt: Math.trunc(entry.createdAt),
     uploadStatus: entry.uploadStatus,
     retryCount: entry.retryCount,
     lastAttemptAt:
-      entry.lastAttemptAt === undefined ? undefined : BigInt(Math.trunc(entry.lastAttemptAt)),
+      entry.lastAttemptAt === undefined ? undefined : Math.trunc(entry.lastAttemptAt),
     lastError: entry.lastError,
     intervalsActivityId: entry.intervalsActivityId,
     engineActivityId: entry.engineActivityId,
     engineReconciled: entry.engineReconciled,
-  };
+  });
 }
 
 /** Add a recording. False means a row with that id was already there. */
 export function addRecording(host: DelegateHost, entry: RecordingEntry): boolean {
-  if (!host.ready) return false;
+  if (!host.ready) throw new Error('Engine not initialized');
   return host.timed('addRecording', () => host.engine.recordings().addRecording(toRow(entry)));
 }
 
@@ -121,10 +126,6 @@ export function markRecordingReconciled(host: DelegateHost, id: string): void {
   host.write('markRecordingReconciled', () => host.engine.recordings().markReconciled(id));
 }
 
-/** Forget the streams sidecar, once the engine holds the ride's track. */
-export function clearRecordingStreamsPath(host: DelegateHost, id: string): void {
-  host.write('clearRecordingStreamsPath', () => host.engine.recordings().clearStreamsPath(id));
-}
 
 export function markRecordingUploading(host: DelegateHost, id: string): void {
   host.write('markRecordingUploading', () => host.engine.recordings().markUploading(id));
@@ -181,6 +182,22 @@ export function holdRecordingForAuth(host: DelegateHost, id: string, error: stri
 }
 
 /**
+ * The transport failed before intervals.icu was reached. The ride keeps its
+ * attempt count, since a request that never arrived says nothing about it, and
+ * is stamped so the ordinary backoff still holds it back.
+ */
+export function holdRecordingForNetwork(
+  host: DelegateHost,
+  id: string,
+  error: string,
+  nowMs: number
+): void {
+  host.write('holdRecordingForNetwork', () =>
+    host.engine.recordings().holdForNetwork(id, error, BigInt(Math.trunc(nowMs)))
+  );
+}
+
+/**
  * An athlete signed in: stop auto-uploading every ride that is not theirs, an
  * unstamped one included.
  *
@@ -233,12 +250,6 @@ export function unuploadedRecordingCount(host: DelegateHost): number {
   );
 }
 
-export function permissionBlockedRecordingCount(host: DelegateHost): number {
-  if (!host.ready) return 0;
-  return host.timed('permissionBlockedRecordingCount', () =>
-    host.engine.recordings().permissionBlockedCount()
-  );
-}
 
 /**
  * Drop every row. A `.veloqdb` restore carries this table like any other but

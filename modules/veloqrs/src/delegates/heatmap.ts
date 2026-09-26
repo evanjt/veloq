@@ -9,10 +9,21 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import type { DelegateHost } from './host';
 
+/**
+ * Where tiles go, with the `file://` the engine cannot open stripped off.
+ *
+ * The launch bundle hands this to Rust as an argument rather than calling the
+ * toggle, so both have to arrive at the same path.
+ */
+export function heatmapTilesPath(): string {
+  const tilesPath = `${FileSystem.cacheDirectory}heatmap-tiles/`;
+  return tilesPath.startsWith('file://') ? tilesPath.slice(7) : tilesPath;
+}
+
 /** Enable heatmap tile generation by setting the tiles path. */
 export function enableHeatmapTiles(host: DelegateHost): void {
-  const tilesPath = `${FileSystem.cacheDirectory}heatmap-tiles/`;
-  const normalizedTilesPath = tilesPath.startsWith('file://') ? tilesPath.slice(7) : tilesPath;
+  const normalizedTilesPath = heatmapTilesPath();
+  host.heatmapTilesPath = normalizedTilesPath;
   host.write('enableHeatmapTiles', () => {
     try {
       host.engine.heatmap().setTilesPath(normalizedTilesPath);
@@ -24,6 +35,9 @@ export function enableHeatmapTiles(host: DelegateHost): void {
 
 /** Disable heatmap tile generation by clearing the tiles path in the engine. */
 export function disableHeatmapTiles(host: DelegateHost): void {
+  // Forgotten here as well as cleared in the engine, or the next re-open would
+  // turn it back on for an athlete who turned it off.
+  host.heatmapTilesPath = null;
   host.write('disableHeatmapTiles', () => {
     try {
       host.engine.heatmap().clearTilesPath();
@@ -31,6 +45,38 @@ export function disableHeatmapTiles(host: DelegateHost): void {
       console.warn('[EngineClient] Failed to clear heatmap tiles path:', e);
     }
   });
+}
+
+/**
+ * Tell the engine which ground the athlete is looking at.
+ *
+ * The tile pass writes every zoom in full before the next, so on a fresh
+ * install the tiles under an open map are behind the whole lower sweep. The
+ * camera steers the order of the next pass to plan. Cheap and lock-free, so a
+ * settled camera may call it every time.
+ */
+export function setHeatmapPriorityView(
+  host: DelegateHost,
+  latitude: number,
+  longitude: number,
+  zoom: number
+): void {
+  if (!host.ready) return;
+  try {
+    host.engine.heatmap().setPriorityView(latitude, longitude, Math.round(zoom));
+  } catch (e) {
+    console.warn('[EngineClient] Failed to set the heatmap priority view:', e);
+  }
+}
+
+/** Forget it, when no map is open on any particular ground. */
+export function clearHeatmapPriorityView(host: DelegateHost): void {
+  if (!host.ready) return;
+  try {
+    host.engine.heatmap().clearPriorityView();
+  } catch (e) {
+    console.warn('[EngineClient] Failed to clear the heatmap priority view:', e);
+  }
 }
 
 /**
@@ -51,13 +97,52 @@ export function cancelHeatmapWork(host: DelegateHost): boolean {
   }
 }
 
-/** Get total size of heatmap tile cache in bytes (fast native scan). */
+/**
+ * Get total size of heatmap tile cache in bytes (fast native scan).
+ *
+ * Blocking, and linear in cached tiles: 40,061 of them measured 170 ms on the
+ * CPH2653, past the 100 ms a mount has for the whole screen. Anything on a
+ * mount path uses `startHeatmapCacheSize` and `pollHeatmapCacheSize`.
+ */
 export function getHeatmapCacheSize(host: DelegateHost, basePath: string): number {
   if (!host.ready) return 0;
-  const normalizedPath = basePath.startsWith('file://') ? basePath.slice(7) : basePath;
   return Number(
-    host.timed('getHeatmapCacheSize', () => host.engine.heatmap().getCacheSize(normalizedPath))
+    host.timed('getHeatmapCacheSize', () =>
+      host.engine.heatmap().getCacheSize(nativePath(basePath))
+    )
   );
+}
+
+/**
+ * Start the cache-size walk on its own thread. Poll it with
+ * `pollHeatmapCacheSize`.
+ *
+ * Starting one while a walk is already running joins that walk rather than
+ * beginning a second, so three mount effects asking at once cost one pass.
+ */
+export function startHeatmapCacheSize(host: DelegateHost, basePath: string): void {
+  if (!host.ready) return;
+  host.timed('startHeatmapCacheSize', () =>
+    host.engine.heatmap().startCacheSize(nativePath(basePath))
+  );
+}
+
+/** What one poll of the walk says. `bytes` is meaningful only when complete. */
+export interface HeatmapCacheSizePoll {
+  state: 'idle' | 'running' | 'complete';
+  bytes: number;
+}
+
+/** Poll the running cache-size walk. */
+export function pollHeatmapCacheSize(host: DelegateHost): HeatmapCacheSizePoll {
+  if (!host.ready) return { state: 'idle', bytes: 0 };
+  const poll = host.timed('pollHeatmapCacheSize', () => host.engine.heatmap().pollCacheSize());
+  return { state: poll.state as HeatmapCacheSizePoll['state'], bytes: Number(poll.bytes) };
+}
+
+/** Rust wants a filesystem path, and expo hands out `file://` URLs. */
+function nativePath(basePath: string): string {
+  return basePath.startsWith('file://') ? basePath.slice(7) : basePath;
 }
 
 /** Clear all heatmap tiles from disk. */

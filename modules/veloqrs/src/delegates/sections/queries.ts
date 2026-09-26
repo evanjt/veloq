@@ -12,6 +12,7 @@ import type {
   FfiCalendarSummary,
   FfiEfficiencyTrend,
   FfiSection,
+  FfiMapSection,
   FfiNamedCorridor,
   FfiRankedSection,
   FfiSectionDetailData,
@@ -23,18 +24,12 @@ import type {
   FfiSectionChartData,
 } from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
+import { present } from '../optional';
 import type {
   FfiSectionMatch,
 } from '../shared-types';
 
-const EMPTY_SECTION_PERFORMANCE_RESULT: FfiSectionPerformanceResult = {
-  records: [],
-  bestRecord: undefined,
-  bestForwardRecord: undefined,
-  bestReverseRecord: undefined,
-  forwardStats: undefined,
-  reverseStats: undefined,
-};
+const EMPTY_SECTION_PERFORMANCE_RESULT: FfiSectionPerformanceResult = { records: [] };
 
 export function getSectionsFiltered(
   host: DelegateHost,
@@ -45,7 +40,26 @@ export function getSectionsFiltered(
   // FfiConverterOptional* accepts undefined for "absent" but throws on null -
   // forward optional args as-is, do NOT coalesce to null.
   return host.timed('getSectionsFiltered', () =>
-    host.engine.sections().getSections({ sportType, minVisits })
+    host.engine.sections().getSections(present({ sportType, minVisits }))
+  );
+}
+
+/**
+ * Sections as the regional map draws them: six fields and the encoded line.
+ *
+ * `getSectionsFiltered` carries the activity ids, one portion record per
+ * traversal and the point density per section, and the map reads none of it.
+ */
+export function getMapSections(
+  host: DelegateHost,
+  sportType?: string,
+  minVisits?: number
+): FfiMapSection[] {
+  if (!host.ready) return [];
+  // FfiConverterOptional* accepts undefined for "absent" but throws on null -
+  // forward optional args as-is, do NOT coalesce to null.
+  return host.timed('getMapSections', () =>
+    host.engine.sections().getMapSections(sportType, minVisits)
   );
 }
 
@@ -73,7 +87,7 @@ export function getSectionSummaries(
 ): { totalCount: number; summaries: SectionSummary[] } {
   if (!host.ready) return { totalCount: 0, summaries: [] };
   return host.timed('getSectionSummaries', () =>
-    host.engine.sections().getSummaries({ sportType }, undefined)
+    host.engine.sections().getSummaries(present({ sportType }), undefined)
   );
 }
 
@@ -101,7 +115,7 @@ export function getFilteredSectionSummaries(
 ): { totalCount: number; summaries: SectionSummary[] } {
   if (!host.ready) return { totalCount: 0, summaries: [] };
   return host.timed('getFilteredSectionSummaries', () =>
-    host.engine.sections().getSummaries({ sportType, minVisits }, sortKey)
+    host.engine.sections().getSummaries(present({ sportType, minVisits }), sortKey)
   );
 }
 
@@ -132,15 +146,6 @@ export function getAllSectionNames(host: DelegateHost): Record<string, string> {
   return Object.fromEntries(map);
 }
 
-export function getAllSectionsIncludingHidden(
-  host: DelegateHost,
-  sportType?: string
-): SectionSummary[] {
-  if (!host.ready) return [];
-  return host.timed('getAllSectionsIncludingHidden', () =>
-    host.engine.sections().getAllSummariesIncludingHidden(sportType)
-  );
-}
 
 export function getSectionsByType(
   host: DelegateHost,
@@ -148,7 +153,7 @@ export function getSectionsByType(
 ): FfiSection[] {
   if (!host.ready) return [];
   return host.timed('getSectionsByType', () =>
-    host.engine.sections().getSections({ sectionType })
+    host.engine.sections().getSections(present({ sectionType }))
   );
 }
 
@@ -263,12 +268,12 @@ export function getSectionReferenceInfo(
   host: DelegateHost,
   sectionId: string
 ): { activityId?: string; isUserDefined: boolean } {
-  if (!host.ready) return { activityId: undefined, isUserDefined: false };
+  if (!host.ready) return { isUserDefined: false };
   validateId(sectionId, 'section ID');
   const info = host.timed('getSectionReferenceInfo', () =>
     host.engine.sections().getReferenceInfo(sectionId)
   );
-  return { activityId: info?.activityId, isUserDefined: info?.isUserDefined ?? false };
+  return present({ activityId: info?.activityId, isUserDefined: info?.isUserDefined ?? false });
 }
 
 /**

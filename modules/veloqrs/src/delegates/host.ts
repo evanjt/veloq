@@ -40,4 +40,12 @@ export interface DelegateHost {
   notify(event: string): void;
   /** Emit change notifications across multiple event channels at once. */
   notifyAll(...events: string[]): void;
+  /**
+   * The heatmap tiles path in force, or null when the athlete has it off.
+   *
+   * Held here rather than only in the engine: the engine's copy is in memory
+   * and goes with a clear, a quarantine reopen or an init retry, and the app
+   * code that set it runs from a post-init block that does not run again.
+   */
+  heatmapTilesPath: string | null;
 }

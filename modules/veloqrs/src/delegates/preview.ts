@@ -2,18 +2,19 @@
  * Preview detection client seam.
  *
  * The Rust SectionPreview object runs a pure detect over one riding area and
- * hands back a single snake_case JSON payload. This module owns the camelCase
- * shape of that payload and the client interface the preview screen codes
- * against. The engine-backed implementation lands with the facade wiring; the
- * demo fixture implements the same interface until then.
+ * hands back one record. This module owns the shape the preview screen codes
+ * against and the narrowing from the record's open `status` string; the demo
+ * fixture implements the same interface.
  */
 
-import { SectionPreview } from '../generated/veloqrs';
+import { FfiStartOutcome, SectionPreview } from '../generated/veloqrs';
 import type {
+  FfiPreviewResult,
+  FfiPreviewSection,
   FfiSectionConfig,
-  FfiStartOutcome,
   SectionPreviewLike,
 } from '../generated/veloqrs';
+import { toCatalogueCounts } from '../conversions';
 import type { SectionDetectionProgress } from '../conversions';
 import type { DelegateHost } from './host';
 
@@ -39,8 +40,8 @@ export interface PreviewSection {
   /** Live user name when matched. */
   name: string | null;
   sport: string;
-  /** Base64 of coords::encode bytes; decode via atob then decodeCoords. */
-  polylineBase64: string;
+  /** `coords::encode` bytes, ready for `decodeCoords`. */
+  polyline: ArrayBuffer;
   visits: number;
   distanceM: number;
   elevationGainM: number | null;
@@ -48,16 +49,22 @@ export interface PreviewSection {
   pinned: boolean;
 }
 
+/**
+ * The engine takes whatever it is given here. The ranges the panel offers, and
+ * the points past which the detector stops distinguishing a value, are in
+ * `src/features/routes/lib/detectionParams.ts`, which is the one place they
+ * are written down: a second copy in this comment went stale by a factor of
+ * ten and nothing caught it.
+ */
 export interface PreviewParams {
-  /** Metres, 25-300 step 25. */
+  /** Metres. */
   proximityThreshold: number;
-  /** Metres, 50-2000 step 50. */
+  /** Metres. */
   minSectionLength: number;
-  /** Metres, 2000-20000 step 1000. */
+  /** Metres. */
   maxSectionLength: number;
-  /** 2-10 step 1. */
   minActivities: number;
-  /** 0.05-0.5 step 0.05, worded as route split sensitivity. */
+  /** Worded as route split sensitivity. */
   divergenceThreshold: number;
 }
 
@@ -95,7 +102,7 @@ export interface PreviewClient {
   getPreviewCentres(limit: number): PreviewCentre[];
   /** Null when the read itself failed, as against an area holding nothing. */
   getPreviewCurrentSections(lat: number, lng: number): PreviewSection[] | null;
-  startPreviewDetect(lat: number, lng: number, config: FfiSectionConfig): boolean;
+  startPreviewDetect(lat: number, lng: number, config: FfiSectionConfig): FfiStartOutcome;
   pollPreviewDetect(): PreviewPollStatus;
   getPreviewProgress(): SectionDetectionProgress | null;
   takePreviewResult(): PreviewResult | null;
@@ -105,92 +112,44 @@ export interface PreviewClient {
   forceRedetectSections(): FfiStartOutcome;
 }
 
-interface RawPreviewSection {
-  id: string;
-  live_id: string | null;
-  status: PreviewSectionStatus;
-  name: string | null;
-  sport: string;
-  polyline: string;
-  visits: number;
-  distance_m: number;
-  elevation_gain_m: number | null;
-  avg_grade_percent: number | null;
-  pinned: boolean;
-}
+const STATUSES: PreviewSectionStatus[] = ['unchanged', 'changed', 'new', 'gone'];
 
-interface RawPreviewResult {
-  pool: { activities: number; empty: number; unreadable: number };
-  elapsed_ms: number;
-  config: {
-    proximity_threshold: number;
-    min_section_length: number;
-    max_section_length: number;
-    min_activities: number;
-    divergence_threshold: number;
-  };
-  counts: {
-    current: number;
-    proposed: number;
-    unchanged: number;
-    changed: number;
-    new: number;
-    gone: number;
-  };
-  sections: RawPreviewSection[];
-}
-
-/** Map the engine's snake_case JSON payload to the camelCase result. */
-export function parsePreviewResult(json: string): PreviewResult | null {
-  let raw: RawPreviewResult;
-  try {
-    raw = JSON.parse(json) as RawPreviewResult;
-  } catch {
-    return null;
-  }
-  if (!raw || !Array.isArray(raw.sections)) return null;
-  return {
-    pool: raw.pool,
-    elapsedMs: raw.elapsed_ms,
-    config: {
-      proximityThreshold: raw.config.proximity_threshold,
-      minSectionLength: raw.config.min_section_length,
-      maxSectionLength: raw.config.max_section_length,
-      minActivities: raw.config.min_activities,
-      divergenceThreshold: raw.config.divergence_threshold,
-    },
-    counts: raw.counts,
-    sections: raw.sections.map(toPreviewSection),
-  };
-}
-
-/** Map one snake_case section row to the camelCase shape. */
-function toPreviewSection(s: RawPreviewSection): PreviewSection {
+/**
+ * Narrow one row of the engine's record.
+ *
+ * The record carries `status` as an open string, because uniffi has no enum
+ * for four words the engine writes and the screen switches on, and the two
+ * optional fields arrive as `undefined` where this side reads `null`. Nothing
+ * else is converted: the payload used to cross as JSON that this side cast
+ * blind, and a field renamed in Rust reached the screen as `undefined`.
+ */
+export function toPreviewSection(s: FfiPreviewSection): PreviewSection {
   return {
     id: s.id,
-    liveId: s.live_id,
-    status: s.status,
-    name: s.name,
+    liveId: s.liveId ?? null,
+    status: STATUSES.includes(s.status as PreviewSectionStatus)
+      ? (s.status as PreviewSectionStatus)
+      : 'unchanged',
+    name: s.name ?? null,
     sport: s.sport,
-    polylineBase64: s.polyline,
+    polyline: s.polyline,
     visits: s.visits,
-    distanceM: s.distance_m,
-    elevationGainM: s.elevation_gain_m,
-    avgGradePercent: s.avg_grade_percent,
+    distanceM: s.distanceM,
+    elevationGainM: s.elevationGainM ?? null,
+    avgGradePercent: s.avgGradePercent ?? null,
     pinned: s.pinned,
   };
 }
 
-/** Map the engine's snake_case JSON array of live sections. */
-export function parsePreviewSections(json: string): PreviewSection[] {
-  let raw: RawPreviewSection[];
-  try {
-    raw = JSON.parse(json) as RawPreviewSection[];
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(raw)) return [];
-  return raw.map(toPreviewSection);
+/** The run's result, with every section row narrowed. */
+export function toPreviewResult(result: FfiPreviewResult): PreviewResult {
+  return {
+    pool: result.pool,
+    elapsedMs: result.elapsedMs,
+    config: result.config,
+    counts: toCatalogueCounts(result.counts),
+    sections: result.sections.map(toPreviewSection),
+  };
 }
 
 let previewObject: SectionPreviewLike | null = null;
@@ -237,8 +196,8 @@ export function getPreviewCurrentSections(
 ): PreviewSection[] | null {
   if (!host.ready) return [];
   try {
-    const json = host.timed('getPreviewCurrentSections', () => previewObj().current(lat, lng));
-    return json ? parsePreviewSections(json) : [];
+    const rows = host.timed('getPreviewCurrentSections', () => previewObj().current(lat, lng));
+    return rows ? rows.map(toPreviewSection) : [];
   } catch (e) {
     console.error('[Engine] getPreviewCurrentSections threw:', e);
     return null;
@@ -246,22 +205,26 @@ export function getPreviewCurrentSections(
 }
 
 /**
- * Start a sandboxed detect over the riding area containing (lat, lng). False
- * when a preview or real detect is running, or detection is suspended for the
- * elevation backfill.
+ * Start a sandboxed detect over the riding area containing (lat, lng).
+ *
+ * The refusals are four answers, not one `false`. `Busy` is a run already in
+ * flight, `Held` is a backfill holding detection, a real detect running, or
+ * the same area backing off after a failed attempt, and all of those end.
+ * `NotOwed` is no activity covering the point, which asking again never
+ * changes. `NotReady` is the engine not being open yet.
  */
 export function startPreviewDetect(
   host: DelegateHost,
   lat: number,
   lng: number,
   config: FfiSectionConfig
-): boolean {
-  if (!host.ready) return false;
+): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
   try {
     return host.timed('startPreviewDetect', () => previewObj().start(lat, lng, config));
   } catch (e) {
     console.error('[Engine] startPreviewDetect threw:', e);
-    return false;
+    return FfiStartOutcome.Failed;
   }
 }
 
@@ -289,8 +252,8 @@ export function getPreviewProgress(host: DelegateHost): SectionDetectionProgress
 export function takePreviewResult(host: DelegateHost): PreviewResult | null {
   if (!host.ready) return null;
   try {
-    const json = host.timed('takePreviewResult', () => previewObj().takeResult());
-    return json ? parsePreviewResult(json) : null;
+    const result = host.timed('takePreviewResult', () => previewObj().takeResult());
+    return result ? toPreviewResult(result) : null;
   } catch (e) {
     console.error('[Engine] takePreviewResult threw:', e);
     return null;
