@@ -3,10 +3,10 @@
 //! A preview runs the pure batch detector over the geographic component
 //! containing a chosen point, on its own read-only SQLite connection, and
 //! diffs the proposal against the live catalogue. The engine, the DB and the
-//! evidence cache are untouched; the result leaves as one JSON payload.
+//! evidence cache are untouched; the result leaves as one record.
 
 use crate::FrequentSection;
-use base64::Engine as _;
+use crate::objects::observer::Announcement;
 use rusqlite::{Connection, OpenFlags};
 use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
@@ -25,7 +25,7 @@ use super::super::{PersistentEngine, SectionDetectionProgress};
 /// The call blocks on JavaScript, so every site is on the worker thread and
 /// none is under the engine lock or the preview slot lock.
 fn notify_phase(phase: &str) {
-    crate::objects::observer::notify(|o| o.preview_phase(phase.to_string()));
+    crate::objects::observer::notify(Announcement::PreviewPhase(phase.to_string()));
 }
 
 fn announce_phase(progress: &SectionDetectionProgress, phase: &str, total: u32) {
@@ -58,6 +58,57 @@ pub struct PreviewCentre {
     pub locality: Option<String>,
 }
 
+/// How far apart two ranked bins have to be to count as different places.
+///
+/// Measured rather than chosen: replaying the binning over two libraries, a
+/// home valley occupies 46 of the 5 km bins spread along 45 km of river, so
+/// inside it the gap to a higher-ranked bin runs 0.7 to 25 km, and the first
+/// bin that is somewhere else rather than a further zoom of the same valley is
+/// 70 km away. Fifty keeps the valley as one area and the next town as another.
+///
+/// It is a distance off the athlete's own data. No place is named in code.
+const CENTRE_SPREAD_RADIUS_M: f64 = 50_000.0;
+
+/// Thin the ranked areas so one place takes one slot, keeping visit total as
+/// the ranking.
+///
+/// Greedy: walk the list in rank order and take a bin unless a bin already
+/// taken is within [`CENTRE_SPREAD_RADIUS_M`] of it. The picker is a chooser
+/// for where to tune rather than a summary of where the athlete rides, so this
+/// is de-duplication and not a tour: it removes further zooms of a place
+/// already on the list and changes nothing else about the order.
+///
+/// **An athlete who only rides one valley still fills every slot.** When
+/// suppression cannot reach `limit`, the remaining slots come from the bins it
+/// suppressed, still in rank order, so that athlete gets their busiest
+/// sub-areas rather than one area and five empty rows. A second, smaller radius
+/// would do the same job and would be another constant to justify.
+fn spread_centres(centres: Vec<PreviewCentre>, limit: usize) -> Vec<PreviewCentre> {
+    if centres.len() <= limit {
+        return centres;
+    }
+    let mut taken: Vec<PreviewCentre> = Vec::with_capacity(limit);
+    let mut suppressed: Vec<PreviewCentre> = Vec::new();
+    for centre in centres {
+        let crowded = taken.iter().any(|t| {
+            crate::persistence::haversine_distance_meters(t.lat, t.lng, centre.lat, centre.lng)
+                < CENTRE_SPREAD_RADIUS_M
+        });
+        if crowded {
+            suppressed.push(centre);
+        } else if taken.len() < limit {
+            taken.push(centre);
+        }
+    }
+    for centre in suppressed {
+        if taken.len() >= limit {
+            break;
+        }
+        taken.push(centre);
+    }
+    taken
+}
+
 /// The (lat, lng) grid indices a bin key names, or None when it will not parse.
 fn bin_indices(bin_key: &str) -> Option<(i64, i64)> {
     let (lat, lng) = bin_key.split_once(':')?;
@@ -85,18 +136,73 @@ pub struct PreviewOverlay {
 /// Announces the end of a preview run to the observer, whatever the run's
 /// outcome. Dropped last on the worker thread, so the sender is already gone
 /// and a dead worker reads as disconnected rather than as still running.
+/// Holds the attempt-store lease a preview run was started under, and frees it
+/// however the run ends.
+///
+/// Released on drop, so a worker that panics, or a run nobody ever polls,
+/// frees the key rather than leaving it claimed until the next launch mints a
+/// generation. The default release is a failure: a run that reaches no
+/// terminal path did not do its job, and the backoff is what stops a screen
+/// asking again on every render.
+struct PreviewLease {
+    key: crate::persistence::attempts::JobKey,
+    release: crate::persistence::attempts::Release,
+    /// The library the run belongs to, captured before the worker started.
+    /// A lease taken against one database is not a lease to free in another,
+    /// and a restore mid-preview is what puts a different one under this drop.
+    install: u64,
+}
+
+impl PreviewLease {
+    fn taken(install: u64, key: crate::persistence::attempts::JobKey) -> Self {
+        Self {
+            key,
+            install,
+            release: crate::persistence::attempts::Release::failed(
+                crate::objects::start::FfiStartOutcome::Failed,
+                Some("the preview did not return"),
+            ),
+        }
+    }
+
+    /// The run did what it was asked. A cancel counts: the athlete asked for
+    /// it, so backing the key off would punish the next tap.
+    fn done(&mut self) {
+        self.release = crate::persistence::attempts::Release::Done;
+    }
+}
+
+impl Drop for PreviewLease {
+    fn drop(&mut self) {
+        let release = std::mem::replace(
+            &mut self.release,
+            crate::persistence::attempts::Release::Done,
+        );
+        let at = crate::persistence::attempts::now_ms();
+        crate::persistence::with_persistent_engine_for(self.install, |engine| {
+            if let Err(e) = engine.release_job(&self.key, release, at) {
+                log::warn!(
+                    "veloqrs: [SectionPreview] could not release {}: {}",
+                    self.key.as_str(),
+                    e
+                );
+            }
+        });
+    }
+}
+
 struct PreviewFinished;
 
 impl Drop for PreviewFinished {
     fn drop(&mut self) {
-        crate::objects::observer::notify(|o| o.preview_finished());
+        crate::objects::observer::notify(Announcement::PreviewFinished);
     }
 }
 
 /// How a finished preview run ended.
 pub enum PreviewOutcome {
-    /// The one JSON payload.
-    Complete(String),
+    /// The one payload.
+    Complete(PreviewPayload),
     /// Cancelled cooperatively; nothing to take.
     Cancelled,
     /// Too much of the pool is unreadable for a real detect to cut over it.
@@ -154,11 +260,11 @@ impl SectionPreviewHandle {
     }
 
     /// Take the payload once. None while running, cancelled or already taken.
-    pub fn take_payload(&mut self) -> Option<String> {
+    pub fn take_payload(&mut self) -> Option<PreviewPayload> {
         self.pump();
         match self.outcome {
             Some(PreviewOutcome::Complete(_)) => match self.outcome.take() {
-                Some(PreviewOutcome::Complete(json)) => Some(json),
+                Some(PreviewOutcome::Complete(payload)) => Some(payload),
                 _ => None,
             },
             _ => None,
@@ -269,55 +375,15 @@ pub(crate) fn cluster_for(
     Some((ids, bbox))
 }
 
-#[derive(serde::Serialize)]
-struct PayloadPool {
-    activities: u32,
-    empty: u32,
-    unreadable: u32,
-}
-
-#[derive(serde::Serialize)]
-struct PayloadConfig {
-    proximity_threshold: f64,
-    min_section_length: f64,
-    max_section_length: f64,
-    min_activities: u32,
-    divergence_threshold: f64,
-}
-
-#[derive(serde::Serialize)]
-pub(crate) struct PayloadCounts {
-    pub(crate) current: u32,
-    pub(crate) proposed: u32,
-    pub(crate) unchanged: u32,
-    pub(crate) changed: u32,
-    pub(crate) new: u32,
-    pub(crate) gone: u32,
-}
-
-#[derive(serde::Serialize)]
-pub(crate) struct PayloadSection {
-    id: String,
-    live_id: Option<String>,
-    status: &'static str,
-    name: Option<String>,
-    sport: String,
-    polyline: String,
-    visits: u32,
-    distance_m: f64,
-    elevation_gain_m: Option<f64>,
-    avg_grade_percent: Option<f64>,
-    pinned: bool,
-}
-
-#[derive(serde::Serialize)]
-struct PreviewPayload {
-    pool: PayloadPool,
-    elapsed_ms: u64,
-    config: PayloadConfig,
-    counts: PayloadCounts,
-    sections: Vec<PayloadSection>,
-}
+// The payload crosses the FFI as a uniffi record rather than as JSON that the
+// other side casts blind: a field renamed here used to compile, generate, pass
+// the manifest check and reach the screen as `undefined`. The names are
+// the records' own.
+pub(crate) use crate::{
+    FfiCatalogueCounts as PayloadCounts, FfiPreviewConfig as PayloadConfig,
+    FfiPreviewPool as PayloadPool, FfiPreviewResult as PreviewPayload,
+    FfiPreviewSection as PayloadSection,
+};
 
 /// Does an auto section's ground fall inside a component's padded box? The
 /// preview run and the catalogue the screen opens on both scope by this, so
@@ -341,8 +407,8 @@ pub(crate) fn diff_catalogues_public(
     diff_catalogues(&proposed_owned, live, &pinned)
 }
 
-fn encoded_polyline(points: &[tracematch::GpsPoint]) -> String {
-    base64::engine::general_purpose::STANDARD.encode(crate::coords::encode(points))
+fn encoded_polyline(points: &[tracematch::GpsPoint]) -> Vec<u8> {
+    crate::coords::encode(points)
 }
 
 /// Diff the proposed catalogue against the scoped live one: greedy 1:1
@@ -390,15 +456,15 @@ fn diff_catalogues(
         let (status, live_ref) = match proposed_match[i] {
             Some((j, overlap)) if overlap >= RECUT_AGREEMENT => {
                 counts.unchanged += 1;
-                ("unchanged", Some(&live[j]))
+                ("unchanged".to_string(), Some(&live[j]))
             }
             Some((j, _)) => {
                 counts.changed += 1;
-                ("changed", Some(&live[j]))
+                ("changed".to_string(), Some(&live[j]))
             }
             None => {
                 counts.new += 1;
-                ("new", None)
+                ("new".to_string(), None)
             }
         };
         rows.push(PayloadSection {
@@ -424,7 +490,7 @@ fn diff_catalogues(
         rows.push(PayloadSection {
             id: l.id.clone(),
             live_id: None,
-            status: "gone",
+            status: "gone".to_string(),
             name: l.name.clone(),
             sport: l.sport_type.clone(),
             polyline: encoded_polyline(&l.polyline),
@@ -541,7 +607,9 @@ impl PersistentEngine {
                 .cmp(&a.visit_total)
                 .then_with(|| a.bin_key.cmp(&b.bin_key))
         });
-        centres.truncate(limit as usize);
+        // Between the sort and the cut, or a dense home region takes every slot
+        // in adjacent 5 km bins.
+        let mut centres = spread_centres(centres, limit as usize);
         self.name_centres(&mut centres);
         centres
     }
@@ -638,7 +706,7 @@ impl PersistentEngine {
     /// Reads only what is already persisted, so it costs one bounds sweep and
     /// a pin lookup rather than a detect. Returns None when no activity's
     /// padded box contains the point.
-    pub fn preview_current(&self, lat: f64, lng: f64) -> Option<String> {
+    pub fn preview_current(&self, lat: f64, lng: f64) -> Option<Vec<PayloadSection>> {
         let boxes: Vec<(String, tracematch::Bounds)> = self
             .activity_metadata
             .values()
@@ -667,7 +735,7 @@ impl PersistentEngine {
             .map(|s| PayloadSection {
                 id: s.id.clone(),
                 live_id: Some(s.id.clone()),
-                status: "unchanged",
+                status: "unchanged".to_string(),
                 name: s.name.clone(),
                 sport: s.sport_type.clone(),
                 polyline: encoded_polyline(&s.polyline),
@@ -679,7 +747,7 @@ impl PersistentEngine {
             })
             .collect();
 
-        serde_json::to_string(&rows).ok()
+        Some(rows)
     }
 
     /// Start a preview run over the component containing (lat, lng).
@@ -690,12 +758,36 @@ impl PersistentEngine {
     /// live catalogue scoped to the component. A detection-suspension guard
     /// rides with the worker so no real detect can overlap the run.
     ///
+    /// The activities in the geo component containing (lat, lng): the pool a
+    /// preview would run over, and so the identity of the job.
+    ///
+    /// Read before the run rather than inside it, because the attempt store's
+    /// key has to exist before anything is claimed. Two taps a metre apart
+    /// resolve to one component and are therefore one job, which is the whole
+    /// reason the key is not the raw coordinates.
+    ///
+    /// This walks the bounds a second time, since `preview_detect_background`
+    /// resolves the component again for itself. Both walks are over memory,
+    /// a bbox scan of the metadata map, and threading a resolved component
+    /// into the function whose job is to resolve one is the worse trade.
+    ///
+    /// None when no activity's padded box contains the point.
+    pub fn preview_component(&self, lat: f64, lng: f64) -> Option<Vec<String>> {
+        pooled::preview_component(&self.db, lat, lng)
+    }
+
     /// Returns None when no activity's padded box contains the point.
+    ///
+    /// `key` is the attempt-store lease the caller already took. It is released
+    /// by the worker itself, on the thread that knows how the run ended, the
+    /// same shape `spawn_once` uses: a run whose poller walks away still frees
+    /// its key, and a panic in the worker counts as a failed attempt.
     pub fn preview_detect_background(
         &self,
         lat: f64,
         lng: f64,
         overlay: PreviewOverlay,
+        key: crate::persistence::attempts::JobKey,
     ) -> Option<SectionPreviewHandle> {
         let boxes: Vec<(String, tracematch::Bounds)> = self
             .activity_metadata
@@ -741,9 +833,19 @@ impl PersistentEngine {
         // refuses while a preview is in flight.
         let suspend = super::conditioning::suspend_detection();
 
+        // Which library this preview belongs to, read here, on the thread that
+        // holds the engine, rather than on the worker.
+        let install_at_spawn = crate::persistence::engine_install();
+
         thread::spawn(move || {
             let _finish = PreviewFinished;
             let _suspend = suspend;
+            // The lease is freed on the thread that knows how the run ended,
+            // so a poller that walks away still frees it and a panic here is a
+            // failed attempt rather than a key nothing can claim again. It
+            // starts on failed and the terminal paths say otherwise, which is
+            // `spawn_once`'s shape.
+            let mut lease = PreviewLease::taken(install_at_spawn, key);
             // The caller set "loading" before the spawn, but under the engine
             // read lock and the preview slot lock. The notice blocks on
             // JavaScript, so it is made here, off both.
@@ -801,10 +903,12 @@ impl PersistentEngine {
                 &progress_worker,
                 &cancel_worker,
             ) else {
+                lease.done();
                 sender.send(PreviewOutcome::Cancelled).ok();
                 return;
             };
             if cancel_worker.load(Ordering::SeqCst) {
+                lease.done();
                 sender.send(PreviewOutcome::Cancelled).ok();
                 return;
             }
@@ -813,24 +917,24 @@ impl PersistentEngine {
                 "veloqrs: [SectionPreview] Pool loaded: {} tracks ({} empty, {} unreadable) of {} component ids",
                 pool.tracks.len(),
                 pool.empty,
-                pool.unreadable,
+                pool.unreadable(),
                 component_ids.len()
             );
 
             // Same gate as the real detect, so a preview never proposes
             // sections a Keep would refuse to cut. Read-only, so the refusal
             // is reported to the caller and nothing is recorded.
-            if !super::detection::pool_is_usable(pool.readable, pool.unreadable as usize) {
+            if !super::detection::pool_is_usable(pool.readable, pool.unreadable()) {
                 log::error!(
                     "veloqrs: [SectionPreview] Refusing the preview: {} of {} stored tracks in the component are unreadable",
-                    pool.unreadable,
-                    pool.readable + pool.unreadable as usize
+                    pool.unreadable(),
+                    pool.readable + pool.unreadable()
                 );
                 announce_phase(&progress_worker, "aborted", 0);
                 sender
                     .send(PreviewOutcome::PoolUnusable {
                         readable: pool.readable,
-                        unreadable: pool.unreadable,
+                        unreadable: pool.unreadable() as u32,
                     })
                     .ok();
                 return;
@@ -856,6 +960,7 @@ impl PersistentEngine {
             // Past this point the detect has already run to completion; a
             // cancel now discards the result rather than aborting work.
             if cancel_worker.load(Ordering::SeqCst) {
+                lease.done();
                 sender.send(PreviewOutcome::Cancelled).ok();
                 return;
             }
@@ -867,9 +972,9 @@ impl PersistentEngine {
                 pool: PayloadPool {
                     activities: pool.tracks.len() as u32,
                     empty: pool.empty,
-                    unreadable: pool.unreadable,
+                    unreadable: pool.unreadable() as u32,
                 },
-                elapsed_ms: started.elapsed().as_millis() as u64,
+                elapsed_ms: started.elapsed().as_millis() as f64,
                 config: PayloadConfig {
                     proximity_threshold: effective_config.proximity_threshold,
                     min_section_length: effective_config.min_section_length,
@@ -883,14 +988,8 @@ impl PersistentEngine {
 
             announce_phase(&progress_worker, "complete", 1);
             progress_worker.increment();
-            match serde_json::to_string(&payload) {
-                Ok(json) => {
-                    sender.send(PreviewOutcome::Complete(json)).ok();
-                }
-                Err(e) => {
-                    log::error!("veloqrs: [SectionPreview] Payload serialisation failed: {e}");
-                }
-            }
+            lease.done();
+            sender.send(PreviewOutcome::Complete(payload)).ok();
         });
 
         Some(SectionPreviewHandle {
@@ -906,6 +1005,117 @@ impl PersistentEngine {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    mod spreading_the_riding_areas {
+        use super::super::{PreviewCentre, spread_centres};
+
+        /// Scenario: the picker ranked six bins by visit total and a dense home
+        /// region holds forty-six of them, so five of the six slots were zooms
+        /// of one valley on a library with rides on three other continents.
+        ///
+        /// Expected behaviour: one area per place, ranked by visits as before,
+        /// and a library that only has one place still fills every slot with
+        /// that place's busiest sub-areas rather than going short.
+        fn centre(lat: f64, lng: f64, visits: u32) -> PreviewCentre {
+            PreviewCentre {
+                bin_key: format!("{lat}:{lng}"),
+                lat,
+                lng,
+                visit_total: visits,
+                section_count: 1,
+                source: "sections".to_string(),
+                locality: None,
+            }
+        }
+
+        fn visits(centres: &[PreviewCentre]) -> Vec<u32> {
+            centres.iter().map(|c| c.visit_total).collect()
+        }
+
+        /// 0.1 degrees of latitude is about 11 km, 0.45 about 50 km.
+        #[test]
+        fn neighbouring_bins_of_one_valley_collapse_to_its_busiest() {
+            let valley = vec![
+                centre(46.2, 7.3, 1759),
+                centre(46.25, 7.35, 161),
+                centre(46.3, 7.4, 61),
+            ];
+            let out = spread_centres(valley, 3);
+            assert_eq!(
+                visits(&out),
+                vec![1759, 161, 61],
+                "a short list must still fill"
+            );
+            // But the order is the fallback's, so the first is the only
+            // unsuppressed one.
+            assert_eq!(out[0].visit_total, 1759);
+        }
+
+        #[test]
+        fn a_library_on_three_continents_takes_one_area_each_before_a_second_of_the_first() {
+            let centres = vec![
+                centre(46.2, 7.3, 1759),
+                centre(46.25, 7.35, 161),
+                centre(-33.8, 151.2, 54),
+                centre(-37.8, 144.9, 38),
+            ];
+            assert_eq!(visits(&spread_centres(centres, 3)), vec![1759, 54, 38]);
+        }
+
+        #[test]
+        fn the_radius_is_fifty_kilometres() {
+            // 0.4 degrees of latitude is about 44 km, inside it.
+            let near = vec![centre(46.2, 7.3, 100), centre(46.6, 7.3, 90)];
+            assert_eq!(visits(&spread_centres(near, 2)), vec![100, 90]);
+            assert_eq!(
+                spread_centres(vec![centre(46.2, 7.3, 100), centre(46.6, 7.3, 90)], 1).len(),
+                1
+            );
+            // 0.7 degrees is about 78 km, outside it, so both are distinct
+            // places and the second slot is the far one rather than a refill.
+            let far = vec![
+                centre(46.2, 7.3, 100),
+                centre(46.25, 7.35, 95),
+                centre(46.9, 7.3, 10),
+            ];
+            assert_eq!(visits(&spread_centres(far, 2)), vec![100, 10]);
+        }
+
+        #[test]
+        fn a_one_valley_athlete_gets_the_busiest_sub_areas_rather_than_empty_slots() {
+            let valley: Vec<PreviewCentre> = (0..6)
+                .map(|i| centre(46.2 + f64::from(i) * 0.05, 7.3, 100 - i as u32))
+                .collect();
+            let out = spread_centres(valley, 6);
+            assert_eq!(out.len(), 6, "no slot may come back empty");
+            assert_eq!(visits(&out), vec![100, 99, 98, 97, 96, 95]);
+        }
+
+        #[test]
+        fn a_list_shorter_than_the_limit_is_returned_whole() {
+            let out = spread_centres(vec![centre(46.2, 7.3, 5)], 6);
+            assert_eq!(out.len(), 1);
+        }
+
+        /// The tiebreak on equal visit totals is what keeps the slots from
+        /// shuffling between reads, so suppression must not disturb it.
+        #[test]
+        fn equal_visit_totals_keep_their_order() {
+            let tied = vec![
+                centre(46.2, 7.3, 10),
+                centre(-33.8, 151.2, 10),
+                centre(-37.8, 144.9, 10),
+            ];
+            let first = spread_centres(tied.clone(), 3);
+            for _ in 0..5 {
+                let again = spread_centres(tied.clone(), 3);
+                assert_eq!(
+                    first.iter().map(|c| c.bin_key.clone()).collect::<Vec<_>>(),
+                    again.iter().map(|c| c.bin_key.clone()).collect::<Vec<_>>()
+                );
+            }
+        }
+    }
 
     fn bounds(min_lat: f64, max_lat: f64, min_lng: f64, max_lng: f64) -> tracematch::Bounds {
         tracematch::Bounds {
@@ -1094,5 +1304,60 @@ mod tests {
         ]);
         let (ids, _) = cluster_for(&boxes, 0.0, 0.0, &sports, 50_000.0).expect("seeded");
         assert_eq!(ids, vec!["ride".to_string()]);
+    }
+}
+
+/// The component resolve over a pooled connection.
+///
+/// The engine held this on the read lock because it walks `activity_metadata`,
+/// which is memory. Every field it reads, the id, the sport and the bounding
+/// box, is a column on `activities` that the memory tier is loaded from at
+/// init, so the query answers the same thing and nothing needs a shared borrow
+/// of the engine to start a preview.
+pub(crate) mod pooled {
+    use rusqlite::Connection;
+    use std::collections::HashMap;
+    use tracematch::Bounds;
+
+    use super::{Tunables, cluster_for};
+
+    pub(crate) fn preview_component(conn: &Connection, lat: f64, lng: f64) -> Option<Vec<String>> {
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng
+             FROM activities
+             WHERE min_lat IS NOT NULL",
+        ) else {
+            return None;
+        };
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    Bounds {
+                        min_lat: row.get(2)?,
+                        max_lat: row.get(3)?,
+                        min_lng: row.get(4)?,
+                        max_lng: row.get(5)?,
+                    },
+                ))
+            })
+            .ok()?;
+
+        let mut boxes: Vec<(String, Bounds)> = Vec::new();
+        let mut sport_map: HashMap<String, String> = HashMap::new();
+        for (id, sport_type, bounds) in rows.flatten() {
+            sport_map.insert(id.clone(), sport_type);
+            boxes.push((id, bounds));
+        }
+
+        cluster_for(
+            &boxes,
+            lat,
+            lng,
+            &sport_map,
+            Tunables::DEFAULT.cluster_gap_m,
+        )
+        .map(|(ids, _)| ids)
     }
 }

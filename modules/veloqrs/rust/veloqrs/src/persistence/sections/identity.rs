@@ -43,7 +43,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use super::compute_section_portions;
 use crate::persistence::PersistentEngine;
 use crate::persistence::codec;
 use crate::persistence::sections::geometry;
@@ -635,10 +634,15 @@ impl PersistentEngine {
                 return false;
             };
             let cand = &raw[j];
+            // One matcher for the candidate line, not one per member checked.
+            let line = tracematch::PreparedLine::new(&cand.polyline, &config);
             row.section.activity_ids.iter().any(|aid| {
                 !cand.activity_ids.contains(aid)
                     && self.get_gps_track(aid).is_some_and(|track| {
-                        compute_section_portions(aid, &track, &cand.polyline, &config).is_empty()
+                        line.as_ref()
+                            .map(|l| l.portions(aid, &track))
+                            .unwrap_or_default()
+                            .is_empty()
                     })
             })
         };
@@ -1352,11 +1356,17 @@ fn fold_new_activities(
     new_tracks: &BTreeMap<String, Vec<GpsPoint>>,
     config: &SectionConfig,
 ) {
+    // Cloned so the fold can keep pushing members while the matcher, built
+    // once for the whole fold, still holds the line.
+    let polyline = section.polyline.clone();
+    let Some(line) = tracematch::PreparedLine::new(&polyline, config) else {
+        return;
+    };
     for (aid, track) in new_tracks {
         if section.activity_ids.iter().any(|x| x == aid) {
             continue;
         }
-        let portions = compute_section_portions(aid, track, &section.polyline, config);
+        let portions = line.portions(aid, track);
         if portions.is_empty() {
             continue;
         }
@@ -1386,11 +1396,17 @@ fn graft_prior_members(
         .filter(|aid| !have.contains(aid.as_str()))
         .cloned()
         .collect();
+    // Cloned so the fold can keep pushing members while the matcher, built
+    // once for the whole fold, still holds the line.
+    let polyline = section.polyline.clone();
+    let Some(line) = tracematch::PreparedLine::new(&polyline, config) else {
+        return;
+    };
     for aid in missing {
         let Some(track) = engine.get_gps_track(&aid) else {
             continue;
         };
-        let portions = compute_section_portions(&aid, &track, &section.polyline, config);
+        let portions = line.portions(&aid, &track);
         if portions.is_empty() {
             continue;
         }

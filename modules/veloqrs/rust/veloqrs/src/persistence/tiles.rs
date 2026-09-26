@@ -6,15 +6,16 @@
 
 use super::codec::TrackRead;
 use super::{PersistentEngine, TileGenerationHandle};
+use crate::objects::observer::Announcement;
 use crate::tiles;
 use log::info;
 use rayon::prelude::*;
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc;
+use std::sync::{Arc, RwLock};
 use tracematch::{Bounds, GpsPoint};
 
 /// Tile format version - increment when tile size, zoom range, or rendering changes.
@@ -23,7 +24,7 @@ const TILE_FORMAT_VERSION: &str = "7";
 
 /// Marker file written to the tiles directory when new data arrives.
 /// Cleared after tile generation completes. Prevents redundant generation on app restart.
-const DIRTY_MARKER: &str = ".dirty";
+pub(crate) const DIRTY_MARKER: &str = ".dirty";
 
 /// Number of unreadable activities named individually in the log.
 const CORRUPT_ID_LOG_CAP: usize = 20;
@@ -81,6 +82,98 @@ struct TileGeneration {
     cancelled: bool,
 }
 
+/// The tiles directory, readable without the engine lock.
+///
+/// The WebView's request interceptor runs on a background thread with no
+/// JavaScript context and no business taking the engine's lock: a tile the map
+/// is drawing would then queue behind whatever a sync is writing. The path is
+/// the only thing it needs, it changes twice in a session, and it is written
+/// here beside the field it mirrors.
+static HEATMAP_TILES_DIR: RwLock<Option<String>> = RwLock::new(None);
+
+/// Where the athlete is looking, so the pass can draw that ground first.
+///
+/// Latitude, longitude and the zoom the camera is at. The pass otherwise
+/// writes every zoom in full before the next one, so on a fresh install the
+/// z14-17 tiles of the viewport on screen are behind the whole lower sweep:
+/// 758 of the demo library's 1,508 tiles are z17 alone. Set from the map when
+/// the camera settles and cleared when it leaves, and read once per pass, so
+/// a camera that moves mid-pass changes the next one rather than this one.
+static TILE_PRIORITY: RwLock<Option<(f64, f64, u8)>> = RwLock::new(None);
+
+/// Draw the ground around this point, at this zoom, before the rest.
+pub fn set_tile_priority(latitude: f64, longitude: f64, zoom: u8) {
+    let value =
+        (latitude.is_finite() && longitude.is_finite()).then_some((latitude, longitude, zoom));
+    match TILE_PRIORITY.write() {
+        Ok(mut held) => *held = value,
+        Err(poisoned) => *poisoned.into_inner() = value,
+    }
+}
+
+/// Forget it: no screen is waiting on any particular ground.
+pub fn clear_tile_priority() {
+    match TILE_PRIORITY.write() {
+        Ok(mut held) => *held = None,
+        Err(poisoned) => *poisoned.into_inner() = None,
+    }
+}
+
+fn tile_priority() -> Option<(f64, f64, u8)> {
+    match TILE_PRIORITY.read() {
+        Ok(held) => *held,
+        Err(poisoned) => *poisoned.into_inner(),
+    }
+}
+
+/// How late a tile may be drawn: 0 is the viewport at the zoom it is showing,
+/// 1 is the same ground at another zoom, 2 is everything else.
+///
+/// The three bands and not a distance, because a distance orders tiles the
+/// athlete cannot see as finely as the ones they can, and the point is only to
+/// get the screen drawn first.
+fn priority_rank(coord: (u8, u32, u32), priority: Option<(f64, f64, u8)>) -> u8 {
+    let Some((lat, lon, zoom)) = priority else {
+        return 0;
+    };
+    let (z, x, y) = coord;
+    let covers = crate::tiles::lon_to_tile_x(lon, z).floor() as i64 == x as i64
+        && crate::tiles::lat_to_tile_y(lat, z).floor() as i64 == y as i64;
+    if !covers {
+        return 2;
+    }
+    // One zoom either side: a double-tap lands on the next one, and drawing it
+    // with the one on screen is what keeps the step sharp.
+    if z.abs_diff(zoom) <= 1 { 0 } else { 1 }
+}
+
+fn publish_tiles_dir(path: Option<String>) {
+    match HEATMAP_TILES_DIR.write() {
+        Ok(mut held) => *held = path,
+        Err(poisoned) => *poisoned.into_inner() = path,
+    }
+}
+
+/// One heatmap tile's PNG bytes, or `None` when the athlete has the heatmap
+/// off, the pass has not drawn that tile yet, or the file is an empty marker.
+///
+/// A miss is not a failure here: heatmap tiles are generated from local GPS
+/// rather than fetched, so "not drawn yet" is the ordinary answer and the
+/// caller turns it into a 404.
+pub fn heatmap_tile_bytes(z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
+    let dir = match HEATMAP_TILES_DIR.read() {
+        Ok(held) => held.clone()?,
+        Err(poisoned) => poisoned.into_inner().clone()?,
+    };
+    let path = Path::new(&dir)
+        .join(z.to_string())
+        .join(x.to_string())
+        .join(format!("{}.png", y));
+
+    let bytes = std::fs::read(path).ok()?;
+    if bytes.is_empty() { None } else { Some(bytes) }
+}
+
 impl PersistentEngine {
     /// Check whether heatmap tiles need (re)generation.
     /// Returns true if the dirty marker exists or no version file is present (first time / cache cleared).
@@ -112,6 +205,7 @@ impl PersistentEngine {
     pub fn set_heatmap_tiles_path(&mut self, path: String) {
         info!("[heatmap] Tiles path set to: {}", path);
         self.heatmap_tiles_path = Some(path.clone());
+        publish_tiles_dir(Some(path.clone()));
 
         // Check tile format version - clear stale tiles on upgrade
         let version_file = Path::new(&path).join("version.txt");
@@ -153,6 +247,18 @@ impl PersistentEngine {
         } else if !self.activity_metadata.is_empty() {
             info!("[heatmap] Tiles are up to date - skipping generation");
         }
+    }
+
+    /// Every activity's bounding box, for a pass that works off where the
+    /// athlete rides rather than off their tracks.
+    ///
+    /// Cloned under the lock in microseconds, the way the heatmap pass takes
+    /// its own snapshot: neither pass holds the engine while it works.
+    pub fn activity_bounds(&self) -> Vec<Bounds> {
+        self.activity_metadata
+            .values()
+            .map(|m| m.bounds.clone())
+            .collect()
     }
 
     /// Spawn background tile generation. Extracts metadata while holding &self
@@ -197,7 +303,7 @@ impl PersistentEngine {
         // it runs is not cleared by it.
         let started_on = read_dirty_token(Path::new(&tiles_path));
 
-        std::thread::spawn(move || {
+        crate::threads::spawn_named("veloq-tiles", move || {
             let generated = {
                 // The slot is held for the generation itself, and released
                 // structurally, so a panic anywhere in the pass still frees it.
@@ -242,7 +348,7 @@ impl PersistentEngine {
             // The worker owns no engine lock, so the announcement is safe to
             // make from here. A screen waiting on the pass hears it instead of
             // draining this receiver on a timer.
-            crate::objects::observer::notify(|o| o.tiles_generated());
+            crate::objects::observer::notify(Announcement::TilesGenerated);
         });
 
         Some(TileGenerationHandle {
@@ -258,6 +364,12 @@ impl PersistentEngine {
     pub fn clear_heatmap_tiles_path(&mut self) {
         info!("[heatmap] Tiles path cleared - generation disabled");
         self.heatmap_tiles_path = None;
+        publish_tiles_dir(None);
+    }
+
+    /// The tiles path in force, or `None` when the athlete has the heatmap off.
+    pub fn heatmap_tiles_path(&self) -> Option<&str> {
+        self.heatmap_tiles_path.as_deref()
     }
 
     /// Clear all heatmap tiles from disk and mark as dirty so they regenerate when re-enabled.
@@ -314,6 +426,25 @@ fn bounds_reach_tile(bounds: &Bounds, z: u8, x: u32, y: u32) -> bool {
     let y1 = tiles::lat_to_tile_y(bounds.min_lat, z).floor();
     let (x, y) = (x as f64, y as f64);
     x >= x0 && x <= x1 && y >= y0 && y <= y1
+}
+
+/// Remove every tile at `dir` and mark the emptied set owed a draw.
+///
+/// For a wipe. The tiles draw a library that no longer exists, and a dirty
+/// pass only fills tiles that are missing, so a mark alone leaves every tile
+/// outside the next library's ground on disk for the map to serve. The
+/// corrupt record goes too: it names the wiped library's activities.
+///
+/// It walks the whole set, so the caller runs it with the engine lock
+/// released.
+pub(crate) fn wipe_tile_set(dir: &Path) {
+    if !dir.exists() {
+        return;
+    }
+    let removed = tiles::clear_all_tiles(dir);
+    write_corrupt_record(dir, &[]);
+    write_dirty_marker(dir);
+    info!("[heatmap] Wipe removed {} zoom levels of tiles", removed);
 }
 
 /// Mark the tile set at `tiles_path` as needing regeneration, without the
@@ -400,7 +531,10 @@ fn background_generate_tiles(
 
     // Open own SQLite connection (same pattern as section detection).
     let conn = match Connection::open(db_path) {
-        Ok(c) => c,
+        Ok(c) => {
+            let _ = crate::persistence::apply_write_pragmas(&c);
+            c
+        }
         Err(e) => {
             log::error!("[heatmap] Failed to open database: {}", e);
             return TileGeneration::default();
@@ -510,9 +644,13 @@ fn background_generate_tiles(
             stale_bounds.len()
         );
     }
-    // Deterministic ordering keeps progress reporting stable across runs -
-    // otherwise HashMap iteration order shuffles `processed_counter` deltas.
-    pending.sort_unstable_by_key(|((z, x, y), _)| (*z, *x, *y));
+    // The viewport first, then the rest by zoom. Deterministic either way,
+    // which keeps progress reporting stable across runs: otherwise HashMap
+    // iteration order shuffles `processed_counter` deltas.
+    let priority = tile_priority();
+    pending.sort_unstable_by_key(|(coord, _)| {
+        (priority_rank(*coord, priority), coord.0, coord.1, coord.2)
+    });
 
     let total = pending.len() as u32;
     total_counter.store(total, Ordering::SeqCst);
@@ -686,6 +824,69 @@ fn bulk_load_tracks(conn: &Connection, activities: &[(String, Bounds)]) -> Loade
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Scenario: a fresh install with the map open on a street-level view
+    /// while the pass runs. The pass writes every zoom in full before the
+    /// next, so the tiles on screen were behind the whole lower sweep.
+    ///
+    /// Expected behaviour: the ground the camera is on, at the zoom it is
+    /// showing, sorts first; the same ground at other zooms next; everything
+    /// else last, in the order it had.
+    #[test]
+    fn the_viewport_is_drawn_before_the_rest_of_the_sweep() {
+        // Sion, where the demo library rides.
+        let (lat, lon, zoom) = (46.233, 7.36, 14u8);
+        let here = |z: u8| {
+            (
+                z,
+                crate::tiles::lon_to_tile_x(lon, z).floor() as u32,
+                crate::tiles::lat_to_tile_y(lat, z).floor() as u32,
+            )
+        };
+        let priority = Some((lat, lon, zoom));
+
+        assert_eq!(priority_rank(here(14), priority), 0, "the zoom on screen");
+        assert_eq!(priority_rank(here(13), priority), 0, "and one either side");
+        assert_eq!(priority_rank(here(15), priority), 0);
+        assert_eq!(priority_rank(here(8), priority), 1, "same ground, far zoom");
+
+        let elsewhere = (14u8, here(14).1 + 40, here(14).2 + 40);
+        assert_eq!(priority_rank(elsewhere, priority), 2, "ground nobody is on");
+    }
+
+    /// With no camera set nothing is preferred, which is the pass a sync runs
+    /// with no map open: every tile ranks the same and the zoom order stands.
+    #[test]
+    fn no_camera_leaves_the_order_alone() {
+        assert_eq!(priority_rank((17, 1, 1), None), 0);
+        assert_eq!(priority_rank((1, 0, 0), None), 0);
+    }
+
+    /// The whole point, on the list the pass actually sorts.
+    #[test]
+    fn the_sort_puts_the_viewports_tiles_at_the_front() {
+        let (lat, lon) = (46.233, 7.36);
+        let tile = |z: u8| {
+            (
+                z,
+                crate::tiles::lon_to_tile_x(lon, z).floor() as u32,
+                crate::tiles::lat_to_tile_y(lat, z).floor() as u32,
+            )
+        };
+        let priority = Some((lat, lon, 14));
+        let mut pending = vec![tile(1), tile(17), tile(14), (14, 99, 99), tile(2)];
+
+        pending.sort_unstable_by_key(|coord| {
+            (priority_rank(*coord, priority), coord.0, coord.1, coord.2)
+        });
+
+        assert_eq!(pending[0], tile(14), "the zoom on screen goes first");
+        assert_eq!(
+            pending.last(),
+            Some(&(14, 99, 99)),
+            "and ground nobody is looking at goes last"
+        );
+    }
 
     /// Scenario: a tile sweep marks the set dirty while a generation run is
     /// already in flight. Expected behaviour: the run clears only the mark it

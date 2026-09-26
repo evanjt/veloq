@@ -8,19 +8,24 @@
 
 pub mod conditioning;
 pub(crate) mod detection;
+// The encode is the caller's now, not the apply's: a worker pays it before it
+// takes the write lock and hands the row in. Both halves are re-exported so a
+// gate can put the two encodes side by side.
+pub use detection::{EvidenceRow, encode_evidence_row};
 mod editing;
 pub(crate) mod geometry;
 pub(super) mod history;
 mod identity;
 mod interest;
-mod merging;
+pub(crate) mod merging;
 mod mutations;
-mod named;
+pub(crate) mod named;
 mod naming;
 pub(crate) mod preview;
-mod proximity;
-mod queries;
-mod ranking;
+pub(crate) mod proximity;
+pub use proximity::SectionNearEitherEnd;
+pub(crate) mod queries;
+pub(crate) mod ranking;
 pub(crate) mod track_pool;
 
 pub use history::{
@@ -32,6 +37,7 @@ pub(crate) use identity::SectionIdentity;
 pub use identity::content_id_for;
 pub(crate) use named::looks_generated;
 pub use named::{NamedCorridor, NamedOverlay};
+pub(crate) use ranking::chart_from;
 
 pub use detection::detection_workers_started;
 pub use detection::{
@@ -126,6 +132,7 @@ pub(super) fn mean_over_traversal(
 /// insert path (`insert_section_activity`), and the lazy backfill path.
 pub(super) fn compute_lap_time_from_stream(
     times: Option<&[u32]>,
+    track_points: Option<usize>,
     start_index: u32,
     end_index: u32,
     distance_meters: f64,
@@ -134,6 +141,19 @@ pub(super) fn compute_lap_time_from_stream(
         Some(t) => t,
         None => return (None, None),
     };
+    // A stream that is not the track's length is not in the track's index
+    // space. `fetch_time_stream` has reduced `time` through the `latlng` mask
+    // since 2026-08-16, but every 0.3.x stored the raw series, which keeps the
+    // samples the coordinate mask drops. Indexing that with track indices reads
+    // the wrong window, and the four lap-time readers were the one place the
+    // rule was not applied: the detector's loader and the scrubber's body
+    // builder both refuse such a stream already.
+    //
+    // `None` is "the track length is not knowable here", which an activity with
+    // no track row is, and not evidence of a misalignment.
+    if track_points.is_some_and(|n| n != times.len()) {
+        return (None, None);
+    }
     if end_index == 0 || end_index as usize > times.len() {
         return (None, None);
     }
@@ -160,7 +180,7 @@ type CarriedExclusions = Vec<(String, String, Option<Vec<u32>>)>;
 pub(crate) const DERIVED_SECTION_PREDICATE: &str = "section_type = 'auto' \
     AND original_polyline_json IS NULL AND is_user_defined = 0 AND disabled = 0";
 
-fn capture_auto_exclusions(tx: &rusqlite::Transaction) -> SqlResult<CarriedExclusions> {
+fn capture_auto_exclusions(tx: &rusqlite::Connection) -> SqlResult<CarriedExclusions> {
     // The common save carries no exclusions at all; one early-exit probe
     // spares the correlated scan below on every detection apply.
     let any: bool = tx
@@ -215,6 +235,96 @@ fn capture_auto_exclusions(tx: &rusqlite::Transaction) -> SqlResult<CarriedExclu
         }
     }
     Ok(carried)
+}
+
+/// `identity_state.key` for the auto-section exclusions a catalogue wipe
+/// took, held until a detection apply finds their activities in the library.
+const WIPED_EXCLUSIONS_KEY: &str = "wiped_section_exclusions";
+
+/// Hold the exclusions on the auto sections a catalogue wipe is about to
+/// delete, so the re-detect that follows can put them back on the ids the
+/// identity registry re-mints.
+///
+/// The apply carries them across its own delete in memory, but a wipe is not
+/// followed by an apply in the same transaction. With route matching off none
+/// may run for weeks, and the app can close in between, so the hold is a row
+/// in the same record table as the registry that re-mints the ids. Merged
+/// with whatever an earlier wipe still holds: a second clear before a detect
+/// finds no rows to capture and must not drop the first one's.
+pub(crate) fn hold_auto_exclusions_through_wipe(db: &rusqlite::Connection) -> SqlResult<()> {
+    let captured = capture_auto_exclusions(db)?;
+    if captured.is_empty() {
+        return Ok(());
+    }
+    let mut held = held_auto_exclusions(db);
+    held.retain(|(sid, aid, _)| !captured.iter().any(|(s, a, _)| s == sid && a == aid));
+    held.extend(captured);
+    write_held_auto_exclusions(db, &held)
+}
+
+fn write_held_auto_exclusions(
+    db: &rusqlite::Connection,
+    held: &CarriedExclusions,
+) -> SqlResult<()> {
+    let blob = serde_json::to_vec(held)
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    db.execute(
+        "INSERT INTO identity_state (key, blob, updated_at)
+         VALUES (?, ?, datetime('now'))
+         ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
+        params![WIPED_EXCLUSIONS_KEY, blob],
+    )?;
+    Ok(())
+}
+
+/// What a wipe holds. An unreadable hold reads as empty rather than failing
+/// the detect it would be handed to.
+fn held_auto_exclusions(db: &rusqlite::Connection) -> CarriedExclusions {
+    let blob: Option<Vec<u8>> = db
+        .query_row(
+            "SELECT blob FROM identity_state WHERE key = ?",
+            params![WIPED_EXCLUSIONS_KEY],
+            |row| row.get(0),
+        )
+        .ok();
+    let Some(blob) = blob else {
+        return CarriedExclusions::new();
+    };
+    serde_json::from_slice(&blob).unwrap_or_else(|e| {
+        log::warn!("veloqrs: [sections] held exclusions unreadable, dropped: {e}");
+        CarriedExclusions::new()
+    })
+}
+
+/// Release what this apply could place and keep holding the rest, in the
+/// apply's own transaction. An entry is spent once its activity is back in
+/// the library: the apply either put it back or found its section gone, the
+/// rule it already keeps for a section that dies across its own delete. One
+/// whose activity is still missing waits, because Clear cache re-detects over
+/// the few activities it kept before the sync brings the rest back.
+fn release_placed_auto_exclusions(
+    tx: &rusqlite::Connection,
+    held: CarriedExclusions,
+) -> SqlResult<()> {
+    if held.is_empty() {
+        return Ok(());
+    }
+    let mut present = tx.prepare("SELECT EXISTS(SELECT 1 FROM activities WHERE id = ?)")?;
+    let mut waiting = CarriedExclusions::new();
+    for entry in held {
+        let back: bool = present.query_row(params![entry.1], |row| row.get(0))?;
+        if !back {
+            waiting.push(entry);
+        }
+    }
+    if waiting.is_empty() {
+        tx.execute(
+            "DELETE FROM identity_state WHERE key = ?",
+            params![WIPED_EXCLUSIONS_KEY],
+        )?;
+        return Ok(());
+    }
+    write_held_auto_exclusions(tx, &waiting)
 }
 
 /// Put carried exclusions back after the junction re-insert. Same rules
@@ -300,6 +410,18 @@ fn next_section_number(taken: &mut HashSet<u32>, counter: &mut u32) -> u32 {
     }
 }
 
+/// Ids read per `IN (...)` batch when the catalogue pre-fetches streams.
+///
+/// The same bound the detection pool uses, for the same reason: one `IN` over
+/// the whole library holds every decoded series resident at once, which on a
+/// long-ride library is around 100 MB on top of the pool that is already there.
+const STREAM_READ_CHUNK: usize = 150;
+
+/// `?,?,?` for a batch of `n`.
+fn placeholders_for(n: usize) -> String {
+    std::iter::repeat_n("?", n).collect::<Vec<_>>().join(",")
+}
+
 impl PersistentEngine {
     /// Load sections from database.
     pub(super) fn load_sections(&mut self) -> SqlResult<()> {
@@ -371,7 +493,7 @@ impl PersistentEngine {
                 "SELECT id, section_type, name, sport_type, polyline_json, distance_meters,
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
-                        created_at, updated_at, consensus_state_blob,
+                        created_at, updated_at,
                         polyline_blob, point_density_blob,
                         elevation_gain_m, avg_grade_percent,
                         rep_start_index, rep_end_index,
@@ -387,25 +509,19 @@ impl PersistentEngine {
                     let polyline_json: Option<String> = row.get(4)?;
                     let point_density_json: Option<String> = row.get(10)?;
                     let representative_activity_id: Option<String> = row.get(6)?;
-                    let consensus_state_blob: Option<Vec<u8>> = row.get(17)?;
-                    let polyline_blob: Option<Vec<u8>> = row.get(18)?;
-                    let point_density_blob: Option<Vec<u8>> = row.get(19)?;
-                    let consensus_state = consensus_state_blob.and_then(|bytes| {
-                        match codec::deserialize_gps_composite::<tracematch::sections::ConsensusAccumulator>(&bytes) {
-                            Ok(acc) => Some(acc),
-                            Err(e) => {
-                                log::warn!(
-                                    "veloqrs: [load_sections] failed to deserialize consensus_state blob for section {}: {}",
-                                    id, e
-                                );
-                                None
-                            }
-                        }
-                    });
+                    let polyline_blob: Option<Vec<u8>> = row.get(17)?;
+                    let point_density_blob: Option<Vec<u8>> = row.get(18)?;
+                    // `consensus_state_blob` is neither selected nor decoded.
+                    // The detector only ever produces `None` for this field and
+                    // nothing reads it back, so loading it was a MessagePack
+                    // decode per section on every launch for a value that is
+                    // discarded. The column stays, holding whatever legacy rows
+                    // put there.
+                    let consensus_state = None;
 
                     // Both columns or neither: a half-range indexes nothing.
-                    let rep_start: Option<u32> = row.get(22)?;
-                    let rep_end: Option<u32> = row.get(23)?;
+                    let rep_start: Option<u32> = row.get(21)?;
+                    let rep_end: Option<u32> = row.get(22)?;
                     let polyline: Vec<GpsPoint> = geometry::line(
                         &self.db,
                         polyline_blob.as_deref(),
@@ -470,13 +586,13 @@ impl PersistentEngine {
                         },
                         is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                         stability: row.get::<_, Option<f64>>(14)?.unwrap_or(0.0),
-                        elevation_gain_m: row.get(20)?,
-                        avg_grade_percent: row.get(21)?,
+                        elevation_gain_m: row.get(19)?,
+                        avg_grade_percent: row.get(20)?,
                         version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
                         updated_at: row.get(16)?,
                         created_at: row.get(15)?,
-                        enrichment: interest::enrichment_from_row(row, 20, 24)?,
-                        rank: interest::rank_from_row(row, 29)?,
+                        enrichment: interest::enrichment_from_row(row, 19, 23)?,
+                        rank: interest::rank_from_row(row, 28)?,
                         consensus_state,
                     })
                 })?
@@ -574,7 +690,6 @@ impl PersistentEngine {
             let distance = tracematch::matching::calculate_route_distance(&polyline);
             let result = crate::FfiSectionRecalcResult {
                 section_id: section.id.clone(),
-                polyline_point_count: polyline.len() as u32,
                 distance_meters: distance,
             };
             let unchanged = section.polyline == polyline;
@@ -616,7 +731,6 @@ impl PersistentEngine {
 
         let result = crate::FfiSectionRecalcResult {
             section_id: recalced.id.clone(),
-            polyline_point_count: recalced.polyline.len() as u32,
             distance_meters: recalced.distance_meters,
         };
 
@@ -876,15 +990,30 @@ impl PersistentEngine {
         min_visits: Option<u32>,
     ) -> Vec<&FrequentSection> {
         let min = min_visits.unwrap_or(0);
+        // A pin freezes a section's existence, so it is never dropped for want
+        // of support. It has to be read here rather than held in memory: a pin
+        // is dropped by every promotion mutation through `drop_section_pin`,
+        // which takes `&self` at nine call sites, so a cached set would be a
+        // second writer to keep in step. One indexed read of a table with a row
+        // per pin, on a call that already walks the whole catalogue, and only
+        // when a floor is asked for: with no floor there is nothing to exempt.
+        let pinned: HashSet<String> = if min == 0 {
+            HashSet::new()
+        } else {
+            self.pinned_section_ids().into_iter().collect()
+        };
         // Outings, not passes: laps show ground covered, not that the athlete
         // came back. Under a sport filter the floor counts that sport's
         // outings, so a road ridden weekly cannot admit itself to the Run list
-        // on one run.
+        // on one run. The pin exempts the floor and not the sport: a pin says
+        // this ground stays, not that a run travelled a ride's road.
+        let supported =
+            |s: &FrequentSection, outings: u32| outings >= min || pinned.contains(&s.id);
         self.sections
             .iter()
             .filter(|s| match sport_type {
-                Some(st) => self.covers_sport(s, st) && self.outings_in_sport(s, st) >= min,
-                None => Self::outings(s) >= min,
+                Some(st) => self.covers_sport(s, st) && supported(s, self.outings_in_sport(s, st)),
+                None => supported(s, Self::outings(s)),
             })
             .filter(|s| !self.superseded_ids.contains(&s.id))
             .collect()
@@ -939,7 +1068,9 @@ impl PersistentEngine {
             Option<u32>,
             Option<u32>,
         )> = {
-            let mut stmt = match self.db.prepare(
+            // Cached: the attach loop refreshes one section per match and the
+            // parse of these twenty-two columns is the cost, not the row.
+            let mut stmt = match self.db.prepare_cached(
                 "SELECT section_type, sport_type, name, polyline_json, distance_meters,
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
@@ -1146,12 +1277,19 @@ impl PersistentEngine {
     /// disabled or superseded section reaches no list, and every caller here
     /// is asking whether the athlete has sections to look at.
     pub fn get_section_count(&self) -> u32 {
+        queries::pooled::section_count(&self.db)
+    }
+
+    /// Auto sections the athlete retired, disabled or superseded by a custom
+    /// one. `VISIBLE_FILTER` is the complement of this, so no list query can
+    /// answer it: the rows it counts are exactly the ones every section view
+    /// leaves out, which is why the figure beside the "Removed" chip needs its
+    /// own count.
+    pub fn get_retired_section_count(&self) -> u32 {
         self.db
             .query_row(
-                &format!(
-                    "SELECT COUNT(*) FROM sections WHERE {}",
-                    Self::VISIBLE_FILTER
-                ),
+                "SELECT COUNT(*) FROM sections
+                 WHERE section_type = 'auto' AND (disabled = 1 OR superseded_by IS NOT NULL)",
                 [],
                 |row| row.get(0),
             )
@@ -1177,7 +1315,7 @@ impl PersistentEngine {
                     elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score
              FROM sections
              WHERE {}",
-            Self::VISIBLE_FILTER
+            PersistentEngine::VISIBLE_FILTER
         )) {
             Ok(s) => s,
             Err(e) => {
@@ -1241,7 +1379,6 @@ impl PersistentEngine {
                     avg_grade_percent: row.get(18)?,
                     elevation_loss_m: row.get(21)?,
                     max_grade_percent: row.get(22)?,
-                    straightness: row.get(23)?,
                     klass: row.get(24)?,
                     is_lift: row.get::<_, Option<i32>>(25)?.unwrap_or(0) != 0,
                     rank_score: row.get(26)?,
@@ -1309,7 +1446,7 @@ impl PersistentEngine {
 
     /// [`covers_sport`](Self::covers_sport) over a summary, which already
     /// carries every sport its traversals hold in `sport_types`.
-    pub(crate) fn summary_covers_sport(s: &SectionSummary, sport: &str) -> bool {
+    pub fn summary_covers_sport(s: &SectionSummary, sport: &str) -> bool {
         s.sport_type == sport || s.sport_types.iter().any(|t| t == sport)
     }
 
@@ -1350,50 +1487,7 @@ impl PersistentEngine {
         // Load full activity portions from junction table
         let portions = self.get_section_portions(section_id);
 
-        // Convert Section → FrequentSection
-        let frequent = FrequentSection {
-            id: section.id,
-            name: section.name,
-            sport_type: section.sport_type,
-            polyline: section.polyline,
-            representative_activity_id: section.representative_activity_id.unwrap_or_default(),
-            representative_range: None,
-            activity_ids: section.activity_ids,
-            activity_portions: portions,
-            visit_count: section.visit_count,
-            distance_meters: section.distance_meters,
-            activity_traces: std::collections::HashMap::new(),
-            confidence: section.confidence.unwrap_or(0.0),
-            observation_count: section.observation_count.unwrap_or(0),
-            average_spread: section.average_spread.unwrap_or(0.0),
-            point_density: section.point_density.unwrap_or_default(),
-            scale: section.scale.and_then(|s| s.parse().ok()),
-            is_user_defined: section.is_user_defined,
-            stability: section.stability.unwrap_or(0.0),
-            elevation_gain_m: section.elevation_gain_m,
-            avg_grade_percent: section.avg_grade_percent,
-            version: section.version.unwrap_or(1),
-            updated_at: section.updated_at,
-            created_at: Some(section.created_at),
-            enrichment: tracematch::Enrichment {
-                elevation_gain_m: section.elevation_gain_m,
-                avg_grade_percent: section.avg_grade_percent,
-                elevation_loss_m: section.elevation_loss_m,
-                max_grade_percent: section.max_grade_percent,
-                straightness: section.straightness,
-                klass: section
-                    .klass
-                    .as_deref()
-                    .and_then(tracematch::SectionClass::parse),
-                is_lift: section.is_lift,
-            },
-            rank: section.rank_score.map(|score| tracematch::RankFeatures {
-                score,
-                sport_score: section.sport_rank_score.unwrap_or(score),
-                ..Default::default()
-            }),
-            consensus_state: None,
-        };
+        let frequent = pooled::to_frequent(section, portions);
 
         // Cache the raw row for future access; overlay applies per read.
         self.section_cache
@@ -1411,42 +1505,7 @@ impl PersistentEngine {
 
     /// Load activity portions for a section from the junction table.
     fn get_section_portions(&self, section_id: &str) -> Vec<SectionPortion> {
-        let mut stmt = match self.db.prepare(
-            "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index, sa.distance_meters
-             FROM section_activities sa
-             WHERE sa.section_id = ? AND sa.excluded = 0
-             ORDER BY sa.start_index",
-        ) {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!(
-                    "veloqrs: [PersistentEngine] get_section_portions query failed for {}: {}",
-                    section_id,
-                    e
-                );
-                return Vec::new();
-            }
-        };
-        stmt.query_map(params![section_id], |row| {
-            Ok(SectionPortion {
-                activity_id: row.get(0)?,
-                direction: {
-                    let s: String = row.get(1)?;
-                    s.parse().map_err(|_| {
-                        rusqlite::Error::FromSqlConversionFailure(
-                            1,
-                            Type::Text,
-                            Box::new(std::fmt::Error),
-                        )
-                    })?
-                },
-                start_index: row.get(2)?,
-                end_index: row.get(3)?,
-                distance_meters: row.get(4)?,
-            })
-        })
-        .map(|iter| iter.filter_map(|r| r.ok()).collect())
-        .unwrap_or_default()
+        pooled::section_portions(&self.db, section_id)
     }
 
     /// Invalidate a section in the LRU cache.
@@ -1480,32 +1539,48 @@ impl PersistentEngine {
         }
     }
 
-    /// Batch-load section polylines for multiple section IDs in a single query.
-    /// Returns a map of section_id → flat [lat, lng, lat, lng, ...] coordinates.
-    pub(super) fn get_section_polylines_batch(
+    /// The sections in `section_ids` whose most recent outing is their record.
+    ///
+    /// The feed card marks the activity that set a section record and the
+    /// activity plot marks the encounter; the sections list had nothing. This
+    /// is the same fact keyed by section rather than by activity: the record
+    /// holder in `activity_indicators` is also the latest activity to travel
+    /// the section.
+    ///
+    /// One query for the whole page rather than one per row, and only for the
+    /// rows the page actually carries, which is twenty at a time.
+    pub(super) fn sections_where_latest_is_record(
         &self,
         section_ids: &[&str],
-    ) -> HashMap<String, Vec<u8>> {
+    ) -> std::collections::HashSet<String> {
+        use std::collections::HashSet;
         if section_ids.is_empty() {
-            return HashMap::new();
+            return HashSet::new();
         }
 
         let placeholders: Vec<&str> = section_ids.iter().map(|_| "?").collect();
         let query = format!(
-            "SELECT id, polyline_blob, polyline_json, representative_activity_id,
-                    rep_start_index, rep_end_index
-             FROM sections WHERE id IN ({})",
-            placeholders.join(",")
+            "SELECT DISTINCT ai.target_id
+             FROM activity_indicators ai
+             WHERE ai.indicator_type = 'section_pr'
+               AND ai.target_id IN ({ids})
+               AND ai.activity_id = (
+                 SELECT sa.activity_id
+                 FROM section_activities sa
+                 JOIN activities a ON a.id = sa.activity_id
+                 WHERE sa.section_id = ai.target_id
+                   AND sa.excluded = 0
+                 ORDER BY a.start_date DESC, sa.activity_id DESC
+                 LIMIT 1
+               )",
+            ids = placeholders.join(",")
         );
 
         let mut stmt = match self.db.prepare(&query) {
             Ok(s) => s,
             Err(e) => {
-                log::error!(
-                    "veloqrs: [PersistentEngine] Failed to prepare batch section polyline query: {}",
-                    e
-                );
-                return HashMap::new();
+                log::error!("veloqrs: [sections] latest-is-record query failed to prepare: {e}");
+                return HashSet::new();
             }
         };
 
@@ -1514,28 +1589,91 @@ impl PersistentEngine {
             .map(|id| id as &dyn rusqlite::types::ToSql)
             .collect();
 
-        let results: HashMap<String, Vec<u8>> = stmt
-            .query_map(params.as_slice(), |row| {
-                let section_id: String = row.get(0)?;
-                let polyline_blob: Option<Vec<u8>> = row.get(1)?;
-                let polyline_json: Option<String> = row.get(2)?;
-                let rep: Option<String> = row.get(3)?;
-                let rep_start: Option<u32> = row.get(4)?;
-                let rep_end: Option<u32> = row.get(5)?;
-                let points = geometry::line(
-                    &self.db,
-                    polyline_blob.as_deref(),
-                    polyline_json.as_deref(),
-                    geometry::reference(rep.as_deref(), rep_start, rep_end),
-                )
-                .unwrap_or_default();
-                Ok((section_id, crate::coords::encode(&points)))
-            })
-            .ok()
-            .map(|iter| iter.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default();
+        match stmt.query_map(params.as_slice(), |row| row.get::<_, String>(0)) {
+            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+            Err(e) => {
+                log::error!("veloqrs: [sections] latest-is-record query failed: {e}");
+                HashSet::new()
+            }
+        }
+    }
 
-        results
+    /// Batch-load section polylines for multiple section IDs in a single query.
+    /// Returns a map of section_id → flat [lat, lng, lat, lng, ...] coordinates.
+    pub(super) fn get_section_polylines_batch(
+        &self,
+        section_ids: &[&str],
+    ) -> HashMap<String, Vec<u8>> {
+        pooled::section_polylines(&self.db, section_ids)
+    }
+
+    /// Sections as the regional map draws them: the summary fields it labels and
+    /// colours with, and the line, in one pass.
+    ///
+    /// The map's own read used to be `get_sections_filtered`, which carries the
+    /// activity ids, one portion record per traversal and the point density for
+    /// every section, all of it discarded after six fields were read. The
+    /// polylines come from the batch query rather than one call per section.
+    ///
+    /// One difference from that read, and it is deliberate: this answers from
+    /// the `sections` table rather than the in-memory catalogue. The table is
+    /// the record and the catalogue is a cache of it, and `VISIBLE_FILTER`
+    /// excludes the disabled and superseded rows the other read excluded by
+    /// holding a set of ids.
+    pub fn get_map_sections(
+        &self,
+        sport_type: Option<&str>,
+        min_visits: Option<u32>,
+    ) -> Vec<crate::FfiMapSection> {
+        let mut summaries = match sport_type {
+            Some(sport) => self.get_section_summaries_for_sport(sport),
+            None => self.get_section_summaries(),
+        };
+        // Outings, not passes, and a pin exempts the floor: the same rule
+        // `get_sections_filtered` applies, so the map's overlay does not change
+        // which sections it shows. With no floor there is nothing to exempt, so
+        // the pin table is only read when one is asked for.
+        if let Some(min_visits) = min_visits {
+            let pinned: std::collections::HashSet<String> = if min_visits == 0 {
+                std::collections::HashSet::new()
+            } else {
+                self.pinned_section_ids().into_iter().collect()
+            };
+            summaries.retain(|s| s.activity_count >= min_visits || pinned.contains(&s.id));
+        }
+        if summaries.is_empty() {
+            return Vec::new();
+        }
+
+        let ids: Vec<&str> = summaries.iter().map(|s| s.id.as_str()).collect();
+        let mut polylines = self.get_section_polylines_batch(&ids);
+        let names = self.named_overlay_cached_names();
+
+        summaries
+            .into_iter()
+            .filter_map(|summary| {
+                // A section whose line will not decode has nothing to draw, and
+                // the map skipped it anyway once it counted the points.
+                let encoded_polyline = polylines.remove(&summary.id)?;
+                if encoded_polyline.is_empty() {
+                    return None;
+                }
+                let name = summary
+                    .name
+                    .clone()
+                    .or_else(|| names.get(&summary.id).cloned());
+                Some(crate::FfiMapSection {
+                    id: summary.id,
+                    name,
+                    sport_type: summary.sport_type,
+                    visit_count: summary.visit_count,
+                    distance_meters: summary.distance_meters,
+                    klass: summary.klass,
+                    max_grade_percent: summary.max_grade_percent,
+                    encoded_polyline,
+                })
+            })
+            .collect()
     }
 
     /// Insert a single section_activities row for a manually matched activity.
@@ -1548,6 +1686,36 @@ impl PersistentEngine {
         end_index: u32,
         distance_meters: f64,
     ) -> Result<(), String> {
+        let heartrate = self.load_heartrate_series(activity_id);
+        self.insert_section_activity_with_heartrate(
+            section_id,
+            activity_id,
+            direction,
+            start_index,
+            end_index,
+            distance_meters,
+            heartrate.as_deref(),
+        )
+    }
+
+    /// The same insert for a caller that already holds the activity's heart
+    /// rate series.
+    ///
+    /// One activity's portions all read the same blob, so the attach loop
+    /// decoded it once per portion, under the write lock. The series belongs
+    /// to the activity and not to the portion, so the caller loads it once and
+    /// hands it down.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn insert_section_activity_with_heartrate(
+        &self,
+        section_id: &str,
+        activity_id: &str,
+        direction: &tracematch::Direction,
+        start_index: u32,
+        end_index: u32,
+        distance_meters: f64,
+        heartrate: Option<&[Option<f64>]>,
+    ) -> Result<(), String> {
         let dir_str = direction.to_string();
 
         // Compute lap_time from time_stream when available (in-memory or DB)
@@ -1555,18 +1723,16 @@ impl PersistentEngine {
             self.load_lap_time(activity_id, start_index, end_index, distance_meters);
         // The effort the lap was ridden at, from the same slice, so the
         // efficiency trend has both halves of its ratio for this pass.
-        let avg_hr = mean_over_traversal(
-            self.load_heartrate_series(activity_id).as_deref(),
-            start_index,
-            end_index,
-        );
+        let avg_hr = mean_over_traversal(heartrate, start_index, end_index);
 
+        // Cached: an activity with twelve portions runs this insert twelve
+        // times, and an attach runs it once per portion of every match.
         self.db
-            .execute(
+            .prepare_cached(
                 "INSERT OR IGNORE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                rusqlite::params![section_id, activity_id, dir_str, start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr],
             )
+            .and_then(|mut stmt| stmt.execute(rusqlite::params![section_id, activity_id, dir_str, start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr]))
             .map_err(|e| format!("Failed to insert section_activity: {}", e))?;
         Ok(())
     }
@@ -1578,11 +1744,11 @@ impl PersistentEngine {
     pub(super) fn load_heartrate_series(&self, activity_id: &str) -> Option<Vec<Option<f64>>> {
         let blob: Vec<u8> = self
             .db
-            .query_row(
+            .prepare_cached(
                 "SELECT data FROM activity_streams WHERE activity_id = ? AND kind = 'heartrate'",
-                rusqlite::params![activity_id],
-                |row| row.get(0),
             )
+            .ok()?
+            .query_row(rusqlite::params![activity_id], |row| row.get(0))
             .ok()?;
         codec::decode_series(&blob)
     }
@@ -1599,134 +1765,36 @@ impl PersistentEngine {
             Some(ts.clone())
         } else {
             self.db
-                .query_row(
-                    "SELECT times FROM time_streams WHERE activity_id = ?",
-                    rusqlite::params![activity_id],
-                    |row| {
+                .prepare_cached("SELECT times FROM time_streams WHERE activity_id = ?")
+                .and_then(|mut stmt| {
+                    stmt.query_row(rusqlite::params![activity_id], |row| {
                         let bytes: Vec<u8> = row.get(0)?;
                         codec::deserialize::<Vec<u32>>(&bytes)
                             .map_err(|_| rusqlite::Error::InvalidQuery)
-                    },
-                )
+                    })
+                })
                 .ok()
         };
 
-        compute_lap_time_from_stream(times.as_deref(), start_index, end_index, distance_meters)
+        compute_lap_time_from_stream(
+            times.as_deref(),
+            self.track_point_count(activity_id),
+            start_index,
+            end_index,
+            distance_meters,
+        )
     }
 
-    /// Get sections near a given section within a radius (meters).
-    /// Returns summaries with polyline data for map rendering.
+    /// Sections near a given section, measured between the two lines rather
+    /// than between their bounds-box midpoints, and limited to the query
+    /// section's sport family. Returns summaries with polyline data for map
+    /// rendering, nearest first.
     pub fn get_nearby_sections(
         &self,
         section_id: &str,
         radius_meters: f64,
     ) -> Vec<crate::FfiNearbySectionSummary> {
-        // Get the query section's center
-        let query_center: Option<(f64, f64)> = self
-            .db
-            .query_row(
-                "SELECT (COALESCE(bounds_min_lat, 0) + COALESCE(bounds_max_lat, 0)) / 2.0,
-                        (COALESCE(bounds_min_lng, 0) + COALESCE(bounds_max_lng, 0)) / 2.0
-                 FROM sections WHERE id = ? AND bounds_min_lat IS NOT NULL",
-                rusqlite::params![section_id],
-                |row| Ok((row.get::<_, f64>(0)?, row.get::<_, f64>(1)?)),
-            )
-            .ok();
-
-        let (center_lat, center_lng) = match query_center {
-            Some(c) => c,
-            None => return vec![],
-        };
-
-        // Query all sections with bounds (excluding query section, disabled, superseded)
-        let mut stmt = match self.db.prepare(
-            "SELECT s.id, s.section_type, s.name, s.sport_type, s.distance_meters,
-                    s.visit_count,
-                    (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0 as center_lat,
-                    (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0 as center_lng,
-                    s.polyline_json, s.polyline_blob,
-                    s.representative_activity_id, s.rep_start_index, s.rep_end_index
-             FROM sections s
-             WHERE s.id != ? AND s.disabled = 0 AND s.superseded_by IS NULL
-               AND s.bounds_min_lat IS NOT NULL",
-        ) {
-            Ok(s) => s,
-            Err(_) => return vec![],
-        };
-
-        let rows = stmt
-            .query_map(rusqlite::params![section_id], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,          // id
-                    row.get::<_, String>(1)?,          // section_type
-                    row.get::<_, Option<String>>(2)?,  // name
-                    row.get::<_, String>(3)?,          // sport_type
-                    row.get::<_, f64>(4)?,             // distance_meters
-                    row.get::<_, u32>(5)?,             // visit_count
-                    row.get::<_, f64>(6)?,             // center_lat
-                    row.get::<_, f64>(7)?,             // center_lng
-                    row.get::<_, Option<String>>(8)?,  // polyline_json
-                    row.get::<_, Option<Vec<u8>>>(9)?, // polyline_blob
-                    row.get::<_, Option<String>>(10)?, // representative_activity_id
-                    row.get::<_, Option<u32>>(11)?,    // rep_start_index
-                    row.get::<_, Option<u32>>(12)?,    // rep_end_index
-                ))
-            })
-            .ok();
-
-        let mut results: Vec<crate::FfiNearbySectionSummary> = Vec::new();
-
-        if let Some(rows) = rows {
-            for row in rows.flatten() {
-                let (
-                    id,
-                    section_type,
-                    name,
-                    sport_type,
-                    distance_meters,
-                    visit_count,
-                    lat,
-                    lng,
-                    polyline_json,
-                    polyline_blob,
-                    rep,
-                    rep_start,
-                    rep_end,
-                ) = row;
-                let dist = haversine_distance(center_lat, center_lng, lat, lng);
-                if dist > radius_meters {
-                    continue;
-                }
-
-                let encoded_polyline = geometry::line(
-                    &self.db,
-                    polyline_blob.as_deref(),
-                    polyline_json.as_deref(),
-                    geometry::reference(rep.as_deref(), rep_start, rep_end),
-                )
-                .map(|points| crate::coords::encode(&points))
-                .unwrap_or_default();
-
-                results.push(crate::FfiNearbySectionSummary {
-                    id,
-                    section_type,
-                    name,
-                    sport_type,
-                    distance_meters,
-                    visit_count,
-                    center_distance_meters: dist,
-                    encoded_polyline,
-                });
-            }
-        }
-
-        results.sort_by(|a, b| {
-            a.center_distance_meters
-                .partial_cmp(&b.center_distance_meters)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        results.truncate(20);
-        results
+        pooled::nearby_sections(&self.db, section_id, radius_meters)
     }
 
     pub(super) fn save_sections(&self) -> SqlResult<()> {
@@ -1818,7 +1886,11 @@ impl PersistentEngine {
         // Exclusions are user decisions living on junction rows the wipe
         // below cascades away. Read them first so the re-insert can put
         // them back on the surviving section ids.
-        let carried_exclusions = capture_auto_exclusions(&tx)?;
+        // A catalogue wipe since the last apply deleted its rows already and
+        // left their exclusions held for this one.
+        let held_exclusions = held_auto_exclusions(&tx);
+        let mut carried_exclusions = held_exclusions.clone();
+        carried_exclusions.extend(capture_auto_exclusions(&tx)?);
 
         // Clear existing auto sections (keep custom, trimmed, and accepted
         // sections, and disabled ones, whose row is retained so enable can
@@ -1916,39 +1988,50 @@ impl PersistentEngine {
                     }
                 }
             }
-            if needed.is_empty() {
-                HashMap::new()
-            } else {
-                let mut map: HashMap<String, Vec<u32>> = HashMap::with_capacity(needed.len());
-                let placeholders = std::iter::repeat("?")
-                    .take(needed.len())
-                    .collect::<Vec<_>>()
-                    .join(",");
+            let mut map: HashMap<String, Vec<u32>> = HashMap::with_capacity(needed.len());
+            let ids: Vec<&str> = needed.iter().copied().collect();
+            // Chunked for the same reason the detection pool is: one `IN` over
+            // the whole library holds every decoded series resident at once,
+            // which on a long-ride library is the spike, not the total.
+            for chunk in ids.chunks(STREAM_READ_CHUNK) {
                 let sql = format!(
                     "SELECT activity_id, times FROM time_streams WHERE activity_id IN ({})",
-                    placeholders
+                    placeholders_for(chunk.len())
                 );
-                let ids: Vec<&str> = needed.iter().copied().collect();
                 let params_vec: Vec<&dyn rusqlite::ToSql> =
-                    ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
-                if let Ok(mut stmt) = tx.prepare(&sql) {
-                    if let Ok(rows) = stmt.query_map(params_vec.as_slice(), |row| {
+                    chunk.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+                if let Ok(mut stmt) = tx.prepare(&sql)
+                    && let Ok(rows) = stmt.query_map(params_vec.as_slice(), |row| {
                         let id: String = row.get(0)?;
                         let bytes: Vec<u8> = row.get(1)?;
                         let stream = codec::deserialize::<Vec<u32>>(&bytes)
                             .map_err(|_| rusqlite::Error::InvalidQuery)?;
                         Ok((id, stream))
-                    }) {
-                        for row in rows.flatten() {
-                            map.insert(row.0, row.1);
-                        }
+                    })
+                {
+                    for row in rows.flatten() {
+                        map.insert(row.0, row.1);
                     }
                 }
-                map
             }
+            map
         };
 
         // The effort each lap was ridden at comes from the same slice as its
+        // How long each activity's track is, so a stream that is not in the
+        // track's index space cannot time a traversal. One batched read for
+        // the same reason the streams take one.
+        let track_points: HashMap<String, usize> = {
+            let ids: Vec<String> = sorted_sections
+                .iter()
+                .flat_map(|s| s.activity_portions.iter())
+                .map(|p| p.activity_id.clone())
+                .collect::<std::collections::HashSet<_>>()
+                .into_iter()
+                .collect();
+            self.track_point_counts(&ids)
+        };
+
         // clock, and `OR REPLACE` rewrites the whole row, so the apply computes
         // it here rather than leaving it to the lazy pass: the pass would then
         // redo the whole library after every detect, and the column would be
@@ -1961,22 +2044,15 @@ impl PersistentEngine {
                     needed.insert(portion.activity_id.as_str());
                 }
             }
-            if needed.is_empty() {
-                HashMap::new()
-            } else {
-                let mut map: HashMap<String, Vec<Option<f64>>> =
-                    HashMap::with_capacity(needed.len());
-                let placeholders = std::iter::repeat("?")
-                    .take(needed.len())
-                    .collect::<Vec<_>>()
-                    .join(",");
+            let mut map: HashMap<String, Vec<Option<f64>>> = HashMap::with_capacity(needed.len());
+            let ids: Vec<&str> = needed.iter().copied().collect();
+            for chunk in ids.chunks(STREAM_READ_CHUNK) {
                 let sql = format!(
                     "SELECT activity_id, data FROM activity_streams WHERE kind = 'heartrate' AND activity_id IN ({})",
-                    placeholders
+                    placeholders_for(chunk.len())
                 );
-                let ids: Vec<&str> = needed.iter().copied().collect();
                 let params_vec: Vec<&dyn rusqlite::ToSql> =
-                    ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+                    chunk.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
                 if let Ok(mut stmt) = tx.prepare(&sql)
                     && let Ok(rows) = stmt.query_map(params_vec.as_slice(), |row| {
                         let id: String = row.get(0)?;
@@ -1990,8 +2066,8 @@ impl PersistentEngine {
                         }
                     }
                 }
-                map
             }
+            map
         };
 
         for section in sorted_sections {
@@ -2146,6 +2222,7 @@ impl PersistentEngine {
 
                 let (lap_time, lap_pace) = compute_lap_time_from_stream(
                     times,
+                    track_points.get(&portion.activity_id).copied(),
                     portion.start_index,
                     portion.end_index,
                     portion.distance_meters,
@@ -2183,6 +2260,7 @@ impl PersistentEngine {
         // Sections whose id survived the re-detect get their exclusions
         // back; a section that died has no rows and the updates are no-ops.
         reapply_auto_exclusions(&tx, &carried_exclusions)?;
+        release_placed_auto_exclusions(&tx, held_exclusions)?;
 
         // Write the identity-registry blob in THIS transaction so the
         // registry and the catalogue it describes commit (or roll back) together.
@@ -2438,4 +2516,367 @@ pub(crate) fn compute_section_portions(
     config: &tracematch::SectionConfig,
 ) -> Vec<tracematch::SectionPortion> {
     tracematch::track_portions(activity_id, track, section_polyline, config)
+}
+
+/// Pair every summary with each sport that travels it, most travelled first.
+///
+/// One pass over a list the caller already holds. Asking the database per
+/// sport, which is what the insights bundle used to do, re-runs the whole
+/// summary query once per sport and discards every row belonging to the other
+/// thirteen: measured at a third of a 15 ms bundle on a 152-section library.
+///
+/// `min_outings` is the returning floor. A PR slot is earned by coming back,
+/// so a section travelled once does not hold one however fast the pass was.
+pub fn summaries_by_sport(
+    summaries: &[SectionSummary],
+    sports: &[String],
+    min_outings: u32,
+) -> Vec<(String, SectionSummary)> {
+    let mut paired: Vec<(String, SectionSummary)> = sports
+        .iter()
+        .flat_map(|sport| {
+            summaries
+                .iter()
+                .filter(|s| PersistentEngine::summary_covers_sport(s, sport))
+                .filter(|s| s.activity_count >= min_outings)
+                .map(move |s| (sport.clone(), s.clone()))
+        })
+        .collect();
+    paired.sort_by_key(|(_, s)| std::cmp::Reverse(s.visit_count));
+    paired
+}
+
+/// The nearby-section read over a pooled connection: every row it touches is
+/// committed, and the R-tree the engine holds is not one of them, so the
+/// bounds come out of SQL either way. The engine method above delegates here.
+pub(crate) mod pooled {
+    use rusqlite::types::Type;
+    use rusqlite::{Connection, params};
+
+    use super::{FrequentSection, SectionPortion};
+    use crate::sections::Section;
+
+    use super::proximity;
+    use crate::persistence::PersistentEngine;
+
+    /// Every named section's line in one query, encoded as it leaves the
+    /// engine. The map asks for a whole catalogue of them, so this is one
+    /// statement rather than a read per section.
+    pub(crate) fn section_polylines(
+        conn: &Connection,
+        section_ids: &[&str],
+    ) -> std::collections::HashMap<String, Vec<u8>> {
+        use std::collections::HashMap;
+        if section_ids.is_empty() {
+            return HashMap::new();
+        }
+
+        let placeholders: Vec<&str> = section_ids.iter().map(|_| "?").collect();
+        let query = format!(
+            "SELECT id, polyline_blob, polyline_json, representative_activity_id,
+                    rep_start_index, rep_end_index
+             FROM sections WHERE id IN ({})",
+            placeholders.join(",")
+        );
+
+        let mut stmt = match conn.prepare(&query) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("veloqrs: [sections] batch section polyline query failed: {e}");
+                return HashMap::new();
+            }
+        };
+
+        let params: Vec<&dyn rusqlite::types::ToSql> = section_ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::types::ToSql)
+            .collect();
+
+        stmt.query_map(params.as_slice(), |row| {
+            let section_id: String = row.get(0)?;
+            let polyline_blob: Option<Vec<u8>> = row.get(1)?;
+            let polyline_json: Option<String> = row.get(2)?;
+            let rep: Option<String> = row.get(3)?;
+            let rep_start: Option<u32> = row.get(4)?;
+            let rep_end: Option<u32> = row.get(5)?;
+            let points = super::geometry::line(
+                conn,
+                polyline_blob.as_deref(),
+                polyline_json.as_deref(),
+                super::geometry::reference(rep.as_deref(), rep_start, rep_end),
+            )
+            .unwrap_or_default();
+            Ok((section_id, crate::coords::encode(&points)))
+        })
+        .ok()
+        .map(|iter| iter.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
+    }
+
+    pub(crate) fn nearby_sections(
+        conn: &Connection,
+        section_id: &str,
+        radius_meters: f64,
+    ) -> Vec<crate::FfiNearbySectionSummary> {
+        if !(radius_meters > 0.0) {
+            return vec![];
+        }
+
+        let query = conn
+            .query_row(
+                "SELECT bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                        sport_type, polyline_json, polyline_blob,
+                        representative_activity_id, rep_start_index, rep_end_index
+                 FROM sections WHERE id = ? AND bounds_min_lat IS NOT NULL",
+                rusqlite::params![section_id],
+                |row| {
+                    Ok((
+                        row.get::<_, f64>(0)?,
+                        row.get::<_, f64>(1)?,
+                        row.get::<_, f64>(2)?,
+                        row.get::<_, f64>(3)?,
+                        row.get::<_, String>(4)?,
+                        row.get::<_, Option<String>>(5)?,
+                        row.get::<_, Option<Vec<u8>>>(6)?,
+                        row.get::<_, Option<String>>(7)?,
+                        row.get::<_, Option<u32>>(8)?,
+                        row.get::<_, Option<u32>>(9)?,
+                    ))
+                },
+            )
+            .ok();
+
+        let Some((
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+            sport_type,
+            query_json,
+            query_blob,
+            query_rep,
+            query_rep_start,
+            query_rep_end,
+        )) = query
+        else {
+            return vec![];
+        };
+
+        let Ok(query_points) = super::geometry::line(
+            conn,
+            query_blob.as_deref(),
+            query_json.as_deref(),
+            super::geometry::reference(query_rep.as_deref(), query_rep_start, query_rep_end),
+        ) else {
+            return vec![];
+        };
+        if query_points.is_empty() {
+            return vec![];
+        }
+
+        // The bounding box is a prefilter and nothing more: a box within the
+        // radius says only that the lines might come that close. The answer is
+        // decided on the resolved lines below.
+        let (dlat, dlng) = proximity::degree_span((min_lat + max_lat) / 2.0, radius_meters);
+        let family = crate::sport::sql_list(&crate::sport::family_of(&sport_type));
+        let sql = format!(
+            "SELECT s.id, s.section_type, s.name, s.sport_type, s.distance_meters,
+                    s.visit_count,
+                    (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0,
+                    (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0,
+                    s.polyline_json, s.polyline_blob,
+                    s.representative_activity_id, s.rep_start_index, s.rep_end_index
+             FROM sections s
+             WHERE s.id != ?1 AND {}
+               AND s.sport_type IN ({family})
+               AND s.bounds_min_lat IS NOT NULL
+               AND s.bounds_min_lat <= ?3 + ?5 AND s.bounds_max_lat >= ?2 - ?5
+               AND s.bounds_min_lng <= ?6 + ?7 AND s.bounds_max_lng >= ?4 - ?7",
+            PersistentEngine::VISIBLE_FILTER
+        );
+
+        let mut stmt = match conn.prepare(&sql) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("veloqrs: [sections] nearby query did not prepare: {e}");
+                return vec![];
+            }
+        };
+
+        let rows = stmt.query_map(
+            rusqlite::params![section_id, min_lat, max_lat, min_lng, dlat, max_lng, dlng],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,          // id
+                    row.get::<_, String>(1)?,          // section_type
+                    row.get::<_, Option<String>>(2)?,  // name
+                    row.get::<_, String>(3)?,          // sport_type
+                    row.get::<_, f64>(4)?,             // distance_meters
+                    row.get::<_, u32>(5)?,             // visit_count
+                    row.get::<_, f64>(6)?,             // center_lat
+                    row.get::<_, f64>(7)?,             // center_lng
+                    row.get::<_, Option<String>>(8)?,  // polyline_json
+                    row.get::<_, Option<Vec<u8>>>(9)?, // polyline_blob
+                    row.get::<_, Option<String>>(10)?, // representative_activity_id
+                    row.get::<_, Option<u32>>(11)?,    // rep_start_index
+                    row.get::<_, Option<u32>>(12)?,    // rep_end_index
+                ))
+            },
+        );
+        let rows = match rows {
+            Ok(rows) => rows,
+            Err(e) => {
+                log::warn!("veloqrs: [sections] nearby query did not run: {e}");
+                return vec![];
+            }
+        };
+
+        let query_center_lat = (min_lat + max_lat) / 2.0;
+        let query_center_lng = (min_lng + max_lng) / 2.0;
+        let mut results: Vec<(f64, crate::FfiNearbySectionSummary)> = Vec::new();
+
+        for row in rows.flatten() {
+            let (
+                id,
+                section_type,
+                name,
+                sport_type,
+                distance_meters,
+                visit_count,
+                lat,
+                lng,
+                polyline_json,
+                polyline_blob,
+                rep,
+                rep_start,
+                rep_end,
+            ) = row;
+
+            let Ok(points) = super::geometry::line(
+                conn,
+                polyline_blob.as_deref(),
+                polyline_json.as_deref(),
+                super::geometry::reference(rep.as_deref(), rep_start, rep_end),
+            ) else {
+                continue;
+            };
+
+            let nearest = proximity::nearest_approach_meters(&query_points, &points, 0.0);
+            if nearest > radius_meters {
+                continue;
+            }
+
+            results.push((
+                nearest,
+                crate::FfiNearbySectionSummary {
+                    id,
+                    section_type,
+                    name,
+                    sport_type,
+                    distance_meters,
+                    visit_count,
+                    center_distance_meters: super::haversine_distance(
+                        query_center_lat,
+                        query_center_lng,
+                        lat,
+                        lng,
+                    ),
+                    encoded_polyline: crate::coords::encode(&points),
+                },
+            ));
+        }
+
+        results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+        results.truncate(20);
+        results.into_iter().map(|(_, summary)| summary).collect()
+    }
+
+    pub(crate) fn section_portions(conn: &Connection, section_id: &str) -> Vec<SectionPortion> {
+        let mut stmt = match conn.prepare(
+            "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index, sa.distance_meters
+             FROM section_activities sa
+             WHERE sa.section_id = ? AND sa.excluded = 0
+             ORDER BY sa.start_index",
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!(
+                    "veloqrs: [PersistentEngine] section_portions query failed for {}: {}",
+                    section_id,
+                    e
+                );
+                return Vec::new();
+            }
+        };
+        stmt.query_map(params![section_id], |row| {
+            Ok(SectionPortion {
+                activity_id: row.get(0)?,
+                direction: {
+                    let s: String = row.get(1)?;
+                    s.parse().map_err(|_| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            1,
+                            Type::Text,
+                            Box::new(std::fmt::Error),
+                        )
+                    })?
+                },
+                start_index: row.get(2)?,
+                end_index: row.get(3)?,
+                distance_meters: row.get(4)?,
+            })
+        })
+        .map(|iter| iter.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
+    }
+
+    /// One stored section as the detail screens want it: the row, its
+    /// junction portions, and nothing the engine holds in memory. Lifted out
+    /// of `get_section_by_id` so the pooled read and the lock-holding one
+    /// cannot build a different record from the same row.
+    pub(crate) fn to_frequent(section: Section, portions: Vec<SectionPortion>) -> FrequentSection {
+        FrequentSection {
+            id: section.id,
+            name: section.name,
+            sport_type: section.sport_type,
+            polyline: section.polyline,
+            representative_activity_id: section.representative_activity_id.unwrap_or_default(),
+            representative_range: None,
+            activity_ids: section.activity_ids,
+            activity_portions: portions,
+            visit_count: section.visit_count,
+            distance_meters: section.distance_meters,
+            activity_traces: std::collections::HashMap::new(),
+            confidence: section.confidence.unwrap_or(0.0),
+            observation_count: section.observation_count.unwrap_or(0),
+            average_spread: section.average_spread.unwrap_or(0.0),
+            point_density: section.point_density.unwrap_or_default(),
+            scale: section.scale.and_then(|s| s.parse().ok()),
+            is_user_defined: section.is_user_defined,
+            stability: section.stability.unwrap_or(0.0),
+            elevation_gain_m: section.elevation_gain_m,
+            avg_grade_percent: section.avg_grade_percent,
+            version: section.version.unwrap_or(1),
+            updated_at: section.updated_at,
+            created_at: Some(section.created_at),
+            enrichment: tracematch::Enrichment {
+                elevation_gain_m: section.elevation_gain_m,
+                avg_grade_percent: section.avg_grade_percent,
+                elevation_loss_m: section.elevation_loss_m,
+                max_grade_percent: section.max_grade_percent,
+                straightness: section.straightness,
+                klass: section
+                    .klass
+                    .as_deref()
+                    .and_then(tracematch::SectionClass::parse),
+                is_lift: section.is_lift,
+            },
+            rank: section.rank_score.map(|score| tracematch::RankFeatures {
+                score,
+                sport_score: section.sport_rank_score.unwrap_or(score),
+                ..Default::default()
+            }),
+            consensus_state: None,
+        }
+    }
 }

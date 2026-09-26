@@ -134,10 +134,18 @@ impl PersistentEngine {
         Ok(count > 0)
     }
 
-    /// Get activity IDs from the input list that have NOT been FIT-processed yet.
+    /// Activity ids owed a FIT download: strength activities with no recorded
+    /// outcome yet.
+    ///
+    /// An empty list means the whole library. The caller used to build the list
+    /// by filtering a whole-library parsed array in JavaScript for
+    /// `type === 'WeightTraining'` and ship every id back over the FFI to be
+    /// filtered again, and that filter was one of the three uses keeping the
+    /// parsed array alive. The sport is a column here, so both filters belong
+    /// in the one statement.
     pub fn get_unprocessed_strength_ids(&self, activity_ids: &[String]) -> SqlResult<Vec<String>> {
         if activity_ids.is_empty() {
-            return Ok(Vec::new());
+            return self.unprocessed_strength_queue();
         }
 
         let processed: std::collections::HashSet<String> = {
@@ -164,6 +172,18 @@ impl PersistentEngine {
             .collect())
     }
 
+    /// Every strength activity with no recorded FIT outcome, oldest first.
+    fn unprocessed_strength_queue(&self) -> SqlResult<Vec<String>> {
+        let mut stmt = self.db.prepare(
+            "SELECT m.activity_id FROM activity_metrics m
+             LEFT JOIN fit_file_status f ON f.activity_id = m.activity_id
+             WHERE m.sport_type = 'WeightTraining' AND f.activity_id IS NULL
+             ORDER BY m.date",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
     /// Get all exercise sets for WeightTraining activities within a date range.
     /// Joins exercise_sets with activity_metrics to filter by date (Unix timestamp) and sport type.
     /// Returns (activity_id, FitExerciseSet) pairs for active sets only.
@@ -172,51 +192,12 @@ impl PersistentEngine {
         start_ts: i64,
         end_ts: i64,
     ) -> SqlResult<Vec<(String, FitExerciseSet)>> {
-        let mut stmt = self.db.prepare(
-            "SELECT es.activity_id, es.set_order, es.exercise_category, es.exercise_name,
-                    es.set_type, es.repetitions, es.weight_kg, es.duration_secs, es.start_time
-             FROM exercise_sets es
-             INNER JOIN activity_metrics am ON es.activity_id = am.activity_id
-             WHERE am.sport_type = 'WeightTraining'
-               AND am.date >= ?
-               AND am.date <= ?
-               AND es.set_type = 0
-             ORDER BY am.date DESC, es.activity_id, es.set_order",
-        )?;
-
-        let results = stmt
-            .query_map(params![start_ts, end_ts], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    FitExerciseSet {
-                        set_order: row.get::<_, i32>(1)? as u32,
-                        exercise_category: row.get::<_, i32>(2)? as u16,
-                        exercise_name: row.get::<_, Option<i32>>(3)?.map(|v| v as u16),
-                        set_type: row.get::<_, i32>(4)? as u8,
-                        repetitions: row.get::<_, Option<i32>>(5)?.map(|v| v as u16),
-                        weight_kg: row.get(6)?,
-                        duration_secs: row.get(7)?,
-                        start_time: row.get(8)?,
-                    },
-                ))
-            })?
-            .collect::<SqlResult<Vec<_>>>()?;
-
-        Ok(results)
+        pooled::exercise_sets_in_range(&self.db, start_ts, end_ts)
     }
 
     /// Count WeightTraining activities that have exercise set data.
     pub fn get_strength_activity_count(&self) -> SqlResult<u32> {
-        let count: i32 = self.db.query_row(
-            "SELECT COUNT(DISTINCT es.activity_id)
-             FROM exercise_sets es
-             INNER JOIN activity_metrics am ON es.activity_id = am.activity_id
-             WHERE am.sport_type = 'WeightTraining'
-               AND es.set_type = 0",
-            [],
-            |row| row.get(0),
-        )?;
-        Ok(count as u32)
+        pooled::strength_activity_count(&self.db)
     }
 
     /// Get activity name and date for a set of activity IDs.
@@ -329,5 +310,126 @@ mod tests {
 
         assert!(engine.store_exercise_sets("a1", &sets).is_err());
         assert!(engine.db.is_autocommit());
+    }
+
+    /// Scenario: the section history panel draws a chip per traversal and holds
+    /// only the activity ids.
+    ///
+    /// Expected behaviour: one read answers for the ids it knows and says
+    /// nothing about the rest, so a caller can fall back to the id rather than
+    /// draw an empty chip. This had no test at all until the panel needed it.
+    #[test]
+    fn activity_names_answers_only_the_ids_it_knows() {
+        let (_dir, engine) = engine();
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                     elapsed_time, elevation_gain, sport_type)
+                 VALUES ('a1', 'Sunday hills', 1700, 0, 0, 0, 0, 'Ride')",
+                [],
+            )
+            .unwrap();
+
+        let names = engine
+            .get_activity_names(&["a1".to_string(), "missing".to_string()])
+            .unwrap();
+
+        assert_eq!(names.len(), 1);
+        assert_eq!(
+            names.get("a1"),
+            Some(&("Sunday hills".to_string(), 1700_i64))
+        );
+    }
+
+    #[test]
+    fn activity_names_answers_nothing_for_no_ids() {
+        let (_dir, engine) = engine();
+
+        assert!(engine.get_activity_names(&[]).unwrap().is_empty());
+    }
+
+    /// The panel asks for every id on the event, and a section with many
+    /// traversals asks for many at once.
+    #[test]
+    fn activity_names_answers_a_whole_batch_in_one_read() {
+        let (_dir, engine) = engine();
+        for i in 0..25 {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                         elapsed_time, elevation_gain, sport_type)
+                     VALUES (?1, ?2, 0, 0, 0, 0, 0, 'Ride')",
+                    rusqlite::params![format!("a{i}"), format!("Ride {i}")],
+                )
+                .unwrap();
+        }
+        let ids: Vec<String> = (0..25).map(|i| format!("a{i}")).collect();
+
+        let names = engine.get_activity_names(&ids).unwrap();
+
+        assert_eq!(names.len(), 25);
+        assert_eq!(names.get("a24").map(|(n, _)| n.as_str()), Some("Ride 24"));
+    }
+}
+
+/// The strength reads a screen makes, over a pooled connection. The engine
+/// methods above delegate here rather than carrying a second copy.
+pub(crate) mod pooled {
+    use rusqlite::{Connection, Result as SqlResult, params};
+
+    use crate::fit::FitExerciseSet;
+
+    pub(crate) fn exercise_sets_in_range(
+        conn: &Connection,
+        start_ts: i64,
+        end_ts: i64,
+    ) -> SqlResult<Vec<(String, FitExerciseSet)>> {
+        let mut stmt = conn.prepare(
+            "SELECT es.activity_id, es.set_order, es.exercise_category, es.exercise_name,
+                    es.set_type, es.repetitions, es.weight_kg, es.duration_secs, es.start_time
+             FROM exercise_sets es
+             INNER JOIN activity_metrics am ON es.activity_id = am.activity_id
+             WHERE am.sport_type = 'WeightTraining'
+               AND am.date >= ?
+               AND am.date <= ?
+               AND es.set_type = 0
+             ORDER BY am.date DESC, es.activity_id, es.set_order",
+        )?;
+
+        let results = stmt
+            .query_map(params![start_ts, end_ts], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    FitExerciseSet {
+                        set_order: row.get::<_, i32>(1)? as u32,
+                        exercise_category: row.get::<_, i32>(2)? as u16,
+                        exercise_name: row.get::<_, Option<i32>>(3)?.map(|v| v as u16),
+                        set_type: row.get::<_, i32>(4)? as u8,
+                        repetitions: row.get::<_, Option<i32>>(5)?.map(|v| v as u16),
+                        weight_kg: row.get(6)?,
+                        duration_secs: row.get(7)?,
+                        start_time: row.get(8)?,
+                    },
+                ))
+            })?
+            .collect::<SqlResult<Vec<_>>>()?;
+
+        Ok(results)
+    }
+
+    /// How many WeightTraining activities have at least one working set.
+    pub(crate) fn strength_activity_count(conn: &Connection) -> SqlResult<u32> {
+        let count: i32 = conn.query_row(
+            "SELECT COUNT(DISTINCT es.activity_id)
+             FROM exercise_sets es
+             INNER JOIN activity_metrics am ON es.activity_id = am.activity_id
+             WHERE am.sport_type = 'WeightTraining'
+               AND es.set_type = 0",
+            [],
+            |row| row.get(0),
+        )?;
+        Ok(count as u32)
     }
 }

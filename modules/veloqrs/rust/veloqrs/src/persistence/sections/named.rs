@@ -125,10 +125,9 @@ impl PersistentEngine {
     /// to drop them. The recompute itself only SELECTs, so it never moves the
     /// counter it is keyed on.
     ///
-    /// Queries `self.db`, so this belongs to the WRITE-lock class of engine
-    /// methods (see the `unsafe impl Sync` invariant). Read-lock paths use
-    /// `named_overlay_cached_names` instead and tolerate one write of
-    /// staleness.
+    /// Queries `self.db`, so it runs under the engine lock like every other
+    /// method that reaches SQLite. A pooled reader resolves the overlay from
+    /// the intent rows instead, through `pooled::overlay_names`.
     pub(crate) fn ensure_named_overlay(&self) -> bool {
         use std::sync::atomic::Ordering;
         let stamp: i64 = self
@@ -180,318 +179,11 @@ impl PersistentEngine {
 
     /// The overlay as a pure function of DB state: named intents resolved
     /// onto the visible catalogue by core coverage.
+    /// The overlay as a pure function of DB state: named intents resolved
+    /// onto the visible catalogue by core coverage. The computation itself is
+    /// [`compute::compute_overlay`], shared with the pooled reader.
     fn compute_named_overlay(&self) -> NamedOverlay {
-        let intents = self.named_intent_rows();
-        if intents.is_empty() {
-            return NamedOverlay::default();
-        }
-        let visible = self.visible_rows_for_resolution();
-
-        // Polylines parse lazily, only for rows that pass an intent's bbox
-        // gate, the recompute runs after any write on the connection, so it
-        // must not deserialise the whole catalogue each time.
-        let mut parsed: std::collections::HashMap<usize, Option<Vec<GpsPoint>>> =
-            std::collections::HashMap::new();
-
-        // (section_id, intent index, coverage, section created_at) per
-        // resolved intent, then per-section dedup for display.
-        let mut resolved: Vec<(Option<usize>, f64)> = Vec::with_capacity(intents.len());
-        for intent in &intents {
-            let core = trim_core(&intent.footprint);
-            let core_bbox = bbox(&core);
-            let mid_lat = (core_bbox.0 + core_bbox.1) / 2.0;
-            let mut candidates: Vec<(usize, tracematch::sections::NamedScore)> = Vec::new();
-            for (vi, row) in visible.iter().enumerate() {
-                if !bboxes_touch(core_bbox, row.bbox, mid_lat) {
-                    continue;
-                }
-                let polyline = parsed.entry(vi).or_insert_with(|| {
-                    crate::persistence::codec::decode_polyline_row(
-                        row.polyline_blob.as_deref(),
-                        row.polyline_json.as_deref(),
-                    )
-                    .ok()
-                    .filter(|p| !p.is_empty())
-                });
-                let Some(polyline) = polyline else { continue };
-                let Some(score) = score_named_candidate(&core, &intent.footprint, polyline) else {
-                    continue;
-                };
-                candidates.push((vi, score));
-            }
-            let scored: Vec<NamedCandidate> = candidates
-                .iter()
-                .map(|&(vi, score)| NamedCandidate {
-                    score,
-                    created_at: &visible[vi].created_at,
-                    id: &visible[vi].id,
-                })
-                .collect();
-            resolved.push(match select_candidate(&scored) {
-                Some((i, cov)) => (Some(candidates[i].0), cov),
-                None => (None, 0.0),
-            });
-        }
-
-        // Fallback pass: an intent with no visible cover resolves against
-        // the hidden catalogue so the restore list shows the user's name on
-        // a disabled or superseded row. The corridor entry itself stays
-        // dormant, no visible section carries the name.
-        let mut hidden_pairs: Vec<(String, String)> = Vec::new();
-        if resolved.iter().any(|(vi, _)| vi.is_none()) {
-            let hidden = self.hidden_rows_for_resolution();
-            let mut parsed_hidden: std::collections::HashMap<usize, Option<Vec<GpsPoint>>> =
-                std::collections::HashMap::new();
-            // hidden row index -> (intent index, coverage)
-            let mut hidden_winner: BTreeMap<usize, (usize, f64)> = BTreeMap::new();
-            for (ii, intent) in intents.iter().enumerate() {
-                if resolved[ii].0.is_some() || hidden.is_empty() {
-                    continue;
-                }
-                let core = trim_core(&intent.footprint);
-                let core_bbox = bbox(&core);
-                let mid_lat = (core_bbox.0 + core_bbox.1) / 2.0;
-                let mut candidates: Vec<(usize, tracematch::sections::NamedScore)> = Vec::new();
-                for (hi, row) in hidden.iter().enumerate() {
-                    if !bboxes_touch(core_bbox, row.bbox, mid_lat) {
-                        continue;
-                    }
-                    let polyline = parsed_hidden.entry(hi).or_insert_with(|| {
-                        crate::persistence::codec::decode_polyline_row(
-                            row.polyline_blob.as_deref(),
-                            row.polyline_json.as_deref(),
-                        )
-                        .ok()
-                        .filter(|p| !p.is_empty())
-                    });
-                    let Some(polyline) = polyline else { continue };
-                    let Some(score) = score_named_candidate(&core, &intent.footprint, polyline)
-                    else {
-                        continue;
-                    };
-                    candidates.push((hi, score));
-                }
-                let scored: Vec<NamedCandidate> = candidates
-                    .iter()
-                    .map(|&(hi, score)| NamedCandidate {
-                        score,
-                        created_at: &hidden[hi].created_at,
-                        id: &hidden[hi].id,
-                    })
-                    .collect();
-                if let Some((i, cov)) = select_candidate(&scored) {
-                    let hi = candidates[i].0;
-                    let replace = match hidden_winner.get(&hi) {
-                        None => true,
-                        Some(&(best_ii, best_cov)) => {
-                            cov > best_cov
-                                || (cov == best_cov
-                                    && intent.created_at < intents[best_ii].created_at)
-                        }
-                    };
-                    if replace {
-                        hidden_winner.insert(hi, (ii, cov));
-                    }
-                }
-            }
-            for (hi, (ii, _)) in hidden_winner {
-                hidden_pairs.push((hidden[hi].id.clone(), intents[ii].name.clone()));
-            }
-        }
-
-        // Two intents on one section: the better-covering one displays, ties
-        // to the older intent. Both stay listed.
-        let mut winner_per_section: BTreeMap<usize, usize> = BTreeMap::new();
-        for (ii, (vi, cov)) in resolved.iter().enumerate() {
-            let Some(vi) = vi else { continue };
-            let replace = match winner_per_section.get(vi) {
-                None => true,
-                Some(&best) => {
-                    *cov > resolved[best].1
-                        || (*cov == resolved[best].1
-                            && intents[ii].created_at < intents[best].created_at)
-                }
-            };
-            if replace {
-                winner_per_section.insert(*vi, ii);
-            }
-        }
-
-        let mut overlay = NamedOverlay::default();
-        for (sid, name) in hidden_pairs {
-            overlay.by_section.insert(sid, name);
-        }
-        for (ii, intent) in intents.into_iter().enumerate() {
-            let (vi, cov) = resolved[ii];
-            let primary = vi.is_some_and(|vi| winner_per_section.get(&vi) == Some(&ii));
-            if primary {
-                let vi = vi.expect("primary implies resolved");
-                overlay
-                    .by_section
-                    .insert(visible[vi].id.clone(), intent.name.clone());
-            }
-            overlay.corridors.push(NamedCorridor {
-                section_id: vi.map(|vi| visible[vi].id.clone()),
-                coverage: cov,
-                primary,
-                intent_id: intent.intent_id,
-                name: intent.name,
-                footprint: intent.footprint,
-                sport_type: intent.sport_type,
-                created_at: intent.created_at,
-            });
-        }
-        overlay
-    }
-
-    fn named_intent_rows(&self) -> Vec<IntentRow> {
-        let Ok(mut stmt) = self.db.prepare(
-            "SELECT id, name, polyline_json, sport_type, created_at
-             FROM section_intents WHERE kind = 'named' AND name IS NOT NULL",
-        ) else {
-            return Vec::new();
-        };
-        let rows = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, Option<String>>(3)?,
-                row.get::<_, String>(4)?,
-            ))
-        });
-        let Ok(iter) = rows else { return Vec::new() };
-        iter.flatten()
-            .filter_map(|(intent_id, name, polyline_json, sport_type, created_at)| {
-                let footprint: Vec<GpsPoint> = serde_json::from_str(&polyline_json).ok()?;
-                if footprint.is_empty() {
-                    return None;
-                }
-                Some(IntentRow {
-                    intent_id,
-                    name,
-                    footprint,
-                    sport_type,
-                    created_at,
-                })
-            })
-            .collect()
-    }
-
-    /// Resolution candidates: AUTO rows only. User-defined and custom rows
-    /// carry their own permanent row names and every display path prefers
-    /// those, so letting one win a resolution would sink the corridor name
-    /// invisibly. Bboxes come from the cached bounds columns; a legacy row
-    /// without them parses its polyline for the bbox only.
-    fn visible_rows_for_resolution(&self) -> Vec<VisibleRow> {
-        let Ok(mut stmt) = self.db.prepare(
-            "SELECT id, polyline_json, created_at,
-                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                    polyline_blob
-             FROM sections
-             WHERE disabled = 0 AND superseded_by IS NULL
-               AND is_user_defined = 0 AND section_type = 'auto'",
-        ) else {
-            return Vec::new();
-        };
-        let rows = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, Option<String>>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, Option<f64>>(3)?,
-                row.get::<_, Option<f64>>(4)?,
-                row.get::<_, Option<f64>>(5)?,
-                row.get::<_, Option<f64>>(6)?,
-                row.get::<_, Option<Vec<u8>>>(7)?,
-            ))
-        });
-        let Ok(iter) = rows else { return Vec::new() };
-        iter.flatten()
-            .filter_map(
-                |(id, polyline_json, created_at, lat0, lat1, lng0, lng1, polyline_blob)| {
-                    let bb = match (lat0, lat1, lng0, lng1) {
-                        (Some(a), Some(b), Some(c), Some(d)) => (a, b, c, d),
-                        _ => {
-                            let polyline = crate::persistence::codec::decode_polyline_row(
-                                polyline_blob.as_deref(),
-                                polyline_json.as_deref(),
-                            )
-                            .ok()?;
-                            if polyline.is_empty() {
-                                return None;
-                            }
-                            bbox(&polyline)
-                        }
-                    };
-                    Some(VisibleRow {
-                        id,
-                        polyline_blob,
-                        polyline_json,
-                        created_at,
-                        bbox: bb,
-                    })
-                },
-            )
-            .collect()
-    }
-
-    /// Hidden counterparts of `visible_rows_for_resolution`: disabled or
-    /// superseded auto rows. The restore list is made of exactly these, so
-    /// an intent with no visible cover falls back to them, a named then
-    /// disabled corridor must not read "Section N" on the one list whose
-    /// job is showing it.
-    fn hidden_rows_for_resolution(&self) -> Vec<VisibleRow> {
-        let Ok(mut stmt) = self.db.prepare(
-            "SELECT id, polyline_json, created_at,
-                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                    polyline_blob
-             FROM sections
-             WHERE (disabled = 1 OR superseded_by IS NOT NULL)
-               AND is_user_defined = 0 AND section_type = 'auto'",
-        ) else {
-            return Vec::new();
-        };
-        let rows = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, Option<String>>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, Option<f64>>(3)?,
-                row.get::<_, Option<f64>>(4)?,
-                row.get::<_, Option<f64>>(5)?,
-                row.get::<_, Option<f64>>(6)?,
-                row.get::<_, Option<Vec<u8>>>(7)?,
-            ))
-        });
-        let Ok(iter) = rows else { return Vec::new() };
-        iter.flatten()
-            .filter_map(
-                |(id, polyline_json, created_at, lat0, lat1, lng0, lng1, polyline_blob)| {
-                    let bb = match (lat0, lat1, lng0, lng1) {
-                        (Some(a), Some(b), Some(c), Some(d)) => (a, b, c, d),
-                        _ => {
-                            let polyline = crate::persistence::codec::decode_polyline_row(
-                                polyline_blob.as_deref(),
-                                polyline_json.as_deref(),
-                            )
-                            .ok()?;
-                            if polyline.is_empty() {
-                                return None;
-                            }
-                            bbox(&polyline)
-                        }
-                    };
-                    Some(VisibleRow {
-                        id,
-                        polyline_blob,
-                        polyline_json,
-                        created_at,
-                        bbox: bb,
-                    })
-                },
-            )
-            .collect()
+        compute::compute_overlay(&self.db)
     }
 
     /// Display precedence on a full section read: a user-defined or custom
@@ -723,5 +415,366 @@ mod tests {
         assert!(!looks_generated("Col des Planches"));
         assert!(!looks_generated("Evening loop"));
         assert!(!looks_generated("7"));
+    }
+}
+
+/// The overlay, computed from the database and nothing else.
+///
+/// Free functions over a connection rather than methods, so the pooled reader
+/// can answer "what is this section called" without the engine lock. The
+/// engine's own `compute_named_overlay` is one call into here, so the two
+/// cannot drift.
+/// The overlay a pooled reader sees: the same computation, behind the read
+/// cache's `data_version` stamp, because resolving it walks every visible
+/// section and the answer only changes when something commits.
+pub(crate) mod pooled {
+    use std::collections::BTreeMap;
+    use std::sync::Arc;
+
+    use rusqlite::Connection;
+
+    /// The display name per section, or an empty map for a library nobody has
+    /// named. The `EXISTS` probe is the engine's own short-circuit: without a
+    /// named intent there is nothing to resolve and the catalogue is not read.
+    pub(crate) fn overlay_names(conn: &Connection) -> Arc<BTreeMap<String, String>> {
+        crate::persistence::read_cache::named_overlay(|| {
+            let has_named: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM section_intents WHERE kind = 'named')",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap_or(false);
+            if !has_named {
+                return BTreeMap::new();
+            }
+            super::compute::compute_overlay(conn).by_section
+        })
+    }
+}
+
+pub(crate) mod compute {
+    use std::collections::BTreeMap;
+
+    use rusqlite::Connection;
+    use tracematch::GpsPoint;
+
+    use super::{
+        IntentRow, NamedCandidate, NamedCorridor, NamedOverlay, VisibleRow, bbox, bboxes_touch,
+        score_named_candidate, select_candidate, trim_core,
+    };
+
+    pub(crate) fn compute_overlay(conn: &Connection) -> NamedOverlay {
+        let intents = named_intent_rows(conn);
+        if intents.is_empty() {
+            return NamedOverlay::default();
+        }
+        let visible = visible_rows_for_resolution(conn);
+
+        // Polylines parse lazily, only for rows that pass an intent's bbox
+        // gate, the recompute runs after any write on the connection, so it
+        // must not deserialise the whole catalogue each time.
+        let mut parsed: std::collections::HashMap<usize, Option<Vec<GpsPoint>>> =
+            std::collections::HashMap::new();
+
+        // (section_id, intent index, coverage, section created_at) per
+        // resolved intent, then per-section dedup for display.
+        let mut resolved: Vec<(Option<usize>, f64)> = Vec::with_capacity(intents.len());
+        for intent in &intents {
+            let core = trim_core(&intent.footprint);
+            let core_bbox = bbox(&core);
+            let mid_lat = (core_bbox.0 + core_bbox.1) / 2.0;
+            let mut candidates: Vec<(usize, tracematch::sections::NamedScore)> = Vec::new();
+            for (vi, row) in visible.iter().enumerate() {
+                if !bboxes_touch(core_bbox, row.bbox, mid_lat) {
+                    continue;
+                }
+                let polyline = parsed.entry(vi).or_insert_with(|| {
+                    crate::persistence::codec::decode_polyline_row(
+                        row.polyline_blob.as_deref(),
+                        row.polyline_json.as_deref(),
+                    )
+                    .ok()
+                    .filter(|p| !p.is_empty())
+                });
+                let Some(polyline) = polyline else { continue };
+                let Some(score) = score_named_candidate(&core, &intent.footprint, polyline) else {
+                    continue;
+                };
+                candidates.push((vi, score));
+            }
+            let scored: Vec<NamedCandidate> = candidates
+                .iter()
+                .map(|&(vi, score)| NamedCandidate {
+                    score,
+                    created_at: &visible[vi].created_at,
+                    id: &visible[vi].id,
+                })
+                .collect();
+            resolved.push(match select_candidate(&scored) {
+                Some((i, cov)) => (Some(candidates[i].0), cov),
+                None => (None, 0.0),
+            });
+        }
+
+        // Fallback pass: an intent with no visible cover resolves against
+        // the hidden catalogue so the restore list shows the user's name on
+        // a disabled or superseded row. The corridor entry itself stays
+        // dormant, no visible section carries the name.
+        let mut hidden_pairs: Vec<(String, String)> = Vec::new();
+        if resolved.iter().any(|(vi, _)| vi.is_none()) {
+            let hidden = hidden_rows_for_resolution(conn);
+            let mut parsed_hidden: std::collections::HashMap<usize, Option<Vec<GpsPoint>>> =
+                std::collections::HashMap::new();
+            // hidden row index -> (intent index, coverage)
+            let mut hidden_winner: BTreeMap<usize, (usize, f64)> = BTreeMap::new();
+            for (ii, intent) in intents.iter().enumerate() {
+                if resolved[ii].0.is_some() || hidden.is_empty() {
+                    continue;
+                }
+                let core = trim_core(&intent.footprint);
+                let core_bbox = bbox(&core);
+                let mid_lat = (core_bbox.0 + core_bbox.1) / 2.0;
+                let mut candidates: Vec<(usize, tracematch::sections::NamedScore)> = Vec::new();
+                for (hi, row) in hidden.iter().enumerate() {
+                    if !bboxes_touch(core_bbox, row.bbox, mid_lat) {
+                        continue;
+                    }
+                    let polyline = parsed_hidden.entry(hi).or_insert_with(|| {
+                        crate::persistence::codec::decode_polyline_row(
+                            row.polyline_blob.as_deref(),
+                            row.polyline_json.as_deref(),
+                        )
+                        .ok()
+                        .filter(|p| !p.is_empty())
+                    });
+                    let Some(polyline) = polyline else { continue };
+                    let Some(score) = score_named_candidate(&core, &intent.footprint, polyline)
+                    else {
+                        continue;
+                    };
+                    candidates.push((hi, score));
+                }
+                let scored: Vec<NamedCandidate> = candidates
+                    .iter()
+                    .map(|&(hi, score)| NamedCandidate {
+                        score,
+                        created_at: &hidden[hi].created_at,
+                        id: &hidden[hi].id,
+                    })
+                    .collect();
+                if let Some((i, cov)) = select_candidate(&scored) {
+                    let hi = candidates[i].0;
+                    let replace = match hidden_winner.get(&hi) {
+                        None => true,
+                        Some(&(best_ii, best_cov)) => {
+                            cov > best_cov
+                                || (cov == best_cov
+                                    && intent.created_at < intents[best_ii].created_at)
+                        }
+                    };
+                    if replace {
+                        hidden_winner.insert(hi, (ii, cov));
+                    }
+                }
+            }
+            for (hi, (ii, _)) in hidden_winner {
+                hidden_pairs.push((hidden[hi].id.clone(), intents[ii].name.clone()));
+            }
+        }
+
+        // Two intents on one section: the better-covering one displays, ties
+        // to the older intent. Both stay listed.
+        let mut winner_per_section: BTreeMap<usize, usize> = BTreeMap::new();
+        for (ii, (vi, cov)) in resolved.iter().enumerate() {
+            let Some(vi) = vi else { continue };
+            let replace = match winner_per_section.get(vi) {
+                None => true,
+                Some(&best) => {
+                    *cov > resolved[best].1
+                        || (*cov == resolved[best].1
+                            && intents[ii].created_at < intents[best].created_at)
+                }
+            };
+            if replace {
+                winner_per_section.insert(*vi, ii);
+            }
+        }
+
+        let mut overlay = NamedOverlay::default();
+        for (sid, name) in hidden_pairs {
+            overlay.by_section.insert(sid, name);
+        }
+        for (ii, intent) in intents.into_iter().enumerate() {
+            let (vi, cov) = resolved[ii];
+            let primary = vi.is_some_and(|vi| winner_per_section.get(&vi) == Some(&ii));
+            if primary {
+                let vi = vi.expect("primary implies resolved");
+                overlay
+                    .by_section
+                    .insert(visible[vi].id.clone(), intent.name.clone());
+            }
+            overlay.corridors.push(NamedCorridor {
+                section_id: vi.map(|vi| visible[vi].id.clone()),
+                coverage: cov,
+                primary,
+                intent_id: intent.intent_id,
+                name: intent.name,
+                footprint: intent.footprint,
+                sport_type: intent.sport_type,
+                created_at: intent.created_at,
+            });
+        }
+        overlay
+    }
+
+    fn named_intent_rows(conn: &Connection) -> Vec<IntentRow> {
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT id, name, polyline_json, sport_type, created_at
+             FROM section_intents WHERE kind = 'named' AND name IS NOT NULL",
+        ) else {
+            return Vec::new();
+        };
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<String>>(3)?,
+                row.get::<_, String>(4)?,
+            ))
+        });
+        let Ok(iter) = rows else { return Vec::new() };
+        iter.flatten()
+            .filter_map(|(intent_id, name, polyline_json, sport_type, created_at)| {
+                let footprint: Vec<GpsPoint> = serde_json::from_str(&polyline_json).ok()?;
+                if footprint.is_empty() {
+                    return None;
+                }
+                Some(IntentRow {
+                    intent_id,
+                    name,
+                    footprint,
+                    sport_type,
+                    created_at,
+                })
+            })
+            .collect()
+    }
+
+    /// Resolution candidates: AUTO rows only. User-defined and custom rows
+    /// carry their own permanent row names and every display path prefers
+    /// those, so letting one win a resolution would sink the corridor name
+    /// invisibly. Bboxes come from the cached bounds columns; a legacy row
+    /// without them parses its polyline for the bbox only.
+    fn visible_rows_for_resolution(conn: &Connection) -> Vec<VisibleRow> {
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT id, polyline_json, created_at,
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                    polyline_blob
+             FROM sections
+             WHERE disabled = 0 AND superseded_by IS NULL
+               AND is_user_defined = 0 AND section_type = 'auto'",
+        ) else {
+            return Vec::new();
+        };
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<f64>>(3)?,
+                row.get::<_, Option<f64>>(4)?,
+                row.get::<_, Option<f64>>(5)?,
+                row.get::<_, Option<f64>>(6)?,
+                row.get::<_, Option<Vec<u8>>>(7)?,
+            ))
+        });
+        let Ok(iter) = rows else { return Vec::new() };
+        iter.flatten()
+            .filter_map(
+                |(id, polyline_json, created_at, lat0, lat1, lng0, lng1, polyline_blob)| {
+                    let bb = match (lat0, lat1, lng0, lng1) {
+                        (Some(a), Some(b), Some(c), Some(d)) => (a, b, c, d),
+                        _ => {
+                            let polyline = crate::persistence::codec::decode_polyline_row(
+                                polyline_blob.as_deref(),
+                                polyline_json.as_deref(),
+                            )
+                            .ok()?;
+                            if polyline.is_empty() {
+                                return None;
+                            }
+                            bbox(&polyline)
+                        }
+                    };
+                    Some(VisibleRow {
+                        id,
+                        polyline_blob,
+                        polyline_json,
+                        created_at,
+                        bbox: bb,
+                    })
+                },
+            )
+            .collect()
+    }
+
+    /// Hidden counterparts of `visible_rows_for_resolution`: disabled or
+    /// superseded auto rows. The restore list is made of exactly these, so
+    /// an intent with no visible cover falls back to them, a named then
+    /// disabled corridor must not read "Section N" on the one list whose
+    /// job is showing it.
+    fn hidden_rows_for_resolution(conn: &Connection) -> Vec<VisibleRow> {
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT id, polyline_json, created_at,
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                    polyline_blob
+             FROM sections
+             WHERE (disabled = 1 OR superseded_by IS NOT NULL)
+               AND is_user_defined = 0 AND section_type = 'auto'",
+        ) else {
+            return Vec::new();
+        };
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<f64>>(3)?,
+                row.get::<_, Option<f64>>(4)?,
+                row.get::<_, Option<f64>>(5)?,
+                row.get::<_, Option<f64>>(6)?,
+                row.get::<_, Option<Vec<u8>>>(7)?,
+            ))
+        });
+        let Ok(iter) = rows else { return Vec::new() };
+        iter.flatten()
+            .filter_map(
+                |(id, polyline_json, created_at, lat0, lat1, lng0, lng1, polyline_blob)| {
+                    let bb = match (lat0, lat1, lng0, lng1) {
+                        (Some(a), Some(b), Some(c), Some(d)) => (a, b, c, d),
+                        _ => {
+                            let polyline = crate::persistence::codec::decode_polyline_row(
+                                polyline_blob.as_deref(),
+                                polyline_json.as_deref(),
+                            )
+                            .ok()?;
+                            if polyline.is_empty() {
+                                return None;
+                            }
+                            bbox(&polyline)
+                        }
+                    };
+                    Some(VisibleRow {
+                        id,
+                        polyline_blob,
+                        polyline_json,
+                        created_at,
+                        bbox: bb,
+                    })
+                },
+            )
+            .collect()
     }
 }

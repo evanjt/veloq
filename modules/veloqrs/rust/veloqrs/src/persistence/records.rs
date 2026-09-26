@@ -117,10 +117,19 @@ pub fn covers_enough_for_record(
 /// [`covers_enough_for_record`] as a SQL predicate over `section_activities sa`
 /// joined to `sections s`, so the indicator queries cannot drift from the Rust.
 pub fn complete_traversal_sql() -> String {
+    complete_traversal_sql_for("sa", "s")
+}
+
+/// The same predicate over whichever aliases the caller joined under.
+///
+/// A query that reaches the junction twice, as the stale read's subquery does,
+/// cannot use `sa` for both halves, and writing the `CASE` out a second time
+/// is how the rule drifts from the Rust it mirrors.
+pub fn complete_traversal_sql_for(sa: &str, s: &str) -> String {
     format!(
-        "CASE WHEN sa.coverage IS NOT NULL THEN sa.coverage >= {MIN_SECTION_COVERAGE} \
-              WHEN s.distance_meters IS NULL OR s.distance_meters <= 0 THEN 1 \
-              ELSE sa.distance_meters >= s.distance_meters * {MIN_LENGTH_RATIO} END"
+        "CASE WHEN {sa}.coverage IS NOT NULL THEN {sa}.coverage >= {MIN_SECTION_COVERAGE} \
+              WHEN {s}.distance_meters IS NULL OR {s}.distance_meters <= 0 THEN 1 \
+              ELSE {sa}.distance_meters >= {s}.distance_meters * {MIN_LENGTH_RATIO} END"
     )
 }
 

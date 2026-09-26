@@ -465,14 +465,34 @@ pub fn encode_polyline(points: &[crate::GpsPoint]) -> Vec<u8> {
     out
 }
 
+/// The most points `remaining` bytes could possibly encode.
+///
+/// Two varint bytes per point is the floor: one for the latitude delta, one for
+/// the longitude delta, both at their smallest. The bound multiplied by eight
+/// instead, so a 4 MB torn blob could claim 32 million points, the reserve
+/// below asked for about a gigabyte of `GpsPoint` and aborted. Every launch
+/// decodes every blob, so the abort recurred on each one and the database never
+/// reached quarantine.
+fn max_points_in(remaining: usize) -> usize {
+    remaining / 2
+}
+
+/// How much of a claimed count is reserved up front.
+///
+/// The bound above is what the bytes could hold, not what a track is: a real
+/// one is about 18,000 points for a five-hour ride. Reserving the bound would
+/// still hand a torn 4 MB blob a 64 MB allocation, so the rest is grown as the
+/// points actually decode.
+const POLYLINE_RESERVE_CAP: usize = 65_536;
+
 /// Decode [`encode_polyline`] output. None on any truncated or malformed
 /// stream; never panics on foreign bytes.
 pub fn decode_polyline(bytes: &[u8]) -> Option<Vec<crate::GpsPoint>> {
     let mut pos = 0usize;
     let n = usize::try_from(read_varint(bytes, &mut pos)?).ok()?;
     // A varint can claim an absurd count; bound by what the remaining bytes
-    // could possibly hold (2 varint bytes per point minimum).
-    if n > bytes.len().saturating_sub(pos).saturating_mul(8) {
+    // could possibly hold.
+    if n > max_points_in(bytes.len().saturating_sub(pos)) {
         return None;
     }
     let mode = *bytes.get(pos)?;
@@ -485,7 +505,7 @@ pub fn decode_polyline(bytes: &[u8]) -> Option<Vec<crate::GpsPoint>> {
     } else {
         &[]
     };
-    let mut points = Vec::with_capacity(n);
+    let mut points = Vec::with_capacity(n.min(POLYLINE_RESERVE_CAP));
     let (mut lat, mut lng, mut ele) = (0i64, 0i64, 0i64);
     for i in 0..n {
         lat += unzigzag(read_varint(bytes, &mut pos)?);
@@ -901,6 +921,54 @@ mod tests {
             3
         );
     }
+
+    /// Scenario: a torn blob's leading varint claims a point count the bytes
+    /// could not possibly hold. The bound allowed eight points per remaining
+    /// byte where the encoding's floor is one point per two bytes, so a 4 MB
+    /// blob could claim 32 million points, the decoder reserved about a
+    /// gigabyte for them and aborted. Every launch decodes every blob, so the
+    /// abort recurred on each one and the database never reached quarantine.
+    ///
+    /// Expected behaviour: a count above what the bytes could hold is refused
+    /// before anything is reserved.
+    #[test]
+    fn a_claimed_count_is_bounded_by_two_bytes_per_point() {
+        assert_eq!(max_points_in(4 << 20), 2 << 20, "two bytes per point");
+        assert_eq!(max_points_in(0), 0);
+        assert_eq!(max_points_in(1), 0, "one byte cannot hold a point");
+    }
+
+    /// A varint count far beyond the blob returns None, and does so from the
+    /// bound rather than by running out of bytes mid-decode.
+    #[test]
+    fn a_blob_claiming_more_points_than_it_holds_decodes_to_nothing() {
+        // Four points per remaining byte: inside the old bound of eight, so the
+        // old guard let it through and reserved for every one of them.
+        let payload = 4096usize;
+        let claimed = payload * 4;
+        let mut torn = Vec::new();
+        write_varint(&mut torn, claimed as u64);
+        torn.push(ELE_NONE);
+        torn.extend(std::iter::repeat_n(0u8, payload));
+
+        assert!(claimed > max_points_in(torn.len()), "the claim is absurd");
+        assert_eq!(decode_polyline(&torn), None);
+    }
+
+    /// The bound must not refuse a real track. A five-hour ride at 1 Hz is
+    /// about 18,000 points and encodes well above the two-byte floor.
+    #[test]
+    fn a_long_real_track_still_round_trips() {
+        let points: Vec<GpsPoint> = (0..18_000)
+            .map(|i| GpsPoint {
+                latitude: 46.0 + i as f64 * 0.00001,
+                longitude: 7.0 + i as f64 * 0.00001,
+                elevation: Some(400.0 + (i % 100) as f64),
+            })
+            .collect();
+        let bytes = encode_polyline(&points);
+        assert_eq!(decode_polyline(&bytes).unwrap().len(), points.len());
+    }
 }
 
 /// Framed tag for a quantised scalar series. Distinct from [`POLYLINE_TAG`] so
@@ -995,7 +1063,9 @@ pub fn decode_series(bytes: &[u8]) -> Option<Vec<Option<f64>>> {
     } else {
         &[]
     };
-    let mut out = Vec::with_capacity(n);
+    // Same reason as the polyline reserve: `SERIES_NONE` spends no bytes per
+    // sample, so a torn blob's count is bounded only by the guard above.
+    let mut out = Vec::with_capacity(n.min(POLYLINE_RESERVE_CAP));
     let mut prev = 0i64;
     for i in 0..n {
         let present = match mode {

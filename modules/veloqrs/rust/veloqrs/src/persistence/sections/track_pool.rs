@@ -11,17 +11,31 @@ use super::super::SectionDetectionProgress;
 /// Rows fetched per IN(...) batch, bounding the transient SQL/parse spike.
 const CHUNK_SIZE: usize = 150;
 
+/// One row whose blob would not decode, and why.
+pub(crate) struct CorruptTrack {
+    pub activity_id: String,
+    pub reason: String,
+}
+
 /// One chunked pool load: the tracks in input order plus the load census.
 pub(crate) struct LoadedPool {
     /// Non-empty tracks in `ids` order.
     pub tracks: Vec<(String, Vec<GpsPoint>)>,
     /// Ids whose row was missing or decoded to no points.
     pub empty: u32,
-    /// Ids whose blob failed to decode.
-    pub unreadable: u32,
+    /// Rows whose blob failed to decode, named. The detector logs these ids
+    /// and records them against the pool, so a count alone will not do.
+    pub corrupt: Vec<CorruptTrack>,
     /// Rows whose blob decoded, empty tracks included. The denominator the
     /// corrupt-pool gate is measured against.
     pub readable: usize,
+}
+
+impl LoadedPool {
+    /// Rows that would not decode. The numerator the gate is measured with.
+    pub fn unreadable(&self) -> usize {
+        self.corrupt.len()
+    }
 }
 
 /// Load full-resolution tracks in [`CHUNK_SIZE`] batches, preserving `ids`
@@ -37,7 +51,7 @@ pub(crate) fn load_tracks_chunked(
     cancel: &AtomicBool,
 ) -> Option<LoadedPool> {
     let mut empty: u32 = 0;
-    let mut unreadable: u32 = 0;
+    let mut corrupt: Vec<CorruptTrack> = Vec::new();
     let mut readable: usize = 0;
     let mut loaded: HashMap<String, Vec<GpsPoint>> = HashMap::with_capacity(ids.len());
 
@@ -67,7 +81,10 @@ pub(crate) fn load_tracks_chunked(
                                 loaded.insert(id, track);
                             }
                             TrackRead::Missing => {}
-                            TrackRead::Corrupt(_) => unreadable += 1,
+                            TrackRead::Corrupt(reason) => corrupt.push(CorruptTrack {
+                                activity_id: id,
+                                reason,
+                            }),
                         }
                     }
                 }
@@ -101,7 +118,7 @@ pub(crate) fn load_tracks_chunked(
     Some(LoadedPool {
         tracks,
         empty,
-        unreadable,
+        corrupt,
         readable,
     })
 }
@@ -210,6 +227,117 @@ mod tests {
             all.extend_from_slice(times);
         }
         engine.set_time_streams_flat(&ids, &all, &offsets);
+    }
+
+    /// Store a `gps_tracks` row verbatim, so a deliberately unreadable blob
+    /// can be put where the loader will find it.
+    fn store_track_blob(engine: &mut PersistentEngine, id: &str, blob: &[u8]) {
+        engine
+            .db
+            .execute(
+                "INSERT OR IGNORE INTO activities
+                 (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+                 VALUES (?, 'Ride', 40.0, 40.1, 10.0, 10.1)",
+                rusqlite::params![id],
+            )
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT OR REPLACE INTO gps_tracks (activity_id, track_data, point_count)
+                 VALUES (?, ?, 0)",
+                rusqlite::params![id, blob],
+            )
+            .unwrap();
+    }
+
+    /// Scenario: the pool load is the one corpus both the detector and the
+    /// preview cut over, and each used to walk its own copy of this loop.
+    ///
+    /// Expected behaviour: one loader answers both, so an unreadable row comes
+    /// back named and with its reason rather than only counted. The detector
+    /// logs those ids and records them against the pool, and the preview
+    /// refuses on the same census, so a count alone cannot serve both.
+    #[test]
+    fn an_unreadable_row_comes_back_named() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        store_track_blob(&mut engine, "bad", b"not a track");
+
+        let progress = SectionDetectionProgress::default();
+        let cancel = AtomicBool::new(false);
+        let ids = vec!["bad".to_string()];
+
+        let pool = load_tracks_chunked(&engine.db, &ids, &progress, &cancel).unwrap();
+
+        assert_eq!(pool.corrupt.len(), 1);
+        assert_eq!(pool.corrupt[0].activity_id, "bad");
+        assert!(!pool.corrupt[0].reason.is_empty());
+        assert_eq!(pool.readable, 0);
+        assert!(pool.tracks.is_empty());
+    }
+
+    /// The census the corrupt-pool gate divides: a readable row counts toward
+    /// `readable` whether or not it held any points, and an id with no row at
+    /// all is empty rather than unreadable.
+    #[test]
+    fn the_census_separates_empty_from_unreadable_from_absent() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        store_track_blob(&mut engine, "bad", b"not a track");
+        engine
+            .add_activity(
+                "good".to_string(),
+                vec![GpsPoint::new(40.0, 10.0)],
+                "Ride".to_string(),
+            )
+            .unwrap();
+
+        let progress = SectionDetectionProgress::default();
+        let cancel = AtomicBool::new(false);
+        let ids = vec!["good".to_string(), "bad".to_string(), "absent".to_string()];
+
+        let pool = load_tracks_chunked(&engine.db, &ids, &progress, &cancel).unwrap();
+
+        assert_eq!(pool.tracks.len(), 1);
+        assert_eq!(pool.tracks[0].0, "good");
+        assert_eq!(pool.corrupt.len(), 1);
+        // `bad` and `absent` both yield no track, so both are empty.
+        assert_eq!(pool.empty, 2);
+        assert_eq!(pool.readable, 1);
+    }
+
+    /// Cancel is checked per chunk and answered with None, so a caller that
+    /// raises it mid-load gets nothing rather than a partial corpus.
+    #[test]
+    fn a_cancelled_load_returns_nothing() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .add_activity(
+                "good".to_string(),
+                vec![GpsPoint::new(40.0, 10.0)],
+                "Ride".to_string(),
+            )
+            .unwrap();
+
+        let progress = SectionDetectionProgress::default();
+        let cancel = AtomicBool::new(true);
+        let ids = vec!["good".to_string()];
+
+        assert!(load_tracks_chunked(&engine.db, &ids, &progress, &cancel).is_none());
+    }
+
+    /// An empty id list is a load of nothing, not a failure.
+    #[test]
+    fn an_empty_id_list_loads_an_empty_pool() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        let progress = SectionDetectionProgress::default();
+        let cancel = AtomicBool::new(false);
+
+        let pool = load_tracks_chunked(&engine.db, &[], &progress, &cancel).unwrap();
+
+        assert!(pool.tracks.is_empty());
+        assert!(pool.corrupt.is_empty());
+        assert_eq!(pool.empty, 0);
+        assert_eq!(pool.readable, 0);
     }
 
     #[test]

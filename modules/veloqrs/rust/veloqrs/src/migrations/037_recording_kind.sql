@@ -1,0 +1,11 @@
+-- What a recording is: a FIT this device wrote, or a manual entry typed into it.
+--
+-- A manual indoor entry used to post straight to intervals.icu and keep nothing
+-- locally, so offline it failed and what was typed was lost. It belongs in this
+-- table like any other ride, draining through the one upload queue, and the
+-- table could not hold a row without a file: `fit_path` is NOT NULL and nothing
+-- said a row had no file to look for.
+--
+-- Every existing row is a FIT, which is what the default says. The column is
+-- NOT NULL so the upload path never has to read an absent kind as a guess.
+ALTER TABLE recordings ADD COLUMN kind TEXT NOT NULL DEFAULT 'fit';
