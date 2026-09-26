@@ -11,9 +11,10 @@ import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, brand, spacing, shadows, layout, typography } from '@/theme';
 import { TAB_BAR_HEIGHT, GRADIENT_HEIGHT } from '@/shared/ui/BottomTabBar';
-import { getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useTimer } from '@/features/recording/hooks/useTimer';
+import { pressable } from '@/shared/ui';
 
 /**
  * Global pill shown while a recording session is active and the user has
@@ -53,7 +54,7 @@ function RecordingReturnPillInner({ paused }: { paused: boolean }) {
     >
       <Pressable
         testID="recording-return-pill"
-        style={[styles.pill, { backgroundColor: bgColor }, shadows.elevated]}
+        style={pressable([styles.pill, { backgroundColor: bgColor }, shadows.elevated])}
         onPress={() => activityType && navigateTo(`/recording/${activityType}`)}
         accessibilityRole="button"
         accessibilityLabel={t('recording.returnToRecording', 'Return to recording')}

@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
-import { brand, colors, spacing, layout } from '@/theme';
+import { colors, recording, spacing, layout } from '@/theme';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 
 /** Floating action button that opens the record screen. Hidden while a session is active. */
@@ -26,7 +26,7 @@ function RecordFABInner() {
         styles.fab,
         {
           bottom: insets.bottom + TAB_BAR_SAFE_PADDING + spacing.md,
-          backgroundColor: isDark ? brand.tealDark : brand.tealLight,
+          backgroundColor: isDark ? recording.dark : recording.light,
         },
       ]}
       onPress={() => navigateTo('/record')}

@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 
 import { generateFitFile } from '@/features/recording/lib/fitGenerator';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { createManualActivity } from '@/features/recording/lib/upload/intervalsUploads';
 import { debug } from '@/shared/debug/debug';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
@@ -123,25 +122,55 @@ export function useReviewSave({
     setQueuedMessage(null);
     setCanRetry(false);
     try {
-      if (isManual) {
-        await createManualActivity({
-          type,
-          name,
-          start_date_local: new Date().toISOString(),
-          elapsed_time: summary.duration,
-          distance: summary.distance > 0 ? summary.distance : undefined,
-          average_heartrate: summary.avgHeartrate ?? undefined,
-          description: notes || undefined,
-        });
-        queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-        queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
-        await clearRecordingBackup();
-        setIsUploading(false);
-        finishAndGoHome(null);
-        return;
-      }
-
       const autoUpload = useRecordingPreferences.getState().autoUploadEnabled;
+      // The athlete took this ride past the missing-scope warning, so the upload
+      // it would be queued for cannot succeed. It stays on the device, whatever
+      // auto-upload says, and the flag belongs to this ride alone.
+      const withoutScope = useUploadPermissionStore.getState().recordingWithoutScope;
+      const uploadable = autoUpload && !withoutScope;
+
+      if (!savedEntryRef.current && isManual) {
+        // A manual entry is a row like any other: saved first, posted second,
+        // and drained by the same queue. It used to await the network and treat
+        // the answer as the save, so offline it existed nowhere at all.
+        const entry = await saveRecording({
+          manualBody: {
+            type,
+            name,
+            start_date_local: new Date().toISOString(),
+            elapsed_time: summary.duration,
+            distance: summary.distance > 0 ? summary.distance : undefined,
+            average_heartrate: summary.avgHeartrate ?? undefined,
+            description: notes || undefined,
+          },
+          activityType: type,
+          name,
+          startTime: startTime ?? Date.now(),
+          durationSeconds: summary.duration,
+          distanceMeters: summary.distance,
+          elevationGain: summary.elevationGain,
+          avgHeartrate: summary.avgHeartrate,
+          pairedEventId: pairedEventId ?? undefined,
+          uploadStatus: uploadable ? 'pending' : 'localOnly',
+        });
+        if (!entry) {
+          setErrorMessage(t('recording.saveError', 'Could not save activity. Please try again.'));
+          setCanRetry(true);
+          setIsUploading(false);
+          return;
+        }
+        savedEntryRef.current = entry;
+        // No streams, so no track and no detection: the row is the metadata the
+        // feed and the week read.
+        const engineActivityId = await writeProvisionalActivity(entry, null);
+        if (engineActivityId) {
+          savedEntryRef.current = (await attachEngineActivity(entry.id, engineActivityId)) ?? {
+            ...entry,
+            engineActivityId,
+          };
+        }
+        await clearRecordingBackup();
+      }
 
       if (!savedEntryRef.current) {
         // Rebase trimmed time/distance to the trim window: the FIT start time
@@ -182,7 +211,7 @@ export function useReviewSave({
           elevationGain: summary.elevationGain,
           avgHeartrate: summary.avgHeartrate,
           pairedEventId: pairedEventId ?? undefined,
-          uploadStatus: autoUpload ? 'pending' : 'localOnly',
+          uploadStatus: uploadable ? 'pending' : 'localOnly',
         });
         if (!entry) {
           setErrorMessage(t('recording.saveError', 'Could not save activity. Please try again.'));
@@ -203,13 +232,20 @@ export function useReviewSave({
         await clearRecordingBackup();
       }
 
-      if (!autoUpload) {
-        log.log('Auto-upload off - recording saved to library only');
+      if (!uploadable) {
+        useUploadPermissionStore.getState().clearWithoutScope();
+        log.log(
+          withoutScope
+            ? 'Recorded without the upload scope - recording saved to library only'
+            : 'Auto-upload off - recording saved to library only'
+        );
         finishAndGoHome(
-          t(
-            'recording.savedLocally',
-            'Activity saved on this device. Upload it any time from My Recordings.'
-          )
+          withoutScope
+            ? t('recording.savedLocallyNoScope')
+            : t(
+                'recording.savedLocally',
+                'Activity saved on this device. Upload it any time from My Recordings.'
+              )
         );
         return;
       }

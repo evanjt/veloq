@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { spacing, ink, layout } from '@/theme';
+import { spacing, ink, layout, colorWithOpacity } from '@/theme';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
 import { TrimSlider } from '@/features/recording/components/TrimSlider';
+import { pressable } from '@/shared/ui';
 
 interface ReviewMapHeroProps {
   coordinates: [number, number][];
@@ -12,9 +13,17 @@ interface ReviewMapHeroProps {
   canTrim: boolean;
   trimStart: number;
   trimEnd: number;
+  /**
+   * The trim the map draws. Re-slicing both halves of the track and shipping
+   * them to the WebView is too much for a gesture frame, so the map follows
+   * the released handle while the slider and the summary follow the finger.
+   */
+  mapTrimStart: number;
+  mapTrimEnd: number;
   totalDuration: number;
   totalPoints: number;
   onTrimChange: (startIdx: number, endIdx: number) => void;
+  onTrimCommit: (startIdx: number, endIdx: number) => void;
   onBack: () => void;
   disabled?: boolean;
 }
@@ -26,9 +35,12 @@ function ReviewMapHeroInner({
   canTrim,
   trimStart,
   trimEnd,
+  mapTrimStart,
+  mapTrimEnd,
   totalDuration,
   totalPoints,
   onTrimChange,
+  onTrimCommit,
   onBack,
   disabled,
 }: ReviewMapHeroProps) {
@@ -38,19 +50,19 @@ function ReviewMapHeroInner({
         coordinates={coordinates}
         currentLocation={null}
         fitBounds
-        trimStart={canTrim ? trimStart : undefined}
-        trimEnd={canTrim ? trimEnd : undefined}
+        trimStart={canTrim ? mapTrimStart : undefined}
+        trimEnd={canTrim ? mapTrimEnd : undefined}
         style={styles.map}
       />
 
       {/* Back button overlaid on map */}
-      <TouchableOpacity
+      <Pressable
         onPress={onBack}
-        style={[styles.mapBackButton, { top: topInset + spacing.sm }]}
+        style={pressable([styles.mapBackButton, { top: topInset + spacing.sm }])}
         disabled={disabled}
       >
         <MaterialCommunityIcons name="arrow-left" size={24} color={ink.white} />
-      </TouchableOpacity>
+      </Pressable>
 
       {/* Trim slider overlaid at bottom of map */}
       {canTrim && (
@@ -61,6 +73,7 @@ function ReviewMapHeroInner({
             startIdx={trimStart}
             endIdx={trimEnd}
             onTrimChange={onTrimChange}
+            onTrimCommit={onTrimCommit}
           />
         </View>
       )}
@@ -83,7 +96,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: colorWithOpacity(ink.black, 0.4),
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,

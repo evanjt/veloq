@@ -1,8 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { freshValue, useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { elevationGain as sumElevationGain } from '@/shared/math/kinematics';
 
 // MET values for calorie estimation
 const MET_VALUES: Record<string, number> = {
@@ -48,9 +47,19 @@ export function useRecordingMetrics(): {
   lapTime: number;
 } {
   const streams = useRecordingStore((s) => s.streams);
+  const latestSensor = useRecordingStore((s) => s.latestSensor);
+
+  // A sensor going quiet is the absence of an update, so nothing in the store
+  // marks it. The clock is what turns a held sample stale, and it has to be a
+  // value the memo reads rather than a `Date.now()` in the render body.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const tick = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, []);
+  const totals = useRecordingStore((s) => s.totals);
   const laps = useRecordingStore((s) => s.laps);
   const activityType = useRecordingStore((s) => s.activityType);
-  const startTime = useRecordingStore((s) => s.startTime);
   const pausedDuration = useRecordingStore((s) => s.pausedDuration);
   const athleteWeight = useAuthStore((s) => {
     // Weight comes from the intervals.icu API but is not typed on Athlete
@@ -59,15 +68,22 @@ export function useRecordingMetrics(): {
   });
 
   return useMemo(() => {
+    // The tiles read the sensors, not the recorded streams. A stream starts at
+    // the first point, which outdoors waits for a GPS fix, so a connected
+    // sensor would otherwise read 0 through the countdown and the wait.
+    const liveHeartrate = freshValue(latestSensor.heartrate, nowMs);
+    const livePower = freshValue(latestSensor.power, nowMs);
+    const liveCadence = freshValue(latestSensor.cadence, nowMs);
+
     const len = streams.time.length;
     if (len === 0) {
       return {
         speed: 0,
         avgSpeed: 0,
         distance: 0,
-        heartrate: 0,
-        power: 0,
-        cadence: 0,
+        heartrate: liveHeartrate,
+        power: livePower,
+        cadence: liveCadence,
         elevation: 0,
         elevationGain: 0,
         pace: 0,
@@ -82,9 +98,9 @@ export function useRecordingMetrics(): {
     const lastIdx = len - 1;
     const speed = streams.speed[lastIdx] ?? 0;
     const distance = streams.distance[lastIdx] ?? 0;
-    const heartrate = streams.heartrate[lastIdx] ?? 0;
-    const power = streams.power[lastIdx] ?? 0;
-    const cadence = streams.cadence[lastIdx] ?? 0;
+    const heartrate = liveHeartrate;
+    const power = livePower;
+    const cadence = liveCadence;
     const elevation = streams.altitude[lastIdx] ?? 0;
 
     // Average speed
@@ -95,9 +111,9 @@ export function useRecordingMetrics(): {
     const pace = speed > 0 ? 1000 / speed : 0;
     const avgPace = avgSpeed > 0 ? 1000 / avgSpeed : 0;
 
-    // Sum positive deltas; dropouts are skipped, not read as 0 (live altitude
-    // is a real reading, so 0 stays 0 - only missing samples are ignored).
-    const elevationGain = sumElevationGain(streams.altitude);
+    // Accumulated per appended sample by the store. Rescanning the whole
+    // altitude array here made the work over a ride quadratic.
+    const elevationGain = totals.elevationGain;
 
     // Calories estimation. With a heart-rate sensor, use the HR-based energy
     // expenditure regression (Keytel et al., Journal of Sports Sciences, 2005;
@@ -105,10 +121,9 @@ export function useRecordingMetrics(): {
     // HR, fall back to duration_hours * weight_kg * MET.
     const weightKg = athleteWeight ?? DEFAULT_WEIGHT_KG;
     const durationHours = elapsedSeconds / 3600;
-    const hrValues = streams.heartrate.filter((v) => v > 0);
     let calories: number;
-    if (hrValues.length >= 30) {
-      const avgHr = hrValues.reduce((sum, v) => sum + v, 0) / hrValues.length;
+    if (totals.heartrateCount >= 30) {
+      const avgHr = totals.heartrateSum / totals.heartrateCount;
       const kcalPerMin = (-55.0969 + 0.6309 * avgHr + 0.1988 * weightKg + 0.2017 * 35) / 4.184;
       calories = Math.round(Math.max(0, kcalPerMin) * (elapsedSeconds / 60));
     } else {
@@ -142,5 +157,5 @@ export function useRecordingMetrics(): {
       lapDistance,
       lapTime,
     };
-  }, [streams, laps, activityType, startTime, pausedDuration, athleteWeight]);
+  }, [streams, latestSensor, nowMs, totals, laps, activityType, pausedDuration, athleteWeight]);
 }

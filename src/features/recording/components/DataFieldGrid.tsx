@@ -16,6 +16,7 @@ import {
 } from '@/shared/format/format';
 import { colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
 import type { DataFieldType } from '@/types';
+import { pressable } from '@/shared/ui';
 
 export interface HrZoneInfo {
   color: string;
@@ -121,7 +122,7 @@ function DataFieldGridInner({
             testID={`data-field-${field}`}
             onLongPress={onLongPressField ? () => onLongPressField(index, field) : undefined}
             delayLongPress={350}
-            style={[
+            style={pressable([
               styles.cell,
               {
                 backgroundColor: zoned
@@ -131,7 +132,7 @@ function DataFieldGridInner({
                     : colors.surface,
                 borderColor: isDark ? darkColors.border : colors.border,
               },
-            ]}
+            ])}
           >
             <Text
               maxFontSizeMultiplier={DENSE_TEXT_SCALE}
@@ -179,6 +180,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: typography.caption.fontSize,
     fontWeight: '400',
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
 });

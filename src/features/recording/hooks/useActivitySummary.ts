@@ -1,9 +1,9 @@
 import { useMemo, useCallback } from 'react';
 
 import type { RecordingStreams } from '@/features/recording/types';
-import { elevationGain } from '@/shared/math';
 import { pausedSecondsBetween, type PauseInterval } from '../lib/pausedTime';
 import { parseManualSummary } from '../lib/parseManualSummary';
+import { buildStreamPrefixes, windowAverage, windowGain } from '../lib/streamPrefixes';
 
 export interface ActivitySummary {
   duration: number;
@@ -87,6 +87,21 @@ export function useActivitySummary({
     };
   }, [canTrim, streams, trimStart, trimEnd]);
 
+  // Built once per recording. A trim handle moves once a frame and the
+  // window's gain and averages come out of these in constant time, so a drag
+  // no longer walks the whole ride per frame.
+  const prefixes = useMemo(() => buildStreamPrefixes(streams), [streams]);
+
+  // The inclusive point range actually being saved. Empty streams give an
+  // empty range rather than a negative one, so every reader below can index.
+  const savedWindow = useMemo<[number, number]>(() => {
+    const last = streams.time.length - 1;
+    if (last < 0) return [0, -1];
+    const from = canTrim ? Math.max(0, Math.min(trimStart, last)) : 0;
+    const to = Math.max(from, Math.min(canTrim ? trimEnd : last, last));
+    return [from, to];
+  }, [streams, canTrim, trimStart, trimEnd]);
+
   // Compute summary stats (with optional trimming)
   const summary = useMemo<ActivitySummary>(() => {
     if (isManual) {
@@ -100,7 +115,7 @@ export function useActivitySummary({
       };
     }
 
-    const s = canTrim ? getTrimmedStreams() : streams;
+    const [from, to] = savedWindow;
 
     const startDist = canTrim ? (streams.distance[trimStart] ?? 0) : 0;
     const endDist = canTrim
@@ -111,28 +126,21 @@ export function useActivitySummary({
     // Stream time values are seconds; startTime/stopTime are milliseconds. Stream
     // times run on wall clock, so a window measured from them still holds its pauses.
     const elapsed = startTime
-      ? canTrim && s.time.length >= 2
+      ? canTrim && to - from >= 1
         ? Math.max(
             0,
-            s.time[s.time.length - 1] -
-              s.time[0] -
-              pausedSecondsBetween(pauseIntervals, s.time[0], s.time[s.time.length - 1])
+            streams.time[to] -
+              streams.time[from] -
+              pausedSecondsBetween(pauseIntervals, streams.time[from], streams.time[to])
           )
         : ((stopTime ?? Date.now()) - startTime - pausedDuration) / 1000
       : 0;
 
-    // Sum of positive altitude deltas (skips dropouts), shared with live recording.
-    const elevGain = elevationGain(s.altitude);
+    const elevGain = windowGain(prefixes, from, to);
+    const avgHr = windowAverage(prefixes.hrSum, prefixes.hrCount, prefixes, from, to);
+    const avgPwr = windowAverage(prefixes.powerSum, prefixes.powerCount, prefixes, from, to);
 
-    // Average heartrate
-    const hrValues = s.heartrate.filter((v) => v > 0);
-    const avgHr =
-      hrValues.length > 0 ? hrValues.reduce((sum, v) => sum + v, 0) / hrValues.length : null;
-
-    // Average power
-    const pwrValues = s.power.filter((v) => v > 0);
-    const avgPwr =
-      pwrValues.length > 0 ? pwrValues.reduce((sum, v) => sum + v, 0) / pwrValues.length : null;
+    const points = Math.min(to, streams.latlng.length - 1) - from + 1;
 
     return {
       duration: elapsed,
@@ -141,7 +149,7 @@ export function useActivitySummary({
       elevationGain: elevGain,
       avgHeartrate: avgHr,
       avgPower: avgPwr,
-      hasGps: s.latlng.length > 0,
+      hasGps: points > 0,
     };
   }, [
     isManual,
@@ -154,7 +162,8 @@ export function useActivitySummary({
     canTrim,
     trimStart,
     trimEnd,
-    getTrimmedStreams,
+    prefixes,
+    savedWindow,
   ]);
 
   // Compute trim delta when trimming is active
@@ -187,10 +196,10 @@ export function useActivitySummary({
   // Pauses inside the window actually saved, whether trimmed or whole.
   const pausedSecondsInWindow = useMemo(() => {
     if (isManual) return 0;
-    const s = canTrim ? getTrimmedStreams() : streams;
-    if (s.time.length < 2) return pausedDuration / 1000;
-    return pausedSecondsBetween(pauseIntervals, s.time[0], s.time[s.time.length - 1]);
-  }, [isManual, canTrim, getTrimmedStreams, streams, pauseIntervals, pausedDuration]);
+    const [from, to] = savedWindow;
+    if (to - from < 1) return pausedDuration / 1000;
+    return pausedSecondsBetween(pauseIntervals, streams.time[from], streams.time[to]);
+  }, [isManual, savedWindow, streams, pauseIntervals, pausedDuration]);
 
   return { summary, trimDelta, getTrimmedStreams, pausedSecondsInWindow };
 }

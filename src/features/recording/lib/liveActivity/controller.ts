@@ -2,7 +2,6 @@ import { formatDistance, formatPace, formatSpeed } from '@/shared/format/format'
 import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { getSportCategory } from '@/features/recording/lib/sportCategoryDetector';
-import type { RecordingGpsPoint } from '@/features/recording/types';
 
 import { buildContentState, type LiveActivityContentState } from './contentState';
 import {
@@ -32,19 +31,6 @@ function pausedMs(now: number): number {
   return pausedDuration + Math.max(0, now - _pauseStart);
 }
 
-/** The store keeps latlng pairs; the trace projector wants fixes. */
-function traceFixes(): RecordingGpsPoint[] {
-  return useRecordingStore.getState().streams.latlng.map(([latitude, longitude]) => ({
-    latitude,
-    longitude,
-    altitude: null,
-    accuracy: null,
-    speed: null,
-    heading: null,
-    timestamp: 0,
-  }));
-}
-
 function composeState(now: number): LiveActivityContentState | null {
   const { status, startTime, activityType, streams } = useRecordingStore.getState();
   if (!startTime || (status !== 'recording' && status !== 'paused')) return null;
@@ -64,7 +50,7 @@ function composeState(now: number): LiveActivityContentState | null {
     distanceLabel: formatDistance(distance, isMetric),
     speedLabel:
       category === 'cycling' ? formatSpeed(avgSpeed, isMetric) : formatPace(avgSpeed, isMetric),
-    gps: traceFixes(),
+    gps: streams.latlng,
   });
 }
 

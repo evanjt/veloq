@@ -21,6 +21,7 @@ interface ControlBarProps {
   onLap: () => void;
   onPause: () => void;
   onResume: () => void;
+  onStart: () => void;
   onStop: () => void;
   style?: ViewStyle;
 }
@@ -31,6 +32,7 @@ function ControlBarInner({
   onLap,
   onPause,
   onResume,
+  onStart,
   onStop,
   style,
 }: ControlBarProps) {
@@ -91,6 +93,25 @@ function ControlBarInner({
             icon="content-save"
             color={BRAND_COLOR}
             onPress={() => handleHapticPress(onStop)}
+          />
+        </Animated.View>
+      </View>
+    );
+  }
+
+  // Idle: [START]. The screen is reached with nothing recording only after an
+  // armed start is cancelled, and the athlete kept their sport and their place
+  // to begin when they are ready.
+  if (status === 'idle') {
+    return (
+      <View style={[styles.bar, style]}>
+        <Animated.View style={styles.centerGroup}>
+          <PrimaryButton
+            testID="control-start"
+            label={t('recording.startActivity')}
+            icon="play"
+            color={RESUME_COLOR}
+            onPress={() => handleHapticPress(onStart)}
           />
         </Animated.View>
       </View>

@@ -1,12 +1,13 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform, Linking } from 'react-native';
+import { View, Linking, Platform, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, spacing, layout, typography } from '@/theme';
+import { colors, colorWithOpacity, spacing, layout, typography, darkColors } from '@/theme';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
+import { pressable } from '@/shared/ui';
 
 /**
  * One-time, dismissable Android nudge to exempt Veloq from battery
@@ -39,7 +40,7 @@ export function BatteryOptimisationNudge() {
       <MaterialCommunityIcons
         name="battery-alert-variant-outline"
         size={20}
-        color={colors.warning}
+        color={isDark ? darkColors.warningAmber : colors.warningAmber}
       />
       <View style={styles.body}>
         <Text style={[styles.text, { color: colors.amberIcon }]}>
@@ -48,21 +49,24 @@ export function BatteryOptimisationNudge() {
             'Long recordings work best with battery optimisation off for Veloq.'
           )}
         </Text>
-        <TouchableOpacity onPress={openBatterySettings} accessibilityRole="button">
-          <Text style={[styles.link, { color: colors.warning }]}>
+        <Pressable onPress={openBatterySettings} accessibilityRole="button" style={pressable()}>
+          <Text
+            style={[styles.link, { color: isDark ? darkColors.warningAmber : colors.warningAmber }]}
+          >
             {t('recording.batteryOptOpenSettings', 'Open battery settings')}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
-      <TouchableOpacity
+      <Pressable
         testID="battery-opt-nudge-dismiss"
         onPress={dismiss}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         accessibilityRole="button"
         accessibilityLabel={t('common.close', 'Close')}
+        style={pressable()}
       >
         <MaterialCommunityIcons name="close" size={18} color={colors.amberIcon} />
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }
@@ -80,7 +84,7 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    gap: 2,
+    gap: spacing.xxs,
   },
   text: {
     fontSize: typography.bodyCompact.fontSize,

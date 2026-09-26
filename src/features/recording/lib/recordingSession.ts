@@ -103,15 +103,50 @@ function ingestFix(coords: Location.LocationObjectCoords, timestamp: number): vo
   if (status === 'recording') addGpsPoint(point);
 }
 
+/**
+ * The arming in flight, so a second caller waits on it rather than starting a
+ * second watch. `ensureLocationWatch` is called by the session and by the
+ * screen's own effect on the same status change, and both await the permission
+ * check before reaching the `if (watch)` guard, so both used to pass it. The
+ * second subscription was never held, so nothing could remove it and a
+ * foreground GPS watch ran for the life of the process.
+ */
+let watchStarting: Promise<void> | null = null;
+
+/**
+ * Bumped by every stop. A watch that arrives from a generation that has been
+ * stopped is removed on landing rather than held: the stop had nothing to
+ * remove when it ran.
+ */
+let watchGeneration = 0;
+
 async function startForegroundWatch(): Promise<void> {
   if (watch) return;
+  if (watchStarting) {
+    await watchStarting;
+    return;
+  }
   log.log('Starting foreground location watch');
-  watch = await Location.watchPositionAsync(getGpsWatchOptions(), (location) => {
+  const generation = watchGeneration;
+  watchStarting = Location.watchPositionAsync(getGpsWatchOptions(), (location) => {
     ingestFix(location.coords, location.timestamp);
-  });
+  })
+    .then((started) => {
+      if (generation !== watchGeneration) {
+        log.log('Dropping a location watch the session no longer wants');
+        started.remove();
+        return;
+      }
+      watch = started;
+    })
+    .finally(() => {
+      watchStarting = null;
+    });
+  await watchStarting;
 }
 
 function stopForegroundWatch(): void {
+  watchGeneration += 1;
   if (!watch) return;
   log.log('Stopping foreground location watch');
   watch.remove();

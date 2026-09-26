@@ -12,20 +12,22 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 
 import { navigateTo } from '@/shared/app/navigation';
-import { colors, colorWithOpacity, layout, spacing, typography } from '@/theme';
+import { colors, colorWithOpacity, darkColors, layout, spacing, typography } from '@/theme';
+import { useTheme } from '@/shared/app';
 import { selectStatusMessage, type StatusSlotInput } from '../lib/statusSlot';
 
 interface StatusSlotProps extends StatusSlotInput {
   onDismissGpsWarning: () => void;
 }
 
-export function StatusSlot({
+function StatusSlotInner({
   backgroundTrackingWarning,
   gpsWarning,
   sensorIssue,
   splitBanner,
   onDismissGpsWarning,
 }: StatusSlotProps) {
+  const { isDark } = useTheme();
   const message = selectStatusMessage({
     backgroundTrackingWarning,
     gpsWarning,
@@ -33,6 +35,10 @@ export function StatusSlot({
     splitBanner,
   });
   if (!message) return null;
+
+  // The amber has to be the mark here, not the ground: `colors.warning` is
+  // 2.15:1 on white, so the row's text and icons take the deep tone instead.
+  const amber = isDark ? darkColors.warningAmber : colors.warningAmber;
 
   // No dismiss: the ride still cannot record off screen after it is read, and
   // it clears itself if a later attempt succeeds.
@@ -45,8 +51,8 @@ export function StatusSlot({
         style={[styles.row, styles.warnRow]}
         testID="status-slot-background"
       >
-        <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.warning} />
-        <Text style={[styles.text, { color: colors.warning }]}>{message.text}</Text>
+        <MaterialCommunityIcons name="alert-circle-outline" size={16} color={amber} />
+        <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
       </Animated.View>
     );
   }
@@ -60,13 +66,13 @@ export function StatusSlot({
         style={[styles.row, styles.warnRow]}
         testID="status-slot-gps"
       >
-        <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.warning} />
-        <Text style={[styles.text, { color: colors.warning }]}>{message.text}</Text>
+        <MaterialCommunityIcons name="alert-circle-outline" size={16} color={amber} />
+        <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
         <TouchableOpacity
           onPress={onDismissGpsWarning}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <MaterialCommunityIcons name="close" size={16} color={colors.warning} />
+          <MaterialCommunityIcons name="close" size={16} color={amber} />
         </TouchableOpacity>
       </Animated.View>
     );
@@ -87,9 +93,9 @@ export function StatusSlot({
           accessibilityRole="button"
           accessibilityLabel={message.text}
         >
-          <MaterialCommunityIcons name="bluetooth" size={16} color={colors.warning} />
-          <Text style={[styles.text, { color: colors.warning }]}>{message.text}</Text>
-          <MaterialCommunityIcons name="chevron-right" size={16} color={colors.warning} />
+          <MaterialCommunityIcons name="bluetooth" size={16} color={amber} />
+          <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
+          <MaterialCommunityIcons name="chevron-right" size={16} color={amber} />
         </TouchableOpacity>
       </Animated.View>
     );
@@ -132,3 +138,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+
+/**
+ * The recording screen re-renders every second while the timer runs, so the
+ * parts of it that do not change with the clock are held here.
+ */
+export const StatusSlot = React.memo(StatusSlotInner);

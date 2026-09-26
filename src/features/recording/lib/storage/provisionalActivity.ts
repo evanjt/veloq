@@ -7,7 +7,7 @@
 
 import { engine } from 'veloqrs';
 
-import { toActivityMetrics } from '@/features/activity';
+import { toActivityMetrics } from '@/shared/activity/activityMetrics';
 import { debug } from '@/shared/debug/debug';
 import { epochMsToStartDateLocal, startDateLocalToEpochSeconds } from '@/shared/time/startDate';
 import {
@@ -50,25 +50,22 @@ export async function writeProvisionalActivity(
     return null;
   }
 
-  const activityId = engine.mintLocalActivityId();
+  const activityId = entry.engineActivityId ?? engine.provisionalActivityId(entry.id);
   if (!activityId) return null;
 
   try {
-    const track = streams?.latlng ?? [];
-    if (track.length > 0) {
-      // The track starts section detection, so it goes in first.
-      await engine.addActivities([activityId], track.flat(), [0], [entry.activityType]);
-    }
-
     const body = buildProvisionalBody(entry, activityId);
-    engine.upsertActivityBodies([
+    const saved = await engine.saveProvisionalActivity(
+      activityId,
+      (streams?.latlng ?? []).flat(),
       {
         activityId,
         date: startDateLocalToEpochSeconds(body.start_date_local) ?? 0,
         raw: JSON.stringify(body),
       },
-    ]);
-    engine.setActivityMetrics([toActivityMetrics(body)]);
+      toActivityMetrics(body)
+    );
+    if (!saved) return null;
     log.log(`Provisional row ${activityId} for recording ${entry.id}`);
     return activityId;
   } catch (err) {

@@ -13,6 +13,8 @@ import {
 import { reconcileProvisionalUploads } from '@/features/recording/lib/storage/provisionalActivity';
 import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
 import { confirmAndDeleteUploaded } from '@/features/recording/lib/upload/confirmUploads';
+import { useEngineReady } from '@/shared/native/useEngineReady';
+import { useEngineStatus } from '@/features/routes';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('UploadQueue');
@@ -28,6 +30,8 @@ const RETRY_TICK_MS = 2 * 60 * 1000;
  */
 export function useUploadQueueProcessor() {
   const { isOnline } = useNetwork();
+  const engine = useEngineReady();
+  const readyNonce = useEngineStatus((s) => s.readyNonce);
   const athleteId = useAuthStore((state) => state.athleteId);
   const needsUpgrade = useUploadPermissionStore((s) => s.needsUpgrade);
   const isProcessing = useRef(false);
@@ -36,8 +40,9 @@ export function useUploadQueueProcessor() {
   // AsyncStorage index it writes into. Order matters: the queue migration adds
   // entries the adoption has to see.
   useEffect(() => {
+    if (!engine?.ready) return;
     void migrateLegacyUploadQueue().then(adoptAsyncStorageIndex);
-  }, []);
+  }, [engine, readyNonce]);
 
   // A forced sign-out holds the queue rather than demoting it, so whoever
   // signs in next can meet rides that are not theirs. Theirs keep their place;

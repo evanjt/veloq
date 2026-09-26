@@ -1,16 +1,17 @@
+import React from 'react';
 import { View, TouchableOpacity, Animated } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { colors } from '@/theme';
-import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
+import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import type { ActivityType } from '@/types';
 import type { RecordingMode, RecordingStatus } from '../types';
 import { GpsSignalIndicator } from './GpsSignalIndicator';
 import { styles } from '../RecordingScreen.styles';
 
-export function TimerHeader({
+function TimerHeaderInner({
   formattedElapsed,
   currentActivityType,
   status,
@@ -95,23 +96,36 @@ export function TimerHeader({
               color={textSecondary}
             />
           </TouchableOpacity>
-          <View testID="recording-status" style={styles.statusBadge}>
-            <Animated.View
-              style={[
-                styles.statusDot,
-                {
-                  backgroundColor: status === 'recording' ? colors.error : colors.warning,
-                  opacity: statusPulse,
-                },
-              ]}
-            />
-            <Text style={[styles.statusText, { color: textSecondary }]}>
-              {status === 'recording' ? t('recording.rec', 'REC') : t('recording.paused', 'PAUSED')}
-            </Text>
-            {mode === 'gps' && <GpsSignalIndicator accuracy={accuracy} />}
-          </View>
+          {/* Nothing is recording after a cancelled arm, and a badge reading
+              PAUSED there is the confusion the countdown exists to avoid. The
+              GPS indicator goes with it: no watch runs while idle. */}
+          {status !== 'idle' && (
+            <View testID="recording-status" style={styles.statusBadge}>
+              <Animated.View
+                style={[
+                  styles.statusDot,
+                  {
+                    backgroundColor: status === 'recording' ? colors.error : colors.warning,
+                    opacity: statusPulse,
+                  },
+                ]}
+              />
+              <Text style={[styles.statusText, { color: textSecondary }]}>
+                {status === 'recording'
+                  ? t('recording.rec', 'REC')
+                  : t('recording.paused', 'PAUSED')}
+              </Text>
+              {mode === 'gps' && <GpsSignalIndicator accuracy={accuracy} />}
+            </View>
+          )}
         </View>
       </View>
     </View>
   );
 }
+
+/**
+ * The recording screen re-renders every second while the timer runs, so the
+ * parts of it that do not change with the clock are held here.
+ */
+export const TimerHeader = React.memo(TimerHeaderInner);

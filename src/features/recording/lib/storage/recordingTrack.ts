@@ -1,12 +1,6 @@
-/**
- * The track of a saved recording, as `[lat, lng]` pairs.
- *
- * The engine holds it from the save, so the streams sidecar is only there for
- * a recording whose engine write did not land. An uploaded recording has no
- * sidecar left.
- */
+// Read the engine track, falling back to the sidecar kept until confirmation.
 
-import { engine } from 'veloqrs';
+import { decodeCoords, engine } from 'veloqrs';
 
 import { debug } from '@/shared/debug/debug';
 import { readRecordingStreams } from '@/features/recording/lib/storage/recordingLibrary';
@@ -19,7 +13,7 @@ export async function readRecordingTrack(
 ): Promise<[number, number][]> {
   if (entry.engineActivityId && engine.ready) {
     try {
-      const points = engine.getGpsTrack(entry.engineActivityId);
+      const points = decodeCoords(engine.getGpsTrack(entry.engineActivityId));
       if (points.length > 0) {
         return points.map((p) => [p.latitude, p.longitude]);
       }

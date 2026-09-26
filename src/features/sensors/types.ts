@@ -16,7 +16,11 @@ export interface DiscoveredSensor {
   rssi: number | null;
 }
 
-export type SensorConnectionStatus = 'connecting' | 'connected' | 'reconnecting';
+/**
+ * `connected` means a sample has arrived, not that GATT opened. `noData` is a
+ * live link that has carried nothing for `SENSOR_NO_DATA_MS`.
+ */
+export type SensorConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'noData';
 
 export interface SensorConnection {
   status: SensorConnectionStatus;

@@ -6,6 +6,7 @@ import { getEngine } from '@/shared/native/engine';
 import { getStoredCredentials } from '@/shared/app/AuthStore';
 import type {
   ActivityType,
+  ManualActivityData,
   RecordingLibraryEntry,
   RecordingStreams,
   RecordingUploadStatus,
@@ -22,11 +23,7 @@ const LEGACY_INDEX_KEY = 'veloq-recording-library';
 const LEGACY_QUEUE_KEY = 'veloq-upload-queue';
 const LEGACY_UPLOADS_DIR = `${FileSystem.documentDirectory}pending_uploads/`;
 
-/**
- * Automatic retries before an entry parks as 'failed' (manual retry only). A
- * failed upload never loses its FIT. The engine applies this; the copy here is
- * what the library screen tells the athlete.
- */
+// Automatic retry limit read by the failed-upload log line.
 export const MAX_AUTO_RETRIES = 5;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -57,6 +54,9 @@ function toLibraryEntry(row: EngineEntry): RecordingLibraryEntry {
     ...row,
     activityType: row.activityType as ActivityType,
     uploadStatus: row.uploadStatus as RecordingUploadStatus,
+    // The column is NOT NULL with a 'fit' default, so anything else is a row
+    // this build does not know about and a FIT is the safe reading.
+    kind: row.kind === 'manual' ? 'manual' : 'fit',
   };
 }
 
@@ -65,9 +65,9 @@ function toLibraryEntry(row: EngineEntry): RecordingLibraryEntry {
  * server does not have yet, so a caller that cannot reach it must hear so
  * rather than read an empty library as "nothing recorded".
  */
-function library(): NonNullable<ReturnType<typeof getEngine>> {
+function library(requireReady = false): NonNullable<ReturnType<typeof getEngine>> {
   const engine = getEngine();
-  if (!engine) throw new Error('Engine not initialized');
+  if (!engine || (requireReady && !engine.ready)) throw new Error('Engine not initialized');
   return engine;
 }
 
@@ -79,16 +79,23 @@ async function ensureRecordingsDir(): Promise<void> {
   }
 }
 
-const BACKOFF_BASE_MS = 30_000;
-const BACKOFF_CAP_MS = 60 * 60 * 1000;
+/**
+ * How many bytes go through `String.fromCharCode` at once. Small enough to
+ * stay inside the argument limit, large enough that a multi-megabyte FIT is
+ * a few hundred joins rather than a few million.
+ */
+const BASE64_CHUNK = 8192;
 
 export function bufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  // Built per chunk and joined once. Appending a character at a time
+  // reallocated the string on every byte of a long ride's FIT file, on the
+  // JS thread while the athlete waits on the save.
+  const chunks: string[] = [];
+  for (let i = 0; i < bytes.length; i += BASE64_CHUNK) {
+    chunks.push(String.fromCharCode(...bytes.subarray(i, i + BASE64_CHUNK)));
   }
-  return btoa(binary);
+  return btoa(chunks.join(''));
 }
 
 export function base64ToBuffer(base64: string): ArrayBuffer {
@@ -100,24 +107,16 @@ export function base64ToBuffer(base64: string): ArrayBuffer {
   return bytes.buffer as ArrayBuffer;
 }
 
-/**
- * Whether a pending entry is eligible for an automatic retry right now.
- *
- * The engine applies this when it picks the next upload. This is the same rule
- * for a caller holding an entry it already has, so the screen does not make a
- * round trip to grey out a button.
- */
-export function isRetryEligible(entry: RecordingLibraryEntry, now: number): boolean {
-  if (entry.uploadStatus !== 'pending') return false;
-  if (!entry.lastAttemptAt) return true;
-  const delay = Math.min(BACKOFF_BASE_MS * 2 ** entry.retryCount, BACKOFF_CAP_MS);
-  return now - entry.lastAttemptAt >= delay;
-}
-
 // ─── Save / read ──────────────────────────────────────────────────────────────
 
 export interface SaveRecordingParams {
-  fitBuffer: ArrayBuffer;
+  /** Absent for a manual entry, which has no file to write. */
+  fitBuffer?: ArrayBuffer;
+  /**
+   * The request body a manual entry will post, stored beside the row so the
+   * entry survives a relaunch and drains through the same queue.
+   */
+  manualBody?: ManualActivityData;
   streams?: RecordingStreams;
   activityType: ActivityType;
   name: string;
@@ -130,32 +129,38 @@ export interface SaveRecordingParams {
   uploadStatus: Extract<RecordingUploadStatus, 'pending' | 'localOnly'>;
 }
 
-/**
- * Persist a completed recording: FIT file (+ optional streams sidecar for the
- * detail view) plus an index entry. The FIT is the durable copy until the upload
- * succeeds, and no retry ever deletes it. Once intervals.icu holds the activity
- * the FIT has no reader left, and `discardRecordingFit` takes it. The sidecar
- * stays: it is what the detail view renders from.
- */
+// Keep the FIT, sidecar and index until confirmation reads the activity back.
 export async function saveRecording(
   params: SaveRecordingParams
 ): Promise<RecordingLibraryEntry | null> {
   try {
+    library(true);
     await ensureRecordingsDir();
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const fitPath = `${RECORDINGS_DIR}${id}.fit`;
-    await FileSystem.writeAsStringAsync(fitPath, bufferToBase64(params.fitBuffer), {
-      encoding: FileSystem.EncodingType.Base64,
-    });
+    const manual = params.manualBody !== undefined;
+
+    // A manual entry names no file. The column cannot hold a null, so the empty
+    // string is what "no FIT" looks like, and `kind` is what the upload reads.
+    let fitPath = '';
+    if (params.fitBuffer) {
+      fitPath = `${RECORDINGS_DIR}${id}.fit`;
+      await FileSystem.writeAsStringAsync(fitPath, bufferToBase64(params.fitBuffer), {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    }
 
     let streamsPath: string | undefined;
-    if (params.streams) {
+    if (manual) {
+      streamsPath = `${RECORDINGS_DIR}${id}.manual.json`;
+      await FileSystem.writeAsStringAsync(streamsPath, JSON.stringify(params.manualBody));
+    } else if (params.streams) {
       streamsPath = `${RECORDINGS_DIR}${id}.streams.json`;
       await FileSystem.writeAsStringAsync(streamsPath, JSON.stringify(params.streams));
     }
 
     const entry: RecordingLibraryEntry = {
       id,
+      kind: manual ? 'manual' : 'fit',
       fitPath,
       streamsPath,
       activityType: params.activityType,
@@ -220,6 +225,25 @@ export async function readRecordingFit(entry: RecordingLibraryEntry): Promise<Ar
   }
 }
 
+/**
+ * The request body a manual entry holds, or null when it cannot be read.
+ *
+ * Null is not "no body": it is a body the device cannot produce right now, and
+ * the caller holds the entry rather than posting an entry it cannot describe.
+ */
+export async function readRecordingManualBody(
+  entry: RecordingLibraryEntry
+): Promise<ManualActivityData | null> {
+  if (entry.kind !== 'manual' || !entry.streamsPath) return null;
+  try {
+    const info = await FileSystem.getInfoAsync(entry.streamsPath);
+    if (!info.exists) return null;
+    return JSON.parse(await FileSystem.readAsStringAsync(entry.streamsPath)) as ManualActivityData;
+  } catch {
+    return null;
+  }
+}
+
 export async function readRecordingStreams(
   entry: RecordingLibraryEntry
 ): Promise<RecordingStreams | null> {
@@ -228,7 +252,9 @@ export async function readRecordingStreams(
     const info = await FileSystem.getInfoAsync(entry.streamsPath);
     if (!info.exists) return null;
     const data = await FileSystem.readAsStringAsync(entry.streamsPath);
-    return JSON.parse(data) as RecordingStreams;
+    const streams = JSON.parse(data) as RecordingStreams;
+    streams.altitude = streams.altitude.map((alt) => alt ?? NaN);
+    return streams;
   } catch {
     return null;
   }
@@ -271,6 +297,19 @@ export async function markRecordingUploaded(id: string, intervalsActivityId?: st
 export async function markRecordingUploadFailed(id: string, error: string): Promise<void> {
   const retryCount = library().markRecordingUploadFailed(id, error, Date.now());
   log.log(`Upload failed for ${id} (retry ${retryCount}/${MAX_AUTO_RETRIES}): ${error}`);
+}
+
+/**
+ * The transport failed before intervals.icu was reached.
+ *
+ * The ride keeps its attempt count: a request that never arrived says nothing
+ * about the ride, and a device out of signal for a week would otherwise spend
+ * all five attempts on cold launches and park a ride the server never saw. The
+ * attempt is stamped, so the ordinary backoff still applies.
+ */
+export async function holdRecordingForNetwork(id: string, error: string): Promise<void> {
+  library().holdRecordingForNetwork(id, error, Date.now());
+  log.log(`Upload held for the network: ${id} (${error})`);
 }
 
 /** A server-side rejection that automatic retries cannot fix. */
@@ -335,51 +374,7 @@ export async function nextPendingUpload(now = Date.now()): Promise<RecordingLibr
 
 // ─── Deletion ─────────────────────────────────────────────────────────────────
 
-/**
- * Drop the FIT bytes once intervals.icu has the activity. The file exists to be
- * uploaded, so keeping it grows the device by every recording the athlete has
- * ever made. The streams sidecar and the index entry stay, which is what the
- * library and its detail view read.
- *
- * Best effort by design: the upload succeeded either way, and a delete that
- * throws must not turn a finished upload into a retry.
- */
-export async function discardRecordingFit(id: string): Promise<void> {
-  const entry = library().getRecording(id);
-  if (!entry) return;
-  try {
-    await FileSystem.deleteAsync(entry.fitPath, { idempotent: true });
-    log.log(`Discarded FIT for uploaded recording ${id}`);
-  } catch {
-    // The next discard, or the user's own delete, gets it.
-  }
-}
-
-/**
- * Drop the streams sidecar once the engine holds the ride's track. It is the
- * last file that grows with every recording, and the detail view reads the
- * engine first. The path is cleared with it, so nothing looks for the file.
- *
- * Best effort by design, the same as the FIT: a delete that throws must not
- * turn a finished upload into a retry.
- */
-export async function discardRecordingStreams(id: string): Promise<void> {
-  const row = library().getRecording(id);
-  const path = row?.streamsPath;
-  if (!path) return;
-  // The row stops naming the file before the file goes, never after: a delete
-  // that succeeds against a row still pointing at it leaves the library
-  // looking for a path that is not there.
-  library().clearRecordingStreamsPath(id);
-  try {
-    await FileSystem.deleteAsync(path, { idempotent: true });
-    log.log(`Discarded streams sidecar for uploaded recording ${id}`);
-  } catch {
-    // The row no longer names it, and the user's own delete gets the file.
-  }
-}
-
-// ─── Deletion (user-initiated only) ──────────────────────────────────────────
+// ─── Deletion after confirmation or on user request ───────────────────────────
 
 export async function deleteRecording(id: string): Promise<void> {
   const entry = library().deleteRecording(id);
@@ -402,10 +397,6 @@ export async function getUnuploadedCount(): Promise<number> {
   return library().unuploadedRecordingCount();
 }
 
-export async function getPermissionBlockedCount(): Promise<number> {
-  return library().permissionBlockedRecordingCount();
-}
-
 // ─── Legacy migration ─────────────────────────────────────────────────────────
 
 /**
@@ -419,6 +410,7 @@ export async function getPermissionBlockedCount(): Promise<number> {
  */
 export async function adoptAsyncStorageIndex(): Promise<number> {
   try {
+    library(true);
     const stored = await AsyncStorage.getItem(LEGACY_INDEX_KEY);
     if (!stored) return 0;
 
@@ -460,26 +452,35 @@ interface LegacyQueueEntry {
 
 /**
  * One-off adoption of the old pending_uploads queue into the library. Files
- * move into the recordings dir; entries become 'pending' (or
+ * are copied into the recordings dir before insertion; entries become 'pending' (or
  * 'permissionBlocked') with metadata reconstructed from what the queue knew.
  */
 export async function migrateLegacyUploadQueue(): Promise<void> {
   try {
+    library(true);
     const stored = await AsyncStorage.getItem(LEGACY_QUEUE_KEY);
     if (!stored) return;
 
     const legacy = JSON.parse(stored) as LegacyQueueEntry[];
     await ensureRecordingsDir();
 
+    let complete = true;
     for (const old of legacy) {
       try {
-        const info = await FileSystem.getInfoAsync(old.filePath);
-        if (!info.exists) continue;
+        const engine = library(true);
+        if (engine.getRecording(old.id)) continue;
         const fitPath = `${RECORDINGS_DIR}${old.id}.fit`;
-        await FileSystem.moveAsync({ from: old.filePath, to: fitPath });
+        const destination = await FileSystem.getInfoAsync(fitPath);
+        if (!destination.exists) {
+          const source = await FileSystem.getInfoAsync(old.filePath);
+          if (!source.exists) throw new Error('Legacy recording FIT is missing');
+          await FileSystem.copyAsync({ from: old.filePath, to: fitPath });
+        }
 
         const entry: RecordingLibraryEntry = {
           id: old.id,
+          // The legacy queue held FIT uploads only.
+          kind: 'fit',
           fitPath,
           activityType: old.activityType,
           name: old.name,
@@ -493,11 +494,14 @@ export async function migrateLegacyUploadQueue(): Promise<void> {
           lastError: old.lastError,
         };
         library().addRecording(toEngineEntry(entry));
+        await FileSystem.deleteAsync(old.filePath, { idempotent: true });
       } catch (err) {
+        complete = false;
         log.warn(`Failed to migrate legacy upload ${old.id}:`, err);
       }
     }
 
+    if (!complete) return;
     await AsyncStorage.removeItem(LEGACY_QUEUE_KEY);
     try {
       const dirInfo = await FileSystem.getInfoAsync(LEGACY_UPLOADS_DIR);

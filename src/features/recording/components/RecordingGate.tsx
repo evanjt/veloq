@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -9,11 +9,18 @@ import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 import { GrantAccessButton } from './GrantAccessButton';
+import { pressable } from '@/shared/ui';
 
 interface RecordingGateProps {
   /** Why recording is blocked. `ok` never reaches here. */
   reason: 'no_permission' | 'not_signed_in';
   onGrantAccess: () => void;
+  /**
+   * Record anyway, keeping the ride on the device. Missing scope only: absent
+   * while the scope answer is still on its way, where there is nothing to warn
+   * about yet.
+   */
+  onContinue?: () => void;
   isUpgrading?: boolean;
   error?: string | null;
 }
@@ -26,10 +33,15 @@ interface RecordingGateProps {
  * they have to answer it the same way. A missing account and a missing scope are
  * different problems with different fixes, which is why they are different
  * reasons rather than one.
+ *
+ * Only the missing account is a refusal. A missing scope stops the upload, not
+ * the ride, so it warns and lets the athlete through: the grant action is there
+ * for when the network is, and continuing keeps the ride on the device.
  */
 export function RecordingGate({
   reason,
   onGrantAccess,
+  onContinue,
   isUpgrading,
   error,
 }: RecordingGateProps): React.JSX.Element {
@@ -44,7 +56,7 @@ export function RecordingGate({
       <MaterialCommunityIcons
         name={signedOut ? 'account-lock-outline' : 'shield-lock-outline'}
         size={48}
-        color={colors.warning}
+        color={isDark ? darkColors.warningAmber : colors.warningAmber}
       />
       <Text style={[styles.title, { color: textPrimary }]}>
         {signedOut
@@ -52,29 +64,39 @@ export function RecordingGate({
           : t('recording.writePermissionRequired', 'Write permission required')}
       </Text>
       <Text style={[styles.description, { color: textSecondary }]}>
-        {signedOut
-          ? t('recording.signInDescription')
-          : t(
-              'recording.writePermissionDescription',
-              'Recording requires write permission. Tap below to grant access.'
-            )}
+        {signedOut ? t('recording.signInDescription') : t('recording.writePermissionLocalOnly')}
       </Text>
       {signedOut ? (
-        <TouchableOpacity
+        <Pressable
           testID="recording-gate-signin-action"
           onPress={() => navigateTo('/login')}
           accessibilityRole="button"
+          style={pressable()}
         >
           <Text style={[styles.action, { color: colors.primary }]}>
             {t('recording.signInAction')}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       ) : (
-        <GrantAccessButton
-          testID="record-grant-access"
-          onPress={onGrantAccess}
-          loading={isUpgrading === true}
-        />
+        <>
+          <GrantAccessButton
+            testID="record-grant-access"
+            onPress={onGrantAccess}
+            loading={isUpgrading === true}
+          />
+          {onContinue ? (
+            <Pressable
+              testID="recording-gate-continue"
+              onPress={onContinue}
+              accessibilityRole="button"
+              style={pressable()}
+            >
+              <Text style={[styles.action, { color: colors.primary }]}>
+                {t('recording.recordAnyway')}
+              </Text>
+            </Pressable>
+          ) : null}
+        </>
       )}
       {error ? (
         <Text style={styles.error} numberOfLines={2}>
@@ -112,7 +134,7 @@ const styles = StyleSheet.create({
   },
   error: {
     fontSize: typography.bodyCompact.fontSize,
-    color: colors.errorDark,
+    color: colors.errorDeep,
     textAlign: 'center',
   },
 });

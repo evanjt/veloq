@@ -1,15 +1,17 @@
 import { debug } from '@/shared/debug/debug';
-import { uploadActivityFile } from './intervalsUploads';
+import { createManualActivity, uploadActivityFile } from './intervalsUploads';
 import { engine } from 'veloqrs';
 import {
   recordingFitExists,
   readRecordingFit,
+  readRecordingManualBody,
   markRecordingUploading,
   markRecordingUploaded,
   markRecordingUploadFailed,
   markRecordingRejected,
   markRecordingPermissionBlocked,
   holdRecordingForAuth,
+  holdRecordingForNetwork,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { recordProvisionalUpload } from '@/features/recording/lib/storage/provisionalActivity';
 import { classifyUploadError } from './classifyUploadError';
@@ -72,16 +74,24 @@ export interface UploadRecordingResult {
  * transition. The single upload path shared by the review-screen save, the
  * background processor, and the library's manual "upload now".
  *
- * The FIT file on disk is the source of truth until the upload lands, and no
+ * The FIT file on disk is the source of truth until confirmation, and no
  * failure outcome deletes it. The engine streams it straight off disk, so a long
- * ride never has to fit in memory to be uploaded. Once intervals.icu has the
- * activity, and once everything that still needed the bytes has read them, the
- * FIT is discarded.
+ * ride never has to fit in memory to be uploaded. `confirmAndDeleteUploaded`
+ * reads the activity back before deleting the whole recording.
  */
 export async function uploadRecording(
   entry: RecordingLibraryEntry
 ): Promise<UploadRecordingResult> {
-  if (!(await recordingFitExists(entry))) {
+  // A manual entry has no file, so the FIT check is not asked about one: it
+  // would find nothing and park the entry as rejected, which nothing requeues.
+  const manual = entry.kind === 'manual';
+  const manualBody = manual ? await readRecordingManualBody(entry) : null;
+  if (manual && !manualBody) {
+    log.warn(`Manual body missing for ${entry.id}`);
+    await markRecordingRejected(entry.id, 'Manual entry body missing on device');
+    return { outcome: 'missing' };
+  }
+  if (!manual && !(await recordingFitExists(entry))) {
     log.warn(`FIT file missing for ${entry.id}`);
     await markRecordingRejected(entry.id, 'FIT file missing on device');
     return { outcome: 'missing' };
@@ -89,11 +99,17 @@ export async function uploadRecording(
 
   await markRecordingUploading(entry.id);
   try {
-    log.log(`Uploading ${entry.name}.fit (${entry.id})...`);
-    const activityId = await uploadActivityFile(entry.fitPath, `${entry.name}.fit`, {
-      name: entry.name,
-      pairedEventId: entry.pairedEventId,
-    });
+    log.log(
+      manual
+        ? `Posting manual entry ${entry.name} (${entry.id})...`
+        : `Uploading ${entry.name}.fit (${entry.id})...`
+    );
+    const activityId = manualBody
+      ? await createManualActivity(manualBody)
+      : await uploadActivityFile(entry.fitPath, `${entry.name}.fit`, {
+          name: entry.name,
+          pairedEventId: entry.pairedEventId,
+        });
     await markRecordingUploaded(entry.id, activityId);
     // The provisional row keeps its key and gains the server's id.
     await recordProvisionalUpload(entry, activityId);
@@ -123,8 +139,11 @@ export async function uploadRecording(
       return { outcome: 'authExpired', errorDetail: err.apiDetail ?? err.errMsg };
     }
 
+    // A transport failure never reached intervals.icu, so it is not an attempt
+    // the ride spent. Counting it parked a ride after five cold launches out of
+    // signal, which broke the promise that it uploads on its own.
     if (err.type === 'network') {
-      await markRecordingUploadFailed(entry.id, err.errMsg);
+      await holdRecordingForNetwork(entry.id, err.errMsg);
       return { outcome: 'network', errorDetail: err.errMsg };
     }
 

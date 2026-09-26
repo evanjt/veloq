@@ -18,6 +18,7 @@ import {
   base64ToBytes,
 } from './gatt';
 import { createCrankCadenceCalculator } from './cadence';
+import { SENSOR_NO_DATA_MS, sensorConnectionHealth } from './connectionHealth';
 import type { KnownSensor, SensorKind } from '../types';
 import type { BleManager, Device, Subscription } from 'react-native-ble-plx';
 
@@ -26,6 +27,8 @@ const log = debug.create('Sensors');
 const SCANNED_SERVICES = [HEART_RATE_SERVICE, CYCLING_POWER_SERVICE, CSC_SERVICE];
 const RECONNECT_BASE_MS = 2000;
 const RECONNECT_MAX_MS = 30_000;
+/** How often a live connection is re-checked against the no-data watchdog. */
+const HEALTH_TICK_MS = 2000;
 
 let bleManager: BleManager | null = null;
 let bleUnavailable = false;
@@ -113,13 +116,77 @@ interface ActiveConnection {
   disconnectSub: Subscription | null;
   cancelled: boolean;
   reconnectAttempt: number;
-  reconnectTimer: ReturnType<typeof setTimeout> | null;
+  /** `first` for the initial connect, `retry` once a reconnect drove it. */
+  attempt: 'first' | 'retry';
+  /** When the monitors were registered, null while they are being registered. */
+  subscribedAt: number | null;
+  /** When this sensor last delivered a notification, null if it never has. */
+  lastSampleAt: number | null;
+  healthTimer: ReturnType<typeof setInterval> | null;
 }
 
 const activeConnections = new Map<string, ActiveConnection>();
 
-async function subscribeToSensor(active: ActiveConnection, kinds: SensorKind[]): Promise<void> {
+/**
+ * The pending reconnect per sensor, so a deliberate disconnect can cancel it.
+ * It used to be a field on `ActiveConnection`, which is deleted before the
+ * reconnect is ever scheduled, so nothing held the handle and the `clearTimeout`
+ * that read it could never fire.
+ */
+const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/**
+ * Bumped by every teardown, so a connect still in flight can see that the
+ * sensor it is connecting was disconnected while it awaited. Without it the
+ * landing connect recreated the entry after the ride ended, and the next
+ * ride's `connectKnownSensors` returned early against it.
+ */
+const connectGenerations = new Map<string, number>();
+
+/**
+ * Write the sensor's derived status into the store. Called when a sample
+ * lands and on every watchdog tick, so the row follows the link rather than
+ * the GATT handshake.
+ */
+function publishHealth(sensor: KnownSensor, active: ActiveConnection): void {
+  const status = sensorConnectionHealth({
+    attempt: active.attempt,
+    subscribedAt: active.subscribedAt,
+    lastSampleAt: active.lastSampleAt,
+    now: Date.now(),
+  });
+  const existing = useSensorStore.getState().connections[sensor.id];
+  if (existing?.status === status) return;
+  useSensorStore.getState().setConnection(sensor.id, {
+    ...existing,
+    status,
+    name: sensor.name,
+    kinds: sensor.kinds,
+  });
+}
+
+/**
+ * A notification arrived, whatever it carried. The link is what is being
+ * timed here, so an unparseable frame counts: it still proves data flows.
+ */
+function noteSample(sensor: KnownSensor, active: ActiveConnection): void {
+  active.lastSampleAt = Date.now();
+  publishHealth(sensor, active);
+}
+
+/**
+ * ble-plx returns a failed CCCD write, a GATT error and a dropped notification
+ * stream through the monitor callback. Dropping it left a silent strap
+ * indistinguishable from a working one.
+ */
+function logMonitorError(sensor: KnownSensor, characteristic: string, error: unknown): void {
+  const message = (error as { message?: string })?.message ?? String(error);
+  log.warn(`Sensor monitor failed: ${sensor.name}`, `${characteristic}: ${message}`);
+}
+
+async function subscribeToSensor(active: ActiveConnection, sensor: KnownSensor): Promise<void> {
   const { device } = active;
+  const { kinds } = sensor;
   const store = useSensorStore.getState;
 
   if (kinds.includes('heartRate')) {
@@ -128,7 +195,12 @@ async function subscribeToSensor(active: ActiveConnection, kinds: SensorKind[]):
         HEART_RATE_SERVICE,
         HEART_RATE_MEASUREMENT,
         (error, characteristic) => {
-          if (error || !characteristic?.value) return;
+          if (error) {
+            logMonitorError(sensor, 'heart rate', error);
+            return;
+          }
+          if (!characteristic?.value) return;
+          noteSample(sensor, active);
           const hr = parseHeartRate(base64ToBytes(characteristic.value));
           if (hr != null && hr > 0 && hr < 255) store().setLatest('heartRate', hr);
         }
@@ -143,7 +215,12 @@ async function subscribeToSensor(active: ActiveConnection, kinds: SensorKind[]):
         CYCLING_POWER_SERVICE,
         CYCLING_POWER_MEASUREMENT,
         (error, characteristic) => {
-          if (error || !characteristic?.value) return;
+          if (error) {
+            logMonitorError(sensor, 'cycling power', error);
+            return;
+          }
+          if (!characteristic?.value) return;
+          noteSample(sensor, active);
           const parsed = parseCyclingPower(base64ToBytes(characteristic.value));
           if (!parsed) return;
           if (parsed.power >= 0) store().setLatest('power', parsed.power);
@@ -160,7 +237,12 @@ async function subscribeToSensor(active: ActiveConnection, kinds: SensorKind[]):
     const cadenceFromCrank = createCrankCadenceCalculator();
     active.subscriptions.push(
       device.monitorCharacteristicForService(CSC_SERVICE, CSC_MEASUREMENT, (error, char) => {
-        if (error || !char?.value) return;
+        if (error) {
+          logMonitorError(sensor, 'speed and cadence', error);
+          return;
+        }
+        if (!char?.value) return;
+        noteSample(sensor, active);
         const parsed = parseCsc(base64ToBytes(char.value));
         if (parsed?.crank) {
           const rpm = cadenceFromCrank.update(parsed.crank, Date.now());
@@ -195,9 +277,20 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
     kinds: sensor.kinds,
   });
 
+  const generation = connectGenerations.get(sensor.id) ?? 0;
+  const superseded = () => (connectGenerations.get(sensor.id) ?? 0) !== generation;
+
   try {
     const device = await ble.connectToDevice(sensor.id, { timeout: 10_000 });
+    if (superseded()) {
+      abandonConnect(sensor.id);
+      return;
+    }
     await device.discoverAllServicesAndCharacteristics();
+    if (superseded()) {
+      abandonConnect(sensor.id);
+      return;
+    }
 
     const active: ActiveConnection = {
       device,
@@ -205,7 +298,10 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
       disconnectSub: null,
       cancelled: false,
       reconnectAttempt: 0,
-      reconnectTimer: null,
+      attempt: attempt === 0 ? 'first' : 'retry',
+      subscribedAt: null,
+      lastSampleAt: null,
+      healthTimer: null,
     };
     activeConnections.set(sensor.id, active);
 
@@ -216,38 +312,87 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
       if (conn) scheduleReconnect(sensor);
     });
 
-    await subscribeToSensor(active, sensor.kinds);
-    useSensorStore.getState().setConnection(sensor.id, {
-      status: 'connected',
-      name: sensor.name,
-      kinds: sensor.kinds,
-    });
-    log.log(`Sensor connected: ${sensor.name} (${sensor.kinds.join(', ')})`);
+    await subscribeToSensor(active, sensor);
+    if (superseded()) {
+      cleanupConnection(sensor.id);
+      abandonConnect(sensor.id);
+      return;
+    }
+    active.subscribedAt = Date.now();
+    publishHealth(sensor, active);
+    active.healthTimer = setInterval(() => watchdogTick(sensor), HEALTH_TICK_MS);
+    log.log(`Sensor link open: ${sensor.name} (${sensor.kinds.join(', ')}), waiting for data`);
   } catch (e) {
     log.warn(`Failed to connect ${sensor.name}:`, e);
     scheduleReconnect(sensor, attempt + 1);
   }
 }
 
+/**
+ * A link that has carried nothing for the watchdog interval is reported as
+ * such and then torn down for a reconnect, because a fresh connect and CCCD
+ * write is the recovery every BLE central falls back to.
+ */
+function watchdogTick(sensor: KnownSensor): void {
+  const active = activeConnections.get(sensor.id);
+  if (!active || active.cancelled) return;
+  publishHealth(sensor, active);
+  if (useSensorStore.getState().connections[sensor.id]?.status !== 'noData') return;
+
+  log.warn(`Sensor sent nothing for ${SENSOR_NO_DATA_MS} ms, reconnecting: ${sensor.name}`);
+  cleanupConnection(sensor.id, { keepStoreEntry: true });
+  void getBle()
+    ?.cancelDeviceConnection(sensor.id)
+    .catch(() => {
+      // Already gone, which is the outcome wanted.
+    });
+  scheduleReconnect(sensor);
+}
+
+/** Drop the device a superseded connect opened, so it does not stay connected. */
+function abandonConnect(id: string): void {
+  log.log(`Dropping a sensor connect that was disconnected while it was in flight: ${id}`);
+  void getBle()
+    ?.cancelDeviceConnection(id)
+    .catch(() => {
+      // Already gone, which is the outcome wanted.
+    });
+}
+
 function scheduleReconnect(sensor: KnownSensor, attempt = 1): void {
   const conn = useSensorStore.getState().connections[sensor.id];
   if (!conn) return; // Disconnected deliberately
-  useSensorStore.getState().setConnectionStatus(sensor.id, 'reconnecting');
+  // A silent link keeps saying so while the reconnect runs: "no data" is what
+  // the athlete can act on, "reconnecting" is only how it is being fixed.
+  if (conn.status !== 'noData') {
+    useSensorStore.getState().setConnectionStatus(sensor.id, 'reconnecting');
+  }
   const delay = Math.min(RECONNECT_BASE_MS * 2 ** Math.min(attempt, 6), RECONNECT_MAX_MS);
-  setTimeout(() => {
+  const timer = setTimeout(() => {
+    reconnectTimers.delete(sensor.id);
     // Still wanted? (disconnectSensor removes the store entry)
     if (!useSensorStore.getState().connections[sensor.id]) return;
     connectAndSubscribe(sensor, attempt);
   }, delay);
+  const previous = reconnectTimers.get(sensor.id);
+  if (previous) clearTimeout(previous);
+  reconnectTimers.set(sensor.id, timer);
 }
 
 function cleanupConnection(id: string, options?: { keepStoreEntry?: boolean }): void {
+  // Before anything else: a connect still in flight has to see this.
+  connectGenerations.set(id, (connectGenerations.get(id) ?? 0) + 1);
+  const timer = reconnectTimers.get(id);
+  if (timer) {
+    clearTimeout(timer);
+    reconnectTimers.delete(id);
+  }
   const active = activeConnections.get(id);
   if (active) {
     active.cancelled = true;
+    if (active.healthTimer) clearInterval(active.healthTimer);
     for (const sub of active.subscriptions) sub.remove();
     active.disconnectSub?.remove();
-    if (active.reconnectTimer) clearTimeout(active.reconnectTimer);
     activeConnections.delete(id);
   }
   if (!options?.keepStoreEntry) {

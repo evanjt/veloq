@@ -120,6 +120,9 @@ function RpeSliderInner({ value, onValueChange, textSecondary }: RpeSliderProps)
 
 export const RpeSlider = React.memo(RpeSliderInner);
 
+/** The thumb's diameter, which its left margin halves to centre it on the value. */
+const RPE_THUMB = 28;
+
 const styles = StyleSheet.create({
   rpeSection: {
     marginTop: spacing.lg,
@@ -128,7 +131,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   label: {
     ...typography.label,
@@ -156,17 +159,17 @@ const styles = StyleSheet.create({
   },
   rpeThumb: {
     position: 'absolute',
-    width: 28,
-    height: 28,
+    width: RPE_THUMB,
+    height: RPE_THUMB,
     borderRadius: layout.borderRadiusFull,
-    marginLeft: -14,
+    marginLeft: -RPE_THUMB / 2,
     top: 2,
   },
   rpeScaleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    marginTop: 4,
+    paddingHorizontal: spacing.xs,
+    marginTop: spacing.xs,
   },
   rpeScaleLabel: {
     fontSize: typography.label.fontSize,

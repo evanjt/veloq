@@ -33,6 +33,12 @@ interface TrimSliderProps {
   totalDuration: number;
   totalPoints: number;
   onTrimChange: (startIdx: number, endIdx: number) => void;
+  /**
+   * The handle was let go. Told apart from `onTrimChange` so a consumer whose
+   * work is too heavy for a frame, such as re-sending both halves of the
+   * track to the map, can wait for the gesture to finish.
+   */
+  onTrimCommit?: (startIdx: number, endIdx: number) => void;
   startIdx: number;
   endIdx: number;
 }
@@ -41,6 +47,7 @@ export function TrimSlider({
   totalDuration,
   totalPoints,
   onTrimChange,
+  onTrimCommit,
   startIdx,
   endIdx,
 }: TrimSliderProps) {
@@ -58,6 +65,16 @@ export function TrimSlider({
 
   const startX = useSharedValue(0);
   const endX = useSharedValue(0);
+  // The index the handle last reached, so the release knows where it landed
+  // without waiting for React to catch up.
+  const liveIndex = useSharedValue(0);
+
+  const commit = useCallback(
+    (start: number, end: number) => {
+      onTrimCommit?.(start, end);
+    },
+    [onTrimCommit]
+  );
 
   const onTrackLayout = useCallback((e: LayoutChangeEvent) => {
     setTrackWidth(e.nativeEvent.layout.width);
@@ -68,17 +85,33 @@ export function TrimSlider({
       Gesture.Pan()
         .onStart(() => {
           startX.value = startFraction * trackWidth;
+          liveIndex.value = startIdx;
         })
         .onUpdate((e) => {
           const newX = Math.max(0, Math.min(startX.value + e.translationX, trackWidth));
           const newFraction = newX / trackWidth;
           if (newFraction < endFraction - MIN_HANDLE_GAP) {
             const newIndex = Math.round(newFraction * maxIndex);
+            liveIndex.value = newIndex;
             runOnJS(onTrimChange)(newIndex, endIdx);
           }
         })
+        .onEnd(() => {
+          runOnJS(commit)(liveIndex.value, endIdx);
+        })
         .hitSlop({ top: 15, bottom: 15, left: 15, right: 15 }),
-    [startFraction, endFraction, trackWidth, maxIndex, onTrimChange, endIdx, startX]
+    [
+      startFraction,
+      endFraction,
+      trackWidth,
+      maxIndex,
+      onTrimChange,
+      commit,
+      startIdx,
+      endIdx,
+      startX,
+      liveIndex,
+    ]
   );
 
   const endGesture = useMemo(
@@ -86,17 +119,33 @@ export function TrimSlider({
       Gesture.Pan()
         .onStart(() => {
           endX.value = endFraction * trackWidth;
+          liveIndex.value = endIdx;
         })
         .onUpdate((e) => {
           const newX = Math.max(0, Math.min(endX.value + e.translationX, trackWidth));
           const newFraction = newX / trackWidth;
           if (newFraction > startFraction + MIN_HANDLE_GAP) {
             const newIndex = Math.round(newFraction * maxIndex);
+            liveIndex.value = newIndex;
             runOnJS(onTrimChange)(startIdx, newIndex);
           }
         })
+        .onEnd(() => {
+          runOnJS(commit)(startIdx, liveIndex.value);
+        })
         .hitSlop({ top: 15, bottom: 15, left: 15, right: 15 }),
-    [startFraction, endFraction, trackWidth, maxIndex, onTrimChange, startIdx, endX]
+    [
+      startFraction,
+      endFraction,
+      trackWidth,
+      maxIndex,
+      onTrimChange,
+      commit,
+      startIdx,
+      endIdx,
+      endX,
+      liveIndex,
+    ]
   );
 
   const startHandleStyle = useAnimatedStyle(() => ({
