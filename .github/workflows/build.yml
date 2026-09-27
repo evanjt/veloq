@@ -433,7 +433,10 @@ jobs:
       - name: Setup ccache
         run: |
           brew install ccache
-          # Set in the environment because React Native's clang wrapper swaps in its own config file.
+          # React Native's clang wrapper runs plain clang unless CCACHE_BINARY is in its
+          # environment, and Xcode does not pass the build setting of that name to compiles.
+          echo "CCACHE_BINARY=$(command -v ccache)" >> "$GITHUB_ENV"
+          # Set in the environment because the same wrapper swaps in its own config file.
           echo "CCACHE_DIR=$HOME/Library/Caches/ccache" >> "$GITHUB_ENV"
           echo "CCACHE_MAXSIZE=1G" >> "$GITHUB_ENV"
           mkdir -p "$HOME/Library/Caches/ccache"
