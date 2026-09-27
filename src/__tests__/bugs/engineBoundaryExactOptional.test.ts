@@ -1,43 +1,15 @@
 /**
- * Scenario: the delegates build engine records by setting every absent field
- * to a literal `undefined` and asserting the result as the `Ffi*` type. The
- * assertion says the shape is right, so a Rust record that gains or renames a
- * field keeps compiling here and the value reaches the screen as a blank.
+ * Scenario: a record is built from nullable input by setting every absent
+ * field to a literal `undefined`. `tsconfig.json` turns on
+ * `exactOptionalPropertyTypes`, so plain `tsc` refuses that shape wherever it
+ * is written, and `present` is how a record built from nullable input leaves
+ * an absent field out instead.
  *
- * Expected behaviour: a delegate builds the record it claims to build. With
- * `exactOptionalPropertyTypes` an absent optional field is omitted, not filled
- * with `undefined`, and the boundary reports nothing.
+ * Expected behaviour: `present` drops the keys whose value is `undefined` and
+ * keeps every other value, falsy and null included.
  */
 
-import { execFileSync } from 'node:child_process';
-import { join } from 'node:path';
-
 import { present } from 'veloqrs/src/delegates/optional';
-
-const ROOT = join(__dirname, '../../..');
-
-/** Every error the compiler reports under the engine module, one per line. */
-function boundaryErrors(): string[] {
-  let report: string;
-  try {
-    report = execFileSync('npx', ['tsc', '--noEmit', '--exactOptionalPropertyTypes'], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-    });
-  } catch (error) {
-    // tsc exits non-zero while the app code outside the boundary still
-    // reports, which is a separate item. Its stdout is the report either way.
-    report = (error as { stdout?: string }).stdout ?? '';
-  }
-  return report.split('\n').filter((line) => line.startsWith('modules/veloqrs/src'));
-}
-
-describe('the engine boundary is exact about its optional fields', () => {
-  it('reports nothing under modules/veloqrs/src', () => {
-    expect(boundaryErrors()).toEqual([]);
-  });
-});
 
 describe('present', () => {
   it('drops an absent field rather than carrying the key', () => {

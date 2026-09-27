@@ -20,7 +20,7 @@ interface InsightsPanelProps {
    * dropped because the window has no row. One quiet line says so rather
    * than letting the cards vanish unexplained.
    */
-  droppedFormSyncDate?: string | null;
+  droppedFormSyncDate?: string | null | undefined;
   /** Today's pattern from the same insights bundle the list was built from */
   todayPattern: ActivityPattern | null;
   /**
@@ -29,8 +29,8 @@ interface InsightsPanelProps {
    * `onInsightOpened` once the sheet has been triggered so the parent can clear
    * the URL param.
    */
-  initialInsightId?: string;
-  onInsightOpened?: () => void;
+  initialInsightId?: string | undefined;
+  onInsightOpened?: (() => void) | undefined;
 }
 
 export const InsightsPanel = React.memo(function InsightsPanel({

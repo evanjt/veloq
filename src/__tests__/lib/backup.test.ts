@@ -56,6 +56,7 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   cacheDirectory: 'file:///cache/',
   getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 1024 }),
   copyAsync: jest.fn().mockResolvedValue(undefined),
@@ -158,6 +159,7 @@ jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
 }));
 
 jest.mock('expo-constants', () => ({
+  ...jest.requireActual('expo-constants'),
   __esModule: true,
   default: { expoConfig: { version: '0.3.0' } },
 }));
@@ -377,7 +379,6 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
       schemaVersion: '12',
       athleteId: 'athlete-1',
       activityCount: 0,
-      newestActivity: undefined,
       supportedSchemaVersion: 32,
     });
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
@@ -394,7 +395,6 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
       schemaVersion: '22',
       athleteId: 'athlete-1',
       activityCount: 50,
-      newestActivity: undefined,
       supportedSchemaVersion: 21,
     });
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
@@ -408,7 +408,6 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
       schemaVersion: '13',
       athleteId: 'athlete-1',
       activityCount: 50,
-      newestActivity: undefined,
       supportedSchemaVersion: 21,
     });
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
@@ -437,7 +436,6 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
       schemaVersion: '13',
       athleteId: 'athlete-1',
       activityCount: 50,
-      newestActivity: undefined,
     } as unknown as BackupValidation);
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
     expect(result.success).toBe(false);
@@ -460,7 +458,6 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
       schemaVersion: '12',
       athleteId: 'other',
       activityCount: 50,
-      newestActivity: undefined,
       supportedSchemaVersion: 32,
     });
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
@@ -474,7 +471,6 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
       schemaVersion: '12',
       athleteId: 'athlete-1',
       activityCount: 80,
-      newestActivity: undefined,
       supportedSchemaVersion: 32,
     });
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
@@ -507,7 +503,6 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
       schemaVersion: '12',
       athleteId: 'athlete-1',
       activityCount: 80,
-      newestActivity: undefined,
       supportedSchemaVersion: 32,
     });
     (FileSystem.copyAsync as jest.Mock).mockImplementation(async ({ to }: { to: string }) => {
@@ -525,7 +520,6 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
       schemaVersion: '12',
       athleteId: 'athlete-1',
       activityCount: 80,
-      newestActivity: undefined,
       supportedSchemaVersion: 32,
     });
     (FileSystem.copyAsync as jest.Mock).mockImplementation(async ({ to }: { to: string }) => {
@@ -544,7 +538,6 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
       schemaVersion: '12',
       athleteId: 'athlete-1',
       activityCount: 80,
-      newestActivity: undefined,
       supportedSchemaVersion: 32,
     });
     (FileSystem.copyAsync as jest.Mock).mockImplementation(async ({ to }: { to: string }) => {
@@ -563,7 +556,6 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
       schemaVersion: '12',
       athleteId: 'athlete-1',
       activityCount: 80,
-      newestActivity: undefined,
       supportedSchemaVersion: 32,
     });
     mockNativeModule.engine.initWithPath
@@ -588,7 +580,6 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
       schemaVersion: '12',
       athleteId: 'athlete-1',
       activityCount: 80,
-      newestActivity: undefined,
       supportedSchemaVersion: 32,
     });
     (FileSystem.readDirectoryAsync as jest.Mock)

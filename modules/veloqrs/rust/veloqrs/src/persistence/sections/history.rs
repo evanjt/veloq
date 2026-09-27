@@ -21,6 +21,9 @@ use crate::persistence::codec;
 use crate::persistence::sections::geometry;
 use tracematch::GpsPoint;
 
+/// The activity and point range an exact geometry version was sliced from.
+type SliceReference = (String, u32, u32);
+
 /// Newest versions always retained, besides version 1, milestones, and the
 /// pinned version.
 const GEOMETRY_KEEP_RECENT: usize = 3;
@@ -807,15 +810,16 @@ impl PersistentEngine {
         &self,
         section_id: &str,
         version: i64,
-    ) -> Option<(Vec<GpsPoint>, Option<(String, u32, u32)>)> {
-        let row: (
+    ) -> Option<(Vec<GpsPoint>, Option<SliceReference>)> {
+        type GeometryRow = (
             i64,
             Vec<u8>,
             Option<String>,
             Option<u32>,
             Option<u32>,
             Option<i64>,
-        ) = self
+        );
+        let row: GeometryRow = self
             .db
             .query_row(
                 "SELECT encoding, blob, rep_activity_id, rep_start_index, rep_end_index,

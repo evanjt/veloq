@@ -13,6 +13,7 @@ import { planClusterZoom } from '@/features/maps/lib/clusterZoom';
 import { trackStillWanted, waitForGpsTrack } from '@/features/maps/lib/gpsTrackWait';
 import { saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import { decodeCoords, DownloadPriority, startFetchAndStore } from 'veloqrs';
+import { present } from 'veloqrs/src/delegates/optional';
 import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import { getEngine } from '@/shared/native/engine';
 import type { ActivityBoundsItem } from '@/types';
@@ -203,11 +204,11 @@ export function useMapHandlers({
           startFetchAndStore(
             [activity.id],
             [
-              {
+              present({
                 activityId: activity.id,
                 sportType: activity.type,
                 startDate: activityStartEpoch(activity.date),
-              },
+              }),
             ],
             // Somebody is looking at this one, so it goes out beside a bulk
             // pass rather than behind its hundreds.

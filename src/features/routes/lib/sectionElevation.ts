@@ -17,10 +17,10 @@ export interface SectionElevation {
 }
 
 interface SectionElevationInput {
-  elevationGainM?: number;
-  elevationLossM?: number;
+  elevationGainM?: number | undefined;
+  elevationLossM?: number | undefined;
   /** climb, descent, rolling, flat or loop, from the engine */
-  klass?: string;
+  klass?: string | undefined;
 }
 
 /**

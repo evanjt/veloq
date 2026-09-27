@@ -147,7 +147,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
   const gridColor = isDark ? colorWithOpacity(ink.white, 0.06) : colorWithOpacity(ink.black, 0.06);
   const dotColor = isDark ? colorWithOpacity(ink.white, 0.4) : colorWithOpacity(ink.black, 0.2);
   // The 5 px dot among the faint ones is the only thing that says best record,
-  // so it is a mark and owes 3:1 rather than the amber chart tone (B929).
+  // so it is a mark and owes 3:1 rather than the amber chart tone.
   const bestMarkColor = isDark ? darkColors.chartGoldMark : colors.chartGoldMark;
   const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
   const yRange = yMax - yMin || 1;

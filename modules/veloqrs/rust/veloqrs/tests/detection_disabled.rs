@@ -1,11 +1,11 @@
 //! Turning section detection off turns it off in the engine.
 //!
-//! Scenario: the athlete turns the detection switch off. `Q61` leans on that
-//! switch being the honest opt-out, "turning that switch off turns the feature
-//! off completely". It used to be a TypeScript display filter: Rust started a
+//! Scenario: the athlete turns the detection switch off. The switch is the
+//! honest opt-out only if "turning that switch off turns the feature off
+//! completely". It used to be a TypeScript display filter: Rust started a
 //! conditioning detect at the end of every stored batch and knew nothing about
 //! it, so the engine kept cutting the catalogue and spending the CPU while the
-//! screens looked away (`B258`).
+//! screens looked away.
 //!
 //! Runs against the process-global engine, exactly like production, so the
 //! tests take a file-local lock and run one at a time.

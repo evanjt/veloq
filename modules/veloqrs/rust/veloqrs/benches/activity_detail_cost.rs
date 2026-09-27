@@ -2,13 +2,12 @@
 //! crosses grows, measured on the athlete's own library rather than on one
 //! activity.
 //!
-//! `I91` timed the bundle at 11.1 ms for a single activity and concluded the
-//! mount budget was safe. The call does per-section work in three places, so
-//! the figure that matters is the slope, not the average: a trace extraction
-//! and an R-tree build per matched section (`persistence/screens.rs:325-350`),
-//! a `get_section_performances_filtered` per section (`:356-361`), and a
-//! `get_section` per section behind `get_sections_for_activity`
-//! (`sections/queries.rs:166-170`).
+//! A timing of 11.1 ms for a single activity was once read as the mount budget
+//! being safe. The call does per-section work in three places, so the figure
+//! that matters is the slope, not the average: a trace extraction and an R-tree
+//! build per matched section inside `activity_detail_data`, a
+//! `get_section_performances_filtered` per section, and the per-section read
+//! behind `get_sections_for_activity`.
 //!
 //! Nothing asserts, it prints a table.
 //!
@@ -32,8 +31,6 @@ use veloqrs::PersistentEngine;
 
 /// What `useActivityDetailData` passes, from `src/features/activity/...`.
 const MIN_ROUTE_ACTIVITIES: u32 = 2;
-
-/// A copy of the corpus in a temp directory, so the fixture is never migrated
 
 /// Where the corpus comes from: `VELOQ_DEVICE_DB` if it names a file that
 /// exists, else the gitignored private fixture. A pull off the handset is

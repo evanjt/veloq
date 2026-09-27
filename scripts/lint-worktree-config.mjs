@@ -3,8 +3,8 @@
 //
 // Both keys read here arrived the same way: a Jest fixture ran `git config`
 // with the hook's `GIT_DIR` still in its environment, and that beats `cwd`, so
-// the write landed on the real repository rather than on the fixture. `B1068`
-// closed that channel. This reads the damage, because both keys are cheap to
+// the write landed on the real repository rather than on the fixture. That
+// channel is closed now. This reads the damage, because both keys are cheap to
 // read and both failures are expensive to diagnose.
 //
 // On 2026-09-15 `core.bare` was true on the main checkout, a repository with a

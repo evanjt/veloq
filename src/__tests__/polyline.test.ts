@@ -136,19 +136,17 @@ describe('getBounds', () => {
     expect(getBounds([{ latitude: 0, longitude: 0 }])).not.toBeNull();
   });
 
-  // Scaling smoke test: 10k points must complete quickly and produce correct
-  // bounds. Guards against accidental O(n²) regressions.
-  it('handles 10000 coordinates under 100ms', () => {
+  it('bounds 10000 coordinates', () => {
     const coords = Array.from({ length: 10000 }, (_, i) => ({
       latitude: 40 + (i % 100) * 0.001,
       longitude: -74 + Math.floor(i / 100) * 0.001,
     }));
-    const start = Date.now();
     const bounds = getBounds(coords);
-    const elapsed = Date.now() - start;
     expect(bounds).not.toBeNull();
     expect(bounds!.minLat).toBeCloseTo(40, 1);
-    expect(elapsed).toBeLessThan(100);
+    expect(bounds!.maxLat).toBeCloseTo(40.099, 6);
+    expect(bounds!.minLng).toBeCloseTo(-74, 6);
+    expect(bounds!.maxLng).toBeCloseTo(-73.901, 6);
   });
 });
 

@@ -18,13 +18,7 @@ import type { RecordingLibraryEntry, RecordingUploadStatus } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string, fallback?: string) => fallback ?? key }),
-}));
-
-jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey());
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),

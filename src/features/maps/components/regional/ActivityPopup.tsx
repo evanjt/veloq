@@ -15,7 +15,7 @@ export interface SelectedActivity {
   mapData: ActivityMapData | null;
   isLoading: boolean;
   /** Pre-computed GeoJSON coordinates [lng, lat][] for instant route rendering */
-  routeCoords?: [number, number][];
+  routeCoords?: [number, number][] | undefined;
 }
 
 interface ActivityPopupProps {

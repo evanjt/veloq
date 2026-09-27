@@ -19,7 +19,6 @@ import {
 import { nativeHeatmapTileUrl } from '@/features/maps/lib/tileTransport';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides({}));
-jest.mock('expo-file-system/legacy', () => ({ cacheDirectory: 'file:///cache/' }));
 
 function onPlatform(os: 'android' | 'ios' | 'web') {
   Object.defineProperty(Platform, 'OS', { value: os, configurable: true });

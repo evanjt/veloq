@@ -11,7 +11,7 @@
 #   verify <tree>     compare against it and refuse if it moved
 #
 # `git write-tree` is the comparison rather than the index file's bytes,
-# because lint-staged legitimately rewrites entries whose content is unchanged.
+# because the formatter legitimately rewrites entries whose content is unchanged.
 
 set -u
 

@@ -32,12 +32,14 @@ export function toActivityMetrics(activity: Activity): ActivityMetrics {
     movingTime: activity.moving_time ?? 0,
     elapsedTime: activity.elapsed_time ?? 0,
     elevationGain: activity.total_elevation_gain || 0,
-    avgHr: activity.average_heartrate,
-    avgPower: activity.average_watts,
     sportType: activity.type || 'Ride',
-    trainingLoad: activity.icu_training_load,
-    ftp: activity.icu_ftp,
-    powerZoneTimes,
-    hrZoneTimes,
+    // An absent field is left out, not set to undefined, so the record is the
+    // shape the engine declares.
+    ...(activity.average_heartrate !== undefined && { avgHr: activity.average_heartrate }),
+    ...(activity.average_watts !== undefined && { avgPower: activity.average_watts }),
+    ...(activity.icu_training_load !== undefined && { trainingLoad: activity.icu_training_load }),
+    ...(activity.icu_ftp !== undefined && { ftp: activity.icu_ftp }),
+    ...(powerZoneTimes !== undefined && { powerZoneTimes }),
+    ...(hrZoneTimes !== undefined && { hrZoneTimes }),
   };
 }

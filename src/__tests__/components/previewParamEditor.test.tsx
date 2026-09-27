@@ -16,6 +16,7 @@ import { PreviewParamPanel } from '@/features/routes/components/preview/PreviewP
 import { DETECTION_PRESETS } from '@/features/routes/lib/detectionParams';
 
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
     t: (key: string, vars?: Record<string, unknown>) =>
       vars ? `${key}:${Object.values(vars).join(',')}` : key,

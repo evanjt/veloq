@@ -279,7 +279,7 @@ fn an_exclusion_survives_a_reattach() {
     let (mut engine, sid, member) = engine_with_excludable(&dir);
     engine.exclude_activity_from_section(&sid, &member).unwrap();
 
-    engine.attach_new_activities(&[member.clone()]);
+    engine.attach_new_activities(std::slice::from_ref(&member));
 
     assert_eq!(
         excluded(&engine, &sid),

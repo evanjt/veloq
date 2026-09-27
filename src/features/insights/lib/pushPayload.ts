@@ -10,8 +10,8 @@
 export type PushPayloadShape = 'dataString' | 'body' | 'flat' | 'nested' | 'none';
 
 export interface PushEventPayload {
-  eventType?: string;
-  activityId?: string;
+  eventType?: string | undefined;
+  activityId?: string | undefined;
   /** Which shape matched, for diagnostics. */
   sourceShape: PushPayloadShape;
   /** Top-level key names of the raw task data, for diagnostics. No values. */
@@ -23,7 +23,9 @@ interface WorkerPayload {
   activity_id?: unknown;
 }
 
-function readFields(obj: WorkerPayload): { eventType?: string; activityId?: string } | null {
+function readFields(
+  obj: WorkerPayload
+): { eventType?: string | undefined; activityId?: string | undefined } | null {
   const eventType = typeof obj.event_type === 'string' ? obj.event_type : undefined;
   if (!eventType) return null;
   const activityId =

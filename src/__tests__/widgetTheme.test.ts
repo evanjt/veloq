@@ -56,7 +56,7 @@ describe('widgetRecord', () => {
  * running `npm run gen:widget-theme` keeps them in step with the palette. The
  * widget draws its largest form value with no zone label beside it, so a text
  * variant that reached the palette and not the XML is invisible until someone
- * reads a screenshot (B928).
+ * reads a screenshot.
  */
 describe('generated Android resources', () => {
   const ROOT = join(__dirname, '..', '..');

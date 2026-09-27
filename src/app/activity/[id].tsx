@@ -136,7 +136,6 @@ export default function ActivityDetailScreen() {
     true,
     detail?.routeGroups
   );
-  const matchedRouteCount = matchedRoute ? 1 : 0;
 
   // Route PR delta for the Routes tab badge (negative = ahead of PR)
   const activityIdsForHighlights = useMemo(() => (id ? [id] : []), [id]);
@@ -240,8 +239,11 @@ export default function ActivityDetailScreen() {
 
     const makeEncounterKey = (encounter: { sectionId: string; direction: string }) =>
       `${encounter.sectionId}|${encounter.direction}`;
-    const makeOverlayKey = (overlay: { id: string; overlayKey?: string; sortOrder?: number }) =>
-      overlay.overlayKey ?? `${overlay.id}|`;
+    const makeOverlayKey = (overlay: {
+      id: string;
+      overlayKey?: string | undefined;
+      sortOrder?: number | undefined;
+    }) => overlay.overlayKey ?? `${overlay.id}|`;
 
     const findNearestIndex = (targetLat: number, targetLng: number): number => {
       let best = 0;
@@ -308,7 +310,10 @@ export default function ActivityDetailScreen() {
       });
     }
     if (hasGpsData && isRouteMatchingOn) {
-      const routeBadge: { badgeText?: string; badgeTone?: SwipeableTab['badgeTone'] } = {};
+      const routeBadge: {
+        badgeText?: string;
+        badgeTone?: NonNullable<SwipeableTab['badgeTone']>;
+      } = {};
       if (routeHighlight) {
         if (routeHighlight.isPr) {
           routeBadge.badgeText = 'PR';
@@ -336,15 +341,7 @@ export default function ActivityDetailScreen() {
       );
     }
     return allTabs;
-  }, [
-    t,
-    isStrength,
-    hasGpsData,
-    isRouteMatchingOn,
-    matchedRouteCount,
-    sectionCardCount,
-    routeHighlight,
-  ]);
+  }, [t, isStrength, hasGpsData, isRouteMatchingOn, sectionCardCount, routeHighlight]);
 
   // Handle chart point selection
   const handlePointSelect = useCallback((index: number | null) => {

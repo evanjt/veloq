@@ -1276,10 +1276,9 @@ impl PersistentEngine {
                 let reference = geometry::reference(rep_id.as_deref(), start, end);
                 if let Ok(pts) =
                     geometry::line(&self.db, blob.as_deref(), json.as_deref(), reference)
+                    && !pts.is_empty()
                 {
-                    if !pts.is_empty() {
-                        grounds.push(pts);
-                    }
+                    grounds.push(pts);
                 }
             }
         }
@@ -1298,10 +1297,10 @@ impl PersistentEngine {
             if let Ok(iter) = rows {
                 for (id, polyline_json) in iter.flatten() {
                     ids.insert(id);
-                    if let Ok(pts) = serde_json::from_str::<Vec<GpsPoint>>(&polyline_json) {
-                        if !pts.is_empty() {
-                            grounds.push(pts);
-                        }
+                    if let Ok(pts) = serde_json::from_str::<Vec<GpsPoint>>(&polyline_json)
+                        && !pts.is_empty()
+                    {
+                        grounds.push(pts);
                     }
                 }
             }

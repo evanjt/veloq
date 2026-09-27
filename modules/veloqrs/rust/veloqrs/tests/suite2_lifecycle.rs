@@ -28,8 +28,10 @@ fn config_change_reanalyses() {
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut engine, "cold", &corpus.through_a());
 
-    let mut strict = SectionConfig::default();
-    strict.min_activities = 50;
+    let strict = SectionConfig {
+        min_activities: 50,
+        ..SectionConfig::default()
+    };
     engine.set_section_config(strict);
     let after = ingest_step(&mut engine, "trigger", &[&corpus.bucket_c_single]).snapshot;
 

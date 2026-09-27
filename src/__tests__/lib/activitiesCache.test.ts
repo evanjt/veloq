@@ -9,6 +9,7 @@ import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate } from '@/shared/format/format';
+import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
 
 const today = formatLocalDate(new Date());
 
@@ -54,6 +55,30 @@ describe('isInfiniteActivitiesStale', () => {
   it('still reports stale once auth hydrates with the same athlete', () => {
     seed(client, 'i12345', '2020-06-01');
     useAuthStore.setState({ athleteId: 'i12345', isLoading: false });
+    expect(isInfiniteActivitiesStale(client)).toBe(true);
+  });
+});
+
+describe.each(CLOCK_EDGES)('isInfiniteActivitiesStale on %s', (_name, at) => {
+  let client: QueryClient;
+
+  beforeEach(() => {
+    jest.setSystemTime(at);
+    client = new QueryClient();
+    useAuthStore.setState({ athleteId: null, isLoading: true });
+  });
+
+  afterEach(() => {
+    client.clear();
+  });
+
+  it('is not stale when the first page covers the local day', () => {
+    seed(client, 'i12345', localDay(at));
+    expect(isInfiniteActivitiesStale(client)).toBe(false);
+  });
+
+  it('is stale when the first page stops at the local day before', () => {
+    seed(client, 'i12345', localDay(at, -1));
     expect(isInfiniteActivitiesStale(client)).toBe(true);
   });
 });

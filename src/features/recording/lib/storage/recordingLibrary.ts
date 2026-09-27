@@ -3,10 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { debug } from '@/shared/debug/debug';
 import { getEngine } from '@/shared/native/engine';
+import { present } from 'veloqrs/src/delegates/optional';
 import { getStoredCredentials } from '@/shared/app/AuthStore';
 import type {
   ActivityType,
   ManualActivityData,
+  RecordingKind,
   RecordingLibraryEntry,
   RecordingStreams,
   RecordingUploadStatus,
@@ -42,9 +44,10 @@ type EngineEntry = ReturnType<ReturnType<typeof library>['listRecordings']>[numb
  * AsyncStorage index carries no reconcile flag, which reads as owing one.
  */
 function toEngineEntry(entry: RecordingLibraryEntry): EngineEntry {
+  const { avgHeartrate, ...rest } = entry;
   return {
-    ...entry,
-    avgHeartrate: entry.avgHeartrate ?? undefined,
+    ...rest,
+    ...(avgHeartrate != null && { avgHeartrate }),
     engineReconciled: entry.engineReconciled ?? false,
   };
 }
@@ -111,21 +114,21 @@ export function base64ToBuffer(base64: string): ArrayBuffer {
 
 export interface SaveRecordingParams {
   /** Absent for a manual entry, which has no file to write. */
-  fitBuffer?: ArrayBuffer;
+  fitBuffer?: ArrayBuffer | undefined;
   /**
    * The request body a manual entry will post, stored beside the row so the
    * entry survives a relaunch and drains through the same queue.
    */
-  manualBody?: ManualActivityData;
-  streams?: RecordingStreams;
+  manualBody?: ManualActivityData | undefined;
+  streams?: RecordingStreams | undefined;
   activityType: ActivityType;
   name: string;
   startTime: number;
   durationSeconds: number;
   distanceMeters: number;
-  elevationGain?: number;
-  avgHeartrate?: number | null;
-  pairedEventId?: number;
+  elevationGain?: number | undefined;
+  avgHeartrate?: number | null | undefined;
+  pairedEventId?: number | undefined;
   uploadStatus: Extract<RecordingUploadStatus, 'pending' | 'localOnly'>;
 }
 
@@ -158,9 +161,10 @@ export async function saveRecording(
       await FileSystem.writeAsStringAsync(streamsPath, JSON.stringify(params.streams));
     }
 
-    const entry: RecordingLibraryEntry = {
+    const kind: RecordingKind = manual ? 'manual' : 'fit';
+    const entry: RecordingLibraryEntry = present({
       id,
-      kind: manual ? 'manual' : 'fit',
+      kind,
       fitPath,
       streamsPath,
       activityType: params.activityType,
@@ -178,7 +182,7 @@ export async function saveRecording(
       // pending entries instead of demoting them, so this is what keeps one
       // athlete's recording out of the next athlete's account.
       athleteId: getStoredCredentials().athleteId ?? undefined,
-    };
+    });
 
     library().addRecording(toEngineEntry(entry));
     log.log(`Saved recording ${id} (${params.name}, ${params.uploadStatus})`);
@@ -477,10 +481,14 @@ export async function migrateLegacyUploadQueue(): Promise<void> {
           await FileSystem.copyAsync({ from: old.filePath, to: fitPath });
         }
 
-        const entry: RecordingLibraryEntry = {
+        // The legacy queue held FIT uploads only.
+        const kind: RecordingKind = 'fit';
+        const uploadStatus: RecordingUploadStatus = old.permissionBlocked
+          ? 'permissionBlocked'
+          : 'pending';
+        const entry: RecordingLibraryEntry = present({
           id: old.id,
-          // The legacy queue held FIT uploads only.
-          kind: 'fit',
+          kind,
           fitPath,
           activityType: old.activityType,
           name: old.name,
@@ -489,10 +497,10 @@ export async function migrateLegacyUploadQueue(): Promise<void> {
           distanceMeters: 0,
           pairedEventId: old.pairedEventId,
           createdAt: old.createdAt,
-          uploadStatus: old.permissionBlocked ? 'permissionBlocked' : 'pending',
+          uploadStatus,
           retryCount: 0,
           lastError: old.lastError,
-        };
+        });
         library().addRecording(toEngineEntry(entry));
         await FileSystem.deleteAsync(old.filePath, { idempotent: true });
       } catch (err) {

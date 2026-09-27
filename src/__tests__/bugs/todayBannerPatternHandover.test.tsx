@@ -27,6 +27,7 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('react-i18next', () => {
   const bundle = require('@/i18n/locales/en-AU.json');
   return {
+    ...jest.requireActual('react-i18next'),
     useTranslation: () => ({
       i18n: { language: 'en-AU' },
       t: (key: string, values?: Record<string, string | number>) => {
@@ -64,11 +65,6 @@ jest.mock('@/features/wellness', () => ({
 jest.mock('@/features/insights/lib/computeInsightsData', () => ({
   fetchInsightsDataFromEngine: jest.fn(),
   computeInsightsFromData: jest.fn(() => []),
-}));
-
-jest.mock('expo-router', () => ({
-  router: { push: jest.fn() },
-  useFocusEffect: jest.fn(),
 }));
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;

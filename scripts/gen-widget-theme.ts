@@ -139,7 +139,7 @@ ${androidColors(widgetPalette.dark)}
 /**
  * `--check` compares instead of writing, so the gate can say the committed
  * files are behind the palette. The drift that prompted it went unnoticed
- * because the generator could not run at all (B952).
+ * because the generator could not run at all.
  */
 const CHECK = process.argv.includes('--check');
 const stale: string[] = [];

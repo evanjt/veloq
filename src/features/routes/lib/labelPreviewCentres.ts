@@ -5,12 +5,12 @@
  * the stored activity bodies over the whole library (`preview_centres` in
  * `persistence/sections/preview.rs`). It used to be joined here, against a
  * synced window and on `start_latlng`, a field the sync never fetches, so
- * every centre fell back (B422, B423).
+ * every centre fell back.
  *
  * What is left here is the fallback: a centre the engine could not name gets a
  * letter in the order it is shown. It was numbered in binKey order once, which
  * is stable across limits but is not the order the picker lays them out in, so
- * a list of three drawn from six read "Area 5, Area 6, Area 4" (B411). A
+ * a list of three drawn from six read "Area 5, Area 6, Area 4". A
  * number in display order fixed the sequence but still reads as a rank the
  * athlete could act on, and the bins are arbitrary clusters, so the handle is
  * a letter.

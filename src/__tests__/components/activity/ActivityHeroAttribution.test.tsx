@@ -21,10 +21,6 @@ jest.mock('react-native-iap', () => ({
   ErrorCode: {},
 }));
 
-jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), push: jest.fn() },
-}));
-
 jest.mock('@/features/maps/components/ActivityMapView', () => {
   const { AttributionOverlay } = jest.requireActual(
     '@/features/maps/components/AttributionOverlay'

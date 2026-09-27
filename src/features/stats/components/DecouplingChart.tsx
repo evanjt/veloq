@@ -17,11 +17,11 @@ import { calculateDecoupling } from '../lib/decoupling';
 
 interface DecouplingChartProps {
   /** Power or pace data */
-  power?: number[];
+  power?: number[] | undefined;
   /** Heart rate data */
-  heartrate?: number[];
+  heartrate?: number[] | undefined;
   /** Height of the chart area */
-  height?: number;
+  height?: number | undefined;
 }
 
 export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingChartProps) {

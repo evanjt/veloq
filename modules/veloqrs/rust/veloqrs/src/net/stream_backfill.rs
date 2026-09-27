@@ -620,10 +620,13 @@ mod tests {
     /// crate and passed on the two after, and passed every time the module was
     /// run alone.
     ///
-    /// This is the one test that drives the process-wide flag, so the stop it
-    /// presses is the athlete's own and nothing else here can clear it first.
+    /// This is the one walk that drives the process-wide flag. It takes the
+    /// crate lock because a real pass in the `pass` tests below clears that
+    /// flag when it starts, and would otherwise clear this stop before it is
+    /// read.
     #[test]
     fn a_walk_nobody_stopped_ignores_another_pass_cancel() {
+        let _serial = crate::test_globals::serial_global_state();
         let queue = gaps(BATCH * 2);
         stop_stream_backfill();
         let pending = stream_backfill_cancelled();
@@ -756,5 +759,325 @@ mod tests {
             failed: 0,
         };
         assert_eq!(snapshot.percent(), 100);
+    }
+
+    /// Progress never reads past the end, even when a pass counts more
+    /// activities finished than it queued.
+    #[test]
+    fn progress_is_whole_percent_and_capped_at_the_queue() {
+        let snapshot = |completed, total| StreamBackfillSnapshot {
+            phase: STREAM_PHASE_FETCHING,
+            completed,
+            total,
+            stored: 0,
+            failed: 0,
+        };
+        assert_eq!(snapshot(1, 3).percent(), 33);
+        assert_eq!(snapshot(7, 5).percent(), 100);
+    }
+
+    /// Whole passes through `run_stream_backfill` and `start_stream_backfill`
+    /// against the process-wide engine and a local mock upstream. They hold the
+    /// crate lock: the engine, the connectivity state, the credential and the
+    /// single-run slot are all process-wide.
+    mod pass {
+        use super::*;
+        use crate::governor::{AuthMethod, Governor, NoopPolicy};
+        use crate::net::connectivity;
+        use crate::persistence::with_persistent_engine;
+        use crate::test_globals::{init_global_engine, serial_global_state};
+        use httpmock::prelude::*;
+        use std::sync::Arc;
+        use tempfile::TempDir;
+        use tracematch::GpsPoint;
+
+        const POINTS: usize = 8;
+
+        fn transport(server: &MockServer) -> Transport {
+            let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+            Transport::with_governor(server.base_url(), AuthMethod::ApiKey("secret"), gov).unwrap()
+        }
+
+        fn track(seed: f64) -> Vec<GpsPoint> {
+            (0..POINTS)
+                .map(|i| GpsPoint::new(46.2 + seed + i as f64 * 0.001, 7.35 + seed))
+                .collect()
+        }
+
+        /// A fresh process-wide engine holding one track per id, none with
+        /// streams, so every id is in the derived queue.
+        fn engine_with(ids: &[&str]) -> TempDir {
+            let tmp = init_global_engine("stream_backfill.db");
+            with_persistent_engine(|engine| {
+                for (i, id) in ids.iter().enumerate() {
+                    engine
+                        .add_activity(id.to_string(), track(i as f64 * 0.05), "Ride".into())
+                        .expect("add activity");
+                }
+            })
+            .expect("engine");
+            tmp
+        }
+
+        fn queue() -> Vec<String> {
+            let mut ids: Vec<String> =
+                with_persistent_engine(|e| e.activities_missing_streams(STREAM_ATTEMPT_LIMIT))
+                    .expect("engine")
+                    .expect("queue")
+                    .into_iter()
+                    .map(|g| g.activity_id)
+                    .collect();
+            ids.sort();
+            ids
+        }
+
+        fn serves<'a>(
+            server: &'a MockServer,
+            upstream: &str,
+            series: &[(&str, &str)],
+        ) -> httpmock::Mock<'a> {
+            let body = body(series);
+            let path = format!("/activity/{upstream}/streams.json");
+            server.mock(|when, then| {
+                when.method(GET).path(path);
+                then.status(200).body(body);
+            })
+        }
+
+        fn watts() -> String {
+            format!("[{}]", ["150"; POINTS].join(","))
+        }
+
+        /// Scenario: one pass over a queue holding an activity with sensors, a
+        /// ride with none, an activity upstream refuses, and a ride the device
+        /// recorded that an upload later gave an intervals.icu id.
+        ///
+        /// Expected behaviour: the series land for both activities with
+        /// sensors and take them out of the queue, the sensorless ride is
+        /// counted as answered, the refusal is counted as failed and left
+        /// unchanged, and the recorded ride is asked for under the id upstream
+        /// knows it by rather than the device's own key.
+        #[test]
+        fn a_pass_stores_what_upstream_carries_and_counts_what_it_does_not() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            let _tmp = engine_with(&["i1", "i2", "i3", "local-rec"]);
+            with_persistent_engine(|e| e.record_upload("local-rec", "i77"))
+                .expect("engine")
+                .expect("upload recorded");
+
+            let server = MockServer::start();
+            let sensors = serves(
+                &server,
+                "i1",
+                &[("latlng", &latlng(POINTS)), ("watts", &watts())],
+            );
+            let bare = serves(&server, "i2", &[("latlng", &latlng(POINTS))]);
+            let refused = server.mock(|when, then| {
+                when.method(GET).path("/activity/i3/streams.json");
+                then.status(404);
+            });
+            let uploaded = serves(
+                &server,
+                "i77",
+                &[("latlng", &latlng(POINTS)), ("watts", &watts())],
+            );
+            let by_local_key = server.mock(|when, then| {
+                when.method(GET).path("/activity/local-rec/streams.json");
+                then.status(500);
+            });
+
+            let run = run_stream_backfill(&transport(&server), "1");
+
+            assert_eq!(
+                run,
+                StreamBackfillRun::Finished(StreamBackfillOutcome {
+                    queued: 4,
+                    stored: 2,
+                    empty: 1,
+                    failed: 1,
+                })
+            );
+            sensors.assert_hits(1);
+            bare.assert_hits(1);
+            refused.assert_hits(1);
+            uploaded.assert_hits(1);
+            by_local_key.assert_hits(0);
+            assert_eq!(
+                queue(),
+                vec!["i2".to_string(), "i3".to_string()],
+                "stored rows take an activity out of the queue on their own"
+            );
+            let progress = stream_backfill_progress();
+            assert_eq!(progress.phase, STREAM_PHASE_COMPLETE);
+            assert_eq!((progress.completed, progress.total), (4, 4));
+            assert_eq!((progress.stored, progress.failed), (2, 1));
+            assert_eq!(progress.percent(), 100);
+        }
+
+        /// Scenario: a ride recorded with no sensors answers every pass with
+        /// its track and nothing else.
+        ///
+        /// Expected behaviour: it leaves the queue after
+        /// `STREAM_ATTEMPT_LIMIT` passes, after which a pass has nothing to
+        /// ask and a start reports the job as not owed rather than starting.
+        #[test]
+        fn a_ride_with_no_sensors_retires_after_the_attempt_limit() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            let _tmp = engine_with(&["i2"]);
+            let server = MockServer::start();
+            let bare = serves(&server, "i2", &[("latlng", &latlng(POINTS))]);
+            let t = transport(&server);
+
+            for pass in 1..=STREAM_ATTEMPT_LIMIT {
+                assert_eq!(
+                    queue(),
+                    vec!["i2".to_string()],
+                    "still owed before pass {pass}"
+                );
+                let run = run_stream_backfill(&t, "1");
+                assert!(matches!(
+                    run,
+                    StreamBackfillRun::Finished(StreamBackfillOutcome { empty: 1, .. })
+                ));
+            }
+
+            assert!(queue().is_empty());
+            assert_eq!(
+                run_stream_backfill(&t, "1"),
+                StreamBackfillRun::Finished(StreamBackfillOutcome::default())
+            );
+            bare.assert_hits(STREAM_ATTEMPT_LIMIT as usize);
+            assert_eq!(start_stream_backfill(), FfiStartOutcome::NotOwed);
+        }
+
+        /// Scenario: upstream rejects the credential on a stream fetch, and
+        /// the profile check that confirms a rejection answers normally.
+        ///
+        /// Expected behaviour: the pass ends as failed at that batch, the
+        /// rejection is checked against the profile before anyone is signed
+        /// out, and nothing is counted against the activity.
+        #[test]
+        fn a_rejected_credential_fails_the_pass_and_is_confirmed_against_the_profile() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            let _tmp = engine_with(&["i1"]);
+            let server = MockServer::start();
+            let rejected = server.mock(|when, then| {
+                when.method(GET).path("/activity/i1/streams.json");
+                then.status(401);
+            });
+            let profile = server.mock(|when, then| {
+                when.method(GET).path("/athlete/1");
+                then.status(200).body(r#"{"id":"1"}"#);
+            });
+
+            let run = run_stream_backfill(&transport(&server), "1");
+
+            assert_eq!(run, StreamBackfillRun::Failed("unauthorized".to_string()));
+            rejected.assert_hits(1);
+            profile.assert_hits(1);
+            assert_eq!(stream_backfill_progress().phase, STREAM_PHASE_FAILED);
+            assert_eq!(queue(), vec!["i1".to_string()]);
+        }
+
+        /// A pass that starts while TypeScript says the network is gone asks
+        /// nothing and ends partial, so the whole queue is still owed.
+        #[test]
+        fn a_pass_that_starts_offline_asks_nothing_and_ends_partial() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            let _tmp = engine_with(&["i1", "i2"]);
+            let server = MockServer::start();
+            let any = server.mock(|when, then| {
+                when.method(GET);
+                then.status(200).body("[]");
+            });
+            connectivity::set_online(false);
+
+            let run = run_stream_backfill(&transport(&server), "1");
+            connectivity::reset();
+
+            assert_eq!(
+                run,
+                StreamBackfillRun::Finished(StreamBackfillOutcome {
+                    queued: 2,
+                    ..StreamBackfillOutcome::default()
+                })
+            );
+            any.assert_hits(0);
+            assert_eq!(stream_backfill_progress().phase, STREAM_PHASE_PARTIAL);
+            assert_eq!(queue().len(), 2);
+        }
+
+        /// Scenario: a pass holds the single-run slot when a second run and a
+        /// start arrive.
+        ///
+        /// Expected behaviour: both are refused without asking upstream, and
+        /// the slot is free again the moment its holder is dropped.
+        #[test]
+        fn a_second_pass_is_refused_while_one_holds_the_slot() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            let _tmp = engine_with(&["i1"]);
+            let server = MockServer::start();
+            let any = server.mock(|when, then| {
+                when.method(GET);
+                then.status(200).body("[]");
+            });
+
+            let held = RunGuard::claim().expect("the slot starts free");
+            assert_eq!(
+                run_stream_backfill(&transport(&server), "1"),
+                StreamBackfillRun::Refused
+            );
+            assert_eq!(start_stream_backfill(), FfiStartOutcome::Busy);
+            drop(held);
+
+            any.assert_hits(0);
+            assert!(
+                RunGuard::claim().is_some(),
+                "dropping the holder frees the slot"
+            );
+        }
+
+        /// With no engine there is no queue to read, so a pass fails and a
+        /// start says not ready rather than reporting the job finished.
+        #[test]
+        fn without_an_engine_a_pass_fails_and_a_start_is_not_ready() {
+            let _serial = serial_global_state();
+            *crate::persistence::PERSISTENT_ENGINE
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = None;
+            let server = MockServer::start();
+
+            assert_eq!(
+                run_stream_backfill(&transport(&server), "1"),
+                StreamBackfillRun::Failed("no engine".to_string())
+            );
+            assert_eq!(stream_backfill_progress().phase, STREAM_PHASE_FAILED);
+            assert_eq!(start_stream_backfill(), FfiStartOutcome::NotReady);
+        }
+
+        /// Scenario: the queue is owed but the device is offline, and then
+        /// back online with no credential yet.
+        ///
+        /// Expected behaviour: each start names its refusal, and neither
+        /// leaves the slot held, so the next start is not refused as busy.
+        #[test]
+        fn a_start_names_offline_and_a_missing_credential_and_frees_the_slot() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            let _tmp = engine_with(&["i1"]);
+            crate::objects::clear_test_credentials();
+
+            connectivity::set_online(false);
+            assert_eq!(start_stream_backfill(), FfiStartOutcome::Offline);
+            connectivity::reset();
+
+            assert_eq!(start_stream_backfill(), FfiStartOutcome::NotConfigured);
+            assert!(RunGuard::claim().is_some(), "neither refusal kept the slot");
+        }
     }
 }

@@ -16,6 +16,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
     t: (_key: string, fallback?: unknown) => (typeof fallback === 'string' ? fallback : 'Heatmap'),
   }),

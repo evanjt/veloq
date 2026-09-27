@@ -22,6 +22,7 @@ const mockFileStore = new Map<string, string>();
 const mockDirStore = new Set<string>(['/mock/cache/terrain_previews/']);
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   cacheDirectory: '/mock/cache/',
   EncodingType: { Base64: 'base64' },
   getInfoAsync: jest.fn(async (path: string) => ({

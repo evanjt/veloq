@@ -22,15 +22,12 @@ jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (selector: (s: typeof authState) => unknown) => selector(authState),
 }));
 
-jest.mock('expo-router', () => ({ usePathname: () => '/' }));
-
 jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 0, bottom: 24, left: 0, right: 0 }),
 }));
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 describe('BottomTabBar', () => {
   beforeEach(() => {

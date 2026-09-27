@@ -68,38 +68,38 @@ import { styles } from './sectionMapView.styles';
 
 interface SectionMapViewProps {
   section: FrequentSection;
-  height?: number;
+  height?: number | undefined;
   /** Enable map interaction (zoom, pan). Default false for preview, true for detail. */
-  interactive?: boolean;
+  interactive?: boolean | undefined;
   /** Enable tap to fullscreen */
-  enableFullscreen?: boolean;
+  enableFullscreen?: boolean | undefined;
   /** Optional full activity track to show as a shadow behind the section */
-  shadowTrack?: [number, number][];
+  shadowTrack?: [number, number][] | undefined;
   /** Activity ID to highlight (show prominently) */
-  highlightedActivityId?: string | null;
+  highlightedActivityId?: string | null | undefined;
   /** Specific lap points to highlight (takes precedence over highlightedActivityId) */
-  highlightedLapPoints?: RoutePoint[];
+  highlightedLapPoints?: RoutePoint[] | undefined;
   /**
    * Pre-loaded activity traces for fast scrubbing.
    * When provided, all traces are rendered in a single FeatureCollection
    * and a filter expression is used to show only the highlighted one.
    * This avoids expensive shape geometry updates during scrubbing.
    */
-  allActivityTraces?: Record<string, RoutePoint[]>;
+  allActivityTraces?: Record<string, RoutePoint[]> | undefined;
   /** Trim range for bounds editing - when set, shows full polyline faded + trimmed portion highlighted */
-  trimRange?: { start: number; end: number } | null;
+  trimRange?: { start: number; end: number } | null | undefined;
   /** Extension track for expanding section bounds - shown as faded line beyond the section */
-  extensionTrack?: RoutePoint[] | null;
+  extensionTrack?: RoutePoint[] | null | undefined;
   /** Nearby section polylines to render as muted gray overlays. Each entry has encoded coords. */
-  nearbyPolylines?: NearbyPolyline[];
+  nearbyPolylines?: NearbyPolyline[] | undefined;
   /** Called when a nearby section polyline is tapped */
-  onNearbyPress?: (sectionId: string) => void;
+  onNearbyPress?: ((sectionId: string) => void) | undefined;
   /**
    * Top safe-area inset of the screen the map fills. The map draws edge to
    * edge, so the legend and the controls are offset by this and the hero's
    * header row to clear the status bar and the back button.
    */
-  insetTop?: number;
+  insetTop?: number | undefined;
 }
 
 // Stable identities, so the closed-modal memos below return the same empty set

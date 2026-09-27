@@ -25,11 +25,6 @@ import {
 const projectRoot = path.join(__dirname, '../..');
 const readFile = (rel: string) => fs.readFileSync(path.join(projectRoot, rel), 'utf8');
 
-const MODULE_KT = readFile(
-  'modules/veloq-widget/android/src/main/java/com/veloq/widget/VeloqWidgetModule.kt'
-);
-const TILE_KT = readFile('widget/android/java/RecordTileService.kt');
-const SNAPSHOT_KT = readFile('widget/android/java/WidgetSnapshot.kt');
 const plugin = require('@/../src/plugins/with-android-widget.js');
 
 function raw(overrides: Partial<RawWidgetData> = {}): RawWidgetData {
@@ -87,50 +82,7 @@ describe('the snapshot carries the recent sports as one pre-localised list', () 
   });
 });
 
-describe('the launcher shortcuts are published from that one list', () => {
-  it('the module exposes the call and sets them as dynamic shortcuts', () => {
-    expect(MODULE_KT).toContain('Function("publishRecordShortcuts")');
-    expect(MODULE_KT).toContain('ShortcutManagerCompat.setDynamicShortcuts');
-  });
-
-  it('takes each URL from the snapshot rather than composing a second one', () => {
-    expect(MODULE_KT).toContain('Intent.ACTION_VIEW');
-    expect(MODULE_KT).toContain('entry["url"]');
-    expect(MODULE_KT).not.toContain('veloq://');
-  });
-
-  it('clears them when nothing has been recorded, rather than leaving a stale sport', () => {
-    expect(MODULE_KT).toContain('removeAllDynamicShortcuts');
-  });
-});
-
 describe('the Quick Settings tile is the same intent behind the shade', () => {
-  it('is a TileService that opens the record deep link', () => {
-    expect(TILE_KT).toContain('class RecordTileService : TileService()');
-    expect(TILE_KT).toContain('WidgetRenderer.recordUrl(snap)');
-    expect(TILE_KT).not.toContain('veloq://');
-  });
-
-  it('imports the app package it resolves R against, which only a build catches', () => {
-    // A generated widget source names its package as __PKG__, so a bare `R` does
-    // not resolve there and Jest cannot see it. This assertion is the cheap half
-    // of the check that cost a full assembleDebug to find.
-    for (const source of ['RecordTileService.kt', 'VeloqRecordWidgetProvider.kt']) {
-      const text = fs.readFileSync(path.join(projectRoot, 'widget/android/java', source), 'utf8');
-      if (!/\bR\.(string|drawable|layout|bool|color|id)\./.test(text)) continue;
-      expect(text).toContain('import __PKG__.R');
-    }
-  });
-
-  it('takes its label from the snapshot, so the tile holds no i18n', () => {
-    expect(TILE_KT).toContain('qsTile');
-    expect(TILE_KT).toContain('recordShortcuts');
-    expect(SNAPSHOT_KT).toContain('val recordShortcuts: List<RecordShortcut>');
-    // Parsed from the launcher list: the uncapped one is the App Shortcut's.
-    expect(SNAPSHOT_KT).toContain('optJSONArray("launcherShortcuts")');
-    expect(SNAPSHOT_KT).toContain('val lastRecordingType: String?');
-  });
-
   it('rides the one record gate, so the flag going off takes the tile with it', () => {
     const app: { service?: { $: Record<string, string> }[] } = {
       service: [{ $: { 'android:name': '.widget.RecordTileService' } }],

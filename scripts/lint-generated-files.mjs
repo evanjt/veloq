@@ -4,9 +4,9 @@
 // A generated module is committed when its generator needs a toolchain or a
 // network that CI, or a fresh clone, does not have. That is the whole rule, and
 // it is what keeps `git clone && npm run android` working with no network
-// beyond npm. About 40,000 lines of this tree are machine output under it: the
+// beyond npm. About forty thousand lines of this tree are machine output under it: the
 // UniFFI bindings, the C++ bridge, the map renderer and its glyph and sprite
-// blobs, the muscle polygons, the FFI manifest and the locale type mirror.
+// blobs, the muscle polygons and the locale type mirror.
 //
 // It used to be a block of commented-out paths in `.gitignore` saying "tracked
 // for CI simplification (see build system plan)", pointing at a plan no longer
@@ -68,7 +68,7 @@ function git(root, args) {
     // `cwd` does not decide which index git reads. The pre-commit hook exports
     // GIT_DIR and GIT_INDEX_FILE and those win, so the guard would answer about
     // the repository the hook is committing rather than the root it was given,
-    // and read that index against this disk (`B1070`).
+    // and read that index against this disk.
     env: gitFreeEnv(),
     encoding: 'utf8',
     // A generated blob is megabytes and the listings are long. The default

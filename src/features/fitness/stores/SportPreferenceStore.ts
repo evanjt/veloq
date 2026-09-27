@@ -21,7 +21,7 @@ export const SPORT_COLORS: Record<PrimarySport, string> = {
  * The same three hues as text. The fills sit between 2.18:1 and 3.31:1 on white
  * and a threshold headline is set in the sport's colour, where the hue is the
  * information rather than decoration, so these carry the same hue at 4.5:1.
- * Measured in `textContrast.test.ts` (B927).
+ * Measured in `textContrast.test.ts`.
  */
 export const SPORT_TEXT_COLORS: Record<PrimarySport, string> = {
   Cycling: colors.rideText,

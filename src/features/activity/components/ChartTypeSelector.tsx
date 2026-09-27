@@ -40,7 +40,7 @@ interface ChartMetricDisplay {
   value: string;
   unit: string;
   /** Longest formatted value for stable width */
-  maxValueWidth?: string;
+  maxValueWidth?: string | undefined;
 }
 
 interface ChartTypeSelectorProps {
@@ -114,7 +114,7 @@ export function ChartTypeSelector({
           : colorWithOpacity(config.color, isDark ? 0.25 : 0.15);
         // Unselected read as the stream's own hue, `chartYellow` at 1.50:1 on
         // its own 15% tint. The chip keeps the hue as its ground and its dot, and
-        // the label says which stream it is (B927).
+        // the label says which stream it is.
         const textColor = isSelected
           ? colors.textOnDark
           : isDark

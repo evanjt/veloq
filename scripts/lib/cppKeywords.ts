@@ -3,8 +3,8 @@
  * names.
  *
  * The C++ codegen copies a Rust argument name verbatim into the generated
- * bridge, so an export taking `template: String` compiles in Rust, passes the
- * manifest check and type checks in TypeScript, then fails inside CMake on the
+ * bridge, so an export taking `template: String` compiles in Rust and type
+ * checks in TypeScript, then fails inside CMake on the
  * only platform that builds C++. That costs a full Android build to surface,
  * which is why it is caught here instead.
  */

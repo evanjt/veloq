@@ -2469,7 +2469,7 @@ mod tests {
                     waited += 1;
                     true
                 },
-                |queue| refuse_again(queue),
+                refuse_again,
             );
 
             assert_eq!(waited, 0, "an offline pass must not spend the ladder");

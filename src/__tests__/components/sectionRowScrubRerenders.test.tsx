@@ -19,9 +19,7 @@ import {
 } from '@/features/activity/lib/groupSectionEncounters';
 import type { SectionEncounter } from 'veloqrs';
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/features/routes/components/section/SectionSparkline', () => ({
   SectionSparkline: () => null,

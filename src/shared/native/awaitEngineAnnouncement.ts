@@ -27,7 +27,7 @@ export interface AwaitAnnouncementOptions<T> {
   /** Subscribes and returns its own unsubscribe. */
   subscribe: (channel: string, listener: (payload?: unknown) => void) => (() => void) | undefined;
   /** Ends the wait early, for a caller that has gone away. */
-  signal?: AbortSignal;
+  signal?: AbortSignal | undefined;
 }
 
 export function awaitEngineAnnouncement<T>({

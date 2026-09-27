@@ -8,9 +8,6 @@
  * fails the day a threshold is changed on one surface and not the other.
  */
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import {
   TREND_DEADBAND,
   TREND_POLARITY,
@@ -151,24 +148,7 @@ describe('verdictRung', () => {
 });
 
 describe('the two surfaces that draw the same metrics', () => {
-  const ROOT = join(__dirname, '../../..');
-  const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
-
-  const SURFACES = [
-    'src/features/home/lib/widgetSnapshot.ts',
-    'src/features/home/hooks/useSummaryCardData.ts',
-  ];
-
-  it.each(SURFACES)('takes its thresholds from the shared table: %s', (path) => {
-    expect(read(path)).toMatch(/from '@\/shared\/format\/trend'/);
-  });
-
-  it.each(SURFACES)('writes no threshold of its own: %s', (path) => {
-    // A bare number handed to a trend call is the shape that drifted: the
-    // widget and the card each carried their own copy of all five.
-    expect(read(path)).not.toMatch(/trend(Of|Direction|OfMetric)?\([^)]*,\s*0?\.\d+\)/);
-  });
-
+  // That neither writes a threshold of its own is `scripts/lint-trend-thresholds.mjs`.
   it('gives every metric both surfaces draw a threshold', () => {
     for (const metric of ['weekHours', 'weekCount', 'ftp', 'thresholdPace', 'css'] as const) {
       expect(TREND_DEADBAND[metric]).toBeGreaterThan(0);

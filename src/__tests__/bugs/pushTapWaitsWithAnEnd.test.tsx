@@ -17,11 +17,12 @@ import ActivitySummaryScreen from '@/app/summary/[id]';
 import { useActivity } from '@/features/activity/hooks';
 
 jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
   router: { push: jest.fn() },
   useLocalSearchParams: () => ({ id: 'i999' }),
 }));
 jest.mock('@/features/activity/hooks', () => ({ useActivity: jest.fn() }));
-jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides({}));
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false, colors: { textSecondary: '#888' } }),
@@ -45,14 +46,6 @@ jest.mock('@/shared/ui', () => {
     ),
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     ScreenSafeAreaView: View,
-  };
-});
-jest.mock('react-native-safe-area-context', () => {
-  const { View } = require('react-native');
-  return {
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-    SafeAreaProvider: View,
-    SafeAreaView: View,
   };
 });
 

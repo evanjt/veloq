@@ -248,7 +248,9 @@ fn a_cutover_that_fails_still_logs_the_phases_it_reached() {
     seed_older_build_engine(&path);
 
     start_capturing();
-    with_persistent_engine(|e| e.set_setting("__section_config_json", "{".into())).unwrap();
+    with_persistent_engine(|e| e.set_setting("__section_config_json", "{"))
+        .expect("engine")
+        .expect("setting");
     assert!(veloqrs::ffi::start_detector_cutover(), "cutover refused");
     while veloqrs::ffi::get_cutover_progress().running {
         std::thread::sleep(std::time::Duration::from_millis(5));

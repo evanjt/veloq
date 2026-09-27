@@ -271,15 +271,15 @@ impl PersistentEngine {
     /// chosen strictness without any TS round-trip. Missing or unparseable
     /// values silently fall back to whatever `match_config` already holds.
     pub(super) fn load_match_strictness_from_settings(&mut self) -> SqlResult<()> {
-        if let Some(raw) = self.get_setting(settings_keys::MATCH_MIN_MATCH_PCT)? {
-            if let Ok(v) = raw.parse::<f64>() {
-                self.match_config.min_match_percentage = v;
-            }
+        if let Some(raw) = self.get_setting(settings_keys::MATCH_MIN_MATCH_PCT)?
+            && let Ok(v) = raw.parse::<f64>()
+        {
+            self.match_config.min_match_percentage = v;
         }
-        if let Some(raw) = self.get_setting(settings_keys::MATCH_ENDPOINT_THRESHOLD)? {
-            if let Ok(v) = raw.parse::<f64>() {
-                self.match_config.endpoint_threshold = v;
-            }
+        if let Some(raw) = self.get_setting(settings_keys::MATCH_ENDPOINT_THRESHOLD)?
+            && let Ok(v) = raw.parse::<f64>()
+        {
+            self.match_config.endpoint_threshold = v;
         }
         Ok(())
     }
@@ -305,20 +305,20 @@ impl PersistentEngine {
             }
         }
 
-        if let Some(raw) = self.get_setting(settings_keys::SECTION_PROXIMITY_THRESHOLD)? {
-            if let Ok(v) = raw.parse::<f64>() {
-                self.section_config.proximity_threshold = v;
-            }
+        if let Some(raw) = self.get_setting(settings_keys::SECTION_PROXIMITY_THRESHOLD)?
+            && let Ok(v) = raw.parse::<f64>()
+        {
+            self.section_config.proximity_threshold = v;
         }
-        if let Some(raw) = self.get_setting(settings_keys::SECTION_MIN_LENGTH)? {
-            if let Ok(v) = raw.parse::<f64>() {
-                self.section_config.min_section_length = v;
-            }
+        if let Some(raw) = self.get_setting(settings_keys::SECTION_MIN_LENGTH)?
+            && let Ok(v) = raw.parse::<f64>()
+        {
+            self.section_config.min_section_length = v;
         }
-        if let Some(raw) = self.get_setting(settings_keys::SECTION_MIN_ACTIVITIES)? {
-            if let Ok(v) = raw.parse::<u32>() {
-                self.section_config.min_activities = v;
-            }
+        if let Some(raw) = self.get_setting(settings_keys::SECTION_MIN_ACTIVITIES)?
+            && let Ok(v) = raw.parse::<u32>()
+        {
+            self.section_config.min_activities = v;
         }
         Ok(())
     }

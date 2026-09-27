@@ -18,7 +18,7 @@ import { styles } from './SectionDetail.styles';
 export interface SectionContentAreaProps {
   isDark: boolean;
   /** The screen bundle's efficiency trend, passed to the card. */
-  efficiencyTrend?: EfficiencyTrend | null;
+  efficiencyTrend?: EfficiencyTrend | null | undefined;
   section: FrequentSection;
   isSectionDisabled: boolean;
   mergeCandidates: MergeCandidate[];
@@ -30,11 +30,11 @@ export interface SectionContentAreaProps {
   calendarSummary: CalendarSummary | null;
   /** The sport whose efforts are on screen. Units follow it, not the
    *  section's own label, which is only the dominant sport of the ground. */
-  effectiveSportType?: string;
+  effectiveSportType?: string | undefined;
   isRunning: boolean;
   activityColor: string;
-  navActivityId?: string;
-  effectiveReferenceId?: string;
+  navActivityId?: string | undefined;
+  effectiveReferenceId?: string | undefined;
   showExcluded: boolean;
   excludedActivityIds: Set<string>;
   sectionTimeRange: SectionTimeRange;

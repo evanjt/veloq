@@ -217,8 +217,8 @@ export const colors = {
   textDisabled: '#A1A1AA',
   // One grey in both themes cleared 4.5:1 in neither, 4.34:1 light and 3.24:1
   // dark. These are the zinc rungs either side, already in the file as
-  // verdict.neutral, at 6.95:1 and 6.10:1 on the worst ground each theme draws
-  // (B605). Muted copy is a caption or a unit, not an inactive control, so the
+  // verdict.neutral, at 6.95:1 and 6.10:1 on the worst ground each theme draws.
+  // Muted copy is a caption or a unit, not an inactive control, so the
   // exemption textDisabled carries does not reach it.
   textMuted: '#52525B',
   textOnDark: '#FFFFFF',
@@ -254,7 +254,7 @@ export const colors = {
   // icon or a border owes and not the 4.5:1 text owes, so a destructive action
   // label and a failure line take this one instead: 5.82:1 on the worst light
   // surface. Same shape as `successDeep` and `warningAmber` beside it, and the
-  // dark counterpart is the dark palette's own error red, 5.65:1 (B491).
+  // dark counterpart is the dark palette's own error red, 5.65:1.
   errorDeep: '#B91C1C',
   warning: '#F59E0B',
   warningLight: '#FBBF24',
@@ -264,14 +264,14 @@ export const colors = {
   cautionOrange: '#FF9800',
   // The two caution hues as text. Both are fills, 1.47:1 and 1.94:1 on white,
   // and the section-size warning is set in them on a pill that is 95 per cent
-  // white. 4.92:1 and 4.90:1 on the worst light surface (B959).
+  // white. 4.92:1 and 4.90:1 on the worst light surface.
   cautionYellowText: '#866400',
   cautionOrangeText: '#995B00',
   info: brand.blue,
   infoLight: brand.blueLight,
   // The info blue as text. The merge banner's line reads it over a 15% tint of
   // itself, where the fill is 2.66:1 and `infoLight` 2.00:1. 4.95:1 on the worst
-  // light surface (B959).
+  // light surface.
   infoText: '#2B6CA8',
 
   // Inputs
@@ -301,7 +301,7 @@ export const colors = {
   // The three sport hues as text. The fitness screens set a threshold headline
   // in the sport's colour, where the hue is the information, and all three fills
   // sit between 2.18:1 and 3.31:1 on white. Worst light surface: ride 4.92:1,
-  // run 4.93:1, swim 4.97:1 (B927).
+  // run 4.93:1, swim 4.97:1.
   rideText: '#0B5FEA',
   runText: '#0A7854',
   swimText: '#047386',
@@ -329,16 +329,16 @@ export const colors = {
   // top carries the contrast. Where the mark itself is the carrier, a PR
   // trophy or the ring round the best dot, `chartGold` measures 1.89:1 on
   // white and `chartGreen` 2.28:1, under the 3:1 a graphical object owes. Same
-  // hues, lifted (B929).
+  // hues, lifted.
   chartGoldMark: '#8A7224',
   chartGreenMark: '#15803D',
   // The gold a PR time is set in. Mark grade is not text grade: `chartGoldMark`
   // reaches 4.18:1 on white, which is the 3:1 a trophy owes and not the 4.5:1
   // text owes, and text has no 1.4.11 exemption. Same hue again, one step
-  // further down, 4.91:1 on the worst of the three light surfaces (B927).
+  // further down, 4.91:1 on the worst of the three light surfaces.
   chartGoldText: '#7E671B',
   // The rest of the series hues that reach a text style, same rule and same
-  // method (B950). Worst of the three light surfaces: chartPinkText 5.43:1,
+  // method. Worst of the three light surfaces: chartPinkText 5.43:1,
   // chartPurpleText 6.28:1, fitnessBlueText 5.30:1, fatiguePurpleText 6.33:1.
   // The fills they darken are 3.17, 3.56, 2.66 and 4.33, and text has no
   // 1.4.11 exemption.
@@ -361,7 +361,7 @@ export const colors = {
   chartWeight: '#64748B', // Slate-500
   chartFtp: '#FFB300', // Amber - FTP trend (stable across themes)
   // The same amber as text: the estimated-FTP headline reads in it, and
-  // `chartFtp` is 1.61:1 on white. 4.91:1 on the worst light surface (B927).
+  // `chartFtp` is 1.61:1 on white. 4.91:1 on the worst light surface.
   chartFtpText: '#8B6200',
   chartPowerCurve: brand.blue, // Power curve line
   chartPaceCurve: '#4CAF50', // Green - pace curve line
@@ -409,10 +409,10 @@ export const colors = {
 
   // Form zone text. The fills above are bands and sparkline runs, grounds that
   // 1.4.11 exempts at 3:1; a form number or a zone name drawn in one is text and
-  // holds 4.5:1 on every light surface, which none of the fills reach (B928).
+  // holds 4.5:1 on every light surface, which none of the fills reach.
   // `formOptimalText` also carries the efficiency headline and effort count,
-  // which sit on an 18% tint of the fill, so it is the darkest of the five
-  // (B927). The five keep the fills' order, optimal darker than fresh.
+  // which sit on an 18% tint of the fill, so it is the darkest of the five.
+  // The five keep the fills' order, optimal darker than fresh.
   formTransitionText: '#1565C0',
   formFreshText: '#2E7D32',
   formGreyZoneText: '#616161',
@@ -689,7 +689,7 @@ export const darkColors = {
 
   // Mark grade, the dark half of the pair in `colors`. A near-black surface
   // wants the light tone where white wants the deep one, so a mark that reads
-  // one token in both themes is the same defect the other way round (B929).
+  // one token in both themes is the same defect the other way round.
   chartGoldMark: brand.goldLight,
   chartGreenMark: '#86EFAC',
 
@@ -777,8 +777,8 @@ export const darkColors = {
   chartZeroLineSolid: '#71717A',
   chartFormLine: '#FFFFFF',
 
-  // Text variants of the series hues, the dark counterparts of the light ones
-  // (B927). On a near-black ground the fill itself already clears 4.5:1 for four
+  // Text variants of the series hues, the dark counterparts of the light ones.
+  // On a near-black ground the fill itself already clears 4.5:1 for four
   // of the six, so the token is the fill and the pair still exists: a caller
   // reads one name in both themes. Worst of the three dark surfaces:
   // chartGoldText 7.44:1, chartFtpText 8.71:1, formOptimalText 6.62:1,
@@ -809,7 +809,7 @@ export const darkColors = {
   infoText: brand.blueLight,
   linkTeal: brand.tealDark,
 
-  // The rest of the form zone text family (B928). Same story: four of the five
+  // The rest of the form zone text family. Same story: four of the five
   // are the fill, and the red is the one that does not carry, 4.49:1 on
   // surfaceCard, so it takes the lighter tone the dark palette uses for error.
   formTransitionText: '#64B5F6',

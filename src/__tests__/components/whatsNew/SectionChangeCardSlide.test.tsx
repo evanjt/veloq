@@ -9,11 +9,7 @@ import { routesStatus } from '../../__shared__/routesStatusStub';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (k: string, vars?: Record<string, unknown>) => (vars ? `${k}:${JSON.stringify(vars)}` : k),
-  }),
-}));
+jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 
 const ALL_BUT_DEVICE = {
   deterministic: true,

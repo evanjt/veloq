@@ -133,7 +133,7 @@ export function PreviewMapView({
       }
       // A removed section draws once, through its own layer. It used to go
       // into current as well, which put the same line on the map twice and
-      // meant hiding removals left them there in grey (B408).
+      // meant hiding removals left them there in grey.
       if (section.status === 'gone') {
         gone.push(feature);
         continue;
@@ -146,7 +146,7 @@ export function PreviewMapView({
 
   // The box the camera clamps to, drawn so the athlete can see which ground
   // the selected area covers. Same bounds as the camera and the label, so the
-  // three never disagree about what this area is (U44).
+  // three never disagree about what this area is.
   const areaFeatures = useMemo((): GeoJSON.FeatureCollection => {
     const area = previewAreaBounds(centre);
     if (!area) return EMPTY_FEATURE_COLLECTION;
@@ -189,7 +189,7 @@ export function PreviewMapView({
       // Removals belong to the current catalogue, but they are routinely most
       // of what the map draws, so they toggle on their own. Reading a diff
       // where removals dominate means being able to take them off without
-      // losing the catalogue they came from (B408).
+      // losing the catalogue they came from.
       gone: showRemoved
         ? { type: 'FeatureCollection', features: features.gone }
         : EMPTY_FEATURE_COLLECTION,

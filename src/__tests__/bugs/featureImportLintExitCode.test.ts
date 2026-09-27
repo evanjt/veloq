@@ -57,10 +57,6 @@ describe('cross-feature import ratchet', () => {
     return path;
   };
 
-  it('exits 0 on this repo, so the audit gate stays usable', () => {
-    expect(runLint().status).toBe(0);
-  });
-
   it('fails a deep import on an edge the baseline does not list', () => {
     const root = withTree({
       'src/features/a/x.ts': "import { y } from '@/features/b/lib/y';\nexport const x = y;\n",

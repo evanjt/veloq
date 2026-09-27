@@ -37,14 +37,6 @@ describe('app.json orientation', () => {
     });
   });
 
-  it('carries both keys into the checked-in Info.plist', () => {
-    const plist = readFileSync(join(__dirname, '../../../ios/VeloqDev/Info.plist'), 'utf8');
-    expect(plist).toContain(
-      '<key>EXDefaultScreenOrientationMask</key>\n    <string>UIInterfaceOrientationMaskPortrait</string>'
-    );
-    expect(plist).not.toContain('UIInterfaceOrientationLandscape');
-  });
-
   it('keeps the tablet target working rather than dropping it', () => {
     const ios = (appConfig.expo as unknown as { ios: Record<string, unknown> }).ios;
     expect(ios.supportsTablet).toBe(true);

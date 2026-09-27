@@ -384,10 +384,13 @@ impl CheckpointSlot {
     }
 }
 
-/// Handle for background section detection.
+/// What a detection worker hands back: the sections it found and the ids of
+/// the activities it read.
+type DetectionOutput = (Vec<FrequentSection>, Vec<String>);
 
+/// Handle for background section detection.
 pub struct SectionDetectionHandle {
-    receiver: mpsc::Receiver<(Vec<FrequentSection>, Vec<String>)>,
+    receiver: mpsc::Receiver<DetectionOutput>,
     /// The final cache update, when a checkpoint drain met it first.
     final_update: std::sync::Mutex<Option<CacheUpdate>>,
     /// Out-of-band channel for the Unified detector's evidence-cache update.
@@ -464,7 +467,7 @@ impl SectionDetectionHandle {
     }
 
     /// Non-blocking poll that also reports a dead worker thread.
-    pub fn poll_state(&self) -> WorkerPoll<(Vec<FrequentSection>, Vec<String>)> {
+    pub fn poll_state(&self) -> WorkerPoll<DetectionOutput> {
         match self.receiver.try_recv() {
             Ok(v) => WorkerPoll::Ready(v),
             Err(mpsc::TryRecvError::Empty) => WorkerPoll::Running,
@@ -489,7 +492,7 @@ impl SectionDetectionHandle {
     /// reported a run that never happened as a verdict about the library. So
     /// the phase travels in the `Err`, rather than being left on `progress`
     /// for a caller to have cloned before this consumed the handle.
-    pub fn recv(self) -> Result<(Vec<FrequentSection>, Vec<String>), String> {
+    pub fn recv(self) -> Result<DetectionOutput, String> {
         let progress = self.progress.clone();
         self.receiver.recv().map_err(|_| progress.get_phase())
     }
@@ -546,12 +549,7 @@ impl SectionDetectionHandle {
     /// carries no `boundaries`. So drain to the first non-checkpoint update,
     /// and fall back to the checkpoint slot only when the run ended without
     /// one.
-    pub fn recv_with_cache(
-        self,
-    ) -> (
-        Option<(Vec<FrequentSection>, Vec<String>)>,
-        Option<CacheUpdate>,
-    ) {
+    pub fn recv_with_cache(self) -> (Option<DetectionOutput>, Option<CacheUpdate>) {
         let (state, cache) = self.recv_state_with_cache();
         match state {
             WorkerPoll::Ready(v) => (Some(v), cache),
@@ -571,12 +569,7 @@ impl SectionDetectionHandle {
     ///
     /// `Running` is never returned: the read blocks until the channel answers
     /// one way or the other.
-    pub fn recv_state_with_cache(
-        self,
-    ) -> (
-        WorkerPoll<(Vec<FrequentSection>, Vec<String>)>,
-        Option<CacheUpdate>,
-    ) {
+    pub fn recv_state_with_cache(self) -> (WorkerPoll<DetectionOutput>, Option<CacheUpdate>) {
         self.recv_state_with_cache_within(None)
     }
 
@@ -592,10 +585,7 @@ impl SectionDetectionHandle {
     pub fn recv_state_with_cache_within(
         self,
         limit: Option<std::time::Duration>,
-    ) -> (
-        WorkerPoll<(Vec<FrequentSection>, Vec<String>)>,
-        Option<CacheUpdate>,
-    ) {
+    ) -> (WorkerPoll<DetectionOutput>, Option<CacheUpdate>) {
         let received = match limit {
             Some(limit) => self
                 .receiver
@@ -889,7 +879,7 @@ impl SectionDetectionHandle {
     /// keeps it alive; dropping it would make this a dead worker instead.
     pub(crate) fn worker_that_never_answers() -> (
         Self,
-        mpsc::Sender<(Vec<FrequentSection>, Vec<String>)>,
+        mpsc::Sender<DetectionOutput>,
         mpsc::Sender<CacheUpdate>,
     ) {
         let (tx, rx) = mpsc::channel();
@@ -1063,7 +1053,7 @@ mod worker_poll_tests {
     /// for the rest of the session.
     #[test]
     fn dead_worker_reports_died_not_running() {
-        let (tx, rx) = mpsc::channel::<(Vec<FrequentSection>, Vec<String>)>();
+        let (tx, rx) = mpsc::channel::<DetectionOutput>();
         let (_cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
         let handle = SectionDetectionHandle {
             receiver: rx,
@@ -1082,7 +1072,7 @@ mod worker_poll_tests {
 
     #[test]
     fn finished_worker_reports_ready_then_died() {
-        let (tx, rx) = mpsc::channel::<(Vec<FrequentSection>, Vec<String>)>();
+        let (tx, rx) = mpsc::channel::<DetectionOutput>();
         let (_cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
         let handle = SectionDetectionHandle {
             receiver: rx,
@@ -1109,7 +1099,6 @@ mod worker_poll_tests {
 
 /// Load route groups from SQLite database.
 /// Used by background threads that have their own DB connection.
-
 fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
     let mut stmt = match conn.prepare(
         "SELECT id, representative_id, activity_ids, sport_type,
@@ -1179,7 +1168,6 @@ fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
 ///
 /// Only loads lightweight metadata into memory. Signatures are LRU cached,
 /// and GPS tracks are loaded on-demand only when needed for section detection.
-
 pub struct PersistentEngine {
     /// Database connection
     pub(crate) db: Connection,
@@ -1316,7 +1304,7 @@ pub struct PersistentEngine {
 
     /// LRU cache for get_section_performances, keyed by section id (+ sport
     /// filter). A section detail load calls it twice for the same section (buckets
-    /// + calendar); navigating between a handful of sections keeps them all warm
+    /// and calendar); navigating between a handful of sections keeps them all warm
     /// where the old single entry evicted on every hop.
     ///
     /// Sized for a whole insights bundle rather than a handful of screens, so
@@ -1741,10 +1729,10 @@ impl PersistentEngine {
         // The tiers now speak for the file as it stands, handler writes and
         // all, so nothing read here is owed a reload.
         self.seen_external_write_token = self.external_write_token();
-        if let Some(e) = first_error {
-            if is_corruption_error(&e) {
-                return Err(e);
-            }
+        if let Some(e) = first_error
+            && is_corruption_error(&e)
+        {
+            return Err(e);
         }
 
         // Adopt the evidence cache the last apply left behind, so a restart
@@ -1978,7 +1966,9 @@ impl PersistentEngine {
         let source_metrics = self.activity_metrics.get(source_id).cloned();
 
         // Get section_activities entries for source
-        let section_entries: Vec<(String, String, i32, i32, f64, Option<f64>, Option<f64>)> = self
+        // section id, direction, start, end, distance, lap time, lap pace
+        type EntryRow = (String, String, i32, i32, f64, Option<f64>, Option<f64>);
+        let section_entries: Vec<EntryRow> = self
             .db
             .prepare(
                 "SELECT section_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace
@@ -2245,7 +2235,7 @@ impl PersistentEngine {
                         .then_with(|| a.group_id.cmp(&b.group_id))
                 });
             }
-            _ => raw_summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count)),
+            _ => raw_summaries.sort_by_key(|b| std::cmp::Reverse(b.activity_count)),
         }
         let filtered_group_count = raw_summaries.len();
         let paged_summaries: Vec<_> = raw_summaries
@@ -2843,21 +2833,21 @@ pub mod persistent_engine_ffi {
             db_path
         );
 
-        if let Some(parent) = std::path::Path::new(&db_path).parent() {
-            if !parent.exists() {
-                if let Err(e) = std::fs::create_dir_all(parent) {
-                    log::error!(
-                        "veloqrs: [PersistentEngine] Failed to create directory {:?}: {}",
-                        parent,
-                        e
-                    );
-                    return record_init_outcome(FfiInitOutcome::StorageUnavailable);
-                }
-                info!(
-                    "veloqrs: [PersistentEngine] Created parent directory: {:?}",
-                    parent
+        if let Some(parent) = std::path::Path::new(&db_path).parent()
+            && !parent.exists()
+        {
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                log::error!(
+                    "veloqrs: [PersistentEngine] Failed to create directory {:?}: {}",
+                    parent,
+                    e
                 );
+                return record_init_outcome(FfiInitOutcome::StorageUnavailable);
             }
+            info!(
+                "veloqrs: [PersistentEngine] Created parent directory: {:?}",
+                parent
+            );
         }
 
         // Read the file before opening it. Under WAL a ruined main file beside
@@ -3130,7 +3120,12 @@ impl OverlapIndex {
         if coords.len() < 2 {
             return None;
         }
-        let points: Vec<[f64; 2]> = coords.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
+        let points: Vec<[f64; 2]> = coords
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|c| [c[0], c[1]])
+            .collect();
         let mut min_lat = f64::INFINITY;
         let mut max_lat = f64::NEG_INFINITY;
         let mut min_lng = f64::INFINITY;
@@ -3164,7 +3159,7 @@ impl OverlapIndex {
         let pad_lat = threshold_meters / 111_320.0 * 1.5;
 
         let mut matched = 0u32;
-        for chunk in coords.chunks_exact(2) {
+        for chunk in coords.as_chunks::<2>().0 {
             let lat_a = chunk[0];
             let lng_a = chunk[1];
             let pad_lng = pad_lng_degrees(lat_a, threshold_meters);
@@ -3260,7 +3255,7 @@ pub fn compute_polyline_overlap(
 
 /// Refuse a flat coordinate array that is not a whole number of points.
 fn whole_points(name: &str, coords: &[f64]) -> Result<(), VeloqError> {
-    if coords.len() % 2 != 0 {
+    if !coords.len().is_multiple_of(2) {
         return Err(VeloqError::ParseError {
             msg: format!(
                 "{name} length {} is not an even count of lat/lng values",
@@ -4689,7 +4684,7 @@ mod reload_cost {
         Some((dir, dst))
     }
 
-    fn open(path: &PathBuf) -> PersistentEngine {
+    fn open(path: &std::path::Path) -> PersistentEngine {
         PersistentEngine::new(path.to_str().expect("utf-8")).expect("open")
     }
 
@@ -4698,7 +4693,7 @@ mod reload_cost {
     }
 
     /// One shape, one process, so `VmHWM` speaks for it.
-    fn run_one_shape(path: &PathBuf, shape: &str) {
+    fn run_one_shape(path: &std::path::Path, shape: &str) {
         let at = Instant::now();
         let mut engine = open(path);
         let open_ms = ms(at);
@@ -4734,9 +4729,10 @@ mod reload_cost {
     /// Timing is not confounded the way memory is, so this stays one process:
     /// each loader runs once against a cold tier, which is what a reload would
     /// meet.
-    fn run_breakdown(path: &PathBuf) {
+    fn run_breakdown(path: &std::path::Path) {
         let mut engine = open(path);
-        let loaders: [(&str, fn(&mut PersistentEngine) -> SqlResult<()>); 7] = [
+        type Loader = fn(&mut PersistentEngine) -> SqlResult<()>;
+        let loaders: [(&str, Loader); 7] = [
             ("metadata", |e| e.load_metadata()),
             ("groups", |e| e.load_groups()),
             ("sections", |e| e.load_sections()),

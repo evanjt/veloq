@@ -21,10 +21,10 @@ export type TaskRunStage =
 export interface TaskRunEntry {
   ts: number;
   stage: TaskRunStage;
-  eventType?: string;
-  activityId?: string;
-  sourceShape?: string;
-  detail?: string;
+  eventType?: string | undefined;
+  activityId?: string | undefined;
+  sourceShape?: string | undefined;
+  detail?: string | undefined;
 }
 
 export async function readTaskRuns(): Promise<TaskRunEntry[]> {

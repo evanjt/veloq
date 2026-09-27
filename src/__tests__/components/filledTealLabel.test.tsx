@@ -15,7 +15,7 @@ import { StyleSheet } from 'react-native';
 import { TimeRangeSelector } from '@/features/fitness/components/TimeRangeSelector';
 import { colors } from '@/theme';
 
-jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 function channels(hex: string): number[] {
   return [1, 3, 5]

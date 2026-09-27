@@ -5,6 +5,7 @@ import { lapKey } from '@/features/routes/hooks/useSectionLaps';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
     t: (key: string, params?: Record<string, unknown>) =>
       params ? `${key}:${Object.values(params).join(',')}` : key,

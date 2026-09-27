@@ -5,14 +5,14 @@
 export interface EventDetails {
   around: string[];
   forkAround: string[];
-  prTime?: number;
-  prFrom?: number;
-  prTo?: number;
+  prTime?: number | undefined;
+  prFrom?: number | undefined;
+  prTo?: number | undefined;
   siblings: number;
-  version?: number;
+  version?: number | undefined;
   /** The activity a re-anchor moved the line off, and the one it moved to. */
-  reanchoredFrom?: string;
-  reanchoredTo?: string;
+  reanchoredFrom?: string | undefined;
+  reanchoredTo?: string | undefined;
 }
 
 /** The ledger writes SQLite datetimes in UTC without a zone marker. */
@@ -46,7 +46,7 @@ export function parseEventDetails(details: string | undefined): EventDetails {
 
 /** A change, as much of one as the chip ids need. */
 interface ChipSource {
-  details?: string;
+  details?: string | undefined;
 }
 
 /**

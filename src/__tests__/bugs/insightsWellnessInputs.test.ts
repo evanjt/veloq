@@ -12,6 +12,7 @@ import { computeInsightsFromData } from '@/features/insights/lib/computeInsights
 import { wellnessWindow } from '@/features/insights/lib/wellnessWindow';
 import { buildInsightsParams } from '@/features/insights/lib/insightsParams';
 import type { InsightsData } from 'veloqrs';
+import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
@@ -81,5 +82,16 @@ describe('wellnessWindow', () => {
 
   it('reaches back the window it is given', () => {
     expect(wellnessWindow(NOW, 30).oldest).toBe('2026-08-13');
+  });
+});
+
+describe.each(CLOCK_EDGES)('the insights wellness window on %s', (_name, at) => {
+  beforeEach(() => jest.setSystemTime(at));
+
+  it('runs from thirty local days back to today', () => {
+    const params = buildInsightsParams();
+
+    expect(params.wellnessNewest).toBe(localDay(at));
+    expect(params.wellnessOldest).toBe(localDay(at, -30));
   });
 });

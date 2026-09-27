@@ -162,7 +162,7 @@ fn a_row_under_a_minted_key_claims_no_server_id() {
         "nothing upstream has named this ride yet"
     );
     assert_eq!(engine.activity_id_for_intervals_id(&key), None);
-    assert!(engine.intervals_ids(&[key.clone()]).is_empty());
+    assert!(engine.intervals_ids(std::slice::from_ref(&key)).is_empty());
 }
 
 /// The upload's answer, which is the whole point of the column. One write,

@@ -17,8 +17,8 @@ export type InsightPriority = 1 | 2 | 3 | 4 | 5;
 export interface DataPoint {
   label: string;
   value: number | string;
-  unit?: string;
-  context?: 'good' | 'warning' | 'concern' | 'neutral';
+  unit?: string | undefined;
+  context?: 'good' | 'warning' | 'concern' | 'neutral' | undefined;
 }
 
 export interface InsightAlternative {
@@ -52,15 +52,15 @@ export interface SectionRankingScores {
 export interface SupportingSection {
   sectionId: string;
   sectionName: string;
-  bestTime?: number;
-  trend?: number;
-  traversalCount?: number;
-  sportType?: string;
-  hasRecentPR?: boolean;
-  daysSinceLast?: number;
-  ranking?: SectionRankingScores;
+  bestTime?: number | undefined;
+  trend?: number | undefined;
+  traversalCount?: number | undefined;
+  sportType?: string | undefined;
+  hasRecentPR?: boolean | undefined;
+  daysSinceLast?: number | undefined;
+  ranking?: SectionRankingScores | undefined;
   /** The section's line, thinned by the engine for the card's thumbnail. */
-  previewPoints?: { lat: number; lng: number }[];
+  previewPoints?: { lat: number; lng: number }[] | undefined;
 }
 
 export interface SupportingActivity {
@@ -92,32 +92,32 @@ export interface InsightMeta {
    * milestone date). Drives the recency gate (G1). Falls back to
    * `Insight.timestamp` (generation time) when unset - treat unset as "fresh".
    */
-  sourceTimestamp?: number;
+  sourceTimestamp?: number | undefined;
   /**
    * Centroid of the section/route the insight references, if location-bound.
    * Drives the proximity gate (G2). Absent for non-location insights
    * (fitness milestones, HRV, strength).
    */
-  location?: { lat: number; lng: number };
+  location?: { lat: number; lng: number } | undefined;
   /**
    * 'self' compares the user to their own past (Kappen 2018 - preferred).
    * 'other' compares to population/others. 'none' for pure status facts.
    */
-  comparisonKind?: 'self' | 'other' | 'none';
+  comparisonKind?: 'self' | 'other' | 'none' | undefined;
   /** Lifetime count of the repeated behaviour - drives repetition gate (G3). */
-  repetitionCount?: number;
+  repetitionCount?: number | undefined;
   /** The section this insight is about, which is what R9's scores are keyed on. */
-  sectionId?: string;
+  sectionId?: string | undefined;
   /** What the engine rates that section, filled in by the pipeline for R9. */
-  ranking?: SectionRankingScores;
+  ranking?: SectionRankingScores | undefined;
   /**
    * The place this insight is about, as the generator knows it. R5 credits it
    * only when it survives into the rendered copy, so this is the name to look
    * for and not an assertion that it is there.
    */
-  placeName?: string;
+  placeName?: string | undefined;
   /** Optional signal-to-noise delta (|value − baseline| / stddev) - drives R6. */
-  signalDelta?: number;
+  signalDelta?: number | undefined;
 }
 
 export interface Insight {
@@ -129,11 +129,11 @@ export interface Insight {
   icon: string;
   iconTone: InsightTone;
   body?: string;
-  navigationTarget?: string;
+  navigationTarget?: string | undefined;
   timestamp: number;
   isNew: boolean;
   alternatives?: InsightAlternative[];
-  supportingData?: InsightSupportingData;
+  supportingData?: InsightSupportingData | undefined;
   methodology?: InsightMethodology;
   /**
    * R4 - how much population the claim stands on, 0 to 1, or `null` where the
@@ -183,16 +183,16 @@ export interface SeriesPoint {
 }
 
 export interface FtpTrend {
-  latestFtp?: number;
-  latestDate?: bigint | number;
-  previousFtp?: number;
-  previousDate?: bigint | number;
+  latestFtp?: number | undefined;
+  latestDate?: bigint | number | undefined;
+  previousFtp?: number | undefined;
+  previousDate?: bigint | number | undefined;
   /** The step in watts, with its sign, as the engine derived it. */
-  deltaWatts?: number;
+  deltaWatts?: number | undefined;
   /** Days of estimate from the one compared against to the newest. */
-  sampleCount?: number;
+  sampleCount?: number | undefined;
   /** Those days, oldest first, for the card's graphic. */
-  history?: SeriesPoint[];
+  history?: SeriesPoint[] | undefined;
 }
 
 export interface PaceTrend {
@@ -233,12 +233,12 @@ export interface SectionTrendData {
   medianRecentSecs: number;
   bestTimeSecs: number;
   traversalCount: number;
-  sportType?: string;
-  daysSinceLast?: number;
-  latestIsPr?: boolean;
-  ranking?: SectionRankingScores;
+  sportType?: string | undefined;
+  daysSinceLast?: number | undefined;
+  latestIsPr?: boolean | undefined;
+  ranking?: SectionRankingScores | undefined;
   /** The last efforts on the section, oldest first, for the card's graphic. */
-  recentEfforts?: SeriesPoint[];
+  recentEfforts?: SeriesPoint[] | undefined;
 }
 
 /** Translation function signature (react-i18next-compatible). */

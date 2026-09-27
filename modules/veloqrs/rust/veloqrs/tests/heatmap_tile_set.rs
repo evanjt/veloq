@@ -58,10 +58,10 @@ fn generate_and_collect(engine: &mut PersistentEngine, tmp: &TempDir) -> BTreeSe
             let path = entry.path();
             if path.is_dir() {
                 recurse(&path, base, out);
-            } else if path.extension().and_then(|s| s.to_str()) == Some("png") {
-                if let Ok(rel) = path.strip_prefix(base) {
-                    out.insert(rel.to_string_lossy().to_string());
-                }
+            } else if path.extension().and_then(|s| s.to_str()) == Some("png")
+                && let Ok(rel) = path.strip_prefix(base)
+            {
+                out.insert(rel.to_string_lossy().to_string());
             }
         }
     }

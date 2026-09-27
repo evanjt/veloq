@@ -31,13 +31,13 @@ interface BodyPairWithLoupeProps {
   gender: 'male' | 'female';
   scale: number;
   colors: readonly string[];
-  defaultFill?: string;
-  onMuscleTap?: (slug: string) => void;
-  onMuscleScrub?: (slug: string) => void;
-  tappableSlugs?: Set<string>;
-  gap?: number;
-  centerContent?: React.ReactNode;
-  centerWidth?: number;
+  defaultFill?: string | undefined;
+  onMuscleTap?: ((slug: string) => void) | undefined;
+  onMuscleScrub?: ((slug: string) => void) | undefined;
+  tappableSlugs?: Set<string> | undefined;
+  gap?: number | undefined;
+  centerContent?: React.ReactNode | undefined;
+  centerWidth?: number | undefined;
 }
 
 export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
@@ -273,7 +273,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
               side="front"
               scale={scale}
               colors={colors}
-              defaultFill={defaultFill}
+              {...(defaultFill !== undefined && { defaultFill })}
             />
           </View>
 
@@ -287,7 +287,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
               side="back"
               scale={scale}
               colors={colors}
-              defaultFill={defaultFill}
+              {...(defaultFill !== undefined && { defaultFill })}
             />
           </View>
 
@@ -305,7 +305,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
                     side="front"
                     scale={loupeScale}
                     colors={colors}
-                    defaultFill={defaultFill}
+                    {...(defaultFill !== undefined && { defaultFill })}
                   />
                 </Animated.View>
                 <Animated.View style={[styles.loupeBody, loupeBackStyle]}>
@@ -315,7 +315,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
                     side="back"
                     scale={loupeScale}
                     colors={colors}
-                    defaultFill={defaultFill}
+                    {...(defaultFill !== undefined && { defaultFill })}
                   />
                 </Animated.View>
                 <View style={styles.loupeCrosshair} />

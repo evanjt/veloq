@@ -300,7 +300,7 @@ fn audit_existing_sections(conn: &Connection) {
     for ((lo, hi), label) in vbuckets.iter().zip(vlabels.iter()) {
         let count = sections
             .iter()
-            .filter(|(_, _, _, v)| *v >= *lo as i64 && *v <= *hi as i64)
+            .filter(|(_, _, _, v)| *v >= *lo as i64 && *v <= *hi)
             .count();
         println!("  {:<12} visits: {}", label, count);
     }
@@ -327,7 +327,7 @@ fn audit_existing_sections(conn: &Connection) {
     for ((lo, hi), label) in pa_buckets.iter().zip(pa_labels.iter()) {
         let count = per_activity
             .iter()
-            .filter(|(_, c)| *c >= *lo as i64 && *c <= *hi as i64)
+            .filter(|(_, c)| *c >= *lo as i64 && *c <= *hi)
             .count();
         println!("  {:<12} sections: {} activities", label, count);
     }
@@ -359,7 +359,7 @@ fn audit_existing_route_groups(conn: &Connection) {
     }
     println!("\nGroups by sport:");
     let mut sport_vec: Vec<_> = by_sport.iter().collect();
-    sport_vec.sort_by(|a, b| (b.1).1.cmp(&(a.1).1));
+    sport_vec.sort_by_key(|b| std::cmp::Reverse((b.1).1));
     for (sport, (groups_count, total_activities)) in &sport_vec {
         println!(
             "  {:<20} {} groups, {} total activities",
@@ -373,7 +373,7 @@ fn audit_existing_route_groups(conn: &Connection) {
     for ((lo, hi), label) in size_buckets.iter().zip(size_labels.iter()) {
         let count = groups
             .iter()
-            .filter(|(_, _, c, _)| *c >= *lo as i64 && *c <= *hi as i64)
+            .filter(|(_, _, c, _)| *c >= *lo as i64 && *c <= *hi)
             .count();
         println!("  {:<12} activities: {} groups", label, count);
     }
@@ -454,7 +454,7 @@ fn redetect_and_compare(conn: &Connection) {
             .iter()
             .filter(|g| g.activity_ids.len() >= 10)
             .collect();
-        large.sort_by(|a, b| b.activity_ids.len().cmp(&a.activity_ids.len()));
+        large.sort_by_key(|b| std::cmp::Reverse(b.activity_ids.len()));
         for g in large.iter().take(5) {
             println!(
                 "    Group {}, {} activities",
@@ -543,10 +543,7 @@ fn redetect_and_compare(conn: &Connection) {
 
     println!("\n  Top 10 most over-sectioned:");
     for (id, count) in pa_counts.iter().take(10) {
-        let sport = sport_map
-            .get(&id.to_string())
-            .map(|s| s.as_str())
-            .unwrap_or("?");
+        let sport = sport_map.get(**id).map(|s| s.as_str()).unwrap_or("?");
         println!("    {} ({}), {} sections", id, sport, count);
     }
 

@@ -38,6 +38,51 @@ const CORRUPT_RECORD: &str = "corrupt-activities.json";
 /// Distinguishes two marks written inside the same clock tick.
 static DIRTY_TOKEN: AtomicU64 = AtomicU64::new(0);
 
+/// A hold the next tile pass waits on just before it draws, so a test can land
+/// a cancel on a pass in flight without racing it. Built only for the
+/// synthetic test lane.
+#[cfg(feature = "synthetic")]
+static TILE_PASS_HOLD: std::sync::Mutex<Option<(mpsc::Sender<()>, mpsc::Receiver<()>)>> =
+    std::sync::Mutex::new(None);
+
+/// The test's side of [`hold_next_tile_pass`]. Dropping it releases the pass,
+/// so a failed assertion never leaves the worker waiting.
+#[cfg(feature = "synthetic")]
+#[doc(hidden)]
+pub struct TilePassHold {
+    reached: mpsc::Receiver<()>,
+    release: mpsc::Sender<()>,
+}
+
+#[cfg(feature = "synthetic")]
+impl TilePassHold {
+    /// Block until the pass has scheduled its tiles and waits to draw them.
+    /// Panics when the pass ended without getting there.
+    pub fn wait_until_reached(&self) {
+        self.reached
+            .recv()
+            .expect("the pass ended before it reached the hold");
+    }
+
+    /// Let the pass draw.
+    pub fn release(self) {
+        let _ = self.release.send(());
+    }
+}
+
+/// Hold the next tile pass started in this process just before it draws.
+#[cfg(feature = "synthetic")]
+#[doc(hidden)]
+pub fn hold_next_tile_pass() -> TilePassHold {
+    let (reached_tx, reached_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    *TILE_PASS_HOLD.lock().unwrap_or_else(|e| e.into_inner()) = Some((reached_tx, release_rx));
+    TilePassHold {
+        reached: reached_rx,
+        release: release_tx,
+    }
+}
+
 /// Whether a tile pass is on a thread in this process. There is one handle
 /// slot, so a second pass drops the first's handle and reports its own
 /// progress in place of it, while both workers write the same tile files and
@@ -239,10 +284,10 @@ impl PersistentEngine {
         // Skips the expensive tile enumeration + file-existence checks on normal app restart.
         if !self.activity_metadata.is_empty() && self.is_heatmap_dirty() {
             info!("[heatmap] Tiles are stale - spawning background generation");
-            if let Some(handle) = self.generate_tiles_background() {
-                if let Ok(mut guard) = super::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock() {
-                    *guard = Some(handle);
-                }
+            if let Some(handle) = self.generate_tiles_background()
+                && let Ok(mut guard) = super::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock()
+            {
+                *guard = Some(handle);
             }
         } else if !self.activity_metadata.is_empty() {
             info!("[heatmap] Tiles are up to date - skipping generation");
@@ -255,10 +300,7 @@ impl PersistentEngine {
     /// Cloned under the lock in microseconds, the way the heatmap pass takes
     /// its own snapshot: neither pass holds the engine while it works.
     pub fn activity_bounds(&self) -> Vec<Bounds> {
-        self.activity_metadata
-            .values()
-            .map(|m| m.bounds.clone())
-            .collect()
+        self.activity_metadata.values().map(|m| m.bounds).collect()
     }
 
     /// Spawn background tile generation. Extracts metadata while holding &self
@@ -288,7 +330,7 @@ impl PersistentEngine {
         let activities: Vec<(String, Bounds)> = self
             .activity_metadata
             .iter()
-            .map(|(id, m)| (id.clone(), m.bounds.clone()))
+            .map(|(id, m)| (id.clone(), m.bounds))
             .collect();
 
         let (tx, rx) = mpsc::channel();
@@ -493,10 +535,10 @@ fn clear_dirty_marker(tiles_path: &str, started_on: Option<String>) {
         info!("[heatmap] Set was re-marked during the run, leaving it dirty");
         return;
     }
-    if let Err(e) = std::fs::remove_file(base.join(DIRTY_MARKER)) {
-        if e.kind() != std::io::ErrorKind::NotFound {
-            log::warn!("[heatmap] Failed to clear dirty marker: {}", e);
-        }
+    if let Err(e) = std::fs::remove_file(base.join(DIRTY_MARKER))
+        && e.kind() != std::io::ErrorKind::NotFound
+    {
+        log::warn!("[heatmap] Failed to clear dirty marker: {}", e);
     }
 }
 
@@ -524,6 +566,13 @@ fn background_generate_tiles(
     let start = std::time::Instant::now();
     let base = Path::new(tiles_path);
     let config = tiles::HeatmapConfig::default();
+    // Taken at the start, so a pass that returns before drawing drops it and
+    // the waiting test hears that rather than hanging.
+    #[cfg(feature = "synthetic")]
+    let hold = TILE_PASS_HOLD
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .take();
 
     if activities.is_empty() {
         return TileGeneration::default();
@@ -599,7 +648,9 @@ fn background_generate_tiles(
 
     // --- Phase 2: build (z,x,y) → [Arc<track>] via polyline sweep ------------
     let plan_started = std::time::Instant::now();
-    let mut tile_tracks: HashMap<(u8, u32, u32), Vec<Arc<Vec<GpsPoint>>>> = HashMap::new();
+    type TileKey = (u8, u32, u32);
+    type Tracks = Vec<Arc<Vec<GpsPoint>>>;
+    let mut tile_tracks: HashMap<TileKey, Tracks> = HashMap::new();
     for (id, _bounds) in activities {
         let Some(track) = tracks_by_id.get(id) else {
             continue;
@@ -622,7 +673,7 @@ fn background_generate_tiles(
     // A tile an unreadable activity reaches is redrawn even when it exists,
     // because what is on disk was drawn while that activity was missing.
     let mut redrawn = 0u32;
-    let mut pending: Vec<((u8, u32, u32), Vec<Arc<Vec<GpsPoint>>>)> = tile_tracks
+    let mut pending: Vec<(TileKey, Tracks)> = tile_tracks
         .into_iter()
         .filter(|(coord, _)| {
             if !tiles::tile_exists(base, coord.0, coord.1, coord.2) {
@@ -680,6 +731,12 @@ fn background_generate_tiles(
         load_ms,
         plan_ms,
     );
+
+    #[cfg(feature = "synthetic")]
+    if let Some((reached, release)) = hold {
+        let _ = reached.send(());
+        let _ = release.recv();
+    }
 
     // --- Phase 4: parallel rasterise + save ---------------------------------
     // Each worker owns its own refs; Arc<Vec<GpsPoint>> is shared so we don't
@@ -770,8 +827,7 @@ fn bulk_load_tracks(conn: &Connection, activities: &[(String, Bounds)]) -> Loade
     let mut corrupt: Vec<(String, String)> = Vec::new();
 
     for chunk in activities.chunks(CHUNK) {
-        let placeholders: String = std::iter::repeat("?")
-            .take(chunk.len())
+        let placeholders: String = std::iter::repeat_n("?", chunk.len())
             .collect::<Vec<_>>()
             .join(",");
         let sql = format!(
@@ -874,7 +930,7 @@ mod tests {
             )
         };
         let priority = Some((lat, lon, 14));
-        let mut pending = vec![tile(1), tile(17), tile(14), (14, 99, 99), tile(2)];
+        let mut pending = [tile(1), tile(17), tile(14), (14, 99, 99), tile(2)];
 
         pending.sort_unstable_by_key(|coord| {
             (priority_rank(*coord, priority), coord.0, coord.1, coord.2)

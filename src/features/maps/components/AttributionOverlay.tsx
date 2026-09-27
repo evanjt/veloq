@@ -35,7 +35,7 @@ export interface AttributionOverlayRef {
 export interface AttributionOverlayProps {
   initialAttribution: string;
   /** Measured pill height plus its inset, reported whenever the wrap changes. */
-  onClearanceChange?: (clearance: number) => void;
+  onClearanceChange?: ((clearance: number) => void) | undefined;
 }
 
 export const AttributionOverlay = memo(
@@ -85,7 +85,7 @@ const attributionStyles = StyleSheet.create({
     alignItems: 'flex-end',
     // Without a ceiling the node grows to the parent's width, and the long
     // satellite credit then wraps into a full-width band across the bottom of
-    // the map rather than sitting in its corner (B409). The credit is a
+    // the map rather than sitting in its corner. The credit is a
     // licence condition, so it is bounded and wrapped, never truncated.
     maxWidth: PILL_MAX_WIDTH,
     paddingBottom: PILL_INSET,

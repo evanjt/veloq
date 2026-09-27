@@ -1,7 +1,7 @@
 /**
  * Scenario: strength period and trailing-week windows are built from the device
  * clock, then compared against `activity_metrics.date`, a wall clock stamped as
- * UTC (`persistence/strength.rs:151-167`). Expected behaviour: the bounds carry
+ * UTC (`exercise_sets_in_range` and its siblings). Expected behaviour: the bounds carry
  * the athlete's local calendar whatever the device offset, so an evening
  * session counts in the week it happened.
  */

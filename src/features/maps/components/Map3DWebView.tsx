@@ -41,40 +41,40 @@ const EMPTY_COORDS: [number, number][] = [];
 
 interface Map3DWebViewProps {
   /** Route coordinates as [lng, lat] pairs (optional - if not provided, just shows terrain) */
-  coordinates?: [number, number][];
+  coordinates?: [number, number][] | undefined;
   /** Map theme */
   mapStyle: MapStyleType;
   /** Route line color */
-  routeColor?: string;
+  routeColor?: string | undefined;
   /** Initial camera pitch in degrees (0-85) */
-  initialPitch?: number;
+  initialPitch?: number | undefined;
   /** Terrain exaggeration factor */
-  terrainExaggeration?: number;
+  terrainExaggeration?: number | undefined;
   /** Initial center as [lng, lat] - used when no coordinates provided */
-  initialCenter?: [number, number];
+  initialCenter?: [number, number] | undefined;
   /** Initial zoom level - used when no coordinates provided */
-  initialZoom?: number;
+  initialZoom?: number | undefined;
   /** GeoJSON for routes layer */
-  routesGeoJSON?: GeoJSON.FeatureCollection;
+  routesGeoJSON?: GeoJSON.FeatureCollection | undefined;
   /** GeoJSON for sections layer */
-  sectionsGeoJSON?: GeoJSON.FeatureCollection;
+  sectionsGeoJSON?: GeoJSON.FeatureCollection | undefined;
   /** GeoJSON for traces layer */
-  tracesGeoJSON?: GeoJSON.FeatureCollection;
+  tracesGeoJSON?: GeoJSON.FeatureCollection | undefined;
   /** GeoJSON for section boundary ticks (perpendicular start/end markers) */
-  sectionBoundariesGeoJSON?: GeoJSON.FeatureCollection;
+  sectionBoundariesGeoJSON?: GeoJSON.FeatureCollection | undefined;
   /** GeoJSON for section marker circles (numbered/PR labels) */
-  sectionMarkersGeoJSON?: GeoJSON.FeatureCollection;
+  sectionMarkersGeoJSON?: GeoJSON.FeatureCollection | undefined;
   /** GeoJSON for activity point markers - colored circles per activity, used by
    *  the global map in 3D so the view matches the 2D markers/clusters paradigm
    *  instead of drawing every full activity polyline. Features must carry
    *  `properties.color` (hex string) and may carry `properties.size`. */
-  pointMarkersGeoJSON?: GeoJSON.FeatureCollection;
+  pointMarkersGeoJSON?: GeoJSON.FeatureCollection | undefined;
   /** Highlight marker position as [lng, lat] (from chart scrubbing) */
-  highlightCoordinate?: [number, number] | null;
+  highlightCoordinate?: [number, number] | null | undefined;
   /** Section ID currently highlighted (from list row press). Dims other portions. */
-  highlightedSectionId?: string | null;
+  highlightedSectionId?: string | null | undefined;
   /** Whether to show the heatmap raster overlay */
-  showHeatmap?: boolean;
+  showHeatmap?: boolean | undefined;
 }
 
 export interface Map3DWebViewRef {
@@ -84,13 +84,13 @@ export interface Map3DWebViewRef {
 
 interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
   /** Called when the map has finished loading */
-  onMapReady?: () => void;
+  onMapReady?: (() => void) | undefined;
   /** Called when the page or the WebView failed and no map will appear */
-  onMapFailed?: (reason: string) => void;
+  onMapFailed?: ((reason: string) => void) | undefined;
   /** Called when the page drew, but had no DEM tiles, so the terrain is flat */
-  onTerrainUnavailable?: (reason: string) => void;
+  onTerrainUnavailable?: ((reason: string) => void) | undefined;
   /** Called when bearing changes (for compass sync) */
-  onBearingChange?: (bearing: number) => void;
+  onBearingChange?: ((bearing: number) => void) | undefined;
   /** Called when the full camera state updates (center, zoom, bearing, pitch) */
   onCameraStateChange?: (camera: {
     center: [number, number];
@@ -99,24 +99,27 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
     pitch: number;
   }) => void;
   /** Saved camera override - if provided, skips fitBounds and uses this on first load */
-  initialCamera?: {
-    center: [number, number];
-    zoom: number;
-    bearing: number;
-    pitch: number;
-  } | null;
+  initialCamera?:
+    | {
+        center: [number, number];
+        zoom: number;
+        bearing: number;
+        pitch: number;
+      }
+    | null
+    | undefined;
   /** Called when user taps on the map (for section creation) */
-  onMapClick?: (coordinate: [number, number]) => void;
+  onMapClick?: ((coordinate: [number, number]) => void) | undefined;
   /** Called when user taps on a section line feature */
-  onSectionClick?: (sectionId: string) => void;
+  onSectionClick?: ((sectionId: string) => void) | undefined;
   /** Called when user taps on an activity point marker (global map only) */
-  onActivityClick?: (activityId: string) => void;
+  onActivityClick?: ((activityId: string) => void) | undefined;
   /** GeoJSON for section creation line (start to end highlight) */
-  sectionCreationGeoJSON?: GeoJSON.FeatureCollection | GeoJSON.Feature | null;
+  sectionCreationGeoJSON?: GeoJSON.FeatureCollection | GeoJSON.Feature | null | undefined;
   /** Section creation start marker [lng, lat] */
-  sectionCreationStart?: [number, number] | null;
+  sectionCreationStart?: [number, number] | null | undefined;
   /** Section creation end marker [lng, lat] */
-  sectionCreationEnd?: [number, number] | null;
+  sectionCreationEnd?: [number, number] | null | undefined;
 }
 
 /**

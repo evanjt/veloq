@@ -25,6 +25,7 @@ jest.mock('@/features/routes/hooks/useSectionDisplayNames', () => ({
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
   router: { push: (...args: unknown[]) => mockPush(...args), back: jest.fn() },
 }));
 
@@ -33,24 +34,13 @@ jest.mock('react-native-iap', () => ({
   ErrorCode: {},
 }));
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   ...jest.requireActual('@/shared/app/TopSafeAreaContext'),
   useTopSafeArea: () => ({ hasTopBanner: false, topInset: 0, screenEdges: [] }),
   useScreenSafeAreaEdges: () => [],
 }));
-
-jest.mock('react-native-safe-area-context', () => {
-  const { View } = require('react-native');
-  return {
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-    SafeAreaProvider: View,
-    SafeAreaView: View,
-  };
-});
 
 const remove = jest.fn(() => true);
 

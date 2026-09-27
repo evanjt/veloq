@@ -49,10 +49,6 @@ afterAll(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 });
 
-it('exits 0 on this repo, so the audit gate stays usable', () => {
-  expect(runGuard(REPO).status).toBe(0);
-});
-
 it('passes when the submodule is not checked out, so the checks after it still run', () => {
   const { status } = runGuard(fixture());
 

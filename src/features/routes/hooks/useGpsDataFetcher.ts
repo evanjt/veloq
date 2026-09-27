@@ -20,6 +20,7 @@ import {
   takeFetchAndStoreResult,
   type ActivitySportMapping,
 } from 'veloqrs';
+import { present } from 'veloqrs/src/delegates/optional';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { toActivityMetrics } from '@/shared/activity/activityMetrics';
@@ -434,11 +435,13 @@ export function useGpsDataFetcher() {
 
       // Build sport type mapping for Rust
       const activityIds = activities.map((a) => a.id);
-      const sportTypes: ActivitySportMapping[] = activities.map((a) => ({
-        activityId: a.id,
-        sportType: a.type || 'Ride',
-        startDate: activityStartEpoch(a.start_date_local),
-      }));
+      const sportTypes: ActivitySportMapping[] = activities.map((a) =>
+        present({
+          activityId: a.id,
+          sportType: a.type || 'Ride',
+          startDate: activityStartEpoch(a.start_date_local),
+        })
+      );
 
       if (__DEV__) {
         log.log(`[fetchApiGps] Starting fetch+store for ${activityIds.length} activities...`);

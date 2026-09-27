@@ -41,7 +41,7 @@ import {
 } from '@/shared/app/memoryReclaimers';
 import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
-import { SCREEN_HEADERS } from '@/shared/app/screenHeaders';
+import { SCREEN_HEADERS, screenAnimation } from '@/shared/app/screenHeaders';
 import { RecordingTitle } from '@/features/recording';
 import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -618,16 +618,16 @@ export default function RootLayout() {
                           options={{
                             headerShown: header !== null,
                             title: header?.title ?? (header?.titleKey ? t(header.titleKey) : ''),
-                            // Tabs group - no animation, instant switching
-                            animation: name === '(tabs)' ? 'none' : undefined,
+                            animation: screenAnimation(name),
                             // An active recording must not be swipeable away. The
                             // back gesture runs in the same direction as the
                             // slide-to-unlock track, so a stray palm swipe would
                             // drop the rider out of the screen mid-ride. Leaving is
                             // deliberate: stop the recording, or use the header.
                             gestureEnabled: name !== 'recording/[type]',
-                            headerTitle:
-                              name === 'recordings/[id]' ? () => <RecordingTitle /> : undefined,
+                            ...(name === 'recordings/[id]' && {
+                              headerTitle: () => <RecordingTitle />,
+                            }),
                           }}
                         />
                       ))}

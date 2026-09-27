@@ -504,7 +504,7 @@ fn route_highlights_trend_is_running_average_safe() {
     engine
         .set_activity_metrics(vec![metrics_for(corpus_activity(&corpus, &only), 900)])
         .expect("metrics");
-    let sh = engine.get_activity_route_highlights(&[only.clone()]);
+    let sh = engine.get_activity_route_highlights(std::slice::from_ref(&only));
     if let Some(h) = sh.first() {
         assert_eq!(h.trend, 0, "single attempt must be trend 0");
         assert!(!h.is_pr, "a single attempt has beaten nothing and is no PR");

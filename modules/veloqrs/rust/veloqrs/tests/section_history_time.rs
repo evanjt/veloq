@@ -47,7 +47,7 @@ fn live_event_stamps_now() {
     let events = engine.section_history("sec_a");
     assert_eq!(events.len(), 2);
     assert!(
-        events[1].at > BACKDATED.to_string(),
+        events[1].at.as_str() > BACKDATED,
         "live row {} should be later than the backdated baseline",
         events[1].at
     );

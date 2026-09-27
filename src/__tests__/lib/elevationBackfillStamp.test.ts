@@ -19,6 +19,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 jest.mock('expo-constants', () => ({
+  ...jest.requireActual('expo-constants'),
   __esModule: true,
   default: { expoConfig: { version: '0.4.0' } },
 }));

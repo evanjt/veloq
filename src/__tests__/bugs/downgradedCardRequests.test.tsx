@@ -13,7 +13,6 @@ import type { Activity } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
-jest.mock('expo-router', () => ({ useIsFocused: () => true }));
 
 /** The drape the card wants, against the flat stand-in it holds. */
 let mockDowngraded = true;

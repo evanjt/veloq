@@ -28,7 +28,7 @@ import { FooterSection, SupportSection } from '@/features/settings/components';
 import { settingsStyles } from '@/features/settings/components/settingsStyles';
 
 interface AccountRowProps {
-  athlete?: { name?: string; profile?: string; profile_medium?: string };
+  athlete?: { name?: string; profile?: string; profile_medium?: string } | undefined;
   authMethod: string | null;
   profileImageError: boolean;
   onProfileImageError: () => void;

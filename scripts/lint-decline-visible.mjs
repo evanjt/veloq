@@ -44,7 +44,7 @@ const DECLINES = [
 // so the engine lock can be "measured rather than argued about", and it is
 // compiled only when someone asks for it, so there is no running commentary to
 // bury: every line it emits is the measurement. At `info` the whole per-site
-// table reached nobody on the one platform the argument is about (`B980`).
+// table reached nobody on the one platform the argument is about.
 const LOCK_TRACE = 'modules/veloqrs/rust/veloqrs/src/persistence/lock_trace.rs';
 
 const MEASUREMENTS = [

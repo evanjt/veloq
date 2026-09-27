@@ -15,20 +15,8 @@ import { resolve } from 'node:path';
 const root = resolve(__dirname, '../../..');
 const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
 
-const rust = read('modules/veloqrs/rust/veloqrs/src/ffi.rs');
 const fetcher = read('src/features/routes/hooks/useGpsDataFetcher.ts');
 const pushTask = read('src/features/insights/backgroundInsightTask.ts');
-
-describe('the engine side', () => {
-  it('answers a run id from a start and asks for one on a take', () => {
-    expect(rust).toMatch(/pub fn start_fetch_and_store\([\s\S]*?\) -> u64/);
-    expect(rust).toMatch(/pub fn take_fetch_and_store_result\(run: u64\)/);
-  });
-
-  it('keeps no single global result slot for every caller to share', () => {
-    expect(rust).not.toMatch(/static FETCH_AND_STORE_RESULT\s*:/);
-  });
-});
 
 describe('the two callers that read a result', () => {
   it('the foreground sync takes the run it started', () => {

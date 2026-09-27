@@ -22,7 +22,7 @@ interface ChartDistanceIndicatorProps {
   xUnit: string;
   isDark: boolean;
   canToggleXAxis: boolean;
-  onXAxisModeToggle?: () => void;
+  onXAxisModeToggle?: (() => void) | undefined;
 }
 
 /** How the chart pushes a scrub position into the pill. */

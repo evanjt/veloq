@@ -3,8 +3,8 @@
 //! `get_all_map_signatures` reads each `signatures` row, decodes the blob with
 //! `TrackRead::from_blob`, takes the centre off `Bounds::from_points` and
 //! re-encodes the points with `coords::encode`; `useRouteSignatures.ts` then
-//! decodes that again in TypeScript on the JS thread. `Q307` cannot choose
-//! which end moves without knowing which pass owns the time, so this times the
+//! decodes that again in TypeScript on the JS thread. Which end moves cannot
+//! be chosen without knowing which pass owns the time, so this times the
 //! Rust ones apart rather than the call as a whole.
 //!
 //! The JS pass is not measurable from here. `--dump <dir>` writes every encoded
@@ -81,10 +81,10 @@ fn main() {
         let mut decoded = Vec::with_capacity(blobs.len());
         let t1 = Instant::now();
         for (id, blob) in &blobs {
-            if let Some(points) = TrackRead::from_blob(blob).into_option("map_signatures", id) {
-                if !points.is_empty() {
-                    decoded.push((id.clone(), points));
-                }
+            if let Some(points) = TrackRead::from_blob(blob).into_option("map_signatures", id)
+                && !points.is_empty()
+            {
+                decoded.push((id.clone(), points));
             }
         }
         decode.push(ms(t1.elapsed()));

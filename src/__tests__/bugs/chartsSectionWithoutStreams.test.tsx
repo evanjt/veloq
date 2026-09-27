@@ -15,13 +15,7 @@ import type { ActivityDetail, ActivityInterval, ActivityStreams } from '@/types'
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/shared/ui', () => {
   const { View } = require('react-native');
@@ -77,12 +71,12 @@ function activityWith(extra: Partial<ActivityDetail> = {}): ActivityDetail {
 }
 
 function renderSection(props: {
-  streams?: ActivityStreams;
-  streamsDownloaded?: boolean;
-  streamsStatus?: 'waiting' | 'timedOut';
-  onRetryStreams?: () => void;
-  activity?: ActivityDetail;
-  intervalsData?: { icu_intervals: ActivityInterval[] };
+  streams?: ActivityStreams | undefined;
+  streamsDownloaded?: boolean | undefined;
+  streamsStatus?: 'waiting' | 'timedOut' | undefined;
+  onRetryStreams?: (() => void) | undefined;
+  activity?: ActivityDetail | undefined;
+  intervalsData?: { icu_intervals: ActivityInterval[] } | undefined;
 }) {
   return render(
     <ActivityChartsSection

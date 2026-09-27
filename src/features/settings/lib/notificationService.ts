@@ -63,11 +63,11 @@ export interface InsightNotificationData {
   /** Route to navigate to when notification is tapped */
   route: string;
   /** Optional insight ID for highlighting */
-  insightId?: string;
+  insightId?: string | undefined;
   /** Optional activity ID for deep linking */
-  activityId?: string;
+  activityId?: string | undefined;
   /** Optional section ID for deep linking */
-  sectionId?: string;
+  sectionId?: string | undefined;
   [key: string]: unknown;
 }
 

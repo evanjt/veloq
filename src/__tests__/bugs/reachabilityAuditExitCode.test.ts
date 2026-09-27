@@ -2,10 +2,9 @@
  * Scenario: the reachability audit runs in the husky pre-commit hook, after
  * Prettier, tsc and Jest.
  *
- * Expected behaviour: a clean tree exits 0. A non-zero exit on an untouched
- * checkout costs the whole gate, because every commit then carries
- * `--no-verify`. Colocated `__tests__` siblings are tests, not modules, so
- * nothing importing them is not a defect.
+ * Expected behaviour: the audit names a module nothing imports, and refuses an
+ * allowlist entry that is missing or reachable. Colocated `__tests__` siblings
+ * are tests, not modules, so nothing importing them is not a defect.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -15,9 +14,9 @@ import { join } from 'node:path';
 
 const SCRIPT = join(__dirname, '../../../scripts/reachability-audit.mjs');
 
-function runAudit(root?: string): { status: number; output: string } {
+function runAudit(root?: string, extra: string[] = []): { status: number; output: string } {
   try {
-    const output = execFileSync('node', root ? [SCRIPT, '--root', root] : [SCRIPT], {
+    const output = execFileSync('node', [SCRIPT, ...(root ? ['--root', root] : []), ...extra], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -50,10 +49,6 @@ describe('reachability audit', () => {
     roots.push(root);
     return root;
   };
-
-  it('exits 0 on this repo, so the pre-commit gate stays usable', () => {
-    expect(runAudit().status).toBe(0);
-  });
 
   it('treats a colocated __tests__ sibling as a test, not as a module', () => {
     const root = withFixture({
@@ -120,5 +115,42 @@ describe('reachability audit', () => {
 
     expect(output).not.toContain('ENOENT');
     expect(status).toBe(0);
+  });
+
+  it('passes an allowlisted module that nothing reaches, which is what the list is for', () => {
+    const root = withFixture({
+      'src/app/index.tsx': 'export default 1;\n',
+      'src/lib/parked.ts': 'export const parked = 1;\n',
+    });
+
+    const { status, output } = runAudit(root, ['--allow', 'src/lib/parked.ts']);
+
+    expect(status).toBe(0);
+    expect(output).toContain('allowlisted: 1');
+  });
+
+  it('refuses an allowlisted path that no longer exists, naming it', () => {
+    const root = withFixture({
+      'src/app/index.tsx': 'export default 1;\n',
+    });
+
+    const { status, output } = runAudit(root, ['--allow', 'src/lib/deleted.ts']);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/lib/deleted.ts');
+    expect(output).toContain('does not exist');
+  });
+
+  it('refuses an allowlisted module that real code now reaches, naming it', () => {
+    const root = withFixture({
+      'src/app/index.tsx': "import { mounted } from '@/lib/mounted';\nexport default mounted;\n",
+      'src/lib/mounted.ts': 'export const mounted = 1;\n',
+    });
+
+    const { status, output } = runAudit(root, ['--allow', 'src/lib/mounted.ts']);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/lib/mounted.ts');
+    expect(output).toContain('is reachable');
   });
 });

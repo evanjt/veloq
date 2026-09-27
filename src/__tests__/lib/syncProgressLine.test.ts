@@ -26,7 +26,6 @@ function status(partial: Partial<SyncStatus>): SyncStatus {
     inFlight: 1,
     completed: 0,
     total: 9,
-    step: undefined,
     ...partial,
   } as SyncStatus;
 }
@@ -64,9 +63,7 @@ describe('the sync progress line', () => {
   });
 
   it('says a sync is running before the first step begins', () => {
-    expect(formatSyncProgress(status({ step: undefined, total: 0 }), t)).toBe(
-      'settings.syncActivities'
-    );
+    expect(formatSyncProgress(status({ total: 0 }), t)).toBe('settings.syncActivities');
     expect(formatSyncProgress(null, t)).toBe('settings.syncActivities');
   });
 

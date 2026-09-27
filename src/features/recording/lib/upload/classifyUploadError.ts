@@ -28,9 +28,9 @@ export type UploadErrorType = 'network' | 'http403' | 'apiError';
 export interface UploadErrorClassification {
   type: UploadErrorType;
   /** HTTP status code when available (present for `http403`, sometimes for `apiError`). */
-  httpStatus?: number;
+  httpStatus?: number | undefined;
   /** Server-provided message/description when the response body includes one. */
-  apiDetail?: string;
+  apiDetail?: string | undefined;
   /** The original error's message - always present, used for logging/diagnostics. */
   errMsg: string;
 }

@@ -3,7 +3,7 @@
  * that owns them.
  *
  * They were written twice, once here as a hand-copied literal and once as
- * `SectionConfig::default()`, and nothing checked that they agreed (`C37`).
+ * `SectionConfig::default()`, and nothing checked that they agreed.
  * The engine is the source: the flip resets the detector to the Rust default,
  * so a TypeScript copy that drifts advertises numbers nothing is cutting with.
  */

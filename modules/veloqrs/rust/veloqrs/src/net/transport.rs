@@ -491,7 +491,7 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(GET).path("/athlete/i1").header(
                 "authorization",
-                &governor::format_auth_header(AuthMethod::ApiKey("secret")),
+                governor::format_auth_header(AuthMethod::ApiKey("secret")),
             );
             then.status(200).json_body(json!({"id": "i1", "name": "x"}));
         });

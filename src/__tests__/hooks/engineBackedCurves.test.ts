@@ -18,6 +18,7 @@ import { usePaceCurve } from '@/features/stats/hooks/usePaceCurve';
 import { useAthleteSummary } from '@/features/fitness/hooks/useAthleteSummary';
 import { getEngine } from '@/shared/native/engine';
 import type { PaceCurveRow, PowerCurveRow } from 'veloqrs';
+import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
@@ -231,5 +232,23 @@ describe('useAthleteSummary', () => {
     const [weekStarts, weekLength] = engine.getWeeklySummaries.mock.calls[0];
     expect(weekStarts).toHaveLength(5);
     expect(weekLength).toBe(7 * 24 * 60 * 60);
+  });
+});
+
+describe.each(CLOCK_EDGES)('useAthleteSummary on %s', (_name, at) => {
+  beforeEach(() => jest.setSystemTime(at));
+
+  it('anchors each week on a local Monday at midnight, seven days apart', async () => {
+    renderHook(() => useAthleteSummary(4), { wrapper });
+
+    await waitFor(() => expect(engine.getWeeklySummaries).toHaveBeenCalled());
+    const [weekStarts] = engine.getWeeklySummaries.mock.calls[0] as unknown as [number[]];
+    const daysSinceMonday = (at.getDay() + 6) % 7;
+    const mondays = [4, 3, 2, 1, 0].map((weeksAgo) =>
+      localDay(at, -daysSinceMonday - weeksAgo * 7)
+    );
+    expect(weekStarts.map((ts) => new Date(ts * 1000).toISOString())).toEqual(
+      mondays.map((day) => `${day}T00:00:00.000Z`)
+    );
   });
 });

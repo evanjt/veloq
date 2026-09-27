@@ -57,7 +57,7 @@ export const FORM_ZONE_COLORS: Record<FormZone, string> = {
  * Text: the form number, the zone name and any word coloured by zone. The fills
  * run from 1.8:1 to 3.1:1 on white, and a zone label beside the number does not
  * exempt it: 1.4.11 covers a graphic whose information is carried another way,
- * text is held to 4.5:1 regardless (B928).
+ * text is held to 4.5:1 regardless.
  */
 export const FORM_ZONE_TEXT_COLORS: Record<FormZone, string> = {
   highRisk: colors.formHighRiskText,

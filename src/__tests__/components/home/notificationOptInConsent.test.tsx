@@ -14,9 +14,7 @@ import { NotificationOptInCard } from '@/features/home/components/NotificationOp
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/features/settings/lib/notificationService', () => ({
   requestNotificationPermission: jest.fn().mockResolvedValue(true),

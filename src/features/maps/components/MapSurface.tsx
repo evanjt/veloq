@@ -142,30 +142,30 @@ export interface MapSurfaceRef {
 export interface MapSurfaceProps {
   /** Base style. Changes apply through `setStyle`, never a page reload. */
   mapStyle: MapStyleType;
-  styleOptions?: WebViewStyleOptions;
+  styleOptions?: WebViewStyleOptions | undefined;
   /** Camera for first paint. Later moves go through the ref. */
   initialCamera: MapCameraSpec;
   sources: Record<string, MapSourceSpec>;
   layers: MapLayerSpec[];
-  markers?: MapMarkerSpec[];
-  images?: MapImageSpec[];
+  markers?: MapMarkerSpec[] | undefined;
+  images?: MapImageSpec[] | undefined;
   /** Layers hit-tested on tap, most specific first. */
-  interactiveLayers?: string[];
-  scrollEnabled?: boolean;
-  zoomEnabled?: boolean;
-  rotateEnabled?: boolean;
-  pitchEnabled?: boolean;
+  interactiveLayers?: string[] | undefined;
+  scrollEnabled?: boolean | undefined;
+  zoomEnabled?: boolean | undefined;
+  rotateEnabled?: boolean | undefined;
+  pitchEnabled?: boolean | undefined;
   /** Serve heatmap PNG tiles from the device for the `heatmap-file` protocol. */
-  serveHeatmapTiles?: boolean;
-  onMapReady?: () => void;
+  serveHeatmapTiles?: boolean | undefined;
+  onMapReady?: (() => void) | undefined;
   /** The page cannot render a basemap. Fires once per failure, with the reason. */
-  onMapFailed?: (reason: string) => void;
-  onPress?: (event: MapPressEvent) => void;
-  onLongPress?: (event: MapPressEvent) => void;
-  onRegionIsChanging?: (state: MapCameraState, isUserInteraction: boolean) => void;
-  onRegionDidChange?: (state: MapCameraState, isUserInteraction: boolean) => void;
-  onBearingChange?: (bearing: number) => void;
-  testID?: string;
+  onMapFailed?: ((reason: string) => void) | undefined;
+  onPress?: ((event: MapPressEvent) => void) | undefined;
+  onLongPress?: ((event: MapPressEvent) => void) | undefined;
+  onRegionIsChanging?: ((state: MapCameraState, isUserInteraction: boolean) => void) | undefined;
+  onRegionDidChange?: ((state: MapCameraState, isUserInteraction: boolean) => void) | undefined;
+  onBearingChange?: ((bearing: number) => void) | undefined;
+  testID?: string | undefined;
 }
 
 function toCameraState(data: WebViewBridgeMessage): MapCameraState | null {

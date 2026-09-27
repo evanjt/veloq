@@ -18,6 +18,7 @@ const mockRequestBackground = jest.fn();
 const mockGetForeground = jest.fn();
 
 jest.mock('expo-location', () => ({
+  ...jest.requireActual('expo-location'),
   requestBackgroundPermissionsAsync: (...a: unknown[]) => mockRequestBackground(...a),
   getForegroundPermissionsAsync: (...a: unknown[]) => mockGetForeground(...a),
 }));

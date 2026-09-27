@@ -80,7 +80,7 @@ export function readStreams(activityId: string, types: readonly string[]): Activ
 function demoStreams(activityId: string): ActivityStreams | null {
   if (!useAuthStore.getState().isDemoMode) return null;
   const { getActivityStreams } =
-    require('@/features/activity/demo') as typeof import('@/features/activity/demo');
+    require('@/shared/demo/activity') as typeof import('@/shared/demo/activity');
   return (getActivityStreams(activityId) as ActivityStreams | null) ?? null;
 }
 

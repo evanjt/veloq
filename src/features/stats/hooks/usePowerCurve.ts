@@ -8,10 +8,10 @@ import { RangeCoverage } from 'veloqrs';
 import type { PowerCurve } from '@/types';
 
 interface UsePowerCurveOptions {
-  sport?: string;
+  sport?: string | undefined;
   /** Number of days to include (default 365) */
-  days?: number;
-  enabled?: boolean;
+  days?: number | undefined;
+  enabled?: boolean | undefined;
 }
 
 /** A parsed curve with the time the body behind it was fetched. */

@@ -400,7 +400,7 @@ impl PersistentEngine {
             .db
             .query_row("SELECT COUNT(*) FROM gps_tracks", [], |row| row.get(0))?;
 
-        if !(radius_m > 0.0) || !home_lat.is_finite() || !home_lng.is_finite() {
+        if radius_m.is_nan() || radius_m <= 0.0 || !home_lat.is_finite() || !home_lng.is_finite() {
             return Ok(ExportPrivacyPreview {
                 with_track,
                 touched: 0,
@@ -992,23 +992,21 @@ fn export_gpx(
         })
         .map_err(|e| format!("No-GPS query failed: {}", e))?;
 
-    for row_result in no_gps_rows {
-        if let Ok((id, name, sport, date, distance, moving_time)) = row_result {
-            let date_str = date.and_then(|ts| {
-                chrono::DateTime::from_timestamp(ts, 0)
-                    .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
-            });
-            metadata_entries.push(serde_json::json!({
-                "id": id,
-                "name": name.as_deref().unwrap_or(&id),
-                "date": date_str.as_deref().unwrap_or(""),
-                "sport": sport.as_deref().unwrap_or("Unknown"),
-                "distance": distance.unwrap_or(0.0),
-                "movingTime": moving_time.unwrap_or(0),
-                "hasGpx": false,
-            }));
-            skipped.push(SkippedActivity::new(&id, "no stored track"));
-        }
+    for (id, name, sport, date, distance, moving_time) in no_gps_rows.flatten() {
+        let date_str = date.and_then(|ts| {
+            chrono::DateTime::from_timestamp(ts, 0)
+                .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+        });
+        metadata_entries.push(serde_json::json!({
+            "id": id,
+            "name": name.as_deref().unwrap_or(&id),
+            "date": date_str.as_deref().unwrap_or(""),
+            "sport": sport.as_deref().unwrap_or("Unknown"),
+            "distance": distance.unwrap_or(0.0),
+            "movingTime": moving_time.unwrap_or(0),
+            "hasGpx": false,
+        }));
+        skipped.push(SkippedActivity::new(&id, "no stored track"));
     }
 
     // Write activities.json metadata

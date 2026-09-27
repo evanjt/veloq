@@ -279,8 +279,6 @@ impl Default for CustomSectionMatchConfig {
 // Section Performance Bucket Types
 // ============================================================================
 
-/// A time-bucketed best performance for chart display.
-/// Each bucket represents the best traversal within a time period (week or month).
 // ============================================================================
 // Calendar Summary Types
 // ============================================================================

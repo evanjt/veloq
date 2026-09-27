@@ -38,6 +38,7 @@ function sendHeartRate(): void {
 }
 
 jest.mock('react-native-ble-plx', () => ({
+  ...jest.requireActual('react-native-ble-plx'),
   BleManager: jest.fn(() => ({
     connectToDevice: mockConnectToDevice,
     cancelDeviceConnection: mockCancelDeviceConnection,

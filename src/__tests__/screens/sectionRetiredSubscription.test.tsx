@@ -16,17 +16,6 @@ import SectionRetiredScreen from '@/app/section-retired';
 // module here.
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-jest.mock('react-native-safe-area-context', () => {
-  const { View } = require('react-native');
-  return {
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
-    SafeAreaProvider: View,
-    SafeAreaView: View,
-  };
-});
-
-jest.mock('expo-router', () => ({ router: { back: jest.fn(), push: jest.fn() } }));
-
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({

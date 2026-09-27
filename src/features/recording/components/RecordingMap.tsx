@@ -58,14 +58,14 @@ const REVIEW_FIT_PADDING = { top: 40, right: 40, bottom: 60, left: 40 } as const
 interface RecordingMapProps {
   coordinates: [number, number][]; // [lat, lng] from recording streams
   currentLocation: { latitude: number; longitude: number } | null;
-  fitBounds?: boolean; // When true, fit camera to route bounds instead of following position
-  trimStart?: number; // Index for trim start (used with fitBounds)
-  trimEnd?: number; // Index for trim end (used with fitBounds)
+  fitBounds?: boolean | undefined; // When true, fit camera to route bounds instead of following position
+  trimStart?: number | undefined; // Index for trim start (used with fitBounds)
+  trimEnd?: number | undefined; // Index for trim end (used with fitBounds)
   /** Saved route to follow, drawn under the live trace ([{lat, lng}] from the route engine) */
-  routeOverlay?: { lat: number; lng: number }[] | null;
+  routeOverlay?: { lat: number; lng: number }[] | null | undefined;
   /** Opens the route picker; the layers button only renders when provided */
-  onOpenRoutePicker?: () => void;
-  style?: ViewStyle;
+  onOpenRoutePicker?: (() => void) | undefined;
+  style?: ViewStyle | undefined;
 }
 
 function RecordingMapInner({

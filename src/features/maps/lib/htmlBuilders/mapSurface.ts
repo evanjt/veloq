@@ -29,15 +29,15 @@ export type MapPadding = number | { top: number; right: number; bottom: number; 
 export const SURFACE_HIT_TEST_RADIUS_PX = 12;
 
 export interface MapCameraSpec {
-  center?: LngLat;
-  zoom?: number;
-  bearing?: number;
-  pitch?: number;
+  center?: LngLat | undefined;
+  zoom?: number | undefined;
+  bearing?: number | undefined;
+  pitch?: number | undefined;
   /** Fit these bounds instead of using `center`/`zoom`. */
-  bounds?: LngLatBounds;
-  padding?: MapPadding;
+  bounds?: LngLatBounds | undefined;
+  padding?: MapPadding | undefined;
   /** Clamp, so fitting a tiny bounding box cannot zoom past useful detail. */
-  maxZoom?: number;
+  maxZoom?: number | undefined;
 }
 
 /** A GeoJSON source, optionally clustered. */
@@ -74,19 +74,19 @@ export interface MapLayerSpec {
   id: string;
   type: 'line' | 'circle' | 'symbol' | 'fill' | 'raster' | 'heatmap';
   source: string;
-  paint?: Record<string, unknown>;
-  layout?: Record<string, unknown>;
-  filter?: unknown[];
+  paint?: Record<string, unknown> | undefined;
+  layout?: Record<string, unknown> | undefined;
+  filter?: unknown[] | undefined;
   /**
    * Lowest zoom the layer draws at. A layer whose features are only legible
    * when the view is tight says so here rather than painting a smear and
    * relying on opacity to hide it.
    */
-  minzoom?: number;
+  minzoom?: number | undefined;
   /** Insert below this layer when it exists in the base style. */
-  beforeId?: string;
+  beforeId?: string | undefined;
   /** Hidden layers stay mounted so a toggle is a visibility flip, not a churn. */
-  visible?: boolean;
+  visible?: boolean | undefined;
 }
 
 /** A DOM marker anchored to a coordinate, for chrome the layers cannot draw. */
@@ -118,7 +118,7 @@ export interface MapSurfaceSpec {
 
 export interface MapSurfaceHtmlConfig {
   style: MapStyleType;
-  styleOptions?: WebViewStyleOptions;
+  styleOptions?: WebViewStyleOptions | undefined;
   camera: MapCameraSpec;
   /** Gestures the user may perform. A preview map turns them all off. */
   interaction: {

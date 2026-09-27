@@ -18,7 +18,7 @@ export function CurveLine({
   color,
   strokeWidth = 1,
   curve = 'natural',
-  opacity,
+  opacity = 1,
 }: CurveLineProps) {
   const path = useMemo(() => {
     const d = curveLineSvg(points, curve);
@@ -47,7 +47,7 @@ export function CurveArea({
   y0,
   curve = 'natural',
   color,
-  opacity,
+  opacity = 1,
   children,
 }: CurveAreaProps) {
   const path = useMemo(() => {
@@ -56,7 +56,7 @@ export function CurveArea({
   }, [points, y0, curve]);
   if (!path) return null;
   return (
-    <Path path={path} style="fill" color={color} opacity={opacity}>
+    <Path path={path} style="fill" {...(color !== undefined && { color })} opacity={opacity}>
       {children}
     </Path>
   );

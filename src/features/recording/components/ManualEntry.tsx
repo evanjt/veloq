@@ -14,7 +14,7 @@ export function ManualEntry({
   pairedEventId,
 }: {
   activityType: ActivityType;
-  pairedEventId?: number;
+  pairedEventId?: number | undefined;
 }) {
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();

@@ -19,6 +19,7 @@ import { StorageStatsPanel } from '@/features/settings/components/StorageStatsPa
 // import time, so the graph this renders cannot load without the stub.
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({ t: (key: string) => `t(${key})` }),
 }));
 
@@ -86,9 +87,8 @@ describe('the storage legend', () => {
     expect(names).toEqual(SEGMENT_KEYS.map((key) => `t(settings.${key})`));
   });
 
-  it('translates every segment name in all seventeen locales', () => {
+  it('translates every segment name in every locale', () => {
     const locales = fs.readdirSync(LOCALES_DIR).filter((f) => f.endsWith('.json'));
-    expect(locales).toHaveLength(17);
     const english = JSON.parse(
       fs.readFileSync(path.join(LOCALES_DIR, 'en-AU.json'), 'utf-8')
     ).settings;

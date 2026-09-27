@@ -9,6 +9,7 @@ import {
 } from '@/features/settings/hooks/exportIndex';
 import { useTheme } from '@/shared/app';
 import { useActivityCount } from '@/shared/native/useActivityCount';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import {
   isAutoBackupEnabled,
   setAutoBackupEnabled,
@@ -59,10 +60,19 @@ export function BackupSection() {
   const [backingUp, setBackingUp] = useState(false);
   const [backupResult, setBackupResult] = useState<'success' | 'error' | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
-  const lastBackupTs = useMemo(() => getLastBackupTimestamp(), [backingUp]);
+  // A backup on this screen is the only thing that moves either value, so the
+  // flag it flips is the key both reads are taken on.
+  const readBackupState = useEngineRead([], [backingUp]);
+  const lastBackupTs = useMemo(
+    () => readBackupState(() => getLastBackupTimestamp()) ?? null,
+    [readBackupState]
+  );
   // A failure the user has to act on survives leaving the screen, so an
   // unattended backup that was rejected is not invisible.
-  const lastFailure = useMemo(() => getLastBackupFailure(), [backingUp]);
+  const lastFailure = useMemo(
+    () => readBackupState(() => getLastBackupFailure()) ?? null,
+    [readBackupState]
+  );
 
   const describeBackupError = useCallback(
     (error: unknown): string => {

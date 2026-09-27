@@ -2,7 +2,7 @@
  * Legend for the section detail map: this section, and the other sections
  * near it. The nearby layer draws a dashed line and an endpoint dot at each
  * end, and named nothing, so beside the activity Sections tab, which answers
- * a different question, its dots read as the coverage of this activity (B600).
+ * a different question, its dots read as the coverage of this activity.
  */
 
 import React from 'react';

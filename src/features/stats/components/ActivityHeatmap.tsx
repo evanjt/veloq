@@ -86,7 +86,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
       const today = new Date();
       // Flat array: intensities[w * 7 + d]
       const intensities = new Uint8Array(WEEKS_TO_SHOW * 7);
-      const monthPositions: { month: string; col: number; year?: number }[] = [];
+      const monthPositions: { month: string; col: number; year?: number | undefined }[] = [];
 
       let lastMonth = -1;
       let lastYear = -1;

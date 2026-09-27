@@ -171,7 +171,7 @@ pub struct ParsedStreams {
 /// Pace in minutes per `reference_meters`, from a speed in m/s. Mirrors
 /// `paceMinutesFromSpeed` (reference 1000 m). Non-positive / non-finite -> 0.
 pub fn pace_minutes_from_speed(speed_ms: f64, reference_meters: f64) -> f64 {
-    if !(speed_ms > 0.0) || !speed_ms.is_finite() {
+    if !speed_ms.is_finite() || speed_ms <= 0.0 {
         return 0.0;
     }
     let pace = reference_meters / speed_ms / 60.0;
@@ -350,10 +350,8 @@ pub fn parse_streams(raw: Vec<StreamDto>) -> ParsedStreams {
                         .collect();
                 }
             }
-            "altitude" => {
-                if !out.altitude_is_fixed {
-                    out.altitude = select("altitude", mask, &s.data, &mut misaligned);
-                }
+            "altitude" if !out.altitude_is_fixed => {
+                out.altitude = select("altitude", mask, &s.data, &mut misaligned);
             }
             "fixed_altitude" => {
                 out.altitude = select("fixed_altitude", mask, &s.data, &mut misaligned);

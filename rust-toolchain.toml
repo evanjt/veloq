@@ -1,0 +1,8 @@
+# The compiler every cargo run under this directory uses, locally and in CI, so
+# a build, clippy and rustfmt all judge the code with one release. Android and
+# iOS targets are left out: every checkout would download them for every run.
+# The setup actions under .github/actions add them to this same release, and a
+# Jest test holds each dtolnay/rust-toolchain step to this channel.
+[toolchain]
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]

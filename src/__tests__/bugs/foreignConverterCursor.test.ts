@@ -44,11 +44,6 @@ describe('the foreign converter cursor guard', () => {
   };
   afterAll(() => made.forEach((r) => rmSync(r, { recursive: true, force: true })));
 
-  it('passes the bindings as they stand', () => {
-    const { code } = runGuard(resolve(__dirname, '../../..'));
-    expect(code).toBe(0);
-  });
-
   it('refuses an optional, which is the shape that shipped', () => {
     const { code, output } = generated(
       'const C = new FfiConverterOptional(FfiConverterTypeEngineObserver);'

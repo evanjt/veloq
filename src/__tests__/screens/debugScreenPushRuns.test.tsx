@@ -13,26 +13,10 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 
 import DebugScreen from '@/app/debug';
 
-jest.mock('react-native-safe-area-context', () => {
-  const { View } = require('react-native');
-  return {
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
-    SafeAreaProvider: View,
-    SafeAreaView: View,
-  };
-});
-
-jest.mock('expo-router', () => {
-  function Stack() {
-    return null;
-  }
-  Stack.Screen = function Screen() {
-    return null;
-  };
-  return { Stack, router: { back: jest.fn() } };
-});
-
-jest.mock('expo-constants', () => ({ expoConfig: { version: '0.0.0' } }));
+jest.mock('expo-constants', () => ({
+  ...jest.requireActual('expo-constants'),
+  expoConfig: { version: '0.0.0' },
+}));
 
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 

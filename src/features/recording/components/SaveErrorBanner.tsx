@@ -22,7 +22,7 @@ export interface SaveErrorBannerProps {
    * failures. Omitted for permission and network errors, which have their own
    * paths (OAuth upgrade / automatic queue).
    */
-  onRetry?: () => void;
+  onRetry?: (() => void) | undefined;
   /** Spinner state for the retry button */
   isRetrying?: boolean;
 }

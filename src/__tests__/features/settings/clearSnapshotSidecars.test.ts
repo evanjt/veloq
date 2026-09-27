@@ -15,6 +15,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { withDatabaseSnapshot } from '@/features/settings/lib/clearSnapshot';
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   copyAsync: jest.fn(async () => {}),
   deleteAsync: jest.fn(async () => {}),
   getInfoAsync: jest.fn(async () => ({ exists: true })),

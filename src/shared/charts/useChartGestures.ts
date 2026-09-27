@@ -58,64 +58,64 @@ export interface ChartGestureOptions<T> {
   data: T[];
 
   /** Called when a point is selected, by scrub or by tap. */
-  onSelect?: (point: T, index: number) => void;
+  onSelect?: ((point: T, index: number) => void) | undefined;
 
   /** Called when scrubbing starts and ends. */
-  onInteractionChange?: (isActive: boolean) => void;
+  onInteractionChange?: ((isActive: boolean) => void) | undefined;
 
   /** Disable every gesture. A passthrough native gesture is still returned. */
-  enabled?: boolean;
+  enabled?: boolean | undefined;
 
   /** Keep the tap but drop the scrub, for compact renderings. */
-  scrubEnabled?: boolean;
+  scrubEnabled?: boolean | undefined;
 
   /**
    * How the scrub claims the touch. `longPress` waits, which is what a chart
    * inside a scrolling page needs. `drag` claims as soon as the finger moves,
    * for a small chart whose whole card is also tappable.
    */
-  scrubActivation?: 'longPress' | 'drag';
+  scrubActivation?: 'longPress' | 'drag' | undefined;
 
   /** Long-press wait before the scrub claims the touch. */
-  activationDelay?: number;
+  activationDelay?: number | undefined;
 
   /** Vertical travel that hands the touch back to the scroll parent. */
-  verticalSlop?: number;
+  verticalSlop?: number | undefined;
 
   /** Movement that starts a drag-activated scrub. */
-  dragSlop?: number;
+  dragSlop?: number | undefined;
 
   /** Fire a light impact when the scrub activates. */
-  haptics?: boolean;
+  haptics?: boolean | undefined;
 
   /** Cross-chart sync target. Written only while this chart is scrubbing. */
-  sharedSelectedIdx?: SharedValue<number>;
+  sharedSelectedIdx?: SharedValue<number> | undefined;
 
   /** Selection driven from outside, shown when nothing else is selected. */
-  externalSelectedIdx?: SharedValue<number>;
+  externalSelectedIdx?: SharedValue<number> | undefined;
 
   /**
    * Resolve a tap at chart-local pixels to a data index, or -1 for none.
    * Supplying this composes a tap gesture in. Charts whose points spread over
    * both axes use it to match on 2D distance instead of x alone.
    */
-  resolveTapIndex?: (x: number, y: number) => number;
+  resolveTapIndex?: ((x: number, y: number) => number) | undefined;
 
   /**
    * Tap that does something other than select a point, typically opening the
    * screen behind the chart. Mutually exclusive with `resolveTapIndex`.
    */
-  onTap?: () => void;
+  onTap?: (() => void) | undefined;
 
   /** Longest touch still counted as a tap. */
-  tapMaxDuration?: number;
+  tapMaxDuration?: number | undefined;
 
   /**
    * Where the crosshair sits. `point` snaps to the selected point, which reads
    * best when the points are far apart. `finger` tracks the touch, which reads
    * best on a dense curve where snapping looks like lag.
    */
-  crosshairMode?: 'point' | 'finger';
+  crosshairMode?: 'point' | 'finger' | undefined;
 }
 
 export interface ChartGestureResult<T> {

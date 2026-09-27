@@ -91,7 +91,7 @@ export function useActivities(options: UseActivitiesOptions = {}) {
 
   // Both ends are always resolved. An `oldest` with no `newest` used to leave
   // the far end undefined, which reaches the engine as NaN and reads back an
-  // empty window, so an open-ended range read nothing at all (B424).
+  // empty window, so an open-ended range read nothing at all.
   const today = new Date();
   const windowStart = new Date(today);
   windowStart.setDate(windowStart.getDate() - (days || 30));

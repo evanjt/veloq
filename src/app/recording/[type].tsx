@@ -81,9 +81,10 @@ export default function RecordingScreen() {
 
   // Snapshot coordinates for the map. Keyed on length because the underlying
   // latlng array is mutated in place. The slice gives consumers a stable
-  // reference that only changes when a point is added.
+  // reference that only changes when a point is added, and slicing to the
+  // length this render saw keeps the snapshot and its key in step.
   const coordinates = useMemo(
-    () => useRecordingStore.getState().streams.latlng.slice(),
+    () => useRecordingStore.getState().streams.latlng.slice(0, latlngLength),
     [latlngLength]
   );
 

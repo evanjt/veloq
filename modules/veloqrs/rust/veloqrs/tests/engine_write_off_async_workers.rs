@@ -47,6 +47,8 @@ fn within<F: FnOnce() + Send + 'static>(deadline: Duration, what: &str, body: F)
     );
 }
 
+// Holding the engine lock across the awaits is the contention under test.
+#[allow(clippy::await_holding_lock)]
 #[test]
 fn unrelated_async_work_still_runs_while_engine_writes_are_queued() {
     let _guard = SERIAL.lock().unwrap_or_else(|e| e.into_inner());

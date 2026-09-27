@@ -15,9 +15,6 @@ const mockClearDemoData = jest.fn();
 const mockExitDemoMode = jest.fn();
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({ isDemoMode: true, hideDemoBanner: false, exitDemoMode: mockExitDemoMode }),
@@ -26,7 +23,10 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
   useSyncDateRange: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({ reset: () => {} }),
 }));
-jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ clear: () => {} }) }));
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQueryClient: () => ({ clear: () => {} }),
+}));
 jest.mock('@/shared/storage', () => ({
   clearDemoData: (...args: unknown[]) => mockClearDemoData(...args),
 }));

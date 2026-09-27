@@ -16,12 +16,7 @@ import { useBulkExport } from '@/features/settings/hooks/useBulkExport';
 
 // The key alone cannot show whether the format reached the string, so the stub
 // renders the interpolation beside it.
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, options?: Record<string, unknown>) =>
-      options ? `${key}:${JSON.stringify(options)}` : key,
-  }),
-}));
+jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 
 jest.mock('@/features/settings/lib/bulkExport', () => ({
   bulkExportActivities: jest.fn(),

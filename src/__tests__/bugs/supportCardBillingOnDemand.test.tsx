@@ -48,7 +48,10 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
-jest.mock('expo-web-browser', () => ({ openBrowserAsync: jest.fn() }));
+jest.mock('expo-web-browser', () => ({
+  ...jest.requireActual('expo-web-browser'),
+  openBrowserAsync: jest.fn(),
+}));
 
 beforeEach(() => {
   mockUseIAP.mockClear();

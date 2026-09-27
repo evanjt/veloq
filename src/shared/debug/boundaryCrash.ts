@@ -17,7 +17,7 @@ import { recordCrash } from './crashLog';
 export function recordBoundaryCrash(
   error: Error,
   errorInfo: React.ErrorInfo | undefined,
-  options: { fatal: boolean; screen?: string }
+  options: { fatal: boolean; screen?: string | undefined }
 ): void {
   try {
     recordCrash({

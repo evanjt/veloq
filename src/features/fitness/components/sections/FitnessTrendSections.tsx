@@ -72,7 +72,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   // A headline number is text, and the sport fills are 2.3:1 to 3.6:1 on the
-  // light card. The text pair is the same hues at text grade (B950).
+  // light card. The text pair is the same hues at text grade.
   const sportText = isDark ? SPORT_TEXT_COLORS_DARK : SPORT_TEXT_COLORS;
 
   // The chart below plots `eftpHistory`, so the header states a number only

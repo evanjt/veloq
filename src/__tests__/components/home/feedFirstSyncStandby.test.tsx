@@ -20,12 +20,7 @@ import { FeedFirstSyncStandby } from '@/features/home/components/FeedFirstSyncSt
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 /** `t` answers with the key and its variables, so both are assertable. */
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, vars?: Record<string, unknown>) =>
-      vars ? `${key}:${JSON.stringify(vars)}` : key,
-  }),
-}));
+jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 
 let mockStatus: {
   state: number;

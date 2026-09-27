@@ -269,7 +269,7 @@ export function useStrengthTabState(): StrengthTabState {
   // appears, so it runs here instead: the memo reads 'hidden' for one render,
   // the seed announces on `fitParsed`, and the subscription above brings the
   // real answer. `bulk_insert_exercise_sets` notifies for exactly this reason
-  // and says so (`objects/strength.rs:572-574`), so nothing has to be wired up
+  // and says so in `objects/strength.rs`, so nothing has to be wired up
   // by hand. Non-demo sessions, and every mount after the first in a process,
   // do nothing at all.
   useEffect(() => {

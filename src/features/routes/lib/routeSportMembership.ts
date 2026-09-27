@@ -14,7 +14,7 @@ interface SportBearing {
   /** The sport most of the group's members carry, its one display label. */
   sportType: string;
   /** Every sport that has traversed this ground, when the engine supplied it. */
-  sportTypes?: string[];
+  sportTypes?: string[] | undefined;
 }
 
 export function groupCoversType(group: SportBearing, type: ActivityType): boolean {

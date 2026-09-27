@@ -13,12 +13,7 @@ import { render, screen } from '@testing-library/react-native';
 import { InsightsPanel } from '@/features/insights/components/InsightsPanel';
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, params?: Record<string, string>) =>
-      params ? `${key}:${JSON.stringify(params)}` : key,
-  }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 jest.mock('@/features/routes/components/TodayBanner', () => ({
   TodayBanner: () => null,
 }));

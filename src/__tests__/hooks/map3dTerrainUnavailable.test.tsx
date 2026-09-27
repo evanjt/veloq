@@ -13,9 +13,7 @@ import {
   TERRAIN_UNAVAILABLE_TEST_ID,
 } from '@/features/maps/components/TerrainUnavailableNotice';
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 function bridgeFor(handlers: { onTerrainUnavailable?: (reason: string) => void }) {
   const { result } = renderHook(() =>

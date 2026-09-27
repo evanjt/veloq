@@ -22,9 +22,9 @@ describe('the coverage number counts the screens', () => {
 
   it('holds thresholds seeded at what the suite measures, not the old floor', () => {
     const { branches, functions, lines, statements } = config.coverageThreshold.global;
-    expect(branches).toBeGreaterThanOrEqual(49);
-    expect(functions).toBeGreaterThanOrEqual(54);
-    expect(lines).toBeGreaterThanOrEqual(57);
-    expect(statements).toBeGreaterThanOrEqual(56);
+    expect(branches).toBeGreaterThanOrEqual(62);
+    expect(functions).toBeGreaterThanOrEqual(69);
+    expect(lines).toBeGreaterThanOrEqual(72);
+    expect(statements).toBeGreaterThanOrEqual(71);
   });
 });

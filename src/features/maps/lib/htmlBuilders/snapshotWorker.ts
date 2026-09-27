@@ -193,7 +193,7 @@ ${cacheEvictionScript(tileCacheBudgetMb)}
     window._tileErrorCount = 0;
     // Counted apart from the errors above. A 429 or a 503 is the server asking
     // to be left alone, which is a different event from a decode failure and
-    // the pool answers it by waiting rather than by retrying (B418).
+    // the pool answers it by waiting rather than by retrying.
     window._tileThrottleCount = 0;
 
     window.map.on('error', function(e) {

@@ -18,7 +18,6 @@ import type { Activity } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
-jest.mock('expo-router', () => ({ useIsFocused: () => true }));
 
 let mockOnline = true;
 let mockSnapshotLanded: ((uri: string) => void) | null = null;

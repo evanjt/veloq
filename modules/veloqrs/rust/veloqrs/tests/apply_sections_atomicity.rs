@@ -67,7 +67,7 @@ fn engine_with_b_state() -> (PersistentEngine, TempDir) {
 fn fingerprint(engine: &mut PersistentEngine) -> BTreeMap<String, (u32, usize, String)> {
     engine
         .get_sections()
-        .into_iter()
+        .iter()
         .map(|s| {
             (
                 s.id.clone(),

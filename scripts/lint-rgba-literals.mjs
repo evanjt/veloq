@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Colour lives in `src/theme`. The eslint rule already refuses a raw hex, and
-// `S36` found the same violation wearing `rgba(`: a tint, a scrim or a hairline
+// the same violation turns up wearing `rgba(`: a tint, a scrim or a hairline
 // written inline, invisible to a theme change and wrong in one of the two
 // themes.
 //

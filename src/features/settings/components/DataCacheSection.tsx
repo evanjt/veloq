@@ -42,7 +42,7 @@ interface DataCacheSectionProps {
 
 export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   const { isDark } = useTheme();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const queryClient = useQueryClient();
 
@@ -109,6 +109,8 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   }, []);
 
   // Memoized date range text for cache stats (prevents Date parsing on every render)
+  // `t` is rebuilt whenever the language changes, so it also re-keys the locale
+  // `formatFullDate` reads.
   const dateRangeText = useMemo(() => {
     if (!cacheStats.oldestDate || !cacheStats.newestDate) {
       return t('settings.noData');
@@ -121,7 +123,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     const days =
       Math.round((newestDay.getTime() - oldestDay.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     return `${formatDateOrDash(cacheStats.oldestDate)} - ${formatDateOrDash(cacheStats.newestDate)} (${t('stats.daysCount', { count: days })})`;
-  }, [cacheStats.oldestDate, cacheStats.newestDate, t, i18n.language]);
+  }, [cacheStats.oldestDate, cacheStats.newestDate, t]);
 
   const totalQueries = useQueryCacheCount(queryClient);
 

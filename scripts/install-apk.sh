@@ -15,7 +15,7 @@
 set -eu
 
 # One thing at a time against one handset: an install kills whatever is running
-# on it, so a measurement in another session loses its app mid-run (B1034).
+# on it, so a measurement in another session loses its app mid-run.
 if [ -z "${VELOQ_DEVICE_LOCK_HELD:-}" ]; then
   exec "$(dirname "$0")/with-device-lock.sh" "$0" "$@"
 fi

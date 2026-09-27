@@ -35,6 +35,7 @@ jest.mock('@/shared/app', () => ({
 }));
 
 jest.mock('expo-location', () => ({
+  ...jest.requireActual('expo-location'),
   requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'denied' }),
   getCurrentPositionAsync: jest.fn(),
   Accuracy: { Balanced: 3 },

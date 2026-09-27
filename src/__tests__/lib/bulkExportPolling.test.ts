@@ -29,11 +29,13 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   cacheDirectory: 'file:///cache/',
   deleteAsync: (...args: unknown[]) => mockDeleteAsync(...args),
 }));
 
 jest.mock('expo-sharing', () => ({
+  ...jest.requireActual('expo-sharing'),
   shareAsync: (...args: unknown[]) => mockShareAsync(...args),
 }));
 

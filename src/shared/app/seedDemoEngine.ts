@@ -14,6 +14,7 @@
 import { toActivityMetrics } from '@/shared/activity/activityMetrics';
 import { PACE_SNAPSHOT_WINDOW_DAYS } from './constants';
 import { getEngine } from '@/shared/native/engine';
+import { present } from 'veloqrs/src/delegates/optional';
 import type { Activity, WellnessData } from '@/types';
 
 /** The curve windows the stats screens request. */
@@ -21,7 +22,7 @@ const POWER_CURVE_WINDOWS = [42, 90, 365];
 const PACE_CURVE_WINDOWS = [42, 90, 365];
 
 type DemoEngine = NonNullable<ReturnType<typeof getEngine>>;
-type DemoCurves = typeof import('@/features/fitness/demo/curves');
+type DemoCurves = typeof import('@/shared/demo/fitness/curves');
 
 /** Midnight today, in the epoch seconds the pace snapshot table keys on. */
 function todayTimestamp(): number {
@@ -38,7 +39,7 @@ export function seedDemoEngine(): void {
     const { fixtures, getWellness } =
       require('@/data/demo/fixtures') as typeof import('@/data/demo/fixtures');
     const curves =
-      require('@/features/fitness/demo/curves') as typeof import('@/features/fitness/demo/curves');
+      require('@/shared/demo/fitness/curves') as typeof import('@/shared/demo/fitness/curves');
 
     // Raw JSON, matching what the live write-through stores. The records model
     // fewer fields than the hooks read, so the body is the source of truth.
@@ -48,25 +49,27 @@ export function seedDemoEngine(): void {
     const wellness = getWellness() as unknown as WellnessData[];
     if (wellness.length > 0) {
       engine.upsertWellness(
-        wellness.map((w) => ({
-          date: w.id,
-          ctl: w.ctl,
-          atl: w.atl,
-          rampRate: w.rampRate,
-          hrv: w.hrv,
-          restingHr: w.restingHR,
-          weight: w.weight,
-          sleepSecs: w.sleepSecs,
-          sleepScore: w.sleepScore,
-          soreness: w.soreness,
-          fatigue: w.fatigue,
-          stress: w.stress,
-          mood: w.mood,
-          motivation: w.motivation,
-          // The wellness screens read the body, not the typed columns, so a
-          // demo day without one would render as a gap.
-          raw: JSON.stringify(w),
-        }))
+        wellness.map((w) =>
+          present({
+            date: w.id,
+            ctl: w.ctl,
+            atl: w.atl,
+            rampRate: w.rampRate,
+            hrv: w.hrv,
+            restingHr: w.restingHR,
+            weight: w.weight,
+            sleepSecs: w.sleepSecs,
+            sleepScore: w.sleepScore,
+            soreness: w.soreness,
+            fatigue: w.fatigue,
+            stress: w.stress,
+            mood: w.mood,
+            motivation: w.motivation,
+            // The wellness screens read the body, not the typed columns, so a
+            // demo day without one would render as a gap.
+            raw: JSON.stringify(w),
+          })
+        )
       );
       // Rust announces a wellness write by kind; a seeded one has to say so
       // too, or the wellness screens never hear the fixtures landed.

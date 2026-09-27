@@ -9,6 +9,7 @@ const mockFileStore = new Map<string, string>();
 const mockDirStore = new Set<string>();
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   documentDirectory: '/mock/docs/',
   getInfoAsync: jest.fn(async (path: string) => {
     if (mockDirStore.has(path) || mockFileStore.has(path)) {

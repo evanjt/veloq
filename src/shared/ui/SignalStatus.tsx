@@ -35,7 +35,7 @@ interface SignalStatusProps {
   accessibilityLabel?: string;
   /** Extra content after the label (kind icons, settings link, spinner). */
   children?: React.ReactNode;
-  testID?: string;
+  testID?: string | undefined;
 }
 
 export function SignalStatus({

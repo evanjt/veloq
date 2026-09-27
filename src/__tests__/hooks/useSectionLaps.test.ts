@@ -61,6 +61,26 @@ describe('useSectionLaps', () => {
     const { result } = renderHook(() => useSectionLaps('sec1'));
     expect(result.current.excludedLaps.size).toBe(0);
   });
+
+  it('re-reads when refreshKey changes and holds still when it does not', () => {
+    const excluded = [{ activityId: 'a', startIndex: 40 }];
+    const engine = { getExcludedSectionLaps: jest.fn(() => [...excluded]) };
+    (getEngine as jest.Mock).mockReturnValue(engine);
+    const { result, rerender } = renderHook(
+      ({ key }: { key: number }) => useSectionLaps('sec1', key),
+      { initialProps: { key: 0 } }
+    );
+    expect(engine.getExcludedSectionLaps).toHaveBeenCalledTimes(1);
+
+    excluded.push({ activityId: 'b', startIndex: 5 });
+    rerender({ key: 0 });
+    expect(engine.getExcludedSectionLaps).toHaveBeenCalledTimes(1);
+    expect(result.current.excludedLaps.size).toBe(1);
+
+    rerender({ key: 1 });
+    expect(engine.getExcludedSectionLaps).toHaveBeenCalledTimes(2);
+    expect(result.current.excludedLaps.has(lapKey('b', 5))).toBe(true);
+  });
 });
 
 describe('hasPartialExclusion', () => {

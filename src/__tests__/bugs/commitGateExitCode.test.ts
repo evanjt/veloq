@@ -31,10 +31,12 @@ function runGates(gates: string[], shellFlags: string[] = []): { status: number;
   // The hook calls this from a `set -e` shell, which is the condition the bug
   // needed, so the tests drive it the same way.
   const argv = [...shellFlags, SCRIPT, ...gates];
+  // A skip set for the commit running this suite names gates these fixtures do
+  // not pass, and the runner refuses a name it does not know.
   try {
     const output = execFileSync('sh', argv, {
       encoding: 'utf8',
-      env: gitFreeEnv(),
+      env: { ...gitFreeEnv(), VELOQ_SKIP_GATES: '' },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     return { status: 0, output };
@@ -84,12 +86,12 @@ describe('the commit gate runner', () => {
     expect(output).toContain('killed');
   });
 
-  it('names a gate whose command carries a colon, as `lint:cached` does', () => {
-    const { status, output } = runGates(['lint:sh -c "echo ran lint:cached; exit 1"']);
+  it('names a gate whose command carries a colon, as `npm run audit:guards` does', () => {
+    const { status, output } = runGates(['audit:sh -c "echo ran audit:guards; exit 1"']);
 
     expect(status).toBe(1);
-    expect(output).toContain('ran lint:cached');
-    expect(output).toContain('lint');
+    expect(output).toContain('ran audit:guards');
+    expect(output).toContain('--- audit failed ---');
   });
 });
 
@@ -117,7 +119,7 @@ describe('a commit through a hook that uses it', () => {
       const output = execFileSync('git', ['commit', '-m', 'probe'], {
         cwd: root,
         encoding: 'utf8',
-        env: gitFreeEnv(),
+        env: { ...gitFreeEnv(), VELOQ_SKIP_GATES: '' },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
       return { status: 0, output };

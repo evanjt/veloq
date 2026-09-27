@@ -639,7 +639,7 @@ impl DetectionManager {
         // would occupy the slot with a run that never happened.
         if let Some(refusal) = crate::persistence::sections::detection_refusal(&handle) {
             // `warn!` rather than `info!`: a release build filters the
-            // engine's log at Warn (`lib.rs:376-382`), so at `info!` this
+            // engine's log at Warn (`log_level` in `lib.rs`), so at `info!` this
             // said nothing on the CI runner, where detection is held for a
             // whole flow and the only evidence was a screenshot.
             warn!(
@@ -783,7 +783,7 @@ impl DetectionManager {
         })?;
         if let Some(refusal) = crate::persistence::sections::detection_refusal(&handle) {
             // `warn!` rather than `info!`: a release build filters the
-            // engine's log at Warn (`lib.rs:376-382`), so at `info!` this
+            // engine's log at Warn (`log_level` in `lib.rs`), so at `info!` this
             // said nothing on the CI runner, where detection is held for a
             // whole flow and the only evidence was a screenshot.
             warn!(

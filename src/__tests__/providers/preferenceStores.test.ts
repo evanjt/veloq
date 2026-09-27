@@ -104,17 +104,21 @@ describe('ThemeProvider', () => {
   let getThemePreference: () => Promise<string>;
   const THEME_KEY = 'veloq-theme-preference';
 
+  // Only the colour-scheme write is stubbed: mocking the whole of react-native
+  // leaves every other export the provider's graph reads undefined.
+  let setColorScheme: jest.SpyInstance;
+
   beforeAll(() => {
-    jest.doMock('react-native', () => ({
-      Appearance: { setColorScheme: jest.fn() },
-    }));
+    setColorScheme = jest
+      .spyOn(require('react-native').Appearance, 'setColorScheme')
+      .mockImplementation(() => {});
 
     const tp = require('@/shared/app/ThemeProvider');
     getThemePreference = tp.getThemePreference;
   });
 
   afterAll(() => {
-    jest.dontMock('react-native');
+    setColorScheme.mockRestore();
   });
 
   beforeEach(async () => {

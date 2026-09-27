@@ -97,12 +97,11 @@ pub fn tables_at(conn: &Connection) -> Vec<String> {
              ORDER BY name",
         )
         .expect("prepare sqlite_master query");
-    let names = stmt
-        .query_map([], |row| row.get::<_, String>(0))
+
+    stmt.query_map([], |row| row.get::<_, String>(0))
         .expect("query sqlite_master")
         .collect::<Result<Vec<_>, _>>()
-        .expect("read table names");
-    names
+        .expect("read table names")
 }
 
 pub fn user_version(conn: &Connection) -> u32 {

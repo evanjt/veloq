@@ -13,12 +13,7 @@ import { getEngine } from '@/shared/native/engine';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, vars?: Record<string, unknown>) =>
-      vars ? `${key}:${JSON.stringify(vars)}` : key,
-  }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 

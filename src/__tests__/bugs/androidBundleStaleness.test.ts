@@ -34,6 +34,11 @@ function runGuard(root: string): { status: number; output: string } {
 
 const roots: string[] = [];
 
+// The machine's clock, not the fixed one: the fixture sets the ages it cares
+// about relative to `Date.now()`, but the locale file takes its mtime from the
+// filesystem, and a guard in a child process compares the two.
+beforeEach(() => jest.useRealTimers());
+
 /** A tree with one source file and, optionally, a bundle of a given age. */
 function fixture(opts: {
   bundleAgeSeconds?: number;

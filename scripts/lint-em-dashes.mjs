@@ -41,7 +41,7 @@ let total = 0;
 
 // The bytes come out of the index and not off the disk: this runs in the one
 // checkout every worktree merges through, so a working copy here is whatever
-// session has a file open rather than what anyone is committing (`B1070`).
+// session has a file open rather than what anyone is committing.
 const tracked = indexedSources(root);
 refuseEmptyListing(tracked, 'Em dash guard');
 

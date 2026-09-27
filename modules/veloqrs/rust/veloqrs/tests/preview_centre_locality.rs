@@ -3,7 +3,7 @@
 //! The name comes from the `locality` on the stored activity bodies, joined by
 //! the activity's own bounding box against the bin the centre stands for. It
 //! cannot come from `start_latlng`: the sync never asks intervals.icu for that
-//! field, so no stored body carries one (B423).
+//! field, so no stored body carries one.
 //!
 //! Coordinates here are synthetic.
 //!
@@ -26,8 +26,8 @@ const BIN_DEG: f64 = 0.045;
 /// the loss only shows when the box is busy enough to spread them apart: this
 /// target passed on a quiet machine and failed inside a full suite run, a
 /// different test each time. Holding this for the whole of a test, init through
-/// read, is what makes each one read its own library (`B497`, the same class as
-/// `B50` inside the crate).
+/// read, is what makes each one read its own library. The global engine's other
+/// tests in the crate share the same hazard.
 static SERIAL: Mutex<()> = Mutex::new(());
 
 fn serial() -> MutexGuard<'static, ()> {

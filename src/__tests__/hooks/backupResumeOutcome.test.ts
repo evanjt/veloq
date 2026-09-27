@@ -19,7 +19,7 @@ jest.mock('@/features/settings/lib/backup', () => ({
   restoreDatabaseBackup: jest.fn(),
 }));
 
-jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 const mockExport = exportDatabaseBackup as jest.Mock;
 const mockResume = resumePendingDatabaseExport as jest.Mock;

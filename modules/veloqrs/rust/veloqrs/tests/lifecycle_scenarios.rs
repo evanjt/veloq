@@ -7,20 +7,21 @@
 //! cold-after-wipe).
 //!
 //! Test naming convention:
-//! - `scenario_*_baseline`, default-on. Prints perf + behaviour metrics for
-//!   the perf doc, asserts only weak invariants (no section disappears
-//!   entirely, sport types stay stable, ingestion succeeds). Captures
-//!   current behaviour without gating future work.
-//! - `scenario_*_stable`, `#[ignore]`. Strict invariants the codebase
-//!   should satisfy after Tier 2.1's incremental-consensus rewrite ships.
-//!   These are the explicit success gate for that work.
+//! - `scenario_*_baseline` prints perf and behaviour metrics for the perf
+//!   doc and asserts only weak invariants (no section disappears entirely,
+//!   sport types stay stable, ingestion succeeds).
+//! - `scenario_*_stable` asserts the strict invariants: an add never removes
+//!   an activity from a visible section and the section count never regresses.
+//!   They run by default, so a regression fails the suite.
+//!
+//! Only scenario E is `#[ignore]`, for its runtime. The whole file needs the
+//! `synthetic` feature, so a plain `cargo test` never builds it.
 //!
 //! Two purposes:
 //! 1. **Performance baseline**, every step prints its timing to stdout. The
 //!    perf doc is regenerated from the captured output.
-//! 2. **Correctness regression net**, the `_stable` tests document the
-//!    behaviour we want; the `_baseline` tests document what we have. The
-//!    delta between them is the work Tier 2.1 must close.
+//! 2. **Correctness regression net**, the `_stable` tests pin the behaviour
+//!    the visible catalogue guarantees.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
@@ -56,7 +57,7 @@ fn snapshot(engine: &mut PersistentEngine) -> SectionSnapshot {
     let sections = engine.get_sections();
     SectionSnapshot {
         sections: sections
-            .into_iter()
+            .iter()
             .map(|s| {
                 (
                     s.id.clone(),
@@ -142,7 +143,7 @@ fn ingest_step(
 
     let apply_start = Instant::now();
     engine.apply_sections(sections).expect("apply_sections");
-    // Mirror the production poll path (objects/detection.rs:62-64): record
+    // Mirror the production poll path, `poll_detection_once`: record
     // which activity IDs the just-finished detection covered so the next
     // run's "new vs total" check correctly enters incremental mode. Without
     // this, processed_activity_ids stays empty and every step looks like a
@@ -217,7 +218,7 @@ fn print_delta(label: &str, delta: &BehaviourDelta) {
 }
 
 // ============================================================================
-// Strict stability assertions (used by `_stable` tests, gated `#[ignore]`)
+// Strict stability assertions, used by the `_stable` tests
 // ============================================================================
 
 fn assert_single_add_stability(
@@ -552,7 +553,7 @@ fn assert_losses_are_fired_events(
 }
 
 // ============================================================================
-// Scenario E, year expansion (~550 activities, crosses BATCH_CAP=500)
+// Scenario E, year expansion (~550 activities)
 // ============================================================================
 
 #[test]
@@ -690,7 +691,7 @@ fn print_ground_diff(label: &str, mine: &SectionSnapshot, other: &SectionSnapsho
 ///
 /// Ids are minted per engine and share nothing between the two paths, so the
 /// activities that traverse a section are the only thing the two catalogues can
-/// be compared on. Equality here is `Q169`'s gate stated exactly: the same
+/// be compared on. Equality here is the convergence gate stated exactly: the same
 /// rides played one at a time and played in one batch draw the same library.
 fn ground(snapshot: &SectionSnapshot) -> Vec<Vec<String>> {
     let mut all: Vec<Vec<String>> = snapshot
@@ -752,10 +753,10 @@ fn settle(engine: &mut PersistentEngine, limit: usize) -> usize {
 // Scenario F, full-rebuild convergence (incremental sequence vs single-shot)
 // ============================================================================
 
-// No longer `#[ignore]`d: an assertion behind an ignore gates nothing, which is
-// what `B337` was. The whole file is behind `required-features = ["synthetic"]`,
-// so a plain `cargo test` still never builds it; the suite runs in 19 s in
-// release, measured 2026-09-13 on a busy machine.
+// Not `#[ignore]`d: an assertion behind an ignore gates nothing. The whole
+// file is behind `required-features = ["synthetic"]`, so a plain `cargo test`
+// still never builds it; the suite runs in 19 s in release, measured
+// 2026-09-13 on a busy machine.
 #[test]
 fn scenario_f_full_converges_to_incremental_baseline() {
     let cfg = LifecycleConfig::default();
@@ -835,7 +836,7 @@ fn scenario_f_full_converges_to_incremental_baseline() {
     print_ground_diff("F_settled_inc", &inc_settled, &full_settled);
     print_ground_diff("F_settled_full", &full_settled, &inc_settled);
 
-    // `Q169`, decided: "the same activities played one by one since a year, vs
+    // The owner's rule: "the same activities played one by one since a year, vs
     // 1 batch of the exact same, should end up with the same library". Asserted
     // on the two catalogues that can carry that claim, and not on the damped
     // view above, which is read one step after a 396-activity ingest and is

@@ -27,6 +27,7 @@ jest.mock('@/shared/debug/debug', () => ({
 const mockFileStore = new Map<string, string>();
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   documentDirectory: '/mock/docs/',
   getInfoAsync: jest.fn(async (path: string) => ({
     exists: mockFileStore.has(path),

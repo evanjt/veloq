@@ -151,7 +151,8 @@ fn plan_pool(
     }
 
     // Grouped by bucket so each bucket's footprints are read once.
-    let mut by_bucket: HashMap<String, Vec<(String, (f64, f64, f64, f64))>> = HashMap::new();
+    type Footprints = HashMap<String, Vec<(String, (f64, f64, f64, f64))>>;
+    let mut by_bucket: Footprints = HashMap::new();
     for id in new_ids {
         let m = metadata.get(id)?;
         let bucket = if config.pool_sports {
@@ -1689,8 +1690,8 @@ impl PersistentEngine {
     /// the main thread, and the alternative it buys back is a whole cold
     /// rebatch.
     ///
-    /// `tests/evidence_cache_write_cost.rs` takes the write figures and
-    /// `tests/evidence_cache_decode_cost.rs` the sizes and what the launch
+    /// `benches/evidence_cache_write_cost.rs` takes the write figures and
+    /// `benches/evidence_cache_decode_cost.rs` the sizes and what the launch
     /// pays to read them back.
     pub(crate) fn persist_evidence_cache(&mut self) {
         if self.cache_folded_ids.is_empty() {
@@ -1802,7 +1803,7 @@ impl PersistentEngine {
 
         let decoded = codec::untag_blob(EVIDENCE_CACHE_BLOB_VERSION, &cache_blob)
             .ok_or_else(|| "cache blob tag".to_string())
-            .and_then(|b| codec::deserialize_gps_composite::<SectionEvidenceCache>(b))
+            .and_then(codec::deserialize_gps_composite::<SectionEvidenceCache>)
             .and_then(|cache| {
                 // The blob tag only frames the row. A layout bump changes what
                 // the decoded cluster shape means, so the cache's own version

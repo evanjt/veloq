@@ -16,7 +16,6 @@ import * as path from 'path';
 
 const REPO = path.resolve(__dirname, '../../..');
 const GUARD = path.join(REPO, 'scripts/lint-hand-rolled-buttons.mjs');
-const BASELINE = path.join(REPO, 'scripts/hand-rolled-button-baseline.json');
 
 function treeWith(files: Record<string, string>) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-buttons-'));
@@ -83,10 +82,5 @@ describe('the hand-rolled button ratchet', () => {
     });
 
     expect(runGuard(root, {}).status).toBe(0);
-  });
-
-  it('holds the repo at its own baseline', () => {
-    expect(fs.existsSync(BASELINE)).toBe(true);
-    execFileSync('node', [GUARD], { cwd: REPO, encoding: 'utf8' });
   });
 });

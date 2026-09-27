@@ -25,6 +25,7 @@ import {
 import { OAUTH } from '@/features/auth/constants';
 
 jest.mock('expo-crypto', () => ({
+  ...jest.requireActual('expo-crypto'),
   getRandomBytes: jest.fn((length: number) => {
     // Return deterministic bytes (0x00, 0x11, 0x22, ...) for reproducible state
     const arr = new Uint8Array(length);
@@ -47,11 +48,13 @@ jest.mock('expo-crypto', () => ({
 
 // Mock expo-web-browser: stub openAuthSessionAsync
 jest.mock('expo-web-browser', () => ({
+  ...jest.requireActual('expo-web-browser'),
   openAuthSessionAsync: jest.fn(),
 }));
 
 // Mock expo-linking: use a real-ish parse implementation that reads query params
 jest.mock('expo-linking', () => ({
+  ...jest.requireActual('expo-linking'),
   parse: jest.fn((url: string) => {
     const u = new URL(url);
     const params: Record<string, string> = {};

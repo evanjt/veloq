@@ -12,6 +12,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { LibraryRebuiltNotice } from '@/features/settings/components/LibraryRebuiltNotice';
 
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
     t: (key: string, vars?: Record<string, unknown>) => {
       if (vars && typeof vars.count === 'number') return `${key}:${vars.count}`;

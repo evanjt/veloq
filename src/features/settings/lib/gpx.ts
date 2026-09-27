@@ -12,8 +12,8 @@ interface GpxPoint {
 interface GpxParams {
   name: string;
   points: GpxPoint[];
-  time?: string;
-  sport?: string;
+  time?: string | undefined;
+  sport?: string | undefined;
 }
 
 function escapeXml(str: string): string {

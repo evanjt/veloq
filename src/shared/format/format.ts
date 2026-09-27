@@ -623,10 +623,10 @@ export function formatTimeDelta(deltaSeconds: number): string | null {
  */
 export function formatPerformanceDelta(options: {
   isBest: boolean;
-  showPace?: boolean;
-  currentSpeed?: number;
-  bestSpeed?: number;
-  timeDelta?: number;
+  showPace?: boolean | undefined;
+  currentSpeed?: number | undefined;
+  bestSpeed?: number | undefined;
+  timeDelta?: number | undefined;
 }): PerformanceDelta {
   const { isBest, showPace, currentSpeed, bestSpeed, timeDelta } = options;
 

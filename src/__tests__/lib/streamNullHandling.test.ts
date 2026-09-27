@@ -1,38 +1,42 @@
 /**
  * Scenario: intervals.icu streams carry JSON nulls where a sensor dropped out.
  *
- * Expected behaviour: nulls are excluded from every derived figure. The global
- * isNaN and isFinite coerce null to 0, so they let nulls through a filter that
- * looks correct, and the value then reaches Math.min and the delta loop.
+ * Expected behaviour: a dropout is excluded from every chip figure. It neither
+ * pulls the mean or the range towards 0 nor differences into elevation gain.
  */
+import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
+import { parseStreams } from '@/features/activity/lib/streams';
+import { computeAllAverages } from '@/features/stats/lib/combinedPlotData';
+import type { RawStreamItem } from '@/types';
+
+function chips(raw: RawStreamItem[]) {
+  const values = computeAllAverages(CHART_CONFIGS, parseStreams(raw), true);
+  return Object.fromEntries(values.map((v) => [v.id, v]));
+}
+
 describe('stream null handling', () => {
-  const withDropout = [null, 150, 160, 168] as unknown as number[];
-
-  it('excludes nulls from the value range, so the trace is not flattened', () => {
-    const coercing = withDropout.filter((v) => !isNaN(v) && isFinite(v));
-    const strict = withDropout.filter((v) => Number.isFinite(v));
-
-    expect(Math.min(...coercing)).toBe(0);
-    expect(Math.min(...strict)).toBe(150);
+  it('averages heart rate over the samples the strap recorded', () => {
+    const { heartrate } = chips([
+      { type: 'heartrate', data: [null, 150, 160, 170] } as unknown as RawStreamItem,
+    ]);
+    expect(heartrate.value).toBe('160');
+    expect(heartrate.maxValueWidth).toBe('170');
   });
 
   it('does not fabricate elevation gain across a dropout', () => {
-    const elevation = [100, null, 100] as unknown as number[];
+    const { elevation } = chips([
+      { type: 'altitude', data: [100, null, 100, 110] } as unknown as RawStreamItem,
+    ]);
+    expect(elevation.value).toBe('+10');
+    expect(elevation.maxValueWidth).toBe('+10');
+  });
 
-    let fabricated = 0;
-    for (let i = 1; i < elevation.length; i++) {
-      const delta = elevation[i] - elevation[i - 1];
-      if (delta > 0 && isFinite(delta)) fabricated += delta;
-    }
-
-    let guarded = 0;
-    for (let i = 1; i < elevation.length; i++) {
-      if (!Number.isFinite(elevation[i]) || !Number.isFinite(elevation[i - 1])) continue;
-      const delta = elevation[i] - elevation[i - 1];
-      if (delta > 0) guarded += delta;
-    }
-
-    expect(fabricated).toBe(100);
-    expect(guarded).toBe(0);
+  it('leaves a chart out when every sample is a dropout', () => {
+    const values = chips([
+      { type: 'heartrate', data: [null, null] } as unknown as RawStreamItem,
+      { type: 'altitude', data: [null] } as unknown as RawStreamItem,
+    ]);
+    expect(values.heartrate).toBeUndefined();
+    expect(values.elevation).toBeUndefined();
   });
 });

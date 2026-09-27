@@ -15,7 +15,7 @@ interface ExerciseTableProps {
   activityId: string;
   activityType: string;
   isDark: boolean;
-  athleteSex?: string;
+  athleteSex?: string | undefined;
 }
 
 interface ExerciseGroup {

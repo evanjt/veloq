@@ -19,7 +19,6 @@ use tracematch::GpsPoint;
 use tracematch::sections::{Tunables, shares_ground};
 use veloqrs::FfiSectionConfig;
 use veloqrs::objects::SectionPreview;
-use veloqrs::objects::start::FfiStartOutcome;
 use veloqrs::objects::start::FfiStartOutcome::Started;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;

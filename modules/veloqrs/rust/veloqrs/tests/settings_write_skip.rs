@@ -79,7 +79,7 @@ fn writing_a_different_value_commits() {
 
 #[test]
 fn a_first_write_of_a_key_commits() {
-    let (engine, _dir, path) = engine();
+    let (engine, _dir, _path) = engine();
 
     engine.set_setting(KEY, "abc123").expect("first write");
 
@@ -108,7 +108,7 @@ fn an_empty_value_is_a_value() {
 /// to put the row back.
 #[test]
 fn a_deleted_key_is_written_again() {
-    let (engine, _dir, path) = engine();
+    let (engine, _dir, _path) = engine();
     engine.set_setting(KEY, "abc123").expect("first write");
     engine.delete_setting(KEY).expect("delete");
 

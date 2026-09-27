@@ -4,7 +4,7 @@
  * Expected behaviour: both surfaces colour the number from the same five-band
  * ladder, `getFormZone` and the form-zone text family, on every band and at
  * every boundary, and a card with no wellness shows no form stat at all. The
- * number is text, so it takes the text variant and not the band fill (B928).
+ * number is text, so it takes the text variant and not the band fill.
  */
 
 import { renderHook } from '@testing-library/react-native';
@@ -18,9 +18,7 @@ import {
 } from '@/features/fitness/lib/fitness';
 import type { Activity, WellnessData } from '@/types';
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 const activity = {
   id: 'a1',

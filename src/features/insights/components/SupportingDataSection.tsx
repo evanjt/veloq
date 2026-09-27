@@ -40,7 +40,7 @@ function SectionPreview({
   points,
 }: {
   sectionId: string;
-  points?: { lat: number; lng: number }[];
+  points?: { lat: number; lng: number }[] | undefined;
 }) {
   const { isDark } = useTheme();
   const normalised = useMemo(() => normalizeTrackPoints(points ?? []), [points]);

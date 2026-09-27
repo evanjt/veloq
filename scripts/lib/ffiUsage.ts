@@ -8,8 +8,8 @@
  * forwards every export by name, so an export that is delegated and called by
  * nobody scored as used.
  *
- * The manifest is TypeScript, so it is imported rather than parsed. There is
- * no regex left to drift.
+ * The manifest is computed from the Rust source by `ffiExports`, so there is
+ * no regex over a rendered file left to drift.
  *
  * The counting was wrong twice more and in the same silent way. It matched any
  * identifier equal to an export's camel name, so `current` scored 1,198 off
@@ -23,11 +23,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { FFI_EXPORTS } from '../../src/__tests__/bindings/ffi-exports.generated';
+import { ffiManifest } from './ffiExports';
 
 /** Every export the manifest declares, in the order it declares them. */
 export function exportedNames(): string[] {
-  return FFI_EXPORTS.map((e) => e.camelName);
+  return ffiManifest().FFI_EXPORTS.map((e) => e.camelName);
 }
 
 /** One export, addressed so two objects' `getAll` stay apart. */
@@ -48,9 +48,9 @@ export function keyOf(e: { object?: string; camelName: string }): string {
 
 /** Every manifest entry as a row of its own. */
 export function exportedKeys(): ExportKey[] {
-  return FFI_EXPORTS.map((e) => ({
+  return ffiManifest().FFI_EXPORTS.map((e) => ({
     key: keyOf(e),
-    object: e.object,
+    ...(e.object !== undefined && { object: e.object }),
     camelName: e.camelName,
   }));
 }
@@ -281,8 +281,7 @@ export function callIsAttributed(
 
 /**
  * Paths that name an export without a screen being behind it. The generated
- * bindings and the manifest describe the whole surface, and a test proves
- * nothing about reach.
+ * bindings describe the whole surface, and a test proves nothing about reach.
  */
 const NOT_A_CALLER = [
   'modules/veloqrs/src/generated/',
@@ -376,7 +375,8 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
 
   // The basemap tile store. Reached by the offline map work rather than a
   // screen, so none of it has a caller here yet.
-  'BasemapManager.setPath': 'the basemap tile store, reached from the offline map work rather than a screen',
+  'BasemapManager.setPath':
+    'the basemap tile store, reached from the offline map work rather than a screen',
   'BasemapManager.putTile': 'the basemap tile store, written by the tile pipeline',
   'BasemapManager.getTile': 'the basemap tile store, read by the tile pipeline',
   'BasemapManager.getCacheSize': 'the basemap tile store, read by the cache accounting',
@@ -387,14 +387,13 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
   'BasemapManager.flush':
     'written back when the app backgrounds, through a lazy require the scan does not follow',
   'BasemapManager.setSourceTemplate':
-    'handed each source\'s upstream template at style load, through a lazy require the scan does not follow',
+    "handed each source's upstream template at style load, through a lazy require the scan does not follow",
   'BasemapManager.getOrFetchTile':
     'the interceptor reaches the store through the JNI symbol, not this mirror, and iOS has no interceptor yet',
 
   'DetectionManager.setMatchStrictness':
     'route-grouping strictness, kept for the preview its screen will get',
-  'DetectionManager.getMatchStrictness':
-    'the read half of that setter, and its screen is unbuilt',
+  'DetectionManager.getMatchStrictness': 'the read half of that setter, and its screen is unbuilt',
   validateBackupDatabase:
     'reached through a dynamic property off the native module, so no static call exists to find',
   // The engine can answer what shape a week's load had; no screen asks yet,
@@ -402,7 +401,6 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
 
   'SectionManager.getNearPoint':
     'the point query a live recording asks the catalogue, and the recording screen that would call it is frozen',
-
 };
 
 /**
@@ -412,7 +410,7 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
  * names with the Rust exports they reach: `getMissingTimeStreams` and
  * `getActivitiesMissingTimeStreams` are two names on one delegate, and the
  * export-name report counts them as one live export. Counting the class's own
- * names is the only way a method nothing calls shows up (`I32`, `D42`).
+ * names is the only way a method nothing calls shows up.
  */
 export function clientMethods(source: string): string[] {
   const declaration = /^\s{2}([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*\(/gm;
@@ -421,9 +419,7 @@ export function clientMethods(source: string): string[] {
 
 /** Source with comments blanked, so a name inside one is not read as a call. */
 function withoutComments(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/\/\/[^\n]*/g, ' ');
+  return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
 }
 
 /**
@@ -472,10 +468,9 @@ export type AreaSurface = Record<string, string[]>;
 /**
  * Which areas reach further than they are allowed to, and by which export.
  *
- * A ratchet, so an area that reaches fewer exports than its ceiling lists is
- * not a failure: a migration lands, the number falls, and the ceiling is
- * lowered in the same commit. What is refused is an export an area did not
- * reach before, because that is the ground a sweep took being given back.
+ * What is refused is an export an area did not reach before, because that is
+ * the ground a sweep took being given back. The other half of the ratchet, a
+ * ceiling entry the area no longer reaches, is `surfaceUnderCeiling`.
  *
  * An area with no ceiling at all is refused too. A new feature that talks to
  * the engine directly has to say so, or the file it should appear in is the
@@ -496,4 +491,34 @@ export function surfaceOverCeiling(
     if (added.length > 0) over.push({ area, added });
   }
   return over;
+}
+
+/**
+ * Which ceiling entries the tree has beaten: per area, the exports the ceiling
+ * lists that the area no longer reaches, and whether the area reaches nothing.
+ *
+ * The ceiling has to follow the tree down or it stops being one. A migration
+ * that takes an area's last call to an export and leaves the name listed has
+ * made room for that call to come back unrefused, which is the ground the
+ * migration took being handed back by the next commit. So an entry the tree no
+ * longer needs is refused until it is removed, the way the engine surface and
+ * rgba ratchets refuse a ceiling above their count.
+ *
+ * A key starting with `//` is the note beside the numbers, not an area.
+ */
+export function surfaceUnderCeiling(
+  surface: AreaSurface,
+  ceilings: Record<string, unknown>
+): { area: string; stale: string[]; reachesNothing: boolean }[] {
+  const under: { area: string; stale: string[]; reachesNothing: boolean }[] = [];
+  for (const area of Object.keys(ceilings).sort()) {
+    if (area.startsWith('//')) continue;
+    const allowed = ceilings[area] as string[];
+    const reached = surface[area];
+    const stale = allowed.filter((key) => !reached?.includes(key)).sort();
+    if (reached === undefined || stale.length > 0) {
+      under.push({ area, stale, reachesNothing: reached === undefined });
+    }
+  }
+  return under;
 }

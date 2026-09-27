@@ -4,7 +4,6 @@
 //! This is keyed on a coordinate and answers what a fix could be entering, so
 //! a recorder can ask the catalogue the only question it has.
 
-use rusqlite::params;
 use tracematch::geo_utils::haversine_distance;
 
 use super::geometry;
@@ -261,14 +260,14 @@ pub(crate) mod pooled {
 
     /// The sections whose bounding box overlaps the fix's, before the line
     /// distance is computed.
-    pub(crate) fn candidates_in_box(
+    pub(super) fn candidates_in_box(
         conn: &Connection,
         lat: f64,
         lng: f64,
         sport: Option<&str>,
         radius_meters: f64,
     ) -> Vec<Candidate> {
-        if !lat.is_finite() || !lng.is_finite() || !(radius_meters > 0.0) {
+        if !lat.is_finite() || !lng.is_finite() || radius_meters.is_nan() || radius_meters <= 0.0 {
             return vec![];
         }
         let (dlat, dlng) = degree_span(lat, radius_meters);
@@ -331,7 +330,7 @@ pub(crate) mod pooled {
                 rep_end,
             ) = row;
             let Ok(points) = super::geometry::line(
-                &conn,
+                conn,
                 polyline_blob.as_deref(),
                 polyline_json.as_deref(),
                 super::geometry::reference(rep.as_deref(), rep_start, rep_end),

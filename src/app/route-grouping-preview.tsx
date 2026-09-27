@@ -64,7 +64,6 @@ function readRoutes(): RouteRow[] {
       hideDisabled: false,
       hideUnaccepted: false,
     },
-    sectionSportType: undefined,
     userLat: Number.NaN,
     userLng: Number.NaN,
   });

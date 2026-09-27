@@ -39,8 +39,8 @@ fn strided(points: &[crate::GpsPoint], max_points: usize) -> Vec<crate::GpsPoint
     let mut out: Vec<crate::GpsPoint> = points.iter().step_by(stride).cloned().collect();
     // The end of the ride is the part of the shape a stride is most likely to
     // drop, and the outline closes on it.
-    if last % stride != 0 {
-        out.push(points[last].clone());
+    if !last.is_multiple_of(stride) {
+        out.push(points[last]);
     }
     out
 }
@@ -916,10 +916,10 @@ impl super::PersistentEngine {
         athlete_id: Option<String>,
         heatmap_tiles_path: Option<String>,
     ) -> super::PersistentEngineStats {
-        if let Some(id) = athlete_id.as_deref() {
-            if let Err(e) = self.set_setting("__athlete_id", id) {
-                warn!("[launch] Could not store the athlete id: {}", e);
-            }
+        if let Some(id) = athlete_id.as_deref()
+            && let Err(e) = self.set_setting("__athlete_id", id)
+        {
+            warn!("[launch] Could not store the athlete id: {}", e);
         }
         match heatmap_tiles_path {
             Some(path) => self.set_heatmap_tiles_path(path),

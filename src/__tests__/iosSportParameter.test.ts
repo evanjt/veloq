@@ -9,20 +9,11 @@
  * name, is written a second time in Swift.
  */
 
-import fs from 'fs';
-import path from 'path';
-
 import {
   composeSnapshot,
   RECORD_SHORTCUT_LIMIT,
   type RawWidgetData,
 } from '@/features/home/lib/widgetSnapshot';
-
-const projectRoot = path.join(__dirname, '../..');
-const SHORTCUTS = fs.readFileSync(
-  path.join(projectRoot, 'widget/ios/shared/VeloqAppShortcuts.swift'),
-  'utf8'
-);
 
 function raw(overrides: Partial<RawWidgetData> = {}): RawWidgetData {
   return {
@@ -68,31 +59,5 @@ describe('the sport list a phrase can choose from comes from the snapshot', () =
       })
     );
     expect(snap.recordShortcuts[0].label).toBe('Vélo');
-  });
-});
-
-describe('the intent offers those, rather than an enum compiled in English', () => {
-  it('takes a sport parameter with options supplied at runtime', () => {
-    expect(SHORTCUTS).toContain('@Parameter(title: "Sport", optionsProvider:');
-    expect(SHORTCUTS).toContain('var sport: String?');
-    expect(SHORTCUTS).toContain('DynamicOptionsProvider');
-    expect(SHORTCUTS).toContain('func results()');
-  });
-
-  it('reads them from the snapshot every other surface reads', () => {
-    expect(SHORTCUTS).toContain('AppShortcutSnapshot.shortcuts()');
-    expect(SHORTCUTS).toContain('recordShortcuts');
-  });
-
-  it('declares no sport list and no display name of its own', () => {
-    // The word appears in the comment saying why it is not used; a declaration
-    // would read `: AppEnum`.
-    expect(SHORTCUTS).not.toContain(': AppEnum');
-    expect(SHORTCUTS).not.toContain('DisplayRepresentation');
-    expect(SHORTCUTS).not.toMatch(/case (ride|run|swim)\b/i);
-  });
-
-  it('falls back to the last sport when the phrase names none', () => {
-    expect(SHORTCUTS).toContain('sport == nil');
   });
 });

@@ -19,6 +19,7 @@ import {
 } from '@/features/settings/lib/notificationService';
 
 jest.mock('expo-notifications', () => ({
+  ...jest.requireActual('expo-notifications'),
   scheduleNotificationAsync: jest.fn().mockResolvedValue('sync-progress'),
   dismissNotificationAsync: jest.fn().mockResolvedValue(undefined),
   setNotificationHandler: jest.fn(),
@@ -27,10 +28,6 @@ jest.mock('expo-notifications', () => ({
   getPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
   requestPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
   addNotificationResponseReceivedListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
-}));
-
-jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), navigate: jest.fn() },
 }));
 
 jest.mock('@/theme', () => ({

@@ -56,10 +56,7 @@ impl SectionManager {
                     }
                     None => queries::pooled::sections_by_type(
                         conn,
-                        filter
-                            .section_type
-                            .as_deref()
-                            .and_then(SectionType::from_str),
+                        filter.section_type.as_deref().and_then(SectionType::parse),
                         &names,
                     ),
                 }
@@ -146,7 +143,7 @@ impl SectionManager {
                         .unwrap_or(std::cmp::Ordering::Equal)
                 }),
                 Some("name") => summaries.sort_by(|a, b| a.id.cmp(&b.id)),
-                Some("visits") => summaries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count)),
+                Some("visits") => summaries.sort_by_key(|b| std::cmp::Reverse(b.visit_count)),
                 _ => {}
             }
             crate::FfiSectionSummariesResult {
@@ -173,7 +170,9 @@ impl SectionManager {
         with_engine(|e| {
             let flat = e.get_section_polyline(&section_id);
             let points: Vec<crate::GpsPoint> = flat
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|c| crate::GpsPoint {
                     latitude: c[0],
                     longitude: c[1],
@@ -287,17 +286,14 @@ impl SectionManager {
     fn accept(&self, section_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.accept_section(&section_id)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
+                .map_err(|e| VeloqError::Database { msg: e.to_string() })
         })?
     }
 
     fn accept_all(&self) -> Result<u32, VeloqError> {
         with_engine(|e| {
-            e.accept_all_sections().map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })
+            e.accept_all_sections()
+                .map_err(|e| VeloqError::Database { msg: e.to_string() })
         })?
     }
 
@@ -349,6 +345,8 @@ impl SectionManager {
         with_engine(|e| e.get_all_section_names())
     }
 
+    // The FFI signature, which takes each field as its own argument.
+    #[allow(clippy::too_many_arguments)]
     fn create(
         &self,
         sport_type: String,
@@ -880,6 +878,25 @@ impl SectionManager {
     }
 }
 
+/// One section's performances on a pooled connection, remembered until the
+/// database moves. The key carries the sport filter, because a filtered read
+/// and an unfiltered one are different answers for the same section.
+fn pooled_performances(
+    conn: &rusqlite::Connection,
+    section_id: &str,
+    sport_type: Option<&str>,
+) -> std::sync::Arc<crate::SectionPerformanceResult> {
+    let key = match sport_type {
+        Some(sport) => format!("{}:{}", section_id, sport),
+        None => section_id.to_string(),
+    };
+    crate::persistence::read_cache::performances(&key, || {
+        crate::persistence::fitness::performances::pooled::section_performances(
+            conn, section_id, sport_type,
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1228,7 +1245,7 @@ mod tests {
         );
         sections.set_name(id.clone(), String::new()).unwrap();
         assert!(
-            sections.get_all_names().unwrap().get(&id).is_none(),
+            !sections.get_all_names().unwrap().contains_key(&id),
             "an empty name clears it"
         );
 
@@ -1330,23 +1347,4 @@ mod tests {
         sections.include_activity(id.clone(), "a0".into()).unwrap();
         assert!(sections.get_excluded_activities(id).unwrap().is_empty());
     }
-}
-
-/// One section's performances on a pooled connection, remembered until the
-/// database moves. The key carries the sport filter, because a filtered read
-/// and an unfiltered one are different answers for the same section.
-fn pooled_performances(
-    conn: &rusqlite::Connection,
-    section_id: &str,
-    sport_type: Option<&str>,
-) -> std::sync::Arc<crate::SectionPerformanceResult> {
-    let key = match sport_type {
-        Some(sport) => format!("{}:{}", section_id, sport),
-        None => section_id.to_string(),
-    };
-    crate::persistence::read_cache::performances(&key, || {
-        crate::persistence::fitness::performances::pooled::section_performances(
-            conn, section_id, sport_type,
-        )
-    })
 }

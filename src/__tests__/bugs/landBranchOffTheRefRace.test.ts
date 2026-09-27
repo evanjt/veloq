@@ -12,7 +12,7 @@
  * fast-forward checks out only the files the merge changed.
  */
 
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -50,19 +50,14 @@ function checkoutWithBranch(): string {
   return root;
 }
 
+/** Both streams, so a warning printed on a landing that succeeds is seen. */
 function land(root: string, branch: string): { status: number; output: string } {
-  try {
-    const output = execFileSync('bash', [SCRIPT, branch], {
-      cwd: root,
-      env: { ...gitFreeEnv(), VELOQ_LAND_ATTEMPTS: '2', VELOQ_LAND_SLEEP: '0' },
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    return { status: 0, output };
-  } catch (error) {
-    const e = error as { status: number; stdout?: string; stderr?: string };
-    return { status: e.status, output: `${e.stdout ?? ''}${e.stderr ?? ''}` };
-  }
+  const result = spawnSync('bash', [SCRIPT, branch], {
+    cwd: root,
+    env: { ...gitFreeEnv(), VELOQ_LAND_ATTEMPTS: '2', VELOQ_LAND_SLEEP: '0' },
+    encoding: 'utf8',
+  });
+  return { status: result.status ?? -1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
 }
 
 afterAll(() => {
@@ -146,5 +141,86 @@ describe('a checkout carrying a stranded merge', () => {
     expect(output).toContain('landed.txt');
     expect(output).toContain('git reset --hard HEAD');
     expect(output).toContain('Do not clear another session');
+  });
+});
+
+/**
+ * Another session's plain `git merge` stopped on a conflict leaves `MERGE_HEAD`
+ * in the checkout, and git refuses every merge until it is concluded. The
+ * script retried for about seventeen minutes, then blamed the target moving,
+ * which steers an agent towards aborting or finishing a merge it does not own.
+ */
+describe('a checkout with another session’s merge in progress', () => {
+  function checkoutMidMerge(): string {
+    const root = checkoutWithBranch();
+    runGit(['checkout', '-q', '-b', 'audit/theirs'], root);
+    write(root, 'base.txt', 'theirs\n');
+    runGit(['commit', '-qam', 'their side of the conflict'], root);
+    runGit(['checkout', '-q', 'main'], root);
+    write(root, 'base.txt', 'main\n');
+    runGit(['commit', '-qam', 'main side of the conflict'], root);
+    expect(() => runGit(['merge', '-q', 'audit/theirs'], root)).toThrow();
+    return root;
+  }
+
+  it('refuses at once, naming the merge and its age, and leaves it alone', () => {
+    const root = checkoutMidMerge();
+    const mergeHead = runGit(['rev-parse', 'MERGE_HEAD'], root).trim();
+
+    const { status, output } = land(root, 'audit/thing');
+
+    expect(status).not.toBe(0);
+    expect(output).toContain('their side of the conflict');
+    expect(output).toMatch(/MERGE_HEAD/);
+    expect(output).toMatch(/\d+ s old|\d+ min old/);
+    expect(output).toMatch(/not this session.s to finish or abort/);
+    expect(output).not.toContain('moved under every attempt');
+    expect(output).not.toContain('You have not concluded your merge');
+    expect(runGit(['rev-parse', 'MERGE_HEAD'], root).trim()).toBe(mergeHead);
+  });
+});
+
+/**
+ * A worktree's hooks live in the git-ignored `.husky/_`, so a tree where
+ * `npm run prepare` never ran commits with no gates at all. Landing is the one
+ * step every branch passes, so it is where the lander hears about it.
+ */
+describe('a branch whose worktree has no hooks installed', () => {
+  function checkoutWithWorktree(): { root: string; tree: string } {
+    const root = checkoutWithBranch();
+    const tree = `${root}-tree`;
+    roots.push(tree);
+    runGit(['worktree', 'add', '-q', tree, 'audit/thing'], root);
+    return { root, tree };
+  }
+
+  it('warns, naming the worktree and npm run prepare, and still lands', () => {
+    const { root, tree } = checkoutWithWorktree();
+
+    const { status, output } = land(root, 'audit/thing');
+
+    expect(status).toBe(0);
+    expect(output).toContain(tree);
+    expect(output).toContain('npm run prepare');
+    expect(output).toMatch(/no gates/);
+    expect(readFileSync(join(root, 'landed.txt'), 'utf8')).toBe('from the branch\n');
+  });
+
+  it('says nothing when the worktree has its hooks', () => {
+    const { root, tree } = checkoutWithWorktree();
+    mkdirSync(join(tree, '.husky/_'), { recursive: true });
+
+    const { status, output } = land(root, 'audit/thing');
+
+    expect(status).toBe(0);
+    expect(output).not.toContain('npm run prepare');
+  });
+
+  it('says nothing when no worktree has the branch checked out', () => {
+    const root = checkoutWithBranch();
+
+    const { output } = land(root, 'audit/thing');
+
+    expect(output).not.toContain('npm run prepare');
   });
 });

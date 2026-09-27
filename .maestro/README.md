@@ -251,19 +251,19 @@ locked and every later step then fails on a missing `control-pause`.
 
 ## CI Integration
 
-E2E tests run in `.github/workflows/e2e-gate.yml` (pull requests) and
-`.github/workflows/e2e.yml` (dispatch and nightly):
+E2E tests run in `.github/workflows/e2e-gate.yml` (after every push to main)
+and `.github/workflows/e2e.yml` (dispatch, and a weekly Android sweep):
 
-- **Pull requests**: tier0 + tier1, excluding `flaky`, retried once. The
+- **Every push to main**: tier0 + tier1, excluding `flaky`, retried once. The
   quarantined `flaky` flows run in the same job as a non-blocking check.
-- **Pull requests touching a map surface**: the `pack-map` flows run in an
+- **Pushes touching a map surface**: the `pack-map` flows run in an
   extra job, gated on changes under `src/features/maps/**`,
   `src/features/routes/components/*Map*` and
   `src/features/recording/components/RecordingMap.tsx`. They are slow and
-  GPU-sensitive, so unrelated pull requests do not pay for them.
-- **Nightly / manual dispatch**: heavier tiers.
+  GPU-sensitive, so unrelated pushes do not pay for them.
+- **Weekly / manual dispatch**: heavier tiers. iOS runs only by dispatch.
 
-Both PR jobs share the APK built by `build-android-dev`, and both run on
+Both gate jobs share the APK built by `build-android-dev`, and both run on
 hosted Ubuntu with KVM. Hosted macOS is a nested VM with no hardware
 acceleration, so the emulator never boots there.
 

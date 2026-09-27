@@ -78,10 +78,28 @@ export interface MergeTargets {
 function rustTestName(path: string): string | null {
   if (!path.startsWith(RUST_TEST_DIR) || !path.endsWith('.rs')) return null;
   const rest = path.slice(RUST_TEST_DIR.length);
-  // A helper module under `tests/` belongs to whichever suite includes it, so
-  // it names no target of its own.
-  if (rest.includes('/')) return null;
-  return rest.slice(0, -'.rs'.length);
+  if (!rest.includes('/')) return rest.slice(0, -'.rs'.length);
+  // A directory holding a `main.rs` is one suite, named after the directory,
+  // and every module in it belongs to that suite. Any other helper module
+  // belongs to whichever suite includes it, so it names no target of its own.
+  const dir = rest.slice(0, rest.indexOf('/'));
+  return suiteDirectories().has(dir) ? dir : null;
+}
+
+/** The directories under `tests/` that cargo builds as a suite of their own. */
+let suiteDirCache: Set<string> | null = null;
+function suiteDirectories(): Set<string> {
+  if (suiteDirCache === null) {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const tests = path.join(__dirname, '../..', RUST_TEST_DIR);
+    suiteDirCache = new Set(
+      (fs.readdirSync(tests, { withFileTypes: true }) as { name: string; isDirectory(): boolean }[])
+        .filter((e) => e.isDirectory() && fs.existsSync(path.join(tests, e.name, 'main.rs')))
+        .map((e) => e.name)
+    );
+  }
+  return suiteDirCache;
 }
 
 /**
@@ -174,8 +192,13 @@ export function mergeTestCommands(targets: MergeTargets): string[] {
   if (cargo.length > 1) {
     commands.push(`cargo test --manifest-path ${CRATE}Cargo.toml -p veloqrs ${cargo.join(' ')}`);
   }
+  // tracematch gates `fold_resume` and its other synthetic suites the same way,
+  // but a run that names no `--test` skips them quietly rather than refusing,
+  // so without the feature the gate passes with those suites never built.
   if (targets.tracematchLib) {
-    commands.push(`cargo test --manifest-path ${TRACEMATCH}/Cargo.toml -p tracematch`);
+    commands.push(
+      `cargo test --manifest-path ${TRACEMATCH}/Cargo.toml -p tracematch --features ${MERGE_FEATURE}`
+    );
   }
   if (targets.typescript.length > 0) {
     commands.push(

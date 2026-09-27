@@ -18,8 +18,8 @@
 //! - ID SCHEME. Routes mint a DETERMINISTIC ordinal `r_<n>`, not the sections'
 //!   `s_<ts>__<rand>`. The route snapshot's signature is id-INCLUDED (a cold
 //!   group's representative is already the deterministic sorted-min member), so a
-//!   deterministic id makes the whole route catalogue byte-stable across two runs
-//!  , the double-run determinism routes are held to. A ts+rand id could not.
+//!   deterministic id makes the whole route catalogue byte-stable across two runs,
+//!   the double-run determinism routes are held to. A ts+rand id could not.
 //!   Minted in sorted-member order so the assignment does not depend on the
 //!   grouping HashMap's iteration order. Per-device ids need no global uniqueness;
 //!   reseed adopts existing ids and continues the counter past them.
@@ -294,10 +294,10 @@ impl RouteIdentity {
         // A carry is confirmed only where the two nominations agree.
         let mut carrier_of: Vec<Option<usize>> = vec![None; nc];
         for (i, &pick) in prior_pick.iter().enumerate() {
-            if let Some(j) = pick {
-                if cand_pick[j] == Some(i) {
-                    carrier_of[j] = Some(i);
-                }
+            if let Some(j) = pick
+                && cand_pick[j] == Some(i)
+            {
+                carrier_of[j] = Some(i);
             }
         }
 

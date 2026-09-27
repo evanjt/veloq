@@ -16,7 +16,7 @@
 # minutes, and it is a fast-forward, so it lands over an index another session
 # has staged as long as the two do not touch the same file. A fast-forward
 # runs `post-merge`, which runs the same battery and reports after the ref has
-# moved (S30), so nothing is skipped.
+# moved, so nothing is skipped.
 #
 # Never wrap this in the commit lock. `merge-gates.sh` takes that lock itself
 # and a flock is held per open file description, so the gates would block on
@@ -38,6 +38,39 @@ fi
 if [ "$BRANCH" = "$TARGET" ]; then
   echo "land-branch: $BRANCH is the branch you are on" >&2
   exit 2
+fi
+
+# Another session's merge stopped on a conflict leaves `MERGE_HEAD`, and git
+# refuses every merge in the checkout until it is concluded. Retrying cannot
+# get past it, and the retries used to run for seventeen minutes and end by
+# blaming the target moving, which pointed the lander at a merge that is not
+# theirs to finish or abort.
+refuse_merge_in_progress() {
+  local merge_head
+  merge_head="$(git -C "$CHECKOUT" rev-parse --absolute-git-dir)/MERGE_HEAD"
+  [ -e "$merge_head" ] || return 0
+  local modified age
+  modified=$(stat -c %Y "$merge_head" 2>/dev/null || stat -f %m "$merge_head")
+  age=$(( $(date +%s) - modified ))
+  if [ "$age" -lt 120 ]; then age="$age s"; else age="$((age / 60)) min"; fi
+  echo "land-branch: $CHECKOUT has a merge in progress, and git refuses to land anything over it." >&2
+  echo "land-branch: MERGE_HEAD is $age old and names:" >&2
+  echo "land-branch:   $(git -C "$CHECKOUT" log --oneline -1 "$(cat "$merge_head")")" >&2
+  echo "land-branch: it is not this session's to finish or abort. Wait for its owner to" >&2
+  echo "land-branch: conclude it, then land again." >&2
+  exit 1
+}
+refuse_merge_in_progress
+
+# A worktree's hooks live in `.husky/_`, which is git-ignored and made only by
+# `npm run prepare`, so a tree where that never ran commits with no gates at
+# all. Landing is the one step every branch passes, so the lander hears it here.
+# A warning, not a refusal: the merge battery still runs on the landed tree.
+branch_tree=$(git -C "$CHECKOUT" worktree list --porcelain |
+  awk -v ref="branch refs/heads/$BRANCH" '/^worktree /{tree = substr($0, 10)} $0 == ref {print tree}')
+if [ -n "$branch_tree" ] && [ ! -d "$branch_tree/.husky/_" ]; then
+  echo "land-branch: warning: $branch_tree has no .husky/_, so the commits made there ran no gates." >&2
+  echo "land-branch: run 'npm run prepare' in that tree before committing there again." >&2
 fi
 
 # How long to keep trying the fast-forward while other sessions move the ref.
@@ -78,7 +111,7 @@ MERGE=$(git -C "$STAGING" rev-parse --short HEAD)
 # clearing it in a minute and the fleet hunting the holder for an hour.
 report_stranded_index() {
   git -C "$CHECKOUT" diff --cached --quiet && return 0
-  [ -e "$(git -C "$CHECKOUT" rev-parse --git-dir)/MERGE_HEAD" ] && return 0
+  [ -e "$(git -C "$CHECKOUT" rev-parse --absolute-git-dir)/MERGE_HEAD" ] && return 0
   echo "land-branch: $CHECKOUT holds a staged tree with no merge in progress." >&2
   echo "land-branch: a merge lost its ref race and left this behind:" >&2
   git -C "$CHECKOUT" diff --cached --name-only | sed 's/^/land-branch:   /' >&2
@@ -100,6 +133,7 @@ while [ "$attempt" -le "$ATTEMPTS" ]; do
     echo "landed $BRANCH at $MERGE, $TARGET now $(git -C "$CHECKOUT" rev-parse --short HEAD)"
     exit 0
   fi
+  refuse_merge_in_progress
   report_stranded_index
   attempt=$((attempt + 1))
   [ "$SLEEP" = "0" ] || sleep "$SLEEP"

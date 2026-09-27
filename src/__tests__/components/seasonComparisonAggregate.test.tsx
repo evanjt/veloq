@@ -13,6 +13,7 @@ import React from 'react';
 
 import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
 import { getEngine } from '@/shared/native/engine';
+import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -81,5 +82,20 @@ describe('SeasonComparison', () => {
     expect(new Date(startTs * 1000).getUTCFullYear()).toBe(YEAR - 1);
     expect(new Date(startTs * 1000).getUTCMonth()).toBe(0);
     expect(endTs).toBeGreaterThanOrEqual(Math.floor(Date.now() / 1000) - 86400);
+  });
+});
+
+describe.each(CLOCK_EDGES)('SeasonComparison on %s', (_name, at) => {
+  beforeEach(() => jest.setSystemTime(at));
+
+  it('asks for 1 January last year through the end of today, by the local calendar', async () => {
+    render(<SeasonComparison />, { wrapper });
+
+    await waitFor(() => expect(engine.getMonthlyStats).toHaveBeenCalled());
+    const [startTs, endTs] = engine.getMonthlyStats.mock.calls[0] as unknown as [number, number];
+    expect(new Date(startTs * 1000).toISOString()).toBe(
+      `${at.getFullYear() - 1}-01-01T00:00:00.000Z`
+    );
+    expect(new Date(endTs * 1000).toISOString()).toBe(`${localDay(at)}T23:59:59.000Z`);
   });
 });

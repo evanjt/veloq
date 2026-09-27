@@ -27,9 +27,9 @@ interface SectionsListHeaderProps {
   /** Why the engine is refusing to detect, or null when it is not. */
   detectionHold: DetectionHold;
   /** The elevation download this page reports for the length of the migration. */
-  elevationBackfill?: ElevationBackfillState;
+  elevationBackfill?: ElevationBackfillState | undefined;
   /** How the engine answered the last rescan, when it refused it. */
-  rescanRefusal?: StartOutcome | null;
+  rescanRefusal?: StartOutcome | null | undefined;
   onAcceptAll: () => void;
   onRescan: () => void;
 }

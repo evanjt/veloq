@@ -1,7 +1,6 @@
 //! ML-driven section relevance ranking.
 
 use chrono::Utc;
-use std::collections::HashMap;
 
 use super::super::PersistentEngine;
 
@@ -109,12 +108,6 @@ impl PersistentEngine {
         pooled::ranked_sections_by_sports(&self.db, sport_types, limit, &names)
     }
 
-    /// Every traversal the ranking scores, grouped by the sport it was ridden
-    /// as. One statement, whatever the athlete's sports.
-    fn traversals_by_sport(&self) -> HashMap<String, Vec<TraversalRow>> {
-        pooled::traversals_by_sport(&self.db)
-    }
-
     fn ranked_sections(
         &self,
         sport_type: &str,
@@ -130,21 +123,6 @@ impl PersistentEngine {
             last_traversal_at_or_before,
             &names,
         )
-    }
-
-    /// One sport's traversals, scored and cut to `limit`.
-    ///
-    /// Separate from the read because the insights bundle takes every sport's
-    /// rows out of one query and scores each sport's share: the ranking is
-    /// per sport, the scan does not have to be.
-    fn score_traversals(
-        &self,
-        rows: Vec<TraversalRow>,
-        limit: u32,
-    ) -> Vec<crate::FfiRankedSection> {
-        self.ensure_named_overlay();
-        let names = self.named_overlay_cached_names();
-        pooled::score_traversals(rows, limit, &names)
     }
 
     /// Workout-section list for the home screen. Composes `get_ranked_sections`
@@ -178,7 +156,7 @@ impl PersistentEngine {
             .into_iter()
             .filter(|s| s.activity_count >= 5)
             .collect();
-        summaries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
+        summaries.sort_by_key(|b| std::cmp::Reverse(b.visit_count));
         summaries.truncate(limit as usize);
 
         summaries
@@ -235,7 +213,7 @@ fn enrich_from_ranked(
     });
 
     let mut sorted: Vec<_> = perf.records.clone();
-    sorted.sort_by(|a, b| b.activity_date.cmp(&a.activity_date));
+    sorted.sort_by_key(|b| std::cmp::Reverse(b.activity_date));
     let last_time_secs = sorted.first().map(|r| r.best_time);
     let days_since_last = sorted.first().map(|r| days_since_epoch(r.activity_date));
 
@@ -279,7 +257,7 @@ fn enrich_from_summary(
     });
 
     let mut sorted = perf.records.clone();
-    sorted.sort_by(|a, b| b.activity_date.cmp(&a.activity_date));
+    sorted.sort_by_key(|b| std::cmp::Reverse(b.activity_date));
     let last_time_secs = sorted.first().map(|r| r.best_time);
     let days_since_last = sorted.first().map(|r| days_since_epoch(r.activity_date));
 
@@ -1030,7 +1008,7 @@ pub(crate) mod pooled {
     }
 
     /// Every non-excluded traversal, grouped by the activity's sport.
-    pub(crate) fn traversals_by_sport(conn: &Connection) -> HashMap<String, Vec<TraversalRow>> {
+    pub(super) fn traversals_by_sport(conn: &Connection) -> HashMap<String, Vec<TraversalRow>> {
         let sql = format!(
             "{}{} ORDER BY s.id, am.date ASC",
             TRAVERSALS_BY_SPORT,
@@ -1068,14 +1046,18 @@ pub(crate) mod pooled {
         by_sport
     }
 
-    /// The scoring itself, with the corridor names handed in: the engine reads
-    /// them off its overlay and a pooled caller off the intent rows, and
-    /// neither belongs in here.
     /// Traversals a ranked section carries for its card's graphic. Enough to
     /// read a direction off a strip, and far short of a library of laps.
     const SECTION_HISTORY_POINTS: u32 = 20;
 
-    pub(crate) fn score_traversals(
+    /// The scoring itself, with the corridor names handed in: the engine reads
+    /// them off its overlay and a pooled caller off the intent rows, and
+    /// neither belongs in here.
+    ///
+    /// Separate from the read because the insights bundle takes every sport's
+    /// rows out of one query and scores each sport's share: the ranking is
+    /// per sport, the scan does not have to be.
+    pub(super) fn score_traversals(
         rows: Vec<TraversalRow>,
         limit: u32,
         names: &BTreeMap<String, String>,

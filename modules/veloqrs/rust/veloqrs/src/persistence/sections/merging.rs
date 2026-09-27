@@ -70,34 +70,34 @@ impl PersistentEngine {
             )
             .ok();
 
-        if primary_name.is_none() {
-            if let Ok(Some(sec_name)) = tx.query_row(
+        if primary_name.is_none()
+            && let Ok(Some(sec_name)) = tx.query_row(
                 "SELECT name FROM sections WHERE id = ?",
                 rusqlite::params![secondary_id],
                 |row| row.get::<_, Option<String>>(0),
-            ) {
-                let section_word = get_section_word();
-                // Check if it's NOT auto-generated
-                let is_auto = [
-                    "Ride",
-                    "Run",
-                    "Hike",
-                    "Walk",
-                    "Swim",
-                    "VirtualRide",
-                    "VirtualRun",
-                ]
-                .iter()
-                .any(|sport| {
-                    let prefix = format!("{} {} ", sport, section_word);
-                    sec_name.starts_with(&prefix) && sec_name[prefix.len()..].parse::<u32>().is_ok()
-                });
-                if !is_auto {
-                    tx.execute(
-                        "UPDATE sections SET name = ? WHERE id = ?",
-                        rusqlite::params![&sec_name, primary_id],
-                    )?;
-                }
+            )
+        {
+            let section_word = get_section_word();
+            // Check if it's NOT auto-generated
+            let is_auto = [
+                "Ride",
+                "Run",
+                "Hike",
+                "Walk",
+                "Swim",
+                "VirtualRide",
+                "VirtualRun",
+            ]
+            .iter()
+            .any(|sport| {
+                let prefix = format!("{} {} ", sport, section_word);
+                sec_name.starts_with(&prefix) && sec_name[prefix.len()..].parse::<u32>().is_ok()
+            });
+            if !is_auto {
+                tx.execute(
+                    "UPDATE sections SET name = ? WHERE id = ?",
+                    rusqlite::params![&sec_name, primary_id],
+                )?;
             }
         }
 

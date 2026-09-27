@@ -18,10 +18,10 @@ interface Curve {
   distances: number[];
   times: number[];
   pace: number[];
-  criticalSpeed?: number;
-  dPrime?: number;
-  r2?: number;
-  days?: number;
+  criticalSpeed?: number | undefined;
+  dPrime?: number | undefined;
+  r2?: number | undefined;
+  days?: number | undefined;
 }
 
 // 3.333 m/s is 5:00/km, which is what the legend has to read.

@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { useMetricSystem } from '@/shared/app';
 import { DetailHero, HeroNameRow, HeroStatsRow, useHeroMapHeight } from '@/shared/ui';
 import { SectionMapView } from '../SectionMapView';
+import type { NearbyPolyline } from '../useSectionMapLayers';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { formatDistance, formatElevation } from '@/shared/format/format';
 import { sectionElevation } from '@/features/routes/lib/sectionElevation';
@@ -27,38 +28,31 @@ function heartRateChip(hr: SectionHeartRate, label: string): string {
 
 export interface SectionHeaderProps {
   section: FrequentSection;
-  mapHeight?: number;
+  mapHeight?: number | undefined;
   insetTop: number;
   activityColor: string;
   iconName: MaterialIconName;
   activityCount: number;
   /** Mean heart rate across the laps that carried one, with its coverage. */
-  avgHr?: SectionHeartRate | null;
+  avgHr?: SectionHeartRate | null | undefined;
   mapReady: boolean;
   isTrimming: boolean;
   isExpandMode: boolean;
   trimStart: number;
   trimEnd: number;
-  expandContextPoints?: RoutePoint[] | null;
+  expandContextPoints?: RoutePoint[] | null | undefined;
   isEditing: boolean;
   editName: string;
   customName: string | null;
   nameInputRef: React.RefObject<TextInput | null>;
-  shadowTrack?: [number, number][];
+  shadowTrack?: [number, number][] | undefined;
   highlightedActivityId: string | null;
-  highlightedLapPoints?: RoutePoint[];
-  allActivityTraces?: Record<string, RoutePoint[]>;
-  nearbyPolylines?: {
-    id: string;
-    name?: string;
-    sportType: string;
-    distanceMeters: number;
-    visitCount: number;
-    encodedPolyline: ArrayBuffer;
-  }[];
-  onNearbyPress?: (sectionId: string) => void;
+  highlightedLapPoints?: RoutePoint[] | undefined;
+  allActivityTraces?: Record<string, RoutePoint[]> | undefined;
+  nearbyPolylines?: NearbyPolyline[] | undefined;
+  onNearbyPress?: ((sectionId: string) => void) | undefined;
   /** Take the detector's lift flag off. Absent leaves the badge inert. */
-  onUnflagLift?: () => void;
+  onUnflagLift?: (() => void) | undefined;
   onBack: () => void;
   onStartEditing: () => void;
   onSaveName: () => void;

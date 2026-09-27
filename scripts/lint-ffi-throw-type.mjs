@@ -3,14 +3,14 @@
 //
 // `uniffi_bindgen` renders a throw type only when it is an enum, an object, or
 // a custom type wrapping one. Anything else panics the generator
-// (`uniffi_bindgen-0.31.0/src/interface/mod.rs:1338`, "unknown throw type"),
+// (`uniffi_bindgen` 0.31.0, `src/interface/mod.rs`, "unknown throw type"),
 // which writes no bindings and leaves the committed ones in place.
 //
 // Nothing else catches it. The generator is not run by any gate, `cargo build`
-// is happy, and `npm run ffi:manifest` reads the committed manifest rather than
-// the library, so the tree compiles, tests pass and the app starts. The cost
-// lands on whoever next changes the FFI surface and cannot regenerate: that was
-// `B707`, three commits later.
+// is happy, and the binding tests read the Rust source rather than the
+// library, so the tree compiles, tests pass and the app starts. The cost
+// lands on whoever next changes the FFI surface and cannot regenerate, which
+// happened three commits after the first one landed.
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';

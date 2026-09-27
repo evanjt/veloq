@@ -40,7 +40,11 @@ interface Editing {
   text: string;
 }
 
-export function GroupingParamPanel({ params, onChange, disabled }: GroupingParamPanelProps) {
+export function GroupingParamPanel({
+  params,
+  onChange,
+  disabled = false,
+}: GroupingParamPanelProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const surface = isDark ? darkColors.surface : colors.surface;
@@ -113,7 +117,7 @@ function ParamRow({
   onChange,
   onEdit,
   isDark,
-  disabled,
+  disabled = false,
 }: {
   paramKey: GroupingParamKey;
   label: string;

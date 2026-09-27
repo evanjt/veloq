@@ -60,7 +60,7 @@ export interface OAuthTokenResponse {
   scope: string;
   athlete_id: string;
   athlete_name: string;
-  state?: string;
+  state?: string | undefined;
 }
 
 export function isOAuthConfigured(): boolean {
@@ -172,10 +172,10 @@ export async function startOAuthFlow(
  */
 export interface OAuthCallback {
   /** The one-time code, redeemed over HTTPS by `redeemCallback`. */
-  code?: string;
+  code?: string | undefined;
   /** The token, when the proxy put it in the URL. */
-  token?: OAuthTokenResponse;
-  state?: string;
+  token?: OAuthTokenResponse | undefined;
+  state?: string | undefined;
 }
 
 /**

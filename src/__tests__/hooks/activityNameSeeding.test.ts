@@ -10,11 +10,7 @@ import { act, renderHook } from '@testing-library/react-native';
 
 import { useActivityNameGeneration } from '@/features/recording/hooks/useActivityNameGeneration';
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, fallback?: string) => fallback ?? key,
-  }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey());
 
 describe('the recording name', () => {
   /** Every value the hook returned, in render order. */

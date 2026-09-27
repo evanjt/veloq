@@ -18,9 +18,9 @@ export interface AwaitTimeStreamsOptions {
   /** Give up after this long, whatever is still outstanding. */
   timeoutMs: number;
   /** Ends the wait early, for a caller that has gone away. */
-  signal?: AbortSignal;
+  signal?: AbortSignal | undefined;
   /** How many are still outstanding, called as each announcement lands. */
-  onProgress?: (remaining: number) => void;
+  onProgress?: ((remaining: number) => void) | undefined;
 }
 
 /** Resolves with how many of `activityIds` were still outstanding at the end. */

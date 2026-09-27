@@ -16,9 +16,7 @@ import { render } from '@testing-library/react-native';
 import { PreviewParamPanel } from '@/features/routes/components/preview/PreviewParamPanel';
 import { layout } from '@/theme';
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 

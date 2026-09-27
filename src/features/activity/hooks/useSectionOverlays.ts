@@ -25,7 +25,7 @@ interface DirectionAwareSectionOverlay extends SectionOverlay {
   /** Sort tie-breaker when nearest track index is the same */
   sortOrder: number;
   /** Direction used to keep forward and reverse rows distinct */
-  encounterDirection?: string;
+  encounterDirection?: string | undefined;
 }
 
 function makeSectionOverlayKey(sectionId: string, direction?: string): string {

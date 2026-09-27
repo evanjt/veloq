@@ -40,7 +40,7 @@ interface UseSectionActionsArgs {
    */
   onSectionRefresh: () => void;
   /** Exclusions a caller already read, so this hook skips its own FFI call. */
-  preComputedExcludedActivityIds?: string[];
+  preComputedExcludedActivityIds?: string[] | undefined;
   /**
    * Refresh signal owned by the container. Re-reads excluded activity ids
    * from the engine whenever this value changes (so external mutations via

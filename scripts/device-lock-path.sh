@@ -21,7 +21,7 @@ _veloq_lock_dir="/tmp/claude-$(id -u)"
 # and the serial is chosen inside, by `adb -s`, by an `ANDROID_SERIAL` the
 # inner shell exports, or by Maestro's `--device`; then `adb` never refuses.
 # On 2026-09-19 a session drove the test handset for an hour holding the other handset's lock,
-# because `adb devices` happened to list the other handset first (`B1176`). So the
+# because `adb devices` happened to list the other handset first. So the
 # ambiguity is reported and the takers refuse.
 _veloq_serial="${ANDROID_SERIAL:-}"
 VELOQ_DEVICE_LOCK_AMBIGUOUS=""
@@ -37,8 +37,8 @@ fi
 # The serial itself, unsanitised, for a caller that has to name the handset to
 # something other than `adb`. Maestro is that caller: it chooses a transport
 # itself when it is not told, so the lock being right does not make the run
-# right, and on 2026-09-20 a session locked the test handset and drove the other handset
-# (`B1208`). Empty when nothing is attached, since there is nothing to name.
+# right, and on 2026-09-20 a session locked the test handset and drove the other handset.
+# Empty when nothing is attached, since there is nothing to name.
 VELOQ_DEVICE_SERIAL="$_veloq_serial"
 export VELOQ_DEVICE_SERIAL
 

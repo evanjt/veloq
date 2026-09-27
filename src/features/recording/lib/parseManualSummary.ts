@@ -1,7 +1,7 @@
 export interface ManualSummaryParams {
-  durationSeconds?: string;
-  distance?: string;
-  avgHr?: string;
+  durationSeconds?: string | undefined;
+  distance?: string | undefined;
+  avgHr?: string | undefined;
 }
 
 export interface ManualSummary {

@@ -1,6 +1,7 @@
 import { renderHook } from '@testing-library/react-native';
 import { useTodayWorkout } from '@/features/home/hooks/useTodayWorkout';
 import { getEngine } from '@/shared/native/engine';
+import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
 
 /**
  * Scenario: the planned-workout banner asked the calendar for today and
@@ -29,6 +30,7 @@ jest.mock('@/shared/native/engineBodies', () => ({
 const readWindows: [number, number][] = [];
 
 jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
   useQuery: ({ queryFn }: { queryFn: () => unknown }) => ({
     data: queryFn(),
     isLoading: false,
@@ -82,6 +84,23 @@ describe('the planned-workout window', () => {
   });
 
   it('still picks today and tomorrow out of the wider window', () => {
+    const { result } = renderHook(() => useTodayWorkout());
+
+    expect(result.current.todayWorkout?.name).toBe('today');
+    expect(result.current.tomorrowWorkout?.name).toBe('tomorrow');
+  });
+});
+
+describe.each(CLOCK_EDGES)('the planned-workout window on %s', (_name, at) => {
+  beforeEach(() => jest.setSystemTime(at));
+
+  it('asks for today through fourteen days on, by the local calendar', () => {
+    renderHook(() => useTodayWorkout());
+
+    expect(syncCalendarEvents).toHaveBeenCalledWith(localDay(at), localDay(at, 14));
+  });
+
+  it('still picks today and tomorrow out of the window', () => {
     const { result } = renderHook(() => useTodayWorkout());
 
     expect(result.current.todayWorkout?.name).toBe('today');

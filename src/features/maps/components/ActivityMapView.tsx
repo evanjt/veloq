@@ -68,15 +68,15 @@ export interface SectionOverlay {
   /** Section's consensus polyline */
   sectionPolyline: LatLng[];
   /** Activity's trace portion that overlaps with this section */
-  activityPortion?: LatLng[];
+  activityPortion?: LatLng[] | undefined;
   /** Whether the current activity holds the PR for this section */
-  isPR?: boolean;
+  isPR?: boolean | undefined;
   /** Stable map identity for direction-aware overlays */
-  overlayKey?: string;
+  overlayKey?: string | undefined;
   /** Tie-breaker for equal track order */
-  sortOrder?: number;
+  sortOrder?: number | undefined;
   /** Optional encounter direction label for dual-direction sections */
-  encounterDirection?: string;
+  encounterDirection?: string | undefined;
 }
 
 // Re-export SectionCreationError for consumers
@@ -95,50 +95,50 @@ export interface SectionCreationResult {
 }
 
 interface ActivityMapViewProps {
-  coordinates?: LatLng[];
+  coordinates?: LatLng[] | undefined;
   activityType: ActivityType;
   /** Activity ID - used to resolve per-activity map style overrides */
-  activityId?: string;
-  height?: number;
-  showStyleToggle?: boolean;
+  activityId?: string | undefined;
+  height?: number | undefined;
+  showStyleToggle?: boolean | undefined;
   /** Show map attribution (default: true) */
-  showAttribution?: boolean;
-  initialStyle?: MapStyleType;
+  showAttribution?: boolean | undefined;
+  initialStyle?: MapStyleType | undefined;
   /** Index into coordinates array to highlight (from elevation chart) */
-  highlightIndex?: number | null;
+  highlightIndex?: number | null | undefined;
   /** Enable fullscreen on tap */
-  enableFullscreen?: boolean;
+  enableFullscreen?: boolean | undefined;
   /** Called when 3D mode is toggled - parent can disable scroll */
-  on3DModeChange?: (is3D: boolean) => void;
+  on3DModeChange?: ((is3D: boolean) => void) | undefined;
   /** Called when map style changes - parent can update attribution */
-  onStyleChange?: (style: MapStyleType) => void;
+  onStyleChange?: ((style: MapStyleType) => void) | undefined;
   /** Called when attribution text changes (due to style or viewport change) */
-  onAttributionChange?: (attribution: string) => void;
+  onAttributionChange?: ((attribution: string) => void) | undefined;
   /** Measured height the attribution pill claims, so a parent drawing in the
    *  same corner can pad itself clear of however many rows it wraps to. */
-  onAttributionClearanceChange?: (clearance: number) => void;
+  onAttributionClearanceChange?: ((clearance: number) => void) | undefined;
   /** Enable section creation mode */
-  creationMode?: boolean;
+  creationMode?: boolean | undefined;
   /** Current section creation state (parent-controlled) */
-  creationState?: CreationState;
+  creationState?: CreationState | undefined;
   /** Error details for section creation */
-  creationError?: SectionCreationError | null;
+  creationError?: SectionCreationError | null | undefined;
   /** Called when a section is created */
-  onSectionCreated?: (result: SectionCreationResult) => void;
+  onSectionCreated?: ((result: SectionCreationResult) => void) | undefined;
   /** Called when section creation is cancelled */
-  onCreationCancelled?: () => void;
+  onCreationCancelled?: (() => void) | undefined;
   /** Called to dismiss error and retry */
-  onCreationErrorDismiss?: () => void;
+  onCreationErrorDismiss?: (() => void) | undefined;
   /** Route overlay coordinates to show (e.g., matched route trace) */
-  routeOverlay?: LatLng[] | null;
+  routeOverlay?: LatLng[] | null | undefined;
   /** Section overlays for sections tab - all matched sections with activity portions */
-  sectionOverlays?: SectionOverlay[] | null;
+  sectionOverlays?: SectionOverlay[] | null | undefined;
   /** Active tab - controls section line color and legend visibility */
-  activeTab?: string;
+  activeTab?: string | undefined;
   /** Section ID to highlight (dims other sections when set) */
-  highlightedSectionId?: string | null;
+  highlightedSectionId?: string | null | undefined;
   /** Called when a section marker is tapped on the map */
-  onSectionMarkerPress?: (sectionId: string) => void;
+  onSectionMarkerPress?: ((sectionId: string) => void) | undefined;
   /** Called when user exits 3D mode with a custom camera position */
   onCameraCapture?: (camera: {
     center: [number, number];
@@ -154,9 +154,9 @@ interface ActivityMapViewProps {
     pitch: number;
   } | null;
   /** Activity country - used for demo mode satellite default on Swiss activities */
-  country?: string | null;
+  country?: string | null | undefined;
   /** Activity streams - required to compute per-point gradient coloring */
-  streams?: ActivityStreams | null;
+  streams?: ActivityStreams | null | undefined;
 }
 
 export const ActivityMapView = memo(function ActivityMapView({

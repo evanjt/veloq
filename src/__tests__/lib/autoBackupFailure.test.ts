@@ -33,6 +33,7 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   cacheDirectory: 'file:///cache/',
   getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 4096 }),
   deleteAsync: jest.fn().mockResolvedValue(undefined),

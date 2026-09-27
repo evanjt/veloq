@@ -6,6 +6,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { getEngine } from '@/shared/native/engine';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 export function lapKey(activityId: string, startIndex: number): string {
@@ -29,6 +30,7 @@ export function useSectionLaps(
   bundledLaps?: readonly { activityId: string; startIndex: number }[]
 ): SectionLaps {
   const [tick, setTick] = useState(0);
+  const readLaps = useEngineRead([], [refreshKey]);
   const excludedLaps = useMemo(() => {
     // An action bumps `tick`, and the bundle behind it has not been re-read,
     // so the hook goes back to the engine once the user moves a lap.
@@ -36,11 +38,11 @@ export function useSectionLaps(
       bundledLaps !== undefined && tick === 0
         ? bundledLaps
         : sectionId
-          ? getEngine()?.getExcludedSectionLaps(sectionId)
+          ? readLaps((engine) => engine.getExcludedSectionLaps(sectionId))
           : undefined;
     if (!laps) return new Set<string>();
     return new Set(laps.map((l) => lapKey(l.activityId, l.startIndex)));
-  }, [sectionId, refreshKey, tick, bundledLaps]);
+  }, [sectionId, readLaps, tick, bundledLaps]);
 
   const excludeLap = useCallback(
     (activityId: string, startIndex: number) => {

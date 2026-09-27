@@ -52,12 +52,14 @@ function write(root: string, files: Record<string, string>): void {
   }
 }
 
-function run(cwd: string): { status: number; output: string } {
+function run(cwd: string, base?: string): { status: number; output: string } {
+  const extra: Record<string, string> = { VELOQ_MERGE_FORMAT_REPO: REPO };
+  if (base) extra.VELOQ_MERGE_BASE = base;
   try {
     const output = execFileSync('sh', [SCRIPT], {
       cwd,
       encoding: 'utf8',
-      env: { ...gitFreeEnv(), VELOQ_MERGE_FORMAT_REPO: REPO },
+      env: { ...gitFreeEnv(), VELOQ_MERGE_BASE: undefined, ...extra },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     return { status: 0, output };
@@ -103,10 +105,84 @@ it('fails a staged file that is genuinely unformatted, and names it', () => {
   expect(output).toContain('src/b.ts');
 });
 
-it('passes when the merge stages nothing under src', () => {
+it('reads a staged path with a space in it as one file', () => {
+  const tidy = fixture({ 'src/a.ts': TIDY }, { 'src/two words.ts': TIDY });
+  expect(run(tidy).status).toBe(0);
+
+  const untidy = fixture({ 'src/a.ts': TIDY }, { 'src/two words.ts': UNTIDY });
+  const { status, output } = run(untidy);
+  expect(status).toBe(1);
+  expect(output).toContain('  src/two words.ts\n');
+});
+
+it('reads a staged path git would quote, one with a non-ASCII character', () => {
+  const root = fixture({ 'src/a.ts': TIDY }, { 'src/café.ts': UNTIDY });
+  const { status, output } = run(root);
+  expect(status).toBe(1);
+  expect(output).toContain('  src/café.ts\n');
+});
+
+it('passes a merge that stages nothing under src, before the ref moves', () => {
   const root = fixture({ 'src/a.ts': TIDY }, { 'docs/notes.md': '# notes\n' });
 
   expect(run(root).status).toBe(0);
+});
+
+/**
+ * Scenario: a fast-forward, which is every landing, runs the check from
+ * `post-merge` after HEAD has moved. The index then matches HEAD, so a staged
+ * diff is empty and an unformatted landed file passed unread.
+ *
+ * Expected behaviour: given the head the move started from, the check judges
+ * that range, reading each file out of HEAD.
+ */
+describe('after a fast-forward', () => {
+  /** A repository whose HEAD moved past `base` by one commit carrying `landed`. */
+  function landed(files: Record<string, string>): { root: string; base: string } {
+    const root = fixture({ 'src/a.ts': TIDY }, {});
+    const base = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: gitFreeEnv(),
+    }).trim();
+    write(root, files);
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '--no-verify', '-m', 'landed');
+    return { root, base };
+  }
+
+  it('names an unformatted file the landing carried, though nothing is staged', () => {
+    const { root, base } = landed({ 'src/b.ts': UNTIDY });
+
+    const { status, output } = run(root, base);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/b.ts');
+  });
+
+  it('passes a landing whose files are formatted', () => {
+    const { root, base } = landed({ 'src/b.ts': TIDY });
+
+    expect(run(root, base).status).toBe(0);
+  });
+
+  it('reads HEAD, not the disk, for a landed file edited again afterwards', () => {
+    const { root, base } = landed({ 'src/b.ts': TIDY });
+    write(root, { 'src/b.ts': UNTIDY });
+
+    expect(run(root, base).status).toBe(0);
+  });
+
+  it('does not blame another session for a file it has staged beside the landing', () => {
+    const { root, base } = landed({ 'src/b.ts': TIDY });
+    write(root, { 'src/neighbour.ts': UNTIDY });
+    git(root, 'add', 'src/neighbour.ts');
+
+    const { status, output } = run(root, base);
+
+    expect(status).toBe(0);
+    expect(output).not.toContain('neighbour.ts');
+  });
 });
 
 describe('the merge hook is the caller', () => {

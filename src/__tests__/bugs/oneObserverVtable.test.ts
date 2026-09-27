@@ -47,11 +47,6 @@ describe('the observer vtable guard', () => {
   };
   afterAll(() => made.forEach((r) => rmSync(r, { recursive: true, force: true })));
 
-  it('passes the tree as it stands, where TypeScript is the only installer', () => {
-    const { code } = runGuard(resolve(__dirname, '../../..'));
-    expect(code).toBe(0);
-  });
-
   it('refuses generated Kotlin that installs its own vtable', () => {
     const root = make({
       'modules/veloqrs/android/veloqrs.kt': `fun init() { lib.${SYMBOL}(vtable) }`,

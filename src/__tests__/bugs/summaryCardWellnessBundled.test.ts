@@ -42,8 +42,14 @@ const WELLNESS: EngineSummaryCardData['wellness'] = {
   // arrow points up against the number's own direction.
   rhrTrend: '↑',
   weight: 70.4,
-  weightTrend: undefined,
 };
+
+/** The bundle without the given readings, absent the way the engine leaves one out. */
+function withoutReadings(...keys: (keyof typeof WELLNESS)[]): typeof WELLNESS {
+  const copy = { ...WELLNESS };
+  for (const key of keys) delete copy[key];
+  return copy;
+}
 
 const CARD = {
   wellness: WELLNESS,
@@ -68,7 +74,7 @@ beforeEach(() => {
 
 /** The metric row the card draws for `label`, as the athlete reads it. */
 function metric(
-  metrics: { label: string; value: number | string; trend?: string }[],
+  metrics: { label: string; value: number | string; trend?: string | undefined }[],
   label: string
 ) {
   return metrics.find((m) => m.label === label);
@@ -106,13 +112,7 @@ describe('the feed card wellness numbers', () => {
 it('keeps missing wellness distinct from measured zero after activities arrive', () => {
   const missing = {
     ...CARD,
-    wellness: {
-      ...WELLNESS,
-      fitness: undefined,
-      fitnessTrend: undefined,
-      form: undefined,
-      formTrend: undefined,
-    },
+    wellness: withoutReadings('fitness', 'fitnessTrend', 'form', 'formTrend'),
   };
   const { result, rerender } = renderHook(
     ({ card }: { card: typeof CARD }) => useSummaryCardData(card, { awaitPrecomputed: true }),
@@ -136,13 +136,7 @@ it('withholds the form zone until a form reading arrives', () => {
         useSummaryCardData({ ...CARD, wellness }, { awaitPrecomputed: true }),
       {
         initialProps: {
-          wellness: {
-            ...WELLNESS,
-            fitness: undefined,
-            form: undefined,
-            fitnessTrend: undefined,
-            formTrend: undefined,
-          } as typeof WELLNESS,
+          wellness: withoutReadings('fitness', 'form', 'fitnessTrend', 'formTrend'),
         },
       }
     );

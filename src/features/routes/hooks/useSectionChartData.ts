@@ -28,7 +28,7 @@ interface UseSectionChartDataParams {
   sectionWithTraces: (FrequentSection & SectionWithTraces) | null;
   sectionTimeRange: SectionTimeRange;
   /** Optional sport filter for cross-sport sections. */
-  sportFilter?: string;
+  sportFilter?: string | undefined;
   /** Chart payload a caller already read, so this hook skips its own FFI call. */
   preComputedChart?: FfiSectionChartData | null;
 }
@@ -87,6 +87,9 @@ export function useSectionChartData({
     });
   }, [sectionActivitiesUnsorted, performanceRecordMap]);
 
+  // The fallback re-reads when `section` moves, and the screen's section is
+  // re-read with its bundle on every sections announcement, so that is the
+  // sync key without listing a value the body never reads.
   const rustChart = useMemo(() => {
     if (preComputedChart !== undefined) return preComputedChart;
     if (!section) return null;
@@ -98,7 +101,7 @@ export function useSectionChartData({
     } catch {
       return null;
     }
-  }, [section, sectionTimeRange, sportFilter, performanceRecords, preComputedChart]);
+  }, [section, sectionTimeRange, sportFilter, preComputedChart]);
 
   const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
     if (!rustChart) {

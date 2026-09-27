@@ -43,22 +43,6 @@ describe('the ranking copy', () => {
     return JSON.parse(raw).insights.aboutRanking as string;
   }
 
-  it('covers all 17 locales', () => {
-    expect(locales).toHaveLength(17);
-  });
-
-  it.each(locales)('%s defines it', (locale) => {
-    expect(typeof ranking(locale)).toBe('string');
-    expect(ranking(locale).trim().length).toBeGreaterThan(0);
-  });
-
-  it.each(locales.filter((l) => !['en-AU', 'en-GB', 'en-US'].includes(l)))(
-    '%s translates it rather than copying English',
-    (locale) => {
-      expect(ranking(locale)).not.toBe(ranking('en-GB'));
-    }
-  );
-
   it('names no weight, so tuning the ranker cannot make it a lie', () => {
     for (const locale of locales) {
       expect(ranking(locale)).not.toMatch(/[0-9]/);

@@ -20,7 +20,7 @@ interface RecordingGateProps {
    * while the scope answer is still on its way, where there is nothing to warn
    * about yet.
    */
-  onContinue?: () => void;
+  onContinue?: (() => void) | undefined;
   isUpgrading?: boolean;
   error?: string | null;
 }

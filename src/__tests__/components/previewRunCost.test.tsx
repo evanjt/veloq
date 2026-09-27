@@ -15,12 +15,7 @@ import { PreviewRunCost } from '@/features/routes/components/preview/PreviewRunC
 import type { PreviewResult } from '../../../modules/veloqrs/src/delegates/preview';
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, vars?: Record<string, unknown>) =>
-      vars ? `${key}:${JSON.stringify(vars)}` : key,
-  }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 
 const POOL: PreviewResult['pool'] = { activities: 214, empty: 0, unreadable: 0 };
 

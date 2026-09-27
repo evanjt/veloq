@@ -8,7 +8,7 @@ type FeatureOrCollection = GeoJSON.FeatureCollection | GeoJSON.Feature;
 
 export interface NearbyPolyline {
   id: string;
-  name?: string;
+  name?: string | undefined;
   sportType: string;
   distanceMeters: number;
   visitCount: number;
@@ -18,13 +18,13 @@ export interface NearbyPolyline {
 interface SectionMapLayersInput {
   section: FrequentSection;
   displayPoints: RoutePoint[];
-  shadowTrack?: [number, number][];
-  highlightedActivityId?: string | null;
-  highlightedLapPoints?: RoutePoint[];
-  allActivityTraces?: Record<string, RoutePoint[]>;
-  trimRange?: { start: number; end: number } | null;
-  extensionTrack?: RoutePoint[] | null;
-  nearbyPolylines?: NearbyPolyline[];
+  shadowTrack?: [number, number][] | undefined;
+  highlightedActivityId?: string | null | undefined;
+  highlightedLapPoints?: RoutePoint[] | undefined;
+  allActivityTraces?: Record<string, RoutePoint[]> | undefined;
+  trimRange?: { start: number; end: number } | null | undefined;
+  extensionTrack?: RoutePoint[] | null | undefined;
+  nearbyPolylines?: NearbyPolyline[] | undefined;
 }
 
 export interface SectionMapLayers {

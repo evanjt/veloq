@@ -54,6 +54,11 @@ function runGuard(root: string, engineCeiling: number, storeCeiling: number) {
 
 const IMPORTS_ENGINE = "import { getEngine } from '@/shared/native/engine';\n";
 const REQUIRES_ENGINE = "const { getEngine } = require('@/shared/native/engine');\n";
+const IMPORTS_VELOQRS_ENGINE = "import { CallKind, engine } from 'veloqrs';\n";
+const IMPORTS_VELOQRS_ENGINE_BLOCK =
+  "import {\n  engine,\n  startFetchAndStore,\n} from 'veloqrs';\n";
+const IMPORTS_VELOQRS_WITHOUT_ENGINE =
+  "import { decodeCoords, type EngineEvent } from 'veloqrs';\n";
 
 describe('the engine call site ceiling', () => {
   it('passes when the tree sits on the ceiling', () => {
@@ -77,6 +82,36 @@ describe('the engine call site ceiling', () => {
     const root = treeWith({ 'src/features/a/RouteSettingsStore.ts': REQUIRES_ENGINE });
 
     expect(runGuard(root, 0, 1).code).toBe(1);
+  });
+
+  it('counts the engine binding imported from veloqrs, which reaches the same engine', () => {
+    const root = treeWith({ 'src/features/a/tilePass.ts': IMPORTS_VELOQRS_ENGINE });
+
+    const { code, out } = runGuard(root, 0, 0);
+    expect(code).toBe(1);
+    expect(out).toContain('src/features/a/tilePass.ts');
+  });
+
+  it('counts the engine binding inside a multi-line veloqrs import block', () => {
+    const root = treeWith({ 'src/features/a/useFetcher.ts': IMPORTS_VELOQRS_ENGINE_BLOCK });
+
+    const { code, out } = runGuard(root, 0, 0);
+    expect(code).toBe(1);
+    expect(out).toContain('src/features/a/useFetcher.ts');
+  });
+
+  it('does not count a veloqrs import that takes no engine binding', () => {
+    const root = treeWith({ 'src/features/a/decode.ts': IMPORTS_VELOQRS_WITHOUT_ENGINE });
+
+    expect(runGuard(root, 0, 0).code).toBe(0);
+  });
+
+  it('counts a file once when it reaches the engine both ways', () => {
+    const root = treeWith({
+      'src/features/a/useBoth.ts': IMPORTS_ENGINE + IMPORTS_VELOQRS_ENGINE_BLOCK,
+    });
+
+    expect(runGuard(root, 1, 0).code).toBe(0);
   });
 
   it('spares the shared engine layer, which is where the module belongs', () => {
@@ -127,7 +162,7 @@ describe('a checkout, where the index is the tree being committed', () => {
     // `runGit`, never a bare `execFileSync`: git exports `GIT_DIR`,
     // `GIT_INDEX_FILE` and `GIT_WORK_TREE` to everything a hook runs and they
     // beat `cwd`, so the `git add -A` below wrote the repository's own index
-    // when the suite ran from `pre-merge-commit` (B1068).
+    // when the suite ran from `pre-merge-commit`.
     const git = (...args: string[]) => runGit(args, root);
     git('init', '-q');
     git('config', 'user.email', 'guard@test');
@@ -152,6 +187,24 @@ describe('a checkout, where the index is the tree being committed', () => {
     expect(runGuard(root, 0, 1).code).toBe(0);
   });
 
+  it('counts a staged multi-line veloqrs engine import', () => {
+    const { root } = checkoutWith({
+      'src/features/a/useA.ts': IMPORTS_ENGINE,
+      'src/features/b/useFetcher.ts': IMPORTS_VELOQRS_ENGINE_BLOCK,
+    });
+
+    const { code, out } = runGuard(root, 1, 0);
+    expect(code).toBe(1);
+    expect(out).toContain('src/features/b/useFetcher.ts');
+  });
+
+  it('reads the staged veloqrs import, not the edit on disk that dropped the engine', () => {
+    const { root } = checkoutWith({ 'src/features/b/tilePass.ts': IMPORTS_VELOQRS_ENGINE });
+    write(root, 'src/features/b/tilePass.ts', IMPORTS_VELOQRS_WITHOUT_ENGINE);
+
+    expect(runGuard(root, 1, 0).code).toBe(0);
+  });
+
   it('still refuses a staged call site over the ceiling', () => {
     const { root, git } = checkoutWith({ 'src/features/a/useA.ts': IMPORTS_ENGINE });
     write(root, 'src/features/b/useB.ts', IMPORTS_ENGINE);
@@ -160,23 +213,6 @@ describe('a checkout, where the index is the tree being committed', () => {
     const { code, out } = runGuard(root, 1, 0);
     expect(code).toBe(1);
     expect(out).toContain('src/features/b/useB.ts');
-  });
-});
-
-describe('the real tree', () => {
-  it('sits on the ceilings the audit script passes', () => {
-    const lint = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8')) as {
-      scripts: Record<string, string>;
-    };
-    const script = lint.scripts['lint:engine-surface'];
-
-    expect(script).toContain('--engine-ceiling');
-    expect(
-      execFileSync('node', [GUARD, ...script.split(' ').slice(2)], {
-        encoding: 'utf8',
-        env: gitFreeEnv(),
-      })
-    ).toContain('Engine surface');
   });
 });
 

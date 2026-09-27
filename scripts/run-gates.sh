@@ -2,7 +2,7 @@
 # Runs the named gates together and fails if any of them did.
 #
 # Each argument is `name:command`, the name up to the first colon so a command
-# may hold one, as `npm run lint:cached` does. Every gate runs at once, into a
+# may hold one, as `npm run audit:guards` does. Every gate runs at once, into a
 # log of its own, and the whole set is reported rather than the first failure:
 # the wait is paid once either way.
 #
@@ -18,17 +18,19 @@ set -u
 # `VELOQ_SKIP_GATES` names gates to leave out, space or comma separated.
 #
 # It exists because `tsc` in a worktree resolves `veloqrs` to the main checkout
-# and reports errors that are not in the tree being committed. The answer to
-# that was `--no-verify`, which skips the lint ratchet too, and warnings then
+# and reports errors that are not in the tree being committed, and `rusttests`
+# cannot build without the tracematch submodule most worktrees lack. The answer
+# to both was `--no-verify`, which skips the lint ratchet too, and warnings then
 # landed over the ceiling and failed the next session's merge rather than the
 # commit that made them. So one gate can be dropped by name and the rest still
 # run.
 #
-# `lint` is not in the allowlist on purpose: it carries the ceiling, and an
-# escape hatch that could skip it would be the hole this closes, renamed. A
-# name that is not skippable, or not a gate in this run at all, is refused
-# rather than ignored, because a skip nobody notices is how the ratchet drifts.
-SKIPPABLE="tsc test rustfmt audit"
+# `lint` is not in the allowlist on purpose: it holds the tree at zero
+# warnings, and an escape hatch that could skip it would be the hole this
+# closes, renamed. A name that is not skippable, or not a gate in this run at
+# all, is refused rather than ignored, because a skip nobody notices is how a
+# gate drifts.
+SKIPPABLE="tsc test rustfmt rusttests audit"
 
 # A worktree's `node_modules` is one symlink per entry of the main checkout's,
 # built once when the tree was made. A package the main checkout gained since

@@ -18,7 +18,6 @@ module.exports = [
       // Gradle's own output, including the HTML test report's bundled script,
       // which `npm run test:android` writes here.
       'modules/veloqrs/android/build/**',
-      'src/__tests__/bindings/ffi-exports.generated.ts',
       'src/features/maps/assets/*.generated.ts',
       'coverage/**',
       'dist/**',
@@ -140,12 +139,6 @@ module.exports = [
       sourceType: 'commonjs',
     },
     rules: { '@typescript-eslint/no-require-imports': 'off', 'no-console': 'off' },
-  },
-  {
-    // CLI tools under the native module. Console output is their product.
-    // `scripts/**` above resolves from this directory and never reaches them.
-    files: ['modules/veloqrs/scripts/**'],
-    rules: { 'no-console': 'off' },
   },
   {
     files: ['scripts/**/*.mjs'],

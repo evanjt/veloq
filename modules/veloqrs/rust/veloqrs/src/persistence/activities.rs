@@ -168,12 +168,12 @@ fn wipe_derived_catalogue(db: &rusqlite::Connection) -> SqlResult<usize> {
         [],
     )?;
     // An excluded match row is the athlete taking one attempt out of a route,
-    // and `persistence/tables.rs:99` declares it the record part of an
-    // otherwise derived table. The detector already holds this policy, "a
-    // carried id keeps them; only a dissolved route loses them"
-    // (`persistence/sections/detection.rs:446`), and `recompute_groups`
-    // snapshots and restores across its own delete
-    // (`persistence/routes.rs:870,1066`). This wipe was the one that did not,
+    // and the `activity_matches` entry in `persistence/tables.rs` declares it
+    // the record part of an otherwise derived table. The detector already holds
+    // this policy in `save_groups_txn`, "a carried id keeps them; only a
+    // dissolved route loses them", and `recompute_groups` in
+    // `persistence/routes.rs` snapshots and restores across its own delete.
+    // This wipe was the one that did not,
     // so a clear took every exclusion the athlete had made.
     //
     // The spared row outlives its group until the next regroup re-mints one.
@@ -409,8 +409,7 @@ pub(crate) mod pooled {
             return Vec::new();
         }
 
-        let placeholders = std::iter::repeat("?")
-            .take(ids.len())
+        let placeholders = std::iter::repeat_n("?", ids.len())
             .collect::<Vec<_>>()
             .join(",");
         let sql = format!(
@@ -1049,7 +1048,7 @@ impl PersistentEngine {
     /// Remove an activity.
     pub fn remove_activity(&mut self, id: &str) -> SqlResult<()> {
         // Capture bounds before removal for heatmap tile invalidation
-        let removed_bounds = self.activity_metadata.get(id).map(|m| m.bounds.clone());
+        let removed_bounds = self.activity_metadata.get(id).map(|m| m.bounds);
 
         // One transaction for the whole removal. The cascade, a visit_count
         // update per section the activity was in, the identity blob and the
@@ -1083,7 +1082,7 @@ impl PersistentEngine {
     /// activities would spawn two hundred threads, each overwriting the cancel
     /// token of the one before it. The caller sweeps once, at the end.
     pub fn remove_activity_deferred(&mut self, id: &str) -> SqlResult<Option<Bounds>> {
-        let removed_bounds = self.activity_metadata.get(id).map(|m| m.bounds.clone());
+        let removed_bounds = self.activity_metadata.get(id).map(|m| m.bounds);
 
         self.db.execute_batch("BEGIN IMMEDIATE")?;
         match self.remove_activity_rows(id) {
@@ -2946,8 +2945,8 @@ impl PersistentEngine {
 
         stmt.query_row(params![activity_id], |row| {
             let times_blob: Vec<u8> = row.get(0)?;
-            Ok(codec::deserialize(&times_blob)
-                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into()))?)
+            codec::deserialize(&times_blob)
+                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into()))
         })
         .ok()
     }
@@ -3558,7 +3557,7 @@ mod tests {
             "the caller gets the ground to sweep"
         );
         assert!(
-            engine.activity_metadata.get("gone").is_none(),
+            !engine.activity_metadata.contains_key("gone"),
             "and the rows are gone all the same"
         );
     }
@@ -4146,10 +4145,10 @@ mod statement_cache_tests {
                 column_name,
                 ..
             } = ctx.action
+                && table_name == table
+                && column_name == column
             {
-                if table_name == table && column_name == column {
-                    PREPARES.fetch_add(1, Ordering::Relaxed);
-                }
+                PREPARES.fetch_add(1, Ordering::Relaxed);
             }
             Authorization::Allow
         }));

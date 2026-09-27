@@ -23,6 +23,7 @@ import {
   OWNED_ELSEWHERE,
   areaOf,
   surfaceOverCeiling,
+  surfaceUnderCeiling,
   type AreaSurface,
   clientMethodReach,
   type Reach,
@@ -58,8 +59,8 @@ const FROM_INDEX = process.argv.includes('--check-areas');
  * The tracked sources, by path relative to the repository, or null off-index.
  *
  * The listing, the batch and the walk over it live in `lib/indexedSources.mjs`,
- * which four guards already share. Two copies of that walk meant `B1082`'s
- * defect, a gitlink's header carrying no size and read as a blob's, was fixed
+ * which four guards already share. Two copies of that walk meant one defect,
+ * a gitlink's header carrying no size and read as a blob's, was fixed
  * in one and left in the other, and a short read here fell back to the working
  * tree rather than saying so.
  */
@@ -71,7 +72,7 @@ function indexedSources(): Map<string, string> | null {
     // A root that is not a checkout has no index to read and falls back to the
     // disk below, which is what the fixtures rely on. A checkout whose read
     // failed part way is a different thing: say so rather than quietly mix the
-    // index with the working tree, which is `B922` by another route.
+    // index with the working tree, which judges a file nobody is committing.
     if (fs.existsSync(path.join(REPO, '.git'))) throw error;
     return null;
   }
@@ -214,7 +215,10 @@ function report(): UsageInfo[] {
         entry.files.push({
           file,
           line: line + 1,
-          context: source.slice(lineStarts[line], lineStarts[line + 1] ?? source.length).trim().substring(0, 80),
+          context: source
+            .slice(lineStarts[line], lineStarts[line + 1] ?? source.length)
+            .trim()
+            .substring(0, 80),
         });
       }
     }
@@ -232,7 +236,7 @@ function report(): UsageInfo[] {
  *
  * The export report cannot answer this: a delegate renames as it forwards and
  * two client methods can sit on one delegate, so an export reached under one
- * name hides the method beside it that nothing calls (`D42`).
+ * name hides the method beside it that nothing calls.
  */
 function clientReport(): [string, number][] {
   const classPath = path.join(REPO, 'modules/veloqrs/src/EngineClient.ts');
@@ -261,7 +265,7 @@ const unused = usageReport.filter((u) => u.reach === 'unreachable');
 const unlisted = unused.filter((u) => !(u.key in OWNED_ELSEWHERE));
 
 if (usageReport.length === 0) {
-  console.error('The manifest declared no exports. Run: npm run ffi:manifest');
+  console.error('The Rust source declared no exports. Check scripts/lib/ffiExports.ts reads it.');
   process.exit(1);
 }
 
@@ -318,13 +322,29 @@ if (process.argv.includes('--areas') || process.argv.includes('--check-areas')) 
   }
 
   const over = surfaceOverCeiling(surface, ceilings);
-  if (over.length === 0) {
+  const under = surfaceUnderCeiling(surface, ceilings);
+  if (over.length === 0 && under.length === 0) {
     const total = Object.values(surface).reduce((sum, keys) => sum + keys.length, 0);
     console.log(
       `Engine area guard: ${Object.keys(surface).length} areas reach ${total} exports between ` +
-        'them, none more than it is allowed to.'
+        'them, each exactly what its ceiling lists.'
     );
     process.exit(0);
+  }
+  if (under.length > 0) {
+    for (const { area, stale, reachesNothing } of under) {
+      console.error(
+        reachesNothing
+          ? `${area} no longer reaches the engine, but scripts/ffi-area-ceilings.json lists it:`
+          : `${area} no longer reaches ${stale.length} export(s) its ceiling lists:`
+      );
+      for (const key of stale) console.error(`  - ${key}`);
+    }
+    console.error('');
+    console.error('Remove each from scripts/ffi-area-ceilings.json, and the area itself when it');
+    console.error('reaches nothing, or the next commit that calls it again is not refused.');
+    if (over.length === 0) process.exit(1);
+    console.error('');
   }
   for (const { area, added } of over) {
     const known = ceilings[area] === undefined;
@@ -336,7 +356,7 @@ if (process.argv.includes('--areas') || process.argv.includes('--check-areas')) 
     for (const key of added) console.error(`  - ${key}`);
   }
   console.error('');
-  console.error('One screen read per screen: an area\'s reach only falls. Read the screen');
+  console.error("One screen read per screen: an area's reach only falls. Read the screen");
   console.error('data it already has, or lower another entry in the same commit if this');
   console.error('call is what replaces it.');
   process.exit(1);
@@ -370,7 +390,7 @@ if (process.argv.includes('--unused')) {
 } else {
   console.log('=== FFI USAGE REPORT ===\n');
   console.log(
-    'A Rust export\'s caller is the delegate that forwards it, not a screen. The\n' +
+    "A Rust export's caller is the delegate that forwards it, not a screen. The\n" +
       'delegate renames as it forwards, so the app-facing unit is the EngineClient\n' +
       'method in front of it and that is the thing with screens behind it. Read\n' +
       '"delegated" as reaching the FFI boundary and no further under this name.\n'

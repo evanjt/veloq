@@ -11,13 +11,13 @@ import { formatDurationHuman } from '@/shared/format/format';
 
 interface ZoneDistributionChartProps {
   /** Zone distribution data */
-  data?: ZoneDistribution[];
+  data?: ZoneDistribution[] | undefined;
   /** Type of zones to display */
-  type?: 'power' | 'hr';
+  type?: 'power' | 'hr' | undefined;
   /** Title override */
-  title?: string;
+  title?: string | undefined;
   /** Time period label */
-  periodLabel?: string;
+  periodLabel?: string | undefined;
 }
 
 export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({

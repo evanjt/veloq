@@ -59,6 +59,7 @@ const mockFileStore = new Map<string, string>();
 const mockDirStore = new Set<string>();
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   documentDirectory: '/mock/docs/',
   EncodingType: { Base64: 'base64' },
   getInfoAsync: jest.fn(async (path: string) => ({
@@ -149,8 +150,9 @@ const mockEngine = {
     const row = rows.get(id);
     if (!row) return;
     row.uploadStatus = 'uploaded';
-    row.intervalsActivityId = intervalsActivityId;
-    row.lastError = undefined;
+    if (intervalsActivityId === undefined) delete row.intervalsActivityId;
+    else row.intervalsActivityId = intervalsActivityId;
+    delete row.lastError;
   },
   markRecordingUploadFailed: (id: string, error: string, nowMs: number) => {
     const row = rows.get(id);
@@ -179,15 +181,15 @@ const mockEngine = {
     if (!row) return;
     row.uploadStatus = 'pending';
     row.retryCount = 0;
-    row.lastAttemptAt = undefined;
-    row.lastError = undefined;
+    delete row.lastAttemptAt;
+    delete row.lastError;
   },
   clearRecordingPermissionBlocked: () => {
     for (const row of rows.values()) {
       if (row.uploadStatus !== 'permissionBlocked') continue;
       row.uploadStatus = 'pending';
       row.retryCount = 0;
-      row.lastAttemptAt = undefined;
+      delete row.lastAttemptAt;
     }
   },
   demoteRecordingsToLocalOnly: () => {

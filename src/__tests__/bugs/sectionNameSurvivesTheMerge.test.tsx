@@ -1,6 +1,6 @@
 /**
  * Scenario: merging two sections navigates to the survivor with
- * `router.replace('/section/<id>')` (`app/section/[id].tsx:606`). The route
+ * `router.replace('/section/<id>')` in `app/section/[id].tsx`. The route
  * pattern does not change, so the screen is not remounted: the same
  * `useSectionActions` instance is handed a different `id` and a different
  * section. Its name sync only wrote `customName` when the new section had a
@@ -20,13 +20,10 @@ import type { FrequentSection } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-jest.mock('expo-router', () => ({ router: { push: jest.fn(), replace: jest.fn() } }));
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
 

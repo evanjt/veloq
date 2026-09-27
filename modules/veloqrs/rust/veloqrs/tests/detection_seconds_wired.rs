@@ -122,8 +122,8 @@ fn detected(engine: &mut PersistentEngine) -> usize {
 }
 
 /// Scenario: the detect is refused rather than run. Three gates do that, the
-/// detection switch, a backfill suspension and an owed cutover
-/// (`src/persistence/sections/detection.rs:793-810`), and each drops the
+/// detection switch, a backfill suspension and an owed cutover, all read by
+/// `detection_refusal`, and each drops the
 /// sender instead of sending an empty result.
 ///
 /// Expected behaviour: `detected` fails naming the phase. It answered 0, and

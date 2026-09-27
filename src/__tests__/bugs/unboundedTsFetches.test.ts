@@ -16,6 +16,7 @@ import { testWebdavConnection } from '@/features/settings/lib/autobackup/backend
 import { NET_DEADLINE_MS } from '@/shared/net/fetchWithDeadline';
 
 jest.mock('expo-notifications', () => ({
+  ...jest.requireActual('expo-notifications'),
   getExpoPushTokenAsync: jest.fn(async () => ({ data: 'ExponentPushToken[abc]' })),
   getPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
 }));

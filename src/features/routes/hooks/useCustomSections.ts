@@ -18,11 +18,11 @@ const log = debug.create('CustomSections');
 
 export interface UseCustomSectionsOptions {
   /** Filter by sport type */
-  sportType?: string;
+  sportType?: string | undefined;
   /** Whether to run the hook (default: true). When false, returns empty defaults without FFI calls. */
-  enabled?: boolean;
+  enabled?: boolean | undefined;
   /** Custom sections a caller already read, seeded so the query skips its own FFI call. */
-  preComputedSections?: NativeSection[];
+  preComputedSections?: NativeSection[] | undefined;
 }
 
 export interface UseCustomSectionsResult {

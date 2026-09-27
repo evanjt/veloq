@@ -23,6 +23,7 @@ const mockWithTiming = jest.fn((toValue: number) => toValue);
 jest.mock('react-native-reanimated', () => {
   const { View } = jest.requireActual('react-native');
   return {
+    ...jest.requireActual('react-native-reanimated'),
     __esModule: true,
     default: { View },
     // Stable across renders, like the real one: a fresh object every render
@@ -40,7 +41,7 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
-jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/shared/app/SyncDateRangeStore', () => ({
   useSyncDateRange: (selector: (state: unknown) => unknown) =>

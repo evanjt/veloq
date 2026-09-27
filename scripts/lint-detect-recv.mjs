@@ -7,7 +7,7 @@
 // catalogue instead, so the assertion behind it reports a run that never
 // happened as a verdict about the library. On 2026-09-19 one full
 // `cargo test -p veloqrs` failed that way and the message named the lift veto
-// over a climb the streams say was walked (`B1183`), which sends the next
+// over a climb the streams say was walked, which sends the next
 // reader into the detector rather than into the gate that refused.
 //
 // Take the result with `expect`, or match on it, so the phase reaches whoever

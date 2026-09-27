@@ -23,14 +23,14 @@ export const VELOQ_WEBVIEW_COMPONENT_NAME = 'VeloqWebView';
 type NativeWebViewComponent = NonNullable<WebViewNativeConfig['component']>;
 
 /**
- * Undefined on the web, where the library's own component is mounted and the
- * page keeps its existing tile transport.
+ * Empty on the web, where no component is named, so the library mounts its own
+ * and the page keeps its existing tile transport.
  */
-export const veloqWebViewNativeConfig: WebViewNativeConfig | undefined =
+export const veloqWebViewNativeConfig: WebViewNativeConfig =
   Platform.OS === 'android' || Platform.OS === 'ios'
     ? {
         component: requireNativeComponent(
           VELOQ_WEBVIEW_COMPONENT_NAME
         ) as unknown as NativeWebViewComponent,
       }
-    : undefined;
+    : {};

@@ -21,20 +21,7 @@ import { useUploadPermissionStore } from '@/features/recording/stores/UploadPerm
 // module here.
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, fallback?: unknown) => (typeof fallback === 'string' ? fallback : key),
-  }),
-}));
-
-jest.mock('react-native-safe-area-context', () => {
-  const { View } = require('react-native');
-  return {
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-    SafeAreaProvider: View,
-    SafeAreaView: View,
-  };
-});
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey());
 
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   ...jest.requireActual('@/shared/app/TopSafeAreaContext'),

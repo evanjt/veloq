@@ -21,7 +21,7 @@ interface RouteDetailChartProps {
   showExcluded: boolean;
   hasExcluded: boolean;
   onToggleShowExcluded: () => void;
-  highlightedActivityId?: string;
+  highlightedActivityId?: string | undefined;
 }
 
 export function RouteDetailChart({

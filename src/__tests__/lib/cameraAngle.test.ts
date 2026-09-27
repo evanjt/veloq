@@ -48,7 +48,7 @@ describe('calculateTerrainCamera', () => {
     });
 
     it('handles single-point route', () => {
-      // Single coordinate triggers early return at line 62
+      // A single coordinate takes the early return
       const result = calculateTerrainCamera([[8.54, 47.37]]);
       expect(result.camera.center).toEqual([8.54, 47.37]);
       expect(result.camera.zoom).toBe(13);
@@ -56,7 +56,7 @@ describe('calculateTerrainCamera', () => {
     });
 
     it('handles two identical coordinates (zero span)', () => {
-      // latSpan=0, lngSpan=0 hits the guard at line 98: latSpan < 0.0001 && lngSpan < 0.0001
+      // latSpan=0, lngSpan=0 hits the zero-span guard: latSpan < 0.0001 && lngSpan < 0.0001
       // which hardcodes zoom=14 to avoid log2(180 / 0) = Infinity
       const result = calculateTerrainCamera([
         [8.54, 47.37],

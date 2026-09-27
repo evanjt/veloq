@@ -345,8 +345,8 @@ fn kmeans(data: &[[f64; 4]], k: usize) -> (Vec<[f64; 4]>, Vec<usize>) {
 
         for c in 0..k {
             if counts[c] > 0 {
-                for d in 0..4 {
-                    new_centroids[c][d] /= counts[c] as f64;
+                for v in new_centroids[c].iter_mut() {
+                    *v /= counts[c] as f64;
                 }
             } else {
                 // A cluster that lost every point keeps its position. Leaving
@@ -709,6 +709,8 @@ fn build_pattern(
 /// Compute weighted confidence score.
 fn compute_confidence(silhouette: f64, count: usize, span_days: i64, frequency: f64) -> f64 {
     // Silhouette weight: 0.3 (normalised, already 0..1 range effectively)
+    // max then min maps a NaN silhouette to 0, where clamp would keep the NaN.
+    #[allow(clippy::manual_clamp)]
     let sil_score = silhouette.max(0.0).min(1.0);
 
     // Count richness weight: 0.3 (log scale, saturates at ~50 activities)
@@ -720,10 +722,7 @@ fn compute_confidence(silhouette: f64, count: usize, span_days: i64, frequency: 
     // Regularity weight: 0.2 (frequency per month, saturates at 4x/month)
     let regularity_score = (frequency / 4.0).min(1.0);
 
-    let confidence =
-        0.3 * sil_score + 0.3 * count_score + 0.2 * temporal_score + 0.2 * regularity_score;
-
-    confidence
+    0.3 * sil_score + 0.3 * count_score + 0.2 * temporal_score + 0.2 * regularity_score
 }
 
 /// Find the most common day of week among features.
@@ -790,9 +789,9 @@ fn season_from_timestamp(ts: i64) -> String {
     let month = month_from_timestamp(ts);
     match month {
         12 | 1 | 2 => "winter".to_string(),
-        3 | 4 | 5 => "spring".to_string(),
-        6 | 7 | 8 => "summer".to_string(),
-        9 | 10 | 11 => "autumn".to_string(),
+        3..=5 => "spring".to_string(),
+        6..=8 => "summer".to_string(),
+        9..=11 => "autumn".to_string(),
         _ => "all".to_string(),
     }
 }
@@ -1172,7 +1171,11 @@ mod tests {
     #[test]
     fn test_confidence_score_range() {
         let c = compute_confidence(0.8, 30, 180, 2.0);
-        assert!(c >= 0.0 && c <= 1.0, "Confidence should be 0..1, got {}", c);
+        assert!(
+            (0.0..=1.0).contains(&c),
+            "Confidence should be 0..1, got {}",
+            c
+        );
 
         // Higher values should yield higher confidence
         let c_high = compute_confidence(0.9, 50, 365, 4.0);
@@ -1187,7 +1190,7 @@ mod tests {
 
     #[test]
     fn test_mode_day_of_week() {
-        let features = vec![
+        let features = [
             ActivityFeature {
                 activity_id: "a".to_string(),
                 sport_type: "Ride".to_string(),
@@ -1303,7 +1306,7 @@ mod tests {
     fn a_dominant_season_still_wins_outright() {
         let winter = 1_704_153_600;
         let summer = winter + 181 * 86_400;
-        let owned = vec![
+        let owned = [
             feature_on("w1", winter),
             feature_on("w2", winter + 86_400),
             feature_on("w3", winter + 2 * 86_400),
@@ -1320,7 +1323,7 @@ mod tests {
     #[test]
     fn three_seasons_without_a_majority_are_all() {
         let winter = 1_704_153_600;
-        let owned = vec![
+        let owned = [
             feature_on("w1", winter),
             feature_on("sp1", winter + 90 * 86_400),
             feature_on("su1", winter + 181 * 86_400),

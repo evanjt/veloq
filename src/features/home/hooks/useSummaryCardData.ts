@@ -13,7 +13,6 @@ import { type MetricId } from '@/features/home/store';
 import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { colors } from '@/theme';
-import { getEngine } from '@/shared/native/engine';
 import type { WellnessSparklines } from 'veloqrs';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
@@ -31,9 +30,9 @@ import {
 interface SupportingMetric {
   label: string;
   value: string | number;
-  color?: string;
-  trend?: TrendGlyph;
-  navigationTarget?: '/fitness' | '/training';
+  color?: string | undefined;
+  trend?: TrendGlyph | undefined;
+  navigationTarget?: '/fitness' | '/training' | undefined;
 }
 
 /**
@@ -41,23 +40,23 @@ interface SupportingMetric {
  */
 export interface SummaryCardData {
   // Profile
-  profileUrl?: string;
+  profileUrl?: string | undefined;
 
   // Hero metric
   heroMetric: string;
   heroValue: number | string;
   heroLabel: string;
   heroColor: string;
-  heroZoneLabel?: string;
-  heroZoneColor?: string;
-  heroTrend?: TrendGlyph;
+  heroZoneLabel?: string | undefined;
+  heroZoneColor?: string | undefined;
+  heroTrend?: TrendGlyph | undefined;
 
   // Sparkline (fitness/form dual chart or HRV/RHR chart)
-  fitnessData?: number[];
-  fatigueData?: number[];
-  formData?: number[];
-  hrvData?: number[];
-  rhrData?: number[];
+  fitnessData?: number[] | undefined;
+  fatigueData?: number[] | undefined;
+  formData?: number[] | undefined;
+  hrvData?: number[] | undefined;
+  rhrData?: number[] | undefined;
   showSparkline: boolean;
 
   // Supporting metrics
@@ -115,8 +114,8 @@ export function useSummaryCardData(
     awaitPrecomputed = false,
     precomputedSparklines,
   }: {
-    awaitPrecomputed?: boolean;
-    precomputedSparklines?: WellnessSparklines | null;
+    awaitPrecomputed?: boolean | undefined;
+    precomputedSparklines?: WellnessSparklines | null | undefined;
   } = {}
 ): SummaryCardData {
   const { t } = useTranslation();
@@ -294,7 +293,7 @@ export function useSummaryCardData(
       ? undefined
       : getFormZone(quickStats.form, quickStats.fitness, asPercent);
   // The hero value and the zone label are text, so they take the text variant
-  // rather than the band fill they used to (B928).
+  // rather than the band fill they used to.
   const isDark = useResolvedColorScheme() === 'dark';
   const formColor = formZone ? formZoneTextColor(formZone, isDark) : colors.success;
 
@@ -337,18 +336,23 @@ export function useSummaryCardData(
   // Sparklines pulled from Rust (wellness persisted in SQLite via
   // `upsertWellness` in useWellness). Rust does the 30-day slice, CTL/ATL
   // coalescing, form as rounded ctl minus rounded atl, and HRV/RHR forward-fill in one round-trip.
-  // The generation is the dep, so the memo refreshes after each wellness sync.
+  // The reader is keyed on the wellness generation and the refresh tick, so
+  // the memo refreshes after each wellness sync and each pull-to-refresh.
+  const readSparklines = useEngineRead([], [wellnessGeneration, refreshTick]);
   const sparklines = useMemo(() => {
     if (!summaryCard.showSparkline) return null;
     if (precomputedSparklines !== undefined) return precomputedSparklines;
-    const engine = getEngine();
-    if (!engine?.getWellnessSparklines) return null;
-    try {
-      return engine.getWellnessSparklines(FEED_SPARKLINE_DAYS);
-    } catch {
-      return null;
-    }
-  }, [summaryCard.showSparkline, precomputedSparklines, wellnessGeneration, refreshTick]);
+    return (
+      readSparklines((engine) => {
+        if (!engine.getWellnessSparklines) return null;
+        try {
+          return engine.getWellnessSparklines(FEED_SPARKLINE_DAYS);
+        } catch {
+          return null;
+        }
+      }) ?? null
+    );
+  }, [summaryCard.showSparkline, precomputedSparklines, readSparklines]);
 
   const fitnessData = sparklines?.fitness;
   const fatigueData = sparklines?.fatigue;

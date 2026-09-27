@@ -38,10 +38,10 @@ export interface PerformanceTooltipProps {
   /** Accent color for the speed value in "forward" direction. */
   activityColor: string;
   /** Selected reference activity id (shows filled star when matched). */
-  referenceActivityId?: string;
-  onSetAsReference?: (activityId: string) => void;
-  onExcludeActivity?: (activityId: string) => void;
-  onIncludeActivity?: (activityId: string) => void;
+  referenceActivityId?: string | undefined;
+  onSetAsReference?: ((activityId: string) => void) | undefined;
+  onExcludeActivity?: ((activityId: string) => void) | undefined;
+  onIncludeActivity?: ((activityId: string) => void) | undefined;
   /** Called when the exclude/include buttons are tapped (to clear local selection). */
   onClearSelection: () => void;
 }

@@ -19,22 +19,22 @@ export interface ScrubValues {
   fitness: number;
   fatigue: number;
   form: number;
-  hrv?: number;
-  rhr?: number;
+  hrv?: number | undefined;
+  rhr?: number | undefined;
   dateLabel: string;
 }
 
 interface SummaryCardSparklineProps {
   fitnessData: number[];
-  fatigueData?: number[];
+  fatigueData?: number[] | undefined;
   formData: number[];
   width: number;
   /** Show inline labels ("Fitness", "Form") - used in settings preview */
-  showLabels?: boolean;
+  showLabels?: boolean | undefined;
   /** Called during scrub with selected index values, or null on release */
-  onScrub?: (values: ScrubValues | null) => void;
+  onScrub?: ((values: ScrubValues | null) => void) | undefined;
   /** Called for a single quick tap (no scrub) */
-  onTap?: () => void;
+  onTap?: (() => void) | undefined;
 }
 
 /**

@@ -229,7 +229,8 @@ fn the_widening_carries_every_intent_an_install_already_had() {
     drop(engine);
 
     let db = Connection::open(&path).expect("reopen");
-    let rows: Vec<(String, String, Option<String>, Option<String>, String)> = db
+    type IntentRow = (String, String, Option<String>, Option<String>, String);
+    let rows: Vec<IntentRow> = db
         .prepare(
             "SELECT id, kind, name, sport_type, created_at FROM section_intents ORDER BY id, kind",
         )

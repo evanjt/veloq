@@ -34,11 +34,6 @@ jest.mock('@/features/wellness', () => ({
   useWellness: () => ({ data: [{ id: '2026-09-01', ctl: 40, atl: 52 }] }),
 }));
 
-jest.mock('expo-router', () => ({
-  router: { push: jest.fn() },
-  useFocusEffect: jest.fn(),
-}));
-
 const FSI = '⁨';
 const PDI = '⁩';
 

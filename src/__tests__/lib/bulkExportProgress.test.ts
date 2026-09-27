@@ -27,11 +27,6 @@ jest.mock('@/shared/native/engine', () => ({
   }),
 }));
 
-jest.mock('expo-file-system/legacy', () => ({
-  cacheDirectory: 'file:///cache/',
-  deleteAsync: jest.fn().mockResolvedValue(undefined),
-}));
-
 jest.mock('@/features/settings/lib/shareFile', () => ({
   shareExistingFile: jest.fn().mockResolvedValue(undefined),
 }));

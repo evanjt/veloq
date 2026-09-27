@@ -21,9 +21,6 @@ const AA_TEXT = 4.5;
 let mockIsDark = false;
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockIsDark }) }));
-jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
 jest.mock('@/shared/app/NetworkContext', () => ({ useNetwork: () => ({ isOnline: false }) }));
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (selector: (s: Record<string, unknown>) => unknown) =>
@@ -37,7 +34,10 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
   useSyncDateRange: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({ reset: () => {} }),
 }));
-jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({}) }));
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQueryClient: () => ({}),
+}));
 jest.mock('@/shared/storage', () => ({ clearDemoData: () => {} }));
 
 function channel(value: number): number {

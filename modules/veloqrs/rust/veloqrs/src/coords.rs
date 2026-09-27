@@ -1,26 +1,26 @@
-/// Delta + zigzag-varint encoding for GPS coordinate arrays.
-///
-/// Wire format:
-///   - Header: point_count as varint
-///   - First point: lat_scaled as varint i64, lng_scaled as varint i64
-///   - Subsequent points: delta_lat as zigzag varint, delta_lng as zigzag varint
-///   - Optional trailing elevation section, present only when at least one
-///     point carries a finite elevation:
-///       - `ELE_TAG` byte
-///       - mode byte: bit 0 set means a presence bitmap follows, bit 1 set
-///         means exact f64 payloads rather than quantised deltas
-///       - presence bitmap of ceil(n/8) bytes, LSB first, when bit 0 is set
-///       - per elevation-bearing point, in point order: a zigzag varint delta
-///         of the 0.1 m quantised value, or 8 little-endian f64 bytes
-///
-/// Coordinates are scaled by 1e7 (0.011m precision) and stored as i64.
-/// Consecutive deltas are small, so zigzag + varint encoding yields 1-3 bytes
-/// per coordinate instead of 8 bytes for f64.
-///
-/// The elevation section sits past the point stream a reader without elevation
-/// support stops at, so older readers see the coordinates and ignore the rest.
-/// Quantised mode is used only when every value survives the 0.1 m grid
-/// unchanged, so elevation always round trips exactly.
+//! Delta + zigzag-varint encoding for GPS coordinate arrays.
+//!
+//! Wire format:
+//!   - Header: point_count as varint
+//!   - First point: lat_scaled as varint i64, lng_scaled as varint i64
+//!   - Subsequent points: delta_lat as zigzag varint, delta_lng as zigzag varint
+//!   - Optional trailing elevation section, present only when at least one
+//!     point carries a finite elevation:
+//!       - `ELE_TAG` byte
+//!       - mode byte: bit 0 set means a presence bitmap follows, bit 1 set
+//!         means exact f64 payloads rather than quantised deltas
+//!       - presence bitmap of ceil(n/8) bytes, LSB first, when bit 0 is set
+//!       - per elevation-bearing point, in point order: a zigzag varint delta
+//!         of the 0.1 m quantised value, or 8 little-endian f64 bytes
+//!
+//! Coordinates are scaled by 1e7 (0.011m precision) and stored as i64.
+//! Consecutive deltas are small, so zigzag + varint encoding yields 1-3 bytes
+//! per coordinate instead of 8 bytes for f64.
+//!
+//! The elevation section sits past the point stream a reader without elevation
+//! support stops at, so older readers see the coordinates and ignore the rest.
+//! Quantised mode is used only when every value survives the 0.1 m grid
+//! unchanged, so elevation always round trips exactly.
 
 const SCALE: f64 = 1e7;
 const ELE_SCALE: f64 = 10.0;

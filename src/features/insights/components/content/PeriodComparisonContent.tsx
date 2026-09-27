@@ -19,7 +19,7 @@ interface PeriodComparisonContentProps {
 interface WeekBar {
   label: string;
   value: number;
-  unit?: string;
+  unit?: string | undefined;
   isCurrent: boolean;
 }
 

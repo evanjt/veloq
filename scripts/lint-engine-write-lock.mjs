@@ -33,8 +33,8 @@ const WRITE = process.argv.includes('--write');
 
 // The take itself, not the definition: `with_engine(`, `with_persistent_engine(`
 // and the `_at` / `_blocking` / `_for` forms the same lock is reached through.
-// `_for` refuses a caller whose library has been swapped out from under it
-// (B882), which is a different question from which lock it takes: it still
+// `_for` refuses a caller whose library has been swapped out from under it,
+// which is a different question from which lock it takes: it still
 // takes the write one, so it still counts here.
 const TAKE = /\bwith_(?:persistent_)?engine(?:_at|_blocking|_for)?\s*\(/g;
 // The definitions live here and take nothing.

@@ -22,6 +22,7 @@ jest.mock('@/shared/app', () => ({
 }));
 
 jest.mock('expo-location', () => ({
+  ...jest.requireActual('expo-location'),
   requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
   getCurrentPositionAsync: jest
     .fn()

@@ -2,8 +2,8 @@
 # Hold one handset for a whole session of hand-driven `adb`, and say so, so a
 # `scripts/` helper started underneath runs instead of blocking.
 #
-# A flock is held per open file description, so the bare form documented here
-# until `B1156`,
+# A flock is held per open file description, so the bare form once documented
+# here,
 #
 #     flock /tmp/claude-$(id -u)/veloq-device-<serial>.lock -c '...'
 #

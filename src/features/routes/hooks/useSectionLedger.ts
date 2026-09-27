@@ -6,6 +6,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { getEngine } from '@/shared/native/engine';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type { RoutePoint } from '@/types';
 
 /** A ledger row, with the engine's 64-bit ids as numbers. */
@@ -13,7 +14,7 @@ export interface SectionHistoryEvent {
   id: number;
   at: string;
   kind: string;
-  details?: string;
+  details?: string | undefined;
   geometryVersion: number | null;
 }
 
@@ -56,7 +57,7 @@ export interface BundledLedger {
     milestone: boolean;
     pinned: boolean;
   }[];
-  pinnedVersion?: bigint | number | null;
+  pinnedVersion?: bigint | number | null | undefined;
 }
 
 /**
@@ -66,9 +67,10 @@ export interface BundledLedger {
  * engine from then on.
  */
 /** The three reads the bundle replaces, in the shape the bundle carries. */
-function readLedger(sectionId: string): BundledLedger | undefined {
-  const engine = getEngine();
-  if (!engine) return undefined;
+function readLedger(
+  engine: NonNullable<ReturnType<typeof getEngine>>,
+  sectionId: string
+): BundledLedger {
   return {
     history: engine.getSectionHistory(sectionId),
     geometryVersions: engine.getSectionGeometryVersions(sectionId),
@@ -83,10 +85,15 @@ export function useSectionLedger(
 ): SectionLedger {
   const [tick, setTick] = useState(0);
   const reload = useCallback(() => setTick((k) => k + 1), []);
+  const readSection = useEngineRead([], [refreshKey]);
 
   const state = useMemo(() => {
     const source =
-      bundled !== undefined && tick === 0 ? bundled : sectionId ? readLedger(sectionId) : undefined;
+      bundled !== undefined && tick === 0
+        ? bundled
+        : sectionId
+          ? readSection((engine) => readLedger(engine, sectionId))
+          : undefined;
     if (!source) return EMPTY;
 
     const history: SectionHistoryEvent[] = source.history.map((e) => ({
@@ -107,7 +114,7 @@ export function useSectionLedger(
       versions: versions.reverse(),
       pinnedVersion: source.pinnedVersion == null ? null : Number(source.pinnedVersion),
     };
-  }, [sectionId, refreshKey, tick, bundled]);
+  }, [sectionId, readSection, tick, bundled]);
 
   const versionPolyline = useCallback(
     (version: number): RoutePoint[] => {

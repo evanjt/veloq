@@ -38,7 +38,7 @@ export interface ChartMetricValue {
   unit: string;
   color: string;
   /** Longest formatted value (for stable chip width during scrubbing) */
-  maxValueWidth?: string;
+  maxValueWidth?: string | undefined;
 }
 
 /** Output of {@link buildChartData}. */

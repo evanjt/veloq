@@ -1,11 +1,11 @@
-//! What the launch re-fetch costs after the download, which `I124` measured cheap.
+//! What the launch re-fetch costs after the download, which was measured cheap on the wire.
 //!
-//! `sync_activity_window` (`objects/sync.rs:1153-1183`) does three things under the write lock:
+//! `sync_activity_window` in `objects/sync.rs` does three things under the write lock:
 //! one `local_ids_for_intervals_ids` read over every id the page carried, then one
 //! `upsert_activity_bodies` and one `set_activity_metrics` in a second hold. Every launch pays
 //! all three for the whole history, and every screen read waits behind the second hold.
 //!
-//! `I124` measured the wire: 1,597 records, 692 B median body, 421 B to 1,930 B. Those are the
+//! The measured wire: 1,597 records, 692 B median body, 421 B to 1,930 B. Those are the
 //! shapes generated here. The rows are synthetic, so what this measures is the write path and
 //! the transaction shape, not the content.
 //!
@@ -21,10 +21,10 @@ use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::{ActivityMetrics, PersistentEngine};
 
-/// The library sizes `I124` names: a launch window, a year, and the whole history.
+/// The library sizes the wire measurement covered: a launch window, a year, and the whole history.
 const SIZES: [usize; 3] = [100, 400, 1600];
 
-/// `I124`'s median per-record body on the real API.
+/// The median per-record body on the real API.
 const MEDIAN_BODY_BYTES: usize = 692;
 
 fn body(n: usize) -> String {

@@ -75,7 +75,7 @@ function pushSwiftFiles(projectRoot) {
  * with "library not found", naming neither the bundle nor this file.
  *
  * Both SDKs always get a path, whatever the bundle declares.
- * `with-veloqrs.js:473-519` builds and declares the simulator slice alone on
+ * `with-veloqrs.js`'s XCFramework step builds and declares the simulator slice alone on
  * this machine and CI delivers the device one, so a project written here and
  * built for a device would otherwise carry no device path at all.
  */

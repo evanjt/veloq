@@ -169,7 +169,7 @@ pub(crate) mod pooled {
                 }
                 let pace_secs_per_km = row.lap_time / distance_km;
                 // Sanity check: pace should be reasonable (1 min/km to 30 min/km)
-                if pace_secs_per_km < 60.0 || pace_secs_per_km > 1800.0 {
+                if !(60.0..=1800.0).contains(&pace_secs_per_km) {
                     return None;
                 }
                 // Heart rate per unit of speed. Dividing by seconds per km
@@ -192,11 +192,11 @@ pub(crate) mod pooled {
 
         // Linear regression on hr_pace_ratio over time
         // x = days since first effort, y = hr_pace_ratio
-        let first_date = points[0].date as f64;
+        let first_date = points[0].date;
         let regression_points: Vec<(f64, f64)> = points
             .iter()
             .map(|p| {
-                let days = (p.date as f64 - first_date) / 86400.0;
+                let days = (p.date - first_date) / 86400.0;
                 (days, p.hr_pace_ratio)
             })
             .collect();
@@ -1590,13 +1590,13 @@ pub(crate) mod highlights {
     /// Read from the table on both paths: the engine holds no copy of it.
     pub(crate) fn route_names(conn: &Connection) -> HashMap<String, String> {
         let mut names: HashMap<String, String> = HashMap::new();
-        if let Ok(mut stmt) = conn.prepare("SELECT route_id, custom_name FROM route_names") {
-            if let Ok(rows) = stmt.query_map([], |row| {
+        if let Ok(mut stmt) = conn.prepare("SELECT route_id, custom_name FROM route_names")
+            && let Ok(rows) = stmt.query_map([], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            }) {
-                for r in rows.flatten() {
-                    names.insert(r.0, r.1);
-                }
+            })
+        {
+            for r in rows.flatten() {
+                names.insert(r.0, r.1);
             }
         }
         names
@@ -1638,8 +1638,9 @@ pub(crate) mod highlights {
 
         // Cache keyed by (group_id, is_forward_like):
         // (best_moving_time, second_best_moving_time, per-activity data)
-        let mut group_cache: HashMap<(&str, bool), (u32, u32, HashMap<&str, (i8, f64, u32)>)> =
-            HashMap::new();
+        type GroupCache<'a> =
+            HashMap<(&'a str, bool), (u32, u32, HashMap<&'a str, (i8, f64, u32)>)>;
+        let mut group_cache: GroupCache<'_> = HashMap::new();
         let mut results = Vec::new();
 
         for (&aid, group) in &activity_to_group {
@@ -1651,7 +1652,7 @@ pub(crate) mod highlights {
 
             let cache_key = (gid, this_is_forward);
 
-            if !group_cache.contains_key(&cache_key) {
+            if let std::collections::hash_map::Entry::Vacant(e) = group_cache.entry(cache_key) {
                 let dir_map = directions.get(gid);
                 let mut members: Vec<(&str, f64, u32, i64)> = group
                     .activity_ids
@@ -1675,15 +1676,13 @@ pub(crate) mod highlights {
                 members.sort_by_key(|m| m.3);
 
                 if members.is_empty() {
-                    group_cache.insert(cache_key, (0u32, u32::MAX, HashMap::new()));
+                    e.insert((0u32, u32::MAX, HashMap::new()));
                 } else {
                     let mut best_moving_time: u32 = u32::MAX;
                     let mut second_best_moving_time: u32 = u32::MAX;
                     let mut trends: HashMap<&str, (i8, f64, u32)> = HashMap::new();
                     let mut sum = 0.0f64;
-                    let mut n = 0u32;
-
-                    for (mid, speed, moving_time, _) in &members {
+                    for (n, (mid, speed, moving_time, _)) in members.iter().enumerate() {
                         let trend = if n == 0 {
                             0i8
                         } else {
@@ -1698,7 +1697,6 @@ pub(crate) mod highlights {
                         };
                         trends.insert(mid, (trend, *speed, *moving_time));
                         sum += speed;
-                        n += 1;
                         if *moving_time < best_moving_time {
                             second_best_moving_time = best_moving_time;
                             best_moving_time = *moving_time;
@@ -1710,10 +1708,7 @@ pub(crate) mod highlights {
                     if best_moving_time == u32::MAX {
                         best_moving_time = 0;
                     }
-                    group_cache.insert(
-                        cache_key,
-                        (best_moving_time, second_best_moving_time, trends),
-                    );
+                    e.insert((best_moving_time, second_best_moving_time, trends));
                 }
             }
 

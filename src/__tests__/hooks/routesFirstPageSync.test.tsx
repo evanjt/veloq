@@ -16,22 +16,19 @@ import { useRoutesScreenData } from '@/features/routes/hooks/useRoutesScreenData
 import { SectionRow } from '@/features/routes/components/SectionRow';
 import { useSections } from '@/features/routes/hooks/useSections';
 import { getEngine } from '@/shared/native/engine';
-import type { Section } from '@/types';
+import type { FrequentSection, Section } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/features/routes/hooks/useEngine', () => ({
   useEngineSubscription: () => 0,
 }));
-jest.mock('expo-router', () => ({ useFocusEffect: () => undefined }));
 jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
   useMetricSystem: () => true,
 }));
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/features/routes/hooks/useCustomSections', () => ({
   useCustomSections: () => ({ sections: [], isLoading: false, error: null }),
 }));
@@ -111,15 +108,22 @@ describe('a section row', () => {
 });
 
 describe('the sections hook', () => {
-  it('takes the engine rows from the page and reads no summary of its own', () => {
-    const stub = engine({ getAllSectionsIncludingHidden: jest.fn(() => []) });
-    mockedGetEngine.mockReturnValue(stub);
+  it('reads nothing from the engine when the page has not landed', () => {
+    mockedGetEngine.mockReturnValue(engine());
 
-    renderHook(() => useSections({ preloadedEngineSections: undefined }));
+    const { result } = renderHook(() => useSections({ preloadedEngineSections: undefined }));
 
-    expect(
-      (stub as unknown as { getAllSectionsIncludingHidden: jest.Mock })
-        .getAllSectionsIncludingHidden
-    ).not.toHaveBeenCalled();
+    expect(mockedGetEngine).not.toHaveBeenCalled();
+    expect(result.current.sections).toEqual([]);
+  });
+
+  it('takes the engine rows from the page and reads nothing of its own', () => {
+    mockedGetEngine.mockReturnValue(engine());
+    const row = { id: 'sec-7', name: 'Col de la Page', sportType: 'Ride' } as FrequentSection;
+
+    const { result } = renderHook(() => useSections({ preloadedEngineSections: [row] }));
+
+    expect(mockedGetEngine).not.toHaveBeenCalled();
+    expect(result.current.sections.map((s) => s.id)).toEqual(['sec-7']);
   });
 });

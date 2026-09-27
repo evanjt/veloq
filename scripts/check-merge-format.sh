@@ -18,22 +18,35 @@ set -e
 # against a scratch directory. The merge hook wants this repository.
 repo=${VELOQ_MERGE_FORMAT_REPO:-.}
 
-staged=$(git diff --cached --name-only --diff-filter=d HEAD -- 'src/*.ts' 'src/*.tsx')
+# After a fast-forward the index matches the moved HEAD, so the staged diff is
+# empty and the landing goes unread. `post-merge` hands over the head it moved
+# from, and then the range between is judged, read out of HEAD.
+if [ -n "${VELOQ_MERGE_BASE:-}" ]; then
+  staged=$(git -c core.quotePath=off diff --name-only --diff-filter=d "$VELOQ_MERGE_BASE" HEAD -- 'src/*.ts' 'src/*.tsx')
+  source=HEAD
+else
+  staged=$(git -c core.quotePath=off diff --cached --name-only --diff-filter=d HEAD -- 'src/*.ts' 'src/*.tsx')
+  source=''
+fi
 [ -n "$staged" ] || exit 0
 
+# One path per line, read whole: a word-split loop turned `src/a b.ts` into two
+# paths that did not exist and passed them both.
 unformatted=''
-for path in $staged; do
-  if ! git show ":$path" | npx --prefix "$repo" prettier \
+while IFS= read -r path; do
+  if ! git show "$source:$path" | npx --prefix "$repo" prettier \
       --config "$repo/config/.prettierrc" \
       --ignore-path "$repo/config/.prettierignore" \
       --stdin-filepath "$path" --check >/dev/null 2>&1; then
     unformatted="$unformatted  $path
 "
   fi
-done
+done <<EOF_PATHS
+$staged
+EOF_PATHS
 
 [ -n "$unformatted" ] || exit 0
 
-echo "The merge stages files prettier would rewrite. Run npm run format on them."
+echo "The merge carries files prettier would rewrite. Run npm run format on them."
 printf '%s' "$unformatted"
 exit 1

@@ -3,7 +3,7 @@
 //! The engine path answers the activity patterns from `activity_metrics` held
 //! in memory. A pooled read has no memory tier, so it would load every metrics
 //! row per call. `insights_data` is a tab mount, whose budget is 100 ms, and
-//! `I91` measured the engine path at 27.8 ms on a 490-activity library. This
+//! the engine path measured 27.8 ms on a 490-activity library. This
 //! says what the load adds on a library of the size the field reports.
 //!
 //! Run: `cargo test --test insights_pool_cost -p veloqrs -- --nocapture`
@@ -15,7 +15,7 @@ use tempfile::TempDir;
 use veloqrs::PersistentEngine;
 use veloqrs::types::ActivityMetrics;
 
-/// The field library `B793` counts: 1,598 activities.
+/// The largest library the field reports: 1,598 activities.
 const LIBRARY: usize = 1_598;
 
 fn metrics(i: usize) -> ActivityMetrics {
@@ -42,7 +42,9 @@ fn a_pooled_metrics_load_is_inside_the_mount_budget() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("insights_cost.db");
     let mut engine = PersistentEngine::new(path.to_str().expect("utf-8")).expect("engine");
-    engine.set_activity_metrics((0..LIBRARY).map(metrics).collect());
+    engine
+        .set_activity_metrics((0..LIBRARY).map(metrics).collect())
+        .expect("metrics");
     drop(engine);
     // Read the way a pooled caller does: its own connection on the same file,
     // with nothing the engine holds in memory.

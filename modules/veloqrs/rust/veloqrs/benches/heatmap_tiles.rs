@@ -201,10 +201,9 @@ fn bench_full_cycle(c: &mut Criterion) {
         {
             if let Ok(mut guard) =
                 veloqrs::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock()
+                && let Some(handle) = guard.take()
             {
-                if let Some(handle) = guard.take() {
-                    let _ = handle.recv_blocking();
-                }
+                let _ = handle.recv_blocking();
             }
         }
 

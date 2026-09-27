@@ -282,10 +282,7 @@ impl PersistentEngine {
         // Run all pending migrations
         let migrations_started = std::time::Instant::now();
         Self::migrations().to_latest(conn).map_err(|e| {
-            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                e.to_string(),
-            )))
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::other(e.to_string())))
         })?;
 
         // Update schema version
@@ -444,11 +441,11 @@ impl PersistentEngine {
 
         let mut converted = 0u32;
         for (id, json) in &rows {
-            if let Ok(ids) = serde_json::from_str::<Vec<String>>(json) {
-                if let Ok(blob) = codec::serialize(&ids) {
-                    update.execute(rusqlite::params![blob, id])?;
-                    converted += 1;
-                }
+            if let Ok(ids) = serde_json::from_str::<Vec<String>>(json)
+                && let Ok(blob) = codec::serialize(&ids)
+            {
+                update.execute(rusqlite::params![blob, id])?;
+                converted += 1;
             }
         }
 
@@ -1260,7 +1257,8 @@ impl PersistentEngine {
             "SELECT id, name, polyline_json, sport_type, polyline_blob FROM sections
              WHERE section_type = 'auto' AND is_user_defined = 0 AND name IS NOT NULL",
         )?;
-        let rows: Vec<(String, String, Option<String>, String, Option<Vec<u8>>)> = stmt
+        type NamedRow = (String, String, Option<String>, String, Option<Vec<u8>>);
+        let rows: Vec<NamedRow> = stmt
             .query_map([], |row| {
                 Ok((
                     row.get(0)?,
@@ -1448,18 +1446,18 @@ impl PersistentEngine {
 
         let mut populated = 0;
         for (id, polyline_json) in &sections {
-            if let Ok(points) = serde_json::from_str::<Vec<GpsPoint>>(polyline_json) {
-                if points.len() >= 2 {
-                    let bounds = tracematch::geo_utils::compute_bounds(&points);
-                    update_stmt.execute(params![
-                        bounds.min_lat,
-                        bounds.max_lat,
-                        bounds.min_lng,
-                        bounds.max_lng,
-                        id,
-                    ])?;
-                    populated += 1;
-                }
+            if let Ok(points) = serde_json::from_str::<Vec<GpsPoint>>(polyline_json)
+                && points.len() >= 2
+            {
+                let bounds = tracematch::geo_utils::compute_bounds(&points);
+                update_stmt.execute(params![
+                    bounds.min_lat,
+                    bounds.max_lat,
+                    bounds.min_lng,
+                    bounds.max_lng,
+                    id,
+                ])?;
+                populated += 1;
             }
         }
 
@@ -1538,14 +1536,14 @@ impl PersistentEngine {
                 .unwrap_or_else(|| vec![0.0; 5]);
 
             update_stmt.execute(params![
-                power_zones.get(0).unwrap_or(&0.0),
+                power_zones.first().unwrap_or(&0.0),
                 power_zones.get(1).unwrap_or(&0.0),
                 power_zones.get(2).unwrap_or(&0.0),
                 power_zones.get(3).unwrap_or(&0.0),
                 power_zones.get(4).unwrap_or(&0.0),
                 power_zones.get(5).unwrap_or(&0.0),
                 power_zones.get(6).unwrap_or(&0.0),
-                hr_zones.get(0).unwrap_or(&0.0),
+                hr_zones.first().unwrap_or(&0.0),
                 hr_zones.get(1).unwrap_or(&0.0),
                 hr_zones.get(2).unwrap_or(&0.0),
                 hr_zones.get(3).unwrap_or(&0.0),

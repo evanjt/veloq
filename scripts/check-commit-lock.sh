@@ -43,9 +43,13 @@ A merge is running its gates in this checkout, and its merged tree is already
 in the index this commit would use. Committing now takes that merge's files
 under your subject.
 
-Wait for it, then commit:
+Wait for its gates to finish, then commit again. This waits and lets go of
+the lock before the commit starts:
 
-  flock $lock git commit ...
+  flock $lock true && git commit ...
+
+Never wrap the commit itself in the lock. This check runs inside the commit
+and would find the lock held by its own caller, refusing it for ever.
 
 Or commit from a worktree, which has an index of its own. If you are certain
 no merge is running, the lock is stale: nothing holds it for longer than a

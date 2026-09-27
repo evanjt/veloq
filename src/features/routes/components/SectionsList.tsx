@@ -51,7 +51,7 @@ const log = debug.create('SectionsList');
 
 interface SectionsListProps {
   /** Filter by sport type */
-  sportType?: string;
+  sportType?: string | undefined;
   /** Pre-fetched data from parent to avoid duplicate FFI calls */
   prefetchedData?: {
     sections: FrequentSection[];
@@ -61,15 +61,15 @@ interface SectionsListProps {
     error: Error | null;
   };
   /** Pre-loaded engine sections with polylines from batch FFI call */
-  batchSections?: SectionWithPolyline[];
+  batchSections?: SectionWithPolyline[] | undefined;
   /** Callback to load more sections (pagination) */
-  onLoadMore?: () => void;
+  onLoadMore?: (() => void) | undefined;
   /** Whether more sections are available to load */
-  hasMore?: boolean;
+  hasMore?: boolean | undefined;
   /** Total section count from engine (for accurate filter badge counts) */
-  totalSectionCount?: number;
+  totalSectionCount?: number | undefined;
   /** User's current location for "Nearby" sort */
-  userLocation?: LatLngShort | null;
+  userLocation?: LatLngShort | null | undefined;
   /** Active sort option */
   sortOption: SectionsSortOption;
   /** Called when sort changes */
@@ -111,7 +111,7 @@ interface SectionListItemProps {
   item: FrequentSection;
   isDark: boolean;
   isDisabled: boolean;
-  distanceFromUser?: number;
+  distanceFromUser?: number | undefined;
   onPress: (id: string) => void;
   onSwipeableOpen: (id: string) => void;
   onDelete: (item: FrequentSection) => void;

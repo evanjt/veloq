@@ -16,8 +16,8 @@
  * with the item that owns the repair, and that list only shortens.
  *
  * A family belongs to the token, not to the site. Where a hue was drawn as all
- * three, the text sites took a `*Text` variant (B927, B928) and the marks a
- * `mark*` or `*Mark` one (B929, B930), which is what let the fill be called
+ * three, the text sites took a `*Text` variant and the marks a
+ * `mark*` or `*Mark` one, which is what let the fill be called
  * a ground here.
  */
 
@@ -34,7 +34,7 @@ export const FAMILY_BARS: Record<TokenFamily, number> = {
  * Every key of `colors` and `darkColors`. The other exports in `colors.ts` are
  * surface-specific pairs that name their own ground, `statusBadge`, `verdict`,
  * `amberBanner` and the rest, and are guarded where they are drawn rather than
- * here (S46).
+ * here.
  */
 export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   // Text. The three body tokens, the pairs that sit on a filled ground, and the

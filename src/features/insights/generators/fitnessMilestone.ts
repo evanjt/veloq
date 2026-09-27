@@ -12,7 +12,7 @@ const YEAR_2000_MS = 946_684_800_000;
  * The day a snapshot is dated, as the fitness chart selects days.
  *
  * `latest_date` is a `YYYY-MM-DD` parsed at UTC midnight
- * (`persistence/fitness/derivations.rs:69-75`), so reading it back in UTC
+ * (`epoch_seconds` in `persistence/fitness/derivations.rs`), so reading it back in UTC
  * returns the day it was written as.
  */
 function dayOf(d: bigint | number | undefined): string | null {

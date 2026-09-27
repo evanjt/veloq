@@ -268,7 +268,7 @@ export interface RawWidgetData {
   summary: RawSummary | null;
   latest: RawLatestActivity | null;
   /** GPS track of the latest activity (null for indoor / unavailable). */
-  latestGps?: RawGpsPoint[] | null;
+  latestGps?: RawGpsPoint[] | null | undefined;
   /**
    * The ramp rate intervals.icu computed, off the newest wellness day that
    * carries one. Null before wellness has synced.
@@ -277,9 +277,9 @@ export interface RawWidgetData {
    * sparkline across its trailing seven entries, which is a different number
    * from the same data, so the widget and the fitness tab disagreed.
    */
-  rampRate?: number | null;
+  rampRate?: number | null | undefined;
   /** In-app summary card settings; null hides the widget summary block. */
-  summaryPrefs?: SummaryCardPreferences | null;
+  summaryPrefs?: SummaryCardPreferences | null | undefined;
   locale: string;
   isMetric: boolean;
   /** Unix seconds, injected for deterministic tests. */
@@ -301,11 +301,11 @@ export interface RawWidgetData {
    * native widget colours from the zones stored here and never bands anything
    * itself. Absent reads as absolute.
    */
-  formAsPercent?: boolean;
+  formAsPercent?: boolean | undefined;
   /** i18n lookup; falls back to the raw key when absent (pure-test safe). */
-  translate?: (key: string) => string;
+  translate?: ((key: string) => string) | undefined;
   /** Recent sports, most recent first. Blanks and repeats are dropped here. */
-  recentRecordingTypes?: string[] | null;
+  recentRecordingTypes?: string[] | null | undefined;
 }
 
 // The default for the integer point metrics: fitness, fatigue and resting HR.
@@ -710,9 +710,9 @@ function relativeDateLabel(unixSeconds: number): string {
 export function gatherWidgetSnapshot(opts: {
   locale: string;
   isMetric: boolean;
-  formAsPercent?: boolean;
-  now?: Date;
-  translate?: (key: string) => string;
+  formAsPercent?: boolean | undefined;
+  now?: Date | undefined;
+  translate?: ((key: string) => string) | undefined;
 }): WidgetSnapshot | null {
   const engine = getEngine();
   if (!engine || !isEngineReady()) return null;

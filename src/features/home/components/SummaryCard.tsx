@@ -29,9 +29,9 @@ const log = debug.create('SummaryCard');
 interface SupportingMetric {
   label: string;
   value: string | number;
-  color?: string;
-  trend?: TrendGlyph;
-  navigationTarget?: '/fitness' | '/training';
+  color?: string | undefined;
+  trend?: TrendGlyph | undefined;
+  navigationTarget?: '/fitness' | '/training' | undefined;
 }
 
 /**
@@ -39,29 +39,29 @@ interface SupportingMetric {
  */
 export interface SummaryCardProps {
   // Profile
-  profileUrl?: string;
+  profileUrl?: string | undefined;
   onProfilePress: () => void;
 
   // Hero metric data
-  heroMetric?: string;
+  heroMetric?: string | undefined;
   heroValue: number | string;
   heroLabel: string; // "Form", "Fitness", etc.
   heroColor: string;
-  heroZoneLabel?: string; // "Fresh", "Tired", etc.
-  heroZoneColor?: string;
-  heroTrend?: TrendGlyph;
-  onHeroPress?: () => void;
+  heroZoneLabel?: string | undefined; // "Fresh", "Tired", etc.
+  heroZoneColor?: string | undefined;
+  heroTrend?: TrendGlyph | undefined;
+  onHeroPress?: (() => void) | undefined;
 
   // Sparkline data (30 days) - fitness line + fatigue line + form zone bar
-  fitnessData?: number[];
-  fatigueData?: number[];
-  formData?: number[];
+  fitnessData?: number[] | undefined;
+  fatigueData?: number[] | undefined;
+  formData?: number[] | undefined;
   // HRV sparkline data - HRV line + RHR line
-  hrvData?: number[];
-  rhrData?: number[];
+  hrvData?: number[] | undefined;
+  rhrData?: number[] | undefined;
   showSparkline: boolean;
   /** Show inline labels on sparkline (settings preview) */
-  showSparklineLabels?: boolean;
+  showSparklineLabels?: boolean | undefined;
 
   // Supporting metrics (max 4)
   supportingMetrics: SupportingMetric[];
@@ -138,7 +138,7 @@ export const SummaryCard = React.memo(function SummaryCard({
 
   // During scrub, override the hero display
   // Headline numbers, so they are text and hold 4.5:1. The series fills they
-  // read from are 2.66:1 and 3.17:1 on the light card (B950).
+  // read from are 2.66:1 and 3.17:1 on the light card.
   const fitnessTextColor = isDark ? darkColors.fitnessBlueText : colors.fitnessBlueText;
   const fatigueTextColor = isDark ? darkColors.chartPinkText : colors.chartPinkText;
 

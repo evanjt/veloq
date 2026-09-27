@@ -27,8 +27,7 @@ jest.mock('@/shared/app', () => {
   const { colors } = jest.requireActual('@/theme');
   return { useTheme: () => ({ isDark: false, colors }) };
 });
-jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 const mockRecord = recordCrash as jest.MockedFunction<typeof recordCrash>;
 

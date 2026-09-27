@@ -271,10 +271,7 @@ mod tests {
         let ys = some(&[3.0, 5.0, 7.0, 9.0, 11.0, 13.0]);
 
         assert!(correlate(&xs, &ys, 6).estimate().is_some());
-        assert_eq!(
-            correlate(&xs, &ys[..5].to_vec(), 6),
-            Correlation::TooFew { n: 5 }
-        );
+        assert_eq!(correlate(&xs, &ys[..5], 6), Correlation::TooFew { n: 5 });
     }
 
     /// Fisher's transform needs four pairs whatever the caller's floor says,

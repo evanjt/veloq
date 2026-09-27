@@ -13,13 +13,14 @@ use veloqrs::persistence::sections::summaries_by_sport;
 use veloqrs::{PersistentEngine, SectionSummary};
 
 fn summary(id: &str, sport: &str, also: &[&str], outings: u32, visits: u32) -> SectionSummary {
-    let mut s = SectionSummary::default();
-    s.id = id.to_string();
-    s.sport_type = sport.to_string();
-    s.sport_types = also.iter().map(|t| t.to_string()).collect();
-    s.activity_count = outings;
-    s.visit_count = visits;
-    s
+    SectionSummary {
+        id: id.to_string(),
+        sport_type: sport.to_string(),
+        sport_types: also.iter().map(|t| t.to_string()).collect(),
+        activity_count: outings,
+        visit_count: visits,
+        ..SectionSummary::default()
+    }
 }
 
 fn sports(names: &[&str]) -> Vec<String> {

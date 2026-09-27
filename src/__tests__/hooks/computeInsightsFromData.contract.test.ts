@@ -156,7 +156,6 @@ function buildFfiData(): InsightsData {
       makePattern('Ride', 6, 0.9, 3 * 3600, 12),
       makePattern('Run', 2, 0.8, 45 * 60, 9),
     ],
-    todayPattern: undefined,
     recentPrs: [
       {
         sectionId: 'sec-ride-climb-A',
@@ -177,7 +176,6 @@ function buildFfiData(): InsightsData {
     ],
     efficiencyTrends: [],
     hasStrengthData: false,
-    strengthSeries: undefined,
     weekOverWeek: { metric: LoadMetric.Tss, current: 320, previous: 220, ratio: 320 / 220 - 1 },
     weekAgainstChronic: {
       metric: LoadMetric.Tss,
@@ -226,11 +224,7 @@ function buildSummaryCardData(): SummaryCardData {
       form: 20,
       formTrend: '→',
       hrv: 70,
-      hrvTrend: undefined,
       rhr: 48,
-      rhrTrend: undefined,
-      weight: undefined,
-      weightTrend: undefined,
     },
     currentWeek: makePeriod(5, 4 * 3600, 80_000, 320),
     prevWeek: makePeriod(3, 2.5 * 3600, 50_000, 220),
@@ -251,10 +245,6 @@ function buildSummaryCardData(): SummaryCardData {
       history: [],
     },
     swimPaceTrend: {
-      latestPace: undefined,
-      latestDate: undefined,
-      previousPace: undefined,
-      previousDate: undefined,
       sampleCount: 24,
       history: [],
     },

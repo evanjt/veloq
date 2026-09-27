@@ -82,20 +82,19 @@ fn stored_rows(db: &Connection) -> Vec<Stored> {
              ORDER BY id",
         )
         .expect("prepare");
-    let rows = stmt
-        .query_map([], |row| {
-            Ok(Stored {
-                id: row.get(0)?,
-                activity_id: row.get(1)?,
-                start: row.get(2)?,
-                end: row.get(3)?,
-                source: row.get(4)?,
-            })
+
+    stmt.query_map([], |row| {
+        Ok(Stored {
+            id: row.get(0)?,
+            activity_id: row.get(1)?,
+            start: row.get(2)?,
+            end: row.get(3)?,
+            source: row.get(4)?,
         })
-        .expect("query")
-        .collect::<Result<Vec<_>, _>>()
-        .expect("rows");
-    rows
+    })
+    .expect("query")
+    .collect::<Result<Vec<_>, _>>()
+    .expect("rows")
 }
 
 fn same_points(a: &[GpsPoint], b: &[GpsPoint]) -> bool {

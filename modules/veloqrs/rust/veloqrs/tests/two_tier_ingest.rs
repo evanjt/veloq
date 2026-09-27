@@ -354,8 +354,10 @@ fn the_attach_bar_is_the_detectors_cell() {
         let dir = TempDir::new().unwrap();
         let corpus = lapped_corpus();
         let mut engine = engine_with_sections(&dir, &corpus);
-        let mut cfg = tracematch::SectionConfig::default();
-        cfg.proximity_threshold = proximity;
+        let cfg = tracematch::SectionConfig {
+            proximity_threshold: proximity,
+            ..tracematch::SectionConfig::default()
+        };
         engine.set_section_config(cfg.clone());
         let cell = tracematch::line_match_cell_m(&cfg);
         let (sid, line) = straight_section(&mut engine);
@@ -396,8 +398,10 @@ fn the_attach_bar_is_the_detectors_cell() {
 
 #[test]
 fn the_attach_cell_follows_the_proximity_setting() {
-    let mut relaxed = tracematch::SectionConfig::default();
-    relaxed.proximity_threshold = 400.0;
+    let relaxed = tracematch::SectionConfig {
+        proximity_threshold: 400.0,
+        ..tracematch::SectionConfig::default()
+    };
     assert!(
         tracematch::line_match_cell_m(&relaxed)
             > tracematch::line_match_cell_m(&tracematch::SectionConfig::default()),

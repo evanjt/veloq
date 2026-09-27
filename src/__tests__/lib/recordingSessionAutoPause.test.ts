@@ -20,6 +20,7 @@ jest.mock('@/features/recording/lib/storage/recordingBackup', () => ({
 }));
 
 jest.mock('expo-location', () => ({
+  ...jest.requireActual('expo-location'),
   Accuracy: { BestForNavigation: 6 },
   ActivityType: { Fitness: 3 },
   getForegroundPermissionsAsync: jest.fn(async () => ({ status: 'denied' })),
@@ -30,6 +31,7 @@ jest.mock('expo-location', () => ({
 }));
 
 jest.mock('expo-task-manager', () => ({
+  ...jest.requireActual('expo-task-manager'),
   defineTask: jest.fn(),
   isTaskRegisteredAsync: jest.fn(async () => false),
 }));

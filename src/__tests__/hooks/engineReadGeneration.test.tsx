@@ -105,3 +105,35 @@ it('hands the read undefined rather than throwing when the engine is not there',
 
   expect(screen.getByTestId('shown')).toHaveTextContent('undefined');
 });
+
+function KeyedProbe({ refreshKey, other }: { refreshKey: number; other: string }) {
+  const readEngine = useEngineRead([], [refreshKey]);
+  const shown = React.useMemo(
+    () => readEngine((engine) => (engine as unknown as { read: () => string }).read()),
+    [readEngine]
+  );
+  return (
+    <Text testID="shown">
+      {shown}:{other}
+    </Text>
+  );
+}
+
+it('re-runs the read when a caller key moves, with no event announced', () => {
+  const screen = render(<KeyedProbe refreshKey={0} other="a" />);
+  expect(screen.getByTestId('shown')).toHaveTextContent('first:a');
+
+  value = 'second';
+  screen.rerender(<KeyedProbe refreshKey={1} other="a" />);
+
+  expect(screen.getByTestId('shown')).toHaveTextContent('second:a');
+});
+
+it('keeps the reader stable while the keys are equal, though the array is new', () => {
+  const screen = render(<KeyedProbe refreshKey={3} other="a" />);
+  const before = reads;
+
+  screen.rerender(<KeyedProbe refreshKey={3} other="b" />);
+
+  expect(reads).toBe(before);
+});

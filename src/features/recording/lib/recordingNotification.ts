@@ -204,7 +204,10 @@ export async function applyRecordingNotificationAction(
  * before the stamp: it carries no session and is applied rather than dropped,
  * so an upgrade does not swallow a press already in the queue.
  */
-export function parsePendingAction(line: string): { action: string; session?: number } {
+export function parsePendingAction(line: string): {
+  action: string;
+  session?: number | undefined;
+} {
   const tab = line.indexOf('\t');
   if (tab === -1) return { action: line };
   const session = Number(line.slice(0, tab));

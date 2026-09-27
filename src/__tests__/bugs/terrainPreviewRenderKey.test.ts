@@ -21,6 +21,7 @@ const mockDirStore = new Set<string>(['/mock/docs/terrain_previews/']);
 let mockDeleteGate: (() => Promise<void>) | null = null;
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   cacheDirectory: '/mock/cache/',
   documentDirectory: '/mock/docs/',
   EncodingType: { Base64: 'base64' },

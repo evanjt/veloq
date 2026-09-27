@@ -13,15 +13,13 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { PreviewCentrePicker } from '@/features/routes/components/preview/PreviewCentrePicker';
 import { fallbackLetter } from '@/features/routes/lib/labelPreviewCentres';
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
 jest.mock('expo-linear-gradient', () => {
   const { View } = require('react-native');
-  return { LinearGradient: View };
+  return { ...jest.requireActual('expo-linear-gradient'), LinearGradient: View };
 });
 
 function centre(binKey: string) {

@@ -21,9 +21,7 @@ import type { FrequentSection, RoutePoint } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
@@ -38,6 +36,7 @@ jest.mock('@/shared/app', () => ({
 }));
 
 jest.mock('expo-location', () => ({
+  ...jest.requireActual('expo-location'),
   requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'denied' }),
   getCurrentPositionAsync: jest.fn(),
   Accuracy: { Balanced: 3 },

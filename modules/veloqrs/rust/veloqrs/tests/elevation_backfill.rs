@@ -998,10 +998,10 @@ fn a_second_drained_pass_does_not_re_archive_over_the_first_snapshot() {
 // A pass with nothing to work with
 // ============================================================================
 
-/// The pass counts every queued track against a connection that is gone, one
-/// request at a time, and only then reports partial. On the captive-portal
-/// case each of those requests can cost four thirty-second attempts, so the
-/// bound has to come from the failures rather than from the queue.
+// The pass counts every queued track against a connection that is gone, one
+// request at a time, and only then reports partial. On the captive-portal
+// case each of those requests can cost four thirty-second attempts, so the
+// bound has to come from the failures rather than from the queue.
 
 /// A queue longer than the threshold, so a pass that stops at the threshold
 /// is distinguishable from one that ran to the end.
@@ -1320,8 +1320,8 @@ fn a_rejected_credential_parks_the_sync_service() {
     assert_eq!(status.last_error.as_deref(), Some("unauthorized"));
 }
 
-/// The park is auth-method agnostic, exactly as `Q20` decided. What an
-/// API-key session then does with it is `B90`, not this.
+/// The park is auth-method agnostic by decision. What an API-key session then
+/// does with it is a separate question, not this test's.
 #[test]
 fn an_api_key_401_parks_the_service_too() {
     let _serial = serial();
@@ -1705,10 +1705,10 @@ fn an_answer_with_no_altitude_series_is_settled_by_the_whole_track() {
     drain_detection();
 }
 
-/// B252: the terminal cut was guarded on `fetched > 0`, a library-wide count of
+/// The terminal cut was guarded on `fetched > 0`, a library-wide count of
 /// elevated tracks. A library where upstream has altitude for nothing drains
-/// its queue honestly and elevates nothing, so the cut never fired, and since
-/// `SB12` an owed cutover then refuses every detect for the rest of the
+/// its queue honestly and elevates nothing, so the cut never fired, and an
+/// owed cutover then refuses every detect for the rest of the
 /// session.
 #[test]
 fn a_pass_whose_library_has_no_altitude_upstream_still_cuts() {

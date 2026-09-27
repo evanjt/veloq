@@ -450,7 +450,6 @@ export default function InsightsScreen() {
       handleRefresh,
       isDataSyncing,
       routesData,
-      routesData?.groups,
       loadMoreGroups,
       hasMoreGroups,
       userLocation,
