@@ -433,7 +433,10 @@ jobs:
       - name: Setup ccache
         run: |
           brew install ccache
-          ccache --max-size=1G
+          # Set in the environment because React Native's clang wrapper swaps in its own config file.
+          echo "CCACHE_DIR=$HOME/Library/Caches/ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=1G" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/Library/Caches/ccache"
 
       - name: Restore ccache store
         id: ccache
@@ -666,6 +669,12 @@ jobs:
               tail -100 ios-build.log
               exit 1
             }
+
+      - name: Show ccache stats
+        if: ${{ !cancelled() && steps.app-cache.outputs.cache-hit != 'true' }}
+        run: |
+          ccache --show-stats --verbose
+          du -sh "$CCACHE_DIR"
 
       - name: Skip build (cache hit)
         if: steps.app-cache.outputs.cache-hit == 'true'
