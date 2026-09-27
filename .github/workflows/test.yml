@@ -23,12 +23,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "${{ env.NODE_VERSION }}"
           cache: "npm"
@@ -42,7 +42,7 @@ jobs:
       # copy; a run restores the newest one under its lockfile. Pull requests
       # read main's cache and write none, so they cannot evict it.
       - name: Restore Jest cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: .jest-cache
           key: jest-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
@@ -56,7 +56,7 @@ jobs:
 
       - name: Save Jest cache
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: .jest-cache
           key: jest-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
@@ -70,7 +70,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -125,7 +125,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-test-report
           path: modules/veloqrs/rust/target/nextest/ci/junit.xml
@@ -137,7 +137,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -177,12 +177,12 @@ jobs:
       # Recursive: lint-detector-ordering.mjs and the tracematch-backed guards
       # read the submodule, and pass silently without it.
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "${{ env.NODE_VERSION }}"
           cache: "npm"
@@ -241,12 +241,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "${{ env.NODE_VERSION }}"
           cache: "npm"
