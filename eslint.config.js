@@ -23,6 +23,8 @@ module.exports = [
       'coverage/**',
       'dist/**',
       '.expo/**',
+      // Gems bundle installs for fastlane, some carrying their own scripts.
+      'config/fastlane/vendor/**',
       // Agent worktrees are whole checkouts of this repo living inside it.
       // Linting them reports another branch's problems as this one's.
       '.claude/**',
