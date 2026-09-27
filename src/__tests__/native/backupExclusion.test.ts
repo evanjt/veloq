@@ -4,6 +4,7 @@ import { excludeFromBackup } from '@/shared/native/backupExclusion';
 
 const mockRequireNativeModule = jest.fn();
 jest.mock('expo-modules-core', () => ({
+  ...jest.requireActual('expo-modules-core'),
   requireOptionalNativeModule: (name: string) => mockRequireNativeModule(name),
 }));
 
